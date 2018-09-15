@@ -1,6 +1,6 @@
 import generate from '@babel/generator';
-import {parse} from '../parse';
-import {serialize} from './js';
+import {parse} from './parse';
+import {serializeJs} from './serializeJs';
 
 [
   ['x', 'x'],
@@ -14,6 +14,6 @@ import {serialize} from './js';
   ],
 ].forEach(([input, output]) => {
   test(`${input} → ${output}`, () => {
-    expect(generate(serialize(parse(input))).code).toEqual(output);
+    expect(generate(serializeJs(parse(input))).code).toEqual(output);
   });
 });
