@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "name": "@brite/lang",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/jest": "^23.3.2",
+    "jest": "^23.6.0",
+    "ts-jest": "^23.1.4",
+    "tslint": "^5.11.0",
+    "tslint-language-service": "^0.9.9",
+    "typescript": "^3.0.3"
+  },
+  "jest": {
+    "transform": {
+      "\\.ts$": "ts-jest"
+    },
+    "testRegex": "\\.test\\.(js|ts)$",
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ]
+  }
+}
