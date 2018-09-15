@@ -5,11 +5,17 @@
   "scripts": {
     "test": "jest"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@babel/types": "^7.0.0"
+  },
   "devDependencies": {
+    "@babel/generator": "^7.0.0",
+    "@babel/parser": "^7.0.0",
+    "@types/babel-types": "^7.0.4",
+    "@types/babel__generator": "^7.0.0",
     "@types/jest": "^23.3.2",
     "jest": "^23.6.0",
-    "ts-jest": "^23.1.4",
+    "ts-jest": "^23.10.0-beta.6",
     "tslint": "^5.11.0",
     "tslint-language-service": "^0.9.9",
     "typescript": "^3.0.3"
@@ -22,6 +28,11 @@
     "moduleFileExtensions": [
       "ts",
       "js"
-    ]
+    ],
+    "globals": {
+      "ts-jest": {
+        "diagnostics": false
+      }
+    }
   }
 }
