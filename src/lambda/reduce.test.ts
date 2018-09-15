@@ -16,38 +16,25 @@ import {reduce} from './reduce';
   ['(λx.((λx.λx.x) y) z)', '(λx.z)'],
   ['(λx.((λx.λx.x) y) z) x', 'z'],
 
-  // fix-point combinator
+  // fix-point combinator (Y-combinator)
   ['λg.(λx.g (x x)) (λx.g (x x))', 'λg.g ((λx.g (x x)) (λx.g (x x)))'],
+
+  // fix-point combinator (Z-combinator)
+  [
+    'λf.(λx.λv.((f (x x)) v)) (λx.λv.((f (x x)) v))',
+    'λf.λv.(f ((λx.λv.((f (x x)) v)) (λx.λv.((f (x x)) v)))) v',
+  ],
 
   // factorial function
   [
-    `λn.(if (equals n zero))
-        one
-        (times n (f (minus n one)))`,
-    `λn.(if (equals n zero))
-        one
-        (times n (f (minus n one)))`,
+    `λn.(if (equals n zero)) one (times n (f (minus n one)))`,
+    `λn.(if (equals n zero)) one (times n (f (minus n one)))`,
   ],
 
-  // fix-point combinator with factorial function
+  // fix-point combinator (Y-combinator) with factorial function
   [
-    `(λg.(λx.g (x x)) (λx.g (x x)))
-        (λf.λn.(if (equals n zero))
-          one
-          (times n (f (minus n one))))`,
-    `λn.if (equals n zero)
-        one
-        (times n
-          (if (equals (minus n one) zero)
-            one
-            (times (minus n one)
-              (((λx.λn.if (equals n zero)
-                  one
-                  (times n ((x x) (minus n one))))
-                (λx.λn.if (equals n zero)
-                  one
-                  ((times n) ((x x) (minus n one)))))
-                (minus (minus n one) one)))))`,
+    `(λg.(λx.g (x x)) (λx.g (x x))) (λf.λn.(if (equals n zero)) one (times n (f (minus n one))))`,
+    `λn.if (equals n zero) one (times n (if (equals (minus n one) zero) one (times (minus n one) (((λx.λn.if (equals n zero) one (times n ((x x) (minus n one)))) (λx.λn.if (equals n zero) one ((times n) ((x x) (minus n one))))) (minus (minus n one) one)))))`,
   ],
 ].forEach(([input, output]) => {
   test(`${input} → ${output}`, () => {
