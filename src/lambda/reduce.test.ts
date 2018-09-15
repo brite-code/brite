@@ -1,4 +1,5 @@
-import {parse, reduce} from './term';
+import {parse} from './parse';
+import {reduce} from './reduce';
 
 describe('reduce', () => {
   [
