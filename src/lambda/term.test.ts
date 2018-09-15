@@ -1,4 +1,4 @@
-import {parse, reduce} from './lambda';
+import {parse, reduce} from './term';
 
 describe('reduce', () => {
   [
