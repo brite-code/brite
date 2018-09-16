@@ -1,10 +1,10 @@
 import * as t from '@babel/types';
-import {Term, TermType} from './term';
+import {Term, TermType} from '../term';
 
 /**
  * Compiles a lambda calculus term to a JavaScript expression.
  */
-export function serializeJs(term: Term<t.Expression>): t.Expression {
+export function serialize(term: Term<t.Expression>): t.Expression {
   switch (term.type) {
     case TermType.Variable: {
       return t.identifier(term.name);
@@ -12,12 +12,12 @@ export function serializeJs(term: Term<t.Expression>): t.Expression {
     case TermType.Abstraction: {
       return t.arrowFunctionExpression(
         [t.identifier(term.parameter)],
-        serializeJs(term.body),
+        serialize(term.body),
       );
     }
     case TermType.Application: {
-      return t.callExpression(serializeJs(term.callee), [
-        serializeJs(term.argument),
+      return t.callExpression(serialize(term.callee), [
+        serialize(term.argument),
       ]);
     }
     case TermType.Native: {
