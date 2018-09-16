@@ -116,3 +116,54 @@ export function native<T>(
     serialize,
   };
 }
+
+/**
+ * Recursively finds all the free variables in `term`. If `term` has a free
+ * variable that does not exist in the `bound` set then it is added to the
+ * `free` set.
+ */
+function getFreeVariables<T>(
+  term: Term<T>,
+  bound: Set<Identifier>,
+  free: Set<Identifier>,
+) {
+  switch (term.type) {
+    case TermType.Variable: {
+      if (!bound.has(term.name)) free.add(term.name);
+      break;
+    }
+    case TermType.Abstraction: {
+      if (!bound.has(term.parameter)) {
+        bound.add(term.parameter);
+        getFreeVariables(term.body, bound, free);
+        bound.delete(term.parameter);
+      } else {
+        getFreeVariables(term.body, bound, free);
+      }
+      break;
+    }
+    case TermType.Application: {
+      getFreeVariables(term.callee, bound, free);
+      getFreeVariables(term.argument, bound, free);
+      break;
+    }
+    case TermType.Native: {
+      for (const name of term.variables) {
+        if (!bound.has(name)) free.add(name);
+      }
+      break;
+    }
+  }
+}
+
+/**
+ * Returns all the free variables in the provided term.
+ */
+function getFreeVariablesStart<T>(term: Term<T>): ReadonlySet<Identifier> {
+  const bound = new Set();
+  const free = new Set();
+  getFreeVariables(term, bound, free);
+  return free;
+}
+
+export {getFreeVariablesStart as getFreeVariables};

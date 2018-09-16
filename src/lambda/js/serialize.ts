@@ -1,10 +1,12 @@
 import * as t from '@babel/types';
 import {Term, TermType} from '../term';
 
+type JsTerm = Term<t.Expression>;
+
 /**
  * Compiles a lambda calculus term to a JavaScript expression.
  */
-export function serialize(term: Term<t.Expression>): t.Expression {
+export function serialize(term: JsTerm): t.Expression {
   switch (term.type) {
     case TermType.Variable: {
       return t.identifier(term.name);
