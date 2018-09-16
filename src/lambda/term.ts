@@ -10,19 +10,27 @@ export const enum TermType {
   Variable = 'Variable',
   Abstraction = 'Abstraction',
   Application = 'Application',
+  Native = 'Native',
 }
 
 /**
  * A [lambda calculus][1] term.
  *
+ * Parameterized by the native serialization term. Since one may embed native
+ * terms with custom serialization rules.
+ *
  * [1]: https://en.wikipedia.org/wiki/Lambda_calculus
  */
-export type Term = Variable | Abstraction | Application;
+export type Term<T> =
+  | VariableTerm
+  | AbstractionTerm<T>
+  | ApplicationTerm<T>
+  | NativeTerm<T>;
 
 /**
  * A character or string representing a parameter or mathematical/logical value.
  */
-export type Variable = {
+export type VariableTerm = {
   readonly type: TermType.Variable;
   readonly name: Identifier;
 };
@@ -30,29 +38,50 @@ export type Variable = {
 /**
  * Function definition. The variable becomes bound in the term.
  */
-export type Abstraction = {
+export type AbstractionTerm<T> = {
   readonly type: TermType.Abstraction;
   readonly parameter: Identifier;
-  readonly body: Term;
+  readonly body: Term<T>;
 };
 
 /**
  * Applying a function to an argument.
  */
-export type Application = {
+export type ApplicationTerm<T> = {
   readonly type: TermType.Application;
-  readonly callee: Term;
-  readonly argument: Term;
+  readonly callee: Term<T>;
+  readonly argument: Term<T>;
 };
 
-export function variable(name: Identifier): Variable {
+/**
+ * A native term serializes some custom native code for the target platform.
+ *
+ * It takes an array of “free” variables. Corresponding terms for these
+ * variables are provided to the `serialize()` function.
+ */
+export type NativeTerm<T> = {
+  readonly type: TermType.Native;
+  readonly variables: ReadonlyArray<Identifier>;
+  readonly serialize: (variables: ReadonlyArray<T>) => T;
+};
+
+/**
+ * Creates a variable term.
+ */
+export function variable(name: Identifier): VariableTerm {
   return {
     type: TermType.Variable,
     name,
   };
 }
 
-export function abstraction(parameter: Identifier, body: Term): Abstraction {
+/**
+ * Creates an abstraction term.
+ */
+export function abstraction<T>(
+  parameter: Identifier,
+  body: Term<T>,
+): AbstractionTerm<T> {
   return {
     type: TermType.Abstraction,
     parameter,
@@ -60,10 +89,30 @@ export function abstraction(parameter: Identifier, body: Term): Abstraction {
   };
 }
 
-export function application(callee: Term, argument: Term): Application {
+/**
+ * Creates an application term.
+ */
+export function application<T>(
+  callee: Term<T>,
+  argument: Term<T>,
+): ApplicationTerm<T> {
   return {
     type: TermType.Application,
     callee,
     argument,
+  };
+}
+
+/**
+ * Creates a native term.
+ */
+export function native<T>(
+  variables: ReadonlyArray<Identifier>,
+  serialize: (variables: ReadonlyArray<T>) => T,
+): Term<T> {
+  return {
+    type: TermType.Native,
+    variables,
+    serialize,
   };
 }

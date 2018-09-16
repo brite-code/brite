@@ -1,5 +1,6 @@
 import {parse} from './parse';
 import {reduce} from './reduce';
+import {native, variable, abstraction, application} from './term';
 
 [
   ['x', 'x'],
@@ -40,4 +41,24 @@ import {reduce} from './reduce';
   test(`${input} → ${output}`, () => {
     expect(reduce(parse(input))).toEqual(parse(output));
   });
+});
+
+test('native terms do not reduce', () => {
+  const term = native(['a', 'b'], vs => vs);
+  expect(reduce(term)).toBe(term);
+});
+
+test('variable not reduced is referentially equal', () => {
+  const term = variable('x');
+  expect(reduce(term)).toBe(term);
+});
+
+test('abstraction not reduced is referentially equal', () => {
+  const term = abstraction('x', variable('x'));
+  expect(reduce(term)).toBe(term);
+});
+
+test('application not reduced is referentially equal', () => {
+  const term = application(variable('x'), variable('y'));
+  expect(reduce(term)).toBe(term);
 });

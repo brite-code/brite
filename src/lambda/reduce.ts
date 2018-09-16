@@ -3,7 +3,10 @@ import {Identifier, Term, TermType, application, abstraction} from './term';
 /**
  * Uses beta-reduction. Avoids alpha-conversion with variable shadowing.
  */
-function reduce(term: Term, variables: Map<Identifier, Term>): Term {
+function reduce<T>(
+  term: Term<T>,
+  variables: Map<Identifier, Term<T>>,
+): Term<T> {
   switch (term.type) {
     // If there is a substitution for the variable then use it. Otherwise
     // leave the variable in place.
@@ -54,6 +57,9 @@ function reduce(term: Term, variables: Map<Identifier, Term>): Term {
           : term;
       }
     }
+    // Can’t reduce a native term any further. Just return it.
+    case TermType.Native:
+      return term;
   }
 }
 
@@ -62,7 +68,7 @@ function reduce(term: Term, variables: Map<Identifier, Term>): Term {
  * `(λx.M) E → (M[x:=E])`. In other words, applying an abstraction substitues
  * the parameter name for the applied term.
  */
-function reduceStart(term: Term) {
+function reduceStart<T>(term: Term<T>): Term<T> {
   return reduce(term, new Map());
 }
 

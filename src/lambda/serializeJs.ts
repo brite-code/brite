@@ -4,7 +4,7 @@ import {Term, TermType} from './term';
 /**
  * Compiles a lambda calculus term to a JavaScript expression.
  */
-export function serializeJs(term: Term): t.Expression {
+export function serializeJs(term: Term<t.Expression>): t.Expression {
   switch (term.type) {
     case TermType.Variable: {
       return t.identifier(term.name);
@@ -19,6 +19,9 @@ export function serializeJs(term: Term): t.Expression {
       return t.callExpression(serializeJs(term.callee), [
         serializeJs(term.argument),
       ]);
+    }
+    case TermType.Native: {
+      return term.serialize(term.variables.map(name => t.identifier(name)));
     }
   }
 }

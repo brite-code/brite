@@ -11,8 +11,8 @@ const whitespace = /\s/;
  * - `(λx.y)` → `abstraction(x, y)`
  * - `(x y)` → `application(x, y)`
  */
-export function parse(source: string): Term {
-  const [term, lastStep] = parseTerm(source[Symbol.iterator]());
+export function parse<T>(source: string): Term<T> {
+  const [term, lastStep] = parseTerm<T>(source[Symbol.iterator]());
   if (!lastStep.done) {
     throw new Error(`Unexpected token "${lastStep.value}" expected ending`);
   }
@@ -22,23 +22,25 @@ export function parse(source: string): Term {
 /**
  * Does the actual lambda calculus parsing on an iterator.
  */
-function parseTerm(iterator: Iterator<string>): [Term, IteratorResult<string>] {
+function parseTerm<T>(
+  iterator: Iterator<string>,
+): [Term<T>, IteratorResult<string>] {
   const step = parseToken(iterator);
 
   // Parse an abstraction.
   if (step.value === 'λ') {
     const [parameter, nextStep] = parseIdentifier(iterator);
     expectToken(nextStep, '.');
-    const [body, nextNextStep] = parseTerm(iterator);
+    const [body, nextNextStep] = parseTerm<T>(iterator);
     return [abstraction(parameter, body), nextNextStep];
   }
 
   // Parses an unwrapped term.
-  let [term, nextStep] = parseUnwrappedTerm(iterator, step);
+  let [term, nextStep] = parseUnwrappedTerm<T>(iterator, step);
 
   // Parse an application.
   while (!nextStep.done && nextStep.value !== ')') {
-    const [argument, nextNextStep] = parseUnwrappedTerm(iterator, nextStep);
+    const [argument, nextNextStep] = parseUnwrappedTerm<T>(iterator, nextStep);
     term = application(term, argument);
     nextStep = nextNextStep;
   }
@@ -49,13 +51,13 @@ function parseTerm(iterator: Iterator<string>): [Term, IteratorResult<string>] {
 /**
  * Parses an unwrapped term. Either a variable or a wrapped term.
  */
-function parseUnwrappedTerm(
+function parseUnwrappedTerm<T>(
   iterator: Iterator<string>,
   step: IteratorResult<string> = parseToken(iterator),
-): [Term, IteratorResult<string>] {
+): [Term<T>, IteratorResult<string>] {
   // Parse a term inside parentheses.
   if (step.value === '(') {
-    const [term, nextStep] = parseTerm(iterator);
+    const [term, nextStep] = parseTerm<T>(iterator);
     expectToken(nextStep, ')');
     return [term, parseWhitespace(iterator)];
   }

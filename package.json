@@ -3,6 +3,7 @@
   "name": "@brite/lang",
   "version": "0.0.1",
   "scripts": {
+    "build": "tsc",
     "test": "jest"
   },
   "dependencies": {
