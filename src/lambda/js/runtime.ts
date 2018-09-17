@@ -44,9 +44,12 @@ function initNativeVariables(): Map<string, JsTerm> {
   // Identity function
   variables.set('id', parse('λx.x'));
 
+  // Constant function
+  variables.set('const', parse('λx.λy.x'));
+
   // Fix-point combinator (Z-combinator) since we are strictly evaluated.
   // https://en.wikipedia.org/wiki/Fixed-point_combinator
-  variables.set('fix', parse('λf.(λx.λv.((f (x x)) v)) (λx.λv.((f (x x)) v))'));
+  variables.set('fix', parse('λf.(λx.f (λv.x x v)) (λx.f (λv.x x v))'));
 
   // Common numbers
   variables.set('zero', native([], (): t.Expression => t.numericLiteral(0)));
@@ -75,6 +78,25 @@ function initNativeVariables(): Map<string, JsTerm> {
     t.binaryExpression('/', x, y),
   );
   variables.set('div', abstraction('x', abstraction('y', div)));
+
+  // Conditional
+  const if_: JsTerm = native(['x', 'y', 'z'], ([x, y, z]) =>
+    t.conditionalExpression(
+      x,
+      t.callExpression(y, []),
+      t.callExpression(z, []),
+    ),
+  );
+  variables.set(
+    'if',
+    abstraction('x', abstraction('y', abstraction('z', if_))),
+  );
+
+  // Equality
+  const eq: JsTerm = native(['x', 'y'], ([x, y]) =>
+    t.binaryExpression('===', x, y),
+  );
+  variables.set('eq', abstraction('x', abstraction('y', eq)));
 
   return variables;
 }

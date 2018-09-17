@@ -20,7 +20,7 @@ export function parse<T>(source: string): Term<T> {
   const term = parseTerm<T>(iterator);
   const step = iterator.next();
   if (!step.done) {
-    throw new Error(`Unexpected token "${step.value}" expected ending`);
+    throw new Error(`Unexpected token "${step.value.type}" expected ending`);
   }
   return term;
 }

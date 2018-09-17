@@ -15,6 +15,13 @@ import {serialize} from './serialize';
   {source: 'mul (add one one)', input: 3, output: 6},
   {source: 'div one (add one one)', output: 0.5},
   {source: 'div (add (add one one) (add one one))', input: 2, output: 2},
+  {source: 'eq one one', output: true},
+  {source: 'eq one zero', output: false},
+  {source: 'eq one', input: 1, output: true},
+  {source: 'eq one', input: 0, output: false},
+  {source: 'if (eq one one) (const one) (const zero)', output: 1},
+  {source: 'λx.if x (const one) (const zero)', input: true, output: 1},
+  {source: 'λx.if x (const one) (const zero)', input: false, output: 0},
 ].forEach(({source, input, output}) => {
   if (input !== undefined) {
     test(`(${source}) ${input} == ${output}`, () => {

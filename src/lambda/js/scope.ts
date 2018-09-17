@@ -73,7 +73,7 @@ export class ScopeStack {
    * character. So we can use it to deduplicate identifiers.
    */
   private createIdentifier(name: string): t.Identifier {
-    let identifier = name;
+    let identifier = !reservedWords.has(name) ? name : `${name}_`;
     const dedupe = this.identifierDedupeNumber(name);
     if (dedupe !== 1) identifier += `$${dedupe}`;
     return t.identifier(identifier);
@@ -118,3 +118,54 @@ function newScope(): Scope {
     variables: new Map(),
   };
 }
+
+/**
+ * Reserved words according to the ECMAScript specification.
+ */
+const reservedWords = new Set([
+  'null',
+  'true',
+  'false',
+  'if',
+  'in',
+  'do',
+  'var',
+  'for',
+  'new',
+  'try',
+  'this',
+  'else',
+  'case',
+  'void',
+  'with',
+  'enum',
+  'while',
+  'break',
+  'catch',
+  'throw',
+  'const',
+  'yield',
+  'class',
+  'super',
+  'return',
+  'typeof',
+  'delete',
+  'switch',
+  'export',
+  'import',
+  'default',
+  'finally',
+  'extends',
+  'function',
+  'continue',
+  'debugger',
+  'instanceof',
+  'implements',
+  'interface',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'static',
+  'let',
+]);
