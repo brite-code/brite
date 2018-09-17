@@ -104,7 +104,27 @@ export function application<T>(
 }
 
 /**
+ * Creates a binding term.
+ *
+ * A binding term `let x = z in y` is equal to the standard lambda calculus
+ * term `(λx.y) z`. A binding extension like this enables us to write more
+ * fluent lambda calculus programs.
+ *
+ * Binding terms are syntax sugar over the pure lambda calculus.
+ */
+export function binding<T>(
+  name: Identifier,
+  value: Term<T>,
+  body: Term<T>,
+): Term<T> {
+  return application(abstraction(name, body), value);
+}
+
+/**
  * Creates a native term.
+ *
+ * There is no such equivalent in lambda calculus. This is an extension for our
+ * language to be practically useful.
  */
 export function native<T>(
   variables: ReadonlyArray<Identifier>,
