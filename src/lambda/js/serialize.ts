@@ -11,12 +11,18 @@ type JsTerm = Term<t.Expression>;
 function serialize(term: JsTerm, scope: ScopeStack): t.Expression {
   switch (term.type) {
     case TermType.Variable: {
-      return t.identifier(term.name);
+      const variable = scope.resolveVariable(term.name);
+      if (variable === undefined) {
+        throw new Error(`Could not resolve variable "${term.name}"`);
+      }
+      return variable;
     }
     case TermType.Abstraction: {
-      const [result, statements] = scope.nest(() =>
-        serialize(term.body, scope),
-      );
+      const [{parameter, result}, statements] = scope.nest(() => {
+        const parameter = scope.declareVariable(term.parameter);
+        const result = serialize(term.body, scope);
+        return {parameter, result};
+      });
       let body;
       if (statements.length === 0) {
         body = result;
@@ -24,18 +30,17 @@ function serialize(term: JsTerm, scope: ScopeStack): t.Expression {
         statements.push(t.returnStatement(result));
         body = t.blockStatement(statements);
       }
-      return t.arrowFunctionExpression([t.identifier(term.parameter)], body);
+      return t.arrowFunctionExpression([parameter], body);
     }
     case TermType.Application: {
       // If we are applying an abstraction then serialize a binding to avoid a
       // function call.
       if (term.callee.type === TermType.Abstraction) {
+        const init = serialize(term.argument, scope);
+        const parameter = scope.declareVariable(term.callee.parameter);
         scope.addStatement(
           t.variableDeclaration('const', [
-            t.variableDeclarator(
-              t.identifier(term.callee.parameter),
-              serialize(term.argument, scope),
-            ),
+            t.variableDeclarator(parameter, init),
           ]),
         );
         return serialize(term.callee.body, scope);

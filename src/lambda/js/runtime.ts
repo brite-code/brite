@@ -1,11 +1,5 @@
 import * as t from '@babel/types';
-import {
-  Term,
-  abstraction,
-  native,
-  application,
-  getFreeVariables,
-} from '../term';
+import {Term, abstraction, native, binding, getFreeVariables} from '../term';
 import {parse} from '../parse';
 
 type JsTerm = Term<t.Expression>;
@@ -21,7 +15,7 @@ export function addRuntime(initialTerm: JsTerm): JsTerm {
     if (!free.has(name)) continue;
     // TODO: This isn’t very efficient. Preferably we would provide our native
     // variables directly to a compiler which would pull them in on demand.
-    term = application(abstraction(name, term), value);
+    term = binding(name, value, term);
   }
   return term;
 }
