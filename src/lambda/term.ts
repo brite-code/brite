@@ -16,8 +16,8 @@ export const enum TermType {
 /**
  * A [lambda calculus][1] term.
  *
- * Parameterized by the native serialization term. Since one may embed native
- * terms with custom serialization rules.
+ * Parameterized by the native serialization result type. Since one may embed
+ * native terms with custom serialization rules.
  *
  * [1]: https://en.wikipedia.org/wiki/Lambda_calculus
  */
