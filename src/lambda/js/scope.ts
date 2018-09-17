@@ -2,37 +2,23 @@ import * as t from '@babel/types';
 import {Identifier} from '../term';
 
 /**
- * A stack of JavaScript scopes. Manages things like identifier collision and
- * scope statements.
+ * A stack of JavaScript scopes. Manages things like identifier collision.
  */
 export class ScopeStack {
-  /**
-   * Creates a new scope stack. At the very end returns the statements from the
-   * root scope.
-   */
-  static create<T>(f: (scope: ScopeStack) => T): [T, Array<t.Statement>] {
-    const scopeStack = new ScopeStack();
-    const result = f(scopeStack);
-    const scope = scopeStack.stack.pop()!;
-    return [result, scope.statements];
-  }
-
   /**
    * The current stack of JavaScript scopes. Will always have at least
    * one scope.
    */
   private readonly stack: Array<Scope> = [newScope()];
 
-  private constructor() {}
-
   /**
    * Nests the call to `f` in a new scope.
    */
-  nest<T>(f: () => T): [T, Array<t.Statement>] {
+  nest<T>(f: () => T): T {
     this.stack.push(newScope());
     const result = f();
-    const scope = this.stack.pop()!;
-    return [result, scope.statements];
+    this.stack.pop()!;
+    return result;
   }
 
   /**
@@ -40,34 +26,22 @@ export class ScopeStack {
    * JavaScript identifier.
    */
   declareVariable(identifier: Identifier): t.Identifier {
-    const dedupe = this.identifierDedupeNumber(identifier) + 1;
-    this.currentScope().identifierDedupe.set(identifier, dedupe);
-    const jsIdentifier =
-      dedupe === 1
-        ? t.identifier(identifier)
-        : t.identifier(`${identifier}$${dedupe}`);
-    this.currentScope().variables.set(identifier, {identifier: jsIdentifier});
-    return jsIdentifier;
+    const newIdentifier = this.createIdentifier(identifier);
+    this.currentScope().variables.set(identifier, {identifier: newIdentifier});
+    return newIdentifier;
   }
 
   /**
    * Resolves a variable in our scope stack and returns its escaped identifier.
    */
-  resolveVariable(identifier: Identifier): t.Identifier | undefined {
+  resolveVariable(identifier: Identifier): t.Identifier {
     for (let i = this.stack.length - 1; i >= 0; i--) {
       const variable = this.stack[i].variables.get(identifier);
       if (variable !== undefined) {
         return variable.identifier;
       }
     }
-    return undefined;
-  }
-
-  /**
-   * Adds a statement to the current scope.
-   */
-  addStatement(statement: t.Statement) {
-    this.currentScope().statements.push(statement);
+    throw new Error(`Could not resolve variable "${identifier}"`);
   }
 
   /**
@@ -82,9 +56,41 @@ export class ScopeStack {
    * However, this is not valid in JavaScript. So we maintain a count of every
    * time an identifier is used in our JavaScript scope so that we can
    * deduplicate identifiers.
+   *
+   * Also increments the dedupe number for this identifier.
    */
   private identifierDedupeNumber(identifier: string): number {
-    return this.currentScope().identifierDedupe.get(identifier) || 0;
+    const scope = this.currentScope();
+    const dedupe = (scope.identifierDedupe.get(identifier) || 0) + 1;
+    scope.identifierDedupe.set(identifier, dedupe);
+    return dedupe;
+  }
+
+  /**
+   * Creates an identifier for a variable declared in the programmer’s source
+   * code. Of the form: "\(name)$\(dedupe)". The dollar sign (`$`) is a valid
+   * JavaScript identifier character, but not a valid Brite identifier
+   * character. So we can use it to deduplicate identifiers.
+   */
+  private createIdentifier(name: string): t.Identifier {
+    let identifier = name;
+    const dedupe = this.identifierDedupeNumber(name);
+    if (dedupe !== 1) identifier += `$${dedupe}`;
+    return t.identifier(identifier);
+  }
+
+  /**
+   * Creates an internal identifier. Internal identifiers are guaranteed to
+   * never collide with programmer defined identifiers. Identifiers are of the
+   * form: "_$\(name)\(dedupe)". These will never collide with programmer
+   * identifiers since the dollar sign (`$`) is not valid in Brite identifiers
+   * and a lone underscore (`_`) is not a valid Brite identifier.
+   */
+  createInternalIdentifier(name: string): t.Identifier {
+    let identifier = `_$${name}`;
+    const dedupe = this.identifierDedupeNumber(identifier);
+    if (dedupe !== 1 || name === '') identifier += dedupe;
+    return t.identifier(identifier);
   }
 }
 
@@ -94,7 +100,6 @@ export class ScopeStack {
 type Scope = {
   identifierDedupe: Map<Identifier, number>;
   variables: Map<Identifier, Variable>;
-  statements: Array<t.Statement>;
 };
 
 /**
@@ -111,6 +116,5 @@ function newScope(): Scope {
   return {
     identifierDedupe: new Map(),
     variables: new Map(),
-    statements: [],
   };
 }

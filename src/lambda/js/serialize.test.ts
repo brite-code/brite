@@ -8,7 +8,7 @@ import {serialize} from './serialize';
 
   // fix-point combinator
   [
-    'λf.(λx.λv.((f (x x)) v)) (λx.λv.((f (x x)) v))',
+    'λf.(λx.λv.f (x x) v) (λx.λv.f (x x) v)',
     `f => {\n  const x = x => v => f(x(x))(v);\n\n  return v => f(x(x))(v);\n};`,
   ],
 
@@ -25,6 +25,36 @@ import {serialize} from './serialize';
   [
     'let x = (λx.let x = x in x) in let x = (λx.let x = x in x) in x',
     'const x = x => {\n  const x$2 = x;\n  return x$2;\n};\n\nconst x$2 = x => {\n  const x$2 = x;\n  return x$2;\n};\n\nx$2;',
+  ],
+
+  [
+    'let f = λx.x in f (let y = f f f in y) (f f)',
+    'const f = x => x;\n\nconst y = f(f)(f);\nf(y)(f(f));',
+  ],
+
+  [
+    'let f = λx.x in f (f f) (let y = f f f in y)',
+    'const f = x => x;\n\nconst _$1 = f(f(f));\n\nconst y = f(f)(f);\n\n_$1(y);',
+  ],
+
+  [
+    'let f = λx.x in f (f f) (let y = f f f in y) (f f)',
+    'const f = x => x;\n\nconst _$1 = f(f(f));\n\nconst y = f(f)(f);\n\n_$1(y)(f(f));',
+  ],
+
+  [
+    'let f = λx.x in f (let y = f f f in y) (λz.z)',
+    'const f = x => x;\n\nconst y = f(f)(f);\nf(y)(z => z);',
+  ],
+
+  [
+    'let f = λx.x in f (λz.z) (let y = f f f in y)',
+    'const f = x => x;\n\nconst _$1 = f(z => z);\n\nconst y = f(f)(f);\n\n_$1(y);',
+  ],
+
+  [
+    'let f = λx.x in f ((λz.z) (let y = f f f in y))',
+    'const f = x => x;\n\nconst y = f(f)(f);\nconst z = y;\nf(z);',
   ],
 ].forEach(([input, output]) => {
   test(input, () => {

@@ -46,6 +46,9 @@ export type AbstractionTerm<T> = {
 
 /**
  * Applying a function to an argument.
+ *
+ * Applications are evaluated strictly. First evaluate the callee and then
+ * the argument.
  */
 export type ApplicationTerm<T> = {
   readonly type: TermType.Application;
