@@ -132,7 +132,7 @@ export function binding<T>(
 export function native<T>(
   inputs: ReadonlyArray<Term<T>>,
   serialize: (inputs: ReadonlyArray<T>) => T,
-): Term<T> {
+): NativeTerm<T> {
   return {
     type: TermType.Native,
     inputs,
