@@ -45,3 +45,26 @@ const const_ = x => y => x;
 
 fix(f => n => if_(eq(n)(zero))(const_(zero))(z => if_(eq(n)(one))(const_(one))(z => add(f(sub(n)(one)))(f(sub(sub(n)(one))(one))))));"
 `;
+
+exports[`let fix = λf.(λx.f (λv.x x v)) (λx.f (λv.x x v)) in fix (λf.λn.if (eq n zero) (const one) (λz.mul n (f (sub n one)))) 1`] = `
+"const eq = x => y => x === y;
+
+const if_ = x => y => z => x ? y() : z();
+
+const mul = x => y => x * y;
+
+const sub = x => y => x - y;
+
+const one = 1;
+const zero = 0;
+
+const const_ = x => y => x;
+
+const fix = f => {
+  const x = x => f(v => x(x)(v));
+
+  return f(v => x(x)(v));
+};
+
+fix(f => n => if_(eq(n)(zero))(const_(one))(z => mul(n)(f(sub(n)(one)))));"
+`;
