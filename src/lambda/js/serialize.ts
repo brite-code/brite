@@ -1,18 +1,21 @@
 import * as t from '@babel/types';
+import * as Immutable from 'immutable';
 import {Term, TermType} from '../term';
 import {ScopeStack} from './scope';
 
 type JsTerm = Term<t.Expression>;
+type StatementList = Immutable.List<t.Statement>;
 
 /**
  * The result of serialization. Contains the expression to be returned and some
  * statements which represent side-effects on the environment.
  */
-type Serialization = {
+type SerializeResult = {
   /**
-   * Side-effects in the environment.
+   * Side-effects in the environment. We use an immutable list since we want to
+   * efficiently concatenate lists together pretty often.
    */
-  readonly statements: RecursiveArray<t.Statement>;
+  readonly statements: StatementList;
   /**
    * Should the expression be evaluated strictly? If false then the expression
    * may be ordered anywhere in our statements.
@@ -33,11 +36,11 @@ type Serialization = {
  * This way calling `serialize()` adds statements then calling the result of
  * `serialize` adds the resulting expression.
  */
-function serialize(term: JsTerm, scope: ScopeStack): Serialization {
+function serialize(scope: ScopeStack, term: JsTerm): SerializeResult {
   switch (term.type) {
     case TermType.Variable: {
       return {
-        statements: [],
+        statements: Immutable.List(),
         strict: false,
         expression: scope.resolveVariable(term.name),
       };
@@ -45,17 +48,17 @@ function serialize(term: JsTerm, scope: ScopeStack): Serialization {
     case TermType.Abstraction: {
       return scope.nest(() => {
         const parameter = scope.declareVariable(term.parameter);
-        const result = serialize(term.body, scope);
-        const statements = flatten(result.statements);
-        let body: t.Expression | t.BlockStatement;
-        if (statements.length === 0) {
-          body = result.expression;
+        const {statements, expression} = serialize(scope, term.body);
+        let body;
+        if (statements.isEmpty()) {
+          body = expression;
         } else {
-          statements.push(t.returnStatement(result.expression));
-          body = t.blockStatement(statements);
+          const blockStatements = statements.toArray();
+          blockStatements.push(t.returnStatement(expression));
+          body = t.blockStatement(blockStatements);
         }
         return {
-          statements: [],
+          statements: Immutable.List<t.Statement>(),
           strict: false,
           expression: t.arrowFunctionExpression([parameter], body),
         };
@@ -65,54 +68,52 @@ function serialize(term: JsTerm, scope: ScopeStack): Serialization {
       // If we are applying an abstraction then serialize a binding to avoid a
       // function call.
       if (term.callee.type === TermType.Abstraction) {
-        const argument = serialize(term.argument, scope);
+        const argument = serialize(scope, term.argument);
         const parameter = scope.declareVariable(term.callee.parameter);
-        argument.statements.push(
-          t.variableDeclaration('const', [
-            t.variableDeclarator(parameter, argument.expression),
-          ]),
-        );
-        const body = serialize(term.callee.body, scope);
+        const bindingStatement = t.variableDeclaration('const', [
+          t.variableDeclarator(parameter, argument.expression),
+        ]);
+        const body = serialize(scope, term.callee.body);
+        const statements = argument.statements.concat(
+          bindingStatement,
+          body.statements,
+        ) as StatementList;
         return {
-          statements: concat(argument.statements, body.statements),
+          statements,
           strict: body.strict,
           expression: body.expression,
         };
       } else {
-        // If the callee is strictly evaluated and the argument has some
-        // statements then we need to make sure our callee expression executes
-        // before our argument statements. So add a variable declaration with
-        // the callee expression.
-        const callee = serialize(term.callee, scope);
-        const argument = serialize(term.argument, scope);
-        const calleeStatements = callee.statements;
-        let calleeExpression;
-        if (callee.strict && argument.statements.length > 0) {
-          const identifier = scope.createInternalIdentifier('');
-          calleeExpression = identifier;
-          calleeStatements.push(
-            t.variableDeclaration('const', [
-              t.variableDeclarator(identifier, callee.expression),
+        return combineSerializeResults(
+          scope,
+          [serialize(scope, term.callee), serialize(scope, term.argument)],
+          ([callee, argument]) => ({
+            statements: Immutable.List(),
+            strict: true,
+            expression: t.callExpression(callee.expression, [
+              argument.expression,
             ]),
-          );
-        } else {
-          calleeExpression = callee.expression;
-        }
-        return {
-          statements: concat(calleeStatements, argument.statements),
-          strict: true,
-          expression: t.callExpression(calleeExpression, [argument.expression]),
-        };
+          }),
+        );
       }
     }
     case TermType.Native: {
-      return {
-        statements: [],
-        strict: false,
-        expression: term.serialize(
-          term.variables.map(name => scope.resolveVariable(name)),
-        ),
-      };
+      return combineSerializeResults(
+        scope,
+        term.inputs.map(input => serialize(scope, input)),
+        inputs => {
+          let strict = false;
+          const serializeInputs = inputs.map(input => {
+            strict = strict || input.strict;
+            return input.expression;
+          });
+          return {
+            statements: Immutable.List(),
+            strict,
+            expression: term.serialize(serializeInputs),
+          };
+        },
+      );
     }
   }
 }
@@ -121,38 +122,61 @@ function serialize(term: JsTerm, scope: ScopeStack): Serialization {
  * Serializes a lambda calculus term to a JavaScript expression.
  */
 function serializeStart(term: JsTerm): t.Program {
-  const result = serialize(term, new ScopeStack());
-  const statements = flatten(result.statements);
-  statements.push(t.expressionStatement(result.expression));
-  return t.program(statements);
+  const {statements, expression} = serialize(new ScopeStack(), term);
+  const programStatements = statements.toArray();
+  programStatements.push(t.expressionStatement(expression));
+  return t.program(programStatements);
 }
 
 export {serializeStart as serialize};
 
-interface RecursiveArray<T> extends Array<T | RecursiveArray<T>> {}
-
-function concat<T>(
-  left: RecursiveArray<T>,
-  right: RecursiveArray<T>,
-): RecursiveArray<T> {
-  if (left.length === 0) return right;
-  if (right.length === 0) return left;
-  return [left, right];
-}
-
-function flatten<T>(array: RecursiveArray<T>): Array<T> {
-  const newArray: Array<T> = [];
-  flattenInto(array, newArray);
-  return newArray;
-}
-
-function flattenInto<T>(array: RecursiveArray<T>, newArray: Array<T>) {
-  for (let i = 0; i < array.length; i++) {
-    const item = array[i];
-    if (Array.isArray(item)) {
-      flattenInto(item, newArray);
+/**
+ * Combines an array of serialization results into a single serialization result
+ * with a combiner function. Concatenates all the statement lists together and
+ * maintains the ordering of strict expressions.
+ */
+function combineSerializeResults(
+  scope: ScopeStack,
+  results: ReadonlyArray<SerializeResult>,
+  combine: (
+    expressions: ReadonlyArray<{strict: boolean; expression: t.Expression}>,
+  ) => SerializeResult,
+): SerializeResult {
+  // Create the initial variables we will be modifying.
+  let statements = Immutable.List<t.Statement>();
+  const expressions = Array(results.length);
+  // Iterate through the results we were provided backwards. This way we can
+  // detect if there are statements _after_ the position of a strict expression.
+  // If there are then we need to hoist the expression into a statement.
+  for (let i = results.length - 1; i >= 0; i--) {
+    const result = results[i];
+    // If our result expression is strictly evaluated and there are some
+    // statements evaluated after our strict expression then we need to take
+    // care to evaluate our expression in the proper order. So we hoist our
+    // strict expression into a variable declaration so that it evaluates after
+    // its own statements and before the other statements. We then use a
+    // temporary identifier for the hoisted expression.
+    if (result.strict && !statements.isEmpty()) {
+      const identifier = scope.createInternalIdentifier('');
+      expressions[i] = {strict: false, expression: identifier};
+      const bindingStatement = t.variableDeclaration('const', [
+        t.variableDeclarator(identifier, result.expression),
+      ]);
+      statements = result.statements.concat(
+        bindingStatement,
+        statements,
+      ) as StatementList;
     } else {
-      newArray.push(item);
+      // Add our expression to our array and prepend our statements to the list.
+      expressions[i] = {strict: result.strict, expression: result.expression};
+      statements = result.statements.concat(statements) as StatementList;
     }
   }
+  const result = combine(expressions);
+  statements = statements.concat(result.statements) as StatementList;
+  return {
+    statements,
+    strict: result.strict,
+    expression: result.expression,
+  };
 }

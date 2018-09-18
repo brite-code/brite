@@ -1,5 +1,12 @@
 import * as t from '@babel/types';
-import {Term, abstraction, native, binding, getFreeVariables} from '../term';
+import {
+  Term,
+  variable,
+  abstraction,
+  native,
+  binding,
+  getFreeVariables,
+} from '../term';
 import {parse} from '../parse';
 
 type JsTerm = Term<t.Expression>;
@@ -20,7 +27,7 @@ export function addRuntime(initialTerm: JsTerm): JsTerm {
   return term;
 }
 
-let nativeVariables: Map<string, JsTerm>;
+let nativeVariables: Map<string, JsTerm> | undefined;
 
 /**
  * Gets the native variables for our programs.
@@ -56,36 +63,38 @@ function initNativeVariables(): Map<string, JsTerm> {
   variables.set('one', native([], (): t.Expression => t.numericLiteral(1)));
 
   // Addition
-  const add: JsTerm = native(['x', 'y'], ([x, y]) =>
+  const add: JsTerm = native([variable('x'), variable('y')], ([x, y]) =>
     t.binaryExpression('+', x, y),
   );
   variables.set('add', abstraction('x', abstraction('y', add)));
 
   // Subtraction
-  const sub: JsTerm = native(['x', 'y'], ([x, y]) =>
+  const sub: JsTerm = native([variable('x'), variable('y')], ([x, y]) =>
     t.binaryExpression('-', x, y),
   );
   variables.set('sub', abstraction('x', abstraction('y', sub)));
 
   // Multiplication
-  const mul: JsTerm = native(['x', 'y'], ([x, y]) =>
+  const mul: JsTerm = native([variable('x'), variable('y')], ([x, y]) =>
     t.binaryExpression('*', x, y),
   );
   variables.set('mul', abstraction('x', abstraction('y', mul)));
 
   // Division
-  const div: JsTerm = native(['x', 'y'], ([x, y]) =>
+  const div: JsTerm = native([variable('x'), variable('y')], ([x, y]) =>
     t.binaryExpression('/', x, y),
   );
   variables.set('div', abstraction('x', abstraction('y', div)));
 
   // Conditional
-  const if_: JsTerm = native(['x', 'y', 'z'], ([x, y, z]) =>
-    t.conditionalExpression(
-      x,
-      t.callExpression(y, []),
-      t.callExpression(z, []),
-    ),
+  const if_: JsTerm = native(
+    [variable('x'), variable('y'), variable('z')],
+    ([x, y, z]) =>
+      t.conditionalExpression(
+        x,
+        t.callExpression(y, []),
+        t.callExpression(z, []),
+      ),
   );
   variables.set(
     'if',
@@ -93,7 +102,7 @@ function initNativeVariables(): Map<string, JsTerm> {
   );
 
   // Equality
-  const eq: JsTerm = native(['x', 'y'], ([x, y]) =>
+  const eq: JsTerm = native([variable('x'), variable('y')], ([x, y]) =>
     t.binaryExpression('===', x, y),
   );
   variables.set('eq', abstraction('x', abstraction('y', eq)));

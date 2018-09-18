@@ -1,4 +1,4 @@
-import {getFreeVariables, abstraction, native} from './term';
+import {getFreeVariables, variable, abstraction, native} from './term';
 import {parse} from './parse';
 
 describe('getFreeVariables', () => {
@@ -18,13 +18,13 @@ describe('getFreeVariables', () => {
   test('native variables are free if not bound', () => {
     const term1 = abstraction(
       'x',
-      native(['x', 'y'], () => {
+      native([variable('x'), variable('y')], () => {
         throw new Error('unreachable');
       }),
     );
     const term2 = abstraction(
       'y',
-      native(['x', 'y'], () => {
+      native([variable('x'), variable('y')], () => {
         throw new Error('unreachable');
       }),
     );

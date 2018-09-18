@@ -59,13 +59,13 @@ export type ApplicationTerm<T> = {
 /**
  * A native term serializes some custom native code for the target platform.
  *
- * It takes an array of “free” variables. Corresponding terms for these
- * variables are provided to the `serialize()` function.
+ * It takes an array of input terms. Corresponding serialized values for these
+ * terms are provided to the `serialize()` function.
  */
 export type NativeTerm<T> = {
   readonly type: TermType.Native;
-  readonly variables: ReadonlyArray<Identifier>;
-  readonly serialize: (variables: ReadonlyArray<T>) => T;
+  readonly inputs: ReadonlyArray<Term<T>>;
+  readonly serialize: (inputs: ReadonlyArray<T>) => T;
 };
 
 /**
@@ -130,12 +130,12 @@ export function binding<T>(
  * language to be practically useful.
  */
 export function native<T>(
-  variables: ReadonlyArray<Identifier>,
-  serialize: (variables: ReadonlyArray<T>) => T,
+  inputs: ReadonlyArray<Term<T>>,
+  serialize: (inputs: ReadonlyArray<T>) => T,
 ): Term<T> {
   return {
     type: TermType.Native,
-    variables,
+    inputs,
     serialize,
   };
 }
@@ -171,8 +171,8 @@ function getFreeVariables<T>(
       break;
     }
     case TermType.Native: {
-      for (const name of term.variables) {
-        if (!bound.has(name)) free.add(name);
+      for (const variable of term.inputs) {
+        getFreeVariables(variable, bound, free);
       }
       break;
     }
