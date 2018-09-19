@@ -1,5 +1,7 @@
 {
   "private": true,
   "name": "@brite/monorepo",
-  "workspaces": []
+  "workspaces": [
+    "./docs/spec"
+  ]
 }
