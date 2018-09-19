@@ -15,7 +15,7 @@ InterfaceMemberList :
   - InterfaceMember LineSeparator InterfaceMember
 
 InterfaceMember :
-  - InterfaceMethod
+  - Access? InterfaceMethod
 
 InterfaceMethod :
   - Identifier Function

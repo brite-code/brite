@@ -68,12 +68,14 @@ The optional {ClassImplements} list specifies some interfaces to which the class
 
 ## Class Methods
 
-ClassMethod : FunctionDeclaration
+ClassMethod : Access? FunctionDeclaration
 
-BaseClassMethod : `base` InterfaceMethod
+BaseClassMethod : Access? `base` InterfaceMethod
 
 If the first parameter in {ClassMethod} or {BaseClassMethod} is an unannotated `this` {Identifier} then the method is an instance method. Otherwise it is a static method.
 
-Note: Instead of making instance methods the default and introducing a `static` keyword, Brite chooses to require a `this` parameter on all instance methods. This is to hammer home that class instance methods are actually functions. For instance a method can be called like `MyClass.myMethod(this, foo, bar)` or like `this.myMethod(foo, bar)`. The `this` identifier is not special unlike other languages like JavaScript.
+Method accessibility in a Brite program is specified by its {Access} modifier.
+
+Note: Instead of making instance methods the default and introducing a `static` keyword, Brite chooses to require a `this` parameter on all instance methods. This is to hammer home that class instance methods are actually functions. For instance a method can be called from a class `MyClass.myMethod(this, foo, bar)` or from an instance `this.myMethod(foo, bar)`. The `this` identifier does not come out of nowhere unlike other languages (JavaScript, Java).
 
 TODO: Reflection in {BaseClassMethod} and {InterfaceMethod}. Allows us to automatically derive implementations for structural type classes like `Equality`, `Serialize`, or `Deserialize`.
