@@ -41,7 +41,7 @@ Here’s why we impose these restrictions on Brite classes:
 
 ## Class Head
 
-ClassHead : `class` Identifier GenericParameters? FunctionParameters? ClassExtends? ClassImplements?
+ClassHead : `class` Identifier GenericParameters? FunctionParameters[Constructor]? ClassExtends? ClassImplements?
 
 ClassExtends : `extends` ReferenceType
 
@@ -49,18 +49,18 @@ ClassImplements : `implements` InterfaceExtendsList
 
 The “head” of a class declares some information about the class.
 
-The optional {GenericParameters} specify some parameters at the type level. These generic types and their bounds can specialize the class so the programmer can build data structures which abstract over a category of types instead of a single type.
+The optional {GenericParameters} specify some type parameters. These generic types and their bounds can specialize the class so the programmer can build data structures which abstract over a category of types instead of a single type.
 
-The optional {FunctionParameters} specify some parameters at the value level which are required to create a class object. All of the identifiers bound in the {FunctionParameters} become fields on the class, accessible through the `this` variable in methods. These class parameters may be matched against in a pattern.
+The optional {FunctionParameters[Constructor]} specifies some value parameters which are required to create a class object. All of the identifiers bound in the {FunctionParameters[Constructor]} become fields on the class, accessible through the `this` variable in methods. These class parameters may be matched against in a pattern.
 
-Mutable bindings in {FunctionParameters} become mutable fields of the class. They can be changed over the class’s lifetime.
+Fields bound in {FunctionParameters[Constructor]} have mutability and {Access} modifiers (because of the constructor tag). Mutable fields can be changed over the course of the program’s execution. {Access} determines where the field may be accessed.
 
 The optional {ClassExtends} clause declares a superclass for this class. The programmer may only extend a type if it is:
 
 1. A base class.
 2. In the current module, a parent module, or is unsealed.
 
-The {FunctionParameters} from a class extended in {ClassExtends} will be added to the beginning of this class’s parameter list. However, generic parameters must be explicitly passed to the {ClassExtends} clause.
+The {FunctionParameters[Constructor]} from a class extended in {ClassExtends} will be added to the beginning of this class’s parameter list. However, generic parameters must be explicitly passed to the {ClassExtends} clause.
 
 The types from {GenericParameters} are in scope of {ClassExtends}.
 

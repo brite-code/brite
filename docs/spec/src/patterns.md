@@ -1,6 +1,6 @@
 # Patterns
 
-Pattern[WithAnnotation] :
+Pattern[WithAnnotation, Constructor] :
   - BindingPattern
   - UnitPattern
   - TuplePattern
@@ -11,16 +11,18 @@ Pattern[WithAnnotation] :
 
 WrappedPattern : `(` Pattern[WithAnnotation] `)`
 
+In {Pattern[Constructor]} the `Constructor` parameter is propagated to all child rules recursively. Note that this is **not normal**! Normally we would declare and pass around the `Constructor` parameter to every child rule. However, doing this in the {Pattern} grammar would be very noisy for no benefit. It would confuse the reader without adding any cognitive value. So we bend the rules a bit here.
+
 ## Binding Pattern
 
 BindingPattern :
   - Identifier
   - BindingPatternHole
-  - BindingPatternMutable
+  - [+Constructor] Access? `mutable`? Identifier
 
-BindingPatternHole: `_`
+BindingPatternHole : `_`
 
-BindingPatternMutable : `mutable` [lookahead != LineTerminator] Identifier
+Note: Enabling `Constructor` breaks [expression/pattern](#sec-Pattern-Expression-Symmetry) symmetry since it allows the modifiers {Access} and `mutable` whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
 
 ## Annotation Pattern
 
@@ -49,11 +51,14 @@ RecordPatternPropertyList :
   - RecordPatternProperty `,` RecordPatternPropertyList
 
 RecordPatternProperty :
-  - `mutable`? Identifier TypeAnnotation? RecordPatternPropertyInitializer?
+  - Identifier TypeAnnotation? RecordPatternPropertyInitializer?
+  - [+Constructor] Access? `mutable`? Identifier TypeAnnotation? RecordPatternPropertyInitializer?
 
 RecordPatternPropertyInitializer: `=` Pattern
 
 Note: An empty {RecordPattern} (syntax: `{}`) is the same as a {UnitPattern} (syntax: `()`).
+
+Note: Enabling `Constructor` breaks [expression/pattern](#sec-Pattern-Expression-Symmetry) symmetry since it allows the modifiers {Access} and `mutable` whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
 
 ## List Pattern
 

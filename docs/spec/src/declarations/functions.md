@@ -8,13 +8,13 @@ FunctionWithoutBody : GenericParameters? FunctionParameters FunctionReturnType
 
 FunctionReturnType : TypeAnnotation
 
-FunctionParameters : `(` FunctionParameterList? `)`
+FunctionParameters[Constructor] : `(` FunctionParameterList[?Constructor]? `)`
 
-FunctionParameterList :
-  - FunctionParameter `,`?
-  - FunctionParameter `,` FunctionParameterList
+FunctionParameterList[Constructor] :
+  - FunctionParameter[?Constructor] `,`?
+  - FunctionParameter[?Constructor] `,` FunctionParameterList[?Constructor]
 
-FunctionParameter : Pattern[WithAnnotation]
+FunctionParameter[Constructor] : Pattern[WithAnnotation, ?Constructor]
 
 FunctionBody : Expression
 

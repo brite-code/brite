@@ -32,9 +32,10 @@ TODO: Literals. Strings and numbers.
 ReferenceExpression :
   - Identifier
   - BindingPatternHole
-  - BindingPatternMutable
 
-Note: We need {BindingPatternHole} and {BindingPatternMutable} for expression/pattern symmetry but they serve **no** purpose in our expressions, so we error when we see them. We might consider using {BindingPatternHole} to curry functions. e.g. `myFunction(_, _, c)(a, b)`.
+We need {BindingPatternHole} for expression/pattern symmetry but they serve **no** purpose in our expressions so we error when we see them.
+
+Note: We might consider using {BindingPatternHole} to curry functions. e.g. `myFunction(_, _, c)(a, b)`.
 
 ## Annotation Expression
 
@@ -63,7 +64,7 @@ RecordExpressionPropertyList :
   - RecordExpressionProperty `,` RecordExpressionPropertyList
 
 RecordExpressionProperty :
-  - `mutable`? Identifier TypeAnnotation? RecordExpressionPropertyInitializer?
+  - Identifier TypeAnnotation? RecordExpressionPropertyInitializer?
 
 RecordExpressionPropertyInitializer: `=` Expression
 
