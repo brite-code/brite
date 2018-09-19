@@ -10,7 +10,9 @@ Type :
 
 WrappedType: `(` Type `)`
 
-TODO: Generic types.
+TypeAnnotation: `:` Type
+
+Note: {TypeAnnotation} is a convenience grammar rule for type annotations which can be fairly common.
 
 ## Reference Type
 
@@ -38,7 +40,7 @@ RecordTypePropertyList :
   - RecordTypeProperty `,`?
   - RecordTypeProperty `,` RecordTypePropertyList
 
-RecordTypeProperty : Identifier `:` Type
+RecordTypeProperty : `mutable`? Identifier `:` Type
 
 ## Function Type
 

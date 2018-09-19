@@ -1,8 +1,8 @@
 # Declarations
 
-Declaration : DeclarationAccess? DeclarationCommon
+Declaration : DeclarationAccess? DeclarationWithoutAccess
 
-DeclarationCommon :
+DeclarationWithoutAccess :
   - TypeDeclaration
   - FunctionDeclaration
   - ClassDeclaration
@@ -23,14 +23,6 @@ By default, all declarations are private to the file which defined them. By addi
 Note: The behavior for `protected` in Brite is different then in most object oriented languages! In Brite `protected` applies to the accessibility in a file tree, *not* in an inheritance hierarchy.
 
 Note: To make the default access level explicit one may use the `private` {DeclarationAccess} modifier.
-
-Declarations are separated by {LineSeparator}.
-
-```ite example
-type Foo = Int
-
-class Bar {}
-```
 
 [Types](types.md)
 

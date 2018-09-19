@@ -6,13 +6,15 @@ Function : GenericParameters? FunctionParameters FunctionReturnType? `->` Functi
 
 FunctionWithoutBody : GenericParameters? FunctionParameters FunctionReturnType
 
-FunctionReturnType : `:` Type
+FunctionReturnType : TypeAnnotation
 
 FunctionParameters : `(` FunctionParameterList? `)`
 
 FunctionParameterList :
-  - FunctionExpressionParameter `,`?
-  - FunctionExpressionParameter `,` FunctionParameterList
+  - FunctionParameter `,`?
+  - FunctionParameter `,` FunctionParameterList
+
+FunctionParameter : Pattern[WithAnnotation]
 
 FunctionBody : Expression
 

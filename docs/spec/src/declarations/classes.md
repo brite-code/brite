@@ -21,9 +21,9 @@ Brite programs are organized into classes. Unlike other Object-Oriented Programm
 
 There are two main kinds of classes in Brite. **Concrete** classes and **Base** classes.
 
-Concrete classes **may** be instantiated with their constructor and **may not** be extended. A concrete class might extend one base class. A concrete class might have any number of properties to hold data and/or methods to define behavior. Concrete classes are equivalent to final classes in Java or structs in C.
+Concrete classes **may** be instantiated with their constructor and **may not** be extended. A concrete class might extend one base class. A concrete class might have any number of fields to hold data and/or methods to define behavior. Concrete classes are equivalent to final classes in Java or structs in C.
 
-Base classes **may not** be instantiated however they **may** be extended. Base classes might extend one base class. A base class might any number of properties to hold data and/or methods to define behavior. The methods of a base class **may not** be overriden by a superclass by default (in Java parlance, methods are final by default). A base class might mark some of its methods as “base” methods, these methods may be overriden in superclasses. Base methods don’t need to have an implementation. Base classes are equivalent to abstract classes in Java.
+Base classes **may not** be instantiated however they **may** be extended. Base classes might extend one base class. A base class might any number of fields to hold data and/or methods to define behavior. The methods of a base class **may not** be overriden by a superclass by default (in Java parlance, methods are final by default). A base class might mark some of its methods as “base” methods, these methods may be overriden in superclasses. Base methods don’t need to have an implementation. Base classes are equivalent to abstract classes in Java.
 
 Further, both concrete classes and base classes may only extend from base classes in the same module or a parent module by default. Use the `unsealed` keyword on a base class to remove this restriction.
 
@@ -51,7 +51,9 @@ The “head” of a class declares some information about the class.
 
 The optional {GenericParameters} specify some parameters at the type level. These generic types and their bounds can specialize the class so the programmer can build data structures which abstract over a category of types instead of a single type.
 
-The optional {FunctionParameters} specify some parameters at the value level which are required to create a class object. All of the identifiers bound in the {FunctionParameters} become properties on the class, accessible through the `this` variable in methods. These class parameters may be matched against in a pattern.
+The optional {FunctionParameters} specify some parameters at the value level which are required to create a class object. All of the identifiers bound in the {FunctionParameters} become fields on the class, accessible through the `this` variable in methods. These class parameters may be matched against in a pattern.
+
+Mutable bindings in {FunctionParameters} become mutable fields of the class. They can be changed over the class’s lifetime.
 
 The optional {ClassExtends} clause declares a superclass for this class. The programmer may only extend a type if it is:
 

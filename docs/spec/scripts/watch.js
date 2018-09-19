@@ -25,6 +25,6 @@ async function rebuild() {
   try {
     await build();
   } catch (error) {
-    console.error(error.stack);
+    console.error(error.stack ? error.stack : error.message);
   }
 }

@@ -31,11 +31,14 @@ TODO: Literals. Strings and numbers.
 
 ReferenceExpression :
   - Identifier
-  - `_`
+  - BindingPatternHole
+  - BindingPatternMutable
+
+Note: We need {BindingPatternHole} and {BindingPatternMutable} for expression/pattern symmetry but they serve **no** purpose in our expressions, so we error when we see them. We might consider using {BindingPatternHole} to curry functions. e.g. `myFunction(_, _, c)(a, b)`.
 
 ## Annotation Expression
 
-AnnotationExpression : Expression `:` Type
+AnnotationExpression : Expression TypeAnnotation
 
 ## Unit Expression
 
@@ -60,10 +63,9 @@ RecordExpressionPropertyList :
   - RecordExpressionProperty `,` RecordExpressionPropertyList
 
 RecordExpressionProperty :
-  - Identifier
-  - Identifier `=` Expression
-  - Identifier `:` Type
-  - Identifier `:` Type `=` Expression
+  - `mutable`? Identifier TypeAnnotation? RecordExpressionPropertyInitializer?
+
+RecordExpressionPropertyInitializer: `=` Expression
 
 Note: An empty {RecordExpression} (syntax: `{}`) is the same as a {UnitExpression} (syntax: `()`).
 
@@ -183,8 +185,6 @@ Note: We force the expression and `match` to be on the same line to avoid syntac
 FunctionExpression :
   - Identifier `->` FunctionBody
   - Function
-
-FunctionExpressionParameter : Pattern[WithAnnotation]
 
 Note: You may notice the potential for significant syntactic ambiguity. Consider `(a`. Is that the start of a tuple expression `(a, b)` or the start of a function expression `(a, b) -> a + b`? We address this in [Pattern Expression Symmetry](#sec-Pattern-Expression-Symmetry).
 

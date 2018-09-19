@@ -15,11 +15,16 @@ WrappedPattern : `(` Pattern[WithAnnotation] `)`
 
 BindingPattern :
   - Identifier
-  - `_`
+  - BindingPatternHole
+  - BindingPatternMutable
+
+BindingPatternHole: `_`
+
+BindingPatternMutable : `mutable` [lookahead != LineTerminator] Identifier
 
 ## Annotation Pattern
 
-AnnotationPattern : Pattern `:` Type
+AnnotationPattern : Pattern TypeAnnotation
 
 ## Unit Pattern
 
@@ -44,10 +49,9 @@ RecordPatternPropertyList :
   - RecordPatternProperty `,` RecordPatternPropertyList
 
 RecordPatternProperty :
-  - Identifier
-  - Identifier `=` Pattern
-  - Identifier `:` Type
-  - Identifier `:` Type `=` Pattern
+  - `mutable`? Identifier TypeAnnotation? RecordPatternPropertyInitializer?
+
+RecordPatternPropertyInitializer: `=` Pattern
 
 Note: An empty {RecordPattern} (syntax: `{}`) is the same as a {UnitPattern} (syntax: `()`).
 
