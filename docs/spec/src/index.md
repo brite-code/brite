@@ -9,8 +9,6 @@ TODO: Algebraic effects?
 
 TODO: Module imports/exports
 
-[Modules](modules.md)
-
 [Declarations](declarations/index.md)
 
 [Types](types.md)
@@ -22,5 +20,7 @@ TODO: Module imports/exports
 [Expressions](expressions.md)
 
 [Patterns](patterns.md)
+
+[Modules](modules.md)
 
 [Source Text](source-text.md)
