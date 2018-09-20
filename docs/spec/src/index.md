@@ -1,9 +1,7 @@
 Brite Language Specification
 ============================
 
-TODO: Module imports/exports
-
-TODO: Metaprogramming
+TODO: Module imports
 
 TODO: Type inference
 
@@ -22,5 +20,7 @@ TODO: Type inference
 [Modules](modules.md)
 
 [Concurrency](concurrency.md)
+
+[Metaprogramming](metaprogramming.md)
 
 [Source Text](source-text.md)
