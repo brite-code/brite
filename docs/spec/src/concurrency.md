@@ -10,19 +10,9 @@ Concurrency in Brite is used to enable:
 - Distributing work across multiple cores to be executed in parallel.
 - Distributing work across multiple computers (including client/servers).
 
-Next we will discuss tasks. The primitive which enables concurrent applications. While we discuss tasks we will ignore the topic of mutability. In the section afterwards we will address mutability and how Brite programs can be fearlessly concurrent in spite of mutability.
+TODO: Figure out how Brite will handle concurrency.
 
-## Tasks
-
-The Brite concurrency primitive is the `Task<T>` object. The `Task<T>` object represents some execution unit of the same Brite program. A `Task<T>` could be running anywhere. The same thread, a different thread, or a different computer entirely.
-
-A task is constructed with a function that takes no arguments and returns no values.
-
-```ite example
-task = Task.new(() -> ())
-```
-
-Being a part of the “same” Brite program is an important note here. The global optimization of a Brite program means small changes to the program may break the task interface.
+TODO: Should there be a `~>` function which only allows the programmer to capture `Send` variables? Could be useful for composing cross-target concurrency primitives. For instance code split or worker split code.
 
 ## Mutability
 
