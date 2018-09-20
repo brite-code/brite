@@ -40,7 +40,7 @@ RecordTypePropertyList :
   - RecordTypeProperty `,`?
   - RecordTypeProperty `,` RecordTypePropertyList
 
-RecordTypeProperty : `mutable`? Identifier `:` Type
+RecordTypeProperty : Identifier `:` Type
 
 ## Function Type
 

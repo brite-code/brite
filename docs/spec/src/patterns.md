@@ -22,7 +22,7 @@ BindingPattern :
 
 BindingPatternHole : `_`
 
-Note: Enabling `Constructor` breaks [expression/pattern](#sec-Pattern-Expression-Symmetry) symmetry since it allows the modifiers {Access} and `mutable` whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
+Note: Enabling the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
 
 ## Annotation Pattern
 
@@ -51,14 +51,17 @@ RecordPatternPropertyList :
   - RecordPatternProperty `,` RecordPatternPropertyList
 
 RecordPatternProperty :
+  - RecordPatternPropertyWithoutModifiers
+  - [+Constructor] Access? `mutable`? RecordPatternPropertyWithoutModifiers
+
+RecordPatternPropertyWithoutModifiers :
   - Identifier TypeAnnotation? RecordPatternPropertyInitializer?
-  - [+Constructor] Access? `mutable`? Identifier TypeAnnotation? RecordPatternPropertyInitializer?
 
 RecordPatternPropertyInitializer: `=` Pattern
 
 Note: An empty {RecordPattern} (syntax: `{}`) is the same as a {UnitPattern} (syntax: `()`).
 
-Note: Enabling `Constructor` breaks [expression/pattern](#sec-Pattern-Expression-Symmetry) symmetry since it allows the modifiers {Access} and `mutable` whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
+Note: In {RecordPatternProperty} adding the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation simplicity in constructors.
 
 ## List Pattern
 

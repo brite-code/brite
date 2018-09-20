@@ -1,13 +1,11 @@
 Brite Language Specification
 ============================
 
-TODO: Mutability
-
-TODO: Concurrency
-
-TODO: Algebraic effects?
-
 TODO: Module imports/exports
+
+TODO: Metaprogramming
+
+TODO: Type inference
 
 [Declarations](declarations/index.md)
 
@@ -22,5 +20,7 @@ TODO: Module imports/exports
 [Patterns](patterns.md)
 
 [Modules](modules.md)
+
+[Concurrency](concurrency.md)
 
 [Source Text](source-text.md)

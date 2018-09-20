@@ -135,6 +135,8 @@ Note: Brite’s formatter will wrap in parentheses operators at different preced
 
 Note: We disallow the syntax in {BinaryExpressionRelational} for `a < b > c` since angle brackets (`<>`) are commonly used to denote other things. Such as generic type arguments or XML markup.
 
+Note: Brite does not support “referential equality” unlike other languages we take inspiration from like JavaScript and OCaml. Since referential equality presumes a certain object layout at runtime. Instead we do deep equality checks. Referential equality checks may be still used underneath the hood as an optimization technique for applicable data structures.
+
 TODO: Should we treat `a < b < c` specially? As the equivalent of `a < b && b < c`. I think we should. All user input starts as a string. That is parsed into a number and then often we must put bounds on that number. This allows us to easily do so.
 
 ## Conditional Expression

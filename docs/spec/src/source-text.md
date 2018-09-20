@@ -1,17 +1,19 @@
 # Source Text
 
+The source text section is last because it deals with boring, pedantic, details of the characters that build up Brite programs.
+
 ## Identifiers
 
-Identifier : /^[\_A-Za-z][_0-9a-za-z]_[']_$/ but not Keyword
+Identifier : /^[\_A-Za-z][_0-9a-za-z]*[']*$/ but not Keyword
 
 Keyword :
   - `_`
 
-Identifiers in Brite follow the [Unicode specification]((http://www.unicode.org/reports/tr31/). With an extension allowing for `_` in the “start” character and “continue” characters.
+Identifiers in Brite follow the [Unicode specification](http://www.unicode.org/reports/tr31/). With an extension allowing for `_` in the “start” character and “continue” characters.
 
 It is common to use apostrophes as “primes” to denote new values with small modifications. For instance: `x`, `x'`, and `x''`.
 
-There are some keywords which we do not allow as identifiers. We try to keep the set of keywords _very_ small. Only keywords which are absolutely always ambiguous. Not even reserving keywords for the future like other languages do. If we want to add a new keyword we will build codemods to upgrade existing code while adding backwards compatibility for old versions. This is part of our philosophy to make the tooling more complex for a better programmer experience.
+There are some keywords which we do not allow as identifiers. We try to keep the set of keywords *very* small. Only keywords which are absolutely always ambiguous. Not even reserving keywords for the future like other languages do. If we want to add a new keyword we will build codemods to upgrade existing code while adding backwards compatibility for old versions. This is part of our philosophy to make the tooling more complex for a better programmer experience.
 
 We have some pseudo-keywords we don’t reserve like `type`. We can design a non-ambiguous grammar for `type` which means we don’t need to reserve it. An identifier like `type` is also very common for a wide range of programs.
 
