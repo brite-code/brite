@@ -1,3 +1,4 @@
+import {ResultType} from '../Result';
 import {Loc, Pos} from './Loc';
 import {Identifier, Keyword} from './Identifier';
 
@@ -78,7 +79,6 @@ export const enum Glyph {
   Semicolon = ';',
   Slash = '/',
   SlashBackwards = '\\',
-  Underscore = '_',
 }
 
 /**
@@ -146,8 +146,10 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
       value: {type: TokenType.Glyph, loc, glyph},
     });
 
-    const char = this.nextChar();
-    switch (char) {
+    const c = this.nextChar();
+    switch (c) {
+      // Parse any glyph that we can.
+
       case '*':
         return g(Glyph.Asterisk);
       case '{':
@@ -182,8 +184,6 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
         return g(Glyph.Slash);
       case '\\':
         return g(Glyph.SlashBackwards);
-      case '_':
-        return g(Glyph.Underscore);
 
       case '&': {
         if (this.peekChar() === '&') {
@@ -272,18 +272,79 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
         return this.next();
       }
 
+      // If we have no more characters then we are done!
       case null:
-        return {done: true, value: undefined as any};
+        return {done: true, value: undefined as never};
 
       default: {
-        return {
-          done: false,
-          value: {
-            type: TokenType.Unexpected,
-            loc: this.currentLoc(),
-            unexpected: char,
-          },
-        };
+        if (Identifier.isStart(c)) {
+          // Parse an identifier according to our identifier specification.
+
+          const start = this.currentPos();
+          let identifier = c;
+
+          // Parse any identifier continuing characters.
+          while (true) {
+            const c = this.peekChar();
+            if (c !== undefined && Identifier.isContinue(c)) {
+              identifier += c;
+              this.nextChar();
+            } else {
+              break;
+            }
+          }
+
+          // Parse any identifier finishing characters.
+          while (true) {
+            const c = this.peekChar();
+            if (c !== undefined && Identifier.isFinish(c)) {
+              identifier += c;
+              this.nextChar();
+            } else {
+              break;
+            }
+          }
+
+          // Finally, create an identifier. Assume we have the right syntax, but
+          // we still want to check for keywords.
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          const result = Identifier.createAssumingValidSyntax(identifier);
+          switch (result.type) {
+            case ResultType.Ok: {
+              return {
+                done: false,
+                value: {
+                  type: TokenType.Identifier,
+                  loc,
+                  identifier: result.value,
+                },
+              };
+            }
+            case ResultType.Err: {
+              return {
+                done: false,
+                value: {
+                  type: TokenType.Keyword,
+                  loc,
+                  keyword: result.value,
+                },
+              };
+            }
+            default:
+              throw new Error('unreachable');
+          }
+        } else {
+          // We found an unexpected character! Return an unexpected token error.
+          return {
+            done: false,
+            value: {
+              type: TokenType.Unexpected,
+              loc: this.currentLoc(),
+              unexpected: c,
+            },
+          };
+        }
       }
     }
   }

@@ -19,16 +19,10 @@
     "typescript": "^3.0.3"
   },
   "jest": {
-    "transform": {
-      "\\.ts$": "ts-jest"
-    },
-    "testRegex": "\\.test\\.(js|ts)$",
-    "moduleFileExtensions": [
-      "ts",
-      "js"
-    ],
+    "preset": "ts-jest",
     "globals": {
       "ts-jest": {
+        "babelConfig": false,
         "diagnostics": false
       }
     }

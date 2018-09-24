@@ -55,6 +55,12 @@ twice(x) -> _add(x, x) // Error: `_add` is defined in another file!
 
 Note: Some languages/linters overload the underscore prefix convention for marking an identifier as unused *and* for marking an identifier as private. This is confusing. It also means the language/linter can’t warn when the variable goes into use since the prefix might mean something other then the variable was unused. Brite will use annotations for marking a variable as unused. Which are more heavy handed, but also more explicit.
 
+## Whitespace
+
+Whitespace : "Any Unicode code point with the “White_space” property."
+
+Whitespace is used to improve source text legibility. Any number of whitespace code points may be placed between two tokens unless otherwise specified with a negative lookahead. (Like in {CallExpressionArguments}.) As such whitespace is mostly insignificant but sometimes contributes to parsing.
+
 ## Line Terminators
 
 LineTerminator :
