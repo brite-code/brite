@@ -18,5 +18,6 @@
         "alwaysShowRuleFailuresAsWarnings": true
       }
     ]
-  }
+  },
+  "exclude": ["**/node_modules"]
 }

@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 const specMarkdown = require('spec-md');
 
 const srcPath = path.join(process.cwd(), 'src', 'index.md');
@@ -23,6 +23,11 @@ if (!module.parent) {
 
 module.exports = build;
 
+/**
+ * Makes a directory but does not fail if the directory already exists.
+ *
+ * @param {string} dirPath
+ */
 function mkdir(dirPath) {
   return new Promise((resolve, reject) => {
     fs.mkdir(dirPath, error => {
@@ -35,6 +40,12 @@ function mkdir(dirPath) {
   });
 }
 
+/**
+ * Writes a file and returns a promise.
+ *
+ * @param {string} filePath
+ * @param {string} fileContents
+ */
 function writeFile(filePath, fileContents) {
   return new Promise((resolve, reject) => {
     fs.writeFile(filePath, fileContents, error => {

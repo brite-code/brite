@@ -5,9 +5,32 @@
     "./src",
     "./docs/spec"
   ],
+  "scripts": {
+    "test": "jest",
+    "tsc": "tsc"
+  },
   "dependencies": {
+    "@types/jest": "^23.3.2",
+    "@types/node": "^10.10.3",
+    "jest": "^23.6.0",
+    "ts-jest": "^23.10.1",
     "tslint": "^5.11.0",
     "tslint-language-service-ts3": "^1.0.0",
     "typescript": "^3.0.3"
+  },
+  "jest": {
+    "transform": {
+      "\\.ts$": "ts-jest"
+    },
+    "testRegex": "\\.test\\.(js|ts)$",
+    "moduleFileExtensions": [
+      "ts",
+      "js"
+    ],
+    "globals": {
+      "ts-jest": {
+        "diagnostics": false
+      }
+    }
   }
 }
