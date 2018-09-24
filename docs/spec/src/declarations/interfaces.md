@@ -7,8 +7,8 @@ InterfaceBody : `{` InterfaceMemberList? `}`
 InterfaceExtends : `extends` InterfaceExtendsList
 
 InterfaceExtendsList :
-  - ReferenceType `,`?
-  - ReferenceType `,` InterfaceExtendsList
+  - Type `,`?
+  - Type `,` InterfaceExtendsList
 
 InterfaceMemberList :
   - InterfaceMember LineSeparator?

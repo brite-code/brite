@@ -43,7 +43,7 @@ Here’s why we impose these restrictions on Brite classes:
 
 ClassHead : `class` Identifier GenericParameters? FunctionParameters[Constructor]? ClassExtends? ClassImplements?
 
-ClassExtends : `extends` ReferenceType
+ClassExtends : `extends` Type
 
 ClassImplements : `implements` InterfaceExtendsList
 

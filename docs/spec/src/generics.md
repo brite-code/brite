@@ -16,7 +16,7 @@ GenericParameterBoundList :
   - GenericParameterBound
   - GenericParameterBound `+` GenericParameterBoundList
 
-GenericParameterBound : ReferenceType
+GenericParameterBound : Type
 
 ## Generic Arguments
 

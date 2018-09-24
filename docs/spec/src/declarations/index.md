@@ -1,8 +1,8 @@
 # Declarations
 
-Declaration : Access? DeclarationWithoutAccess
+Declaration : Access? NamedDeclaration
 
-DeclarationWithoutAccess :
+NamedDeclaration :
   - TypeDeclaration
   - FunctionDeclaration
   - ClassDeclaration
