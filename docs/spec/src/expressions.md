@@ -75,7 +75,7 @@ ListExpressionItemList :
 
 ListExpressionItem :
   - Expression
-  - `...` OperandExpression
+  - `...` Expression
 
 ## Match Expression
 
@@ -94,6 +94,8 @@ MatchCaseBody :
   - ControlStatement
 
 Note: {MatchExpression} cases are surrounded by curly brackets (`{}`) instead of parentheses (`()`). This is aesthetically different from other Brite “blocks.” It makes sense here because our case list is categorically different from what normally goes between parentheses—statements or expressions. This has the side-effect of making parsing {MatchExpression} easier.
+
+TODO: Match classes?
 
 ## Match Condition Expression
 

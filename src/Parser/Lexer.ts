@@ -1,4 +1,4 @@
-import {ResultType} from '../Result';
+import {ResultType} from '../Utils/Result';
 
 import {Identifier, Keyword} from './Identifier';
 import {Loc, Pos} from './Loc';
