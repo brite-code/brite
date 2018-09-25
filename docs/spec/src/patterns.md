@@ -72,8 +72,6 @@ Takes a list and extracts items from each index listed. The pattern fails if the
 
 Useful for turning list data into structured data since all user data must start as a list before being turned into a more structured form like a tuple, record, or object.
 
-Currently does not have any “spread” operator like {ListExpression}. This is because a spread operator would necessarily need to be less flexible. To demonstrate the problem, how do you decide what to put in `a` and `b` for the pattern `[...a, ...b]`? A spread operator is also not guaranteed to be efficient when destructing lists like it is guaranteed to be efficient when creating lists in Brite.
-
 Note: Functional lanuages typically add first-class syntax for “cons” and “uncons” operations on lists (`:` operator in Haskell). This is efficient since you operate on linked-lists. However, the default Brite list type is not a linked list. “cons”/“concat” is guaranteed to be fast which is why we have spread syntax in {ListExpression}, but “uncons” is not guaranteed to be fast which is why we don’t have spread syntax in {ListPattern}.
 
 ## Pattern Expression Symmetry

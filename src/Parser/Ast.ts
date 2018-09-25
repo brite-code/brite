@@ -290,23 +290,8 @@ export type RecordExpressionProperty = {
 
 export interface ListExpression extends Node {
   readonly type: ExpressionType.List;
-  readonly items: ReadonlyArray<ListExpressionItem>;
+  readonly items: ReadonlyArray<Expression>;
 }
-
-export const enum ListExpressionItemType {
-  Item,
-  Spread,
-}
-
-export type ListExpressionItem =
-  | {
-      readonly type: ListExpressionItemType.Item;
-      readonly value: Expression;
-    }
-  | {
-      readonly type: ListExpressionItemType.Spread;
-      readonly iterable: Expression;
-    };
 
 export interface MemberExpression extends Node {
   readonly type: ExpressionType.Member;

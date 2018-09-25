@@ -70,12 +70,8 @@ Note: An empty {RecordExpression} (syntax: `{}`) is the same as a {UnitExpressio
 ListExpression : `[` ListExpressionItemList? `]`
 
 ListExpressionItemList :
-  - ListExpressionItem `,`?
-  - ListExpressionItem `,` ListExpressionItemList
-
-ListExpressionItem :
-  - Expression
-  - `...` Expression
+  - Expression `,`?
+  - Expression `,` ListExpressionItemList
 
 ## Match Expression
 
@@ -103,7 +99,7 @@ MatchConditionExpression : OperandExpression [lookahead != LineTerminator] `matc
 
 This feature enables programmers to easily use pattern matching on their data structure at the expression level. Adding a whole new convenient avenue for refining human data into computer types.
 
-Note: Any {BindingPattern} in the {Pattern} will only be bound for code reachable if the {MatchConditionExpression} evaluated to true. If there are two {MatchConditionExpression} in a {BinaryExpressionLogicalOr} and they have the same {BindingPattern}s then they must have the same type.
+Note: Any {BindingPattern} in the {Pattern} will only be bound for code reachable if the {MatchConditionExpression} evaluated to true. If there are two {MatchConditionExpression} in a {LogicalExpressionOr} and they have the same {BindingPattern}s then they must have the same type.
 
 Note: We force the expression and `match` to be on the same line to avoid syntactic ambiguity.
 
