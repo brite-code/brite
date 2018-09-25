@@ -8,7 +8,7 @@ A programming platform designed to induce a step change in the experience of…
    businesses are limited in the software they can build to serve their
    customers and augment their products.
 3. **The programmer.** Some parts of programming are fun, but then there’s the
-   frequent fighting with developer tools and the constnat forward progress in
+   frequent fighting with developer tools and the constant forward progress in
    the ecosystem which turn old projects into technical relics.
 
 ---
