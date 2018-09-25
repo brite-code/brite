@@ -13,10 +13,8 @@ GenericParameter :
   - Identifier `:` GenericParameterBoundList
 
 GenericParameterBoundList :
-  - GenericParameterBound
-  - GenericParameterBound `+` GenericParameterBoundList
-
-GenericParameterBound : Type
+  - Type
+  - Type `+` GenericParameterBoundList
 
 ## Generic Arguments
 

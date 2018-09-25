@@ -3,14 +3,9 @@
 Statement :
   - ExpressionStatement
   - BindingStatement
-  - ControlStatement
-
-ControlStatement :
-  - ReturnStatement
-
-TODO: Throw statements. A big unknown is whether we should have proper algebraic effects or just exceptions be a part of throw statements. Also make unwrapped throw statements available in function bodies. No other unwrapped statement makes sense there. e.g. `() -> throw e`.
-
-TODO: Loops. `for` and `while`. Notably break and continue statements will be difficult since there’s no way to distinguish them from `break` and `continue` identifiers.
+  - LoopStatement
+  - WhileLoopStatement
+  - ForLoopStatement
 
 ## Expression Statement
 
@@ -18,10 +13,12 @@ ExpressionStatement : Expression
 
 ## Binding Statement
 
-BindingStatement : Pattern[WithAnnotation] `=` Expression
+BindingStatement : Pattern TypeAnnotation? `=` Expression
 
-## Return Statement
+## Loop Statements
 
-ReturnStatement : `return` Expression
+LoopStatement : `loop` Expression
 
-TODO: This is ambiguous in a lot of cases. Consider `return()` or `return \n x`. Either resolve these ambiguities somehow or make `return` a keyword.
+WhileLoopStatement : `while` Expression `do` Expression
+
+ForLoopStatement : `for` Pattern `in` Expression `do` Expression

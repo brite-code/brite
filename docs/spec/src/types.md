@@ -1,14 +1,15 @@
 # Types
 
 Type :
+  - QuantifiedType
+
+PrimaryType :
   - ReferenceType
   - UnitType
   - TupleType
   - RecordType
-  - FunctionType
   - MemberType
   - GenericType
-  - QuantifiedType
   - WrappedType
 
 WrappedType: `(` Type `)`
@@ -28,9 +29,7 @@ Note: {TypeAnnotation} is a convenience grammar rule for type annotations which 
 
 ReferenceType : Type
 
-A reference to some type of any kind in our type system.
-
-If the reference cannot be statically resolved then the programmer will get an error saying so.
+A reference to some type of any kind in our type system. If the reference cannot be statically resolved then the programmer will get an error saying so.
 
 ## Unit Type
 
@@ -48,7 +47,14 @@ TupleTypeElementList :
 
 Defines a value type for the product of all the value type elements. All of the elements are unlabeled.
 
-For example, a type of `(Bool, Bool)` will accept four values (the product of the two `Bool` types). `(true, true)`, `(true, false)`, `(false, true)`, and `(false, false)`.
+For example, a type of `(Bool, Bool)` will accept four values. The product of the two `Bool` types.
+
+```ite example
+(true, true)
+(true, false)
+(false, true)
+(false, false)
+```
 
 ## Record Type
 
@@ -58,38 +64,47 @@ RecordTypePropertyList :
   - RecordTypeProperty `,`?
   - RecordTypeProperty `,` RecordTypePropertyList
 
-RecordTypeProperty : Identifier `:` Type
+RecordTypeProperty : Identifier `?`? `:` Type
 
-Defines a record type for the product of all the value type properties. Unlike tuples, the properties are labeled.
+Defines a record type for the product of all the value type properties. Unlike tuples, all of the properties are labeled.
 
-For example, a type of `{ a: Bool, b: Bool }` will accept four values (the product of the two `Bool` types). `{ a = true, b = true }`, `{ a = true, b = false }`, `{ a = false, b = true }`, and `{ a = false, b = false }`.
+If a {RecordTypeProperty} has a question mark character (`?`) then the property is optional. Optional properties need not be supplied in their corresponding {RecordExpression} and will be replaced with a default value if one is available. For instance, in the following example `x` becomes the `Option<T>` default, `None`:
+
+```ite example
+({}: { x?: Option<Int> }).x == None
+```
+
+## Member Type
+
+MemberType : PrimaryType `.` Identifier
+
+Resolves a specicic type of any kind from a namespace.
+
+## Generic Type
+
+GenericType : PrimaryType GenericArguments
+
+Applies some type arguments to a generic type.
+
+## Quantified Type
+
+QuantifiedType :
+  - GenericParameters QuantifiedType
+  - FunctionType
+
+Introduces fresh type variables into the current type scope. Most often used with {FunctionType} to create a polymorphic function. For example the identity function `<T>(T) -> T`. But in fact, fresh type variables can be introduced anywhere. Like before a type alias `<T> MyAlias<T>`. Note that these type variables are always of the value kind.
+
+See [existentially quantified types](https://en.wikibooks.org/wiki/Haskell/Existentially_quantified_types) in Haskell.
 
 ## Function Type
 
-FunctionType : `(` FunctionTypeParameterList? `)` `->` Type
+FunctionType :
+  - `(` FunctionTypeParameterList? `)` `->` Type
+  - Identifier `->` Type
+  - PrimaryType
 
 FunctionTypeParameterList :
   - Type `,`?
   - Type `,` FunctionTypeParameterList
 
 Defines a value type for a function which takes some values as parameters and returns some value. Functions with named parameters will use record arguments.
-
-## Member Type
-
-MemberType : Type `.` Identifier
-
-Resolves a specicic type of any kind from a namespace.
-
-## Generic Type
-
-GenericType : Type GenericArguments
-
-Applies some type arguments to a generic type.
-
-## Quantified Type
-
-QuantifiedType : GenericParameters Type
-
-Introduces fresh type variables into the current type scope. Most often used with {FunctionType} to create a polymorphic function. For example the identity function `<T>(T) -> T`. But in fact, fresh type variables can be introduced anywhere. Like before a type alias `<T> MyAlias<T>`. Note that these type variables are always of the value kind.
-
-See [existentially quantified types](https://en.wikibooks.org/wiki/Haskell/Existentially_quantified_types) in Haskell.

@@ -1,22 +1,21 @@
 # Patterns
 
-Pattern[WithAnnotation, Constructor] :
+Pattern[Constructor] :
   - BindingPattern
   - UnitPattern
   - TuplePattern
   - RecordPattern
   - ListPattern
   - WrappedPattern
-  - [+WithAnnotation] AnnotationPattern
 
-WrappedPattern : `(` Pattern[WithAnnotation] `)`
+WrappedPattern : `(` Pattern TypeAnnotation? `)`
 
-In {Pattern[Constructor]} the `Constructor` parameter is propagated to all child rules recursively. Note that this is **not normal**! Normally we would declare and pass around the `Constructor` parameter to every child rule. However, doing this in the {Pattern} grammar would be very noisy for no benefit. It would confuse the reader without adding any cognitive value. So we bend the rules a bit here.
+In {Pattern[Constructor]} the constructor tag is propagated to all child rules recursively. Note that this is **not normal**! Normally we would declare and pass around the constructor tag to every child rule. However, doing this in the {Pattern} grammar would be very noisy for no benefit. It would confuse the reader without adding any cognitive value. So we bend the rules a bit here.
 
 ## Binding Pattern
 
 BindingPattern :
-  - Identifier
+  - BindingIdentifier
   - BindingPatternHole
   - [+Constructor] Access? `mutable`? Identifier
 
@@ -24,9 +23,7 @@ BindingPatternHole : `_`
 
 Note: Enabling the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
 
-## Annotation Pattern
-
-AnnotationPattern : Pattern TypeAnnotation
+Note: Enabling the constructor tag intentionally allows the programmer to use any {Identifier} as a binding pattern. Including the {BindingKeyword} words excluded from {BindingIdentifier}. This is because these bindings must be first accessed through `this`.
 
 ## Unit Pattern
 
@@ -40,7 +37,7 @@ TuplePatternElementList :
   - TuplePatternElement `,` TuplePatternElement `,`?
   - TuplePatternElement `,` TuplePatternElementList
 
-TuplePatternElement : Pattern[WithAnnotation]
+TuplePatternElement : Pattern TypeAnnotation?
 
 ## Record Pattern
 

@@ -9,6 +9,22 @@ Identifier : /^[\_A-Za-z][_0-9a-za-z]*[']*$/ but not Keyword
 Keyword :
   - `_`
 
+BindingIdentifier : Identifier but not BindingKeyword
+
+BindingKeyword :
+  - `if`
+  - `then`
+  - `else`
+  - `match`
+  - `return`
+  - `loop`
+  - `while`
+  - `do`
+  - `for`
+  - `in`
+  - `break`
+  - `continue`
+
 Identifiers in Brite follow the [Unicode specification](http://www.unicode.org/reports/tr31/). With an extension allowing for `_` in the “start” character and “continue” characters.
 
 It is common to use apostrophes as “primes” to denote new values with small modifications. For instance: `x`, `x'`, and `x''`.
@@ -16,6 +32,10 @@ It is common to use apostrophes as “primes” to denote new values with small 
 There are some keywords which we do not allow as identifiers. We try to keep the set of keywords *very* small. Only keywords which are absolutely always ambiguous. Not even reserving keywords for the future like other languages do. If we want to add a new keyword we will build codemods to upgrade existing code while adding backwards compatibility for old versions. This is part of our philosophy to make the tooling more complex for a better programmer experience.
 
 We have some pseudo-keywords we don’t reserve like `type`. We can design a non-ambiguous grammar for `type` which means we don’t need to reserve it. An identifier like `type` is also very common for a wide range of programs.
+
+Since there are parse rules which are really difficult to express without reserving some keywords, we have a second category of keyword called {BindingKeyword}. These keywords are excluded from {BindingIdentifier} but not all identifiers in general. Binding keywords may not be used to bind a variable, but they may be used anywhere else. For instance, one cannot write the program `return = 42`, but they could write the program `x = { return = 42 }` since a property label is not a {BindingIdentifier}.
+
+Note: Future specification writers, be careful about reserving common nouns like `type` or `class` in {BindingIdentifier}!
 
 TODO: This regex is clearly not compatible with the Unicode specification. Neither is our implementation. Actually make both compatible with the Unicode specification.
 

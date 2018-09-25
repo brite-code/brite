@@ -14,7 +14,7 @@ FunctionParameterList[Constructor] :
   - FunctionParameter[?Constructor] `,`?
   - FunctionParameter[?Constructor] `,` FunctionParameterList[?Constructor]
 
-FunctionParameter[Constructor] : Pattern[WithAnnotation, ?Constructor]
+FunctionParameter[Constructor] : Pattern[?Constructor] TypeAnnotation?
 
 FunctionBody : Expression
 
