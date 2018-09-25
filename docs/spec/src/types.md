@@ -7,7 +7,7 @@ PrimaryType :
   - ReferenceType
   - UnitType
   - TupleType
-  - RecordType
+  - ObjectType
   - MemberType
   - GenericType
   - WrappedType
@@ -64,19 +64,19 @@ For example, a type of `(Bool, Bool)` will accept four values. The product of th
 (false, false)
 ```
 
-## Record Type
+## Object Type
 
-RecordType : `{` RecordTypePropertyList? `}`
+ObjectType : `{` ObjectTypePropertyList? `}`
 
-RecordTypePropertyList :
-  - RecordTypeProperty `,`?
-  - RecordTypeProperty `,` RecordTypePropertyList
+ObjectTypePropertyList :
+  - ObjectTypeProperty `,`?
+  - ObjectTypeProperty `,` ObjectTypePropertyList
 
-RecordTypeProperty : Identifier `?`? `:` Type
+ObjectTypeProperty : Identifier `?`? `:` Type
 
-Defines a record type for the product of all the value type properties. Unlike tuples, all of the properties are labeled.
+Defines an object type for the product of all the value type properties. Unlike tuples, all of the properties are labeled.
 
-If a {RecordTypeProperty} has a question mark character (`?`) then the property is optional. Optional properties need not be supplied in their corresponding {RecordExpression} and will be replaced with a default value if one is available. For instance, in the following example `x` becomes the `Option<T>` default, `None`:
+If a {ObjectTypeProperty} has a question mark character (`?`) then the property is optional. Optional properties need not be supplied in their corresponding {ObjectExpression} and will be replaced with a default value if one is available. For instance, in the following example `x` becomes the `Option<T>` default, `None`:
 
 ```ite example
 ({}: { x?: Option<Int> }).x == None
@@ -127,7 +127,7 @@ FunctionTypeParameterList :
   - Type `,`?
   - Type `,` FunctionTypeParameterList
 
-Defines a value type for a function which takes some values as parameters and returns some value. Functions with named parameters will use record arguments.
+Defines a value type for a function which takes some values as parameters and returns some value. Functions with named parameters will use object arguments.
 
 ```ite example
 type AddInts = (Int, Int) -> Int

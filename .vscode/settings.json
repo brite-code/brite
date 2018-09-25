@@ -11,6 +11,10 @@
     "**/.DS_Store": true,
     "**/node_modules": true
   },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/build": true
+  },
   "html.format.endWithNewline": true,
   "[markdown]": {
     "editor.wordWrap": "wordWrapColumn",

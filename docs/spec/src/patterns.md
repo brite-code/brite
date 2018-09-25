@@ -4,7 +4,7 @@ Pattern[Constructor] :
   - BindingPattern
   - UnitPattern
   - TuplePattern
-  - RecordPattern
+  - ObjectPattern
   - ListPattern
   - WrappedPattern
 
@@ -39,26 +39,26 @@ TuplePatternElementList :
 
 TuplePatternElement : Pattern TypeAnnotation?
 
-## Record Pattern
+## Object Pattern
 
-RecordPattern : `{` RecordPatternPropertyList? `}`
+ObjectPattern : `{` ObjectPatternPropertyList? `}`
 
-RecordPatternPropertyList :
-  - RecordPatternProperty `,`?
-  - RecordPatternProperty `,` RecordPatternPropertyList
+ObjectPatternPropertyList :
+  - ObjectPatternProperty `,`?
+  - ObjectPatternProperty `,` ObjectPatternPropertyList
 
-RecordPatternProperty :
-  - RecordPatternPropertyWithoutModifiers
-  - [+Constructor] Access? `mutable`? RecordPatternPropertyWithoutModifiers
+ObjectPatternProperty :
+  - ObjectPatternPropertyWithoutModifiers
+  - [+Constructor] Access? `mutable`? ObjectPatternPropertyWithoutModifiers
 
-RecordPatternPropertyWithoutModifiers :
-  - Identifier TypeAnnotation? RecordPatternPropertyInitializer?
+ObjectPatternPropertyWithoutModifiers :
+  - Identifier TypeAnnotation? ObjectPatternPropertyInitializer?
 
-RecordPatternPropertyInitializer: `=` Pattern
+ObjectPatternPropertyInitializer: `=` Pattern
 
-Note: An empty {RecordPattern} (syntax: `{}`) is the same as a {UnitPattern} (syntax: `()`).
+Note: An empty {ObjectPattern} (syntax: `{}`) is the same as a {UnitPattern} (syntax: `()`).
 
-Note: In {RecordPatternProperty} adding the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation simplicity in constructors.
+Note: In {ObjectPatternProperty} adding the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation simplicity in constructors.
 
 ## List Pattern
 
@@ -70,7 +70,7 @@ ListPatternItemList :
 
 Takes a list and extracts items from each index listed. The pattern fails if the length of the list pattern is not equal to the length of the list value being compared.
 
-Useful for turning list data into structured data since all user data must start as a list before being turned into a more structured form like a tuple, record, or object.
+Useful for turning list data into structured data since all user data must start as a list before being turned into a more structured form like a tuple or object.
 
 Note: Functional lanuages typically add first-class syntax for “cons” and “uncons” operations on lists (`:` operator in Haskell). This is efficient since you operate on linked-lists. However, the default Brite list type is not a linked list. “cons”/“concat” is guaranteed to be fast which is why we have spread syntax in {ListExpression}, but “uncons” is not guaranteed to be fast which is why we don’t have spread syntax in {ListPattern}.
 
