@@ -15,7 +15,7 @@ A programming platform designed to induce a step change in the experience of…
 
 It is a _really_ bold claim to say that we can induce a step change in the
 programming ecosystem. Especially when we don’t have anything to back it up. We
-realize you are probably very skeptical. We would love to answer questions.
+realize you are probably very skeptical, so we would love to answer questions.
 
 Already, the design of the language is practically settled and you can read more
 in the
@@ -23,3 +23,12 @@ in the
 We will be working to communicate more soon as we have work to show.
 
 Brite will initially only target web applications.
+
+## Inspiration
+
+Brite takes inspiration from a lot of places, but the languages it will be most
+similar to are:
+
+- [JavaScript](https://tc39.github.io/ecma262)
+- [Rust](https://www.rust-lang.org/en-US/)
+- [OCaml](https://ocaml.org)
