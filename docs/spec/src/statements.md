@@ -3,7 +3,6 @@
 Statement :
   - ExpressionStatement
   - BindingStatement
-  - PropertyBindingStatement
   - WhileLoopStatement
   - ForLoopStatement
 
@@ -21,21 +20,39 @@ performAction()
 
 ## Binding Statement
 
-BindingStatement : Pattern TypeAnnotation? `=` Expression
+BindingStatement : BindingStatementLeft `=` Expression
 
-PropertyBindingStatement : PropertyBindingStatementProperty `=` Expression
+BindingStatementLeft :
+  - Pattern TypeAnnotation?
+  - BindingStatementProperty
 
-PropertyBindingStatementProperty :
+BindingStatementProperty :
   - Identifier `.` Identifier
   - PropertyBindingStatementProperty `.` Identifier
 
 Binds an expression to some name in the current scope.
 
-{PropertyBindingStatement} provides syntax sugar for deeply updating an immutable object property. It turns `a.b = c` into `a = { a | b = c }`, `a.b.c = d` into `a = { a | b = { a.b | c = d } }`, and so on.
+{BindingStatementProperty} provides syntax sugar for deeply updating an immutable object property. It turns `a.b = c` into `a = { a | b = c }`, `a.b.c = d` into `a = { a | b = { a.b | c = d } }`, and so on.
 
 ```ite example
 name = computeValue()
 object.property = computeAnotherValue()
+```
+
+## Assignment Statement
+
+AssignmentStatement : AssignmentStatementProperty `:=` Expression
+
+AssignmentStatementProperty :
+  - Identifier
+  - AssignmentStatementProperty `.` Identifier
+
+Assigns a new value to a mutable reference.
+
+{AssignmentStatementProperty} must point to a mutable reference. The programmer may not write `x.y.z := 0` if `x.y` is a mutable object reference but `.z` is an immutable property in that object.
+
+```ite example
+this.mutableProperty := 42
 ```
 
 ## Loop Statements

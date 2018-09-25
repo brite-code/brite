@@ -54,6 +54,7 @@ export const enum Glyph {
   Ampersand = '&',
   AmpersandDouble = '&&',
   Arrow = '->',
+  Assignment = ':=',
   Asterisk = '*',
   Bar = '|',
   BarDouble = '||',
@@ -66,12 +67,14 @@ export const enum Glyph {
   Dot = '.',
   Ellipsis = '...',
   Equals = '=',
+  EqualsDouble = '==',
   Exclamation = '!',
   GreaterThan = '>',
   GreaterThanOrEqual = '>=',
   LessThan = '<',
   LessThanOrEqual = '<=',
   Minus = '-',
+  NotEquals = '!=',
   ParenLeft = '(',
   ParenRight = ')',
   Percent = '%',
@@ -161,14 +164,8 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
         return g(Glyph.BracketLeft);
       case ']':
         return g(Glyph.BracketRight);
-      case ':':
-        return g(Glyph.Colon);
       case ',':
         return g(Glyph.Comma);
-      case '=':
-        return g(Glyph.Equals);
-      case '!':
-        return g(Glyph.Exclamation);
       case '(':
         return g(Glyph.ParenLeft);
       case ')':
@@ -206,6 +203,39 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
           return g2(loc, Glyph.BarDouble);
         }
         return g(Glyph.Bar);
+      }
+
+      case ':': {
+        if (this.peekChar() === '=') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.Assignment);
+        }
+        return g(Glyph.Colon);
+      }
+
+      case '=': {
+        if (this.peekChar() === '=') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.EqualsDouble);
+        }
+        return g(Glyph.Equals);
+      }
+
+      case '!': {
+        if (this.peekChar() === '=') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.NotEquals);
+        }
+        return g(Glyph.Exclamation);
       }
 
       case '.': {

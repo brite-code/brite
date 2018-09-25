@@ -27,9 +27,9 @@ Note: {TypeAnnotation} is a convenience grammar rule for type annotations which 
 
 ## Reference Type
 
-ReferenceType : Type
+ReferenceType : BindingIdentifier
 
-A reference to some type of any kind in our type system. If the reference cannot be statically resolved then the programmer will get an error saying so.
+A reference to some type of any type kind in our type system. If the reference cannot be statically resolved then the programmer will get an error saying so.
 
 ```ite example
 type Foo = Bar

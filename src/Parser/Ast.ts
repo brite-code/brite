@@ -1,4 +1,4 @@
-import {List2} from '../Utils/ListN';
+import {List1, List2} from '../Utils/ListN';
 
 import {Identifier} from './Identifier';
 import {Loc} from './Loc';
@@ -185,14 +185,16 @@ export type TypeParameter = {
 export type Statement =
   | ExpressionStatement
   | BindingStatement
-  | PropertyBindingStatement
+  | BindingPropertyStatement
+  | AssignmentStatement
   | WhileLoopStatement
   | ForLoopStatement;
 
 export const enum StatementType {
   Expression,
   Binding,
-  PropertyBinding,
+  BindingProperty,
+  Assignment,
   WhileLoop,
   ForLoop,
 }
@@ -209,9 +211,15 @@ export interface BindingStatement {
   readonly value: Expression;
 }
 
-export interface PropertyBindingStatement {
-  readonly type: StatementType.PropertyBinding;
+export interface BindingPropertyStatement {
+  readonly type: StatementType.BindingProperty;
   readonly property: List2<Name>;
+  readonly value: Expression;
+}
+
+export interface AssignmentStatement {
+  readonly type: StatementType.Assignment;
+  readonly reference: List1<Name>;
   readonly value: Expression;
 }
 
@@ -230,6 +238,7 @@ export interface ForLoopStatement {
 }
 
 export type Expression =
+  | HoleExpression
   | ReferenceExpression
   | UnitExpression
   | TupleExpression
@@ -251,6 +260,7 @@ export type Expression =
 
 // TODO: Match expressions
 export const enum ExpressionType {
+  Hole,
   Reference,
   Unit,
   Tuple,
@@ -269,6 +279,10 @@ export const enum ExpressionType {
   Unary,
   Block,
   Wrapped,
+}
+
+export interface HoleExpression extends Node {
+  readonly type: ExpressionType.Hole;
 }
 
 export interface ReferenceExpression extends Node {
