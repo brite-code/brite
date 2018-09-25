@@ -185,35 +185,43 @@ export type TypeParameter = {
 export type Statement =
   | ExpressionStatement
   | BindingStatement
+  | PropertyBindingStatement
   | WhileLoopStatement
   | ForLoopStatement;
 
 export const enum StatementType {
   Expression,
   Binding,
+  PropertyBinding,
   WhileLoop,
   ForLoop,
 }
 
-export interface ExpressionStatement extends Node {
+export interface ExpressionStatement {
   readonly type: StatementType.Expression;
   readonly expression: Expression;
 }
 
-export interface BindingStatement extends Node {
+export interface BindingStatement {
   readonly type: StatementType.Binding;
   readonly binding: Pattern;
   readonly annotation: Type | undefined;
   readonly value: Expression;
 }
 
-export interface WhileLoopStatement extends Node {
+export interface PropertyBindingStatement {
+  readonly type: StatementType.PropertyBinding;
+  readonly property: List2<Name>;
+  readonly value: Expression;
+}
+
+export interface WhileLoopStatement {
   readonly type: StatementType.WhileLoop;
   readonly test: Expression;
   readonly body: Expression;
 }
 
-export interface ForLoopStatement extends Node {
+export interface ForLoopStatement {
   readonly type: StatementType.ForLoop;
   readonly binding: Pattern;
   readonly annotation: Type | undefined;
