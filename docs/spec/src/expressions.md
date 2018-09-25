@@ -4,6 +4,7 @@ Expression :
   - FunctionExpression
   - ConditionalExpression
   - ControlExpression
+  - LoopExpression
   - LogicalExpressionOr
 
 PrimaryExpression :
@@ -155,20 +156,41 @@ Note: Our syntax forbids `a + if x then y else z + b` since {ConditionalExpressi
 
 ControlExpression :
   - ReturnExpression
-  - `break`
-  - `continue`
+  - BreakExpression
+  - ContinueExpression
 
 ReturnExpression :
   - `return` [lookahead LineTerminator]
   - `return` [lookahead != LineTerminator] Expression
 
-Controls the execution of a Brite program. The most common control expression, {ReturnExpression}, allows the programmer to finish the execution of their function early and return the argument passed to the expression. `break` allows the programmer to stop the execution of the loop they are currently in. `continue` allows the programmer to skip the current iteration of the loop they are currently in.
+BreakExpression :
+  - `break` [lookahead LineTerminator]
+  - `break` [lookahead != LineTerminator] Expression
+
+ContinueExpression : `continue`
+
+Controls the execution of a Brite program. The most common control expression, {ReturnExpression}, allows the programmer to finish the execution of their function early and return the argument passed to the expression. {BreakExpression} allows the programmer to stop the execution of the loop they are currently in possibly returning a value from the loop. {ContinueExpression} allows the programmer to skip the current iteration of the loop they are currently in.
 
 Since Brite strongly encourages functional programming, one won’t often see the use of these control expressions as they are only necessary in imperative programming styles. One of the beauties of Brite is that it elegantly allows for both functional and imperative styles.
 
 Note: {ControlExpression} is an expression instead of a statement so that they may be placed anywhere in a expression that is conditionally executed. For example `if x then return y` or `x || continue`.
 
 Note: {ReturnExpression} may only have an {Expression} argument if that expression is on the same line as the `return` token. If there are no more tokens on the same line as the `return` then {ReturnExpression} receives no argument.
+
+## Loop Expression
+
+LoopExpression : `loop` Expression
+
+A {LoopExpression} keeps executing its {Expression} argument until a {BreakExpression} or {ReturnExpression} abrupts its execution.
+
+Unlike the related loop statements {WhileLoopStatement} and {ForLoopStatement}, {LoopExpression} is an expression and returns a value! The value returned is the argument provided to {BreakExpression}. Returning a value from all the possible exits of {WhileLoopStatement} or {ForLoopStatement} would be too complex to warrant making them expressions.
+
+```ite example
+x = loop (
+  if i > 5 then break i
+  i := i + 1
+)
+```
 
 ## Logical Expression
 
