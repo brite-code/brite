@@ -139,7 +139,7 @@ export interface TupleType extends Node {
 
 export interface RecordType extends Node {
   readonly type: TypeType.Record;
-  readonly properties: List1<RecordTypeProperty>;
+  readonly properties: ReadonlyArray<RecordTypeProperty>;
 }
 
 export type RecordTypeProperty = {
@@ -279,7 +279,8 @@ export interface TupleExpression extends Node {
 
 export interface RecordExpression extends Node {
   readonly type: ExpressionType.Record;
-  readonly properties: List1<RecordExpressionProperty>;
+  readonly extension: Expression | undefined;
+  readonly properties: ReadonlyArray<RecordExpressionProperty>;
 }
 
 export type RecordExpressionProperty = {
