@@ -1,6 +1,7 @@
 import {ResultType} from '../Result';
-import {Loc, Pos} from './Loc';
+
 import {Identifier, Keyword} from './Identifier';
+import {Loc, Pos} from './Loc';
 
 /**
  * The type for `Token`.
@@ -102,8 +103,8 @@ export type GlyphToken = {
 export type UnexpectedToken = {
   readonly type: TokenType.Unexpected;
   readonly loc: Loc;
-  readonly unexpected: string | null;
-  readonly expected?: string | null;
+  readonly unexpected: string | undefined;
+  readonly expected: string | undefined | false;
 };
 
 /**
@@ -273,7 +274,7 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
       }
 
       // If we have no more characters then we are done!
-      case null:
+      case undefined:
         return {done: true, value: undefined as never};
 
       default: {
@@ -342,6 +343,7 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
               type: TokenType.Unexpected,
               loc: this.currentLoc(),
               unexpected: c,
+              expected: false,
             },
           };
         }
@@ -354,11 +356,13 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
    * Returns undefined if there are no more characters. Updates the
    * lexer position.
    */
-  private nextChar(): string | null {
+  private nextChar(): string | undefined {
     // NOTE: This function should be protected in Brite. So it’s only accessible
     // in this namespace.
     const step = this.chars.next();
-    if (step.done) return null;
+    if (step.done) {
+      return undefined;
+    }
     if (step.value === '\n') {
       this.line += 1;
       this.column = 0;

@@ -1,6 +1,6 @@
-import {Lexer, Glyph, TokenType} from './Lexer';
-import {Loc, Pos} from './Loc';
 import {Identifier, Keyword} from './Identifier';
+import {Glyph, Lexer, TokenType} from './Lexer';
+import {Loc, Pos} from './Loc';
 
 describe('glyph', () => {
   [
@@ -102,7 +102,7 @@ describe('glyph', () => {
       {
         type: TokenType.Unexpected,
         loc: new Loc(new Pos(1, 2), new Pos(1, 2)),
-        unexpected: null,
+        unexpected: undefined,
         expected: '.',
       },
     ]);

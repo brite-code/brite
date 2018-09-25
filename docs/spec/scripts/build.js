@@ -10,7 +10,7 @@ async function build() {
   const html = await specMarkdown.html(srcPath);
   await mkdir(path.dirname(buildPath));
   await writeFile(buildPath, html);
-  console.log(`Built: ${chalk.cyan.bold(buildPath)}`);
+  console.log(`Built: ${chalk.cyan.bold(buildPath)}`); // tslint:disable-line no-console
 }
 
 if (!module.parent) {

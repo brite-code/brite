@@ -31,10 +31,10 @@ export class Pos {
    * - If `this` is larget than `other` return 1.
    */
   compare(other: Pos): -1 | 0 | 1 {
-    if (this.line < other.line) return -1;
-    if (this.line > other.line) return 1;
-    if (this.column < other.column) return -1;
-    if (this.column > other.column) return 1;
+    if (this.line < other.line) { return -1; }
+    if (this.line > other.line) { return 1; }
+    if (this.column < other.column) { return -1; }
+    if (this.column > other.column) { return 1; }
     return 0;
   }
 }

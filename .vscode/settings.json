@@ -19,5 +19,8 @@
   "prettier.singleQuote": true,
   "prettier.trailingComma": "es5",
   "prettier.proseWrap": "always",
-  "prettier.bracketSpacing": false
+  "prettier.bracketSpacing": false,
+  "tslint.jsEnable": true,
+  "tslint.alwaysShowRuleFailuresAsWarnings": true,
+  "tslint.autoFixOnSave": true
 }

@@ -1,5 +1,5 @@
-import {Loc} from './Loc';
 import {Identifier} from './Identifier';
+import {Loc} from './Loc';
 
 export const enum Access {
   Public = 'Public',

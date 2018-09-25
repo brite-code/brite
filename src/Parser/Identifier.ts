@@ -1,4 +1,4 @@
-import {Result, Ok, Err} from '../Result';
+import {Err, Ok, Result} from '../Result';
 
 /**
  * Brite identifiers follow the [Unicode identifier specification][1]. Including
