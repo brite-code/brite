@@ -17,6 +17,19 @@ import {Err, Ok, Result} from '../Utils/Result';
  */
 export type Identifier = string & typeof IdentifierTag;
 
+// A private symbol we use to make our `Identifier` type emulate an opaque type
+// with an intersection.
+const IdentifierTag = Symbol();
+
+/**
+ * An `Identifier` but without `BindingKeyword`.
+ */
+export type BindingIdentifier = string & typeof BindingIdentifierTag;
+
+// A private symbol we use to make our `BindingIdentifier` type emulate an
+// opaque type with an intersection.
+const BindingIdentifierTag = Symbol();
+
 /**
  * Valid identifier syntax which we reserve for other syntactic purposes. We try
  * to keep the set of keywords small since every keyword we reserve has the
@@ -27,9 +40,27 @@ export const enum Keyword {
   Underscore = '_',
 }
 
-// A private symbol we use to make our `Identifier` type emulate an opaque type
-// with an intersection.
-const IdentifierTag = Symbol();
+/**
+ * Keywords we don’t allow to be used unqualified in bindings. We do this to
+ * reserve some words for syntactic purposes.
+ *
+ * NOTE: We may not need all these keywords.
+ */
+export const enum BindingKeyword {
+  If = 'if',
+  Then = 'then',
+  Else = 'else',
+  Match = 'match',
+  With = 'with',
+  Return = 'return',
+  Loop = 'loop',
+  While = 'while',
+  Do = 'do',
+  For = 'for',
+  In = 'in',
+  Break = 'break',
+  Continue = 'continue',
+}
 
 export namespace Identifier {
   /**
@@ -47,7 +78,7 @@ export namespace Identifier {
   export function createAssumingValidSyntax(
     identifier: string
   ): Result<Identifier, Keyword> {
-    const keyword = isKeyword(identifier);
+    const keyword = getKeyword(identifier);
     if (keyword === undefined) {
       return Ok(identifier as Identifier);
     } else {
@@ -91,10 +122,47 @@ export namespace Identifier {
    * Is this string a keyword? If so then return the keyword. Otherwise
    * return undefined.
    */
-  function isKeyword(c: string): Keyword | undefined {
+  export function getKeyword(c: string): Keyword | undefined {
     switch (c) {
       case '_':
         return Keyword.Underscore;
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * Is this string a binding keyword? If so then return the keyword. Otherwise
+   * return undefined.
+   */
+  export function getBindingKeyword(c: string): BindingKeyword | undefined {
+    switch (c) {
+      case 'if':
+        return BindingKeyword.If;
+      case 'then':
+        return BindingKeyword.Then;
+      case 'else':
+        return BindingKeyword.Else;
+      case 'match':
+        return BindingKeyword.Match;
+      case 'with':
+        return BindingKeyword.With;
+      case 'return':
+        return BindingKeyword.Return;
+      case 'loop':
+        return BindingKeyword.Loop;
+      case 'while':
+        return BindingKeyword.While;
+      case 'do':
+        return BindingKeyword.Do;
+      case 'for':
+        return BindingKeyword.For;
+      case 'in':
+        return BindingKeyword.In;
+      case 'break':
+        return BindingKeyword.Break;
+      case 'continue':
+        return BindingKeyword.Continue;
       default:
         return undefined;
     }

@@ -1,5 +1,6 @@
 import {List1, List2} from '../Utils/ListN';
 
+import {ParserError} from './Error';
 import {Identifier} from './Identifier';
 import {Loc} from './Loc';
 
@@ -29,10 +30,10 @@ export type Declaration =
   | InterfaceDeclaration;
 
 export const enum DeclarationType {
-  Type,
-  Function,
-  Class,
-  Interface,
+  Type = 'Type',
+  Function = 'Function',
+  Class = 'Class',
+  Interface = 'Interface',
 }
 
 export interface NamedDeclaration extends Node {
@@ -109,18 +110,20 @@ export type Type =
   | MemberType
   | GenericType
   | QuantifiedType
-  | WrappedType;
+  | WrappedType
+  | ErrorType;
 
 export const enum TypeType {
-  Reference,
-  Unit,
-  Tuple,
-  Record,
-  Function,
-  Member,
-  Generic,
-  Quantified,
-  Wrapped,
+  Reference = 'Reference',
+  Unit = 'Unit',
+  Tuple = 'Tuple',
+  Record = 'Record',
+  Function = 'Function',
+  Member = 'Member',
+  Generic = 'Generic',
+  Quantified = 'Quantified',
+  Wrapped = 'Wrapped',
+  Error = 'Error',
 }
 
 export interface ReferenceType extends Node {
@@ -177,6 +180,11 @@ export interface WrappedType extends Node {
   readonly wrapped: Type;
 }
 
+export interface ErrorType extends Node {
+  readonly type: TypeType.Error;
+  readonly error: ParserError;
+}
+
 export type TypeParameter = {
   readonly name: Name;
   readonly bounds: ReadonlyArray<Type>;
@@ -191,12 +199,12 @@ export type Statement =
   | ForLoopStatement;
 
 export const enum StatementType {
-  Expression,
-  Binding,
-  BindingProperty,
-  Assignment,
-  WhileLoop,
-  ForLoop,
+  Expression = 'Expression',
+  Binding = 'Binding',
+  BindingProperty = 'BindingProperty',
+  Assignment = 'Assignment',
+  WhileLoop = 'WhileLoop',
+  ForLoop = 'ForLoop',
 }
 
 export interface ExpressionStatement {
@@ -260,26 +268,26 @@ export type Expression =
   | WrappedExpression;
 
 export const enum ExpressionType {
-  Reference,
-  Hole,
-  Unit,
-  Tuple,
-  Record,
-  List,
-  Member,
-  Call,
-  Function,
-  Conditional,
-  Match,
-  Return,
-  Break,
-  Continue,
-  Loop,
-  Logical,
-  Binary,
-  Unary,
-  Block,
-  Wrapped,
+  Reference = 'Reference',
+  Hole = 'Hole',
+  Unit = 'Unit',
+  Tuple = 'Tuple',
+  Record = 'Record',
+  List = 'List',
+  Member = 'Member',
+  Call = 'Call',
+  Function = 'Function',
+  Conditional = 'Conditional',
+  Match = 'Match',
+  Return = 'Return',
+  Break = 'Break',
+  Continue = 'Continue',
+  Loop = 'Loop',
+  Logical = 'Logical',
+  Binary = 'Binary',
+  Unary = 'Unary',
+  Block = 'Block',
+  Wrapped = 'Wrapped',
 }
 
 export interface ReferenceExpression extends Node {

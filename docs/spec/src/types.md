@@ -1,7 +1,9 @@
 # Types
 
 Type :
+  - FunctionType
   - QuantifiedType
+  - PrimaryType
 
 PrimaryType :
   - ReferenceType
@@ -82,6 +84,22 @@ If a {RecordTypeProperty} has a question mark character (`?`) then the property 
 ({}: { x?: Option<Int> }).x == None
 ```
 
+## Function Type
+
+FunctionType :
+  - `(` FunctionTypeParameterList? `)` `->` Type
+  - BindingIdentifier `->` Type
+
+FunctionTypeParameterList :
+  - Type `,`?
+  - Type `,` FunctionTypeParameterList
+
+Defines a value type for a function which takes some values as parameters and returns some value. Functions with named parameters will use record arguments.
+
+```ite example
+type AddInts = (Int, Int) -> Int
+```
+
 ## Member Type
 
 MemberType : PrimaryType `.` Identifier
@@ -105,8 +123,7 @@ type IntMap<T> = Map<Int, T>
 ## Quantified Type
 
 QuantifiedType :
-  - GenericParameters QuantifiedType
-  - FunctionType
+  - GenericParameters Type
 
 Introduces fresh type variables into the current type scope. Most often used with {FunctionType} to create a polymorphic function. For example the identity function `<T>(T) -> T`. But in fact, fresh type variables can be introduced anywhere. Like before a type alias `<T> MyAlias<T>`. Note that these type variables are always of the value kind.
 
@@ -114,21 +131,4 @@ See [existentially quantified types](https://en.wikibooks.org/wiki/Haskell/Exist
 
 ```ite example
 type Identity = <T>(T) -> T
-```
-
-## Function Type
-
-FunctionType :
-  - `(` FunctionTypeParameterList? `)` `->` Type
-  - Identifier `->` Type
-  - PrimaryType
-
-FunctionTypeParameterList :
-  - Type `,`?
-  - Type `,` FunctionTypeParameterList
-
-Defines a value type for a function which takes some values as parameters and returns some value. Functions with named parameters will use record arguments.
-
-```ite example
-type AddInts = (Int, Int) -> Int
 ```

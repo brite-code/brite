@@ -104,7 +104,7 @@ describe('glyph', () => {
     expect(tokens).toEqual([
       {
         type: TokenType.Unexpected,
-        loc: new Loc(new Pos(1, 2), new Pos(1, 2)),
+        loc: new Loc(new Pos(1, 3), new Pos(1, 3)),
         unexpected: undefined,
         expected: '.',
       },
