@@ -1,6 +1,6 @@
 import {ReadonlyArray2} from '../Utils/ArrayN';
 
-import {RecordTypeProperty, Type, TypeType} from './Ast';
+import {Type, TypeType} from './Ast';
 import {ExpectedType, ParserError, UnexpectedTokenError} from './Error';
 import {Identifier} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, TokenType} from './Lexer';
@@ -102,6 +102,31 @@ class Parser {
       const end = this.lexer.next().loc;
       const loc = start.between(end);
       return createParenListType(loc, types);
+    }
+
+    // Parse `RecordType`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
+      const start = token.loc;
+      const properties = this.parseCommaList(() => {
+        const key = this.parseIdentifier();
+        if (key === undefined) return undefined;
+        const optional = this.tryParseGlyph(Glyph.Question);
+        this.parseGlyph(Glyph.Colon);
+        const value = this.parseType();
+        if (value === undefined) return undefined;
+        return {
+          key: {loc: key.loc, identifier: key.identifier},
+          value,
+          optional,
+        };
+      }, Glyph.BraceRight);
+      const end = this.lexer.next().loc;
+      const loc = start.between(end);
+      return {
+        type: TypeType.Record,
+        loc,
+        properties,
+      };
     }
 
     this.errors.push(UnexpectedTokenError(token, {type: ExpectedType.Type}));
@@ -219,6 +244,19 @@ class Parser {
     this.errors.push(
       UnexpectedTokenError(token, {type: ExpectedType.Glyph, glyph})
     );
+    return false;
+  }
+
+  /**
+   * Tries to parse a glyph. Returns true if we could parse it. Returns false if
+   * we could not.
+   */
+  tryParseGlyph(glyph: Glyph): boolean {
+    const token = this.lexer.peek();
+    if (token.type === TokenType.Glyph && token.glyph === glyph) {
+      this.lexer.next();
+      return true;
+    }
     return false;
   }
 

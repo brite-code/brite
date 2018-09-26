@@ -1,7 +1,7 @@
 import {TypeType} from './Ast';
 import {ExpectedType, UnexpectedTokenError} from './Error';
 import {Identifier} from './Identifier';
-import {Glyph, IdentifierToken, Lexer, TokenType} from './Lexer';
+import {Glyph, Lexer, TokenType} from './Lexer';
 import {Loc, Pos} from './Loc';
 import {parseCommaListTest, parseType} from './Parser';
 
@@ -49,7 +49,7 @@ describe('type', () => {
     });
   });
 
-  test('reference type', () => {
+  test('reference', () => {
     expect(parseType(lex('foo'))).toEqual({
       errors: [],
       type: {
@@ -60,7 +60,7 @@ describe('type', () => {
     });
   });
 
-  test('unit type', () => {
+  test('unit', () => {
     expect(parseType(lex('()'))).toEqual({
       errors: [],
       type: {
@@ -77,7 +77,7 @@ describe('type', () => {
     });
   });
 
-  test('unit type trailing comma', () => {
+  test('unit trailing comma', () => {
     expect(parseType(lex('(,)'))).toEqual({
       errors: [
         UnexpectedTokenError(
@@ -92,7 +92,7 @@ describe('type', () => {
     });
   });
 
-  test('wrapped type', () => {
+  test('wrapped', () => {
     expect(parseType(lex('(foo)'))).toEqual({
       errors: [],
       type: {
@@ -107,7 +107,7 @@ describe('type', () => {
     });
   });
 
-  test('wrapped type with trailing comma', () => {
+  test('wrapped with trailing comma', () => {
     expect(parseType(lex('(foo,)'))).toEqual({
       errors: [],
       type: {
@@ -122,7 +122,7 @@ describe('type', () => {
     });
   });
 
-  test('tuple type with 2 elements', () => {
+  test('tuple with 2 elements', () => {
     expect(parseType(lex('(foo, bar)'))).toEqual({
       errors: [],
       type: {
@@ -144,7 +144,7 @@ describe('type', () => {
     });
   });
 
-  test('tuple type with 3 elements', () => {
+  test('tuple with 3 elements', () => {
     expect(parseType(lex('(foo, bar, qux)'))).toEqual({
       errors: [],
       type: {
@@ -171,7 +171,7 @@ describe('type', () => {
     });
   });
 
-  test('tuple type with 4 elements', () => {
+  test('tuple with 4 elements', () => {
     expect(parseType(lex('(foo, bar, qux, lit)'))).toEqual({
       errors: [],
       type: {
@@ -197,6 +197,161 @@ describe('type', () => {
             type: TypeType.Reference,
             loc: new Loc(new Pos(1, 17), new Pos(1, 19)),
             identifier: 'lit' as Identifier,
+          },
+        ],
+      },
+    });
+  });
+
+  test('record with 0 properties', () => {
+    expect(parseType(lex('{}'))).toEqual({
+      errors: [],
+      type: {
+        type: TypeType.Record,
+        loc: new Loc(new Pos(1, 1), new Pos(1, 2)),
+        properties: [],
+      },
+    });
+  });
+
+  test('record with 1 property', () => {
+    expect(parseType(lex('{ foo: T }'))).toEqual({
+      errors: [],
+      type: {
+        type: TypeType.Record,
+        loc: new Loc(new Pos(1, 1), new Pos(1, 10)),
+        properties: [
+          {
+            key: {
+              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              identifier: 'foo' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 8),
+              identifier: 'T' as Identifier,
+            },
+            optional: false,
+          },
+        ],
+      },
+    });
+  });
+
+  test('record with 2 properties', () => {
+    expect(parseType(lex('{ foo: T, bar: U }'))).toEqual({
+      errors: [],
+      type: {
+        type: TypeType.Record,
+        loc: new Loc(new Pos(1, 1), new Pos(1, 18)),
+        properties: [
+          {
+            key: {
+              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              identifier: 'foo' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 8),
+              identifier: 'T' as Identifier,
+            },
+            optional: false,
+          },
+          {
+            key: {
+              loc: new Loc(new Pos(1, 11), new Pos(1, 13)),
+              identifier: 'bar' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 16),
+              identifier: 'U' as Identifier,
+            },
+            optional: false,
+          },
+        ],
+      },
+    });
+  });
+
+  test('record with 4 properties', () => {
+    expect(parseType(lex('{ foo: T, bar: U, qux: V, lit: W }'))).toEqual({
+      errors: [],
+      type: {
+        type: TypeType.Record,
+        loc: new Loc(new Pos(1, 1), new Pos(1, 34)),
+        properties: [
+          {
+            key: {
+              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              identifier: 'foo' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 8),
+              identifier: 'T' as Identifier,
+            },
+            optional: false,
+          },
+          {
+            key: {
+              loc: new Loc(new Pos(1, 11), new Pos(1, 13)),
+              identifier: 'bar' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 16),
+              identifier: 'U' as Identifier,
+            },
+            optional: false,
+          },
+          {
+            key: {
+              loc: new Loc(new Pos(1, 19), new Pos(1, 21)),
+              identifier: 'qux' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 24),
+              identifier: 'V' as Identifier,
+            },
+            optional: false,
+          },
+          {
+            key: {
+              loc: new Loc(new Pos(1, 27), new Pos(1, 29)),
+              identifier: 'lit' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 32),
+              identifier: 'W' as Identifier,
+            },
+            optional: false,
+          },
+        ],
+      },
+    });
+  });
+
+  test('record with optional property', () => {
+    expect(parseType(lex('{ foo?: T }'))).toEqual({
+      errors: [],
+      type: {
+        type: TypeType.Record,
+        loc: new Loc(new Pos(1, 1), new Pos(1, 11)),
+        properties: [
+          {
+            key: {
+              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              identifier: 'foo' as Identifier,
+            },
+            value: {
+              type: TypeType.Reference,
+              loc: Loc.pos(1, 9),
+              identifier: 'T' as Identifier,
+            },
+            optional: true,
           },
         ],
       },
