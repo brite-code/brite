@@ -230,31 +230,6 @@ describe('type', () => {
     });
   });
 
-  test('member without identifier', () => {
-    expect(parseType(lex('hello.'))).toEqual({
-      errors: [
-        UnexpectedTokenError(
-          {type: TokenType.End, loc: loc('7')},
-          ExpectedIdentifier
-        ),
-      ],
-      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
-    });
-    expect(parseType(lex('hello.%'))).toEqual({
-      errors: [
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
-          ExpectedIdentifier
-        ),
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
-          ExpectedEnd
-        ),
-      ],
-      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
-    });
-  });
-
   test('member twice', () => {
     expect(parseType(lex('foo.bar.qux'))).toEqual({
       errors: [],
@@ -286,6 +261,31 @@ describe('type', () => {
         ),
         Name(loc('13-15'), 'lit' as Identifier)
       ),
+    });
+  });
+
+  test('member without identifier', () => {
+    expect(parseType(lex('hello.'))).toEqual({
+      errors: [
+        UnexpectedTokenError(
+          {type: TokenType.End, loc: loc('7')},
+          ExpectedIdentifier
+        ),
+      ],
+      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
+    });
+    expect(parseType(lex('hello.%'))).toEqual({
+      errors: [
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
+          ExpectedIdentifier
+        ),
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
+          ExpectedEnd
+        ),
+      ],
+      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
     });
   });
 });
