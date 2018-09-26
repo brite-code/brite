@@ -1,6 +1,7 @@
 import {ReadonlyArray2} from '../Utils/ArrayN';
 
 import {
+  GenericType,
   MemberType,
   Name,
   RecordType,
@@ -109,9 +110,22 @@ class Parser {
           type,
           Name(identifier.loc, identifier.identifier)
         );
-      } else {
-        break;
+        continue;
       }
+
+      // Parse `GenericType`
+      if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
+        this.lexer.next();
+        const types = this.parseCommaList(
+          () => this.parseType(),
+          Glyph.GreaterThan
+        );
+        const end = this.lexer.next().loc;
+        type = GenericType(type.loc.between(end), type, types);
+        continue;
+      }
+
+      break;
     }
 
     return type;

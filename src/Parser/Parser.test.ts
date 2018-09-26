@@ -1,4 +1,5 @@
 import {
+  GenericType,
   MemberType,
   Name,
   RecordType,
@@ -286,6 +287,95 @@ describe('type', () => {
         ),
       ],
       type: ReferenceType(loc('1-5'), 'hello' as Identifier),
+    });
+  });
+
+  test('generic with 0 arguments', () => {
+    expect(parseType(lex('T<>'))).toEqual({
+      errors: [],
+      type: GenericType(
+        loc('1-3'),
+        ReferenceType(loc('1'), 'T' as Identifier),
+        []
+      ),
+    });
+  });
+
+  test('generic with 1 argument', () => {
+    expect(parseType(lex('T<A>'))).toEqual({
+      errors: [],
+      type: GenericType(
+        loc('1-4'),
+        ReferenceType(loc('1'), 'T' as Identifier),
+        [ReferenceType(loc('3'), 'A' as Identifier)]
+      ),
+    });
+  });
+
+  test('generic with 2 arguments', () => {
+    expect(parseType(lex('T<A, B>'))).toEqual({
+      errors: [],
+      type: GenericType(
+        loc('1-7'),
+        ReferenceType(loc('1'), 'T' as Identifier),
+        [
+          ReferenceType(loc('3'), 'A' as Identifier),
+          ReferenceType(loc('6'), 'B' as Identifier),
+        ]
+      ),
+    });
+  });
+
+  test('generic with 4 arguments', () => {
+    expect(parseType(lex('T<A, B, C, D>'))).toEqual({
+      errors: [],
+      type: GenericType(
+        loc('1-13'),
+        ReferenceType(loc('1'), 'T' as Identifier),
+        [
+          ReferenceType(loc('3'), 'A' as Identifier),
+          ReferenceType(loc('6'), 'B' as Identifier),
+          ReferenceType(loc('9'), 'C' as Identifier),
+          ReferenceType(loc('12'), 'D' as Identifier),
+        ]
+      ),
+    });
+  });
+
+  test('generic after member', () => {
+    expect(parseType(lex('React.Component<Props>'))).toEqual({
+      errors: [],
+      type: GenericType(
+        loc('1-22'),
+        MemberType(
+          loc('1-15'),
+          ReferenceType(loc('1-5'), 'React' as Identifier),
+          Name(loc('7-15'), 'Component' as Identifier)
+        ),
+        [ReferenceType(loc('17-21'), 'Props' as Identifier)]
+      ),
+    });
+  });
+
+  test('member after generic', () => {
+    expect(parseType(lex('A<>.B'))).toEqual({
+      errors: [],
+      type: MemberType(
+        loc('1-5'),
+        GenericType(loc('1-3'), ReferenceType(loc('1'), 'A' as Identifier), []),
+        Name(loc('5'), 'B' as Identifier)
+      ),
+    });
+  });
+
+  test('generic after generic', () => {
+    expect(parseType(lex('A<><>'))).toEqual({
+      errors: [],
+      type: GenericType(
+        loc('1-5'),
+        GenericType(loc('1-3'), ReferenceType(loc('1'), 'A' as Identifier), []),
+        []
+      ),
     });
   });
 });
