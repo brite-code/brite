@@ -1,6 +1,6 @@
 import {Identifier, Keyword} from './Identifier';
 import {Glyph, Lexer, TokenType} from './Lexer';
-import {Loc, Pos} from './Loc';
+import {Loc, Pos, loc} from './Loc';
 
 describe('glyph', () => {
   [
@@ -51,12 +51,12 @@ describe('glyph', () => {
     expect(tokens).toEqual([
       {
         type: TokenType.Glyph,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 2)),
+        loc: loc('1-2'),
         glyph: Glyph.AmpersandDouble,
       },
       {
         type: TokenType.Glyph,
-        loc: new Loc(new Pos(1, 3), new Pos(1, 3)),
+        loc: loc('3-3'),
         glyph: Glyph.Ampersand,
       },
     ]);
@@ -67,17 +67,17 @@ describe('glyph', () => {
     expect(tokens).toEqual([
       {
         type: TokenType.Glyph,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 1)),
+        loc: loc('1-1'),
         glyph: Glyph.Ampersand,
       },
       {
         type: TokenType.Glyph,
-        loc: new Loc(new Pos(1, 3), new Pos(1, 3)),
+        loc: loc('3-3'),
         glyph: Glyph.Ampersand,
       },
       {
         type: TokenType.Glyph,
-        loc: new Loc(new Pos(1, 5), new Pos(1, 5)),
+        loc: loc('5-5'),
         glyph: Glyph.Ampersand,
       },
     ]);
@@ -88,12 +88,12 @@ describe('glyph', () => {
     expect(tokens).toEqual([
       {
         type: TokenType.Glyph,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 1)),
+        loc: loc('1-1'),
         glyph: Glyph.Ampersand,
       },
       {
         type: TokenType.Glyph,
-        loc: new Loc(new Pos(1, 2), new Pos(1, 2)),
+        loc: loc('2-2'),
         glyph: Glyph.Exclamation,
       },
     ]);
@@ -104,7 +104,7 @@ describe('glyph', () => {
     expect(tokens).toEqual([
       {
         type: TokenType.Unexpected,
-        loc: new Loc(new Pos(1, 3), new Pos(1, 3)),
+        loc: loc('3-3'),
         unexpected: undefined,
         expected: '.',
       },
@@ -116,7 +116,7 @@ describe('glyph', () => {
     expect(tokens).toEqual([
       {
         type: TokenType.Unexpected,
-        loc: new Loc(new Pos(1, 3), new Pos(1, 3)),
+        loc: loc('3-3'),
         unexpected: '!',
         expected: '.',
       },

@@ -69,11 +69,60 @@ export class Pos {
 }
 
 /**
+ * Parses a location from a string. Throws an error if the syntax is invalid.
+ */
+export function loc(source: string): Loc {
+  const loc = Loc.parse(source);
+  if (loc === undefined) {
+    throw new Error(`Invalid location syntax: "${source}"`);
+  }
+  return loc;
+}
+
+/**
  * A location range in source code. Spans across many lines and columns to
  * highlight a particular range. Represented with a starting position and an
  * ending position.
  */
 export class Loc {
+  /**
+   * Parse a `Loc` from a string.
+   */
+  static parse(source: string): Loc | undefined {
+    const [a, b = ''] = source.split('-', 2);
+    const [a1, a2 = ''] = a.split(':', 2);
+    const startLine = parseInt(a1, 10);
+    if (isNaN(startLine)) return undefined;
+    let start;
+    if (a2 === '') {
+      start = new Pos(1, startLine);
+    } else {
+      const startColumn = parseInt(a2, 10);
+      if (isNaN(startColumn)) return undefined;
+      start = new Pos(startLine, startColumn);
+    }
+    if (b === '') {
+      return new Loc(start, start);
+    } else {
+      const [b1, b2 = ''] = b.split(':', 2);
+      const endLine = parseInt(b1, 10);
+      if (isNaN(endLine)) return undefined;
+      let end;
+      if (b2 === '') {
+        end = new Pos(1, endLine);
+      } else {
+        const endColumn = parseInt(b2, 10);
+        if (isNaN(endColumn)) return undefined;
+        end = new Pos(endLine, endColumn);
+      }
+      if (start.compare(end) !== 1) {
+        return new Loc(start, end);
+      } else {
+        return undefined;
+      }
+    }
+  }
+
   /**
    * Creates a location just for this position.
    */

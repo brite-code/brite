@@ -2,7 +2,7 @@ import {TypeType} from './Ast';
 import {ExpectedType, UnexpectedTokenError} from './Error';
 import {Identifier} from './Identifier';
 import {Glyph, Lexer, TokenType} from './Lexer';
-import {Loc, Pos} from './Loc';
+import {loc} from './Loc';
 import {parseCommaListTest, parseType} from './Parser';
 
 function lex(source: string): Lexer {
@@ -11,11 +11,10 @@ function lex(source: string): Lexer {
 
 describe('type', () => {
   test('empty string', () => {
-    const loc = new Loc(new Pos(1, 1), new Pos(1, 1));
     expect(parseType(lex(''))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.End, loc},
+          {type: TokenType.End, loc: loc('1-1')},
           {type: ExpectedType.Type}
         ),
       ],
@@ -24,11 +23,10 @@ describe('type', () => {
   });
 
   test('invalid string', () => {
-    const loc = new Loc(new Pos(1, 1), new Pos(1, 3));
     expect(parseType(lex('...'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc, glyph: Glyph.Ellipsis},
+          {type: TokenType.Glyph, loc: loc('1-3'), glyph: Glyph.Ellipsis},
           {type: ExpectedType.Type}
         ),
       ],
@@ -37,11 +35,14 @@ describe('type', () => {
   });
 
   test('binding keyword', () => {
-    const loc = new Loc(new Pos(1, 1), new Pos(1, 2));
     expect(parseType(lex('if'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Identifier, loc, identifier: 'if' as Identifier},
+          {
+            type: TokenType.Identifier,
+            loc: loc('1-2'),
+            identifier: 'if' as Identifier,
+          },
           {type: ExpectedType.Type}
         ),
       ],
@@ -54,7 +55,7 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Reference,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 3)),
+        loc: loc('1-3'),
         identifier: 'foo' as Identifier,
       },
     });
@@ -65,14 +66,14 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Unit,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 2)),
+        loc: loc('1-2'),
       },
     });
     expect(parseType(lex('( )'))).toEqual({
       errors: [],
       type: {
         type: TypeType.Unit,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 3)),
+        loc: loc('1-3'),
       },
     });
   });
@@ -81,13 +82,13 @@ describe('type', () => {
     expect(parseType(lex('(,)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 2), glyph: Glyph.Comma},
+          {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Comma},
           {type: ExpectedType.Type}
         ),
       ],
       type: {
         type: TypeType.Unit,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 3)),
+        loc: loc('1-3'),
       },
     });
   });
@@ -97,10 +98,10 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Wrapped,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 5)),
+        loc: loc('1-5'),
         wrapped: {
           type: TypeType.Reference,
-          loc: new Loc(new Pos(1, 2), new Pos(1, 4)),
+          loc: loc('2-4'),
           identifier: 'foo' as Identifier,
         },
       },
@@ -112,10 +113,10 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Wrapped,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 6)),
+        loc: loc('1-6'),
         wrapped: {
           type: TypeType.Reference,
-          loc: new Loc(new Pos(1, 2), new Pos(1, 4)),
+          loc: loc('2-4'),
           identifier: 'foo' as Identifier,
         },
       },
@@ -127,16 +128,16 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Tuple,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 10)),
+        loc: loc('1-10'),
         elements: [
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 2), new Pos(1, 4)),
+            loc: loc('2-4'),
             identifier: 'foo' as Identifier,
           },
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 7), new Pos(1, 9)),
+            loc: loc('7-9'),
             identifier: 'bar' as Identifier,
           },
         ],
@@ -149,21 +150,21 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Tuple,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 15)),
+        loc: loc('1-15'),
         elements: [
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 2), new Pos(1, 4)),
+            loc: loc('2-4'),
             identifier: 'foo' as Identifier,
           },
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 7), new Pos(1, 9)),
+            loc: loc('7-9'),
             identifier: 'bar' as Identifier,
           },
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 12), new Pos(1, 14)),
+            loc: loc('12-14'),
             identifier: 'qux' as Identifier,
           },
         ],
@@ -176,26 +177,26 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Tuple,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 20)),
+        loc: loc('1-20'),
         elements: [
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 2), new Pos(1, 4)),
+            loc: loc('2-4'),
             identifier: 'foo' as Identifier,
           },
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 7), new Pos(1, 9)),
+            loc: loc('7-9'),
             identifier: 'bar' as Identifier,
           },
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 12), new Pos(1, 14)),
+            loc: loc('12-14'),
             identifier: 'qux' as Identifier,
           },
           {
             type: TypeType.Reference,
-            loc: new Loc(new Pos(1, 17), new Pos(1, 19)),
+            loc: loc('17-19'),
             identifier: 'lit' as Identifier,
           },
         ],
@@ -208,7 +209,7 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Record,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 2)),
+        loc: loc('1-2'),
         properties: [],
       },
     });
@@ -219,16 +220,16 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Record,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 10)),
+        loc: loc('1-10'),
         properties: [
           {
             key: {
-              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              loc: loc('3-5'),
               identifier: 'foo' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 8),
+              loc: loc('8'),
               identifier: 'T' as Identifier,
             },
             optional: false,
@@ -243,28 +244,28 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Record,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 18)),
+        loc: loc('1-18'),
         properties: [
           {
             key: {
-              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              loc: loc('3-5'),
               identifier: 'foo' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 8),
+              loc: loc('8'),
               identifier: 'T' as Identifier,
             },
             optional: false,
           },
           {
             key: {
-              loc: new Loc(new Pos(1, 11), new Pos(1, 13)),
+              loc: loc('11-13'),
               identifier: 'bar' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 16),
+              loc: loc('16'),
               identifier: 'U' as Identifier,
             },
             optional: false,
@@ -279,52 +280,52 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Record,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 34)),
+        loc: loc('1-34'),
         properties: [
           {
             key: {
-              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              loc: loc('3-5'),
               identifier: 'foo' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 8),
+              loc: loc('8'),
               identifier: 'T' as Identifier,
             },
             optional: false,
           },
           {
             key: {
-              loc: new Loc(new Pos(1, 11), new Pos(1, 13)),
+              loc: loc('11-13'),
               identifier: 'bar' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 16),
+              loc: loc('16'),
               identifier: 'U' as Identifier,
             },
             optional: false,
           },
           {
             key: {
-              loc: new Loc(new Pos(1, 19), new Pos(1, 21)),
+              loc: loc('19-21'),
               identifier: 'qux' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 24),
+              loc: loc('24'),
               identifier: 'V' as Identifier,
             },
             optional: false,
           },
           {
             key: {
-              loc: new Loc(new Pos(1, 27), new Pos(1, 29)),
+              loc: loc('27-29'),
               identifier: 'lit' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 32),
+              loc: loc('32'),
               identifier: 'W' as Identifier,
             },
             optional: false,
@@ -339,16 +340,16 @@ describe('type', () => {
       errors: [],
       type: {
         type: TypeType.Record,
-        loc: new Loc(new Pos(1, 1), new Pos(1, 11)),
+        loc: loc('1-11'),
         properties: [
           {
             key: {
-              loc: new Loc(new Pos(1, 3), new Pos(1, 5)),
+              loc: loc('3-5'),
               identifier: 'foo' as Identifier,
             },
             value: {
               type: TypeType.Reference,
-              loc: Loc.pos(1, 9),
+              loc: loc('9'),
               identifier: 'T' as Identifier,
             },
             optional: true,
@@ -392,7 +393,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(,)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 2), glyph: Glyph.Comma},
+          {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Comma},
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -425,7 +426,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(%)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 2), glyph: Glyph.Percent},
+          {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Percent},
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -434,7 +435,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('( % )'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 3), glyph: Glyph.Percent},
+          {type: TokenType.Glyph, loc: loc('3'), glyph: Glyph.Percent},
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -448,7 +449,7 @@ describe('comma list', () => {
         UnexpectedTokenError(
           {
             type: TokenType.Identifier,
-            loc: new Loc(new Pos(1, 6), new Pos(1, 8)),
+            loc: loc('6-8'),
             identifier: 'bar' as Identifier,
           },
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
@@ -464,7 +465,7 @@ describe('comma list', () => {
         UnexpectedTokenError(
           {
             type: TokenType.Identifier,
-            loc: new Loc(new Pos(1, 11), new Pos(1, 13)),
+            loc: loc('11-13'),
             identifier: 'qux' as Identifier,
           },
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
@@ -480,7 +481,7 @@ describe('comma list', () => {
         UnexpectedTokenError(
           {
             type: TokenType.Identifier,
-            loc: new Loc(new Pos(1, 6), new Pos(1, 8)),
+            loc: loc('6-8'),
             identifier: 'bar' as Identifier,
           },
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
@@ -488,7 +489,7 @@ describe('comma list', () => {
         UnexpectedTokenError(
           {
             type: TokenType.Identifier,
-            loc: new Loc(new Pos(1, 10), new Pos(1, 12)),
+            loc: loc('10-12'),
             identifier: 'qux' as Identifier,
           },
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
@@ -502,7 +503,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo,, bar)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 6), glyph: Glyph.Comma},
+          {type: TokenType.Glyph, loc: loc('6'), glyph: Glyph.Comma},
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -514,11 +515,19 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo; bar)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 5), glyph: Glyph.Semicolon},
+          {
+            type: TokenType.Glyph,
+            loc: loc('5'),
+            glyph: Glyph.Semicolon,
+          },
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
         ),
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 5), glyph: Glyph.Semicolon},
+          {
+            type: TokenType.Glyph,
+            loc: loc('5'),
+            glyph: Glyph.Semicolon,
+          },
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -530,15 +539,27 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo;; bar)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 5), glyph: Glyph.Semicolon},
+          {
+            type: TokenType.Glyph,
+            loc: loc('5'),
+            glyph: Glyph.Semicolon,
+          },
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
         ),
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 5), glyph: Glyph.Semicolon},
+          {
+            type: TokenType.Glyph,
+            loc: loc('5'),
+            glyph: Glyph.Semicolon,
+          },
           {type: ExpectedType.Identifier}
         ),
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 6), glyph: Glyph.Semicolon},
+          {
+            type: TokenType.Glyph,
+            loc: loc('6'),
+            glyph: Glyph.Semicolon,
+          },
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -550,11 +571,19 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo, bar;)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 10), glyph: Glyph.Semicolon},
+          {
+            type: TokenType.Glyph,
+            loc: loc('10'),
+            glyph: Glyph.Semicolon,
+          },
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
         ),
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: Loc.pos(1, 10), glyph: Glyph.Semicolon},
+          {
+            type: TokenType.Glyph,
+            loc: loc('10'),
+            glyph: Glyph.Semicolon,
+          },
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -566,7 +595,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('('))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.End, loc: Loc.pos(1, 2)},
+          {type: TokenType.End, loc: loc('2')},
           {type: ExpectedType.Identifier}
         ),
       ],
@@ -578,11 +607,11 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.End, loc: Loc.pos(1, 5)},
+          {type: TokenType.End, loc: loc('5')},
           {type: ExpectedType.Glyph, glyph: Glyph.Comma}
         ),
         UnexpectedTokenError(
-          {type: TokenType.End, loc: Loc.pos(1, 5)},
+          {type: TokenType.End, loc: loc('5')},
           {type: ExpectedType.Identifier}
         ),
       ],
