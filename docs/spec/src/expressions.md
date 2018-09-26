@@ -3,6 +3,7 @@
 Expression :
   - FunctionExpression
   - ConditionalExpression
+  - MatchExpression
   - ControlExpression
   - LoopExpression
   - LogicalExpressionOr
@@ -69,7 +70,7 @@ An object is an anonymous collection of some labeled values. Unlike classes whic
 
 {ObjectExpressionExtension} allows for existing properties in a object to be updated with some new values. In JavaScript the spread operator (`{...x, ...y}`) allows many immutable objects to be “merged” at once. However, this operation cannot be easily undone in {Pattern} or in type inference. So Brite restricts extension to only one object at a time.
 
-Class fields may also be updated with the object extension syntax.
+Class fields may **not** be updated with the object extension syntax.
 
 Note: Currently only {ObjectExpression} supports extension syntax (`{ x | y = z }`), however {Pattern} and {Type} may also make use of object extension as well to add or remove properties. See [“Extensible records with scoped labels”](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf) for what a complete implementation of a object extension feature might look like. We don’t yet see a need for the feature in its entirety, but it might be worth adding later so we make sure to only implement a subset of the full feature.
 
@@ -83,33 +84,19 @@ ListExpressionItemList :
 
 ## Match Expression
 
-MatchExpression : `match` Expression `{` MatchCaseList `}`
+MatchExpression : `match` Expression `with` `(` MatchCaseList `)`
 
 MatchCaseList :
   - MatchCase LineSeparator?
   - MatchCase LineSeparator MatchCaseList
 
-MatchCase : Pattern MatchCaseCondition? `->` MatchCaseBody
+MatchCase : MatchCasePatternList MatchCaseCondition? `->` Expression
+
+MatchCasePatternList :
+  - Pattern
+  - MatchCasePatternList `|` Pattern
 
 MatchCaseCondition : `if` Expression
-
-MatchCaseBody :
-  - Expression
-  - ControlStatement
-
-Note: {MatchExpression} cases are surrounded by curly brackets (`{}`) instead of parentheses (`()`). This is aesthetically different from other Brite “blocks.” It makes sense here because our case list is categorically different from what normally goes between parentheses—statements or expressions. This has the side-effect of making parsing {MatchExpression} easier.
-
-TODO: Match classes?
-
-## Match Condition Expression
-
-MatchConditionExpression : OperandExpression [lookahead != LineTerminator] `match` Pattern
-
-This feature enables programmers to easily use pattern matching on their data structure at the expression level. Adding a whole new convenient avenue for refining human data into computer types.
-
-Note: Any {BindingPattern} in the {Pattern} will only be bound for code reachable if the {MatchConditionExpression} evaluated to true. If there are two {MatchConditionExpression} in a {LogicalExpressionOr} and they have the same {BindingPattern}s then they must have the same type.
-
-Note: We force the expression and `match` to be on the same line to avoid syntactic ambiguity.
 
 ## Block Expression
 

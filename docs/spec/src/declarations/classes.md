@@ -55,6 +55,8 @@ The optional {FunctionParameters[Constructor]} specifies some value parameters w
 
 Fields bound in {FunctionParameters[Constructor]} have mutability and {Access} modifiers (because of the constructor tag). Mutable fields can be changed over the course of the program’s execution. {Access} determines where the field may be accessed.
 
+The class constructor as a whole has the minimum {Access} level of all the bindings in {FunctionParameters}. A class may be constructed or destructed in scopes where the class constructor is available. Unbound data ignored with {BindingPatternHole} is considered private.
+
 The optional {ClassExtends} clause declares a superclass for this class. The programmer may only extend a type if it is:
 
 1. A base class.

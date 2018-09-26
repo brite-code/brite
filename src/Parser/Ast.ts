@@ -238,8 +238,8 @@ export interface ForLoopStatement {
 }
 
 export type Expression =
-  | HoleExpression
   | ReferenceExpression
+  | HoleExpression
   | UnitExpression
   | TupleExpression
   | ObjectExpression
@@ -248,6 +248,7 @@ export type Expression =
   | CallExpression
   | FunctionExpression
   | ConditionalExpression
+  | MatchExpression
   | ReturnExpression
   | BreakExpression
   | ContinueExpression
@@ -258,10 +259,9 @@ export type Expression =
   | BlockExpression
   | WrappedExpression;
 
-// TODO: Match expressions
 export const enum ExpressionType {
-  Hole,
   Reference,
+  Hole,
   Unit,
   Tuple,
   Object,
@@ -270,6 +270,7 @@ export const enum ExpressionType {
   Call,
   Function,
   Conditional,
+  Match,
   Return,
   Break,
   Continue,
@@ -281,13 +282,13 @@ export const enum ExpressionType {
   Wrapped,
 }
 
-export interface HoleExpression extends Node {
-  readonly type: ExpressionType.Hole;
-}
-
 export interface ReferenceExpression extends Node {
   readonly type: ExpressionType.Reference;
   readonly identifier: Identifier;
+}
+
+export interface HoleExpression extends Node {
+  readonly type: ExpressionType.Hole;
 }
 
 export interface UnitExpression extends Node {
@@ -340,6 +341,18 @@ export interface ConditionalExpression extends Node {
   readonly consequent: Expression;
   readonly alternate: Expression;
 }
+
+export interface MatchExpression extends Node {
+  readonly type: ExpressionType.Match;
+  readonly test: Expression;
+  readonly cases: ReadonlyArray<MatchCase>;
+}
+
+export type MatchCase = {
+  readonly binding: List1<Pattern>;
+  readonly test: Expression | undefined;
+  readonly body: Expression;
+};
 
 export interface ReturnExpression extends Node {
   readonly type: ExpressionType.Return;

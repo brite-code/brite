@@ -16,6 +16,7 @@ BindingKeyword :
   - `then`
   - `else`
   - `match`
+  - `with`
   - `return`
   - `loop`
   - `while`

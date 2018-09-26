@@ -5,6 +5,10 @@ TODO: Module imports
 
 TODO: Type inference
 
+TODO: Comments
+
+TODO: Annotations
+
 [Declarations](declarations/index.md)
 
 [Types](types.md)

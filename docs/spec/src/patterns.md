@@ -6,6 +6,8 @@ Pattern[Constructor] :
   - TuplePattern
   - ObjectPattern
   - ListPattern
+  - MemberPattern
+  - CallPattern
   - WrappedPattern
 
 WrappedPattern : `(` Pattern TypeAnnotation? `)`
@@ -20,6 +22,10 @@ BindingPattern :
   - [+Constructor] Access? `mutable`? Identifier
 
 BindingPatternHole : `_`
+
+Binds a value to a name in the current scope.
+
+If the name resolves to a class constructor with no arguments in the current scope then instead we test whether or not the value being matched is an instance of that class.
 
 Note: Enabling the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
 
@@ -56,8 +62,6 @@ ObjectPatternPropertyWithoutModifiers :
 
 ObjectPatternPropertyInitializer: `=` Pattern
 
-Note: An empty {ObjectPattern} (syntax: `{}`) is the same as a {UnitPattern} (syntax: `()`).
-
 Note: In {ObjectPatternProperty} adding the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation simplicity in constructors.
 
 ## List Pattern
@@ -73,6 +77,42 @@ Takes a list and extracts items from each index listed. The pattern fails if the
 Useful for turning list data into structured data since all user data must start as a list before being turned into a more structured form like a tuple or object.
 
 Note: Functional lanuages typically add first-class syntax for “cons” and “uncons” operations on lists (`:` operator in Haskell). This is efficient since you operate on linked-lists. However, the default Brite list type is not a linked list. “cons”/“concat” is guaranteed to be fast which is why we have spread syntax in {ListExpression}, but “uncons” is not guaranteed to be fast which is why we don’t have spread syntax in {ListPattern}.
+
+## Member Pattern
+
+MemberPattern :
+  - Identifier `.` Identifier
+  - MemberPattern `.` Identifier
+
+A {MemberPattern} resolves to a class constructor with no arguments in the current scope and matches values which are an instance of that class.
+
+```ite example
+match color with (
+  Color.Red -> "#FF0000"
+  Color.Green -> "#00FF00"
+  Color.Blue -> "#0000FF"
+)
+```
+
+## Call Pattern
+
+CallPattern : CallPatternCallee CallPatternArguments
+
+CallPatternCallee :
+  - Identifier
+  - CallPatternCallee `.` Identifier
+
+CallPatternArguments : [lookahead != LineTerminator] `(` CallPatternArgumentList? `)`
+
+CallPatternArgumentList :
+  - Pattern `,`?
+  - Pattern `,` CallPatternArgumentList
+
+Matches a value against some accessible constructor and its data.
+
+```ite example
+Foo(n) = Foo(42)
+```
 
 ## Pattern Expression Symmetry
 
