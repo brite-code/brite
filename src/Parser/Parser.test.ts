@@ -1,4 +1,12 @@
-import {TypeType} from './Ast';
+import {
+  Name,
+  RecordType,
+  RecordTypeProperty,
+  ReferenceType,
+  TupleType,
+  UnitType,
+  WrappedType,
+} from './Ast';
 import {ExpectedType, UnexpectedTokenError} from './Error';
 import {Identifier} from './Identifier';
 import {Glyph, Lexer, TokenType} from './Lexer';
@@ -53,28 +61,18 @@ describe('type', () => {
   test('reference', () => {
     expect(parseType(lex('foo'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Reference,
-        loc: loc('1-3'),
-        identifier: 'foo' as Identifier,
-      },
+      type: ReferenceType(loc('1-3'), 'foo' as Identifier),
     });
   });
 
   test('unit', () => {
     expect(parseType(lex('()'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Unit,
-        loc: loc('1-2'),
-      },
+      type: UnitType(loc('1-2')),
     });
     expect(parseType(lex('( )'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Unit,
-        loc: loc('1-3'),
-      },
+      type: UnitType(loc('1-3')),
     });
   });
 
@@ -86,276 +84,131 @@ describe('type', () => {
           {type: ExpectedType.Type}
         ),
       ],
-      type: {
-        type: TypeType.Unit,
-        loc: loc('1-3'),
-      },
+      type: UnitType(loc('1-3')),
     });
   });
 
   test('wrapped', () => {
     expect(parseType(lex('(foo)'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Wrapped,
-        loc: loc('1-5'),
-        wrapped: {
-          type: TypeType.Reference,
-          loc: loc('2-4'),
-          identifier: 'foo' as Identifier,
-        },
-      },
+      type: WrappedType(
+        loc('1-5'),
+        ReferenceType(loc('2-4'), 'foo' as Identifier)
+      ),
     });
   });
 
   test('wrapped with trailing comma', () => {
     expect(parseType(lex('(foo,)'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Wrapped,
-        loc: loc('1-6'),
-        wrapped: {
-          type: TypeType.Reference,
-          loc: loc('2-4'),
-          identifier: 'foo' as Identifier,
-        },
-      },
+      type: WrappedType(
+        loc('1-6'),
+        ReferenceType(loc('2-4'), 'foo' as Identifier)
+      ),
     });
   });
 
   test('tuple with 2 elements', () => {
     expect(parseType(lex('(foo, bar)'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Tuple,
-        loc: loc('1-10'),
-        elements: [
-          {
-            type: TypeType.Reference,
-            loc: loc('2-4'),
-            identifier: 'foo' as Identifier,
-          },
-          {
-            type: TypeType.Reference,
-            loc: loc('7-9'),
-            identifier: 'bar' as Identifier,
-          },
-        ],
-      },
+      type: TupleType(loc('1-10'), [
+        ReferenceType(loc('2-4'), 'foo' as Identifier),
+        ReferenceType(loc('7-9'), 'bar' as Identifier),
+      ]),
     });
   });
 
   test('tuple with 3 elements', () => {
     expect(parseType(lex('(foo, bar, qux)'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Tuple,
-        loc: loc('1-15'),
-        elements: [
-          {
-            type: TypeType.Reference,
-            loc: loc('2-4'),
-            identifier: 'foo' as Identifier,
-          },
-          {
-            type: TypeType.Reference,
-            loc: loc('7-9'),
-            identifier: 'bar' as Identifier,
-          },
-          {
-            type: TypeType.Reference,
-            loc: loc('12-14'),
-            identifier: 'qux' as Identifier,
-          },
-        ],
-      },
+      type: TupleType(loc('1-15'), [
+        ReferenceType(loc('2-4'), 'foo' as Identifier),
+        ReferenceType(loc('7-9'), 'bar' as Identifier),
+        ReferenceType(loc('12-14'), 'qux' as Identifier),
+      ]),
     });
   });
 
   test('tuple with 4 elements', () => {
     expect(parseType(lex('(foo, bar, qux, lit)'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Tuple,
-        loc: loc('1-20'),
-        elements: [
-          {
-            type: TypeType.Reference,
-            loc: loc('2-4'),
-            identifier: 'foo' as Identifier,
-          },
-          {
-            type: TypeType.Reference,
-            loc: loc('7-9'),
-            identifier: 'bar' as Identifier,
-          },
-          {
-            type: TypeType.Reference,
-            loc: loc('12-14'),
-            identifier: 'qux' as Identifier,
-          },
-          {
-            type: TypeType.Reference,
-            loc: loc('17-19'),
-            identifier: 'lit' as Identifier,
-          },
-        ],
-      },
+      type: TupleType(loc('1-20'), [
+        ReferenceType(loc('2-4'), 'foo' as Identifier),
+        ReferenceType(loc('7-9'), 'bar' as Identifier),
+        ReferenceType(loc('12-14'), 'qux' as Identifier),
+        ReferenceType(loc('17-19'), 'lit' as Identifier),
+      ]),
     });
   });
 
   test('record with 0 properties', () => {
     expect(parseType(lex('{}'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Record,
-        loc: loc('1-2'),
-        properties: [],
-      },
+      type: RecordType(loc('1-2'), []),
     });
   });
 
   test('record with 1 property', () => {
     expect(parseType(lex('{ foo: T }'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Record,
-        loc: loc('1-10'),
-        properties: [
-          {
-            key: {
-              loc: loc('3-5'),
-              identifier: 'foo' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('8'),
-              identifier: 'T' as Identifier,
-            },
-            optional: false,
-          },
-        ],
-      },
+      type: RecordType(loc('1-10'), [
+        RecordTypeProperty(
+          Name(loc('3-5'), 'foo' as Identifier),
+          ReferenceType(loc('8'), 'T' as Identifier)
+        ),
+      ]),
     });
   });
 
   test('record with 2 properties', () => {
     expect(parseType(lex('{ foo: T, bar: U }'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Record,
-        loc: loc('1-18'),
-        properties: [
-          {
-            key: {
-              loc: loc('3-5'),
-              identifier: 'foo' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('8'),
-              identifier: 'T' as Identifier,
-            },
-            optional: false,
-          },
-          {
-            key: {
-              loc: loc('11-13'),
-              identifier: 'bar' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('16'),
-              identifier: 'U' as Identifier,
-            },
-            optional: false,
-          },
-        ],
-      },
+      type: RecordType(loc('1-18'), [
+        RecordTypeProperty(
+          Name(loc('3-5'), 'foo' as Identifier),
+          ReferenceType(loc('8'), 'T' as Identifier)
+        ),
+        RecordTypeProperty(
+          Name(loc('11-13'), 'bar' as Identifier),
+          ReferenceType(loc('16'), 'U' as Identifier)
+        ),
+      ]),
     });
   });
 
   test('record with 4 properties', () => {
     expect(parseType(lex('{ foo: T, bar: U, qux: V, lit: W }'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Record,
-        loc: loc('1-34'),
-        properties: [
-          {
-            key: {
-              loc: loc('3-5'),
-              identifier: 'foo' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('8'),
-              identifier: 'T' as Identifier,
-            },
-            optional: false,
-          },
-          {
-            key: {
-              loc: loc('11-13'),
-              identifier: 'bar' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('16'),
-              identifier: 'U' as Identifier,
-            },
-            optional: false,
-          },
-          {
-            key: {
-              loc: loc('19-21'),
-              identifier: 'qux' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('24'),
-              identifier: 'V' as Identifier,
-            },
-            optional: false,
-          },
-          {
-            key: {
-              loc: loc('27-29'),
-              identifier: 'lit' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('32'),
-              identifier: 'W' as Identifier,
-            },
-            optional: false,
-          },
-        ],
-      },
+      type: RecordType(loc('1-34'), [
+        RecordTypeProperty(
+          Name(loc('3-5'), 'foo' as Identifier),
+          ReferenceType(loc('8'), 'T' as Identifier)
+        ),
+        RecordTypeProperty(
+          Name(loc('11-13'), 'bar' as Identifier),
+          ReferenceType(loc('16'), 'U' as Identifier)
+        ),
+        RecordTypeProperty(
+          Name(loc('19-21'), 'qux' as Identifier),
+          ReferenceType(loc('24'), 'V' as Identifier)
+        ),
+        RecordTypeProperty(
+          Name(loc('27-29'), 'lit' as Identifier),
+          ReferenceType(loc('32'), 'W' as Identifier)
+        ),
+      ]),
     });
   });
 
   test('record with optional property', () => {
     expect(parseType(lex('{ foo?: T }'))).toEqual({
       errors: [],
-      type: {
-        type: TypeType.Record,
-        loc: loc('1-11'),
-        properties: [
-          {
-            key: {
-              loc: loc('3-5'),
-              identifier: 'foo' as Identifier,
-            },
-            value: {
-              type: TypeType.Reference,
-              loc: loc('9'),
-              identifier: 'T' as Identifier,
-            },
-            optional: true,
-          },
-        ],
-      },
+      type: RecordType(loc('1-11'), [
+        RecordTypeProperty.optional(
+          Name(loc('3-5'), 'foo' as Identifier),
+          ReferenceType(loc('9'), 'T' as Identifier)
+        ),
+      ]),
     });
   });
 });

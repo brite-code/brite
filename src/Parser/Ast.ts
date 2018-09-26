@@ -22,6 +22,10 @@ export type Name = {
   readonly identifier: Identifier;
 };
 
+export function Name(loc: Loc, identifier: Identifier): Name {
+  return {loc, identifier};
+}
+
 export type Declaration =
   | TypeDeclaration
   | FunctionDeclaration
@@ -128,8 +132,16 @@ export interface ReferenceType extends Node {
   readonly identifier: Identifier;
 }
 
+export function ReferenceType(loc: Loc, identifier: Identifier): ReferenceType {
+  return {type: TypeType.Reference, loc, identifier};
+}
+
 export interface UnitType extends Node {
   readonly type: TypeType.Unit;
+}
+
+export function UnitType(loc: Loc): UnitType {
+  return {type: TypeType.Unit, loc};
 }
 
 export interface TupleType extends Node {
@@ -137,9 +149,20 @@ export interface TupleType extends Node {
   readonly elements: ReadonlyArray2<Type>;
 }
 
+export function TupleType(loc: Loc, elements: ReadonlyArray2<Type>): TupleType {
+  return {type: TypeType.Tuple, loc, elements};
+}
+
 export interface RecordType extends Node {
   readonly type: TypeType.Record;
   readonly properties: ReadonlyArray<RecordTypeProperty>;
+}
+
+export function RecordType(
+  loc: Loc,
+  properties: ReadonlyArray<RecordTypeProperty>
+): RecordType {
+  return {type: TypeType.Record, loc, properties};
 }
 
 export type RecordTypeProperty = {
@@ -148,10 +171,28 @@ export type RecordTypeProperty = {
   readonly optional: boolean;
 };
 
+export function RecordTypeProperty(key: Name, value: Type): RecordTypeProperty {
+  return {key, value, optional: false};
+}
+
+export namespace RecordTypeProperty {
+  export function optional(key: Name, value: Type): RecordTypeProperty {
+    return {key, value, optional: true};
+  }
+}
+
 export interface FunctionType extends Node {
   readonly type: TypeType.Function;
   readonly parameters: ReadonlyArray<Type>;
   readonly body: Type;
+}
+
+export function FunctionType(
+  loc: Loc,
+  parameters: ReadonlyArray<Type>,
+  body: Type
+): FunctionType {
+  return {type: TypeType.Function, loc, parameters, body};
 }
 
 export interface MemberType extends Node {
@@ -160,10 +201,26 @@ export interface MemberType extends Node {
   readonly member: Name;
 }
 
+export function MemberType(
+  loc: Loc,
+  namespace: Type,
+  member: Name
+): MemberType {
+  return {type: TypeType.Member, loc, namespace, member};
+}
+
 export interface GenericType extends Node {
   readonly type: TypeType.Generic;
   readonly callee: Type;
   readonly typeArguments: ReadonlyArray<Type>;
+}
+
+export function GenericType(
+  loc: Loc,
+  callee: Type,
+  typeArguments: ReadonlyArray<Type>
+): GenericType {
+  return {type: TypeType.Generic, loc, callee, typeArguments};
 }
 
 export interface QuantifiedType extends Node {
@@ -172,15 +229,34 @@ export interface QuantifiedType extends Node {
   readonly body: Type;
 }
 
+export function QuantifiedType(
+  loc: Loc,
+  typeParameters: ReadonlyArray<TypeParameter>,
+  body: Type
+): QuantifiedType {
+  return {type: TypeType.Quantified, loc, typeParameters, body};
+}
+
 export interface WrappedType extends Node {
   readonly type: TypeType.Wrapped;
   readonly wrapped: Type;
+}
+
+export function WrappedType(loc: Loc, wrapped: Type): WrappedType {
+  return {type: TypeType.Wrapped, loc, wrapped};
 }
 
 export type TypeParameter = {
   readonly name: Name;
   readonly bounds: ReadonlyArray<Type>;
 };
+
+export function TypeParameter(
+  name: Name,
+  bounds: ReadonlyArray<Type>
+): TypeParameter {
+  return {name, bounds};
+}
 
 export type Statement =
   | ExpressionStatement
