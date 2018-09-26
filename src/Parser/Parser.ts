@@ -1,7 +1,22 @@
 import {ReadonlyArray2} from '../Utils/ArrayN';
 
-import {Type, TypeType} from './Ast';
-import {ExpectedType, ParserError, UnexpectedTokenError} from './Error';
+import {
+  MemberType,
+  Name,
+  RecordType,
+  RecordTypeProperty,
+  ReferenceType,
+  Type,
+  TypeType,
+} from './Ast';
+import {
+  ExpectedEnd,
+  ExpectedGlyph,
+  ExpectedIdentifier,
+  ExpectedType,
+  ParserError,
+  UnexpectedTokenError,
+} from './Error';
 import {Identifier} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, TokenType} from './Lexer';
 import {Loc} from './Loc';
@@ -75,9 +90,42 @@ class Parser {
   }
 
   /**
-   * Parses the `PrimaryType` grammar. Advances the lexer on failure.
+   * Parses the `PrimaryType` grammar.
    */
   parsePrimaryType(): Type | undefined {
+    let type = this.parseBalancedPrimaryType();
+    if (type === undefined) return undefined;
+
+    while (true) {
+      const token = this.lexer.peek();
+
+      // Parse `MemberType`.
+      if (token.type === TokenType.Glyph && token.glyph === Glyph.Dot) {
+        this.lexer.next();
+        const identifier = this.parseIdentifier();
+        if (identifier === undefined) return type;
+        type = MemberType(
+          type.loc.between(identifier.loc),
+          type,
+          Name(identifier.loc, identifier.identifier)
+        );
+      } else {
+        break;
+      }
+    }
+
+    return type;
+  }
+
+  /**
+   * Parses the balanced rules of the `PrimaryType` grammar.
+   *
+   * “Balanced” rules have a clear terminal token as the first and last token.
+   * For instance, records are a balanced grammar rule since they start with `{`
+   * and end with `}`. Members are not a balanced grammar rule since they start
+   * with `PrimaryType`.
+   */
+  parseBalancedPrimaryType(): Type | undefined {
     const token = this.lexer.next();
 
     // Parse `ReferenceType`.
@@ -85,11 +133,7 @@ class Parser {
       token.type === TokenType.Identifier &&
       !Identifier.getBindingKeyword(token.identifier)
     ) {
-      return {
-        type: TypeType.Reference,
-        loc: token.loc,
-        identifier: token.identifier,
-      };
+      return ReferenceType(token.loc, token.identifier);
     }
 
     // Parse `UnitType`, `TupleType`, and `WrappedType`.
@@ -114,22 +158,16 @@ class Parser {
         this.parseGlyph(Glyph.Colon);
         const value = this.parseType();
         if (value === undefined) return undefined;
-        return {
-          key: {loc: key.loc, identifier: key.identifier},
-          value,
-          optional,
-        };
+        return optional
+          ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
+          : RecordTypeProperty(Name(key.loc, key.identifier), value);
       }, Glyph.BraceRight);
       const end = this.lexer.next().loc;
       const loc = start.between(end);
-      return {
-        type: TypeType.Record,
-        loc,
-        properties,
-      };
+      return RecordType(loc, properties);
     }
 
-    this.errors.push(UnexpectedTokenError(token, {type: ExpectedType.Type}));
+    this.errors.push(UnexpectedTokenError(token, ExpectedType));
     return undefined;
   }
 
@@ -241,9 +279,7 @@ class Parser {
       this.lexer.next();
       return true;
     }
-    this.errors.push(
-      UnexpectedTokenError(token, {type: ExpectedType.Glyph, glyph})
-    );
+    this.errors.push(UnexpectedTokenError(token, ExpectedGlyph(glyph)));
     return false;
   }
 
@@ -273,9 +309,7 @@ class Parser {
       this.lexer.next();
       return token;
     }
-    this.errors.push(
-      UnexpectedTokenError(token, {type: ExpectedType.Identifier})
-    );
+    this.errors.push(UnexpectedTokenError(token, ExpectedIdentifier));
     return undefined;
   }
 
@@ -289,7 +323,7 @@ class Parser {
   parseEnding(): boolean {
     const token = this.lexer.next();
     if (token.type === TokenType.End) return true;
-    this.errors.push(UnexpectedTokenError(token, {type: ExpectedType.End}));
+    this.errors.push(UnexpectedTokenError(token, ExpectedEnd));
     return false;
   }
 }

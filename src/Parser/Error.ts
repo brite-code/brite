@@ -30,14 +30,35 @@ export function UnexpectedTokenError(
  * expectation description.
  */
 export type Expected =
-  | {readonly type: ExpectedType.Identifier}
-  | {readonly type: ExpectedType.Glyph; readonly glyph: Glyph}
-  | {readonly type: ExpectedType.End}
-  | {readonly type: ExpectedType.Type};
+  | ExpectedIdentifier
+  | ExpectedGlyph
+  | ExpectedEnd
+  | ExpectedType;
 
-export const enum ExpectedType {
+export const enum ExpectedKind {
   Identifier = 'Identifier',
   Glyph = 'Glyph',
   End = 'End',
   Type = 'Type',
 }
+
+export type ExpectedIdentifier = {readonly kind: ExpectedKind.Identifier};
+
+export const ExpectedIdentifier: ExpectedIdentifier = {
+  kind: ExpectedKind.Identifier,
+};
+
+export type ExpectedGlyph = {
+  readonly kind: ExpectedKind.Glyph;
+  readonly glyph: Glyph;
+};
+
+export function ExpectedGlyph(glyph: Glyph): ExpectedGlyph {
+  return {kind: ExpectedKind.Glyph, glyph};
+}
+
+export type ExpectedEnd = {readonly kind: ExpectedKind.End};
+export const ExpectedEnd: ExpectedEnd = {kind: ExpectedKind.End};
+
+export type ExpectedType = {readonly kind: ExpectedKind.Type};
+export const ExpectedType: ExpectedType = {kind: ExpectedKind.Type};

@@ -1,4 +1,5 @@
 import {
+  MemberType,
   Name,
   RecordType,
   RecordTypeProperty,
@@ -7,7 +8,13 @@ import {
   UnitType,
   WrappedType,
 } from './Ast';
-import {ExpectedType, UnexpectedTokenError} from './Error';
+import {
+  ExpectedEnd,
+  ExpectedGlyph,
+  ExpectedIdentifier,
+  ExpectedType,
+  UnexpectedTokenError,
+} from './Error';
 import {Identifier} from './Identifier';
 import {Glyph, Lexer, TokenType} from './Lexer';
 import {loc} from './Loc';
@@ -23,7 +30,7 @@ describe('type', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.End, loc: loc('1-1')},
-          {type: ExpectedType.Type}
+          ExpectedType
         ),
       ],
       type: undefined,
@@ -35,7 +42,7 @@ describe('type', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.Glyph, loc: loc('1-3'), glyph: Glyph.Ellipsis},
-          {type: ExpectedType.Type}
+          ExpectedType
         ),
       ],
       type: undefined,
@@ -51,7 +58,7 @@ describe('type', () => {
             loc: loc('1-2'),
             identifier: 'if' as Identifier,
           },
-          {type: ExpectedType.Type}
+          ExpectedType
         ),
       ],
       type: undefined,
@@ -81,7 +88,7 @@ describe('type', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Comma},
-          {type: ExpectedType.Type}
+          ExpectedType
         ),
       ],
       type: UnitType(loc('1-3')),
@@ -211,6 +218,76 @@ describe('type', () => {
       ]),
     });
   });
+
+  test('member', () => {
+    expect(parseType(lex('hello.world'))).toEqual({
+      errors: [],
+      type: MemberType(
+        loc('1-11'),
+        ReferenceType(loc('1-5'), 'hello' as Identifier),
+        Name(loc('7-11'), 'world' as Identifier)
+      ),
+    });
+  });
+
+  test('member without identifier', () => {
+    expect(parseType(lex('hello.'))).toEqual({
+      errors: [
+        UnexpectedTokenError(
+          {type: TokenType.End, loc: loc('7')},
+          ExpectedIdentifier
+        ),
+      ],
+      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
+    });
+    expect(parseType(lex('hello.%'))).toEqual({
+      errors: [
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
+          ExpectedIdentifier
+        ),
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
+          ExpectedEnd
+        ),
+      ],
+      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
+    });
+  });
+
+  test('member twice', () => {
+    expect(parseType(lex('foo.bar.qux'))).toEqual({
+      errors: [],
+      type: MemberType(
+        loc('1-11'),
+        MemberType(
+          loc('1-7'),
+          ReferenceType(loc('1-3'), 'foo' as Identifier),
+          Name(loc('5-7'), 'bar' as Identifier)
+        ),
+        Name(loc('9-11'), 'qux' as Identifier)
+      ),
+    });
+  });
+
+  test('member thrice', () => {
+    expect(parseType(lex('foo.bar.qux.lit'))).toEqual({
+      errors: [],
+      type: MemberType(
+        loc('1-15'),
+        MemberType(
+          loc('1-11'),
+          MemberType(
+            loc('1-7'),
+            ReferenceType(loc('1-3'), 'foo' as Identifier),
+            Name(loc('5-7'), 'bar' as Identifier)
+          ),
+          Name(loc('9-11'), 'qux' as Identifier)
+        ),
+        Name(loc('13-15'), 'lit' as Identifier)
+      ),
+    });
+  });
 });
 
 describe('comma list', () => {
@@ -247,7 +324,7 @@ describe('comma list', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Comma},
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: [],
@@ -280,7 +357,7 @@ describe('comma list', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Percent},
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: [],
@@ -289,7 +366,7 @@ describe('comma list', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.Glyph, loc: loc('3'), glyph: Glyph.Percent},
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: [],
@@ -305,7 +382,7 @@ describe('comma list', () => {
             loc: loc('6-8'),
             identifier: 'bar' as Identifier,
           },
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
       ],
       result: ['foo', 'bar'],
@@ -321,7 +398,7 @@ describe('comma list', () => {
             loc: loc('11-13'),
             identifier: 'qux' as Identifier,
           },
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
       ],
       result: ['foo', 'bar', 'qux'],
@@ -337,7 +414,7 @@ describe('comma list', () => {
             loc: loc('6-8'),
             identifier: 'bar' as Identifier,
           },
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
           {
@@ -345,7 +422,7 @@ describe('comma list', () => {
             loc: loc('10-12'),
             identifier: 'qux' as Identifier,
           },
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
       ],
       result: ['foo', 'bar', 'qux'],
@@ -357,7 +434,7 @@ describe('comma list', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.Glyph, loc: loc('6'), glyph: Glyph.Comma},
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: ['foo', 'bar'],
@@ -373,7 +450,7 @@ describe('comma list', () => {
             loc: loc('5'),
             glyph: Glyph.Semicolon,
           },
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
           {
@@ -381,7 +458,7 @@ describe('comma list', () => {
             loc: loc('5'),
             glyph: Glyph.Semicolon,
           },
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: ['foo', 'bar'],
@@ -397,7 +474,7 @@ describe('comma list', () => {
             loc: loc('5'),
             glyph: Glyph.Semicolon,
           },
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
           {
@@ -405,7 +482,7 @@ describe('comma list', () => {
             loc: loc('5'),
             glyph: Glyph.Semicolon,
           },
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
         UnexpectedTokenError(
           {
@@ -413,7 +490,7 @@ describe('comma list', () => {
             loc: loc('6'),
             glyph: Glyph.Semicolon,
           },
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: ['foo', 'bar'],
@@ -429,7 +506,7 @@ describe('comma list', () => {
             loc: loc('10'),
             glyph: Glyph.Semicolon,
           },
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
           {
@@ -437,7 +514,7 @@ describe('comma list', () => {
             loc: loc('10'),
             glyph: Glyph.Semicolon,
           },
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: ['foo', 'bar'],
@@ -449,7 +526,7 @@ describe('comma list', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.End, loc: loc('2')},
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: [],
@@ -461,11 +538,11 @@ describe('comma list', () => {
       errors: [
         UnexpectedTokenError(
           {type: TokenType.End, loc: loc('5')},
-          {type: ExpectedType.Glyph, glyph: Glyph.Comma}
+          ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
           {type: TokenType.End, loc: loc('5')},
-          {type: ExpectedType.Identifier}
+          ExpectedIdentifier
         ),
       ],
       result: ['foo'],
