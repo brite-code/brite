@@ -140,6 +140,7 @@ export class Lexer implements Iterable<Token> {
   private column: number;
 
   private peeked: Token | undefined;
+  private peeks = 0;
 
   private readonly chars: PeekableIterator<string>;
 
@@ -162,17 +163,34 @@ export class Lexer implements Iterable<Token> {
     };
   }
 
+  /**
+   * Look ahead at the next token without advancing the lexer.
+   */
   peek(): Token {
+    // Defend against infinite loops.
+    this.peeks++;
+    if (this.peeks >= 50) {
+      throw new Error(
+        '`Lexer.peek()` called 50 times without calling `Lexer.next()`. ' +
+          'The parser is probably stuck in an infinite loop.'
+      );
+    }
+
     if (this.peeked === undefined) {
       this.peeked = this.next();
     }
+
     return this.peeked;
   }
 
+  /**
+   * Advance the lexer and return the current token.
+   */
   next(): Token {
     if (this.peeked !== undefined) {
       const peeked = this.peeked;
       this.peeked = undefined;
+      this.peeks = 0;
       return peeked;
     }
 

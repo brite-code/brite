@@ -24,11 +24,18 @@ export class Pos {
   }
 
   /**
+   * Checks if this `Pos` equals another.
+   */
+  equals(other: Pos) {
+    return this.line === other.line && this.column === other.column;
+  }
+
+  /**
    * Compares this `Pos` to another.
    *
    * - If `this` is smaller than `other` return -1.
    * - If `this` is the same as `other` return 0.
-   * - If `this` is larget than `other` return 1.
+   * - If `this` is larger than `other` return 1.
    */
   compare(other: Pos): -1 | 0 | 1 {
     if (this.line < other.line) {
@@ -43,6 +50,22 @@ export class Pos {
       return 0;
     }
   }
+
+  /**
+   * Returns the smaller `Pos`.
+   */
+  min(other: Pos): Pos {
+    if (this.compare(other) > 0) return other;
+    return this;
+  }
+
+  /**
+   * Returns the larger `Pos`.
+   */
+  max(other: Pos): Pos {
+    if (this.compare(other) < 0) return other;
+    return this;
+  }
 }
 
 /**
@@ -51,6 +74,14 @@ export class Pos {
  * ending position.
  */
 export class Loc {
+  /**
+   * Creates a location just for this position.
+   */
+  static pos(line: number, column: number) {
+    const pos = new Pos(line, column);
+    return new Loc(pos, pos);
+  }
+
   public readonly start: Pos;
   public readonly end: Pos;
 
@@ -58,5 +89,13 @@ export class Loc {
     assert(start.compare(end) !== 1, 'Start should be smaller then end.');
     this.start = start;
     this.end = end;
+  }
+
+  /**
+   * Creates a new `Loc` that spans the range between the two
+   * provided locations.
+   */
+  between(other: Loc): Loc {
+    return new Loc(this.start.min(other.start), this.end.max(other.end));
   }
 }

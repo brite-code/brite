@@ -23,11 +23,21 @@ export function UnexpectedTokenError(
   };
 }
 
+/**
+ * A description of what we expected when we encounter an unexpected token.
+ *
+ * We recreate some of `Token` since we don’t want to provide a `Loc` with an
+ * expectation description.
+ */
 export type Expected =
-  | {readonly type: ExpectedType.Type}
-  | {readonly type: ExpectedType.Glyph; readonly glyph: Glyph};
+  | {readonly type: ExpectedType.Identifier}
+  | {readonly type: ExpectedType.Glyph; readonly glyph: Glyph}
+  | {readonly type: ExpectedType.End}
+  | {readonly type: ExpectedType.Type};
 
 export const enum ExpectedType {
-  Type = 'Type',
+  Identifier = 'Identifier',
   Glyph = 'Glyph',
+  End = 'End',
+  Type = 'Type',
 }

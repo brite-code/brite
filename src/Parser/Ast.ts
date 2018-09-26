@@ -1,6 +1,5 @@
-import {List1, List2} from '../Utils/ListN';
+import {ReadonlyArray1, ReadonlyArray2} from '../Utils/ArrayN';
 
-import {ParserError} from './Error';
 import {Identifier} from './Identifier';
 import {Loc} from './Loc';
 
@@ -110,8 +109,7 @@ export type Type =
   | MemberType
   | GenericType
   | QuantifiedType
-  | WrappedType
-  | ErrorType;
+  | WrappedType;
 
 export const enum TypeType {
   Reference = 'Reference',
@@ -123,7 +121,6 @@ export const enum TypeType {
   Generic = 'Generic',
   Quantified = 'Quantified',
   Wrapped = 'Wrapped',
-  Error = 'Error',
 }
 
 export interface ReferenceType extends Node {
@@ -137,7 +134,7 @@ export interface UnitType extends Node {
 
 export interface TupleType extends Node {
   readonly type: TypeType.Tuple;
-  readonly types: List2<Type>;
+  readonly elements: ReadonlyArray2<Type>;
 }
 
 export interface RecordType extends Node {
@@ -180,11 +177,6 @@ export interface WrappedType extends Node {
   readonly wrapped: Type;
 }
 
-export interface ErrorType extends Node {
-  readonly type: TypeType.Error;
-  readonly error: ParserError;
-}
-
 export type TypeParameter = {
   readonly name: Name;
   readonly bounds: ReadonlyArray<Type>;
@@ -221,13 +213,13 @@ export interface BindingStatement {
 
 export interface BindingPropertyStatement {
   readonly type: StatementType.BindingProperty;
-  readonly property: List2<Name>;
+  readonly property: ReadonlyArray2<Name>;
   readonly value: Expression;
 }
 
 export interface AssignmentStatement {
   readonly type: StatementType.Assignment;
-  readonly reference: List1<Name>;
+  readonly reference: ReadonlyArray1<Name>;
   readonly value: Expression;
 }
 
@@ -305,7 +297,7 @@ export interface UnitExpression extends Node {
 
 export interface TupleExpression extends Node {
   readonly type: ExpressionType.Tuple;
-  readonly expressions: List2<Expression>;
+  readonly expressions: ReadonlyArray2<Expression>;
 }
 
 export interface RecordExpression extends Node {
@@ -357,7 +349,7 @@ export interface MatchExpression extends Node {
 }
 
 export type MatchCase = {
-  readonly binding: List1<Pattern>;
+  readonly binding: ReadonlyArray1<Pattern>;
   readonly test: Expression | undefined;
   readonly body: Expression;
 };
