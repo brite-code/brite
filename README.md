@@ -32,3 +32,4 @@ similar to are:
 - [JavaScript](https://tc39.github.io/ecma262)
 - [Rust](https://www.rust-lang.org/en-US/)
 - [OCaml](https://ocaml.org)
+- [Skip](http://skiplang.com/)
