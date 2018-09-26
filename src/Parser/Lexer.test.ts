@@ -22,6 +22,7 @@ describe('glyph', () => {
     ['=', Glyph.Equals],
     ['==', Glyph.EqualsDouble],
     ['!', Glyph.Exclamation],
+    ['=>', Glyph.FatArrow],
     ['>', Glyph.GreaterThan],
     ['>=', Glyph.GreaterThanOrEqual],
     ['<', Glyph.LessThan],

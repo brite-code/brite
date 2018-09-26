@@ -71,6 +71,7 @@ export const enum Glyph {
   Equals = '=',
   EqualsDouble = '==',
   Exclamation = '!',
+  FatArrow = '=>',
   GreaterThan = '>',
   GreaterThanOrEqual = '>=',
   LessThan = '<',
@@ -278,6 +279,13 @@ export class Lexer implements Iterable<Token> {
           const end = this.currentPos();
           const loc = new Loc(start, end);
           return g2(loc, Glyph.EqualsDouble);
+        }
+        if (this.peekChar() === '>') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.FatArrow);
         }
         return g(Glyph.Equals);
       }
