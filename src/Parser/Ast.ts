@@ -104,7 +104,7 @@ export type Type =
   | ReferenceType
   | UnitType
   | TupleType
-  | ObjectType
+  | RecordType
   | FunctionType
   | MemberType
   | GenericType
@@ -115,7 +115,7 @@ export const enum TypeType {
   Reference,
   Unit,
   Tuple,
-  Object,
+  Record,
   Function,
   Member,
   Generic,
@@ -137,12 +137,12 @@ export interface TupleType extends Node {
   readonly types: List2<Type>;
 }
 
-export interface ObjectType extends Node {
-  readonly type: TypeType.Object;
-  readonly properties: ReadonlyArray<ObjectTypeProperty>;
+export interface RecordType extends Node {
+  readonly type: TypeType.Record;
+  readonly properties: ReadonlyArray<RecordTypeProperty>;
 }
 
-export type ObjectTypeProperty = {
+export type RecordTypeProperty = {
   readonly key: Name;
   readonly value: Type;
   readonly optional: boolean;
@@ -242,7 +242,7 @@ export type Expression =
   | HoleExpression
   | UnitExpression
   | TupleExpression
-  | ObjectExpression
+  | RecordExpression
   | ListExpression
   | MemberExpression
   | CallExpression
@@ -264,7 +264,7 @@ export const enum ExpressionType {
   Hole,
   Unit,
   Tuple,
-  Object,
+  Record,
   List,
   Member,
   Call,
@@ -300,13 +300,13 @@ export interface TupleExpression extends Node {
   readonly expressions: List2<Expression>;
 }
 
-export interface ObjectExpression extends Node {
-  readonly type: ExpressionType.Object;
+export interface RecordExpression extends Node {
+  readonly type: ExpressionType.Record;
   readonly extension: Expression | undefined;
-  readonly properties: ReadonlyArray<ObjectExpressionProperty>;
+  readonly properties: ReadonlyArray<RecordExpressionProperty>;
 }
 
-export type ObjectExpressionProperty = {
+export type RecordExpressionProperty = {
   readonly key: Name;
   readonly annotation: Type | undefined;
   readonly value: Expression;

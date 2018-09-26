@@ -26,7 +26,7 @@ The optional {GenericParameters} specify some parameters at the type level. Thes
 
 The required {FunctionParameters} specifies zero or more parameter values the function accepts. Function calls must provide an argument for all of these parameters at the callsite. Unlike in a functional programming language where parameters are “curried” so parameter lists are syntax sugar for functions returning functions.
 
-Named parameters and optional parameters may be represented with objects.
+Named parameters and optional parameters may be represented with records.
 
 ```ite example
 myAdditionFunction(x: Int, y: Int) -> x + y

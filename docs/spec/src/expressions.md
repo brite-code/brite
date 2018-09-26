@@ -12,7 +12,7 @@ PrimaryExpression :
   - ReferenceExpression
   - UnitExpression
   - TupleExpression
-  - ObjectExpression
+  - RecordExpression
   - ListExpression
   - MemberExpression
   - CallExpression
@@ -51,28 +51,30 @@ TupleExpressionElementList :
 
 TupleExpressionElement : Expression TypeAnnotation?
 
-## Object Expression
+## Record Expression
 
-ObjectExpression : `{` ObjectExpressionExtension? ObjectExpressionPropertyList? `}`
+RecordExpression : `{` RecordExpressionExtension? RecordExpressionPropertyList? `}`
 
-ObjectExpressionExtension : Expression `|`
+RecordExpressionExtension : Expression `|`
 
-ObjectExpressionPropertyList :
-  - ObjectExpressionProperty `,`?
-  - ObjectExpressionProperty `,` ObjectExpressionPropertyList
+RecordExpressionPropertyList :
+  - RecordExpressionProperty `,`?
+  - RecordExpressionProperty `,` RecordExpressionPropertyList
 
-ObjectExpressionProperty :
-  - Identifier TypeAnnotation? ObjectExpressionPropertyInitializer?
+RecordExpressionProperty :
+  - Identifier TypeAnnotation? RecordExpressionPropertyInitializer?
 
-ObjectExpressionPropertyInitializer: `=` Expression
+RecordExpressionPropertyInitializer: `=` Expression
 
-An object is an anonymous collection of some labeled values. Unlike classes which are a named collection of some labeled values. Objects allow bundles of values to be easily passed around and serve as the mechanism for named function arguments.
+A record is an anonymous collection of some labeled values. Unlike classes which are a named collection of some labeled values. Records allow bundles of values to be easily passed around and serve as the mechanism for named function arguments.
 
-{ObjectExpressionExtension} allows for existing properties in a object to be updated with some new values. In JavaScript the spread operator (`{...x, ...y}`) allows many immutable objects to be “merged” at once. However, this operation cannot be easily undone in {Pattern} or in type inference. So Brite restricts extension to only one object at a time.
+{RecordExpressionExtension} allows for existing properties in a record to be updated with some new values. In JavaScript the spread operator (`{...x, ...y}`) allows many immutable objects to be “merged” at once. However, this operation cannot be easily undone in {Pattern} or in type inference. So Brite restricts extension to only one record at a time.
 
-Class fields may **not** be updated with the object extension syntax.
+Class fields may **not** be updated with the record extension syntax.
 
-Note: Currently only {ObjectExpression} supports extension syntax (`{ x | y = z }`), however {Pattern} and {Type} may also make use of object extension as well to add or remove properties. See [“Extensible records with scoped labels”](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf) for what a complete implementation of a object extension feature might look like. We don’t yet see a need for the feature in its entirety, but it might be worth adding later so we make sure to only implement a subset of the full feature.
+Note: An empty {RecordExpression} (syntax: `{}`) is the same as a {UnitExpression} (syntax: `()`).
+
+Note: Currently only {RecordExpression} supports extension syntax (`{ x | y = z }`), however {Pattern} and {Type} may also make use of record extension as well to add or remove properties. See [“Extensible records with scoped labels”](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf) for what a complete implementation of a record extension feature might look like. We don’t yet see a need for the feature in its entirety, but it might be worth adding later so we make sure to only implement a subset of the full feature.
 
 ## List Expression
 

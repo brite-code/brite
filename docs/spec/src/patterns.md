@@ -4,7 +4,7 @@ Pattern[Constructor] :
   - BindingPattern
   - UnitPattern
   - TuplePattern
-  - ObjectPattern
+  - RecordPattern
   - ListPattern
   - MemberPattern
   - CallPattern
@@ -45,24 +45,24 @@ TuplePatternElementList :
 
 TuplePatternElement : Pattern TypeAnnotation?
 
-## Object Pattern
+## Record Pattern
 
-ObjectPattern : `{` ObjectPatternPropertyList? `}`
+RecordPattern : `{` RecordPatternPropertyList? `}`
 
-ObjectPatternPropertyList :
-  - ObjectPatternProperty `,`?
-  - ObjectPatternProperty `,` ObjectPatternPropertyList
+RecordPatternPropertyList :
+  - RecordPatternProperty `,`?
+  - RecordPatternProperty `,` RecordPatternPropertyList
 
-ObjectPatternProperty :
-  - ObjectPatternPropertyWithoutModifiers
-  - [+Constructor] Access? `mutable`? ObjectPatternPropertyWithoutModifiers
+RecordPatternProperty :
+  - RecordPatternPropertyWithoutModifiers
+  - [+Constructor] Access? `mutable`? RecordPatternPropertyWithoutModifiers
 
-ObjectPatternPropertyWithoutModifiers :
-  - Identifier TypeAnnotation? ObjectPatternPropertyInitializer?
+RecordPatternPropertyWithoutModifiers :
+  - Identifier TypeAnnotation? RecordPatternPropertyInitializer?
 
-ObjectPatternPropertyInitializer: `=` Pattern
+RecordPatternPropertyInitializer: `=` Pattern
 
-Note: In {ObjectPatternProperty} adding the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation simplicity in constructors.
+Note: In {RecordPatternProperty} adding the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation simplicity in constructors.
 
 ## List Pattern
 
@@ -74,7 +74,7 @@ ListPatternItemList :
 
 Takes a list and extracts items from each index listed. The pattern fails if the length of the list pattern is not equal to the length of the list value being compared.
 
-Useful for turning list data into structured data since all user data must start as a list before being turned into a more structured form like a tuple or object.
+Useful for turning list data into structured data since all user data must start as a list before being turned into a more structured form like a tuple, record, or object.
 
 Note: Functional lanuages typically add first-class syntax for “cons” and “uncons” operations on lists (`:` operator in Haskell). This is efficient since you operate on linked-lists. However, the default Brite list type is not a linked list. “cons”/“concat” is guaranteed to be fast which is why we have spread syntax in {ListExpression}, but “uncons” is not guaranteed to be fast which is why we don’t have spread syntax in {ListPattern}.
 

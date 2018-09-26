@@ -32,7 +32,7 @@ The third restriction is what enables Brite to have mutability while also having
 
 To enable the sharing of a class among multiple processes you need to implement the `Send` interface. You may only implement `Send` if your class has no mutable fields and all field types also implement `Send`. If a base class implements `Send` then child classes must also implement `Send`.
 
-Objects and tuples cannot have mutable properties so if all their components are also `Send` then the object and tuple implements `Send` itself. In that way the `Send` interface is special.
+Records and tuples cannot have mutable properties so if all their components are also `Send` then the record and tuple implements `Send` itself. In that way the `Send` interface is special.
 
 ```ite example
 class MyMutableValue<T>(mutable value: T)
