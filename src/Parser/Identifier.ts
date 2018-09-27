@@ -62,7 +62,25 @@ export const enum BindingKeyword {
   Continue = 'continue',
 }
 
+/**
+ * Creates an identifier and throws an error if it is not valid.
+ */
+export function ident(identifier: string): Identifier {
+  const id = Identifier.create(identifier);
+  if (!id) throw new Error(`Invalid identifier: "${identifier}"`);
+  return id;
+}
+
 export namespace Identifier {
+  /**
+   * Creates an identifier. If the string is not a valid identifier then we
+   * return undefined.
+   */
+  export function create(identifier: string): Identifier | undefined {
+    if (!isIdentifier(identifier)) return undefined;
+    return identifier as any; // tslint:disable-line no-any
+  }
+
   /**
    * Creates an identifier assuming the string provided is valid. Does not even
    * check for keywords.
@@ -84,6 +102,30 @@ export namespace Identifier {
     } else {
       return Err(keyword);
     }
+  }
+
+  /**
+   * Checks if a string is a valid identifier and that the identifier does not
+   * conflict with any keywords.
+   */
+  export function isIdentifier(identifier: string): boolean {
+    if (identifier.length < 1) return false;
+    let finish = false;
+    for (let i = 0; i < identifier.length; i++) {
+      if (i === 0) {
+        if (!isStart(identifier[0])) return false;
+        continue;
+      }
+      if (!finish && isContinue(identifier[i])) {
+        continue;
+      }
+      if (isFinish(identifier[i])) {
+        if (!finish) finish = true;
+        continue;
+      }
+      return false;
+    }
+    return !getKeyword(identifier);
   }
 
   /**

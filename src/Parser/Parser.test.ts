@@ -20,7 +20,7 @@ import {
   ExpectedType,
   UnexpectedTokenError,
 } from './Error';
-import {Identifier} from './Identifier';
+import {ident} from './Identifier';
 import {Glyph, Lexer, TokenType} from './Lexer';
 import {loc} from './Loc';
 import {parseCommaListTest, parseType} from './Parser';
@@ -57,7 +57,7 @@ describe('type', () => {
       {
         type: TokenType.Identifier,
         loc: loc('1-2'),
-        identifier: 'if' as Identifier,
+        identifier: ident('if'),
       },
       ExpectedType
     );
@@ -70,7 +70,7 @@ describe('type', () => {
   test('reference', () => {
     expect(parseType(lex('foo'))).toEqual({
       errors: [],
-      type: ReferenceType(loc('1-3'), 'foo' as Identifier),
+      type: ReferenceType(loc('1-3'), ident('foo')),
     });
   });
 
@@ -100,20 +100,14 @@ describe('type', () => {
   test('wrapped', () => {
     expect(parseType(lex('(foo)'))).toEqual({
       errors: [],
-      type: WrappedType(
-        loc('1-5'),
-        ReferenceType(loc('2-4'), 'foo' as Identifier)
-      ),
+      type: WrappedType(loc('1-5'), ReferenceType(loc('2-4'), ident('foo'))),
     });
   });
 
   test('wrapped with trailing comma', () => {
     expect(parseType(lex('(foo,)'))).toEqual({
       errors: [],
-      type: WrappedType(
-        loc('1-6'),
-        ReferenceType(loc('2-4'), 'foo' as Identifier)
-      ),
+      type: WrappedType(loc('1-6'), ReferenceType(loc('2-4'), ident('foo'))),
     });
   });
 
@@ -121,8 +115,8 @@ describe('type', () => {
     expect(parseType(lex('(foo, bar)'))).toEqual({
       errors: [],
       type: TupleType(loc('1-10'), [
-        ReferenceType(loc('2-4'), 'foo' as Identifier),
-        ReferenceType(loc('7-9'), 'bar' as Identifier),
+        ReferenceType(loc('2-4'), ident('foo')),
+        ReferenceType(loc('7-9'), ident('bar')),
       ]),
     });
   });
@@ -131,9 +125,9 @@ describe('type', () => {
     expect(parseType(lex('(foo, bar, qux)'))).toEqual({
       errors: [],
       type: TupleType(loc('1-15'), [
-        ReferenceType(loc('2-4'), 'foo' as Identifier),
-        ReferenceType(loc('7-9'), 'bar' as Identifier),
-        ReferenceType(loc('12-14'), 'qux' as Identifier),
+        ReferenceType(loc('2-4'), ident('foo')),
+        ReferenceType(loc('7-9'), ident('bar')),
+        ReferenceType(loc('12-14'), ident('qux')),
       ]),
     });
   });
@@ -142,10 +136,10 @@ describe('type', () => {
     expect(parseType(lex('(foo, bar, qux, lit)'))).toEqual({
       errors: [],
       type: TupleType(loc('1-20'), [
-        ReferenceType(loc('2-4'), 'foo' as Identifier),
-        ReferenceType(loc('7-9'), 'bar' as Identifier),
-        ReferenceType(loc('12-14'), 'qux' as Identifier),
-        ReferenceType(loc('17-19'), 'lit' as Identifier),
+        ReferenceType(loc('2-4'), ident('foo')),
+        ReferenceType(loc('7-9'), ident('bar')),
+        ReferenceType(loc('12-14'), ident('qux')),
+        ReferenceType(loc('17-19'), ident('lit')),
       ]),
     });
   });
@@ -162,8 +156,8 @@ describe('type', () => {
       errors: [],
       type: RecordType(loc('1-10'), [
         RecordTypeProperty(
-          Name(loc('3-5'), 'foo' as Identifier),
-          ReferenceType(loc('8'), 'T' as Identifier)
+          Name(loc('3-5'), ident('foo')),
+          ReferenceType(loc('8'), ident('T'))
         ),
       ]),
     });
@@ -174,12 +168,12 @@ describe('type', () => {
       errors: [],
       type: RecordType(loc('1-18'), [
         RecordTypeProperty(
-          Name(loc('3-5'), 'foo' as Identifier),
-          ReferenceType(loc('8'), 'T' as Identifier)
+          Name(loc('3-5'), ident('foo')),
+          ReferenceType(loc('8'), ident('T'))
         ),
         RecordTypeProperty(
-          Name(loc('11-13'), 'bar' as Identifier),
-          ReferenceType(loc('16'), 'U' as Identifier)
+          Name(loc('11-13'), ident('bar')),
+          ReferenceType(loc('16'), ident('U'))
         ),
       ]),
     });
@@ -190,20 +184,20 @@ describe('type', () => {
       errors: [],
       type: RecordType(loc('1-34'), [
         RecordTypeProperty(
-          Name(loc('3-5'), 'foo' as Identifier),
-          ReferenceType(loc('8'), 'T' as Identifier)
+          Name(loc('3-5'), ident('foo')),
+          ReferenceType(loc('8'), ident('T'))
         ),
         RecordTypeProperty(
-          Name(loc('11-13'), 'bar' as Identifier),
-          ReferenceType(loc('16'), 'U' as Identifier)
+          Name(loc('11-13'), ident('bar')),
+          ReferenceType(loc('16'), ident('U'))
         ),
         RecordTypeProperty(
-          Name(loc('19-21'), 'qux' as Identifier),
-          ReferenceType(loc('24'), 'V' as Identifier)
+          Name(loc('19-21'), ident('qux')),
+          ReferenceType(loc('24'), ident('V'))
         ),
         RecordTypeProperty(
-          Name(loc('27-29'), 'lit' as Identifier),
-          ReferenceType(loc('32'), 'W' as Identifier)
+          Name(loc('27-29'), ident('lit')),
+          ReferenceType(loc('32'), ident('W'))
         ),
       ]),
     });
@@ -214,8 +208,8 @@ describe('type', () => {
       errors: [],
       type: RecordType(loc('1-11'), [
         RecordTypeProperty.optional(
-          Name(loc('3-5'), 'foo' as Identifier),
-          ReferenceType(loc('9'), 'T' as Identifier)
+          Name(loc('3-5'), ident('foo')),
+          ReferenceType(loc('9'), ident('T'))
         ),
       ]),
     });
@@ -226,8 +220,8 @@ describe('type', () => {
       errors: [],
       type: MemberType(
         loc('1-11'),
-        ReferenceType(loc('1-5'), 'hello' as Identifier),
-        Name(loc('7-11'), 'world' as Identifier)
+        ReferenceType(loc('1-5'), ident('hello')),
+        Name(loc('7-11'), ident('world'))
       ),
     });
   });
@@ -239,10 +233,10 @@ describe('type', () => {
         loc('1-11'),
         MemberType(
           loc('1-7'),
-          ReferenceType(loc('1-3'), 'foo' as Identifier),
-          Name(loc('5-7'), 'bar' as Identifier)
+          ReferenceType(loc('1-3'), ident('foo')),
+          Name(loc('5-7'), ident('bar'))
         ),
-        Name(loc('9-11'), 'qux' as Identifier)
+        Name(loc('9-11'), ident('qux'))
       ),
     });
   });
@@ -256,12 +250,12 @@ describe('type', () => {
           loc('1-11'),
           MemberType(
             loc('1-7'),
-            ReferenceType(loc('1-3'), 'foo' as Identifier),
-            Name(loc('5-7'), 'bar' as Identifier)
+            ReferenceType(loc('1-3'), ident('foo')),
+            Name(loc('5-7'), ident('bar'))
           ),
-          Name(loc('9-11'), 'qux' as Identifier)
+          Name(loc('9-11'), ident('qux'))
         ),
-        Name(loc('13-15'), 'lit' as Identifier)
+        Name(loc('13-15'), ident('lit'))
       ),
     });
   });
@@ -274,7 +268,7 @@ describe('type', () => {
           ExpectedIdentifier
         ),
       ],
-      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
+      type: ReferenceType(loc('1-5'), ident('hello')),
     });
     expect(parseType(lex('hello.%'))).toEqual({
       errors: [
@@ -287,59 +281,45 @@ describe('type', () => {
           ExpectedEnd
         ),
       ],
-      type: ReferenceType(loc('1-5'), 'hello' as Identifier),
+      type: ReferenceType(loc('1-5'), ident('hello')),
     });
   });
 
   test('generic with 0 arguments', () => {
     expect(parseType(lex('T<>'))).toEqual({
       errors: [],
-      type: GenericType(
-        loc('1-3'),
-        ReferenceType(loc('1'), 'T' as Identifier),
-        []
-      ),
+      type: GenericType(loc('1-3'), ReferenceType(loc('1'), ident('T')), []),
     });
   });
 
   test('generic with 1 argument', () => {
     expect(parseType(lex('T<A>'))).toEqual({
       errors: [],
-      type: GenericType(
-        loc('1-4'),
-        ReferenceType(loc('1'), 'T' as Identifier),
-        [ReferenceType(loc('3'), 'A' as Identifier)]
-      ),
+      type: GenericType(loc('1-4'), ReferenceType(loc('1'), ident('T')), [
+        ReferenceType(loc('3'), ident('A')),
+      ]),
     });
   });
 
   test('generic with 2 arguments', () => {
     expect(parseType(lex('T<A, B>'))).toEqual({
       errors: [],
-      type: GenericType(
-        loc('1-7'),
-        ReferenceType(loc('1'), 'T' as Identifier),
-        [
-          ReferenceType(loc('3'), 'A' as Identifier),
-          ReferenceType(loc('6'), 'B' as Identifier),
-        ]
-      ),
+      type: GenericType(loc('1-7'), ReferenceType(loc('1'), ident('T')), [
+        ReferenceType(loc('3'), ident('A')),
+        ReferenceType(loc('6'), ident('B')),
+      ]),
     });
   });
 
   test('generic with 4 arguments', () => {
     expect(parseType(lex('T<A, B, C, D>'))).toEqual({
       errors: [],
-      type: GenericType(
-        loc('1-13'),
-        ReferenceType(loc('1'), 'T' as Identifier),
-        [
-          ReferenceType(loc('3'), 'A' as Identifier),
-          ReferenceType(loc('6'), 'B' as Identifier),
-          ReferenceType(loc('9'), 'C' as Identifier),
-          ReferenceType(loc('12'), 'D' as Identifier),
-        ]
-      ),
+      type: GenericType(loc('1-13'), ReferenceType(loc('1'), ident('T')), [
+        ReferenceType(loc('3'), ident('A')),
+        ReferenceType(loc('6'), ident('B')),
+        ReferenceType(loc('9'), ident('C')),
+        ReferenceType(loc('12'), ident('D')),
+      ]),
     });
   });
 
@@ -350,10 +330,10 @@ describe('type', () => {
         loc('1-22'),
         MemberType(
           loc('1-15'),
-          ReferenceType(loc('1-5'), 'React' as Identifier),
-          Name(loc('7-15'), 'Component' as Identifier)
+          ReferenceType(loc('1-5'), ident('React')),
+          Name(loc('7-15'), ident('Component'))
         ),
-        [ReferenceType(loc('17-21'), 'Props' as Identifier)]
+        [ReferenceType(loc('17-21'), ident('Props'))]
       ),
     });
   });
@@ -363,8 +343,8 @@ describe('type', () => {
       errors: [],
       type: MemberType(
         loc('1-5'),
-        GenericType(loc('1-3'), ReferenceType(loc('1'), 'A' as Identifier), []),
-        Name(loc('5'), 'B' as Identifier)
+        GenericType(loc('1-3'), ReferenceType(loc('1'), ident('A')), []),
+        Name(loc('5'), ident('B'))
       ),
     });
   });
@@ -374,7 +354,7 @@ describe('type', () => {
       errors: [],
       type: GenericType(
         loc('1-5'),
-        GenericType(loc('1-3'), ReferenceType(loc('1'), 'A' as Identifier), []),
+        GenericType(loc('1-3'), ReferenceType(loc('1'), ident('A')), []),
         []
       ),
     });
@@ -386,7 +366,7 @@ describe('type', () => {
       type: MemberType(
         loc('1-6'),
         UnitType(loc('1-2')),
-        Name(loc('4-6'), 'foo' as Identifier)
+        Name(loc('4-6'), ident('foo'))
       ),
     });
   });
@@ -397,7 +377,7 @@ describe('type', () => {
       type: MemberType(
         loc('1-6'),
         RecordType(loc('1-2'), []),
-        Name(loc('4-6'), 'foo' as Identifier)
+        Name(loc('4-6'), ident('foo'))
       ),
     });
   });
@@ -414,7 +394,7 @@ describe('type', () => {
       errors: [],
       type: FunctionType(
         loc('1-9'),
-        [ReferenceType(loc('2'), 'a' as Identifier)],
+        [ReferenceType(loc('2'), ident('a'))],
         UnitType(loc('8-9'))
       ),
     });
@@ -426,8 +406,8 @@ describe('type', () => {
       type: FunctionType(
         loc('1-12'),
         [
-          ReferenceType(loc('2'), 'a' as Identifier),
-          ReferenceType(loc('5'), 'b' as Identifier),
+          ReferenceType(loc('2'), ident('a')),
+          ReferenceType(loc('5'), ident('b')),
         ],
         UnitType(loc('11-12'))
       ),
@@ -440,10 +420,10 @@ describe('type', () => {
       type: FunctionType(
         loc('1-18'),
         [
-          ReferenceType(loc('2'), 'a' as Identifier),
-          ReferenceType(loc('5'), 'b' as Identifier),
-          ReferenceType(loc('8'), 'c' as Identifier),
-          ReferenceType(loc('11'), 'd' as Identifier),
+          ReferenceType(loc('2'), ident('a')),
+          ReferenceType(loc('5'), ident('b')),
+          ReferenceType(loc('8'), ident('c')),
+          ReferenceType(loc('11'), ident('d')),
         ],
         UnitType(loc('17-18'))
       ),
@@ -458,8 +438,8 @@ describe('type', () => {
         [],
         MemberType(
           loc('7-13'),
-          ReferenceType(loc('7-9'), 'foo' as Identifier),
-          Name(loc('11-13'), 'bar' as Identifier)
+          ReferenceType(loc('7-9'), ident('foo')),
+          Name(loc('11-13'), ident('bar'))
         )
       ),
     });
@@ -481,8 +461,8 @@ describe('type', () => {
       errors: [],
       type: FunctionType(
         loc('1-6'),
-        [ReferenceType(loc('1'), 'T' as Identifier)],
-        ReferenceType(loc('6'), 'T' as Identifier)
+        [ReferenceType(loc('1'), ident('T'))],
+        ReferenceType(loc('6'), ident('T'))
       ),
     });
   });
@@ -492,11 +472,11 @@ describe('type', () => {
       errors: [],
       type: FunctionType(
         loc('1-12'),
-        [ReferenceType(loc('1'), 'x' as Identifier)],
+        [ReferenceType(loc('1'), ident('x'))],
         MemberType(
           loc('6-12'),
-          ReferenceType(loc('6-8'), 'foo' as Identifier),
-          Name(loc('10-12'), 'bar' as Identifier)
+          ReferenceType(loc('6-8'), ident('foo')),
+          Name(loc('10-12'), ident('bar'))
         )
       ),
     });
@@ -515,9 +495,9 @@ describe('type', () => {
         ),
       ],
       type: TupleType(loc('1-12'), [
-        ReferenceType(loc('2'), 'X' as Identifier),
-        ReferenceType(loc('5'), 'Y' as Identifier),
-        ReferenceType(loc('11'), 'Z' as Identifier),
+        ReferenceType(loc('2'), ident('X')),
+        ReferenceType(loc('5'), ident('Y')),
+        ReferenceType(loc('11'), ident('Z')),
       ]),
     });
   });
@@ -534,15 +514,11 @@ describe('type', () => {
           ExpectedType
         ),
       ],
-      type: GenericType(
-        loc('1-13'),
-        ReferenceType(loc('1'), 'T' as Identifier),
-        [
-          ReferenceType(loc('3'), 'X' as Identifier),
-          ReferenceType(loc('6'), 'Y' as Identifier),
-          ReferenceType(loc('12'), 'Z' as Identifier),
-        ]
-      ),
+      type: GenericType(loc('1-13'), ReferenceType(loc('1'), ident('T')), [
+        ReferenceType(loc('3'), ident('X')),
+        ReferenceType(loc('6'), ident('Y')),
+        ReferenceType(loc('12'), ident('Z')),
+      ]),
     });
   });
 
@@ -551,8 +527,8 @@ describe('type', () => {
       errors: [],
       type: QuantifiedType(
         loc('1-5'),
-        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
-        ReferenceType(loc('5'), 'T' as Identifier)
+        [TypeParameter(Name(loc('2'), ident('T')), [])],
+        ReferenceType(loc('5'), ident('T'))
       ),
     });
   });
@@ -562,12 +538,10 @@ describe('type', () => {
       errors: [],
       type: QuantifiedType(
         loc('1-10'),
-        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
-        GenericType(
-          loc('5-10'),
-          ReferenceType(loc('5-7'), 'Foo' as Identifier),
-          [ReferenceType(loc('9'), 'T' as Identifier)]
-        )
+        [TypeParameter(Name(loc('2'), ident('T')), [])],
+        GenericType(loc('5-10'), ReferenceType(loc('5-7'), ident('Foo')), [
+          ReferenceType(loc('9'), ident('T')),
+        ])
       ),
     });
   });
@@ -577,11 +551,11 @@ describe('type', () => {
       errors: [],
       type: QuantifiedType(
         loc('1-11'),
-        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        [TypeParameter(Name(loc('2'), ident('T')), [])],
         FunctionType(
           loc('4-11'),
-          [ReferenceType(loc('5'), 'T' as Identifier)],
-          ReferenceType(loc('11'), 'T' as Identifier)
+          [ReferenceType(loc('5'), ident('T'))],
+          ReferenceType(loc('11'), ident('T'))
         )
       ),
     });
@@ -592,11 +566,11 @@ describe('type', () => {
       errors: [],
       type: QuantifiedType(
         loc('1-10'),
-        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        [TypeParameter(Name(loc('2'), ident('T')), [])],
         FunctionType(
           loc('5-10'),
-          [ReferenceType(loc('5'), 'T' as Identifier)],
-          ReferenceType(loc('10'), 'T' as Identifier)
+          [ReferenceType(loc('5'), ident('T'))],
+          ReferenceType(loc('10'), ident('T'))
         )
       ),
     });
@@ -611,7 +585,7 @@ describe('type', () => {
       errors: [error],
       type: QuantifiedType(
         loc('1-5'),
-        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        [TypeParameter(Name(loc('2'), ident('T')), [])],
         ErrorType(loc('5'), error)
       ),
     });
@@ -708,7 +682,7 @@ describe('comma list', () => {
           {
             type: TokenType.Identifier,
             loc: loc('6-8'),
-            identifier: 'bar' as Identifier,
+            identifier: ident('bar'),
           },
           ExpectedGlyph(Glyph.Comma)
         ),
@@ -724,7 +698,7 @@ describe('comma list', () => {
           {
             type: TokenType.Identifier,
             loc: loc('11-13'),
-            identifier: 'qux' as Identifier,
+            identifier: ident('qux'),
           },
           ExpectedGlyph(Glyph.Comma)
         ),
@@ -740,7 +714,7 @@ describe('comma list', () => {
           {
             type: TokenType.Identifier,
             loc: loc('6-8'),
-            identifier: 'bar' as Identifier,
+            identifier: ident('bar'),
           },
           ExpectedGlyph(Glyph.Comma)
         ),
@@ -748,7 +722,7 @@ describe('comma list', () => {
           {
             type: TokenType.Identifier,
             loc: loc('10-12'),
-            identifier: 'qux' as Identifier,
+            identifier: ident('qux'),
           },
           ExpectedGlyph(Glyph.Comma)
         ),
