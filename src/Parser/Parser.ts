@@ -1,31 +1,40 @@
 import {ReadonlyArray2} from '../Utils/ArrayN';
 
 import {
+  BindingPattern,
+  ErrorPattern,
   ErrorType,
   FunctionType,
   GenericType,
+  HolePattern,
   MemberType,
   Name,
+  Pattern,
+  PatternKind,
   QuantifiedType,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
+  TuplePattern,
   TupleType,
   Type,
   TypeKind,
   TypeParameter,
+  UnitPattern,
   UnitType,
+  WrappedPattern,
   WrappedType,
 } from './Ast';
 import {
   ExpectedEnd,
   ExpectedGlyph,
   ExpectedIdentifier,
+  ExpectedPattern,
   ExpectedType,
   ParserError,
   UnexpectedTokenError,
 } from './Error';
-import {BindingIdentifier, Identifier} from './Identifier';
+import {BindingIdentifier, Identifier, Keyword} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, TokenType} from './Lexer';
 import {Loc} from './Loc';
 
@@ -40,6 +49,19 @@ export function parseType(
   parser.parseEnding();
   const errors = parser.getErrors();
   return {errors, type};
+}
+
+export function parsePattern(
+  lexer: Lexer
+): {
+  readonly errors: ReadonlyArray<ParserError>;
+  readonly pattern: Pattern;
+} {
+  const parser = new Parser(lexer);
+  const pattern = parser.parsePattern();
+  parser.parseEnding();
+  const errors = parser.getErrors();
+  return {errors, pattern};
 }
 
 export function parseCommaListTest(
@@ -117,7 +139,7 @@ class Parser {
     if (token.type === TokenType.Identifier) {
       const identifier = BindingIdentifier.create(token.identifier);
       if (identifier !== undefined) {
-        const start = this.lexer.next().loc;
+        this.lexer.next();
         const nextToken = this.lexer.peek();
 
         // Parse `FunctionType`. Notably we return since functions are not
@@ -129,7 +151,7 @@ class Parser {
           this.lexer.next();
           const body = this.parseType();
           return FunctionType(
-            start.between(body.loc),
+            token.loc.between(body.loc),
             [ReferenceType(token.loc, identifier)],
             body
           );
@@ -249,6 +271,55 @@ class Parser {
       Name(identifier.loc, identifier.identifier),
       typeParameters
     );
+  }
+
+  /**
+   * Parses the `Pattern` grammar. Does not advance the lexer if we fail to
+   * parse a pattern.
+   */
+  parsePattern(): Pattern {
+    const token = this.lexer.peek();
+
+    // Parse `BindingPattern` identifier.
+    if (token.type === TokenType.Identifier) {
+      const identifier = BindingIdentifier.create(token.identifier);
+      if (identifier !== undefined) {
+        this.lexer.next();
+        return BindingPattern(token.loc, identifier);
+      }
+    }
+
+    // Parse `BindingPattern` hole.
+    if (
+      token.type === TokenType.Keyword &&
+      token.keyword === Keyword.Underscore
+    ) {
+      this.lexer.next();
+      return HolePattern(token.loc);
+    }
+
+    // Parse `UnitPattern`, `TuplePattern`, and `WrappedPattern`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
+      const start = this.lexer.next().loc;
+      const patterns = this.parseCommaList(() => {
+        const pattern = this.parsePattern();
+        if (pattern.kind === PatternKind.Error) return undefined;
+        return pattern;
+      }, Glyph.ParenRight);
+      const end = this.lexer.next().loc;
+      const loc = start.between(end);
+      if (patterns.length === 0) {
+        return UnitPattern(loc);
+      } else if (patterns.length === 1) {
+        return WrappedPattern(loc, patterns[0], undefined);
+      } else {
+        return TuplePattern(loc, ReadonlyArray2.create(patterns));
+      }
+    }
+
+    const error = UnexpectedTokenError(token, ExpectedPattern);
+    this.errors.push(error);
+    return ErrorPattern(token.loc, error);
   }
 
   /**

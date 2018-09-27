@@ -33,13 +33,15 @@ export type Expected =
   | ExpectedIdentifier
   | ExpectedGlyph
   | ExpectedEnd
-  | ExpectedType;
+  | ExpectedType
+  | ExpectedPattern;
 
 export const enum ExpectedKind {
   Identifier = 'Identifier',
   Glyph = 'Glyph',
   End = 'End',
   Type = 'Type',
+  Pattern = 'Pattern',
 }
 
 export type ExpectedIdentifier = {readonly kind: ExpectedKind.Identifier};
@@ -62,3 +64,6 @@ export const ExpectedEnd: ExpectedEnd = {kind: ExpectedKind.End};
 
 export type ExpectedType = {readonly kind: ExpectedKind.Type};
 export const ExpectedType: ExpectedType = {kind: ExpectedKind.Type};
+
+export type ExpectedPattern = {readonly kind: ExpectedKind.Pattern};
+export const ExpectedPattern: ExpectedPattern = {kind: ExpectedKind.Pattern};

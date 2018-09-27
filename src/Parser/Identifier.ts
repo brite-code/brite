@@ -24,7 +24,7 @@ const IdentifierTag = Symbol();
 /**
  * An `Identifier` but without `BindingKeyword`.
  */
-export type BindingIdentifier = string & typeof BindingIdentifierTag;
+export type BindingIdentifier = Identifier & typeof BindingIdentifierTag;
 
 // A private symbol we use to make our `BindingIdentifier` type emulate an
 // opaque type with an intersection.
@@ -61,12 +61,18 @@ export const enum BindingKeyword {
 }
 
 /**
- * Creates an identifier and throws an error if it is not valid.
+ * Creates a binding identifier and throws an error if it is not valid.
  */
-export function ident(identifier: string): Identifier {
-  const id = Identifier.create(identifier);
-  if (!id) throw new Error(`Invalid identifier: "${identifier}"`);
-  return id;
+export function ident(source: string): BindingIdentifier {
+  const identifier = Identifier.create(source);
+  if (!identifier) {
+    throw new Error(`Invalid identifier: "${source}"`);
+  }
+  const bindingIdentifier = BindingIdentifier.create(identifier);
+  if (!bindingIdentifier) {
+    throw new Error(`Invalid binding identifier: "${source}"`);
+  }
+  return bindingIdentifier;
 }
 
 export namespace Identifier {

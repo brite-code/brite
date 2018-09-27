@@ -1,29 +1,36 @@
 import {
+  BindingPattern,
+  ErrorPattern,
   ErrorType,
   FunctionType,
   GenericType,
+  HolePattern,
   MemberType,
   Name,
   QuantifiedType,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
+  TuplePattern,
   TupleType,
   TypeParameter,
+  UnitPattern,
   UnitType,
+  WrappedPattern,
   WrappedType,
 } from './Ast';
 import {
   ExpectedEnd,
   ExpectedGlyph,
   ExpectedIdentifier,
+  ExpectedPattern,
   ExpectedType,
   UnexpectedTokenError,
 } from './Error';
-import {ident} from './Identifier';
+import {Identifier, ident} from './Identifier';
 import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from './Lexer';
 import {loc} from './Loc';
-import {parseCommaListTest, parseType} from './Parser';
+import {parseCommaListTest, parsePattern, parseType} from './Parser';
 
 function lex(source: string): Lexer {
   return Lexer.create(source);
@@ -57,14 +64,14 @@ describe('type', () => {
 
   test('binding keyword', () => {
     const error = UnexpectedTokenError(
-      IdentifierToken(loc('1-2'), ident('if')),
+      IdentifierToken(loc('1-2'), 'if' as Identifier),
       ExpectedType
     );
     expect(parseType(lex('if'))).toEqual({
       errors: [
         error,
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), ident('if')),
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
           ExpectedEnd
         ),
       ],
@@ -718,6 +725,86 @@ describe('type', () => {
         ],
         ReferenceType(loc('10'), ident('T'))
       ),
+    });
+  });
+});
+
+describe('pattern', () => {
+  test('binding', () => {
+    expect(parsePattern(lex('foo'))).toEqual({
+      errors: [],
+      pattern: BindingPattern(loc('1-3'), ident('foo')),
+    });
+  });
+
+  test('binding keyword', () => {
+    const error = UnexpectedTokenError(
+      IdentifierToken(loc('1-2'), 'if' as Identifier),
+      ExpectedPattern
+    );
+    expect(parsePattern(lex('if'))).toEqual({
+      errors: [
+        error,
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          ExpectedEnd
+        ),
+      ],
+      pattern: ErrorPattern(loc('1-2'), error),
+    });
+  });
+
+  test('hole', () => {
+    expect(parsePattern(lex('_'))).toEqual({
+      errors: [],
+      pattern: HolePattern(loc('1')),
+    });
+  });
+
+  test('binding underscore prefixed', () => {
+    expect(parsePattern(lex('_x'))).toEqual({
+      errors: [],
+      pattern: BindingPattern(loc('1-2'), ident('_x')),
+    });
+  });
+
+  test('unit', () => {
+    expect(parsePattern(lex('()'))).toEqual({
+      errors: [],
+      pattern: UnitPattern(loc('1-2')),
+    });
+  });
+
+  test('wrapped', () => {
+    expect(parsePattern(lex('(foo)'))).toEqual({
+      errors: [],
+      pattern: WrappedPattern(
+        loc('1-5'),
+        BindingPattern(loc('2-4'), ident('foo')),
+        undefined
+      ),
+    });
+  });
+
+  test('tuple with 2 elements', () => {
+    expect(parsePattern(lex('(a, b)'))).toEqual({
+      errors: [],
+      pattern: TuplePattern(loc('1-6'), [
+        BindingPattern(loc('2'), ident('a')),
+        BindingPattern(loc('5'), ident('b')),
+      ]),
+    });
+  });
+
+  test('tuple with 4 elements', () => {
+    expect(parsePattern(lex('(a, b, c, d)'))).toEqual({
+      errors: [],
+      pattern: TuplePattern(loc('1-12'), [
+        BindingPattern(loc('2'), ident('a')),
+        BindingPattern(loc('5'), ident('b')),
+        BindingPattern(loc('8'), ident('c')),
+        BindingPattern(loc('11'), ident('d')),
+      ]),
     });
   });
 });

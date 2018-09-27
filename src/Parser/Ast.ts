@@ -527,6 +527,7 @@ export interface WrappedExpression extends Node {
 
 export type Pattern =
   | BindingPattern
+  | HolePattern
   | UnitPattern
   | TuplePattern
   | RecordPattern
@@ -534,10 +535,12 @@ export type Pattern =
   | QualifiedPattern
   | DeconstructPattern
   | AliasPattern
-  | WrappedPattern;
+  | WrappedPattern
+  | ErrorPattern;
 
 export const enum PatternKind {
   Binding = 'Binding',
+  Hole = 'Hole',
   Unit = 'Unit',
   Tuple = 'Tuple',
   Record = 'Record',
@@ -546,6 +549,7 @@ export const enum PatternKind {
   Deconstruct = 'Deconstruct',
   Alias = 'Alias',
   Wrapped = 'Wrapped',
+  Error = 'Error',
 }
 
 export interface BindingPattern extends Node {
@@ -558,6 +562,14 @@ export function BindingPattern(
   identifier: BindingIdentifier
 ): BindingPattern {
   return {kind: PatternKind.Binding, loc, identifier};
+}
+
+export interface HolePattern extends Node {
+  readonly kind: PatternKind.Hole;
+}
+
+export function HolePattern(loc: Loc): HolePattern {
+  return {kind: PatternKind.Hole, loc};
 }
 
 export interface UnitPattern extends Node {
@@ -663,4 +675,13 @@ export function WrappedPattern(
   type: Type | undefined
 ): WrappedPattern {
   return {kind: PatternKind.Wrapped, loc, pattern, type};
+}
+
+export interface ErrorPattern extends Node {
+  readonly kind: PatternKind.Error;
+  readonly error: ParserError;
+}
+
+export function ErrorPattern(loc: Loc, error: ParserError): ErrorPattern {
+  return {kind: PatternKind.Error, loc, error};
 }
