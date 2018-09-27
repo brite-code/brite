@@ -14,3 +14,4 @@ Motivating examples:
 - Parsing static GraphQL queries to generate types and runtime helpers. Like the Relay compiler for JavaScript.
 - Building type-safe GraphQL schemas.
 - Getting the source text string for an `assert()` message. For example: `assert(x == y)` should be able to throw an error that says `"Assertion failed: x == y"`.
+- Pre-computation in constants. For example, `StyleSheet.create()`.
