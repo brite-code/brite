@@ -21,7 +21,7 @@ import {
   UnexpectedTokenError,
 } from './Error';
 import {ident} from './Identifier';
-import {Glyph, Lexer, TokenType} from './Lexer';
+import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from './Lexer';
 import {loc} from './Loc';
 import {parseCommaListTest, parseType} from './Parser';
 
@@ -31,19 +31,16 @@ function lex(source: string): Lexer {
 
 describe('type', () => {
   test('empty string', () => {
-    const error = UnexpectedTokenError(
-      {type: TokenType.End, loc: loc('1-1')},
-      ExpectedType
-    );
+    const error = UnexpectedTokenError(EndToken(loc('1')), ExpectedType);
     expect(parseType(lex(''))).toEqual({
       errors: [error],
-      type: ErrorType(loc('1-1'), error),
+      type: ErrorType(loc('1'), error),
     });
   });
 
   test('invalid string', () => {
     const error = UnexpectedTokenError(
-      {type: TokenType.Glyph, loc: loc('1-3'), glyph: Glyph.Ellipsis},
+      GlyphToken(loc('1-3'), Glyph.Ellipsis),
       ExpectedType
     );
     expect(parseType(lex('...'))).toEqual({
@@ -54,11 +51,8 @@ describe('type', () => {
 
   test('binding keyword', () => {
     const error = UnexpectedTokenError(
-      {
-        type: TokenType.Identifier,
-        loc: loc('1-2'),
-        identifier: ident('if'),
-      },
+      IdentifierToken(loc('1-2'), ident('if')),
+
       ExpectedType
     );
     expect(parseType(lex('if'))).toEqual({
@@ -88,10 +82,7 @@ describe('type', () => {
   test('unit trailing comma', () => {
     expect(parseType(lex('(,)'))).toEqual({
       errors: [
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Comma},
-          ExpectedType
-        ),
+        UnexpectedTokenError(GlyphToken(loc('2'), Glyph.Comma), ExpectedType),
       ],
       type: UnitType(loc('1-3')),
     });
@@ -262,24 +253,16 @@ describe('type', () => {
 
   test('member without identifier', () => {
     expect(parseType(lex('hello.'))).toEqual({
-      errors: [
-        UnexpectedTokenError(
-          {type: TokenType.End, loc: loc('7')},
-          ExpectedIdentifier
-        ),
-      ],
+      errors: [UnexpectedTokenError(EndToken(loc('7')), ExpectedIdentifier)],
       type: ReferenceType(loc('1-5'), ident('hello')),
     });
     expect(parseType(lex('hello.%'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
+          GlyphToken(loc('7'), Glyph.Percent),
           ExpectedIdentifier
         ),
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('7'), glyph: Glyph.Percent},
-          ExpectedEnd
-        ),
+        UnexpectedTokenError(GlyphToken(loc('7'), Glyph.Percent), ExpectedEnd),
       ],
       type: ReferenceType(loc('1-5'), ident('hello')),
     });
@@ -446,10 +429,7 @@ describe('type', () => {
   });
 
   test('function no body', () => {
-    const error = UnexpectedTokenError(
-      {type: TokenType.End, loc: loc('6')},
-      ExpectedType
-    );
+    const error = UnexpectedTokenError(EndToken(loc('6')), ExpectedType);
     expect(parseType(lex('() ->'))).toEqual({
       errors: [error],
       type: FunctionType(loc('1-6'), [], ErrorType(loc('6'), error)),
@@ -485,14 +465,8 @@ describe('type', () => {
   test('tuple skips errors', () => {
     expect(parseType(lex('(X, Y, %, Z)'))).toEqual({
       errors: [
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('8'), glyph: Glyph.Percent},
-          ExpectedType
-        ),
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('9'), glyph: Glyph.Comma},
-          ExpectedType
-        ),
+        UnexpectedTokenError(GlyphToken(loc('8'), Glyph.Percent), ExpectedType),
+        UnexpectedTokenError(GlyphToken(loc('9'), Glyph.Comma), ExpectedType),
       ],
       type: TupleType(loc('1-12'), [
         ReferenceType(loc('2'), ident('X')),
@@ -505,14 +479,8 @@ describe('type', () => {
   test('generic skips errors', () => {
     expect(parseType(lex('T<X, Y, %, Z>'))).toEqual({
       errors: [
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('9'), glyph: Glyph.Percent},
-          ExpectedType
-        ),
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('10'), glyph: Glyph.Comma},
-          ExpectedType
-        ),
+        UnexpectedTokenError(GlyphToken(loc('9'), Glyph.Percent), ExpectedType),
+        UnexpectedTokenError(GlyphToken(loc('10'), Glyph.Comma), ExpectedType),
       ],
       type: GenericType(loc('1-13'), ReferenceType(loc('1'), ident('T')), [
         ReferenceType(loc('3'), ident('X')),
@@ -578,7 +546,7 @@ describe('type', () => {
 
   test('quantified error body', () => {
     const error = UnexpectedTokenError(
-      {type: TokenType.Glyph, loc: loc('5'), glyph: Glyph.Percent},
+      GlyphToken(loc('5'), Glyph.Percent),
       ExpectedType
     );
     expect(parseType(lex('<T> %'))).toEqual({
@@ -625,7 +593,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(,)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Comma},
+          GlyphToken(loc('2'), Glyph.Comma),
           ExpectedIdentifier
         ),
       ],
@@ -658,7 +626,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(%)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('2'), glyph: Glyph.Percent},
+          GlyphToken(loc('2'), Glyph.Percent),
           ExpectedIdentifier
         ),
       ],
@@ -667,7 +635,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('( % )'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('3'), glyph: Glyph.Percent},
+          GlyphToken(loc('3'), Glyph.Percent),
           ExpectedIdentifier
         ),
       ],
@@ -679,11 +647,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo bar)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {
-            type: TokenType.Identifier,
-            loc: loc('6-8'),
-            identifier: ident('bar'),
-          },
+          IdentifierToken(loc('6-8'), ident('bar')),
           ExpectedGlyph(Glyph.Comma)
         ),
       ],
@@ -695,11 +659,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo, bar qux)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {
-            type: TokenType.Identifier,
-            loc: loc('11-13'),
-            identifier: ident('qux'),
-          },
+          IdentifierToken(loc('11-13'), ident('qux')),
           ExpectedGlyph(Glyph.Comma)
         ),
       ],
@@ -711,19 +671,11 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo bar qux)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {
-            type: TokenType.Identifier,
-            loc: loc('6-8'),
-            identifier: ident('bar'),
-          },
+          IdentifierToken(loc('6-8'), ident('bar')),
           ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
-          {
-            type: TokenType.Identifier,
-            loc: loc('10-12'),
-            identifier: ident('qux'),
-          },
+          IdentifierToken(loc('10-12'), ident('qux')),
           ExpectedGlyph(Glyph.Comma)
         ),
       ],
@@ -735,7 +687,7 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo,, bar)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('6'), glyph: Glyph.Comma},
+          GlyphToken(loc('6'), Glyph.Comma),
           ExpectedIdentifier
         ),
       ],
@@ -747,19 +699,11 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo; bar)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {
-            type: TokenType.Glyph,
-            loc: loc('5'),
-            glyph: Glyph.Semicolon,
-          },
+          GlyphToken(loc('5'), Glyph.Semicolon),
           ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
-          {
-            type: TokenType.Glyph,
-            loc: loc('5'),
-            glyph: Glyph.Semicolon,
-          },
+          GlyphToken(loc('5'), Glyph.Semicolon),
           ExpectedIdentifier
         ),
       ],
@@ -771,27 +715,15 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo;; bar)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {
-            type: TokenType.Glyph,
-            loc: loc('5'),
-            glyph: Glyph.Semicolon,
-          },
+          GlyphToken(loc('5'), Glyph.Semicolon),
           ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
-          {
-            type: TokenType.Glyph,
-            loc: loc('5'),
-            glyph: Glyph.Semicolon,
-          },
+          GlyphToken(loc('5'), Glyph.Semicolon),
           ExpectedIdentifier
         ),
         UnexpectedTokenError(
-          {
-            type: TokenType.Glyph,
-            loc: loc('6'),
-            glyph: Glyph.Semicolon,
-          },
+          GlyphToken(loc('6'), Glyph.Semicolon),
           ExpectedIdentifier
         ),
       ],
@@ -803,19 +735,11 @@ describe('comma list', () => {
     expect(parseCommaListTest(lex('(foo, bar;)'))).toEqual({
       errors: [
         UnexpectedTokenError(
-          {
-            type: TokenType.Glyph,
-            loc: loc('10'),
-            glyph: Glyph.Semicolon,
-          },
+          GlyphToken(loc('10'), Glyph.Semicolon),
           ExpectedGlyph(Glyph.Comma)
         ),
         UnexpectedTokenError(
-          {
-            type: TokenType.Glyph,
-            loc: loc('10'),
-            glyph: Glyph.Semicolon,
-          },
+          GlyphToken(loc('10'), Glyph.Semicolon),
           ExpectedIdentifier
         ),
       ],
@@ -825,12 +749,7 @@ describe('comma list', () => {
 
   test('not ended when expecting item', () => {
     expect(parseCommaListTest(lex('('))).toEqual({
-      errors: [
-        UnexpectedTokenError(
-          {type: TokenType.End, loc: loc('2')},
-          ExpectedIdentifier
-        ),
-      ],
+      errors: [UnexpectedTokenError(EndToken(loc('2')), ExpectedIdentifier)],
       result: [],
     });
   });
@@ -838,14 +757,8 @@ describe('comma list', () => {
   test('not ended when expecting comma', () => {
     expect(parseCommaListTest(lex('(foo'))).toEqual({
       errors: [
-        UnexpectedTokenError(
-          {type: TokenType.End, loc: loc('5')},
-          ExpectedGlyph(Glyph.Comma)
-        ),
-        UnexpectedTokenError(
-          {type: TokenType.End, loc: loc('5')},
-          ExpectedIdentifier
-        ),
+        UnexpectedTokenError(EndToken(loc('5')), ExpectedGlyph(Glyph.Comma)),
+        UnexpectedTokenError(EndToken(loc('5')), ExpectedIdentifier),
       ],
       result: ['foo'],
     });

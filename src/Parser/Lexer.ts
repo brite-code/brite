@@ -37,6 +37,13 @@ export type IdentifierToken = {
   readonly identifier: Identifier;
 };
 
+export function IdentifierToken(
+  loc: Loc,
+  identifier: Identifier
+): IdentifierToken {
+  return {type: TokenType.Identifier, loc, identifier};
+}
+
 /**
  * A keyword is a reserved identifier. Despite being valid identifiers, keywords
  * are reserved for their use as syntax.
@@ -46,6 +53,10 @@ export type KeywordToken = {
   readonly loc: Loc;
   readonly keyword: Keyword;
 };
+
+export function KeywordToken(loc: Loc, keyword: Keyword): KeywordToken {
+  return {type: TokenType.Keyword, loc, keyword};
+}
 
 /**
  * A glyph is some character or characters which represents, graphically, some
@@ -97,6 +108,10 @@ export type GlyphToken = {
   readonly glyph: Glyph;
 };
 
+export function GlyphToken(loc: Loc, glyph: Glyph): GlyphToken {
+  return {type: TokenType.Glyph, loc, glyph};
+}
+
 /**
  * Sometimes during parsing we encounter a character that we did not expect. In
  * this case we insert an unexpected token. If the parser expected a specific
@@ -113,6 +128,14 @@ export type UnexpectedCharToken = {
   readonly expected: string | undefined | false;
 };
 
+export function UnexpectedCharToken(
+  loc: Loc,
+  unexpected: string | undefined,
+  expected: string | undefined | false
+): UnexpectedCharToken {
+  return {type: TokenType.Unexpected, loc, unexpected, expected};
+}
+
 /**
  * The last token in the file. Once the iterator stops we emit this token and
  * keep emitting it.
@@ -121,6 +144,10 @@ export type EndToken = {
   readonly type: TokenType.End;
   readonly loc: Loc;
 };
+
+export function EndToken(loc: Loc): EndToken {
+  return {type: TokenType.End, loc};
+}
 
 /**
  * A Brite source program starts its life as a sequence of Unicode characters
@@ -195,16 +222,8 @@ export class Lexer implements Iterable<Token> {
       return peeked;
     }
 
-    const g = (glyph: Glyph): Token => ({
-      type: TokenType.Glyph,
-      loc: this.currentLoc(),
-      glyph,
-    });
-    const g2 = (loc: Loc, glyph: Glyph): Token => ({
-      type: TokenType.Glyph,
-      loc,
-      glyph,
-    });
+    const g = (glyph: Glyph) => GlyphToken(this.currentLoc(), glyph);
+    const g2 = (loc: Loc, glyph: Glyph) => GlyphToken(loc, glyph);
 
     const c = this.nextChar();
     switch (c) {
@@ -311,12 +330,7 @@ export class Lexer implements Iterable<Token> {
             const loc = new Loc(start, end);
             return g2(loc, Glyph.Ellipsis);
           } else {
-            return {
-              type: TokenType.Unexpected,
-              loc: this.currentLoc(),
-              unexpected: thirdChar,
-              expected: '.',
-            };
+            return UnexpectedCharToken(this.currentLoc(), thirdChar, '.');
           }
         }
         return g(Glyph.Dot);
@@ -364,12 +378,8 @@ export class Lexer implements Iterable<Token> {
       }
 
       // If we have no more characters then we are done!
-      case undefined: {
-        return {
-          type: TokenType.End,
-          loc: this.currentLoc(),
-        };
-      }
+      case undefined:
+        return EndToken(this.currentLoc());
 
       default: {
         if (Identifier.isStart(c)) {
@@ -406,31 +416,16 @@ export class Lexer implements Iterable<Token> {
           const loc = new Loc(start, end);
           const result = Identifier.createAssumingValidSyntax(identifier);
           switch (result.type) {
-            case ResultType.Ok: {
-              return {
-                type: TokenType.Identifier,
-                loc,
-                identifier: result.value,
-              };
-            }
-            case ResultType.Err: {
-              return {
-                type: TokenType.Keyword,
-                loc,
-                keyword: result.value,
-              };
-            }
+            case ResultType.Ok:
+              return IdentifierToken(loc, result.value);
+            case ResultType.Err:
+              return KeywordToken(loc, result.value);
             default:
               throw new Error('unreachable');
           }
         } else {
           // We found an unexpected character! Return an unexpected token error.
-          return {
-            type: TokenType.Unexpected,
-            loc: this.currentLoc(),
-            unexpected: c,
-            expected: false,
-          };
+          return UnexpectedCharToken(this.currentLoc(), c, false);
         }
       }
     }
