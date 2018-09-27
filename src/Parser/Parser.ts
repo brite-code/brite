@@ -1,4 +1,5 @@
 import {ReadonlyArray2} from '../Utils/ArrayN';
+import {Err, Ok, Result} from '../Utils/Result';
 
 import {
   BindingPattern,
@@ -100,7 +101,7 @@ class Parser {
    * Parses the `Type` grammar. Does not advance the lexer when we cannot parse
    * a type. Always advances otherwise.
    */
-  parseType(): Type {
+  parseType(): Result<Type, ParserError> {
     const token = this.lexer.peek();
 
     // Assign primary types here and we will parse extensions on those types at
@@ -111,11 +112,10 @@ class Parser {
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       // Parse a list of types inside parentheses.
       const start = this.lexer.next().loc;
-      const types = this.parseCommaList(() => {
-        const type = this.parseType();
-        if (type.kind === TypeKind.Error) return undefined;
-        return type;
-      }, Glyph.ParenRight);
+      const types = this.parseCommaList(
+        () => Result.unwrapOr(this.parseType(), undefined),
+        Glyph.ParenRight
+      );
       const end = this.lexer.next().loc;
       const nextToken = this.lexer.peek();
 
@@ -126,8 +126,10 @@ class Parser {
         nextToken.glyph === Glyph.Arrow
       ) {
         this.lexer.next();
-        const body = this.parseType();
-        return FunctionType(start.between(body.loc), types, body);
+        const body = Result.unwrapOrElse(this.parseType(), error =>
+          ErrorType(error.unexpected.loc, error)
+        );
+        return Ok(FunctionType(start.between(body.loc), types, body));
       }
 
       // Finish parsing either `UnitType`, `TupleType`, or `WrappedType`.
@@ -149,11 +151,15 @@ class Parser {
           nextToken.glyph === Glyph.Arrow
         ) {
           this.lexer.next();
-          const body = this.parseType();
-          return FunctionType(
-            token.loc.between(body.loc),
-            [ReferenceType(token.loc, identifier)],
-            body
+          const body = Result.unwrapOrElse(this.parseType(), error =>
+            ErrorType(error.unexpected.loc, error)
+          );
+          return Ok(
+            FunctionType(
+              token.loc.between(body.loc),
+              [ReferenceType(token.loc, identifier)],
+              body
+            )
           );
         }
 
@@ -169,7 +175,9 @@ class Parser {
         if (key === undefined) return undefined;
         const optional = this.tryParseGlyph(Glyph.Question);
         this.parseGlyph(Glyph.Colon);
-        const value = this.parseType();
+        const value = Result.unwrapOrElse(this.parseType(), error =>
+          ErrorType(error.unexpected.loc, error)
+        );
         return optional
           ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
           : RecordTypeProperty(Name(key.loc, key.identifier), value);
@@ -187,18 +195,20 @@ class Parser {
         Glyph.GreaterThan
       );
       this.lexer.next();
-      const body = this.parseType();
-      return QuantifiedType(start.between(body.loc), typeParameters, body);
+      const body = Result.unwrapOrElse(this.parseType(), error =>
+        ErrorType(error.unexpected.loc, error)
+      );
+      return Ok(QuantifiedType(start.between(body.loc), typeParameters, body));
     }
 
     // Return an error if we could not parse a primary type.
     if (primaryType === undefined) {
       const error = UnexpectedTokenError(token, ExpectedType);
       this.errors.push(error);
-      return ErrorType(token.loc, error);
+      return Err(error);
     }
 
-    return this.parsePrimaryTypeExtension(primaryType);
+    return Ok(this.parsePrimaryTypeExtension(primaryType));
   }
 
   /**
@@ -226,11 +236,10 @@ class Parser {
       // Parse `GenericType`
       if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
         this.lexer.next();
-        const types = this.parseCommaList(() => {
-          const type = this.parseType();
-          if (type.kind === TypeKind.Error) return undefined;
-          return type;
-        }, Glyph.GreaterThan);
+        const types = this.parseCommaList(
+          () => Result.unwrapOr(this.parseType(), undefined),
+          Glyph.GreaterThan
+        );
         const end = this.lexer.next().loc;
         type = GenericType(type.loc.between(end), type, types);
         continue;

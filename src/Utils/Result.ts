@@ -39,3 +39,34 @@ export function Err<E>(value: E): Result<never, E> {
     value,
   };
 }
+
+export namespace Result {
+  /**
+   * Returns the “ok” value from the result or returns the provided
+   * default value.
+   */
+  export function unwrapOr<T>(result: Result<T, unknown>, other: T): T {
+    switch (result.type) {
+      case ResultType.Ok:
+        return result.value;
+      case ResultType.Err:
+        return other;
+    }
+  }
+
+  /**
+   * Returns the “ok” value or calls the other function with the error value to
+   * produce an alternative value to return.
+   */
+  export function unwrapOrElse<T, E>(
+    result: Result<T, E>,
+    other: (error: E) => T
+  ): T {
+    switch (result.type) {
+      case ResultType.Ok:
+        return result.value;
+      case ResultType.Err:
+        return other(result.value);
+    }
+  }
+}
