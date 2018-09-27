@@ -20,7 +20,7 @@ export const enum TokenType {
   Identifier = 'Identifier',
   Keyword = 'Keyword',
   Glyph = 'Glyph',
-  Unexpected = 'Unexpected',
+  UnexpectedChar = 'UnexpectedChar',
   End = 'End',
 }
 
@@ -122,7 +122,7 @@ export function GlyphToken(loc: Loc, glyph: Glyph): GlyphToken {
  * unexpected character we arrived at an unexpected ending.
  */
 export type UnexpectedCharToken = {
-  readonly type: TokenType.Unexpected;
+  readonly type: TokenType.UnexpectedChar;
   readonly loc: Loc;
   readonly unexpected: string | undefined;
   readonly expected: string | undefined | false;
@@ -133,7 +133,7 @@ export function UnexpectedCharToken(
   unexpected: string | undefined,
   expected: string | undefined | false
 ): UnexpectedCharToken {
-  return {type: TokenType.Unexpected, loc, unexpected, expected};
+  return {type: TokenType.UnexpectedChar, loc, unexpected, expected};
 }
 
 /**
