@@ -86,7 +86,7 @@ ListExpressionItemList :
 
 ## Match Expression
 
-MatchExpression : `match` Expression `with` `(` MatchCaseList `)`
+MatchExpression : `match` Expression `:` `(` MatchCaseList `)`
 
 MatchCaseList :
   - MatchCase LineSeparator?
@@ -174,14 +174,14 @@ Note: {ReturnExpression} may only have an {Expression} argument if that expressi
 
 ## Loop Expression
 
-LoopExpression : `loop` Expression
+LoopExpression : `loop` `:` Expression
 
 A {LoopExpression} keeps executing its {Expression} argument until a {BreakExpression} or {ReturnExpression} abrupts its execution.
 
 Unlike the related loop statements {WhileLoopStatement} and {ForLoopStatement}, {LoopExpression} is an expression and returns a value! The value returned is the argument provided to {BreakExpression}. Returning a value from all the possible exits of {WhileLoopStatement} or {ForLoopStatement} would be too complex to warrant making them expressions.
 
 ```ite example
-x = loop (
+x = loop: (
   if i > 5 then break i
   i := i + 1
 )

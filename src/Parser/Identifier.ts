@@ -51,11 +51,9 @@ export const enum BindingKeyword {
   Then = 'then',
   Else = 'else',
   Match = 'match',
-  With = 'with',
   Return = 'return',
   Loop = 'loop',
   While = 'while',
-  Do = 'do',
   For = 'for',
   In = 'in',
   Break = 'break',
@@ -187,16 +185,12 @@ export namespace Identifier {
         return BindingKeyword.Else;
       case 'match':
         return BindingKeyword.Match;
-      case 'with':
-        return BindingKeyword.With;
       case 'return':
         return BindingKeyword.Return;
       case 'loop':
         return BindingKeyword.Loop;
       case 'while':
         return BindingKeyword.While;
-      case 'do':
-        return BindingKeyword.Do;
       case 'for':
         return BindingKeyword.For;
       case 'in':
