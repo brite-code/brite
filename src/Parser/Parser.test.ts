@@ -707,6 +707,73 @@ describe('pattern', () => {
       )
     );
   });
+
+  test('unit with trailing comma', () => {
+    expect(parsePattern(lex('(,)'))).toEqual(
+      Err(
+        UnexpectedTokenError(GlyphToken(loc('2'), Glyph.Comma), ExpectedPattern)
+      )
+    );
+  });
+
+  test('wrapped with trailing comma', () => {
+    expect(parsePattern(lex('(foo,)'))).toEqual(
+      Ok(
+        WrappedPattern(
+          loc('1-6'),
+          BindingPattern(loc('2-4'), ident('foo')),
+          undefined
+        )
+      )
+    );
+  });
+
+  test('tuple with 2 elements and trailing comma', () => {
+    expect(parsePattern(lex('(a, b,)'))).toEqual(
+      Ok(
+        TuplePattern(loc('1-7'), [
+          BindingPattern(loc('2'), ident('a')),
+          BindingPattern(loc('5'), ident('b')),
+        ])
+      )
+    );
+  });
+
+  test('tuple with 4 elements and trailing comma', () => {
+    expect(parsePattern(lex('(a, b, c, d,)'))).toEqual(
+      Ok(
+        TuplePattern(loc('1-13'), [
+          BindingPattern(loc('2'), ident('a')),
+          BindingPattern(loc('5'), ident('b')),
+          BindingPattern(loc('8'), ident('c')),
+          BindingPattern(loc('11'), ident('d')),
+        ])
+      )
+    );
+  });
+
+  test('wrapped expecting annotation', () => {
+    expect(parsePattern(lex('(x:)'))).toEqual(
+      Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('4'), Glyph.ParenRight),
+          ExpectedType
+        )
+      )
+    );
+  });
+
+  test('wrapped with annotation', () => {
+    expect(parsePattern(lex('(x: T)'))).toEqual(
+      Ok(
+        WrappedPattern(
+          loc('1-6'),
+          BindingPattern(loc('2'), ident('x')),
+          ReferenceType(loc('5'), ident('T'))
+        )
+      )
+    );
+  });
 });
 
 describe('comma list', () => {
