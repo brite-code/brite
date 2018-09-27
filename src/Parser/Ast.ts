@@ -521,3 +521,143 @@ export interface WrappedExpression {
   readonly expression: Expression;
   readonly annotation: Type | undefined;
 }
+
+export type Pattern =
+  | BindingPattern
+  | UnitPattern
+  | TuplePattern
+  | RecordPattern
+  | ListPattern
+  | QualifiedPattern
+  | DeconstructPattern
+  | AliasPattern
+  | WrappedPattern;
+
+export const enum PatternType {
+  Binding = 'Binding',
+  Unit = 'Unit',
+  Tuple = 'Tuple',
+  Record = 'Record',
+  List = 'List',
+  Qualified = 'Qualified',
+  Deconstruct = 'Deconstruct',
+  Alias = 'Alias',
+  Wrapped = 'Wrapped',
+}
+
+export interface BindingPattern extends Node {
+  readonly type: PatternType.Binding;
+  readonly identifier: Identifier;
+}
+
+export function BindingPattern(
+  loc: Loc,
+  identifier: Identifier
+): BindingPattern {
+  return {type: PatternType.Binding, loc, identifier};
+}
+
+export interface UnitPattern extends Node {
+  readonly type: PatternType.Unit;
+}
+
+export function UnitPattern(loc: Loc): UnitPattern {
+  return {type: PatternType.Unit, loc};
+}
+
+export interface TuplePattern extends Node {
+  readonly type: PatternType.Tuple;
+  readonly elements: ReadonlyArray2<Pattern>;
+}
+
+export function TuplePattern(
+  loc: Loc,
+  elements: ReadonlyArray2<Pattern>
+): TuplePattern {
+  return {type: PatternType.Tuple, loc, elements};
+}
+
+export interface RecordPattern extends Node {
+  readonly type: PatternType.Record;
+  readonly properties: ReadonlyArray<RecordPatternProperty>;
+}
+
+export function RecordPattern(
+  loc: Loc,
+  properties: ReadonlyArray<RecordPatternProperty>
+): RecordPattern {
+  return {type: PatternType.Record, loc, properties};
+}
+
+export type RecordPatternProperty = {
+  readonly key: Name;
+  readonly value: Pattern;
+  readonly type: Type | undefined;
+  readonly optional: boolean;
+};
+
+export interface ListPattern extends Node {
+  readonly type: PatternType.List;
+  readonly elements: ReadonlyArray<Pattern>;
+}
+
+export function ListPattern(
+  loc: Loc,
+  elements: ReadonlyArray<Pattern>
+): ListPattern {
+  return {type: PatternType.List, loc, elements};
+}
+
+export interface QualifiedPattern extends Node {
+  readonly type: PatternType.Qualified;
+  readonly path: ReadonlyArray2<Name>;
+}
+
+export function QualifiedPattern(
+  loc: Loc,
+  path: ReadonlyArray2<Name>
+): QualifiedPattern {
+  return {type: PatternType.Qualified, loc, path};
+}
+
+export interface DeconstructPattern extends Node {
+  readonly type: PatternType.Deconstruct;
+  readonly callee: ReadonlyArray1<Name>;
+  readonly arguments: ReadonlyArray<Pattern>;
+}
+
+export function DeconstructPattern(
+  loc: Loc,
+  callee: ReadonlyArray1<Name>,
+  args: ReadonlyArray<Pattern>
+): DeconstructPattern {
+  return {type: PatternType.Deconstruct, loc, callee, arguments: args};
+}
+
+export interface AliasPattern extends Node {
+  readonly type: PatternType.Alias;
+  readonly alias: Identifier;
+  readonly pattern: Pattern;
+}
+
+export function AliasPattern(
+  loc: Loc,
+  alias: Identifier,
+  pattern: Pattern
+): AliasPattern {
+  return {type: PatternType.Alias, loc, alias, pattern};
+}
+
+export interface WrappedPattern extends Node {
+  readonly type: PatternType.Wrapped;
+  readonly pattern: Pattern;
+  readonly typeAnnotation: Type | undefined;
+}
+
+export function WrappedPattern(
+  loc: Loc,
+  pattern: Pattern,
+  type: Type | undefined
+): WrappedPattern {
+  return {type: PatternType.Wrapped, loc, pattern, typeAnnotation: type};
+}

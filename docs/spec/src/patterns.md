@@ -6,7 +6,7 @@ Pattern[Constructor] :
   - TuplePattern
   - RecordPattern
   - ListPattern
-  - MemberPattern
+  - QualifiedPattern
   - DeconstructPattern
   - AliasPattern
   - WrappedPattern
@@ -59,7 +59,9 @@ RecordPatternProperty :
   - [+Constructor] Access? `mutable`? RecordPatternPropertyWithoutModifiers
 
 RecordPatternPropertyWithoutModifiers :
-  - Identifier TypeAnnotation? RecordPatternPropertyInitializer?
+  - Identifier RecordPatternPropertyAnnotation? RecordPatternPropertyInitializer?
+
+RecordPatternPropertyAnnotation : `?`? TypeAnnotation
 
 RecordPatternPropertyInitializer: `=` Pattern
 
@@ -77,15 +79,15 @@ Takes a list and extracts items from each index listed. The pattern fails if the
 
 Useful for turning list data into structured data since all user data must start as a list before being turned into a more structured form like a tuple, record, or object.
 
-Note: Functional lanuages typically add first-class syntax for “cons” and “uncons” operations on lists (`:` operator in Haskell). This is efficient since you operate on linked-lists. However, the default Brite list type is not a linked list. “cons”/“concat” is guaranteed to be fast which is why we have spread syntax in {ListExpression}, but “uncons” is not guaranteed to be fast which is why we don’t have spread syntax in {ListPattern}.
+Note: Functional languages typically add first-class syntax for “cons” and “uncons” operations on lists (`:` operator in Haskell). This is efficient since you operate on linked-lists. However, the default Brite list type is not a linked list. “cons”/“concat” is guaranteed to be fast which is why we have spread syntax in {ListExpression}, but “uncons” is not guaranteed to be fast which is why we don’t have spread syntax in {ListPattern}.
 
-## Member Pattern
+## Qualified Pattern
 
-MemberPattern :
+QualifiedPattern :
   - Identifier `.` Identifier
-  - MemberPattern `.` Identifier
+  - QualifiedPattern `.` Identifier
 
-A {MemberPattern} resolves to a class in the current scope and matches values which are an instance of that class.
+A {QualifiedPattern} resolves to a class in the current scope and matches values which are an instance of that class.
 
 ```ite example
 match color: (
@@ -117,7 +119,7 @@ Foo(n) = Foo(42)
 
 ## Alias Pattern
 
-AliasPattern : Identifier `is` Pattern
+AliasPattern : BindingIdentifier `is` Pattern
 
 Allows a {Pattern} to be aliased. In case one wants access to the entire value and one of its fields.
 
