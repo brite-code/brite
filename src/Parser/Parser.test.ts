@@ -1,4 +1,6 @@
 import {
+  ErrorType,
+  FunctionType,
   GenericType,
   MemberType,
   Name,
@@ -27,42 +29,39 @@ function lex(source: string): Lexer {
 
 describe('type', () => {
   test('empty string', () => {
+    const error = UnexpectedTokenError(
+      {type: TokenType.End, loc: loc('1-1')},
+      ExpectedType
+    );
     expect(parseType(lex(''))).toEqual({
-      errors: [
-        UnexpectedTokenError(
-          {type: TokenType.End, loc: loc('1-1')},
-          ExpectedType
-        ),
-      ],
-      type: undefined,
+      errors: [error],
+      type: ErrorType(loc('1-1'), error),
     });
   });
 
   test('invalid string', () => {
+    const error = UnexpectedTokenError(
+      {type: TokenType.Glyph, loc: loc('1-3'), glyph: Glyph.Ellipsis},
+      ExpectedType
+    );
     expect(parseType(lex('...'))).toEqual({
-      errors: [
-        UnexpectedTokenError(
-          {type: TokenType.Glyph, loc: loc('1-3'), glyph: Glyph.Ellipsis},
-          ExpectedType
-        ),
-      ],
-      type: undefined,
+      errors: [error],
+      type: ErrorType(loc('1-3'), error),
     });
   });
 
   test('binding keyword', () => {
+    const error = UnexpectedTokenError(
+      {
+        type: TokenType.Identifier,
+        loc: loc('1-2'),
+        identifier: 'if' as Identifier,
+      },
+      ExpectedType
+    );
     expect(parseType(lex('if'))).toEqual({
-      errors: [
-        UnexpectedTokenError(
-          {
-            type: TokenType.Identifier,
-            loc: loc('1-2'),
-            identifier: 'if' as Identifier,
-          },
-          ExpectedType
-        ),
-      ],
-      type: undefined,
+      errors: [error],
+      type: ErrorType(loc('1-2'), error),
     });
   });
 
@@ -375,6 +374,135 @@ describe('type', () => {
         loc('1-5'),
         GenericType(loc('1-3'), ReferenceType(loc('1'), 'A' as Identifier), []),
         []
+      ),
+    });
+  });
+
+  test('unit member', () => {
+    expect(parseType(lex('().foo'))).toEqual({
+      errors: [],
+      type: MemberType(
+        loc('1-6'),
+        UnitType(loc('1-2')),
+        Name(loc('4-6'), 'foo' as Identifier)
+      ),
+    });
+  });
+
+  test('function with 0 parameters', () => {
+    expect(parseType(lex('() -> ()'))).toEqual({
+      errors: [],
+      type: FunctionType(loc('1-8'), [], UnitType(loc('7-8'))),
+    });
+  });
+
+  test('function with 1 parameter', () => {
+    expect(parseType(lex('(a) -> ()'))).toEqual({
+      errors: [],
+      type: FunctionType(
+        loc('1-9'),
+        [ReferenceType(loc('2'), 'a' as Identifier)],
+        UnitType(loc('8-9'))
+      ),
+    });
+  });
+
+  test('function with 2 parameters', () => {
+    expect(parseType(lex('(a, b) -> ()'))).toEqual({
+      errors: [],
+      type: FunctionType(
+        loc('1-12'),
+        [
+          ReferenceType(loc('2'), 'a' as Identifier),
+          ReferenceType(loc('5'), 'b' as Identifier),
+        ],
+        UnitType(loc('11-12'))
+      ),
+    });
+  });
+
+  test('function with 4 parameters', () => {
+    expect(parseType(lex('(a, b, c, d) -> ()'))).toEqual({
+      errors: [],
+      type: FunctionType(
+        loc('1-18'),
+        [
+          ReferenceType(loc('2'), 'a' as Identifier),
+          ReferenceType(loc('5'), 'b' as Identifier),
+          ReferenceType(loc('8'), 'c' as Identifier),
+          ReferenceType(loc('11'), 'd' as Identifier),
+        ],
+        UnitType(loc('17-18'))
+      ),
+    });
+  });
+
+  test('function returning member', () => {
+    expect(parseType(lex('() -> foo.bar'))).toEqual({
+      errors: [],
+      type: FunctionType(
+        loc('1-13'),
+        [],
+        MemberType(
+          loc('7-13'),
+          ReferenceType(loc('7-9'), 'foo' as Identifier),
+          Name(loc('11-13'), 'bar' as Identifier)
+        )
+      ),
+    });
+  });
+
+  test('function no body', () => {
+    const error = UnexpectedTokenError(
+      {type: TokenType.End, loc: loc('6')},
+      ExpectedType
+    );
+    expect(parseType(lex('() ->'))).toEqual({
+      errors: [error],
+      type: FunctionType(loc('1-6'), [], ErrorType(loc('6'), error)),
+    });
+  });
+
+  test('tuple skips errors', () => {
+    expect(parseType(lex('(X, Y, %, Z)'))).toEqual({
+      errors: [
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('8'), glyph: Glyph.Percent},
+          ExpectedType
+        ),
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('9'), glyph: Glyph.Comma},
+          ExpectedType
+        ),
+      ],
+      type: TupleType(loc('1-12'), [
+        ReferenceType(loc('2'), 'X' as Identifier),
+        ReferenceType(loc('5'), 'Y' as Identifier),
+        ReferenceType(loc('11'), 'Z' as Identifier),
+      ]),
+    });
+  });
+
+  test('generic skips errors', () => {
+    expect(parseType(lex('T<X, Y, %, Z>'))).toEqual({
+      errors: [
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('9'), glyph: Glyph.Percent},
+          ExpectedType
+        ),
+        UnexpectedTokenError(
+          {type: TokenType.Glyph, loc: loc('10'), glyph: Glyph.Comma},
+          ExpectedType
+        ),
+      ],
+      type: GenericType(
+        loc('1-13'),
+        ReferenceType(loc('1'), 'T' as Identifier),
+        [
+          ReferenceType(loc('3'), 'X' as Identifier),
+          ReferenceType(loc('6'), 'Y' as Identifier),
+          ReferenceType(loc('12'), 'Z' as Identifier),
+        ]
       ),
     });
   });

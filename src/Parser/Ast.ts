@@ -1,5 +1,6 @@
 import {ReadonlyArray1, ReadonlyArray2} from '../Utils/ArrayN';
 
+import {ParserError} from './Error';
 import {Identifier} from './Identifier';
 import {Loc} from './Loc';
 
@@ -113,7 +114,8 @@ export type Type =
   | MemberType
   | GenericType
   | QuantifiedType
-  | WrappedType;
+  | WrappedType
+  | ErrorType;
 
 export const enum TypeType {
   Reference = 'Reference',
@@ -125,6 +127,7 @@ export const enum TypeType {
   Generic = 'Generic',
   Quantified = 'Quantified',
   Wrapped = 'Wrapped',
+  Error = 'Error',
 }
 
 export interface ReferenceType extends Node {
@@ -244,6 +247,15 @@ export interface WrappedType extends Node {
 
 export function WrappedType(loc: Loc, wrapped: Type): WrappedType {
   return {type: TypeType.Wrapped, loc, wrapped};
+}
+
+export interface ErrorType extends Node {
+  readonly type: TypeType.Error;
+  readonly error: ParserError;
+}
+
+export function ErrorType(loc: Loc, error: ParserError): ErrorType {
+  return {type: TypeType.Error, loc, error};
 }
 
 export type TypeParameter = {

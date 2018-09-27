@@ -1,14 +1,19 @@
 import {ReadonlyArray2} from '../Utils/ArrayN';
 
 import {
+  ErrorType,
+  FunctionType,
   GenericType,
   MemberType,
   Name,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
+  TupleType,
   Type,
   TypeType,
+  UnitType,
+  WrappedType,
 } from './Ast';
 import {
   ExpectedEnd,
@@ -26,7 +31,7 @@ export function parseType(
   lexer: Lexer
 ): {
   readonly errors: ReadonlyArray<ParserError>;
-  readonly type: Type | undefined;
+  readonly type: Type;
 } {
   const parser = new Parser(lexer);
   const type = parser.parseType();
@@ -70,12 +75,37 @@ class Parser {
   /**
    * Parses the `Type` grammar. Advances the lexer on failure.
    */
-  parseType(): Type | undefined {
+  parseType(): Type {
     const token = this.lexer.peek();
-    // if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
-    //   this.lexer.next();
-    //   return; // TODO: parse function
-    // }
+
+    // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
+      // Parse a list of types inside parentheses.
+      const start = this.lexer.next().loc;
+      const types = this.parseCommaList(() => {
+        const type = this.parseType();
+        if (type.type === TypeType.Error) return undefined;
+        return type;
+      }, Glyph.ParenRight);
+      const end = this.lexer.next().loc;
+      const nextToken = this.lexer.peek();
+
+      // Parse `FunctionType`.
+      if (
+        nextToken.type === TokenType.Glyph &&
+        nextToken.glyph === Glyph.Arrow
+      ) {
+        this.lexer.next();
+        const body = this.parseType();
+        return FunctionType(start.between(body.loc), types, body);
+      }
+
+      // Finish parsing either `UnitType`, `TupleType`, or `WrappedType`.
+      const loc = start.between(end);
+      const type = createParenListType(loc, types);
+      return this.parseUnbalancedPrimaryType(type);
+    }
+
     // if (
     //   token.type === TokenType.Identifier &&
     //   Identifier.getBindingKeyword(token.identifier)
@@ -87,15 +117,15 @@ class Parser {
     //   this.lexer.next();
     //   return; // TODO: parse type quantification
     // }
-    return this.parsePrimaryType();
+
+    return this.parseUnbalancedPrimaryType(this.parseBalancedPrimaryType());
   }
 
   /**
-   * Parses the `PrimaryType` grammar.
+   * Parses the unbalanced extensions to a balanced primary type.
    */
-  parsePrimaryType(): Type | undefined {
-    let type = this.parseBalancedPrimaryType();
-    if (type === undefined) return undefined;
+  parseUnbalancedPrimaryType(balancedType: Type): Type {
+    let type = balancedType;
 
     while (true) {
       const token = this.lexer.peek();
@@ -116,10 +146,11 @@ class Parser {
       // Parse `GenericType`
       if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
         this.lexer.next();
-        const types = this.parseCommaList(
-          () => this.parseType(),
-          Glyph.GreaterThan
-        );
+        const types = this.parseCommaList(() => {
+          const type = this.parseType();
+          if (type.type === TypeType.Error) return undefined;
+          return type;
+        }, Glyph.GreaterThan);
         const end = this.lexer.next().loc;
         type = GenericType(type.loc.between(end), type, types);
         continue;
@@ -139,7 +170,7 @@ class Parser {
    * and end with `}`. Members are not a balanced grammar rule since they start
    * with `PrimaryType`.
    */
-  parseBalancedPrimaryType(): Type | undefined {
+  parseBalancedPrimaryType(): Type {
     const token = this.lexer.next();
 
     // Parse `ReferenceType`.
@@ -148,18 +179,6 @@ class Parser {
       !Identifier.getBindingKeyword(token.identifier)
     ) {
       return ReferenceType(token.loc, token.identifier);
-    }
-
-    // Parse `UnitType`, `TupleType`, and `WrappedType`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
-      const start = token.loc;
-      const types = this.parseCommaList(
-        () => this.parseType(),
-        Glyph.ParenRight
-      );
-      const end = this.lexer.next().loc;
-      const loc = start.between(end);
-      return createParenListType(loc, types);
     }
 
     // Parse `RecordType`.
@@ -171,7 +190,6 @@ class Parser {
         const optional = this.tryParseGlyph(Glyph.Question);
         this.parseGlyph(Glyph.Colon);
         const value = this.parseType();
-        if (value === undefined) return undefined;
         return optional
           ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
           : RecordTypeProperty(Name(key.loc, key.identifier), value);
@@ -181,8 +199,16 @@ class Parser {
       return RecordType(loc, properties);
     }
 
-    this.errors.push(UnexpectedTokenError(token, ExpectedType));
-    return undefined;
+    // Parse `UnitType`, `TupleType`, and `WrappedType`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
+      throw new Error(
+        'Expected this case to be handled by `Parser.parseType()`'
+      );
+    }
+
+    const error = UnexpectedTokenError(token, ExpectedType);
+    this.errors.push(error);
+    return ErrorType(token.loc, error);
   }
 
   /**
@@ -344,21 +370,10 @@ class Parser {
 
 function createParenListType(loc: Loc, types: ReadonlyArray<Type>): Type {
   if (types.length === 0) {
-    return {
-      type: TypeType.Unit,
-      loc,
-    };
+    return UnitType(loc);
   } else if (types.length === 1) {
-    return {
-      type: TypeType.Wrapped,
-      loc,
-      wrapped: types[0],
-    };
+    return WrappedType(loc, types[0]);
   } else {
-    return {
-      type: TypeType.Tuple,
-      loc,
-      elements: ReadonlyArray2.create(types),
-    };
+    return TupleType(loc, ReadonlyArray2.create(types));
   }
 }
