@@ -4,10 +4,12 @@ import {
   GenericType,
   MemberType,
   Name,
+  QuantifiedType,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
   TupleType,
+  TypeParameter,
   UnitType,
   WrappedType,
 } from './Ast';
@@ -540,6 +542,77 @@ describe('type', () => {
           ReferenceType(loc('6'), 'Y' as Identifier),
           ReferenceType(loc('12'), 'Z' as Identifier),
         ]
+      ),
+    });
+  });
+
+  test('quantified', () => {
+    expect(parseType(lex('<T> T'))).toEqual({
+      errors: [],
+      type: QuantifiedType(
+        loc('1-5'),
+        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        ReferenceType(loc('5'), 'T' as Identifier)
+      ),
+    });
+  });
+
+  test('quantified generic', () => {
+    expect(parseType(lex('<T> Foo<T>'))).toEqual({
+      errors: [],
+      type: QuantifiedType(
+        loc('1-10'),
+        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        GenericType(
+          loc('5-10'),
+          ReferenceType(loc('5-7'), 'Foo' as Identifier),
+          [ReferenceType(loc('9'), 'T' as Identifier)]
+        )
+      ),
+    });
+  });
+
+  test('quantified function', () => {
+    expect(parseType(lex('<T>(T) -> T'))).toEqual({
+      errors: [],
+      type: QuantifiedType(
+        loc('1-11'),
+        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        FunctionType(
+          loc('4-11'),
+          [ReferenceType(loc('5'), 'T' as Identifier)],
+          ReferenceType(loc('11'), 'T' as Identifier)
+        )
+      ),
+    });
+  });
+
+  test('quantified function with identifier shorthand', () => {
+    expect(parseType(lex('<T> T -> T'))).toEqual({
+      errors: [],
+      type: QuantifiedType(
+        loc('1-10'),
+        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        FunctionType(
+          loc('5-10'),
+          [ReferenceType(loc('5'), 'T' as Identifier)],
+          ReferenceType(loc('10'), 'T' as Identifier)
+        )
+      ),
+    });
+  });
+
+  test('quantified error body', () => {
+    const error = UnexpectedTokenError(
+      {type: TokenType.Glyph, loc: loc('5'), glyph: Glyph.Percent},
+      ExpectedType
+    );
+    expect(parseType(lex('<T> %'))).toEqual({
+      errors: [error],
+      type: QuantifiedType(
+        loc('1-5'),
+        [TypeParameter(Name(loc('2'), 'T' as Identifier), [])],
+        ErrorType(loc('5'), error)
       ),
     });
   });

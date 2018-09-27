@@ -6,11 +6,13 @@ import {
   GenericType,
   MemberType,
   Name,
+  QuantifiedType,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
   TupleType,
   Type,
+  TypeParameter,
   TypeType,
   UnitType,
   WrappedType,
@@ -154,6 +156,18 @@ class Parser {
       primaryType = RecordType(loc, properties);
     }
 
+    // Parse `QuanitifedType`
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
+      const start = token.loc;
+      const typeParameters = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.lexer.next();
+      const body = this.parseType();
+      return QuantifiedType(start.between(body.loc), typeParameters, body);
+    }
+
     // Return an error if we could not parse a primary type.
     if (primaryType === undefined) {
       const error = UnexpectedTokenError(token, ExpectedType);
@@ -203,6 +217,15 @@ class Parser {
     }
 
     return type;
+  }
+
+  /**
+   * Parses the `GenericPattern` grammar. Returns `undefined` if parsing fails.
+   */
+  parseGenericParameter(): TypeParameter | undefined {
+    const identifier = this.parseIdentifier();
+    if (identifier === undefined) return undefined;
+    return TypeParameter(Name(identifier.loc, identifier.identifier), []);
   }
 
   /**
