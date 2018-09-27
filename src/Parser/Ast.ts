@@ -114,8 +114,7 @@ export type Type =
   | MemberType
   | GenericType
   | QuantifiedType
-  | WrappedType
-  | ErrorType;
+  | WrappedType;
 
 export const enum TypeKind {
   Reference = 'Reference',
@@ -127,7 +126,6 @@ export const enum TypeKind {
   Generic = 'Generic',
   Quantified = 'Quantified',
   Wrapped = 'Wrapped',
-  Error = 'Error',
 }
 
 export interface ReferenceType extends Node {
@@ -250,15 +248,6 @@ export interface WrappedType extends Node {
 
 export function WrappedType(loc: Loc, type: Type): WrappedType {
   return {kind: TypeKind.Wrapped, loc, type};
-}
-
-export interface ErrorType extends Node {
-  readonly kind: TypeKind.Error;
-  readonly error: ParserError;
-}
-
-export function ErrorType(loc: Loc, error: ParserError): ErrorType {
-  return {kind: TypeKind.Error, loc, error};
 }
 
 export type TypeParameter = {
@@ -535,8 +524,7 @@ export type Pattern =
   | QualifiedPattern
   | DeconstructPattern
   | AliasPattern
-  | WrappedPattern
-  | ErrorPattern;
+  | WrappedPattern;
 
 export const enum PatternKind {
   Binding = 'Binding',
@@ -549,7 +537,6 @@ export const enum PatternKind {
   Deconstruct = 'Deconstruct',
   Alias = 'Alias',
   Wrapped = 'Wrapped',
-  Error = 'Error',
 }
 
 export interface BindingPattern extends Node {
@@ -675,13 +662,4 @@ export function WrappedPattern(
   type: Type | undefined
 ): WrappedPattern {
   return {kind: PatternKind.Wrapped, loc, pattern, type};
-}
-
-export interface ErrorPattern extends Node {
-  readonly kind: PatternKind.Error;
-  readonly error: ParserError;
-}
-
-export function ErrorPattern(loc: Loc, error: ParserError): ErrorPattern {
-  return {kind: PatternKind.Error, loc, error};
 }
