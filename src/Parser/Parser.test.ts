@@ -474,6 +474,32 @@ describe('type', () => {
     });
   });
 
+  test('function identifier shorthand', () => {
+    expect(parseType(lex('T -> T'))).toEqual({
+      errors: [],
+      type: FunctionType(
+        loc('1-6'),
+        [ReferenceType(loc('1'), 'T' as Identifier)],
+        ReferenceType(loc('6'), 'T' as Identifier)
+      ),
+    });
+  });
+
+  test('function identifier shorthand returning member', () => {
+    expect(parseType(lex('x -> foo.bar'))).toEqual({
+      errors: [],
+      type: FunctionType(
+        loc('1-12'),
+        [ReferenceType(loc('1'), 'x' as Identifier)],
+        MemberType(
+          loc('6-12'),
+          ReferenceType(loc('6-8'), 'foo' as Identifier),
+          Name(loc('10-12'), 'bar' as Identifier)
+        )
+      ),
+    });
+  });
+
   test('tuple skips errors', () => {
     expect(parseType(lex('(X, Y, %, Z)'))).toEqual({
       errors: [

@@ -115,6 +115,24 @@ class Parser {
       token.type === TokenType.Identifier &&
       !Identifier.getBindingKeyword(token.identifier)
     ) {
+      const start = token.loc;
+      const nextToken = this.lexer.peek();
+
+      // Parse `FunctionType`. Notably we return since functions are not
+      // a `PrimaryType`!
+      if (
+        nextToken.type === TokenType.Glyph &&
+        nextToken.glyph === Glyph.Arrow
+      ) {
+        this.lexer.next();
+        const body = this.parseType();
+        return FunctionType(
+          start.between(body.loc),
+          [ReferenceType(token.loc, token.identifier)],
+          body
+        );
+      }
+
       primaryType = ReferenceType(token.loc, token.identifier);
     }
 
