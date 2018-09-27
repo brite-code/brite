@@ -14,7 +14,7 @@ export const enum Access {
  * Any node in our AST.
  */
 export interface Node {
-  readonly type: unknown;
+  readonly kind: unknown;
   readonly loc: Loc;
 }
 
@@ -33,7 +33,7 @@ export type Declaration =
   | ClassDeclaration
   | InterfaceDeclaration;
 
-export const enum DeclarationType {
+export const enum DeclarationKind {
   Type = 'Type',
   Function = 'Function',
   Class = 'Class',
@@ -46,13 +46,13 @@ export interface NamedDeclaration extends Node {
 }
 
 export interface TypeDeclaration extends NamedDeclaration {
-  readonly type: DeclarationType.Type;
+  readonly kind: DeclarationKind.Type;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly value: Type;
 }
 
 export interface FunctionDeclaration extends NamedDeclaration {
-  readonly type: DeclarationType.Function;
+  readonly kind: DeclarationKind.Function;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly return: Type | undefined;
@@ -69,7 +69,7 @@ export type FunctionParameter = {
  * base classes and concrete classes are well formed in our checking phase.
  */
 export interface ClassDeclaration extends NamedDeclaration {
-  readonly type: DeclarationType.Class;
+  readonly kind: DeclarationKind.Class;
   readonly base: boolean;
   readonly unsealed: boolean;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
@@ -99,7 +99,7 @@ export interface MethodMember extends NamedMember {
 }
 
 export interface InterfaceDeclaration extends NamedDeclaration {
-  readonly type: DeclarationType.Interface;
+  readonly kind: DeclarationKind.Interface;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly extends: ReadonlyArray<ReferenceType>;
   readonly body: ReadonlyArray<Member>;
@@ -117,7 +117,7 @@ export type Type =
   | WrappedType
   | ErrorType;
 
-export const enum TypeType {
+export const enum TypeKind {
   Reference = 'Reference',
   Unit = 'Unit',
   Tuple = 'Tuple',
@@ -131,33 +131,33 @@ export const enum TypeType {
 }
 
 export interface ReferenceType extends Node {
-  readonly type: TypeType.Reference;
+  readonly kind: TypeKind.Reference;
   readonly identifier: Identifier;
 }
 
 export function ReferenceType(loc: Loc, identifier: Identifier): ReferenceType {
-  return {type: TypeType.Reference, loc, identifier};
+  return {kind: TypeKind.Reference, loc, identifier};
 }
 
 export interface UnitType extends Node {
-  readonly type: TypeType.Unit;
+  readonly kind: TypeKind.Unit;
 }
 
 export function UnitType(loc: Loc): UnitType {
-  return {type: TypeType.Unit, loc};
+  return {kind: TypeKind.Unit, loc};
 }
 
 export interface TupleType extends Node {
-  readonly type: TypeType.Tuple;
+  readonly kind: TypeKind.Tuple;
   readonly elements: ReadonlyArray2<Type>;
 }
 
 export function TupleType(loc: Loc, elements: ReadonlyArray2<Type>): TupleType {
-  return {type: TypeType.Tuple, loc, elements};
+  return {kind: TypeKind.Tuple, loc, elements};
 }
 
 export interface RecordType extends Node {
-  readonly type: TypeType.Record;
+  readonly kind: TypeKind.Record;
   readonly properties: ReadonlyArray<RecordTypeProperty>;
 }
 
@@ -165,7 +165,7 @@ export function RecordType(
   loc: Loc,
   properties: ReadonlyArray<RecordTypeProperty>
 ): RecordType {
-  return {type: TypeType.Record, loc, properties};
+  return {kind: TypeKind.Record, loc, properties};
 }
 
 export type RecordTypeProperty = {
@@ -185,7 +185,7 @@ export namespace RecordTypeProperty {
 }
 
 export interface FunctionType extends Node {
-  readonly type: TypeType.Function;
+  readonly kind: TypeKind.Function;
   readonly parameters: ReadonlyArray<Type>;
   readonly body: Type;
 }
@@ -195,11 +195,11 @@ export function FunctionType(
   parameters: ReadonlyArray<Type>,
   body: Type
 ): FunctionType {
-  return {type: TypeType.Function, loc, parameters, body};
+  return {kind: TypeKind.Function, loc, parameters, body};
 }
 
 export interface MemberType extends Node {
-  readonly type: TypeType.Member;
+  readonly kind: TypeKind.Member;
   readonly namespace: Type;
   readonly member: Name;
 }
@@ -209,11 +209,11 @@ export function MemberType(
   namespace: Type,
   member: Name
 ): MemberType {
-  return {type: TypeType.Member, loc, namespace, member};
+  return {kind: TypeKind.Member, loc, namespace, member};
 }
 
 export interface GenericType extends Node {
-  readonly type: TypeType.Generic;
+  readonly kind: TypeKind.Generic;
   readonly callee: Type;
   readonly typeArguments: ReadonlyArray<Type>;
 }
@@ -223,11 +223,11 @@ export function GenericType(
   callee: Type,
   typeArguments: ReadonlyArray<Type>
 ): GenericType {
-  return {type: TypeType.Generic, loc, callee, typeArguments};
+  return {kind: TypeKind.Generic, loc, callee, typeArguments};
 }
 
 export interface QuantifiedType extends Node {
-  readonly type: TypeType.Quantified;
+  readonly kind: TypeKind.Quantified;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly body: Type;
 }
@@ -237,25 +237,25 @@ export function QuantifiedType(
   typeParameters: ReadonlyArray<TypeParameter>,
   body: Type
 ): QuantifiedType {
-  return {type: TypeType.Quantified, loc, typeParameters, body};
+  return {kind: TypeKind.Quantified, loc, typeParameters, body};
 }
 
 export interface WrappedType extends Node {
-  readonly type: TypeType.Wrapped;
-  readonly wrapped: Type;
+  readonly kind: TypeKind.Wrapped;
+  readonly type: Type;
 }
 
-export function WrappedType(loc: Loc, wrapped: Type): WrappedType {
-  return {type: TypeType.Wrapped, loc, wrapped};
+export function WrappedType(loc: Loc, type: Type): WrappedType {
+  return {kind: TypeKind.Wrapped, loc, type};
 }
 
 export interface ErrorType extends Node {
-  readonly type: TypeType.Error;
+  readonly kind: TypeKind.Error;
   readonly error: ParserError;
 }
 
 export function ErrorType(loc: Loc, error: ParserError): ErrorType {
-  return {type: TypeType.Error, loc, error};
+  return {kind: TypeKind.Error, loc, error};
 }
 
 export type TypeParameter = {
@@ -277,7 +277,7 @@ export type Statement =
   | WhileLoopStatement
   | ForLoopStatement;
 
-export const enum StatementType {
+export const enum StatementKind {
   Expression = 'Expression',
   Binding = 'Binding',
   BindingProperty = 'BindingProperty',
@@ -287,33 +287,33 @@ export const enum StatementType {
 }
 
 export interface ExpressionStatement {
-  readonly type: StatementType.Expression;
+  readonly kind: StatementKind.Expression;
   readonly expression: Expression;
 }
 
 export interface BindingStatement {
-  readonly type: StatementType.Binding;
+  readonly kind: StatementKind.Binding;
   readonly binding: Pattern;
-  readonly annotation: Type | undefined;
+  readonly type: Type | undefined;
   readonly value: Expression;
 }
 
 export interface BindingPropertyStatement {
-  readonly type: StatementType.BindingProperty;
+  readonly kind: StatementKind.BindingProperty;
   readonly property: ReadonlyArray2<Name>;
   readonly value: Expression;
 }
 
 export interface WhileLoopStatement {
-  readonly type: StatementType.WhileLoop;
+  readonly kind: StatementKind.WhileLoop;
   readonly test: Expression;
   readonly body: Expression;
 }
 
 export interface ForLoopStatement {
-  readonly type: StatementType.ForLoop;
+  readonly kind: StatementKind.ForLoop;
   readonly binding: Pattern;
-  readonly annotation: Type | undefined;
+  readonly type: Type | undefined;
   readonly iterable: Expression;
   readonly body: Expression;
 }
@@ -341,7 +341,7 @@ export type Expression =
   | BlockExpression
   | WrappedExpression;
 
-export const enum ExpressionType {
+export const enum ExpressionKind {
   Reference = 'Reference',
   Hole = 'Hole',
   Unit = 'Unit',
@@ -366,67 +366,67 @@ export const enum ExpressionType {
 }
 
 export interface ReferenceExpression extends Node {
-  readonly type: ExpressionType.Reference;
+  readonly kind: ExpressionKind.Reference;
   readonly identifier: Identifier;
 }
 
 export interface HoleExpression extends Node {
-  readonly type: ExpressionType.Hole;
+  readonly kind: ExpressionKind.Hole;
 }
 
 export interface UnitExpression extends Node {
-  readonly type: ExpressionType.Unit;
+  readonly kind: ExpressionKind.Unit;
 }
 
 export interface TupleExpression extends Node {
-  readonly type: ExpressionType.Tuple;
+  readonly kind: ExpressionKind.Tuple;
   readonly expressions: ReadonlyArray2<Expression>;
 }
 
 export interface RecordExpression extends Node {
-  readonly type: ExpressionType.Record;
+  readonly kind: ExpressionKind.Record;
   readonly extension: Expression | undefined;
   readonly properties: ReadonlyArray<RecordExpressionProperty>;
 }
 
 export type RecordExpressionProperty = {
   readonly key: Name;
-  readonly annotation: Type | undefined;
   readonly value: Expression;
+  readonly type: Type | undefined;
 };
 
 export interface ListExpression extends Node {
-  readonly type: ExpressionType.List;
+  readonly kind: ExpressionKind.List;
   readonly items: ReadonlyArray<Expression>;
 }
 
 export interface MemberExpression extends Node {
-  readonly type: ExpressionType.Member;
+  readonly kind: ExpressionKind.Member;
   readonly namespace: Expression;
   readonly member: Identifier;
 }
 
 export interface CallExpression extends Node {
-  readonly type: ExpressionType.Call;
+  readonly kind: ExpressionKind.Call;
   readonly callee: Expression;
   readonly arguments: ReadonlyArray<Expression>;
 }
 
 export interface FunctionExpression extends Node {
-  readonly type: ExpressionType.Function;
+  readonly kind: ExpressionKind.Function;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly body: Expression;
 }
 
 export interface ConditionalExpression extends Node {
-  readonly type: ExpressionType.Conditional;
+  readonly kind: ExpressionKind.Conditional;
   readonly test: Expression;
   readonly consequent: Expression;
   readonly alternate: Expression;
 }
 
 export interface MatchExpression extends Node {
-  readonly type: ExpressionType.Match;
+  readonly kind: ExpressionKind.Match;
   readonly test: Expression;
   readonly cases: ReadonlyArray<MatchCase>;
 }
@@ -438,27 +438,27 @@ export type MatchCase = {
 };
 
 export interface PatternExpression extends Node {
-  readonly type: ExpressionType.Pattern;
+  readonly kind: ExpressionKind.Pattern;
   readonly left: Expression;
   readonly right: Pattern;
 }
 
 export interface ReturnExpression extends Node {
-  readonly type: ExpressionType.Return;
+  readonly kind: ExpressionKind.Return;
   readonly argument: Expression | undefined;
 }
 
 export interface BreakExpression extends Node {
-  readonly type: ExpressionType.Break;
+  readonly kind: ExpressionKind.Break;
   readonly argument: Expression | undefined;
 }
 
 export interface ContinueExpression extends Node {
-  readonly type: ExpressionType.Continue;
+  readonly kind: ExpressionKind.Continue;
 }
 
 export interface LoopExpression extends Node {
-  readonly type: ExpressionType.Loop;
+  readonly kind: ExpressionKind.Loop;
   readonly body: Expression;
 }
 
@@ -468,7 +468,7 @@ export interface LoopExpression extends Node {
  * special treatment.
  */
 export interface LogicalExpression extends Node {
-  readonly type: ExpressionType.Logical;
+  readonly kind: ExpressionKind.Logical;
   readonly operator: LogicalExpressionOperator;
   readonly left: Expression;
   readonly right: Expression;
@@ -479,8 +479,8 @@ export const enum LogicalExpressionOperator {
   Or = '||',
 }
 
-export interface BinaryExpression {
-  readonly type: ExpressionType.Binary;
+export interface BinaryExpression extends Node {
+  readonly kind: ExpressionKind.Binary;
   readonly operator: BinaryExpressionOperator;
   readonly left: Expression;
   readonly right: Expression;
@@ -500,8 +500,8 @@ export const enum BinaryExpressionOperator {
   Remainder = '%',
 }
 
-export interface UnaryExpression {
-  readonly type: ExpressionType.Unary;
+export interface UnaryExpression extends Node {
+  readonly kind: ExpressionKind.Unary;
   readonly operator: UnaryExpressionOperator;
   readonly argument: Expression;
 }
@@ -511,15 +511,15 @@ export const enum UnaryExpressionOperator {
   Not = '!',
 }
 
-export interface BlockExpression {
-  readonly type: ExpressionType.Block;
+export interface BlockExpression extends Node {
+  readonly kind: ExpressionKind.Block;
   readonly statements: ReadonlyArray<Statement>;
 }
 
-export interface WrappedExpression {
-  readonly type: ExpressionType.Wrapped;
+export interface WrappedExpression extends Node {
+  readonly kind: ExpressionKind.Wrapped;
   readonly expression: Expression;
-  readonly annotation: Type | undefined;
+  readonly type: Type | undefined;
 }
 
 export type Pattern =
@@ -533,7 +533,7 @@ export type Pattern =
   | AliasPattern
   | WrappedPattern;
 
-export const enum PatternType {
+export const enum PatternKind {
   Binding = 'Binding',
   Unit = 'Unit',
   Tuple = 'Tuple',
@@ -546,7 +546,7 @@ export const enum PatternType {
 }
 
 export interface BindingPattern extends Node {
-  readonly type: PatternType.Binding;
+  readonly kind: PatternKind.Binding;
   readonly identifier: Identifier;
 }
 
@@ -554,19 +554,19 @@ export function BindingPattern(
   loc: Loc,
   identifier: Identifier
 ): BindingPattern {
-  return {type: PatternType.Binding, loc, identifier};
+  return {kind: PatternKind.Binding, loc, identifier};
 }
 
 export interface UnitPattern extends Node {
-  readonly type: PatternType.Unit;
+  readonly kind: PatternKind.Unit;
 }
 
 export function UnitPattern(loc: Loc): UnitPattern {
-  return {type: PatternType.Unit, loc};
+  return {kind: PatternKind.Unit, loc};
 }
 
 export interface TuplePattern extends Node {
-  readonly type: PatternType.Tuple;
+  readonly kind: PatternKind.Tuple;
   readonly elements: ReadonlyArray2<Pattern>;
 }
 
@@ -574,11 +574,11 @@ export function TuplePattern(
   loc: Loc,
   elements: ReadonlyArray2<Pattern>
 ): TuplePattern {
-  return {type: PatternType.Tuple, loc, elements};
+  return {kind: PatternKind.Tuple, loc, elements};
 }
 
 export interface RecordPattern extends Node {
-  readonly type: PatternType.Record;
+  readonly kind: PatternKind.Record;
   readonly properties: ReadonlyArray<RecordPatternProperty>;
 }
 
@@ -586,7 +586,7 @@ export function RecordPattern(
   loc: Loc,
   properties: ReadonlyArray<RecordPatternProperty>
 ): RecordPattern {
-  return {type: PatternType.Record, loc, properties};
+  return {kind: PatternKind.Record, loc, properties};
 }
 
 export type RecordPatternProperty = {
@@ -597,7 +597,7 @@ export type RecordPatternProperty = {
 };
 
 export interface ListPattern extends Node {
-  readonly type: PatternType.List;
+  readonly kind: PatternKind.List;
   readonly elements: ReadonlyArray<Pattern>;
 }
 
@@ -605,23 +605,23 @@ export function ListPattern(
   loc: Loc,
   elements: ReadonlyArray<Pattern>
 ): ListPattern {
-  return {type: PatternType.List, loc, elements};
+  return {kind: PatternKind.List, loc, elements};
 }
 
 export interface QualifiedPattern extends Node {
-  readonly type: PatternType.Qualified;
-  readonly path: ReadonlyArray2<Name>;
+  readonly kind: PatternKind.Qualified;
+  readonly identifiers: ReadonlyArray2<Name>;
 }
 
 export function QualifiedPattern(
   loc: Loc,
-  path: ReadonlyArray2<Name>
+  identifiers: ReadonlyArray2<Name>
 ): QualifiedPattern {
-  return {type: PatternType.Qualified, loc, path};
+  return {kind: PatternKind.Qualified, loc, identifiers};
 }
 
 export interface DeconstructPattern extends Node {
-  readonly type: PatternType.Deconstruct;
+  readonly kind: PatternKind.Deconstruct;
   readonly callee: ReadonlyArray1<Name>;
   readonly arguments: ReadonlyArray<Pattern>;
 }
@@ -631,11 +631,11 @@ export function DeconstructPattern(
   callee: ReadonlyArray1<Name>,
   args: ReadonlyArray<Pattern>
 ): DeconstructPattern {
-  return {type: PatternType.Deconstruct, loc, callee, arguments: args};
+  return {kind: PatternKind.Deconstruct, loc, callee, arguments: args};
 }
 
 export interface AliasPattern extends Node {
-  readonly type: PatternType.Alias;
+  readonly kind: PatternKind.Alias;
   readonly alias: Identifier;
   readonly pattern: Pattern;
 }
@@ -645,13 +645,13 @@ export function AliasPattern(
   alias: Identifier,
   pattern: Pattern
 ): AliasPattern {
-  return {type: PatternType.Alias, loc, alias, pattern};
+  return {kind: PatternKind.Alias, loc, alias, pattern};
 }
 
 export interface WrappedPattern extends Node {
-  readonly type: PatternType.Wrapped;
+  readonly kind: PatternKind.Wrapped;
   readonly pattern: Pattern;
-  readonly typeAnnotation: Type | undefined;
+  readonly type: Type | undefined;
 }
 
 export function WrappedPattern(
@@ -659,5 +659,5 @@ export function WrappedPattern(
   pattern: Pattern,
   type: Type | undefined
 ): WrappedPattern {
-  return {type: PatternType.Wrapped, loc, pattern, typeAnnotation: type};
+  return {kind: PatternKind.Wrapped, loc, pattern, type};
 }

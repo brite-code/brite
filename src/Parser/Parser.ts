@@ -12,8 +12,8 @@ import {
   ReferenceType,
   TupleType,
   Type,
+  TypeKind,
   TypeParameter,
-  TypeType,
   UnitType,
   WrappedType,
 } from './Ast';
@@ -91,7 +91,7 @@ class Parser {
       const start = this.lexer.next().loc;
       const types = this.parseCommaList(() => {
         const type = this.parseType();
-        if (type.type === TypeType.Error) return undefined;
+        if (type.kind === TypeKind.Error) return undefined;
         return type;
       }, Glyph.ParenRight);
       const end = this.lexer.next().loc;
@@ -206,7 +206,7 @@ class Parser {
         this.lexer.next();
         const types = this.parseCommaList(() => {
           const type = this.parseType();
-          if (type.type === TypeType.Error) return undefined;
+          if (type.kind === TypeKind.Error) return undefined;
           return type;
         }, Glyph.GreaterThan);
         const end = this.lexer.next().loc;
