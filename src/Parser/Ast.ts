@@ -337,6 +337,7 @@ export type Expression =
   | FunctionExpression
   | ConditionalExpression
   | MatchExpression
+  | PatternExpression
   | ReturnExpression
   | BreakExpression
   | ContinueExpression
@@ -359,6 +360,7 @@ export const enum ExpressionType {
   Function = 'Function',
   Conditional = 'Conditional',
   Match = 'Match',
+  Pattern = 'Pattern',
   Return = 'Return',
   Break = 'Break',
   Continue = 'Continue',
@@ -441,6 +443,12 @@ export type MatchCase = {
   readonly test: Expression | undefined;
   readonly body: Expression;
 };
+
+export interface PatternExpression extends Node {
+  readonly type: ExpressionType.Pattern;
+  readonly left: Expression;
+  readonly right: Pattern;
+}
 
 export interface ReturnExpression extends Node {
   readonly type: ExpressionType.Return;

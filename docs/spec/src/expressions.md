@@ -215,11 +215,11 @@ Note: The chaining feature assumes a proper implementation of the equality inter
 ## Relational Expression
 
 RelationalExpression[WithoutLessThan] :
-  - [~WithoutLessThan] RelationalExpression `<` AdditiveExpression
-  - RelationalExpression[WithoutLessThan] `>` AdditiveExpression
-  - RelationalExpression `<=` AdditiveExpression
-  - RelationalExpression `>=` AdditiveExpression
-  - AdditiveExpression
+  - [~WithoutLessThan] RelationalExpression `<` PatternExpression
+  - RelationalExpression[WithoutLessThan] `>` PatternExpression
+  - RelationalExpression `<=` PatternExpression
+  - RelationalExpression `>=` PatternExpression
+  - PatternExpression
 
 Checks the ordering relationship between two values based on some ordering interface defined in the standard library.
 
@@ -228,6 +228,14 @@ Note: We disallow the syntax in {RelationalExpression} for `a < b > c` since ang
 Chained relational expressions in the same direction are treated as a test on the ordering of all the elements. That is `a < b < c` is the same as `a < b && b < c`. This makes testing if a value is in a given range quite easy, for example: `0 <= x <= 20`.
 
 Note: The chaining feature assumes a proper implementation of the ordering interface that is transitive since `a < b < c` is only rewritten to `a < b && b < c`. We assume `a < c` so we don’t check that assumption.
+
+## Pattern Expression
+
+PatternExpression :
+  - PatternExpression `is` Pattern
+  - AdditiveExpression
+
+Tests if an expression matches a pattern. If it does then the expression returns true. We also refine the {PatternExpression} if appropriate.
 
 ## Additive Expression
 

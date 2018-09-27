@@ -7,7 +7,8 @@ Pattern[Constructor] :
   - RecordPattern
   - ListPattern
   - MemberPattern
-  - CallPattern
+  - DeconstructPattern
+  - AliasPattern
   - WrappedPattern
 
 WrappedPattern : `(` Pattern TypeAnnotation? `)`
@@ -25,7 +26,7 @@ BindingPatternHole : `_`
 
 Binds a value to a name in the current scope.
 
-If the name resolves to a class constructor with no arguments in the current scope then instead we test whether or not the value being matched is an instance of that class.
+If the identifier resolves to a class in the current scope then instead of binding a name we check if the value we are matching is an instance of the class. This rule is a bit problematic from an implementation perspective. It requires us to know every variable that is in scope before we can know the behavior of a binding pattern.
 
 Note: Enabling the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
 
@@ -84,35 +85,47 @@ MemberPattern :
   - Identifier `.` Identifier
   - MemberPattern `.` Identifier
 
-A {MemberPattern} resolves to a class constructor with no arguments in the current scope and matches values which are an instance of that class.
+A {MemberPattern} resolves to a class in the current scope and matches values which are an instance of that class.
 
 ```ite example
-match color with (
+match color: (
   Color.Red -> "#FF0000"
   Color.Green -> "#00FF00"
   Color.Blue -> "#0000FF"
 )
 ```
 
-## Call Pattern
+## Deconstruct Pattern
 
-CallPattern : CallPatternCallee CallPatternArguments
+DeconstructPattern : DeconstructPatternCallee DeconstructPatternArguments
 
-CallPatternCallee :
+DeconstructPatternCallee :
   - Identifier
-  - CallPatternCallee `.` Identifier
+  - DeconstructPatternCallee `.` Identifier
 
-CallPatternArguments : [lookahead != LineTerminator] `(` CallPatternArgumentList? `)`
+DeconstructPatternArguments : [lookahead != LineTerminator] `(` DeconstructPatternArgumentList? `)`
 
-CallPatternArgumentList :
+DeconstructPatternArgumentList :
   - Pattern `,`?
-  - Pattern `,` CallPatternArgumentList
+  - Pattern `,` DeconstructPatternArgumentList
 
-Matches a value against some accessible constructor and its data.
+Takes a class and deconstructs it into the data which composes the class. One may only deconstruct a class which is accessible in the current scope.
 
 ```ite example
 Foo(n) = Foo(42)
 ```
+
+## Alias Pattern
+
+AliasPattern : Identifier `is` Pattern
+
+Allows a {Pattern} to be aliased. In case one wants access to the entire value and one of its fields.
+
+```ite example
+value is { x, y = _ } = { x = 1, y = 2 }
+```
+
+Note: This is symmetrical with {PatternExpression} which does something different. It is not necessarily the dual of {AliasPattern}.
 
 ## Pattern Expression Symmetry
 
