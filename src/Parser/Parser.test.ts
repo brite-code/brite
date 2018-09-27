@@ -389,6 +389,17 @@ describe('type', () => {
     });
   });
 
+  test('record member', () => {
+    expect(parseType(lex('{}.foo'))).toEqual({
+      errors: [],
+      type: MemberType(
+        loc('1-6'),
+        RecordType(loc('1-2'), []),
+        Name(loc('4-6'), 'foo' as Identifier)
+      ),
+    });
+  });
+
   test('function with 0 parameters', () => {
     expect(parseType(lex('() -> ()'))).toEqual({
       errors: [],

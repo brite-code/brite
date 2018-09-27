@@ -76,12 +76,16 @@ class Parser {
    * Parses the `Type` grammar. Advances the lexer on failure.
    */
   parseType(): Type {
-    const token = this.lexer.peek();
+    const token = this.lexer.next();
+
+    // Assign primary types here and we will parse extensions on those types at
+    // the end of this function. Return non-primary types.
+    let primaryType: Type | undefined;
 
     // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       // Parse a list of types inside parentheses.
-      const start = this.lexer.next().loc;
+      const start = token.loc;
       const types = this.parseCommaList(() => {
         const type = this.parseType();
         if (type.type === TypeType.Error) return undefined;
@@ -90,7 +94,8 @@ class Parser {
       const end = this.lexer.next().loc;
       const nextToken = this.lexer.peek();
 
-      // Parse `FunctionType`.
+      // Parse `FunctionType`. Notably we return since functions are not
+      // a `PrimaryType`!
       if (
         nextToken.type === TokenType.Glyph &&
         nextToken.glyph === Glyph.Arrow
@@ -102,30 +107,50 @@ class Parser {
 
       // Finish parsing either `UnitType`, `TupleType`, or `WrappedType`.
       const loc = start.between(end);
-      const type = createParenListType(loc, types);
-      return this.parseUnbalancedPrimaryType(type);
+      primaryType = createParenListType(loc, types);
     }
 
-    // if (
-    //   token.type === TokenType.Identifier &&
-    //   Identifier.getBindingKeyword(token.identifier)
-    // ) {
-    //   this.lexer.next();
-    //   return; // TODO: parse function shorthand
-    // }
-    // if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
-    //   this.lexer.next();
-    //   return; // TODO: parse type quantification
-    // }
+    // Parse `ReferenceType`.
+    if (
+      token.type === TokenType.Identifier &&
+      !Identifier.getBindingKeyword(token.identifier)
+    ) {
+      primaryType = ReferenceType(token.loc, token.identifier);
+    }
 
-    return this.parseUnbalancedPrimaryType(this.parseBalancedPrimaryType());
+    // Parse `RecordType`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
+      const start = token.loc;
+      const properties = this.parseCommaList(() => {
+        const key = this.parseIdentifier();
+        if (key === undefined) return undefined;
+        const optional = this.tryParseGlyph(Glyph.Question);
+        this.parseGlyph(Glyph.Colon);
+        const value = this.parseType();
+        return optional
+          ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
+          : RecordTypeProperty(Name(key.loc, key.identifier), value);
+      }, Glyph.BraceRight);
+      const end = this.lexer.next().loc;
+      const loc = start.between(end);
+      primaryType = RecordType(loc, properties);
+    }
+
+    // Return an error if we could not parse a primary type.
+    if (primaryType === undefined) {
+      const error = UnexpectedTokenError(token, ExpectedType);
+      this.errors.push(error);
+      return ErrorType(token.loc, error);
+    }
+
+    return this.parsePrimaryTypeExtension(primaryType);
   }
 
   /**
-   * Parses the unbalanced extensions to a balanced primary type.
+   * Parses the extensions to a balanced primary type.
    */
-  parseUnbalancedPrimaryType(balancedType: Type): Type {
-    let type = balancedType;
+  parsePrimaryTypeExtension(primaryType: Type): Type {
+    let type = primaryType;
 
     while (true) {
       const token = this.lexer.peek();
@@ -160,55 +185,6 @@ class Parser {
     }
 
     return type;
-  }
-
-  /**
-   * Parses the balanced rules of the `PrimaryType` grammar.
-   *
-   * “Balanced” rules have a clear terminal token as the first and last token.
-   * For instance, records are a balanced grammar rule since they start with `{`
-   * and end with `}`. Members are not a balanced grammar rule since they start
-   * with `PrimaryType`.
-   */
-  parseBalancedPrimaryType(): Type {
-    const token = this.lexer.next();
-
-    // Parse `ReferenceType`.
-    if (
-      token.type === TokenType.Identifier &&
-      !Identifier.getBindingKeyword(token.identifier)
-    ) {
-      return ReferenceType(token.loc, token.identifier);
-    }
-
-    // Parse `RecordType`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
-      const start = token.loc;
-      const properties = this.parseCommaList(() => {
-        const key = this.parseIdentifier();
-        if (key === undefined) return undefined;
-        const optional = this.tryParseGlyph(Glyph.Question);
-        this.parseGlyph(Glyph.Colon);
-        const value = this.parseType();
-        return optional
-          ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
-          : RecordTypeProperty(Name(key.loc, key.identifier), value);
-      }, Glyph.BraceRight);
-      const end = this.lexer.next().loc;
-      const loc = start.between(end);
-      return RecordType(loc, properties);
-    }
-
-    // Parse `UnitType`, `TupleType`, and `WrappedType`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
-      throw new Error(
-        'Expected this case to be handled by `Parser.parseType()`'
-      );
-    }
-
-    const error = UnexpectedTokenError(token, ExpectedType);
-    this.errors.push(error);
-    return ErrorType(token.loc, error);
   }
 
   /**
