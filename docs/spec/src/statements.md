@@ -39,22 +39,6 @@ name = computeValue()
 object.property = computeAnotherValue()
 ```
 
-## Assignment Statement
-
-AssignmentStatement : AssignmentStatementProperty `:=` Expression
-
-AssignmentStatementProperty :
-  - Identifier
-  - AssignmentStatementProperty `.` Identifier
-
-Assigns a new value to a mutable reference.
-
-{AssignmentStatementProperty} must point to a mutable reference. The programmer may not write `x.y.z := 0` if `x.y` is a mutable object reference but `.z` is an immutable property in that object.
-
-```ite example
-this.mutableProperty := 42
-```
-
 ## Loop Statements
 
 WhileLoopStatement : `while` Expression `:` Expression
@@ -74,9 +58,9 @@ We include these statements in Brite as they are pretty standard for a language 
 Note: There is also a {LoopExpression} which is not listed here as it is an expression instead of a statement.
 
 ```ite example
-while i < 5: (
-  debug(i)
-  i := i + 1
+while i.get() < 5: (
+  debug(i.get())
+  i.update(i -> i + 1)
 )
 
 for i in range(0, 5): (

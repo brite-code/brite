@@ -274,7 +274,6 @@ export type Statement =
   | ExpressionStatement
   | BindingStatement
   | BindingPropertyStatement
-  | AssignmentStatement
   | WhileLoopStatement
   | ForLoopStatement;
 
@@ -302,12 +301,6 @@ export interface BindingStatement {
 export interface BindingPropertyStatement {
   readonly type: StatementType.BindingProperty;
   readonly property: ReadonlyArray2<Name>;
-  readonly value: Expression;
-}
-
-export interface AssignmentStatement {
-  readonly type: StatementType.Assignment;
-  readonly reference: ReadonlyArray1<Name>;
   readonly value: Expression;
 }
 

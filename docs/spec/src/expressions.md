@@ -182,8 +182,8 @@ Unlike the related loop statements {WhileLoopStatement} and {ForLoopStatement}, 
 
 ```ite example
 x = loop: (
-  if i > 5 then break i
-  i := i + 1
+  if i.get() > 5 then break i.get()
+  i.update(i -> i + 1)
 )
 ```
 
