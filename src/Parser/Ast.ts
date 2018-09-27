@@ -1,7 +1,7 @@
 import {ReadonlyArray1, ReadonlyArray2} from '../Utils/ArrayN';
 
 import {ParserError} from './Error';
-import {Identifier} from './Identifier';
+import {BindingIdentifier, Identifier} from './Identifier';
 import {Loc} from './Loc';
 
 export const enum Access {
@@ -132,10 +132,13 @@ export const enum TypeKind {
 
 export interface ReferenceType extends Node {
   readonly kind: TypeKind.Reference;
-  readonly identifier: Identifier;
+  readonly identifier: BindingIdentifier;
 }
 
-export function ReferenceType(loc: Loc, identifier: Identifier): ReferenceType {
+export function ReferenceType(
+  loc: Loc,
+  identifier: BindingIdentifier
+): ReferenceType {
   return {kind: TypeKind.Reference, loc, identifier};
 }
 
@@ -367,7 +370,7 @@ export const enum ExpressionKind {
 
 export interface ReferenceExpression extends Node {
   readonly kind: ExpressionKind.Reference;
-  readonly identifier: Identifier;
+  readonly identifier: BindingIdentifier;
 }
 
 export interface HoleExpression extends Node {
@@ -547,12 +550,12 @@ export const enum PatternKind {
 
 export interface BindingPattern extends Node {
   readonly kind: PatternKind.Binding;
-  readonly identifier: Identifier;
+  readonly identifier: BindingIdentifier;
 }
 
 export function BindingPattern(
   loc: Loc,
-  identifier: Identifier
+  identifier: BindingIdentifier
 ): BindingPattern {
   return {kind: PatternKind.Binding, loc, identifier};
 }
@@ -636,13 +639,13 @@ export function DeconstructPattern(
 
 export interface AliasPattern extends Node {
   readonly kind: PatternKind.Alias;
-  readonly alias: Identifier;
+  readonly alias: BindingIdentifier;
   readonly pattern: Pattern;
 }
 
 export function AliasPattern(
   loc: Loc,
-  alias: Identifier,
+  alias: BindingIdentifier,
   pattern: Pattern
 ): AliasPattern {
   return {kind: PatternKind.Alias, loc, alias, pattern};

@@ -170,12 +170,25 @@ export namespace Identifier {
         return undefined;
     }
   }
+}
+
+export namespace BindingIdentifier {
+  /**
+   * Creates a `BindingIdentifier` from an identifier. If the identifier
+   * conflicts with a binding identifier keyword then we return none.
+   */
+  export function create(
+    identifier: Identifier
+  ): BindingIdentifier | undefined {
+    if (getKeyword(identifier)) return undefined;
+    return identifier as any; // tslint:disable-line no-any
+  }
 
   /**
    * Is this string a binding keyword? If so then return the keyword. Otherwise
    * return undefined.
    */
-  export function getBindingKeyword(c: string): BindingKeyword | undefined {
+  export function getKeyword(c: string): BindingKeyword | undefined {
     switch (c) {
       case 'if':
         return BindingKeyword.If;

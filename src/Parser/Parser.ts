@@ -25,7 +25,7 @@ import {
   ParserError,
   UnexpectedTokenError,
 } from './Error';
-import {Identifier} from './Identifier';
+import {BindingIdentifier, Identifier} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, TokenType} from './Lexer';
 import {Loc} from './Loc';
 
@@ -114,29 +114,29 @@ class Parser {
     }
 
     // Parse `ReferenceType`.
-    if (
-      token.type === TokenType.Identifier &&
-      !Identifier.getBindingKeyword(token.identifier)
-    ) {
-      const start = this.lexer.next().loc;
-      const nextToken = this.lexer.peek();
+    if (token.type === TokenType.Identifier) {
+      const identifier = BindingIdentifier.create(token.identifier);
+      if (identifier !== undefined) {
+        const start = this.lexer.next().loc;
+        const nextToken = this.lexer.peek();
 
-      // Parse `FunctionType`. Notably we return since functions are not
-      // a `PrimaryType`!
-      if (
-        nextToken.type === TokenType.Glyph &&
-        nextToken.glyph === Glyph.Arrow
-      ) {
-        this.lexer.next();
-        const body = this.parseType();
-        return FunctionType(
-          start.between(body.loc),
-          [ReferenceType(token.loc, token.identifier)],
-          body
-        );
+        // Parse `FunctionType`. Notably we return since functions are not
+        // a `PrimaryType`!
+        if (
+          nextToken.type === TokenType.Glyph &&
+          nextToken.glyph === Glyph.Arrow
+        ) {
+          this.lexer.next();
+          const body = this.parseType();
+          return FunctionType(
+            start.between(body.loc),
+            [ReferenceType(token.loc, identifier)],
+            body
+          );
+        }
+
+        primaryType = ReferenceType(token.loc, identifier);
       }
-
-      primaryType = ReferenceType(token.loc, token.identifier);
     }
 
     // Parse `RecordType`.
@@ -157,7 +157,7 @@ class Parser {
       primaryType = RecordType(loc, properties);
     }
 
-    // Parse `QuanitifedType`
+    // Parse `QuantifiedType`
     if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
       const start = this.lexer.next().loc;
       const typeParameters = this.parseCommaList(
@@ -252,7 +252,7 @@ class Parser {
   }
 
   /**
-   * Parses a list seperated by commas. Supports trailing commas but requires an
+   * Parses a list separated by commas. Supports trailing commas but requires an
    * ending to look for to do so.
    *
    * - If `parseItem()` returns `undefined` then we don’t add it to the final
