@@ -301,6 +301,40 @@ class Parser {
     // Parse `UnitPattern`, `TuplePattern`, and `WrappedPattern`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       const start = this.lexer.next().loc;
+
+      // We parse the first pattern on our own since we might need to parse a
+      // type annotation. Then we call `parseCommaList()` to do the rest of
+      // the work.
+      let nextToken = this.lexer.peek();
+
+      // If our next token is a right parentheses (`)`) then we have a
+      // unit pattern.
+      if (
+        nextToken.type === TokenType.Glyph &&
+        nextToken.glyph === Glyph.ParenRight
+      ) {
+        return UnitPattern(start.between(nextToken.loc));
+      }
+
+      // Parse the first pattern ourselves without `parseCommaList()`.
+      const firstPattern = this.parsePattern();
+
+      // Peek the next token.
+      nextToken = this.lexer.peek();
+
+      // If we successfully parsed the first pattern and we find that it is
+      // followed by a colon then we have a type annotation! Parse a type and
+      // no more items after that.
+      if (
+        firstPattern.kind !== PatternKind.Error &&
+        nextToken.type === TokenType.Glyph &&
+        nextToken.glyph === Glyph.Colon
+      ) {
+        this.lexer.next();
+        const type = this.parseType();
+        this.parseGlyph(Glyph.ParenRight);
+      }
+
       const patterns = this.parseCommaList(() => {
         const pattern = this.parsePattern();
         if (pattern.kind === PatternKind.Error) return undefined;
