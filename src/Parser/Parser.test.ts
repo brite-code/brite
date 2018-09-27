@@ -44,7 +44,13 @@ describe('type', () => {
       ExpectedType
     );
     expect(parseType(lex('...'))).toEqual({
-      errors: [error],
+      errors: [
+        error,
+        UnexpectedTokenError(
+          GlyphToken(loc('1-3'), Glyph.Ellipsis),
+          ExpectedEnd
+        ),
+      ],
       type: ErrorType(loc('1-3'), error),
     });
   });
@@ -52,11 +58,16 @@ describe('type', () => {
   test('binding keyword', () => {
     const error = UnexpectedTokenError(
       IdentifierToken(loc('1-2'), ident('if')),
-
       ExpectedType
     );
     expect(parseType(lex('if'))).toEqual({
-      errors: [error],
+      errors: [
+        error,
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), ident('if')),
+          ExpectedEnd
+        ),
+      ],
       type: ErrorType(loc('1-2'), error),
     });
   });
@@ -550,11 +561,162 @@ describe('type', () => {
       ExpectedType
     );
     expect(parseType(lex('<T> %'))).toEqual({
-      errors: [error],
+      errors: [
+        error,
+        UnexpectedTokenError(GlyphToken(loc('5'), Glyph.Percent), ExpectedEnd),
+      ],
       type: QuantifiedType(
         loc('1-5'),
         [TypeParameter(Name(loc('2'), ident('T')), [])],
         ErrorType(loc('5'), error)
+      ),
+    });
+  });
+
+  test('quantified with 1 bound', () => {
+    expect(parseType(lex('<T: A> T'))).toEqual({
+      errors: [],
+      type: QuantifiedType(
+        loc('1-8'),
+        [
+          TypeParameter(Name(loc('2'), ident('T')), [
+            ReferenceType(loc('5'), ident('A')),
+          ]),
+        ],
+        ReferenceType(loc('8'), ident('T'))
+      ),
+    });
+  });
+
+  test('quantified with 2 bounds', () => {
+    expect(parseType(lex('<T: A + B> T'))).toEqual({
+      errors: [],
+      type: QuantifiedType(
+        loc('1-12'),
+        [
+          TypeParameter(Name(loc('2'), ident('T')), [
+            ReferenceType(loc('5'), ident('A')),
+            ReferenceType(loc('9'), ident('B')),
+          ]),
+        ],
+        ReferenceType(loc('12'), ident('T'))
+      ),
+    });
+  });
+
+  test('quantified with 4 bounds', () => {
+    expect(parseType(lex('<T: A + B + C + D> T'))).toEqual({
+      errors: [],
+      type: QuantifiedType(
+        loc('1-20'),
+        [
+          TypeParameter(Name(loc('2'), ident('T')), [
+            ReferenceType(loc('5'), ident('A')),
+            ReferenceType(loc('9'), ident('B')),
+            ReferenceType(loc('13'), ident('C')),
+            ReferenceType(loc('17'), ident('D')),
+          ]),
+        ],
+        ReferenceType(loc('20'), ident('T'))
+      ),
+    });
+  });
+
+  test('quantified with 0 bounds', () => {
+    const error = UnexpectedTokenError(
+      GlyphToken(loc('5'), Glyph.GreaterThan),
+      ExpectedType
+    );
+    expect(parseType(lex('<T: > T'))).toEqual({
+      errors: [error],
+      type: QuantifiedType(
+        loc('1-7'),
+        [
+          TypeParameter(Name(loc('2'), ident('T')), [
+            ErrorType(loc('5'), error),
+          ]),
+        ],
+        ReferenceType(loc('7'), ident('T'))
+      ),
+    });
+  });
+
+  test('quantified with 1 incorrect bound', () => {
+    const error = UnexpectedTokenError(
+      GlyphToken(loc('5'), Glyph.Percent),
+      ExpectedType
+    );
+    expect(parseType(lex('<T: %> T'))).toEqual({
+      errors: [
+        error,
+        UnexpectedTokenError(
+          GlyphToken(loc('5'), Glyph.Percent),
+          ExpectedGlyph(Glyph.Comma)
+        ),
+        UnexpectedTokenError(
+          GlyphToken(loc('5'), Glyph.Percent),
+          ExpectedIdentifier
+        ),
+      ],
+      type: QuantifiedType(
+        loc('1-8'),
+        [
+          TypeParameter(Name(loc('2'), ident('T')), [
+            ErrorType(loc('5'), error),
+          ]),
+        ],
+        ReferenceType(loc('8'), ident('T'))
+      ),
+    });
+  });
+
+  test('quantified with 1 correct and 1 incorrect bound', () => {
+    const error = UnexpectedTokenError(
+      GlyphToken(loc('9'), Glyph.Percent),
+      ExpectedType
+    );
+    expect(parseType(lex('<T: A + %> T'))).toEqual({
+      errors: [
+        error,
+        UnexpectedTokenError(
+          GlyphToken(loc('9'), Glyph.Percent),
+          ExpectedGlyph(Glyph.Comma)
+        ),
+        UnexpectedTokenError(
+          GlyphToken(loc('9'), Glyph.Percent),
+          ExpectedIdentifier
+        ),
+      ],
+      type: QuantifiedType(
+        loc('1-12'),
+        [
+          TypeParameter(Name(loc('2'), ident('T')), [
+            ReferenceType(loc('5'), ident('A')),
+            ErrorType(loc('9'), error),
+          ]),
+        ],
+        ReferenceType(loc('12'), ident('T'))
+      ),
+    });
+  });
+
+  test('quantified with no plus for bounds', () => {
+    expect(parseType(lex('<T: A B> T'))).toEqual({
+      errors: [
+        UnexpectedTokenError(
+          IdentifierToken(loc('7'), ident('B')),
+          ExpectedGlyph(Glyph.Comma)
+        ),
+      ],
+      type: QuantifiedType(
+        loc('1-10'),
+        [
+          TypeParameter(Name(loc('2'), ident('T')), [
+            ReferenceType(loc('5'), ident('A')),
+          ]),
+          TypeParameter(Name(loc('7'), ident('B')), []),
+        ],
+        ReferenceType(loc('10'), ident('T'))
       ),
     });
   });

@@ -75,10 +75,11 @@ class Parser {
   }
 
   /**
-   * Parses the `Type` grammar. Advances the lexer on failure.
+   * Parses the `Type` grammar. Does not advance the lexer when we cannot parse
+   * a type. Always advances otherwise.
    */
   parseType(): Type {
-    const token = this.lexer.next();
+    const token = this.lexer.peek();
 
     // Assign primary types here and we will parse extensions on those types at
     // the end of this function. Return non-primary types.
@@ -87,7 +88,7 @@ class Parser {
     // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       // Parse a list of types inside parentheses.
-      const start = token.loc;
+      const start = this.lexer.next().loc;
       const types = this.parseCommaList(() => {
         const type = this.parseType();
         if (type.type === TypeType.Error) return undefined;
@@ -117,7 +118,7 @@ class Parser {
       token.type === TokenType.Identifier &&
       !Identifier.getBindingKeyword(token.identifier)
     ) {
-      const start = token.loc;
+      const start = this.lexer.next().loc;
       const nextToken = this.lexer.peek();
 
       // Parse `FunctionType`. Notably we return since functions are not
@@ -140,7 +141,7 @@ class Parser {
 
     // Parse `RecordType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
-      const start = token.loc;
+      const start = this.lexer.next().loc;
       const properties = this.parseCommaList(() => {
         const key = this.parseIdentifier();
         if (key === undefined) return undefined;
@@ -158,7 +159,7 @@ class Parser {
 
     // Parse `QuanitifedType`
     if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
-      const start = token.loc;
+      const start = this.lexer.next().loc;
       const typeParameters = this.parseCommaList(
         () => this.parseGenericParameter(),
         Glyph.GreaterThan
@@ -225,7 +226,29 @@ class Parser {
   parseGenericParameter(): TypeParameter | undefined {
     const identifier = this.parseIdentifier();
     if (identifier === undefined) return undefined;
-    return TypeParameter(Name(identifier.loc, identifier.identifier), []);
+
+    // There may be some optional bounds on the generic parameter after a colon.
+    // If we see a colon then try and parse our type bounds.
+    const typeParameters: Array<Type> = [];
+    const token = this.lexer.peek();
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.Colon) {
+      this.lexer.next();
+      while (true) {
+        // Try to parse a type and add it to our `typeParameters` array. If
+        // there is a failure we won’t advance. However our following plus glyph
+        // parsing should break us out of the loop.
+        typeParameters.push(this.parseType());
+
+        // If there is a plus (`+`) glyph then go for another round of the loop.
+        // Otherwise stop trying to parse.
+        if (!this.tryParseGlyph(Glyph.Plus)) break;
+      }
+    }
+
+    return TypeParameter(
+      Name(identifier.loc, identifier.identifier),
+      typeParameters
+    );
   }
 
   /**
