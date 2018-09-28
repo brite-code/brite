@@ -329,6 +329,47 @@ class Parser {
     // Parse `RecordExpression`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
       const start = token.loc.start;
+      let extension: Expression | undefined;
+
+      // We may need to parse an extension, so peek our next token to tell
+      // whether or not that is the case.
+      const token2 = this.lexer.peek();
+
+      // If we immediately see a closing brace (`}`) then we know we have an
+      // empty record so end early by returning that empty record.
+      if (
+        token2.type === TokenType.Glyph &&
+        token2.glyph === Glyph.BraceRight
+      ) {
+        const end = this.lexer.next().loc.end;
+        return RecordExpression(new Loc(start, end), undefined, []);
+      }
+
+      // If we have an `Identifier` then we might either have an extension
+      // or we might have a record property key.
+      if (token2.type === TokenType.Identifier) {
+        const token3 = this.lexer.peek2();
+        // We know that if we have a property key then it must be followed by
+        // one of the tokens: `=`, `,`, `}`, `:`, or `?`.
+        const isPropertyKey =
+          token3.type === TokenType.Glyph &&
+          (token3.glyph === Glyph.Equals ||
+            token3.glyph === Glyph.Comma ||
+            token3.glyph === Glyph.BraceRight ||
+            token3.glyph === Glyph.Colon ||
+            token3.glyph === Glyph.Question);
+        // If we don’t have a property key as determined by `token3` then we
+        // have an extension.
+        if (!isPropertyKey) {
+          extension = this.parseExpression();
+          this.parseGlyph(Glyph.Bar);
+        }
+      } else {
+        // If the next token is not an identifier then we know we have
+        // an extension.
+        extension = this.parseExpression();
+        this.parseGlyph(Glyph.Bar);
+      }
 
       // Parse all of the record properties in a comma list.
       const properties = this.parseCommaList(() => {
@@ -373,7 +414,7 @@ class Parser {
 
       const end = this.lexer.next().loc.end;
       const loc = new Loc(start, end);
-      return RecordExpression(loc, undefined, properties);
+      return RecordExpression(loc, extension, properties);
     }
 
     throw UnexpectedTokenError(token, ExpectedExpression);

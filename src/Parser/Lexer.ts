@@ -167,8 +167,8 @@ export class Lexer implements Iterable<Token> {
   private line: number;
   private column: number;
 
-  private peeked: Token | undefined;
-  private peeks = 0;
+  private peeked1: Token | undefined;
+  private peeked2: Token | undefined;
 
   private readonly chars: PeekableIterator<string>;
 
@@ -195,30 +195,45 @@ export class Lexer implements Iterable<Token> {
    * Look ahead at the next token without advancing the lexer.
    */
   peek(): Token {
-    // Defend against infinite loops.
-    this.peeks++;
-    if (this.peeks >= 50) {
-      throw new Error(
-        '`Lexer.peek()` called 50 times without calling `Lexer.next()`. ' +
-          'The parser is probably stuck in an infinite loop.'
-      );
+    if (this.peeked1 === undefined) {
+      this.peeked1 = this.next();
     }
+    return this.peeked1;
+  }
 
-    if (this.peeked === undefined) {
-      this.peeked = this.next();
+  /**
+   * Look ahead two tokens without advancing the lexer.
+   *
+   * Note that this makes our parser LR(2). However, that does not necessarily
+   * mean our parser is exponentially slower than if we had an LR(1) parser. We
+   * only use `peek2()` in a few places where it can make the parser simpler and
+   * faster since there’s less information to store.
+   */
+  peek2() {
+    if (this.peeked1 === undefined) {
+      this.peeked1 = this.next();
     }
-
-    return this.peeked;
+    if (this.peeked2 === undefined) {
+      const peeked1 = this.peeked1;
+      this.peeked1 = undefined;
+      this.peeked2 = this.next();
+      this.peeked1 = peeked1;
+    }
+    return this.peeked2;
   }
 
   /**
    * Advance the lexer and return the current token.
    */
   next(): Token {
-    if (this.peeked !== undefined) {
-      const peeked = this.peeked;
-      this.peeked = undefined;
-      this.peeks = 0;
+    if (this.peeked1 !== undefined) {
+      const peeked = this.peeked1;
+      if (this.peeked2 !== undefined) {
+        this.peeked1 = this.peeked2;
+        this.peeked2 = undefined;
+      } else {
+        this.peeked1 = undefined;
+      }
       return peeked;
     }
 

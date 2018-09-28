@@ -987,6 +987,137 @@ describe('expression', () => {
         )
       ),
     },
+    {
+      source: '{ {} | }',
+      result: Ok(
+        RecordExpression(
+          loc('1-8'),
+          RecordExpression(loc('3-4'), undefined, []),
+          []
+        )
+      ),
+    },
+    {
+      source: '{ {} | a = x }',
+      result: Ok(
+        RecordExpression(
+          loc('1-14'),
+          RecordExpression(loc('3-4'), undefined, []),
+          [
+            RecordExpressionProperty(
+              Name(loc('8'), ident('a')),
+              ReferenceExpression(loc('12'), ident('x')),
+              undefined
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: '{ {} | a = x, b = y, c = z }',
+      result: Ok(
+        RecordExpression(
+          loc('1-28'),
+          RecordExpression(loc('3-4'), undefined, []),
+          [
+            RecordExpressionProperty(
+              Name(loc('8'), ident('a')),
+              ReferenceExpression(loc('12'), ident('x')),
+              undefined
+            ),
+            RecordExpressionProperty(
+              Name(loc('15'), ident('b')),
+              ReferenceExpression(loc('19'), ident('y')),
+              undefined
+            ),
+            RecordExpressionProperty(
+              Name(loc('22'), ident('c')),
+              ReferenceExpression(loc('26'), ident('z')),
+              undefined
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: '{ yo | }',
+      result: Ok(
+        RecordExpression(
+          loc('1-8'),
+          ReferenceExpression(loc('3-4'), ident('yo')),
+          []
+        )
+      ),
+    },
+    {
+      source: '{ yo | a = x }',
+      result: Ok(
+        RecordExpression(
+          loc('1-14'),
+          ReferenceExpression(loc('3-4'), ident('yo')),
+          [
+            RecordExpressionProperty(
+              Name(loc('8'), ident('a')),
+              ReferenceExpression(loc('12'), ident('x')),
+              undefined
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: '{ yo | a = x, b = y, c = z }',
+      result: Ok(
+        RecordExpression(
+          loc('1-28'),
+          ReferenceExpression(loc('3-4'), ident('yo')),
+          [
+            RecordExpressionProperty(
+              Name(loc('8'), ident('a')),
+              ReferenceExpression(loc('12'), ident('x')),
+              undefined
+            ),
+            RecordExpressionProperty(
+              Name(loc('15'), ident('b')),
+              ReferenceExpression(loc('19'), ident('y')),
+              undefined
+            ),
+            RecordExpressionProperty(
+              Name(loc('22'), ident('c')),
+              ReferenceExpression(loc('26'), ident('z')),
+              undefined
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: '{ if x then y else z | a = b }',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('3-4'), 'if' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: '{ x is T | a = b }',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('5-6'), ident('is')),
+          ExpectedGlyph(Glyph.Bar)
+        )
+      ),
+    },
+    {
+      source: '{ if | }',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('3-4'), 'if' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseExpression(lex(source))).toEqual(result);
