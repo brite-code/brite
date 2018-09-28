@@ -14,6 +14,8 @@ import {
   Name,
   QualifiedPattern,
   QuantifiedType,
+  RecordExpression,
+  RecordExpressionProperty,
   RecordPattern,
   RecordPatternProperty,
   RecordType,
@@ -783,6 +785,206 @@ describe('expression', () => {
             ReferenceType(loc('11'), ident('B'))
           ),
         ])
+      ),
+    },
+    {
+      source: '{}',
+      result: Ok(RecordExpression(loc('1-2'), undefined, [])),
+    },
+    {
+      source: '{ foo }',
+      result: Ok(
+        RecordExpression(loc('1-7'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('3-5'), ident('foo')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo, bar }',
+      result: Ok(
+        RecordExpression(loc('1-12'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('3-5'), ident('foo')),
+            undefined
+          ),
+          RecordExpressionProperty(
+            Name(loc('8-10'), ident('bar')),
+            ReferenceExpression(loc('8-10'), ident('bar')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo, bar, qux, lit }',
+      result: Ok(
+        RecordExpression(loc('1-22'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('3-5'), ident('foo')),
+            undefined
+          ),
+          RecordExpressionProperty(
+            Name(loc('8-10'), ident('bar')),
+            ReferenceExpression(loc('8-10'), ident('bar')),
+            undefined
+          ),
+          RecordExpressionProperty(
+            Name(loc('13-15'), ident('qux')),
+            ReferenceExpression(loc('13-15'), ident('qux')),
+            undefined
+          ),
+          RecordExpressionProperty(
+            Name(loc('18-20'), ident('lit')),
+            ReferenceExpression(loc('18-20'), ident('lit')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo: T }',
+      result: Ok(
+        RecordExpression(loc('1-10'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('3-5'), ident('foo')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo: T, bar: U }',
+      result: Ok(
+        RecordExpression(loc('1-18'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('3-5'), ident('foo')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+          RecordExpressionProperty(
+            Name(loc('11-13'), ident('bar')),
+            ReferenceExpression(loc('11-13'), ident('bar')),
+            ReferenceType(loc('16'), ident('U'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo: T, bar: U, qux: V, lit: W }',
+      result: Ok(
+        RecordExpression(loc('1-34'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('3-5'), ident('foo')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+          RecordExpressionProperty(
+            Name(loc('11-13'), ident('bar')),
+            ReferenceExpression(loc('11-13'), ident('bar')),
+            ReferenceType(loc('16'), ident('U'))
+          ),
+          RecordExpressionProperty(
+            Name(loc('19-21'), ident('qux')),
+            ReferenceExpression(loc('19-21'), ident('qux')),
+            ReferenceType(loc('24'), ident('V'))
+          ),
+          RecordExpressionProperty(
+            Name(loc('27-29'), ident('lit')),
+            ReferenceExpression(loc('27-29'), ident('lit')),
+            ReferenceType(loc('32'), ident('W'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo = foo2 }',
+      result: Ok(
+        RecordExpression(loc('1-14'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('9-12'), ident('foo2')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo = foo2, bar = bar2 }',
+      result: Ok(
+        RecordExpression(loc('1-26'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('9-12'), ident('foo2')),
+            undefined
+          ),
+          RecordExpressionProperty(
+            Name(loc('15-17'), ident('bar')),
+            ReferenceExpression(loc('21-24'), ident('bar2')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo: T = x }',
+      result: Ok(
+        RecordExpression(loc('1-14'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('12'), ident('x')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo?: T }',
+      result: Ok(
+        RecordExpression(loc('1-11'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-5'), ident('foo')),
+            ReferenceExpression(loc('3-5'), ident('foo')),
+            ReferenceType(loc('9'), ident('T')),
+            {optional: true}
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ foo? }',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('8'), Glyph.BraceRight),
+          ExpectedGlyph(Glyph.Colon)
+        )
+      ),
+    },
+    {
+      source: "{ if = if' }",
+      result: Ok(
+        RecordExpression(loc('1-12'), undefined, [
+          RecordExpressionProperty(
+            Name(loc('3-4'), 'if' as BindingIdentifier),
+            ReferenceExpression(loc('8-10'), ident("if'")),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ if }',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('3-4'), 'if' as Identifier),
+          ExpectedBindingIdentifier
+        )
       ),
     },
   ].forEach(({source, result}) => {

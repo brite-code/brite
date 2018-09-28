@@ -64,9 +64,10 @@ RecordExpressionPropertyList :
   - RecordExpressionProperty `,` RecordExpressionPropertyList
 
 RecordExpressionProperty :
-  - Identifier TypeAnnotation? RecordExpressionPropertyInitializer?
+  - Identifier RecordExpressionPropertyAnnotation? `=` Expression
+  - BindingIdentifier RecordExpressionPropertyAnnotation?
 
-RecordExpressionPropertyInitializer: `=` Expression
+RecordExpressionPropertyAnnotation : `?`? TypeAnnotation
 
 A record is an anonymous collection of some labeled values. Unlike classes which are a named collection of some labeled values. Records allow bundles of values to be easily passed around and serve as the mechanism for named function arguments.
 

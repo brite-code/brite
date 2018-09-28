@@ -435,14 +435,16 @@ export type RecordExpressionProperty = {
   readonly key: Name;
   readonly value: Expression;
   readonly type: Type | undefined;
+  readonly optional: boolean;
 };
 
 export function RecordExpressionProperty(
   key: Name,
   value: Expression,
-  type: Type | undefined
+  type: Type | undefined,
+  {optional = false}: {optional?: boolean} = {}
 ): RecordExpressionProperty {
-  return {key, value, type};
+  return {key, value, type, optional};
 }
 
 export interface ListExpression extends Node {

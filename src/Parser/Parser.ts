@@ -17,6 +17,8 @@ import {
   Pattern,
   QualifiedPattern,
   QuantifiedType,
+  RecordExpression,
+  RecordExpressionProperty,
   RecordPattern,
   RecordPatternProperty,
   RecordType,
@@ -322,6 +324,56 @@ class Parser {
       } else {
         return TupleExpression(loc, Array2.create(elements));
       }
+    }
+
+    // Parse `RecordExpression`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
+      const start = token.loc.start;
+
+      // Parse all of the record properties in a comma list.
+      const properties = this.parseCommaList(() => {
+        // Parse the name of this record property. If we used punned record
+        // initialization syntax then we will later assert that this name is a
+        // binding identifier.
+        const key = this.parseName();
+
+        // The code to parse a type annotation here is kind of interesting.
+        // Currently optional properties must have a type annotation so first we
+        // try to parse a question mark. If we parse a question mark then we
+        // require a colon and a type to be parsed next. If there is no question
+        // mark then we may still optionally want to parse a type annotation.
+        const optional = this.tryParseGlyph(Glyph.Question);
+        if (optional) this.parseGlyph(Glyph.Colon);
+        const type =
+          optional || this.tryParseGlyph(Glyph.Colon)
+            ? this.parseType()
+            : undefined;
+
+        // Parse the value initializer for this expression. If we are using the
+        // syntax where we don’t have an initializer (e.g. `{ a, b }`) then we
+        // need to go back and throw an error if our key name is not a
+        // binding identifier.
+        let value: Expression;
+        if (this.tryParseGlyph(Glyph.Equals)) {
+          value = this.parseExpression();
+        } else {
+          const identifier = BindingIdentifier.create(key.identifier);
+          if (identifier === undefined) {
+            throw UnexpectedTokenError(
+              IdentifierToken(key.loc, key.identifier),
+              ExpectedBindingIdentifier
+            );
+          }
+          value = ReferenceExpression(key.loc, identifier);
+        }
+
+        // Create the record property.
+        return RecordExpressionProperty(key, value, type, {optional});
+      }, Glyph.BraceRight);
+
+      const end = this.lexer.next().loc.end;
+      const loc = new Loc(start, end);
+      return RecordExpression(loc, undefined, properties);
     }
 
     throw UnexpectedTokenError(token, ExpectedExpression);
