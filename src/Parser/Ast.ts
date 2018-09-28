@@ -1,6 +1,5 @@
 import {ReadonlyArray1, ReadonlyArray2} from '../Utils/ArrayN';
 
-import {ParserError} from './Error';
 import {BindingIdentifier, Identifier} from './Identifier';
 import {Loc} from './Loc';
 
