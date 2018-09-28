@@ -111,7 +111,7 @@ BlockExpressionStatementList :
   - Statement LineSeparator?
   - Statement LineSeparator BlockExpressionStatementList
 
-Note: We could change the syntax so that tuples also accept statement lists. However, then you can write programs with non-obvious operator precedance like: `(x = 1; x, y = 2; y)`. The program `((x = 1; x), (y = 2; y))` is always much clearer so we force that syntax.
+Note: We could change the syntax so that tuples also accept statement lists. However, then you can write programs with non-obvious operator precedence like: `(x = 1; x, y = 2; y)`. The program `((x = 1; x), (y = 2; y))` is always much clearer so we force that syntax.
 
 Note: In {WrappedExpression} we allow an optional {TypeAnnotation}. However, unwrapped annotations are not allowed in expression statements. For consistency we force you to add parentheses around your annotated expressions. You can’t write the program `(x = 1; x: T)`, so you must write `(x = 1; (x: T))`.
 
@@ -179,7 +179,7 @@ Note: {ReturnExpression} may only have an {Expression} argument if that expressi
 
 LoopExpression : `loop` `:` Expression
 
-A {LoopExpression} keeps executing its {Expression} argument until a {BreakExpression} or {ReturnExpression} abrupts its execution.
+A {LoopExpression} keeps executing its {Expression} argument until a {BreakExpression} or {ReturnExpression} stops its execution.
 
 Unlike the related loop statements {WhileLoopStatement} and {ForLoopStatement}, {LoopExpression} is an expression and returns a value! The value returned is the argument provided to {BreakExpression}. Returning a value from all the possible exits of {WhileLoopStatement} or {ForLoopStatement} would be too complex to warrant making them expressions.
 
@@ -211,7 +211,7 @@ Checks whether two values are equal to each other based on some equality interfa
 
 Note: Brite does not support “referential equality” unlike other languages we take inspiration from like JavaScript and OCaml. Since referential equality presumes a certain object layout at runtime. Instead we do deep equality checks. Referential equality checks may be still used underneath the hood as an optimization technique for applicable data structures.
 
-Chained equality expressions of the same kind are treated as a test of the equality for multiple values. That is `a == b == c` is the same as `a == b && b == c`. This makes testing equality for a tripple quite simple.
+Chained equality expressions of the same kind are treated as a test of the equality for multiple values. That is `a == b == c` is the same as `a == b && b == c`. This makes testing equality for three values at once quite simple.
 
 Note: The chaining feature assumes a proper implementation of the equality interface that is transitive since `a == b == c` is only rewritten to `a == b && b == c`. We assume `a == c` so we don’t check that assumption.
 

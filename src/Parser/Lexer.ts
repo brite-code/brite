@@ -500,7 +500,7 @@ export class Lexer implements Iterable<Token> {
 /**
  * A peekable iterator allows you to peek the next item without consuming it.
  * Note that peekable iterators do not allow you to pass in a value with
- * `next()`. The interface of `PekableIterator<T>` is much more limited then the
+ * `next()`. The interface of `PeekableIterator<T>` is much more limited then the
  * interface of `Iterator<T>` to allow for peeking.
  */
 interface PeekableIterator<T> {
