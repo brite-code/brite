@@ -23,13 +23,17 @@ import {
   RecordTypeProperty,
   ReferenceExpression,
   ReferenceType,
+  TupleExpression,
+  TupleExpressionElement,
   TuplePattern,
   TuplePatternElement,
   TupleType,
   Type,
   TypeParameter,
+  UnitExpression,
   UnitPattern,
   UnitType,
+  WrappedExpression,
   WrappedPattern,
   WrappedType,
 } from './Ast';
@@ -296,6 +300,28 @@ class Parser {
       token.keyword === Keyword.Underscore
     ) {
       return HoleExpression(token.loc);
+    }
+
+    // Parse `UnitExpression`, `TupleExpression`, and `WrappedExpression`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
+      const start = token.loc.start;
+      const elements = this.parseCommaList(() => {
+        const expression = this.parseExpression();
+        const type = this.tryParseGlyph(Glyph.Colon)
+          ? this.parseType()
+          : undefined;
+        return TupleExpressionElement(expression, type);
+      }, Glyph.ParenRight);
+      const end = this.lexer.next().loc.end;
+      const loc = new Loc(start, end);
+      if (elements.length === 0) {
+        return UnitExpression(loc);
+      } else if (elements.length === 1) {
+        const element = elements[0];
+        return WrappedExpression(loc, element.expression, element.type);
+      } else {
+        return TupleExpression(loc, Array2.create(elements));
+      }
     }
 
     throw UnexpectedTokenError(token, ExpectedExpression);

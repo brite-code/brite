@@ -395,14 +395,26 @@ export function UnitExpression(loc: Loc): UnitExpression {
 
 export interface TupleExpression extends Node {
   readonly kind: ExpressionKind.Tuple;
-  readonly expressions: ReadonlyArray2<Expression>;
+  readonly expressions: ReadonlyArray2<TupleExpressionElement>;
 }
 
 export function TupleExpression(
   loc: Loc,
-  expressions: ReadonlyArray2<Expression>
+  expressions: ReadonlyArray2<TupleExpressionElement>
 ): TupleExpression {
   return {kind: ExpressionKind.Tuple, loc, expressions};
+}
+
+export type TupleExpressionElement = {
+  readonly expression: Expression;
+  readonly type: Type | undefined;
+};
+
+export function TupleExpressionElement(
+  expression: Expression,
+  type: Type | undefined
+): TupleExpressionElement {
+  return {expression, type};
 }
 
 export interface RecordExpression extends Node {

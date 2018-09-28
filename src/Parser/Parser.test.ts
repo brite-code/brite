@@ -20,12 +20,16 @@ import {
   RecordTypeProperty,
   ReferenceExpression,
   ReferenceType,
+  TupleExpression,
+  TupleExpressionElement,
   TuplePattern,
   TuplePatternElement,
   TupleType,
   TypeParameter,
+  UnitExpression,
   UnitPattern,
   UnitType,
+  WrappedExpression,
   WrappedPattern,
   WrappedType,
 } from './Ast';
@@ -590,6 +594,197 @@ describe('expression', () => {
       source: '_',
       result: Ok(HoleExpression(loc('1'))),
     },
+    {
+      source: '()',
+      result: Ok(UnitExpression(loc('1-2'))),
+    },
+    {
+      source: '(foo)',
+      result: Ok(
+        WrappedExpression(
+          loc('1-5'),
+          ReferenceExpression(loc('2-4'), ident('foo')),
+          undefined
+        )
+      ),
+    },
+    {
+      source: '(a, b)',
+      result: Ok(
+        TupleExpression(loc('1-6'), [
+          TupleExpressionElement(
+            ReferenceExpression(loc('2'), ident('a')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('5'), ident('b')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(a, b, c, d)',
+      result: Ok(
+        TupleExpression(loc('1-12'), [
+          TupleExpressionElement(
+            ReferenceExpression(loc('2'), ident('a')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('5'), ident('b')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('8'), ident('c')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('11'), ident('d')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(,)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2'), Glyph.Comma),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: '(foo,)',
+      result: Ok(
+        WrappedExpression(
+          loc('1-6'),
+          ReferenceExpression(loc('2-4'), ident('foo')),
+          undefined
+        )
+      ),
+    },
+    {
+      source: '(a, b,)',
+      result: Ok(
+        TupleExpression(loc('1-7'), [
+          TupleExpressionElement(
+            ReferenceExpression(loc('2'), ident('a')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('5'), ident('b')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(a, b, c, d,)',
+      result: Ok(
+        TupleExpression(loc('1-13'), [
+          TupleExpressionElement(
+            ReferenceExpression(loc('2'), ident('a')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('5'), ident('b')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('8'), ident('c')),
+            undefined
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('11'), ident('d')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(x:)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('4'), Glyph.ParenRight),
+          ExpectedType
+        )
+      ),
+    },
+    {
+      source: '(x: T)',
+      result: Ok(
+        WrappedExpression(
+          loc('1-6'),
+          ReferenceExpression(loc('2'), ident('x')),
+          ReferenceType(loc('5'), ident('T'))
+        )
+      ),
+    },
+    {
+      source: '(a: A, b: B)',
+      result: Ok(
+        TupleExpression(loc('1-12'), [
+          TupleExpressionElement(
+            ReferenceExpression(loc('2'), ident('a')),
+            ReferenceType(loc('5'), ident('A'))
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('8'), ident('b')),
+            ReferenceType(loc('11'), ident('B'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(a: A, b: B, c: C, d: D)',
+      result: Ok(
+        TupleExpression(loc('1-24'), [
+          TupleExpressionElement(
+            ReferenceExpression(loc('2'), ident('a')),
+            ReferenceType(loc('5'), ident('A'))
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('8'), ident('b')),
+            ReferenceType(loc('11'), ident('B'))
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('14'), ident('c')),
+            ReferenceType(loc('17'), ident('C'))
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('20'), ident('d')),
+            ReferenceType(loc('23'), ident('D'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(x: T,)',
+      result: Ok(
+        WrappedExpression(
+          loc('1-7'),
+          ReferenceExpression(loc('2'), ident('x')),
+          ReferenceType(loc('5'), ident('T'))
+        )
+      ),
+    },
+    {
+      source: '(a: A, b: B,)',
+      result: Ok(
+        TupleExpression(loc('1-13'), [
+          TupleExpressionElement(
+            ReferenceExpression(loc('2'), ident('a')),
+            ReferenceType(loc('5'), ident('A'))
+          ),
+          TupleExpressionElement(
+            ReferenceExpression(loc('8'), ident('b')),
+            ReferenceType(loc('11'), ident('B'))
+          ),
+        ])
+      ),
+    },
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseExpression(lex(source))).toEqual(result);
@@ -617,7 +812,10 @@ describe('pattern', () => {
       source: '_x',
       result: Ok(BindingPattern(loc('1-2'), ident('_x'))),
     },
-    {source: '()', result: Ok(UnitPattern(loc('1-2')))},
+    {
+      source: '()',
+      result: Ok(UnitPattern(loc('1-2'))),
+    },
     {
       source: '(foo)',
       result: Ok(
@@ -766,7 +964,10 @@ describe('pattern', () => {
         ])
       ),
     },
-    {source: '{}', result: Ok(RecordPattern(loc('1-2'), []))},
+    {
+      source: '{}',
+      result: Ok(RecordPattern(loc('1-2'), [])),
+    },
     {
       source: '{ foo }',
       result: Ok(
