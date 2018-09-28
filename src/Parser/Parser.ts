@@ -108,12 +108,12 @@ class Parser {
     // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       // Parse a list of types inside parentheses.
-      const start = this.lexer.next().loc;
+      const start = this.lexer.next().loc.start;
       const types = this.parseCommaList(
         () => this.parseType(),
         Glyph.ParenRight
       );
-      const end = this.lexer.next().loc;
+      const end = this.lexer.next().loc.end;
       const nextToken = this.lexer.peek();
 
       // Parse `FunctionType`. Notably we return since functions are not
@@ -124,11 +124,11 @@ class Parser {
       ) {
         this.lexer.next();
         const body = this.parseType();
-        return FunctionType(start.between(body.loc), types, body);
+        return FunctionType(new Loc(start, body.loc.end), types, body);
       }
 
       // Finish parsing either `UnitType`, `TupleType`, or `WrappedType`.
-      const loc = start.between(end);
+      const loc = new Loc(start, end);
       primaryType = createParenListType(loc, types);
     }
 
@@ -148,7 +148,7 @@ class Parser {
           this.lexer.next();
           const body = this.parseType();
           return FunctionType(
-            token.loc.between(body.loc),
+            new Loc(token.loc.start, body.loc.end),
             [ReferenceType(token.loc, identifier)],
             body
           );
@@ -160,7 +160,7 @@ class Parser {
 
     // Parse `RecordType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
-      const start = this.lexer.next().loc;
+      const start = this.lexer.next().loc.start;
       const properties = this.parseCommaList(() => {
         const key = this.parseIdentifier();
         const optional = this.tryParseGlyph(Glyph.Question);
@@ -170,21 +170,21 @@ class Parser {
           ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
           : RecordTypeProperty(Name(key.loc, key.identifier), value);
       }, Glyph.BraceRight);
-      const end = this.lexer.next().loc;
-      const loc = start.between(end);
+      const end = this.lexer.next().loc.end;
+      const loc = new Loc(start, end);
       primaryType = RecordType(loc, properties);
     }
 
     // Parse `QuantifiedType`
     if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
-      const start = this.lexer.next().loc;
+      const start = this.lexer.next().loc.start;
       const typeParameters = this.parseCommaList(
         () => this.parseGenericParameter(),
         Glyph.GreaterThan
       );
       this.lexer.next();
       const body = this.parseType();
-      return QuantifiedType(start.between(body.loc), typeParameters, body);
+      return QuantifiedType(new Loc(start, body.loc.end), typeParameters, body);
     }
 
     // Return an error if we could not parse a primary type.
@@ -210,7 +210,7 @@ class Parser {
         const identifier = this.parseIdentifier();
         if (identifier === undefined) return type;
         type = MemberType(
-          type.loc.between(identifier.loc),
+          new Loc(type.loc.start, identifier.loc.end),
           type,
           Name(identifier.loc, identifier.identifier)
         );
@@ -224,8 +224,8 @@ class Parser {
           () => this.parseType(),
           Glyph.GreaterThan
         );
-        const end = this.lexer.next().loc;
-        type = GenericType(type.loc.between(end), type, types);
+        const end = this.lexer.next().loc.end;
+        type = GenericType(new Loc(type.loc.start, end), type, types);
         continue;
       }
 
@@ -290,7 +290,7 @@ class Parser {
 
     // Parse `UnitPattern`, `TuplePattern`, and `WrappedPattern`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
-      const start = this.lexer.next().loc;
+      const start = this.lexer.next().loc.start;
       const elements = this.parseCommaList(() => {
         const pattern = this.parsePattern();
         const type = this.tryParseGlyph(Glyph.Colon)
@@ -298,8 +298,8 @@ class Parser {
           : undefined;
         return TuplePatternElement(pattern, type);
       }, Glyph.ParenRight);
-      const end = this.lexer.next().loc;
-      const loc = start.between(end);
+      const end = this.lexer.next().loc.end;
+      const loc = new Loc(start, end);
       if (elements.length === 0) {
         return UnitPattern(loc);
       } else if (elements.length === 1) {

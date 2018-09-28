@@ -139,12 +139,4 @@ export class Loc {
     this.start = start;
     this.end = end;
   }
-
-  /**
-   * Creates a new `Loc` that spans the range between the two
-   * provided locations.
-   */
-  between(other: Loc): Loc {
-    return new Loc(this.start.min(other.start), this.end.max(other.end));
-  }
 }
