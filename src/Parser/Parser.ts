@@ -1,4 +1,4 @@
-import {ReadonlyArray2} from '../Utils/ArrayN';
+import {Array2, ReadonlyArray2} from '../Utils/ArrayN';
 import {Err, Ok, Result} from '../Utils/Result';
 
 import {
@@ -10,6 +10,7 @@ import {
   MemberType,
   Name,
   Pattern,
+  QualifiedPattern,
   QuantifiedType,
   RecordPattern,
   RecordPatternProperty,
@@ -265,12 +266,31 @@ class Parser {
   parsePattern(): Pattern {
     const token = this.lexer.peek();
 
-    // Parse `BindingPattern` identifier.
+    // Parse `BindingPattern` and `QualifiedPattern`.
     if (token.type === TokenType.Identifier) {
-      const identifier = BindingIdentifier.create(token.identifier);
-      if (identifier !== undefined) {
-        this.lexer.next();
-        return BindingPattern(token.loc, identifier);
+      this.lexer.next();
+      // If after the identifier we have a dot then we can parse a qualified
+      // pattern. Otherwise if the identifier is a `BindingIdentifier` then we
+      // have a binding pattern.
+      if (this.tryParseGlyph(Glyph.Dot)) {
+        const identifier2 = this.parseIdentifier();
+        const identifiers = Array2.create([
+          Name(token.loc, token.identifier),
+          Name(identifier2.loc, identifier2.identifier),
+        ]);
+        while (true) {
+          if (!this.tryParseGlyph(Glyph.Dot)) break;
+          const identifier = this.parseIdentifier();
+          identifiers.push(Name(identifier.loc, identifier.identifier));
+        }
+        const start = identifiers[0].loc.start;
+        const end = identifiers[identifiers.length - 1].loc.end;
+        return QualifiedPattern(new Loc(start, end), identifiers);
+      } else {
+        const identifier = BindingIdentifier.create(token.identifier);
+        if (identifier !== undefined) {
+          return BindingPattern(token.loc, identifier);
+        }
       }
     }
 
@@ -301,7 +321,7 @@ class Parser {
         const element = elements[0];
         return WrappedPattern(loc, element.pattern, element.type);
       } else {
-        return TuplePattern(loc, ReadonlyArray2.create(elements));
+        return TuplePattern(loc, Array2.create(elements));
       }
     }
 
@@ -497,12 +517,12 @@ class Parser {
   }
 }
 
-function createParenListType(loc: Loc, types: ReadonlyArray<Type>): Type {
+function createParenListType(loc: Loc, types: Array<Type>): Type {
   if (types.length === 0) {
     return UnitType(loc);
   } else if (types.length === 1) {
     return WrappedType(loc, types[0]);
   } else {
-    return TupleType(loc, ReadonlyArray2.create(types));
+    return TupleType(loc, Array2.create(types));
   }
 }

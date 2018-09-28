@@ -8,6 +8,7 @@ import {
   ListPattern,
   MemberType,
   Name,
+  QualifiedPattern,
   QuantifiedType,
   RecordPattern,
   RecordPatternProperty,
@@ -951,6 +952,54 @@ describe('pattern', () => {
           BindingPattern(loc('5'), ident('b')),
           BindingPattern(loc('8'), ident('c')),
           BindingPattern(loc('11'), ident('d')),
+        ])
+      ),
+    },
+    {
+      source: 'a.b',
+      result: Ok(
+        QualifiedPattern(loc('1-3'), [
+          Name(loc('1'), ident('a')),
+          Name(loc('3'), ident('b')),
+        ])
+      ),
+    },
+    {
+      source: 'a.b.c',
+      result: Ok(
+        QualifiedPattern(loc('1-5'), [
+          Name(loc('1'), ident('a')),
+          Name(loc('3'), ident('b')),
+          Name(loc('5'), ident('c')),
+        ])
+      ),
+    },
+    {
+      source: 'a.b.c.d',
+      result: Ok(
+        QualifiedPattern(loc('1-7'), [
+          Name(loc('1'), ident('a')),
+          Name(loc('3'), ident('b')),
+          Name(loc('5'), ident('c')),
+          Name(loc('7'), ident('d')),
+        ])
+      ),
+    },
+    {
+      source: 'if.yay',
+      result: Ok(
+        QualifiedPattern(loc('1-6'), [
+          Name(loc('1-2'), 'if' as BindingIdentifier),
+          Name(loc('4-6'), ident('yay')),
+        ])
+      ),
+    },
+    {
+      source: 'yay.if',
+      result: Ok(
+        QualifiedPattern(loc('1-6'), [
+          Name(loc('1-3'), ident('yay')),
+          Name(loc('5-6'), 'if' as BindingIdentifier),
         ])
       ),
     },
