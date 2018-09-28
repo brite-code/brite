@@ -41,119 +41,98 @@ function lex(source: string): Lexer {
 }
 
 describe('type', () => {
-  test('empty string', () => {
-    expect(parseType(lex(''))).toEqual(
-      Err(UnexpectedTokenError(EndToken(loc('1')), ExpectedType))
-    );
-  });
-
-  test('invalid string', () => {
-    expect(parseType(lex('...'))).toEqual(
-      Err(
+  [
+    {
+      source: '',
+      result: Err(UnexpectedTokenError(EndToken(loc('1')), ExpectedType)),
+    },
+    {
+      source: '...',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('1-3'), Glyph.Ellipsis),
           ExpectedType
         )
-      )
-    );
-  });
-
-  test('binding keyword', () => {
-    expect(parseType(lex('if'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: 'if',
+      result: Err(
         UnexpectedTokenError(
           IdentifierToken(loc('1-2'), 'if' as Identifier),
           ExpectedType
         )
-      )
-    );
-  });
-
-  test('reference', () => {
-    expect(parseType(lex('foo'))).toEqual(
-      Ok(ReferenceType(loc('1-3'), ident('foo')))
-    );
-  });
-
-  test('unit', () => {
-    expect(parseType(lex('()'))).toEqual(Ok(UnitType(loc('1-2'))));
-    expect(parseType(lex('( )'))).toEqual(Ok(UnitType(loc('1-3'))));
-  });
-
-  test('unit trailing comma', () => {
-    expect(parseType(lex('(,)'))).toEqual(
-      Err(UnexpectedTokenError(GlyphToken(loc('2'), Glyph.Comma), ExpectedType))
-    );
-  });
-
-  test('wrapped', () => {
-    expect(parseType(lex('(foo)'))).toEqual(
-      Ok(WrappedType(loc('1-5'), ReferenceType(loc('2-4'), ident('foo'))))
-    );
-  });
-
-  test('wrapped with trailing comma', () => {
-    expect(parseType(lex('(foo,)'))).toEqual(
-      Ok(WrappedType(loc('1-6'), ReferenceType(loc('2-4'), ident('foo'))))
-    );
-  });
-
-  test('tuple with 2 elements', () => {
-    expect(parseType(lex('(foo, bar)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'foo',
+      result: Ok(ReferenceType(loc('1-3'), ident('foo'))),
+    },
+    {source: '()', result: Ok(UnitType(loc('1-2')))},
+    {source: '( )', result: Ok(UnitType(loc('1-3')))},
+    {
+      source: '(,)',
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('2'), Glyph.Comma), ExpectedType)
+      ),
+    },
+    {
+      source: '(foo)',
+      result: Ok(
+        WrappedType(loc('1-5'), ReferenceType(loc('2-4'), ident('foo')))
+      ),
+    },
+    {
+      source: '(foo,)',
+      result: Ok(
+        WrappedType(loc('1-6'), ReferenceType(loc('2-4'), ident('foo')))
+      ),
+    },
+    {
+      source: '(foo, bar)',
+      result: Ok(
         TupleType(loc('1-10'), [
           ReferenceType(loc('2-4'), ident('foo')),
           ReferenceType(loc('7-9'), ident('bar')),
         ])
-      )
-    );
-  });
-
-  test('tuple with 3 elements', () => {
-    expect(parseType(lex('(foo, bar, qux)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(foo, bar, qux)',
+      result: Ok(
         TupleType(loc('1-15'), [
           ReferenceType(loc('2-4'), ident('foo')),
           ReferenceType(loc('7-9'), ident('bar')),
           ReferenceType(loc('12-14'), ident('qux')),
         ])
-      )
-    );
-  });
-
-  test('tuple with 4 elements', () => {
-    expect(parseType(lex('(foo, bar, qux, lit)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(foo, bar, qux, lit)',
+      result: Ok(
         TupleType(loc('1-20'), [
           ReferenceType(loc('2-4'), ident('foo')),
           ReferenceType(loc('7-9'), ident('bar')),
           ReferenceType(loc('12-14'), ident('qux')),
           ReferenceType(loc('17-19'), ident('lit')),
         ])
-      )
-    );
-  });
-
-  test('record with 0 properties', () => {
-    expect(parseType(lex('{}'))).toEqual(Ok(RecordType(loc('1-2'), [])));
-  });
-
-  test('record with 1 property', () => {
-    expect(parseType(lex('{ foo: T }'))).toEqual(
-      Ok(
+      ),
+    },
+    {source: '{}', result: Ok(RecordType(loc('1-2'), []))},
+    {
+      source: '{ foo: T }',
+      result: Ok(
         RecordType(loc('1-10'), [
           RecordTypeProperty(
             Name(loc('3-5'), ident('foo')),
             ReferenceType(loc('8'), ident('T'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 2 properties', () => {
-    expect(parseType(lex('{ foo: T, bar: U }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo: T, bar: U }',
+      result: Ok(
         RecordType(loc('1-18'), [
           RecordTypeProperty(
             Name(loc('3-5'), ident('foo')),
@@ -164,13 +143,11 @@ describe('type', () => {
             ReferenceType(loc('16'), ident('U'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 4 properties', () => {
-    expect(parseType(lex('{ foo: T, bar: U, qux: V, lit: W }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo: T, bar: U, qux: V, lit: W }',
+      result: Ok(
         RecordType(loc('1-34'), [
           RecordTypeProperty(
             Name(loc('3-5'), ident('foo')),
@@ -189,13 +166,11 @@ describe('type', () => {
             ReferenceType(loc('32'), ident('W'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with optional property', () => {
-    expect(parseType(lex('{ foo?: T }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo?: T }',
+      result: Ok(
         RecordType(loc('1-11'), [
           RecordTypeProperty(
             Name(loc('3-5'), ident('foo')),
@@ -203,25 +178,21 @@ describe('type', () => {
             {optional: true}
           ),
         ])
-      )
-    );
-  });
-
-  test('member', () => {
-    expect(parseType(lex('hello.world'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'hello.world',
+      result: Ok(
         MemberType(
           loc('1-11'),
           ReferenceType(loc('1-5'), ident('hello')),
           Name(loc('7-11'), ident('world'))
         )
-      )
-    );
-  });
-
-  test('member twice', () => {
-    expect(parseType(lex('foo.bar.qux'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'foo.bar.qux',
+      result: Ok(
         MemberType(
           loc('1-11'),
           MemberType(
@@ -231,13 +202,11 @@ describe('type', () => {
           ),
           Name(loc('9-11'), ident('qux'))
         )
-      )
-    );
-  });
-
-  test('member thrice', () => {
-    expect(parseType(lex('foo.bar.qux.lit'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'foo.bar.qux.lit',
+      result: Ok(
         MemberType(
           loc('1-15'),
           MemberType(
@@ -251,67 +220,58 @@ describe('type', () => {
           ),
           Name(loc('13-15'), ident('lit'))
         )
-      )
-    );
-  });
-
-  test('member without identifier', () => {
-    expect(parseType(lex('hello.'))).toEqual(
-      Err(UnexpectedTokenError(EndToken(loc('7')), ExpectedIdentifier))
-    );
-    expect(parseType(lex('hello.%'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: 'hello.',
+      result: Err(UnexpectedTokenError(EndToken(loc('7')), ExpectedIdentifier)),
+    },
+    {
+      source: 'hello.%',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('7'), Glyph.Percent),
           ExpectedIdentifier
         )
-      )
-    );
-  });
-
-  test('generic with 0 arguments', () => {
-    expect(parseType(lex('T<>'))).toEqual(
-      Ok(GenericType(loc('1-3'), ReferenceType(loc('1'), ident('T')), []))
-    );
-  });
-
-  test('generic with 1 argument', () => {
-    expect(parseType(lex('T<A>'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'T<>',
+      result: Ok(
+        GenericType(loc('1-3'), ReferenceType(loc('1'), ident('T')), [])
+      ),
+    },
+    {
+      source: 'T<A>',
+      result: Ok(
         GenericType(loc('1-4'), ReferenceType(loc('1'), ident('T')), [
           ReferenceType(loc('3'), ident('A')),
         ])
-      )
-    );
-  });
-
-  test('generic with 2 arguments', () => {
-    expect(parseType(lex('T<A, B>'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'T<A, B>',
+      result: Ok(
         GenericType(loc('1-7'), ReferenceType(loc('1'), ident('T')), [
           ReferenceType(loc('3'), ident('A')),
           ReferenceType(loc('6'), ident('B')),
         ])
-      )
-    );
-  });
-
-  test('generic with 4 arguments', () => {
-    expect(parseType(lex('T<A, B, C, D>'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'T<A, B, C, D>',
+      result: Ok(
         GenericType(loc('1-13'), ReferenceType(loc('1'), ident('T')), [
           ReferenceType(loc('3'), ident('A')),
           ReferenceType(loc('6'), ident('B')),
           ReferenceType(loc('9'), ident('C')),
           ReferenceType(loc('12'), ident('D')),
         ])
-      )
-    );
-  });
-
-  test('generic after member', () => {
-    expect(parseType(lex('React.Component<Props>'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'React.Component<Props>',
+      result: Ok(
         GenericType(
           loc('1-22'),
           MemberType(
@@ -321,79 +281,65 @@ describe('type', () => {
           ),
           [ReferenceType(loc('17-21'), ident('Props'))]
         )
-      )
-    );
-  });
-
-  test('member after generic', () => {
-    expect(parseType(lex('A<>.B'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'A<>.B',
+      result: Ok(
         MemberType(
           loc('1-5'),
           GenericType(loc('1-3'), ReferenceType(loc('1'), ident('A')), []),
           Name(loc('5'), ident('B'))
         )
-      )
-    );
-  });
-
-  test('generic after generic', () => {
-    expect(parseType(lex('A<><>'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'A<><>',
+      result: Ok(
         GenericType(
           loc('1-5'),
           GenericType(loc('1-3'), ReferenceType(loc('1'), ident('A')), []),
           []
         )
-      )
-    );
-  });
-
-  test('unit member', () => {
-    expect(parseType(lex('().foo'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '().foo',
+      result: Ok(
         MemberType(
           loc('1-6'),
           UnitType(loc('1-2')),
           Name(loc('4-6'), ident('foo'))
         )
-      )
-    );
-  });
-
-  test('record member', () => {
-    expect(parseType(lex('{}.foo'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{}.foo',
+      result: Ok(
         MemberType(
           loc('1-6'),
           RecordType(loc('1-2'), []),
           Name(loc('4-6'), ident('foo'))
         )
-      )
-    );
-  });
-
-  test('function with 0 parameters', () => {
-    expect(parseType(lex('() -> ()'))).toEqual(
-      Ok(FunctionType(loc('1-8'), [], UnitType(loc('7-8'))))
-    );
-  });
-
-  test('function with 1 parameter', () => {
-    expect(parseType(lex('(a) -> ()'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '() -> ()',
+      result: Ok(FunctionType(loc('1-8'), [], UnitType(loc('7-8')))),
+    },
+    {
+      source: '(a) -> ()',
+      result: Ok(
         FunctionType(
           loc('1-9'),
           [ReferenceType(loc('2'), ident('a'))],
           UnitType(loc('8-9'))
         )
-      )
-    );
-  });
-
-  test('function with 2 parameters', () => {
-    expect(parseType(lex('(a, b) -> ()'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a, b) -> ()',
+      result: Ok(
         FunctionType(
           loc('1-12'),
           [
@@ -402,13 +348,11 @@ describe('type', () => {
           ],
           UnitType(loc('11-12'))
         )
-      )
-    );
-  });
-
-  test('function with 4 parameters', () => {
-    expect(parseType(lex('(a, b, c, d) -> ()'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a, b, c, d) -> ()',
+      result: Ok(
         FunctionType(
           loc('1-18'),
           [
@@ -419,13 +363,11 @@ describe('type', () => {
           ],
           UnitType(loc('17-18'))
         )
-      )
-    );
-  });
-
-  test('function returning member', () => {
-    expect(parseType(lex('() -> foo.bar'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '() -> foo.bar',
+      result: Ok(
         FunctionType(
           loc('1-13'),
           [],
@@ -435,31 +377,25 @@ describe('type', () => {
             Name(loc('11-13'), ident('bar'))
           )
         )
-      )
-    );
-  });
-
-  test('function no body', () => {
-    expect(parseType(lex('() ->'))).toEqual(
-      Err(UnexpectedTokenError(EndToken(loc('6')), ExpectedType))
-    );
-  });
-
-  test('function identifier shorthand', () => {
-    expect(parseType(lex('T -> T'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '() ->',
+      result: Err(UnexpectedTokenError(EndToken(loc('6')), ExpectedType)),
+    },
+    {
+      source: 'T -> T',
+      result: Ok(
         FunctionType(
           loc('1-6'),
           [ReferenceType(loc('1'), ident('T'))],
           ReferenceType(loc('6'), ident('T'))
         )
-      )
-    );
-  });
-
-  test('function identifier shorthand returning member', () => {
-    expect(parseType(lex('x -> foo.bar'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: 'x -> foo.bar',
+      result: Ok(
         FunctionType(
           loc('1-12'),
           [ReferenceType(loc('1'), ident('x'))],
@@ -469,41 +405,33 @@ describe('type', () => {
             Name(loc('10-12'), ident('bar'))
           )
         )
-      )
-    );
-  });
-
-  test('tuple skips errors', () => {
-    expect(parseType(lex('(X, Y, %, Z)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(X, Y, %, Z)',
+      result: Err(
         UnexpectedTokenError(GlyphToken(loc('8'), Glyph.Percent), ExpectedType)
-      )
-    );
-  });
-
-  test('generic skips errors', () => {
-    expect(parseType(lex('T<X, Y, %, Z>'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: 'T<X, Y, %, Z>',
+      result: Err(
         UnexpectedTokenError(GlyphToken(loc('9'), Glyph.Percent), ExpectedType)
-      )
-    );
-  });
-
-  test('quantified', () => {
-    expect(parseType(lex('<T> T'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '<T> T',
+      result: Ok(
         QuantifiedType(
           loc('1-5'),
           [TypeParameter(Name(loc('2'), ident('T')), [])],
           ReferenceType(loc('5'), ident('T'))
         )
-      )
-    );
-  });
-
-  test('quantified generic', () => {
-    expect(parseType(lex('<T> Foo<T>'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '<T> Foo<T>',
+      result: Ok(
         QuantifiedType(
           loc('1-10'),
           [TypeParameter(Name(loc('2'), ident('T')), [])],
@@ -511,13 +439,11 @@ describe('type', () => {
             ReferenceType(loc('9'), ident('T')),
           ])
         )
-      )
-    );
-  });
-
-  test('quantified function', () => {
-    expect(parseType(lex('<T>(T) -> T'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '<T>(T) -> T',
+      result: Ok(
         QuantifiedType(
           loc('1-11'),
           [TypeParameter(Name(loc('2'), ident('T')), [])],
@@ -527,13 +453,11 @@ describe('type', () => {
             ReferenceType(loc('11'), ident('T'))
           )
         )
-      )
-    );
-  });
-
-  test('quantified function with identifier shorthand', () => {
-    expect(parseType(lex('<T> T -> T'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '<T> T -> T',
+      result: Ok(
         QuantifiedType(
           loc('1-10'),
           [TypeParameter(Name(loc('2'), ident('T')), [])],
@@ -543,21 +467,17 @@ describe('type', () => {
             ReferenceType(loc('10'), ident('T'))
           )
         )
-      )
-    );
-  });
-
-  test('quantified error body', () => {
-    expect(parseType(lex('<T> %'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '<T> %',
+      result: Err(
         UnexpectedTokenError(GlyphToken(loc('5'), Glyph.Percent), ExpectedType)
-      )
-    );
-  });
-
-  test('quantified with 1 bound', () => {
-    expect(parseType(lex('<T: A> T'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '<T: A> T',
+      result: Ok(
         QuantifiedType(
           loc('1-8'),
           [
@@ -567,13 +487,11 @@ describe('type', () => {
           ],
           ReferenceType(loc('8'), ident('T'))
         )
-      )
-    );
-  });
-
-  test('quantified with 2 bounds', () => {
-    expect(parseType(lex('<T: A + B> T'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '<T: A + B> T',
+      result: Ok(
         QuantifiedType(
           loc('1-12'),
           [
@@ -584,13 +502,11 @@ describe('type', () => {
           ],
           ReferenceType(loc('12'), ident('T'))
         )
-      )
-    );
-  });
-
-  test('quantified with 4 bounds', () => {
-    expect(parseType(lex('<T: A + B + C + D> T'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '<T: A + B + C + D> T',
+      result: Ok(
         QuantifiedType(
           loc('1-20'),
           [
@@ -603,187 +519,154 @@ describe('type', () => {
           ],
           ReferenceType(loc('20'), ident('T'))
         )
-      )
-    );
-  });
-
-  test('quantified with 0 bounds', () => {
-    expect(parseType(lex('<T: > T'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '<T: > T',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('5'), Glyph.GreaterThan),
           ExpectedType
         )
-      )
-    );
-  });
-
-  test('quantified with 1 incorrect bound', () => {
-    expect(parseType(lex('<T: %> T'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '<T: %> T',
+      result: Err(
         UnexpectedTokenError(GlyphToken(loc('5'), Glyph.Percent), ExpectedType)
-      )
-    );
-  });
-
-  test('quantified with 1 correct and 1 incorrect bound', () => {
-    expect(parseType(lex('<T: A + %> T'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '<T: A + %> T',
+      result: Err(
         UnexpectedTokenError(GlyphToken(loc('9'), Glyph.Percent), ExpectedType)
-      )
-    );
-  });
-
-  test('quantified with no plus for bounds', () => {
-    expect(parseType(lex('<T: A B> T'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '<T: A B> T',
+      result: Err(
         UnexpectedTokenError(
           IdentifierToken(loc('7'), ident('B')),
           ExpectedGlyph(Glyph.Comma)
         )
-      )
-    );
+      ),
+    },
+  ].forEach(({source, result}) => {
+    test(source, () => {
+      expect(parseType(lex(source))).toEqual(result);
+    });
   });
 });
 
 describe('pattern', () => {
-  test('binding', () => {
-    expect(parsePattern(lex('foo'))).toEqual(
-      Ok(BindingPattern(loc('1-3'), ident('foo')))
-    );
-  });
-
-  test('binding keyword', () => {
-    expect(parsePattern(lex('if'))).toEqual(
-      Err(
+  [
+    {
+      source: 'foo',
+      result: Ok(BindingPattern(loc('1-3'), ident('foo'))),
+    },
+    {
+      source: 'if',
+      result: Err(
         UnexpectedTokenError(
           IdentifierToken(loc('1-2'), 'if' as Identifier),
           ExpectedPattern
         )
-      )
-    );
-  });
-
-  test('hole', () => {
-    expect(parsePattern(lex('_'))).toEqual(Ok(HolePattern(loc('1'))));
-  });
-
-  test('binding underscore prefixed', () => {
-    expect(parsePattern(lex('_x'))).toEqual(
-      Ok(BindingPattern(loc('1-2'), ident('_x')))
-    );
-  });
-
-  test('unit', () => {
-    expect(parsePattern(lex('()'))).toEqual(Ok(UnitPattern(loc('1-2'))));
-  });
-
-  test('wrapped', () => {
-    expect(parsePattern(lex('(foo)'))).toEqual(
-      Ok(
+      ),
+    },
+    {source: '_', result: Ok(HolePattern(loc('1')))},
+    {
+      source: '_x',
+      result: Ok(BindingPattern(loc('1-2'), ident('_x'))),
+    },
+    {source: '()', result: Ok(UnitPattern(loc('1-2')))},
+    {
+      source: '(foo)',
+      result: Ok(
         WrappedPattern(
           loc('1-5'),
           BindingPattern(loc('2-4'), ident('foo')),
           undefined
         )
-      )
-    );
-  });
-
-  test('tuple with 2 elements', () => {
-    expect(parsePattern(lex('(a, b)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a, b)',
+      result: Ok(
         TuplePattern(loc('1-6'), [
           TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
           TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
         ])
-      )
-    );
-  });
-
-  test('tuple with 4 elements', () => {
-    expect(parsePattern(lex('(a, b, c, d)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a, b, c, d)',
+      result: Ok(
         TuplePattern(loc('1-12'), [
           TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
           TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
           TuplePatternElement(BindingPattern(loc('8'), ident('c')), undefined),
           TuplePatternElement(BindingPattern(loc('11'), ident('d')), undefined),
         ])
-      )
-    );
-  });
-
-  test('unit with trailing comma', () => {
-    expect(parsePattern(lex('(,)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(,)',
+      result: Err(
         UnexpectedTokenError(GlyphToken(loc('2'), Glyph.Comma), ExpectedPattern)
-      )
-    );
-  });
-
-  test('wrapped with trailing comma', () => {
-    expect(parsePattern(lex('(foo,)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(foo,)',
+      result: Ok(
         WrappedPattern(
           loc('1-6'),
           BindingPattern(loc('2-4'), ident('foo')),
           undefined
         )
-      )
-    );
-  });
-
-  test('tuple with 2 elements and trailing comma', () => {
-    expect(parsePattern(lex('(a, b,)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a, b,)',
+      result: Ok(
         TuplePattern(loc('1-7'), [
           TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
           TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
         ])
-      )
-    );
-  });
-
-  test('tuple with 4 elements and trailing comma', () => {
-    expect(parsePattern(lex('(a, b, c, d,)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a, b, c, d,)',
+      result: Ok(
         TuplePattern(loc('1-13'), [
           TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
           TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
           TuplePatternElement(BindingPattern(loc('8'), ident('c')), undefined),
           TuplePatternElement(BindingPattern(loc('11'), ident('d')), undefined),
         ])
-      )
-    );
-  });
-
-  test('wrapped expecting annotation', () => {
-    expect(parsePattern(lex('(x:)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(x:)',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('4'), Glyph.ParenRight),
           ExpectedType
         )
-      )
-    );
-  });
-
-  test('wrapped with annotation', () => {
-    expect(parsePattern(lex('(x: T)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(x: T)',
+      result: Ok(
         WrappedPattern(
           loc('1-6'),
           BindingPattern(loc('2'), ident('x')),
           ReferenceType(loc('5'), ident('T'))
         )
-      )
-    );
-  });
-
-  test('tuple with 2 elements and annotations', () => {
-    expect(parsePattern(lex('(a: A, b: B)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a: A, b: B)',
+      result: Ok(
         TuplePattern(loc('1-12'), [
           TuplePatternElement(
             BindingPattern(loc('2'), ident('a')),
@@ -794,13 +677,11 @@ describe('pattern', () => {
             ReferenceType(loc('11'), ident('B'))
           ),
         ])
-      )
-    );
-  });
-
-  test('tuple with 4 elements and annotations', () => {
-    expect(parsePattern(lex('(a: A, b: B, c: C, d: D)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a: A, b: B, c: C, d: D)',
+      result: Ok(
         TuplePattern(loc('1-24'), [
           TuplePatternElement(
             BindingPattern(loc('2'), ident('a')),
@@ -819,25 +700,21 @@ describe('pattern', () => {
             ReferenceType(loc('23'), ident('D'))
           ),
         ])
-      )
-    );
-  });
-
-  test('wrapped with annotation and trailing comma', () => {
-    expect(parsePattern(lex('(x: T,)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(x: T,)',
+      result: Ok(
         WrappedPattern(
           loc('1-7'),
           BindingPattern(loc('2'), ident('x')),
           ReferenceType(loc('5'), ident('T'))
         )
-      )
-    );
-  });
-
-  test('tuple with 2 elements and annotations and trailing comma', () => {
-    expect(parsePattern(lex('(a: A, b: B,)'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '(a: A, b: B,)',
+      result: Ok(
         TuplePattern(loc('1-13'), [
           TuplePatternElement(
             BindingPattern(loc('2'), ident('a')),
@@ -848,17 +725,12 @@ describe('pattern', () => {
             ReferenceType(loc('11'), ident('B'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 0 properties', () => {
-    expect(parsePattern(lex('{}'))).toEqual(Ok(RecordPattern(loc('1-2'), [])));
-  });
-
-  test('record with 1 property', () => {
-    expect(parsePattern(lex('{ foo }'))).toEqual(
-      Ok(
+      ),
+    },
+    {source: '{}', result: Ok(RecordPattern(loc('1-2'), []))},
+    {
+      source: '{ foo }',
+      result: Ok(
         RecordPattern(loc('1-7'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -866,13 +738,11 @@ describe('pattern', () => {
             undefined
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 2 properties', () => {
-    expect(parsePattern(lex('{ foo, bar }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo, bar }',
+      result: Ok(
         RecordPattern(loc('1-12'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -885,13 +755,11 @@ describe('pattern', () => {
             undefined
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 4 properties', () => {
-    expect(parsePattern(lex('{ foo, bar, qux, lit }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo, bar, qux, lit }',
+      result: Ok(
         RecordPattern(loc('1-22'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -914,13 +782,11 @@ describe('pattern', () => {
             undefined
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 1 property and annotation', () => {
-    expect(parsePattern(lex('{ foo: T }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo: T }',
+      result: Ok(
         RecordPattern(loc('1-10'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -928,13 +794,11 @@ describe('pattern', () => {
             ReferenceType(loc('8'), ident('T'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 2 properties and annotations', () => {
-    expect(parsePattern(lex('{ foo: T, bar: U }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo: T, bar: U }',
+      result: Ok(
         RecordPattern(loc('1-18'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -947,13 +811,11 @@ describe('pattern', () => {
             ReferenceType(loc('16'), ident('U'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 4 properties and annotations', () => {
-    expect(parsePattern(lex('{ foo: T, bar: U, qux: V, lit: W }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo: T, bar: U, qux: V, lit: W }',
+      result: Ok(
         RecordPattern(loc('1-34'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -976,13 +838,11 @@ describe('pattern', () => {
             ReferenceType(loc('32'), ident('W'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 1 property and initializer', () => {
-    expect(parsePattern(lex('{ foo = foo2 }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo = foo2 }',
+      result: Ok(
         RecordPattern(loc('1-14'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -990,13 +850,11 @@ describe('pattern', () => {
             undefined
           ),
         ])
-      )
-    );
-  });
-
-  test('record with 2 properties and annotations', () => {
-    expect(parsePattern(lex('{ foo = foo2, bar = bar2 }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo = foo2, bar = bar2 }',
+      result: Ok(
         RecordPattern(loc('1-26'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -1009,13 +867,11 @@ describe('pattern', () => {
             undefined
           ),
         ])
-      )
-    );
-  });
-
-  test('record with annotation and initializer', () => {
-    expect(parsePattern(lex('{ foo: T = x }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo: T = x }',
+      result: Ok(
         RecordPattern(loc('1-14'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -1023,13 +879,11 @@ describe('pattern', () => {
             ReferenceType(loc('8'), ident('T'))
           ),
         ])
-      )
-    );
-  });
-
-  test('record with optional property', () => {
-    expect(parsePattern(lex('{ foo?: T }'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '{ foo?: T }',
+      result: Ok(
         RecordPattern(loc('1-11'), [
           RecordPatternProperty(
             Name(loc('3-5'), ident('foo')),
@@ -1038,24 +892,20 @@ describe('pattern', () => {
             {optional: true}
           ),
         ])
-      )
-    );
-  });
-
-  test('record with optional property but no annotation', () => {
-    expect(parsePattern(lex('{ foo? }'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '{ foo? }',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('8'), Glyph.BraceRight),
           ExpectedGlyph(Glyph.Colon)
         )
-      )
-    );
-  });
-
-  test('record binding identifier property', () => {
-    expect(parsePattern(lex("{ if = if' }"))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: "{ if = if' }",
+      result: Ok(
         RecordPattern(loc('1-12'), [
           RecordPatternProperty(
             Name(loc('3-4'), 'if' as BindingIdentifier),
@@ -1063,205 +913,172 @@ describe('pattern', () => {
             undefined
           ),
         ])
-      )
-    );
-  });
-
-  test('record binding identifier property shorthand', () => {
-    expect(parsePattern(lex('{ if }'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '{ if }',
+      result: Err(
         UnexpectedTokenError(
           IdentifierToken(loc('3-4'), 'if' as Identifier),
           ExpectedBindingIdentifier
         )
-      )
-    );
-  });
-
-  test('[]', () => {
-    expect(parsePattern(lex('[]'))).toEqual(Ok(ListPattern(loc('1-2'), [])));
-  });
-
-  test('[a]', () => {
-    expect(parsePattern(lex('[a]'))).toEqual(
-      Ok(ListPattern(loc('1-3'), [BindingPattern(loc('2'), ident('a'))]))
-    );
-  });
-
-  test('[a, b]', () => {
-    expect(parsePattern(lex('[a, b]'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '[]',
+      result: Ok(ListPattern(loc('1-2'), [])),
+    },
+    {
+      source: '[a]',
+      result: Ok(
+        ListPattern(loc('1-3'), [BindingPattern(loc('2'), ident('a'))])
+      ),
+    },
+    {
+      source: '[a, b]',
+      result: Ok(
         ListPattern(loc('1-6'), [
           BindingPattern(loc('2'), ident('a')),
           BindingPattern(loc('5'), ident('b')),
         ])
-      )
-    );
-  });
-
-  test('[a, b, c, d]', () => {
-    expect(parsePattern(lex('[a, b, c, d]'))).toEqual(
-      Ok(
+      ),
+    },
+    {
+      source: '[a, b, c, d]',
+      result: Ok(
         ListPattern(loc('1-12'), [
           BindingPattern(loc('2'), ident('a')),
           BindingPattern(loc('5'), ident('b')),
           BindingPattern(loc('8'), ident('c')),
           BindingPattern(loc('11'), ident('d')),
         ])
-      )
-    );
+      ),
+    },
+  ].forEach(({source, result}) => {
+    test(source, () => {
+      expect(parsePattern(lex(source))).toEqual(result);
+    });
   });
 });
 
 describe('comma list', () => {
-  test('zero', () => {
-    expect(parseCommaListTest(lex('()'))).toEqual(Ok([]));
-  });
-
-  test('one', () => {
-    expect(parseCommaListTest(lex('(foo)'))).toEqual(Ok(['foo']));
-  });
-
-  test('two', () => {
-    expect(parseCommaListTest(lex('(foo, bar)'))).toEqual(Ok(['foo', 'bar']));
-  });
-
-  test('four', () => {
-    expect(parseCommaListTest(lex('(foo, bar, qux, lit)'))).toEqual(
-      Ok(['foo', 'bar', 'qux', 'lit'])
-    );
-  });
-
-  test('zero trailing comma', () => {
-    expect(parseCommaListTest(lex('(,)'))).toEqual(
-      Err(
+  [
+    {source: '()', result: Ok([])},
+    {source: '(foo)', result: Ok(['foo'])},
+    {source: '(foo, bar)', result: Ok(['foo', 'bar'])},
+    {
+      source: '(foo, bar, qux, lit)',
+      result: Ok(['foo', 'bar', 'qux', 'lit']),
+    },
+    {
+      source: '(,)',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('2'), Glyph.Comma),
           ExpectedIdentifier
         )
-      )
-    );
-  });
-
-  test('one trailing comma', () => {
-    expect(parseCommaListTest(lex('(foo,)'))).toEqual(Ok(['foo']));
-  });
-
-  test('two trailing comma', () => {
-    expect(parseCommaListTest(lex('(foo, bar,)'))).toEqual(Ok(['foo', 'bar']));
-  });
-
-  test('four trailing comma', () => {
-    expect(parseCommaListTest(lex('(foo, bar, qux, lit,)'))).toEqual(
-      Ok(['foo', 'bar', 'qux', 'lit'])
-    );
-  });
-
-  test('random character', () => {
-    expect(parseCommaListTest(lex('(%)'))).toEqual(
-      Err(
+      ),
+    },
+    {source: '(foo,)', result: Ok(['foo'])},
+    {source: '(foo, bar,)', result: Ok(['foo', 'bar'])},
+    {
+      source: '(foo, bar, qux, lit,)',
+      result: Ok(['foo', 'bar', 'qux', 'lit']),
+    },
+    {
+      source: '(%)',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('2'), Glyph.Percent),
           ExpectedIdentifier
         )
-      )
-    );
-    expect(parseCommaListTest(lex('( % )'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '( % )',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('3'), Glyph.Percent),
           ExpectedIdentifier
         )
-      )
-    );
-  });
-
-  test('no commas', () => {
-    expect(parseCommaListTest(lex('(foo bar)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(foo bar)',
+      result: Err(
         UnexpectedTokenError(
           IdentifierToken(loc('6-8'), ident('bar')),
           ExpectedGlyph(Glyph.Comma)
         )
-      )
-    );
-  });
-
-  test('missing one comma of two', () => {
-    expect(parseCommaListTest(lex('(foo, bar qux)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(foo, bar qux)',
+      result: Err(
         UnexpectedTokenError(
           IdentifierToken(loc('11-13'), ident('qux')),
           ExpectedGlyph(Glyph.Comma)
         )
-      )
-    );
-  });
-
-  test('missing two commas of two', () => {
-    expect(parseCommaListTest(lex('(foo bar qux)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(foo bar qux)',
+      result: Err(
         UnexpectedTokenError(
           IdentifierToken(loc('6-8'), ident('bar')),
           ExpectedGlyph(Glyph.Comma)
         )
-      )
-    );
-  });
-
-  test('double comma', () => {
-    expect(parseCommaListTest(lex('(foo,, bar)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(foo,, bar)',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('6'), Glyph.Comma),
           ExpectedIdentifier
         )
-      )
-    );
-  });
-
-  test('non-comma separator', () => {
-    expect(parseCommaListTest(lex('(foo; bar)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(foo; bar)',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('5'), Glyph.Semicolon),
           ExpectedGlyph(Glyph.Comma)
         )
-      )
-    );
-  });
-
-  test('double non-comma separator', () => {
-    expect(parseCommaListTest(lex('(foo;; bar)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(foo;; bar)',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('5'), Glyph.Semicolon),
           ExpectedGlyph(Glyph.Comma)
         )
-      )
-    );
-  });
-
-  test('trailing non-comma separator', () => {
-    expect(parseCommaListTest(lex('(foo, bar;)'))).toEqual(
-      Err(
+      ),
+    },
+    {
+      source: '(foo, bar;)',
+      result: Err(
         UnexpectedTokenError(
           GlyphToken(loc('10'), Glyph.Semicolon),
           ExpectedGlyph(Glyph.Comma)
         )
-      )
-    );
-  });
-
-  test('not ended when expecting item', () => {
-    expect(parseCommaListTest(lex('('))).toEqual(
-      Err(UnexpectedTokenError(EndToken(loc('2')), ExpectedIdentifier))
-    );
-  });
-
-  test('not ended when expecting comma', () => {
-    expect(parseCommaListTest(lex('(foo'))).toEqual(
-      Err(UnexpectedTokenError(EndToken(loc('5')), ExpectedGlyph(Glyph.Comma)))
-    );
+      ),
+    },
+    {
+      source: '(',
+      result: Err(UnexpectedTokenError(EndToken(loc('2')), ExpectedIdentifier)),
+    },
+    {
+      source: '(foo',
+      result: Err(
+        UnexpectedTokenError(EndToken(loc('5')), ExpectedGlyph(Glyph.Comma))
+      ),
+    },
+  ].forEach(({source, result}) => {
+    test(source, () => {
+      expect(parseCommaListTest(lex(source))).toEqual(result);
+    });
   });
 });
