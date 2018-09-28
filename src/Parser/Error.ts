@@ -31,6 +31,7 @@ export function UnexpectedTokenError(
  */
 export type Expected =
   | ExpectedIdentifier
+  | ExpectedBindingIdentifier
   | ExpectedGlyph
   | ExpectedEnd
   | ExpectedType
@@ -38,16 +39,27 @@ export type Expected =
 
 export const enum ExpectedKind {
   Identifier = 'Identifier',
+  BindingIdentifier = 'BindingIdentifier',
   Glyph = 'Glyph',
   End = 'End',
   Type = 'Type',
   Pattern = 'Pattern',
 }
 
-export type ExpectedIdentifier = {readonly kind: ExpectedKind.Identifier};
+export type ExpectedIdentifier = {
+  readonly kind: ExpectedKind.Identifier;
+};
 
 export const ExpectedIdentifier: ExpectedIdentifier = {
   kind: ExpectedKind.Identifier,
+};
+
+export type ExpectedBindingIdentifier = {
+  readonly kind: ExpectedKind.BindingIdentifier;
+};
+
+export const ExpectedBindingIdentifier: ExpectedBindingIdentifier = {
+  kind: ExpectedKind.BindingIdentifier,
 };
 
 export type ExpectedGlyph = {

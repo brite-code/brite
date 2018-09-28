@@ -8,6 +8,8 @@ import {
   MemberType,
   Name,
   QuantifiedType,
+  RecordPattern,
+  RecordPatternProperty,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
@@ -21,13 +23,14 @@ import {
   WrappedType,
 } from './Ast';
 import {
+  ExpectedBindingIdentifier,
   ExpectedGlyph,
   ExpectedIdentifier,
   ExpectedPattern,
   ExpectedType,
   UnexpectedTokenError,
 } from './Error';
-import {Identifier, ident} from './Identifier';
+import {BindingIdentifier, Identifier, ident} from './Identifier';
 import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from './Lexer';
 import {loc} from './Loc';
 import {parseCommaListTest, parsePattern, parseType} from './Parser';
@@ -193,9 +196,10 @@ describe('type', () => {
     expect(parseType(lex('{ foo?: T }'))).toEqual(
       Ok(
         RecordType(loc('1-11'), [
-          RecordTypeProperty.optional(
+          RecordTypeProperty(
             Name(loc('3-5'), ident('foo')),
-            ReferenceType(loc('9'), ident('T'))
+            ReferenceType(loc('9'), ident('T')),
+            {optional: true}
           ),
         ])
       )
@@ -843,6 +847,232 @@ describe('pattern', () => {
             ReferenceType(loc('11'), ident('B'))
           ),
         ])
+      )
+    );
+  });
+
+  test('record with 0 properties', () => {
+    expect(parsePattern(lex('{}'))).toEqual(Ok(RecordPattern(loc('1-2'), [])));
+  });
+
+  test('record with 1 property', () => {
+    expect(parsePattern(lex('{ foo }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-7'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('3-5'), ident('foo')),
+            undefined
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with 2 properties', () => {
+    expect(parsePattern(lex('{ foo, bar }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-12'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('3-5'), ident('foo')),
+            undefined
+          ),
+          RecordPatternProperty(
+            Name(loc('8-10'), ident('bar')),
+            BindingPattern(loc('8-10'), ident('bar')),
+            undefined
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with 4 properties', () => {
+    expect(parsePattern(lex('{ foo, bar, qux, lit }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-22'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('3-5'), ident('foo')),
+            undefined
+          ),
+          RecordPatternProperty(
+            Name(loc('8-10'), ident('bar')),
+            BindingPattern(loc('8-10'), ident('bar')),
+            undefined
+          ),
+          RecordPatternProperty(
+            Name(loc('13-15'), ident('qux')),
+            BindingPattern(loc('13-15'), ident('qux')),
+            undefined
+          ),
+          RecordPatternProperty(
+            Name(loc('18-20'), ident('lit')),
+            BindingPattern(loc('18-20'), ident('lit')),
+            undefined
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with 1 property and annotation', () => {
+    expect(parsePattern(lex('{ foo: T }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-10'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('3-5'), ident('foo')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with 2 properties and annotations', () => {
+    expect(parsePattern(lex('{ foo: T, bar: U }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-18'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('3-5'), ident('foo')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+          RecordPatternProperty(
+            Name(loc('11-13'), ident('bar')),
+            BindingPattern(loc('11-13'), ident('bar')),
+            ReferenceType(loc('16'), ident('U'))
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with 4 properties and annotations', () => {
+    expect(parsePattern(lex('{ foo: T, bar: U, qux: V, lit: W }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-34'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('3-5'), ident('foo')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+          RecordPatternProperty(
+            Name(loc('11-13'), ident('bar')),
+            BindingPattern(loc('11-13'), ident('bar')),
+            ReferenceType(loc('16'), ident('U'))
+          ),
+          RecordPatternProperty(
+            Name(loc('19-21'), ident('qux')),
+            BindingPattern(loc('19-21'), ident('qux')),
+            ReferenceType(loc('24'), ident('V'))
+          ),
+          RecordPatternProperty(
+            Name(loc('27-29'), ident('lit')),
+            BindingPattern(loc('27-29'), ident('lit')),
+            ReferenceType(loc('32'), ident('W'))
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with 1 property and initializer', () => {
+    expect(parsePattern(lex('{ foo = foo2 }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-14'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('9-12'), ident('foo2')),
+            undefined
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with 2 properties and annotations', () => {
+    expect(parsePattern(lex('{ foo = foo2, bar = bar2 }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-26'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('9-12'), ident('foo2')),
+            undefined
+          ),
+          RecordPatternProperty(
+            Name(loc('15-17'), ident('bar')),
+            BindingPattern(loc('21-24'), ident('bar2')),
+            undefined
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with annotation and initializer', () => {
+    expect(parsePattern(lex('{ foo: T = x }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-14'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('12'), ident('x')),
+            ReferenceType(loc('8'), ident('T'))
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with optional property', () => {
+    expect(parsePattern(lex('{ foo?: T }'))).toEqual(
+      Ok(
+        RecordPattern(loc('1-11'), [
+          RecordPatternProperty(
+            Name(loc('3-5'), ident('foo')),
+            BindingPattern(loc('3-5'), ident('foo')),
+            ReferenceType(loc('9'), ident('T')),
+            {optional: true}
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record with optional property but no annotation', () => {
+    expect(parsePattern(lex('{ foo? }'))).toEqual(
+      Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('8'), Glyph.BraceRight),
+          ExpectedGlyph(Glyph.Colon)
+        )
+      )
+    );
+  });
+
+  test('record binding identifier property', () => {
+    expect(parsePattern(lex("{ if = if' }"))).toEqual(
+      Ok(
+        RecordPattern(loc('1-12'), [
+          RecordPatternProperty(
+            Name(loc('3-4'), 'if' as BindingIdentifier),
+            BindingPattern(loc('8-10'), ident("if'")),
+            undefined
+          ),
+        ])
+      )
+    );
+  });
+
+  test('record binding identifier property shorthand', () => {
+    expect(parsePattern(lex('{ if }'))).toEqual(
+      Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('3-4'), 'if' as Identifier),
+          ExpectedBindingIdentifier
+        )
       )
     );
   });

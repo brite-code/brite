@@ -10,6 +10,8 @@ import {
   Name,
   Pattern,
   QuantifiedType,
+  RecordPattern,
+  RecordPatternProperty,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
@@ -24,6 +26,7 @@ import {
   WrappedType,
 } from './Ast';
 import {
+  ExpectedBindingIdentifier,
   ExpectedEnd,
   ExpectedGlyph,
   ExpectedIdentifier,
@@ -162,13 +165,11 @@ class Parser {
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
       const start = this.lexer.next().loc.start;
       const properties = this.parseCommaList(() => {
-        const key = this.parseIdentifier();
+        const key = this.parseName();
         const optional = this.tryParseGlyph(Glyph.Question);
         this.parseGlyph(Glyph.Colon);
         const value = this.parseType();
-        return optional
-          ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
-          : RecordTypeProperty(Name(key.loc, key.identifier), value);
+        return RecordTypeProperty(key, value, {optional});
       }, Glyph.BraceRight);
       const end = this.lexer.next().loc.end;
       const loc = new Loc(start, end);
@@ -207,13 +208,9 @@ class Parser {
       // Parse `MemberType`.
       if (token.type === TokenType.Glyph && token.glyph === Glyph.Dot) {
         this.lexer.next();
-        const identifier = this.parseIdentifier();
-        if (identifier === undefined) return type;
-        type = MemberType(
-          new Loc(type.loc.start, identifier.loc.end),
-          type,
-          Name(identifier.loc, identifier.identifier)
-        );
+        const name = this.parseName();
+        const loc = new Loc(type.loc.start, name.loc.end);
+        type = MemberType(loc, type, name);
         continue;
       }
 
@@ -239,7 +236,7 @@ class Parser {
    * Parses the `GenericPattern` grammar. Returns `undefined` if parsing fails.
    */
   parseGenericParameter(): TypeParameter {
-    const identifier = this.parseIdentifier();
+    const name = this.parseName();
 
     // There may be some optional bounds on the generic parameter after a colon.
     // If we see a colon then try and parse our type bounds.
@@ -257,10 +254,7 @@ class Parser {
       }
     }
 
-    return TypeParameter(
-      Name(identifier.loc, identifier.identifier),
-      typeParameters
-    );
+    return TypeParameter(name, typeParameters);
   }
 
   /**
@@ -308,6 +302,56 @@ class Parser {
       } else {
         return TuplePattern(loc, ReadonlyArray2.create(elements));
       }
+    }
+
+    // Parse `RecordPattern`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
+      const start = this.lexer.next().loc.start;
+
+      // Parse all of the record properties in a comma list.
+      const properties = this.parseCommaList(() => {
+        // Parse the name of this record property. If we used punned record
+        // initialization syntax then we will later assert that this name is a
+        // binding identifier.
+        const key = this.parseName();
+
+        // The code to parse a type annotation here is kind of interesting.
+        // Currently optional properties must have a type annotation so first we
+        // try to parse a question mark. If we parse a question mark then we
+        // require a colon and a type to be parsed next. If there is no question
+        // mark then we may still optionally want to parse a type annotation.
+        const optional = this.tryParseGlyph(Glyph.Question);
+        if (optional) this.parseGlyph(Glyph.Colon);
+        const type =
+          optional || this.tryParseGlyph(Glyph.Colon)
+            ? this.parseType()
+            : undefined;
+
+        // Parse the value initializer for this pattern. If we are using the
+        // syntax where we don’t have an initializer (e.g. `{ a, b }`) then we
+        // need to go back and throw an error if our key name is not a
+        // binding identifier.
+        let value: Pattern;
+        if (this.tryParseGlyph(Glyph.Equals)) {
+          value = this.parsePattern();
+        } else {
+          const identifier = BindingIdentifier.create(key.identifier);
+          if (identifier === undefined) {
+            throw UnexpectedTokenError(
+              IdentifierToken(key.loc, key.identifier),
+              ExpectedBindingIdentifier
+            );
+          }
+          value = BindingPattern(key.loc, identifier);
+        }
+
+        // Create the record property.
+        return RecordPatternProperty(key, value, type, {optional});
+      }, Glyph.BraceRight);
+
+      const end = this.lexer.next().loc.end;
+      const loc = new Loc(start, end);
+      return RecordPattern(loc, properties);
     }
 
     throw UnexpectedTokenError(token, ExpectedPattern);
@@ -416,6 +460,14 @@ class Parser {
       return token;
     }
     throw UnexpectedTokenError(token, ExpectedIdentifier);
+  }
+
+  /**
+   * Parses a `Name`.
+   */
+  parseName(): Name {
+    const identifier = this.parseIdentifier();
+    return Name(identifier.loc, identifier.identifier);
   }
 
   /**

@@ -61,11 +61,10 @@ RecordPatternProperty :
   - [+Constructor] Access? `mutable`? RecordPatternPropertyWithoutModifiers
 
 RecordPatternPropertyWithoutModifiers :
-  - Identifier RecordPatternPropertyAnnotation? RecordPatternPropertyInitializer?
+  - Identifier RecordPatternPropertyAnnotation? `=` Pattern
+  - BindingIdentifier RecordPatternPropertyAnnotation?
 
 RecordPatternPropertyAnnotation : `?`? TypeAnnotation
-
-RecordPatternPropertyInitializer: `=` Pattern
 
 Note: In {RecordPatternProperty} adding the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation simplicity in constructors.
 

@@ -175,14 +175,12 @@ export type RecordTypeProperty = {
   readonly optional: boolean;
 };
 
-export function RecordTypeProperty(key: Name, value: Type): RecordTypeProperty {
-  return {key, value, optional: false};
-}
-
-export namespace RecordTypeProperty {
-  export function optional(key: Name, value: Type): RecordTypeProperty {
-    return {key, value, optional: true};
-  }
+export function RecordTypeProperty(
+  key: Name,
+  value: Type,
+  {optional = false}: {optional?: boolean} = {}
+): RecordTypeProperty {
+  return {key, value, optional};
 }
 
 export interface FunctionType extends Node {
@@ -609,6 +607,15 @@ export type RecordPatternProperty = {
   readonly type: Type | undefined;
   readonly optional: boolean;
 };
+
+export function RecordPatternProperty(
+  key: Name,
+  value: Pattern,
+  type: Type | undefined,
+  {optional = false}: {optional?: boolean} = {}
+): RecordPatternProperty {
+  return {key, value, type, optional};
+}
 
 export interface ListPattern extends Node {
   readonly kind: PatternKind.List;
