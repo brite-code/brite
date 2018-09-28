@@ -1,8 +1,9 @@
-import {Array2, ReadonlyArray2} from '../Utils/ArrayN';
+import {Array1, Array2, ReadonlyArray2} from '../Utils/ArrayN';
 import {Err, Ok, Result} from '../Utils/Result';
 
 import {
   BindingPattern,
+  DeconstructPattern,
   FunctionType,
   GenericType,
   HolePattern,
@@ -39,7 +40,7 @@ import {
 } from './Error';
 import {BindingIdentifier, Keyword} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, TokenType} from './Lexer';
-import {Loc} from './Loc';
+import {Loc, Pos} from './Loc';
 
 export function parseType(lexer: Lexer): Result<Type, ParserError> {
   try {
@@ -266,31 +267,49 @@ class Parser {
   parsePattern(): Pattern {
     const token = this.lexer.peek();
 
-    // Parse `BindingPattern` and `QualifiedPattern`.
+    // Parse `BindingPattern`, `QualifiedPattern`, and `DeconstructPattern`.
     if (token.type === TokenType.Identifier) {
       this.lexer.next();
-      // If after the identifier we have a dot then we can parse a qualified
-      // pattern. Otherwise if the identifier is a `BindingIdentifier` then we
-      // have a binding pattern.
-      if (this.tryParseGlyph(Glyph.Dot)) {
-        const identifier2 = this.parseIdentifier();
-        const identifiers = Array2.create([
-          Name(token.loc, token.identifier),
-          Name(identifier2.loc, identifier2.identifier),
-        ]);
-        while (true) {
-          if (!this.tryParseGlyph(Glyph.Dot)) break;
-          const identifier = this.parseIdentifier();
-          identifiers.push(Name(identifier.loc, identifier.identifier));
-        }
+
+      // If the first identifier is not a `BindingIdentifier` then we may not
+      // continue parsing any of our grammars.
+      const firstIdentifier = BindingIdentifier.create(token.identifier);
+      if (firstIdentifier === undefined) {
+        throw UnexpectedTokenError(token, ExpectedPattern);
+      }
+
+      // If there is a dot following our identifier then we have a path to some
+      // namespaced location.
+      const identifiers = [Name(token.loc, token.identifier)];
+      while (true) {
+        if (!this.tryParseGlyph(Glyph.Dot)) break;
+        const token = this.parseIdentifier();
+        identifiers.push(Name(token.loc, token.identifier));
+      }
+
+      // If there is an opening parentheses on the same line as our identifier
+      // path then we have a `DeconstructPattern`.
+      const lastPos = identifiers[identifiers.length - 1].loc.end;
+      if (this.tryParseGlyphOnSameLine(lastPos, Glyph.ParenLeft)) {
+        const callee = Array1.create(identifiers);
+        const args = this.parseCommaList(
+          () => this.parsePattern(),
+          Glyph.ParenRight
+        );
+        const end = this.lexer.next().loc.end;
+        const loc = new Loc(token.loc.start, end);
+        return DeconstructPattern(loc, callee, args);
+      }
+
+      // If we don’t have an open parentheses then have either a
+      // `BindingPattern` or a `QualifiedPattern`.
+      if (identifiers.length === 1) {
+        return BindingPattern(token.loc, firstIdentifier);
+      } else {
         const start = identifiers[0].loc.start;
         const end = identifiers[identifiers.length - 1].loc.end;
-        return QualifiedPattern(new Loc(start, end), identifiers);
-      } else {
-        const identifier = BindingIdentifier.create(token.identifier);
-        if (identifier !== undefined) {
-          return BindingPattern(token.loc, identifier);
-        }
+        const loc = new Loc(start, end);
+        return QualifiedPattern(loc, Array2.create(identifiers));
       }
     }
 
@@ -473,6 +492,23 @@ class Parser {
   tryParseGlyph(glyph: Glyph): boolean {
     const token = this.lexer.peek();
     if (token.type === TokenType.Glyph && token.glyph === glyph) {
+      this.lexer.next();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Tries to parse a glyph but only if it is on the same line as the provided
+   * position. Returns true if we could parse it. Returns false if we could not.
+   */
+  tryParseGlyphOnSameLine(pos: Pos, glyph: Glyph): boolean {
+    const token = this.lexer.peek();
+    if (
+      token.type === TokenType.Glyph &&
+      token.glyph === glyph &&
+      token.loc.start.line === pos.line
+    ) {
       this.lexer.next();
       return true;
     }

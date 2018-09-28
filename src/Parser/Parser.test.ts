@@ -2,6 +2,7 @@ import {Err, Ok} from '../Utils/Result';
 
 import {
   BindingPattern,
+  DeconstructPattern,
   FunctionType,
   GenericType,
   HolePattern,
@@ -26,6 +27,7 @@ import {
 } from './Ast';
 import {
   ExpectedBindingIdentifier,
+  ExpectedEnd,
   ExpectedGlyph,
   ExpectedIdentifier,
   ExpectedPattern,
@@ -987,11 +989,11 @@ describe('pattern', () => {
     },
     {
       source: 'if.yay',
-      result: Ok(
-        QualifiedPattern(loc('1-6'), [
-          Name(loc('1-2'), 'if' as BindingIdentifier),
-          Name(loc('4-6'), ident('yay')),
-        ])
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          ExpectedPattern
+        )
       ),
     },
     {
@@ -1003,8 +1005,108 @@ describe('pattern', () => {
         ])
       ),
     },
+    {
+      source: 'foo\n()',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2:1'), Glyph.ParenLeft),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'a()',
+      result: Ok(
+        DeconstructPattern(loc('1-3'), [Name(loc('1'), ident('a'))], [])
+      ),
+    },
+    {
+      source: 'a.b()',
+      result: Ok(
+        DeconstructPattern(
+          loc('1-5'),
+          [Name(loc('1'), ident('a')), Name(loc('3'), ident('b'))],
+          []
+        )
+      ),
+    },
+    {
+      source: 'a.b.c.d()',
+      result: Ok(
+        DeconstructPattern(
+          loc('1-9'),
+          [
+            Name(loc('1'), ident('a')),
+            Name(loc('3'), ident('b')),
+            Name(loc('5'), ident('c')),
+            Name(loc('7'), ident('d')),
+          ],
+          []
+        )
+      ),
+    },
+    {
+      source: 'T(a)',
+      result: Ok(
+        DeconstructPattern(
+          loc('1-4'),
+          [Name(loc('1'), ident('T'))],
+          [BindingPattern(loc('3'), ident('a'))]
+        )
+      ),
+    },
+    {
+      source: 'T(a, b)',
+      result: Ok(
+        DeconstructPattern(
+          loc('1-7'),
+          [Name(loc('1'), ident('T'))],
+          [
+            BindingPattern(loc('3'), ident('a')),
+            BindingPattern(loc('6'), ident('b')),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'T(a, b, c, d)',
+      result: Ok(
+        DeconstructPattern(
+          loc('1-13'),
+          [Name(loc('1'), ident('T'))],
+          [
+            BindingPattern(loc('3'), ident('a')),
+            BindingPattern(loc('6'), ident('b')),
+            BindingPattern(loc('9'), ident('c')),
+            BindingPattern(loc('12'), ident('d')),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'if.yay()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          ExpectedPattern
+        )
+      ),
+    },
+    {
+      source: 'yay.if()',
+      result: Ok(
+        DeconstructPattern(
+          loc('1-8'),
+          [
+            Name(loc('1-3'), ident('yay')),
+            Name(loc('5-6'), 'if' as BindingIdentifier),
+          ],
+          []
+        )
+      ),
+    },
   ].forEach(({source, result}) => {
-    test(source, () => {
+    test(source.replace(/\n/g, '\\n'), () => {
       expect(parsePattern(lex(source))).toEqual(result);
     });
   });

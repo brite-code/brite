@@ -85,7 +85,7 @@ Note: Functional languages typically add first-class syntax for “cons” and �
 ## Qualified Pattern
 
 QualifiedPattern :
-  - Identifier `.` Identifier
+  - BindingIdentifier `.` Identifier
   - QualifiedPattern `.` Identifier
 
 A {QualifiedPattern} resolves to a class in the current scope and matches values which are an instance of that class.
@@ -103,7 +103,7 @@ match color: (
 DeconstructPattern : DeconstructPatternCallee DeconstructPatternArguments
 
 DeconstructPatternCallee :
-  - Identifier
+  - BindingIdentifier
   - DeconstructPatternCallee `.` Identifier
 
 DeconstructPatternArguments : [lookahead != LineTerminator] `(` DeconstructPatternArgumentList? `)`
