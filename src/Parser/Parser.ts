@@ -1,4 +1,4 @@
-import {Array1, Array2, ReadonlyArray2} from '../Utils/ArrayN';
+import {Array1, Array2} from '../Utils/ArrayN';
 import {Err, Ok, Result} from '../Utils/Result';
 
 import {
@@ -103,11 +103,10 @@ class Parser {
   }
 
   /**
-   * Parses the `Type` grammar. Does not advance the lexer when we cannot parse
-   * a type. Always advances otherwise.
+   * Parses the `Type` grammar.
    */
   parseType(): Type {
-    const token = this.lexer.peek();
+    const token = this.lexer.next();
 
     // Assign primary types here and we will parse extensions on those types at
     // the end of this function. Return non-primary types.
@@ -116,7 +115,7 @@ class Parser {
     // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       // Parse a list of types inside parentheses.
-      const start = this.lexer.next().loc.start;
+      const start = token.loc.start;
       const types = this.parseCommaList(
         () => this.parseType(),
         Glyph.ParenRight
@@ -144,7 +143,6 @@ class Parser {
     if (token.type === TokenType.Identifier) {
       const identifier = BindingIdentifier.create(token.identifier);
       if (identifier !== undefined) {
-        this.lexer.next();
         const nextToken = this.lexer.peek();
 
         // Parse `FunctionType`. Notably we return since functions are not
@@ -168,7 +166,7 @@ class Parser {
 
     // Parse `RecordType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
-      const start = this.lexer.next().loc.start;
+      const start = token.loc.start;
       const properties = this.parseCommaList(() => {
         const key = this.parseName();
         const optional = this.tryParseGlyph(Glyph.Question);
@@ -183,7 +181,7 @@ class Parser {
 
     // Parse `QuantifiedType`
     if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
-      const start = this.lexer.next().loc.start;
+      const start = token.loc.start;
       const typeParameters = this.parseCommaList(
         () => this.parseGenericParameter(),
         Glyph.GreaterThan
@@ -263,17 +261,14 @@ class Parser {
   }
 
   /**
-   * Parses the `Pattern` grammar. Does not advance the lexer if we fail to
-   * parse a pattern.
+   * Parses the `Pattern` grammar.
    */
   parsePattern(): Pattern {
-    const token = this.lexer.peek();
+    const token = this.lexer.next();
 
     // Parse `BindingPattern`, `QualifiedPattern`, `DeconstructPattern`,
     // and `AliasPattern`.
     if (token.type === TokenType.Identifier) {
-      this.lexer.next();
-
       // If the first identifier is not a `BindingIdentifier` then we may not
       // continue parsing any of our grammars.
       const firstIdentifier = BindingIdentifier.create(token.identifier);
@@ -333,13 +328,12 @@ class Parser {
       token.type === TokenType.Keyword &&
       token.keyword === Keyword.Underscore
     ) {
-      this.lexer.next();
       return HolePattern(token.loc);
     }
 
     // Parse `UnitPattern`, `TuplePattern`, and `WrappedPattern`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
-      const start = this.lexer.next().loc.start;
+      const start = token.loc.start;
       const elements = this.parseCommaList(() => {
         const pattern = this.parsePattern();
         const type = this.tryParseGlyph(Glyph.Colon)
@@ -361,7 +355,7 @@ class Parser {
 
     // Parse `RecordPattern`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
-      const start = this.lexer.next().loc.start;
+      const start = token.loc.start;
 
       // Parse all of the record properties in a comma list.
       const properties = this.parseCommaList(() => {
@@ -411,7 +405,7 @@ class Parser {
 
     // Parse `ListPattern`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BracketLeft) {
-      const start = this.lexer.next().loc.start;
+      const start = token.loc.start;
       const items = this.parseCommaList(
         () => this.parsePattern(),
         Glyph.BracketRight
