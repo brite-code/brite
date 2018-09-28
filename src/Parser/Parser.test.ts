@@ -1,6 +1,8 @@
 import {Err, Ok} from '../Utils/Result';
 
 import {
+  AliasPattern,
+  BindingName,
   BindingPattern,
   DeconstructPattern,
   FunctionType,
@@ -1084,6 +1086,15 @@ describe('pattern', () => {
       ),
     },
     {
+      source: 'if()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          ExpectedPattern
+        )
+      ),
+    },
+    {
       source: 'if.yay()',
       result: Err(
         UnexpectedTokenError(
@@ -1102,6 +1113,34 @@ describe('pattern', () => {
             Name(loc('5-6'), 'if' as BindingIdentifier),
           ],
           []
+        )
+      ),
+    },
+    {
+      source: 'x\nis ()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('2:1-2:2'), ident('is')),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'x is ()',
+      result: Ok(
+        AliasPattern(
+          loc('1-7'),
+          BindingName(loc('1'), ident('x')),
+          UnitPattern(loc('6-7'))
+        )
+      ),
+    },
+    {
+      source: 'if is ()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          ExpectedPattern
         )
       ),
     },

@@ -120,13 +120,15 @@ Foo(n) = Foo(42)
 
 ## Alias Pattern
 
-AliasPattern : BindingIdentifier `is` Pattern
+AliasPattern : BindingIdentifier [lookahead != LineTerminator] `is` Pattern
 
 Allows a {Pattern} to be aliased. In case one wants access to the entire value and one of its fields.
 
 ```ite example
 value is { x, y = _ } = { x = 1, y = 2 }
 ```
+
+Note: `is` is not a {BindingKeyword} because it may be commonly used as the plural of “i”. Make sure to perform the negative lookahead to remove ambiguity.
 
 Note: This is symmetrical with {PatternExpression} which does something different. It is not necessarily the dual of {AliasPattern}.
 

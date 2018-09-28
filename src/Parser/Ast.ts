@@ -17,12 +17,23 @@ export interface Node {
   readonly loc: Loc;
 }
 
-export type Name = {
+export interface Name {
   readonly loc: Loc;
   readonly identifier: Identifier;
-};
+}
 
 export function Name(loc: Loc, identifier: Identifier): Name {
+  return {loc, identifier};
+}
+
+export interface BindingName extends Name {
+  readonly identifier: BindingIdentifier;
+}
+
+export function BindingName(
+  loc: Loc,
+  identifier: BindingIdentifier
+): BindingName {
   return {loc, identifier};
 }
 
@@ -656,13 +667,13 @@ export function DeconstructPattern(
 
 export interface AliasPattern extends Node {
   readonly kind: PatternKind.Alias;
-  readonly alias: BindingIdentifier;
+  readonly alias: BindingName;
   readonly pattern: Pattern;
 }
 
 export function AliasPattern(
   loc: Loc,
-  alias: BindingIdentifier,
+  alias: BindingName,
   pattern: Pattern
 ): AliasPattern {
   return {kind: PatternKind.Alias, loc, alias, pattern};

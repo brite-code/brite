@@ -2,6 +2,8 @@ import {Array1, Array2, ReadonlyArray2} from '../Utils/ArrayN';
 import {Err, Ok, Result} from '../Utils/Result';
 
 import {
+  AliasPattern,
+  BindingName,
   BindingPattern,
   DeconstructPattern,
   FunctionType,
@@ -267,7 +269,8 @@ class Parser {
   parsePattern(): Pattern {
     const token = this.lexer.peek();
 
-    // Parse `BindingPattern`, `QualifiedPattern`, and `DeconstructPattern`.
+    // Parse `BindingPattern`, `QualifiedPattern`, `DeconstructPattern`,
+    // and `AliasPattern`.
     if (token.type === TokenType.Identifier) {
       this.lexer.next();
 
@@ -276,6 +279,18 @@ class Parser {
       const firstIdentifier = BindingIdentifier.create(token.identifier);
       if (firstIdentifier === undefined) {
         throw UnexpectedTokenError(token, ExpectedPattern);
+      }
+
+      // If there is an `is` keyword on the same line as our binding identifier
+      // then we have an `AliasPattern`.
+      if (this.tryParseInformalKeywordOnSameLine(token.loc.end, 'is')) {
+        const pattern = this.parsePattern();
+        const loc = new Loc(token.loc.start, pattern.loc.end);
+        return AliasPattern(
+          loc,
+          BindingName(token.loc, firstIdentifier),
+          pattern
+        );
       }
 
       // If there is a dot following our identifier then we have a path to some
@@ -507,6 +522,24 @@ class Parser {
     if (
       token.type === TokenType.Glyph &&
       token.glyph === glyph &&
+      token.loc.start.line === pos.line
+    ) {
+      this.lexer.next();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Tries to parse an identifier used as an informal keyword on the same line
+   * as the provided position. Returns true if we could parse it. Returns false
+   * if we could not.
+   */
+  tryParseInformalKeywordOnSameLine(pos: Pos, identifier: string): boolean {
+    const token = this.lexer.peek();
+    if (
+      token.type === TokenType.Identifier &&
+      token.identifier === identifier &&
       token.loc.start.line === pos.line
     ) {
       this.lexer.next();
