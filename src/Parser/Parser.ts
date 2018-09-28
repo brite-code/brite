@@ -6,8 +6,10 @@ import {
   BindingName,
   BindingPattern,
   DeconstructPattern,
+  Expression,
   FunctionType,
   GenericType,
+  HoleExpression,
   HolePattern,
   ListPattern,
   MemberType,
@@ -19,6 +21,7 @@ import {
   RecordPatternProperty,
   RecordType,
   RecordTypeProperty,
+  ReferenceExpression,
   ReferenceType,
   TuplePattern,
   TuplePatternElement,
@@ -33,6 +36,7 @@ import {
 import {
   ExpectedBindingIdentifier,
   ExpectedEnd,
+  ExpectedExpression,
   ExpectedGlyph,
   ExpectedIdentifier,
   ExpectedPattern,
@@ -50,6 +54,18 @@ export function parseType(lexer: Lexer): Result<Type, ParserError> {
     const type = parser.parseType();
     parser.parseEnding();
     return Ok(type);
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    return Err(error);
+  }
+}
+
+export function parseExpression(lexer: Lexer): Result<Expression, ParserError> {
+  try {
+    const parser = new Parser(lexer);
+    const pattern = parser.parseExpression();
+    parser.parseEnding();
+    return Ok(pattern);
   } catch (error) {
     if (error instanceof Error) throw error;
     return Err(error);
@@ -258,6 +274,31 @@ class Parser {
     }
 
     return TypeParameter(name, typeParameters);
+  }
+
+  /**
+   * Parses the `Expression` grammar.
+   */
+  parseExpression(): Expression {
+    const token = this.lexer.next();
+
+    // Parse `ReferenceExpression`.
+    if (token.type === TokenType.Identifier) {
+      const identifier = BindingIdentifier.create(token.identifier);
+      if (identifier !== undefined) {
+        return ReferenceExpression(token.loc, identifier);
+      }
+    }
+
+    // Parse `BindingPatternHole`
+    if (
+      token.type === TokenType.Keyword &&
+      token.keyword === Keyword.Underscore
+    ) {
+      return HoleExpression(token.loc);
+    }
+
+    throw UnexpectedTokenError(token, ExpectedExpression);
   }
 
   /**

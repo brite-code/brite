@@ -7,6 +7,7 @@ import {
   DeconstructPattern,
   FunctionType,
   GenericType,
+  HoleExpression,
   HolePattern,
   ListPattern,
   MemberType,
@@ -17,6 +18,7 @@ import {
   RecordPatternProperty,
   RecordType,
   RecordTypeProperty,
+  ReferenceExpression,
   ReferenceType,
   TuplePattern,
   TuplePatternElement,
@@ -30,6 +32,7 @@ import {
 import {
   ExpectedBindingIdentifier,
   ExpectedEnd,
+  ExpectedExpression,
   ExpectedGlyph,
   ExpectedIdentifier,
   ExpectedPattern,
@@ -39,7 +42,12 @@ import {
 import {BindingIdentifier, Identifier, ident} from './Identifier';
 import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from './Lexer';
 import {loc} from './Loc';
-import {parseCommaListTest, parsePattern, parseType} from './Parser';
+import {
+  parseCommaListTest,
+  parseExpression,
+  parsePattern,
+  parseType,
+} from './Parser';
 
 function lex(source: string): Lexer {
   return Lexer.create(source);
@@ -559,6 +567,32 @@ describe('type', () => {
   ].forEach(({source, result}) => {
     test(source, () => {
       expect(parseType(lex(source))).toEqual(result);
+    });
+  });
+});
+
+describe('expression', () => {
+  [
+    {
+      source: 'foo',
+      result: Ok(ReferenceExpression(loc('1-3'), ident('foo'))),
+    },
+    {
+      source: 'if',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: '_',
+      result: Ok(HoleExpression(loc('1'))),
+    },
+  ].forEach(({source, result}) => {
+    test(source.replace(/\n/g, '\\n'), () => {
+      expect(parseExpression(lex(source))).toEqual(result);
     });
   });
 });

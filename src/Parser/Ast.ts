@@ -370,17 +370,39 @@ export interface ReferenceExpression extends Node {
   readonly identifier: BindingIdentifier;
 }
 
+export function ReferenceExpression(
+  loc: Loc,
+  identifier: BindingIdentifier
+): ReferenceExpression {
+  return {kind: ExpressionKind.Reference, loc, identifier};
+}
+
 export interface HoleExpression extends Node {
   readonly kind: ExpressionKind.Hole;
+}
+
+export function HoleExpression(loc: Loc): HoleExpression {
+  return {kind: ExpressionKind.Hole, loc};
 }
 
 export interface UnitExpression extends Node {
   readonly kind: ExpressionKind.Unit;
 }
 
+export function UnitExpression(loc: Loc): UnitExpression {
+  return {kind: ExpressionKind.Unit, loc};
+}
+
 export interface TupleExpression extends Node {
   readonly kind: ExpressionKind.Tuple;
   readonly expressions: ReadonlyArray2<Expression>;
+}
+
+export function TupleExpression(
+  loc: Loc,
+  expressions: ReadonlyArray2<Expression>
+): TupleExpression {
+  return {kind: ExpressionKind.Tuple, loc, expressions};
 }
 
 export interface RecordExpression extends Node {
@@ -389,15 +411,38 @@ export interface RecordExpression extends Node {
   readonly properties: ReadonlyArray<RecordExpressionProperty>;
 }
 
+export function RecordExpression(
+  loc: Loc,
+  extension: Expression | undefined,
+  properties: ReadonlyArray<RecordExpressionProperty>
+): RecordExpression {
+  return {kind: ExpressionKind.Record, loc, extension, properties};
+}
+
 export type RecordExpressionProperty = {
   readonly key: Name;
   readonly value: Expression;
   readonly type: Type | undefined;
 };
 
+export function RecordExpressionProperty(
+  key: Name,
+  value: Expression,
+  type: Type | undefined
+): RecordExpressionProperty {
+  return {key, value, type};
+}
+
 export interface ListExpression extends Node {
   readonly kind: ExpressionKind.List;
   readonly items: ReadonlyArray<Expression>;
+}
+
+export function ListExpression(
+  loc: Loc,
+  items: ReadonlyArray<Expression>
+): ListExpression {
+  return {kind: ExpressionKind.List, loc, items};
 }
 
 export interface MemberExpression extends Node {
@@ -406,16 +451,40 @@ export interface MemberExpression extends Node {
   readonly member: Identifier;
 }
 
+export function MemberExpression(
+  loc: Loc,
+  namespace: Expression,
+  member: Identifier
+): MemberExpression {
+  return {kind: ExpressionKind.Member, loc, namespace, member};
+}
+
 export interface CallExpression extends Node {
   readonly kind: ExpressionKind.Call;
   readonly callee: Expression;
   readonly arguments: ReadonlyArray<Expression>;
 }
 
+export function CallExpression(
+  loc: Loc,
+  callee: Expression,
+  args: ReadonlyArray<Expression>
+): CallExpression {
+  return {kind: ExpressionKind.Call, loc, callee, arguments: args};
+}
+
 export interface FunctionExpression extends Node {
   readonly kind: ExpressionKind.Function;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly body: Expression;
+}
+
+export function FunctionExpression(
+  loc: Loc,
+  parameters: ReadonlyArray<FunctionParameter>,
+  body: Expression
+): FunctionExpression {
+  return {kind: ExpressionKind.Function, loc, parameters, body};
 }
 
 export interface ConditionalExpression extends Node {
@@ -425,10 +494,27 @@ export interface ConditionalExpression extends Node {
   readonly alternate: Expression;
 }
 
+export function ConditionalExpression(
+  loc: Loc,
+  test: Expression,
+  consequent: Expression,
+  alternate: Expression
+): ConditionalExpression {
+  return {kind: ExpressionKind.Conditional, loc, test, consequent, alternate};
+}
+
 export interface MatchExpression extends Node {
   readonly kind: ExpressionKind.Match;
   readonly test: Expression;
   readonly cases: ReadonlyArray<MatchCase>;
+}
+
+export function MatchExpression(
+  loc: Loc,
+  test: Expression,
+  cases: ReadonlyArray<MatchCase>
+): MatchExpression {
+  return {kind: ExpressionKind.Match, loc, test, cases};
 }
 
 export type MatchCase = {
@@ -437,10 +523,26 @@ export type MatchCase = {
   readonly body: Expression;
 };
 
+export function MatchCase(
+  binding: ReadonlyArray1<Pattern>,
+  test: Expression | undefined,
+  body: Expression
+): MatchCase {
+  return {binding, test, body};
+}
+
 export interface PatternExpression extends Node {
   readonly kind: ExpressionKind.Pattern;
   readonly left: Expression;
   readonly right: Pattern;
+}
+
+export function PatternExpression(
+  loc: Loc,
+  left: Expression,
+  right: Pattern
+): PatternExpression {
+  return {kind: ExpressionKind.Pattern, loc, left, right};
 }
 
 export interface ReturnExpression extends Node {
@@ -448,18 +550,40 @@ export interface ReturnExpression extends Node {
   readonly argument: Expression | undefined;
 }
 
+export function ReturnExpression(
+  loc: Loc,
+  argument: Expression | undefined
+): ReturnExpression {
+  return {kind: ExpressionKind.Return, loc, argument};
+}
+
 export interface BreakExpression extends Node {
   readonly kind: ExpressionKind.Break;
   readonly argument: Expression | undefined;
+}
+
+export function BreakExpression(
+  loc: Loc,
+  argument: Expression | undefined
+): BreakExpression {
+  return {kind: ExpressionKind.Break, loc, argument};
 }
 
 export interface ContinueExpression extends Node {
   readonly kind: ExpressionKind.Continue;
 }
 
+export function ContinueExpression(loc: Loc): ContinueExpression {
+  return {kind: ExpressionKind.Continue, loc};
+}
+
 export interface LoopExpression extends Node {
   readonly kind: ExpressionKind.Loop;
   readonly body: Expression;
+}
+
+export function LoopExpression(loc: Loc, body: Expression): LoopExpression {
+  return {kind: ExpressionKind.Loop, loc, body};
 }
 
 /**
@@ -474,6 +598,15 @@ export interface LogicalExpression extends Node {
   readonly right: Expression;
 }
 
+export function LogicalExpression(
+  loc: Loc,
+  operator: LogicalExpressionOperator,
+  left: Expression,
+  right: Expression
+): LogicalExpression {
+  return {kind: ExpressionKind.Logical, loc, operator, left, right};
+}
+
 export const enum LogicalExpressionOperator {
   And = '&&',
   Or = '||',
@@ -484,6 +617,15 @@ export interface BinaryExpression extends Node {
   readonly operator: BinaryExpressionOperator;
   readonly left: Expression;
   readonly right: Expression;
+}
+
+export function BinaryExpression(
+  loc: Loc,
+  operator: BinaryExpressionOperator,
+  left: Expression,
+  right: Expression
+): BinaryExpression {
+  return {kind: ExpressionKind.Binary, loc, operator, left, right};
 }
 
 export const enum BinaryExpressionOperator {
@@ -506,6 +648,14 @@ export interface UnaryExpression extends Node {
   readonly argument: Expression;
 }
 
+export function UnaryExpression(
+  loc: Loc,
+  operator: UnaryExpressionOperator,
+  argument: Expression
+): UnaryExpression {
+  return {kind: ExpressionKind.Unary, loc, operator, argument};
+}
+
 export const enum UnaryExpressionOperator {
   Negative = '-',
   Not = '!',
@@ -516,10 +666,25 @@ export interface BlockExpression extends Node {
   readonly statements: ReadonlyArray<Statement>;
 }
 
+export function BlockExpression(
+  loc: Loc,
+  statements: ReadonlyArray<Statement>
+): BlockExpression {
+  return {kind: ExpressionKind.Block, loc, statements};
+}
+
 export interface WrappedExpression extends Node {
   readonly kind: ExpressionKind.Wrapped;
   readonly expression: Expression;
   readonly type: Type | undefined;
+}
+
+export function WrappedExpression(
+  loc: Loc,
+  expression: Expression,
+  type: Type | undefined
+): WrappedExpression {
+  return {kind: ExpressionKind.Wrapped, loc, expression, type};
 }
 
 export type Pattern =
