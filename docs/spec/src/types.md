@@ -14,7 +14,7 @@ PrimaryType :
   - GenericType
   - WrappedType
 
-WrappedType: `(` Type `)`
+WrappedType: `(` Type `,`? `)`
 
 TypeAnnotation: `:` Type
 
@@ -26,6 +26,8 @@ A type is some static classification of a thing in Brite. Most commonly types re
 - **Namespace:** Namespace types represent an entire namespace. They may only be used in {MemberType} where one of the namespace members is selected.
 
 Note: {TypeAnnotation} is a convenience grammar rule for type annotations which can be fairly common.
+
+Note: {WrappedType} allows a trailing comma for consistency as a single element {TupleType}.
 
 ## Reference Type
 

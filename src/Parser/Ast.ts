@@ -569,14 +569,26 @@ export function UnitPattern(loc: Loc): UnitPattern {
 
 export interface TuplePattern extends Node {
   readonly kind: PatternKind.Tuple;
-  readonly elements: ReadonlyArray2<Pattern>;
+  readonly elements: ReadonlyArray2<TuplePatternElement>;
 }
 
 export function TuplePattern(
   loc: Loc,
-  elements: ReadonlyArray2<Pattern>
+  elements: ReadonlyArray2<TuplePatternElement>
 ): TuplePattern {
   return {kind: PatternKind.Tuple, loc, elements};
+}
+
+export type TuplePatternElement = {
+  readonly pattern: Pattern;
+  readonly type: Type | undefined;
+};
+
+export function TuplePatternElement(
+  pattern: Pattern,
+  type: Type | undefined
+): TuplePatternElement {
+  return {pattern, type};
 }
 
 export interface RecordPattern extends Node {

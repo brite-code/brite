@@ -12,6 +12,7 @@ import {
   RecordTypeProperty,
   ReferenceType,
   TuplePattern,
+  TuplePatternElement,
   TupleType,
   TypeParameter,
   UnitPattern,
@@ -688,8 +689,8 @@ describe('pattern', () => {
     expect(parsePattern(lex('(a, b)'))).toEqual(
       Ok(
         TuplePattern(loc('1-6'), [
-          BindingPattern(loc('2'), ident('a')),
-          BindingPattern(loc('5'), ident('b')),
+          TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
+          TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
         ])
       )
     );
@@ -699,10 +700,10 @@ describe('pattern', () => {
     expect(parsePattern(lex('(a, b, c, d)'))).toEqual(
       Ok(
         TuplePattern(loc('1-12'), [
-          BindingPattern(loc('2'), ident('a')),
-          BindingPattern(loc('5'), ident('b')),
-          BindingPattern(loc('8'), ident('c')),
-          BindingPattern(loc('11'), ident('d')),
+          TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
+          TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
+          TuplePatternElement(BindingPattern(loc('8'), ident('c')), undefined),
+          TuplePatternElement(BindingPattern(loc('11'), ident('d')), undefined),
         ])
       )
     );
@@ -732,8 +733,8 @@ describe('pattern', () => {
     expect(parsePattern(lex('(a, b,)'))).toEqual(
       Ok(
         TuplePattern(loc('1-7'), [
-          BindingPattern(loc('2'), ident('a')),
-          BindingPattern(loc('5'), ident('b')),
+          TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
+          TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
         ])
       )
     );
@@ -743,10 +744,10 @@ describe('pattern', () => {
     expect(parsePattern(lex('(a, b, c, d,)'))).toEqual(
       Ok(
         TuplePattern(loc('1-13'), [
-          BindingPattern(loc('2'), ident('a')),
-          BindingPattern(loc('5'), ident('b')),
-          BindingPattern(loc('8'), ident('c')),
-          BindingPattern(loc('11'), ident('d')),
+          TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
+          TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
+          TuplePatternElement(BindingPattern(loc('8'), ident('c')), undefined),
+          TuplePatternElement(BindingPattern(loc('11'), ident('d')), undefined),
         ])
       )
     );
@@ -771,6 +772,77 @@ describe('pattern', () => {
           BindingPattern(loc('2'), ident('x')),
           ReferenceType(loc('5'), ident('T'))
         )
+      )
+    );
+  });
+
+  test('tuple with 2 elements and annotations', () => {
+    expect(parsePattern(lex('(a: A, b: B)'))).toEqual(
+      Ok(
+        TuplePattern(loc('1-12'), [
+          TuplePatternElement(
+            BindingPattern(loc('2'), ident('a')),
+            ReferenceType(loc('5'), ident('A'))
+          ),
+          TuplePatternElement(
+            BindingPattern(loc('8'), ident('b')),
+            ReferenceType(loc('11'), ident('B'))
+          ),
+        ])
+      )
+    );
+  });
+
+  test('tuple with 4 elements and annotations', () => {
+    expect(parsePattern(lex('(a: A, b: B, c: C, d: D)'))).toEqual(
+      Ok(
+        TuplePattern(loc('1-24'), [
+          TuplePatternElement(
+            BindingPattern(loc('2'), ident('a')),
+            ReferenceType(loc('5'), ident('A'))
+          ),
+          TuplePatternElement(
+            BindingPattern(loc('8'), ident('b')),
+            ReferenceType(loc('11'), ident('B'))
+          ),
+          TuplePatternElement(
+            BindingPattern(loc('14'), ident('c')),
+            ReferenceType(loc('17'), ident('C'))
+          ),
+          TuplePatternElement(
+            BindingPattern(loc('20'), ident('d')),
+            ReferenceType(loc('23'), ident('D'))
+          ),
+        ])
+      )
+    );
+  });
+
+  test('wrapped with annotation and trailing comma', () => {
+    expect(parsePattern(lex('(x: T,)'))).toEqual(
+      Ok(
+        WrappedPattern(
+          loc('1-7'),
+          BindingPattern(loc('2'), ident('x')),
+          ReferenceType(loc('5'), ident('T'))
+        )
+      )
+    );
+  });
+
+  test('tuple with 2 elements and annotations and trailing comma', () => {
+    expect(parsePattern(lex('(a: A, b: B,)'))).toEqual(
+      Ok(
+        TuplePattern(loc('1-13'), [
+          TuplePatternElement(
+            BindingPattern(loc('2'), ident('a')),
+            ReferenceType(loc('5'), ident('A'))
+          ),
+          TuplePatternElement(
+            BindingPattern(loc('8'), ident('b')),
+            ReferenceType(loc('11'), ident('B'))
+          ),
+        ])
       )
     );
   });

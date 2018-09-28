@@ -11,9 +11,11 @@ Pattern[Constructor] :
   - AliasPattern
   - WrappedPattern
 
-WrappedPattern : `(` Pattern TypeAnnotation? `)`
+WrappedPattern : `(` Pattern TypeAnnotation? `,`? `)`
 
 In {Pattern[Constructor]} the constructor tag is propagated to all child rules recursively. Note that this is **not normal**! Normally we would declare and pass around the constructor tag to every child rule. However, doing this in the {Pattern} grammar would be very noisy for no benefit. It would confuse the reader without adding any cognitive value. So we bend the rules a bit here.
+
+Note: {WrappedPattern} allows a trailing comma for consistency as a single element {TuplePattern}.
 
 ## Binding Pattern
 

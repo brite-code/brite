@@ -14,6 +14,7 @@ import {
   RecordTypeProperty,
   ReferenceType,
   TuplePattern,
+  TuplePatternElement,
   TupleType,
   Type,
   TypeParameter,
@@ -108,8 +109,10 @@ class Parser {
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       // Parse a list of types inside parentheses.
       const start = this.lexer.next().loc;
-      const types: Array<Type> = [];
-      this.parseCommaList(types, () => this.parseType(), Glyph.ParenRight);
+      const types = this.parseCommaList(
+        () => this.parseType(),
+        Glyph.ParenRight
+      );
       const end = this.lexer.next().loc;
       const nextToken = this.lexer.peek();
 
@@ -158,20 +161,15 @@ class Parser {
     // Parse `RecordType`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
       const start = this.lexer.next().loc;
-      const properties: Array<RecordTypeProperty> = [];
-      this.parseCommaList(
-        properties,
-        () => {
-          const key = this.parseIdentifier();
-          const optional = this.tryParseGlyph(Glyph.Question);
-          this.parseGlyph(Glyph.Colon);
-          const value = this.parseType();
-          return optional
-            ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
-            : RecordTypeProperty(Name(key.loc, key.identifier), value);
-        },
-        Glyph.BraceRight
-      );
+      const properties = this.parseCommaList(() => {
+        const key = this.parseIdentifier();
+        const optional = this.tryParseGlyph(Glyph.Question);
+        this.parseGlyph(Glyph.Colon);
+        const value = this.parseType();
+        return optional
+          ? RecordTypeProperty.optional(Name(key.loc, key.identifier), value)
+          : RecordTypeProperty(Name(key.loc, key.identifier), value);
+      }, Glyph.BraceRight);
       const end = this.lexer.next().loc;
       const loc = start.between(end);
       primaryType = RecordType(loc, properties);
@@ -180,9 +178,7 @@ class Parser {
     // Parse `QuantifiedType`
     if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
       const start = this.lexer.next().loc;
-      const typeParameters: Array<TypeParameter> = [];
-      this.parseCommaList(
-        typeParameters,
+      const typeParameters = this.parseCommaList(
         () => this.parseGenericParameter(),
         Glyph.GreaterThan
       );
@@ -224,8 +220,10 @@ class Parser {
       // Parse `GenericType`
       if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
         this.lexer.next();
-        const types: Array<Type> = [];
-        this.parseCommaList(types, () => this.parseType(), Glyph.GreaterThan);
+        const types = this.parseCommaList(
+          () => this.parseType(),
+          Glyph.GreaterThan
+        );
         const end = this.lexer.next().loc;
         type = GenericType(type.loc.between(end), type, types);
         continue;
@@ -293,66 +291,22 @@ class Parser {
     // Parse `UnitPattern`, `TuplePattern`, and `WrappedPattern`.
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       const start = this.lexer.next().loc;
-
-      // We parse the first item ourselves before calling `parseCommaList()`
-      // since `WrappedPattern` needs us to parse a type annotation.
-      let nextToken = this.lexer.peek();
-
-      // If we immediately close the parentheses then we have a tuple.
-      if (
-        nextToken.type === TokenType.Glyph &&
-        nextToken.glyph === Glyph.ParenRight
-      ) {
-        const end = this.lexer.next().loc;
-        return UnitPattern(start.between(end));
-      }
-
-      // Parse the first pattern ourselves before calling `parseCommaList()`.
-      const firstPattern = this.parsePattern();
-
-      // Peek the next token...
-      nextToken = this.lexer.peek();
-
-      // If the next token is a colon then we have a type annotation! Parse a
-      // type and after that expect a right parentheses.
-      if (
-        nextToken.type === TokenType.Glyph &&
-        nextToken.glyph === Glyph.Colon
-      ) {
-        this.lexer.next();
-        const type = this.parseType();
-        const end = this.parseGlyph(Glyph.ParenRight);
-        return WrappedPattern(start.between(end), firstPattern, type);
-      }
-
-      // If the parentheses closes after the next token then we only have one
-      // item. Return it as a `WrappedPattern`.
-      if (
-        nextToken.type === TokenType.Glyph &&
-        nextToken.glyph === Glyph.ParenRight
-      ) {
-        const end = this.lexer.next().loc;
-        return WrappedPattern(start.between(end), firstPattern, undefined);
-      }
-
-      // If there was no colon or closing parentheses then we expect a comma.
-      // Although it might be a trailing comma.
-      this.parseGlyph(Glyph.Comma);
-
-      // Now we can call `parseCommaList()` for our comma list!
-      const patterns: Array<Pattern> = [firstPattern];
-      this.parseCommaList(
-        patterns,
-        () => this.parsePattern(),
-        Glyph.ParenRight
-      );
+      const elements = this.parseCommaList(() => {
+        const pattern = this.parsePattern();
+        const type = this.tryParseGlyph(Glyph.Colon)
+          ? this.parseType()
+          : undefined;
+        return TuplePatternElement(pattern, type);
+      }, Glyph.ParenRight);
       const end = this.lexer.next().loc;
       const loc = start.between(end);
-
-      if (patterns.length === 1) {
-        return WrappedPattern(loc, patterns[0], undefined);
+      if (elements.length === 0) {
+        return UnitPattern(loc);
+      } else if (elements.length === 1) {
+        const element = elements[0];
+        return WrappedPattern(loc, element.pattern, element.type);
       } else {
-        return TuplePattern(loc, ReadonlyArray2.create(patterns));
+        return TuplePattern(loc, ReadonlyArray2.create(elements));
       }
     }
 
@@ -369,7 +323,9 @@ class Parser {
    * - If we try to parse a comma but there is none then we report an error and
    *   try to parse the next item.
    */
-  parseCommaList<T>(items: Array<T>, parseItem: () => T, endGlyph: Glyph) {
+  parseCommaList<T>(parseItem: () => T, endGlyph: Glyph): Array<T> {
+    const items = [];
+
     // At the beginning of our loop we check whether or not we have reached the
     // end of our comma list. This check depends on a peek of the next token.
     // So at the end of every iteration of the loop we must assign a peek of the
@@ -409,9 +365,7 @@ class Parser {
    */
   parseCommaListTest(): Array<string> {
     this.parseGlyph(Glyph.ParenLeft);
-    const identifiers: Array<string> = [];
-    this.parseCommaList(
-      identifiers,
+    const identifiers = this.parseCommaList(
       () => this.parseIdentifier().identifier,
       Glyph.ParenRight
     );

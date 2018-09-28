@@ -19,11 +19,13 @@ PrimaryExpression :
   - WrappedExpression
   - BlockExpression but not WrappedExpression
 
-WrappedExpression : `(` Expression TypeAnnotation? `)`
+WrappedExpression : `(` Expression TypeAnnotation? `,`? `)`
 
 The organization of this section might be a bit confusing. We have {Expression} which forms what is effectively a grammar linked-list until we arrive at {PrimaryExpression}. This is because there are complicated [order-of-operations](https://en.wikipedia.org/wiki/Order_of_operations) rules we encode in our grammar. Once we get to {PrimaryExpression} we’re left with simple expressions that have a clear order-of-operations.
 
 Note: Most of the syntax of {WrappedExpression} is ambiguous with {BlockExpression}. In the case where the two are ambiguous {WrappedExpression} wins. In practice, this doesn’t matter since the behavior is exactly the same for the ambiguous syntax. We don’t combine the two since `(x: T)` is valid syntax but not `(x = 42; x: T)`.
+
+Note: {WrappedExpression} allows a trailing comma for consistency as a single element {TupleExpression}.
 
 TODO: Literals. Strings and numbers.
 
