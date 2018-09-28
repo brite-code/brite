@@ -6,6 +6,7 @@ import {
   FunctionType,
   GenericType,
   HolePattern,
+  ListPattern,
   MemberType,
   Name,
   Pattern,
@@ -352,6 +353,18 @@ class Parser {
       const end = this.lexer.next().loc.end;
       const loc = new Loc(start, end);
       return RecordPattern(loc, properties);
+    }
+
+    // Parse `ListPattern`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.BracketLeft) {
+      const start = this.lexer.next().loc.start;
+      const items = this.parseCommaList(
+        () => this.parsePattern(),
+        Glyph.BracketRight
+      );
+      const end = this.lexer.next().loc.end;
+      const loc = new Loc(start, end);
+      return ListPattern(loc, items);
     }
 
     throw UnexpectedTokenError(token, ExpectedPattern);

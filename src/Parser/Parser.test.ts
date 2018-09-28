@@ -5,6 +5,7 @@ import {
   FunctionType,
   GenericType,
   HolePattern,
+  ListPattern,
   MemberType,
   Name,
   QuantifiedType,
@@ -1073,6 +1074,40 @@ describe('pattern', () => {
           IdentifierToken(loc('3-4'), 'if' as Identifier),
           ExpectedBindingIdentifier
         )
+      )
+    );
+  });
+
+  test('[]', () => {
+    expect(parsePattern(lex('[]'))).toEqual(Ok(ListPattern(loc('1-2'), [])));
+  });
+
+  test('[a]', () => {
+    expect(parsePattern(lex('[a]'))).toEqual(
+      Ok(ListPattern(loc('1-3'), [BindingPattern(loc('2'), ident('a'))]))
+    );
+  });
+
+  test('[a, b]', () => {
+    expect(parsePattern(lex('[a, b]'))).toEqual(
+      Ok(
+        ListPattern(loc('1-6'), [
+          BindingPattern(loc('2'), ident('a')),
+          BindingPattern(loc('5'), ident('b')),
+        ])
+      )
+    );
+  });
+
+  test('[a, b, c, d]', () => {
+    expect(parsePattern(lex('[a, b, c, d]'))).toEqual(
+      Ok(
+        ListPattern(loc('1-12'), [
+          BindingPattern(loc('2'), ident('a')),
+          BindingPattern(loc('5'), ident('b')),
+          BindingPattern(loc('8'), ident('c')),
+          BindingPattern(loc('11'), ident('d')),
+        ])
       )
     );
   });
