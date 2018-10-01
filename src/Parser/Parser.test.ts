@@ -1271,6 +1271,7 @@ describe('expression', () => {
               CallExpression(
                 loc('2:8-2:10'),
                 ReferenceExpression(loc('2:8'), ident('y')),
+                [],
                 []
               )
             ),
@@ -1425,6 +1426,7 @@ describe('expression', () => {
           CallExpression(
             loc('1-3'),
             ReferenceExpression(loc('1'), ident('f')),
+            [],
             []
           ),
           Name(loc('5'), ident('p'))
@@ -1451,6 +1453,7 @@ describe('expression', () => {
         CallExpression(
           loc('1-3'),
           ReferenceExpression(loc('1'), ident('f')),
+          [],
           []
         )
       ),
@@ -1458,29 +1461,42 @@ describe('expression', () => {
     {
       source: 'f(a)',
       result: Ok(
-        CallExpression(loc('1-4'), ReferenceExpression(loc('1'), ident('f')), [
-          ReferenceExpression(loc('3'), ident('a')),
-        ])
+        CallExpression(
+          loc('1-4'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [],
+          [ReferenceExpression(loc('3'), ident('a'))]
+        )
       ),
     },
     {
       source: 'f(a, b)',
       result: Ok(
-        CallExpression(loc('1-7'), ReferenceExpression(loc('1'), ident('f')), [
-          ReferenceExpression(loc('3'), ident('a')),
-          ReferenceExpression(loc('6'), ident('b')),
-        ])
+        CallExpression(
+          loc('1-7'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [],
+          [
+            ReferenceExpression(loc('3'), ident('a')),
+            ReferenceExpression(loc('6'), ident('b')),
+          ]
+        )
       ),
     },
     {
       source: 'f(a, b, c, d)',
       result: Ok(
-        CallExpression(loc('1-13'), ReferenceExpression(loc('1'), ident('f')), [
-          ReferenceExpression(loc('3'), ident('a')),
-          ReferenceExpression(loc('6'), ident('b')),
-          ReferenceExpression(loc('9'), ident('c')),
-          ReferenceExpression(loc('12'), ident('d')),
-        ])
+        CallExpression(
+          loc('1-13'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [],
+          [
+            ReferenceExpression(loc('3'), ident('a')),
+            ReferenceExpression(loc('6'), ident('b')),
+            ReferenceExpression(loc('9'), ident('c')),
+            ReferenceExpression(loc('12'), ident('d')),
+          ]
+        )
       ),
     },
     {
@@ -1489,6 +1505,114 @@ describe('expression', () => {
         UnexpectedTokenError(
           GlyphToken(loc('2:1'), Glyph.ParenLeft),
           ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'f<>',
+      result: Err(
+        UnexpectedTokenError(EndToken(loc('4')), ExpectedGlyph(Glyph.ParenLeft))
+      ),
+    },
+    {
+      source: 'f<>()',
+      result: Ok(
+        CallExpression(
+          loc('1-5'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [],
+          []
+        )
+      ),
+    },
+    {
+      source: 'f\n<>()',
+      result: Ok(
+        CallExpression(
+          loc('1:1-2:4'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [],
+          []
+        )
+      ),
+    },
+    {
+      source: 'f<>\n()',
+      result: Ok(
+        CallExpression(
+          loc('1:1-2:2'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [],
+          []
+        )
+      ),
+    },
+    {
+      source: 'f\n<>\n()',
+      result: Ok(
+        CallExpression(
+          loc('1:1-3:2'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [],
+          []
+        )
+      ),
+    },
+    {
+      source: 'f<A>()',
+      result: Ok(
+        CallExpression(
+          loc('1-6'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [ReferenceType(loc('3'), ident('A'))],
+          []
+        )
+      ),
+    },
+    {
+      source: 'f<A, B>()',
+      result: Ok(
+        CallExpression(
+          loc('1-9'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [
+            ReferenceType(loc('3'), ident('A')),
+            ReferenceType(loc('6'), ident('B')),
+          ],
+          []
+        )
+      ),
+    },
+    {
+      source: 'f<A, B, C, D>()',
+      result: Ok(
+        CallExpression(
+          loc('1-15'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [
+            ReferenceType(loc('3'), ident('A')),
+            ReferenceType(loc('6'), ident('B')),
+            ReferenceType(loc('9'), ident('C')),
+            ReferenceType(loc('12'), ident('D')),
+          ],
+          []
+        )
+      ),
+    },
+    {
+      source: 'f<A, B>(c, d)',
+      result: Ok(
+        CallExpression(
+          loc('1-13'),
+          ReferenceExpression(loc('1'), ident('f')),
+          [
+            ReferenceType(loc('3'), ident('A')),
+            ReferenceType(loc('6'), ident('B')),
+          ],
+          [
+            ReferenceExpression(loc('9'), ident('c')),
+            ReferenceExpression(loc('12'), ident('d')),
+          ]
         )
       ),
     },

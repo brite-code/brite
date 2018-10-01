@@ -561,7 +561,32 @@ class Parser {
         );
         const end = this.nextToken().loc.end;
         const loc = new Loc(primaryExpression.loc.start, end);
-        primaryExpression = CallExpression(loc, primaryExpression, args);
+        primaryExpression = CallExpression(loc, primaryExpression, [], args);
+        continue;
+      }
+
+      // Parse `CallExpression` with `GenericArguments`.
+      if (this.tryParseGlyph(Glyph.LessThan)) {
+        // Parse the type arguments first.
+        const typeArgs = this.parseCommaList(
+          () => this.parseType(),
+          Glyph.GreaterThan
+        );
+        this.nextToken();
+        this.parseGlyph(Glyph.ParenLeft);
+        // Then parse value arguments.
+        const args = this.parseCommaList(
+          () => this.parseExpression(),
+          Glyph.ParenRight
+        );
+        const end = this.nextToken().loc.end;
+        const loc = new Loc(primaryExpression.loc.start, end);
+        primaryExpression = CallExpression(
+          loc,
+          primaryExpression,
+          typeArgs,
+          args
+        );
         continue;
       }
 
