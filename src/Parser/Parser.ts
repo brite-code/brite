@@ -13,6 +13,8 @@ import {
   HolePattern,
   ListExpression,
   ListPattern,
+  MatchCase,
+  MatchExpression,
   MemberType,
   Name,
   Pattern,
@@ -46,13 +48,14 @@ import {
   ExpectedExpression,
   ExpectedGlyph,
   ExpectedIdentifier,
+  ExpectedLineSeparator,
   ExpectedPattern,
   ExpectedType,
   ParserError,
   UnexpectedTokenError,
 } from './Error';
 import {BindingIdentifier, Keyword} from './Identifier';
-import {Glyph, IdentifierToken, Lexer, TokenType} from './Lexer';
+import {Glyph, IdentifierToken, Lexer, Token, TokenType} from './Lexer';
 import {Loc, Pos} from './Loc';
 
 export function parseType(lexer: Lexer): Result<Type, ParserError> {
@@ -105,6 +108,20 @@ export function parseCommaListTest(
   }
 }
 
+export function parseLineSeparatorListTest(
+  lexer: Lexer
+): Result<ReadonlyArray<string>, ParserError> {
+  try {
+    const parser = new Parser(lexer);
+    const result = parser.parseLineSeparatorListTest();
+    parser.parseEnding();
+    return Ok(result);
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    return Err(error);
+  }
+}
+
 /**
  * A parser with error recovery.
  *
@@ -119,17 +136,49 @@ export function parseCommaListTest(
  * too hard.
  */
 class Parser {
-  private readonly lexer: Lexer;
+  /**
+   * Prefixed with an underscore as syntax vinegar. You should not be calling
+   * `this._lexer.next()` directly. Instead call `this.nextToken()`.
+   */
+  private readonly _lexer: Lexer;
+
+  /**
+   * The current location of our lexer.
+   */
+  private currentLoc = Loc.pos(1, 1);
 
   constructor(lexer: Lexer) {
-    this.lexer = lexer;
+    this._lexer = lexer;
+  }
+
+  /**
+   * Advances the lexer to the next token.
+   */
+  nextToken(): Token {
+    const token = this._lexer.next();
+    this.currentLoc = token.loc;
+    return token;
+  }
+
+  /**
+   * Looks ahead at the next token.
+   */
+  peekToken(): Token {
+    return this._lexer.peek();
+  }
+
+  /**
+   * Looks ahead two tokens.
+   */
+  peek2Token(): Token {
+    return this._lexer.peek2();
   }
 
   /**
    * Parses the `Type` grammar.
    */
   parseType(): Type {
-    const token = this.lexer.next();
+    const token = this.nextToken();
 
     // Assign primary types here and we will parse extensions on those types at
     // the end of this function. Return non-primary types.
@@ -143,8 +192,8 @@ class Parser {
         () => this.parseType(),
         Glyph.ParenRight
       );
-      const end = this.lexer.next().loc.end;
-      const nextToken = this.lexer.peek();
+      const end = this.nextToken().loc.end;
+      const nextToken = this.peekToken();
 
       // Parse `FunctionType`. Notably we return since functions are not
       // a `PrimaryType`!
@@ -152,7 +201,7 @@ class Parser {
         nextToken.type === TokenType.Glyph &&
         nextToken.glyph === Glyph.Arrow
       ) {
-        this.lexer.next();
+        this.nextToken();
         const body = this.parseType();
         return FunctionType(new Loc(start, body.loc.end), types, body);
       }
@@ -166,7 +215,7 @@ class Parser {
     if (token.type === TokenType.Identifier) {
       const identifier = BindingIdentifier.create(token.identifier);
       if (identifier !== undefined) {
-        const nextToken = this.lexer.peek();
+        const nextToken = this.peekToken();
 
         // Parse `FunctionType`. Notably we return since functions are not
         // a `PrimaryType`!
@@ -174,7 +223,7 @@ class Parser {
           nextToken.type === TokenType.Glyph &&
           nextToken.glyph === Glyph.Arrow
         ) {
-          this.lexer.next();
+          this.nextToken();
           const body = this.parseType();
           return FunctionType(
             new Loc(token.loc.start, body.loc.end),
@@ -197,7 +246,7 @@ class Parser {
         const value = this.parseType();
         return RecordTypeProperty(key, value, {optional});
       }, Glyph.BraceRight);
-      const end = this.lexer.next().loc.end;
+      const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       primaryType = RecordType(loc, properties);
     }
@@ -209,7 +258,7 @@ class Parser {
         () => this.parseGenericParameter(),
         Glyph.GreaterThan
       );
-      this.lexer.next();
+      this.nextToken();
       const body = this.parseType();
       return QuantifiedType(new Loc(start, body.loc.end), typeParameters, body);
     }
@@ -229,11 +278,11 @@ class Parser {
     let type = primaryType;
 
     while (true) {
-      const token = this.lexer.peek();
+      const token = this.peekToken();
 
       // Parse `MemberType`.
       if (token.type === TokenType.Glyph && token.glyph === Glyph.Dot) {
-        this.lexer.next();
+        this.nextToken();
         const name = this.parseName();
         const loc = new Loc(type.loc.start, name.loc.end);
         type = MemberType(loc, type, name);
@@ -242,12 +291,12 @@ class Parser {
 
       // Parse `GenericType`
       if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
-        this.lexer.next();
+        this.nextToken();
         const types = this.parseCommaList(
           () => this.parseType(),
           Glyph.GreaterThan
         );
-        const end = this.lexer.next().loc.end;
+        const end = this.nextToken().loc.end;
         type = GenericType(new Loc(type.loc.start, end), type, types);
         continue;
       }
@@ -267,9 +316,9 @@ class Parser {
     // There may be some optional bounds on the generic parameter after a colon.
     // If we see a colon then try and parse our type bounds.
     const typeParameters: Array<Type> = [];
-    const token = this.lexer.peek();
+    const token = this.peekToken();
     if (token.type === TokenType.Glyph && token.glyph === Glyph.Colon) {
-      this.lexer.next();
+      this.nextToken();
       while (true) {
         // Try to parse a type and add it to our `typeParameters` array.
         typeParameters.push(this.parseType());
@@ -287,13 +336,30 @@ class Parser {
    * Parses the `Expression` grammar.
    */
   parseExpression(): Expression {
-    const token = this.lexer.next();
+    const token = this.nextToken();
 
     // Parse `ReferenceExpression`.
     if (token.type === TokenType.Identifier) {
       const identifier = BindingIdentifier.create(token.identifier);
       if (identifier !== undefined) {
         return ReferenceExpression(token.loc, identifier);
+      }
+
+      // Parse `MatchExpression`.
+      if (token.identifier === 'match') {
+        const start = token.loc.start;
+        const test = this.parseExpression();
+        this.parseGlyph(Glyph.Colon);
+        this.parseGlyph(Glyph.ParenLeft);
+        const cases = this.parseLineSeparatorList(() => {
+          const binding = this.parsePattern();
+          this.parseGlyph(Glyph.Arrow);
+          const body = this.parseExpression();
+          return MatchCase([binding], undefined, body);
+        }, Glyph.ParenRight);
+        const end = this.nextToken().loc.end;
+        const loc = new Loc(start, end);
+        return MatchExpression(loc, test, cases);
       }
     }
 
@@ -315,7 +381,7 @@ class Parser {
           : undefined;
         return TupleExpressionElement(expression, type);
       }, Glyph.ParenRight);
-      const end = this.lexer.next().loc.end;
+      const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       if (elements.length === 0) {
         return UnitExpression(loc);
@@ -334,7 +400,7 @@ class Parser {
 
       // We may need to parse an extension, so peek our next token to tell
       // whether or not that is the case.
-      const token2 = this.lexer.peek();
+      const token2 = this.peekToken();
 
       // If we immediately see a closing brace (`}`) then we know we have an
       // empty record so end early by returning that empty record.
@@ -342,14 +408,14 @@ class Parser {
         token2.type === TokenType.Glyph &&
         token2.glyph === Glyph.BraceRight
       ) {
-        const end = this.lexer.next().loc.end;
+        const end = this.nextToken().loc.end;
         return RecordExpression(new Loc(start, end), undefined, []);
       }
 
       // If we have an `Identifier` then we might either have an extension
       // or we might have a record property key.
       if (token2.type === TokenType.Identifier) {
-        const token3 = this.lexer.peek2();
+        const token3 = this.peek2Token();
         // We know that if we have a property key then it must be followed by
         // one of the tokens: `=`, `,`, `}`, `:`, or `?`.
         const isPropertyKey =
@@ -413,7 +479,7 @@ class Parser {
         return RecordExpressionProperty(key, value, type, {optional});
       }, Glyph.BraceRight);
 
-      const end = this.lexer.next().loc.end;
+      const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       return RecordExpression(loc, extension, properties);
     }
@@ -425,7 +491,7 @@ class Parser {
         () => this.parseExpression(),
         Glyph.BracketRight
       );
-      const end = this.lexer.next().loc.end;
+      const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       return ListExpression(loc, items);
     }
@@ -437,7 +503,7 @@ class Parser {
    * Parses the `Pattern` grammar.
    */
   parsePattern(): Pattern {
-    const token = this.lexer.next();
+    const token = this.nextToken();
 
     // Parse `BindingPattern`, `QualifiedPattern`, `DeconstructPattern`,
     // and `AliasPattern`.
@@ -479,7 +545,7 @@ class Parser {
           () => this.parsePattern(),
           Glyph.ParenRight
         );
-        const end = this.lexer.next().loc.end;
+        const end = this.nextToken().loc.end;
         const loc = new Loc(token.loc.start, end);
         return DeconstructPattern(loc, callee, args);
       }
@@ -514,7 +580,7 @@ class Parser {
           : undefined;
         return TuplePatternElement(pattern, type);
       }, Glyph.ParenRight);
-      const end = this.lexer.next().loc.end;
+      const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       if (elements.length === 0) {
         return UnitPattern(loc);
@@ -571,7 +637,7 @@ class Parser {
         return RecordPatternProperty(key, value, type, {optional});
       }, Glyph.BraceRight);
 
-      const end = this.lexer.next().loc.end;
+      const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       return RecordPattern(loc, properties);
     }
@@ -583,7 +649,7 @@ class Parser {
         () => this.parsePattern(),
         Glyph.BracketRight
       );
-      const end = this.lexer.next().loc.end;
+      const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       return ListPattern(loc, items);
     }
@@ -595,20 +661,15 @@ class Parser {
    * Parses a list separated by commas and pushes items into the array parameter
    * supplied. Supports trailing commas but requires an ending to look for to
    * do so.
-   *
-   * - If `parseItem()` returns `undefined` then we don’t add it to the final
-   *   items array and we don’t try to parse a comma.
-   * - If we try to parse a comma but there is none then we report an error and
-   *   try to parse the next item.
    */
   parseCommaList<T>(parseItem: () => T, endGlyph: Glyph): Array<T> {
-    const items = [];
+    const items: Array<T> = [];
 
     // At the beginning of our loop we check whether or not we have reached the
     // end of our comma list. This check depends on a peek of the next token.
     // So at the end of every iteration of the loop we must assign a peek of the
     // next token for that check to work correctly.
-    let token = this.lexer.peek();
+    let token = this.peekToken();
 
     while (true) {
       // The aforementioned check to see if we have reached the end of our
@@ -624,17 +685,62 @@ class Parser {
 
       // Peek the next token so we can perform our list end check again. If we
       // don’t have a trailing comma then our list ends after the last item.
-      token = this.lexer.peek();
+      token = this.peekToken();
       if (token.type === TokenType.Glyph && token.glyph === endGlyph) break;
 
       // Parse a comma.
       this.parseGlyph(Glyph.Comma);
 
       // Peek the next token for our check at the beginning of the loop.
-      token = this.lexer.peek();
+      token = this.peekToken();
     }
 
     // We’ve reached the end of our comma list! Return the items we’ve parsed.
+    return items;
+  }
+
+  /**
+   * Parses a list separated by the `LineSeparator` specification construct. A
+   * `LineSeparator` is either a newline or a semicolon. Supports trailing
+   * separators but requires an ending glyph to look for to do so.
+   */
+  parseLineSeparatorList<T>(parseItem: () => T, endGlyph: Glyph): Array<T> {
+    const items: Array<T> = [];
+
+    while (true) {
+      // If we see the end glyph then break out of our loop. We have this check
+      // here both to stop iterating for zero items and to allow
+      // trailing `LineSeparator`s.
+      const token1 = this.peekToken();
+      if (token1.type === TokenType.Glyph && token1.glyph === endGlyph) break;
+
+      // Parse an item and put it in our items list.
+      const item = parseItem();
+      items.push(item);
+
+      // If we see the end glyph then break out of our loop.
+      const token2 = this.peekToken();
+      if (token2.type === TokenType.Glyph && token2.glyph === endGlyph) break;
+
+      // If the token is a semicolon then we have a `LineSeparator` so advance
+      // and go through another iteration of the loop.
+      if (token2.type === TokenType.Glyph && token2.glyph === Glyph.Semicolon) {
+        this.nextToken();
+        continue;
+      }
+
+      // It doesn’t matter what the next token is, if it is on a new line then
+      // we have a newline `LineSeparator`! However, make sure we don’t advance.
+      // `parseItem()` will advance and eat this token.
+      if (this.currentLoc.end.line !== token2.loc.start.line) {
+        continue;
+      }
+
+      // If we did not see a semicolon or a newline then throw an unexpected
+      // token error.
+      throw UnexpectedTokenError(token2, ExpectedLineSeparator);
+    }
+
     return items;
   }
 
@@ -647,7 +753,20 @@ class Parser {
       () => this.parseIdentifier().identifier,
       Glyph.ParenRight
     );
-    this.lexer.next();
+    this.nextToken();
+    return identifiers;
+  }
+
+  /**
+   * Test parser for `parseLineSeparatorList()`.
+   */
+  parseLineSeparatorListTest(): Array<string> {
+    this.parseGlyph(Glyph.ParenLeft);
+    const identifiers = this.parseLineSeparatorList(
+      () => this.parseIdentifier().identifier,
+      Glyph.ParenRight
+    );
+    this.nextToken();
     return identifiers;
   }
 
@@ -660,9 +779,9 @@ class Parser {
    *   return false. We do not advance the lexer!
    */
   parseGlyph(glyph: Glyph): Loc {
-    const token = this.lexer.peek();
+    const token = this.peekToken();
     if (token.type === TokenType.Glyph && token.glyph === glyph) {
-      return this.lexer.next().loc;
+      return this.nextToken().loc;
     }
     throw UnexpectedTokenError(token, ExpectedGlyph(glyph));
   }
@@ -672,9 +791,9 @@ class Parser {
    * we could not.
    */
   tryParseGlyph(glyph: Glyph): boolean {
-    const token = this.lexer.peek();
+    const token = this.peekToken();
     if (token.type === TokenType.Glyph && token.glyph === glyph) {
-      this.lexer.next();
+      this.nextToken();
       return true;
     }
     return false;
@@ -685,13 +804,13 @@ class Parser {
    * position. Returns true if we could parse it. Returns false if we could not.
    */
   tryParseGlyphOnSameLine(pos: Pos, glyph: Glyph): boolean {
-    const token = this.lexer.peek();
+    const token = this.peekToken();
     if (
       token.type === TokenType.Glyph &&
       token.glyph === glyph &&
       token.loc.start.line === pos.line
     ) {
-      this.lexer.next();
+      this.nextToken();
       return true;
     }
     return false;
@@ -703,13 +822,13 @@ class Parser {
    * if we could not.
    */
   tryParseInformalKeywordOnSameLine(pos: Pos, identifier: string): boolean {
-    const token = this.lexer.peek();
+    const token = this.peekToken();
     if (
       token.type === TokenType.Identifier &&
       token.identifier === identifier &&
       token.loc.start.line === pos.line
     ) {
-      this.lexer.next();
+      this.nextToken();
       return true;
     }
     return false;
@@ -723,9 +842,9 @@ class Parser {
    *   an error, and return false.
    */
   parseIdentifier(): IdentifierToken {
-    const token = this.lexer.peek();
+    const token = this.peekToken();
     if (token.type === TokenType.Identifier) {
-      this.lexer.next();
+      this.nextToken();
       return token;
     }
     throw UnexpectedTokenError(token, ExpectedIdentifier);
@@ -747,7 +866,7 @@ class Parser {
    *   return false.
    */
   parseEnding() {
-    const token = this.lexer.next();
+    const token = this.nextToken();
     if (token.type === TokenType.End) return;
     throw UnexpectedTokenError(token, ExpectedEnd);
   }

@@ -4,6 +4,7 @@ import {
   AliasPattern,
   BindingName,
   BindingPattern,
+  CallExpression,
   DeconstructPattern,
   FunctionType,
   GenericType,
@@ -11,6 +12,8 @@ import {
   HolePattern,
   ListExpression,
   ListPattern,
+  MatchCase,
+  MatchExpression,
   MemberType,
   Name,
   QualifiedPattern,
@@ -42,6 +45,7 @@ import {
   ExpectedExpression,
   ExpectedGlyph,
   ExpectedIdentifier,
+  ExpectedLineSeparator,
   ExpectedPattern,
   ExpectedType,
   UnexpectedTokenError,
@@ -52,6 +56,7 @@ import {loc} from './Loc';
 import {
   parseCommaListTest,
   parseExpression,
+  parseLineSeparatorListTest,
   parsePattern,
   parseType,
 } from './Parser';
@@ -1149,6 +1154,151 @@ describe('expression', () => {
         ])
       ),
     },
+    {
+      source: 'match x: ()',
+      result: Ok(
+        MatchExpression(
+          loc('1-11'),
+          ReferenceExpression(loc('7'), ident('x')),
+          []
+        )
+      ),
+    },
+    {
+      source: 'match x: (y)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('12'), Glyph.ParenRight),
+          ExpectedGlyph(Glyph.Arrow)
+        )
+      ),
+    },
+    {
+      source: 'match x: ([] -> y; _ -> z)',
+      result: Ok(
+        MatchExpression(
+          loc('1-26'),
+          ReferenceExpression(loc('7'), ident('x')),
+          [
+            MatchCase(
+              [ListPattern(loc('11-12'), [])],
+              undefined,
+              ReferenceExpression(loc('17'), ident('y'))
+            ),
+            MatchCase(
+              [HolePattern(loc('20'))],
+              undefined,
+              ReferenceExpression(loc('25'), ident('z'))
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'match x: (\n  [] -> y\n  _ -> z\n)',
+      result: Ok(
+        MatchExpression(
+          loc('1:1-4:1'),
+          ReferenceExpression(loc('1:7'), ident('x')),
+          [
+            MatchCase(
+              [ListPattern(loc('2:3-2:4'), [])],
+              undefined,
+              ReferenceExpression(loc('2:9'), ident('y'))
+            ),
+            MatchCase(
+              [HolePattern(loc('3:3'))],
+              undefined,
+              ReferenceExpression(loc('3:8'), ident('z'))
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'match x: (_ -> y; () -> z)',
+      result: Ok(
+        MatchExpression(
+          loc('1-26'),
+          ReferenceExpression(loc('7'), ident('x')),
+          [
+            MatchCase(
+              [HolePattern(loc('11'))],
+              undefined,
+              ReferenceExpression(loc('16'), ident('y'))
+            ),
+            MatchCase(
+              [UnitPattern(loc('19-20'))],
+              undefined,
+              ReferenceExpression(loc('25'), ident('z'))
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'match x: (\n  _ -> y\n  () -> z\n)',
+      result: Ok(
+        MatchExpression(
+          loc('1:1-4:1'),
+          ReferenceExpression(loc('1:7'), ident('x')),
+          [
+            MatchCase(
+              [HolePattern(loc('2:3'))],
+              undefined,
+              ReferenceExpression(loc('2:8'), ident('y'))
+            ),
+            MatchCase(
+              [UnitPattern(loc('3:3-3:4'))],
+              undefined,
+              ReferenceExpression(loc('3:9'), ident('z'))
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'match x: (\n  _ -> y()\n  () -> z\n)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2:9'), Glyph.ParenLeft),
+          ExpectedLineSeparator
+        )
+      ),
+      // TODO: When we parse CallExpression
+      //
+      // result: Ok(
+      //   MatchExpression(
+      //     loc('1:1-4:1'),
+      //     ReferenceExpression(loc('1:7'), ident('x')),
+      //     [
+      //       MatchCase(
+      //         [HolePattern(loc('2:3'))],
+      //         undefined,
+      //         CallExpression(
+      //           loc('2:8-2:10'),
+      //           ReferenceExpression(loc('2:8'), ident('y')),
+      //           []
+      //         )
+      //       ),
+      //       MatchCase(
+      //         [UnitPattern(loc('3:3-3:4'))],
+      //         undefined,
+      //         ReferenceExpression(loc('3:9'), ident('z'))
+      //       ),
+      //     ]
+      //   )
+      // ),
+    },
+    {
+      source: 'match x: (_ -> y () -> z)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('18'), Glyph.ParenLeft),
+          ExpectedLineSeparator
+        )
+      ),
+    },
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseExpression(lex(source))).toEqual(result);
@@ -1868,6 +2018,183 @@ describe('comma list', () => {
   ].forEach(({source, result}) => {
     test(source, () => {
       expect(parseCommaListTest(lex(source))).toEqual(result);
+    });
+  });
+});
+
+describe('line separator list', () => {
+  [
+    {
+      source: '()',
+      result: Ok([]),
+    },
+    {
+      source: '(foo)',
+      result: Ok(['foo']),
+    },
+    {
+      source: '(foo; bar)',
+      result: Ok(['foo', 'bar']),
+    },
+    {
+      source: '(foo; bar; qux; lit)',
+      result: Ok(['foo', 'bar', 'qux', 'lit']),
+    },
+    {
+      source: '(;)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2'), Glyph.Semicolon),
+          ExpectedIdentifier
+        )
+      ),
+    },
+    {
+      source: '(foo;)',
+      result: Ok(['foo']),
+    },
+    {
+      source: '(foo; bar;)',
+      result: Ok(['foo', 'bar']),
+    },
+    {
+      source: '(foo; bar; qux; lit;)',
+      result: Ok(['foo', 'bar', 'qux', 'lit']),
+    },
+    {
+      source: '(%)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2'), Glyph.Percent),
+          ExpectedIdentifier
+        )
+      ),
+    },
+    {
+      source: '( % )',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('3'), Glyph.Percent),
+          ExpectedIdentifier
+        )
+      ),
+    },
+    {
+      source: '(foo bar)',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('6-8'), ident('bar')),
+          ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: '(foo; bar qux)',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('11-13'), ident('qux')),
+          ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: '(foo bar qux)',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('6-8'), ident('bar')),
+          ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: '(foo;; bar)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('6'), Glyph.Semicolon),
+          ExpectedIdentifier
+        )
+      ),
+    },
+    {
+      source: '(foo, bar)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('5'), Glyph.Comma),
+          ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: '(foo,, bar)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('5'), Glyph.Comma),
+          ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: '(foo; bar,)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('10'), Glyph.Comma),
+          ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: '(',
+      result: Err(UnexpectedTokenError(EndToken(loc('2')), ExpectedIdentifier)),
+    },
+    {
+      source: '(foo',
+      result: Err(
+        UnexpectedTokenError(EndToken(loc('5')), ExpectedLineSeparator)
+      ),
+    },
+    {
+      source: '(\n)',
+      result: Ok([]),
+    },
+    {
+      source: '(foo\n)',
+      result: Ok(['foo']),
+    },
+    {
+      source: '(foo\nbar)',
+      result: Ok(['foo', 'bar']),
+    },
+    {
+      source: '(\n\n)',
+      result: Ok([]),
+    },
+    {
+      source: '(\nfoo\n)',
+      result: Ok(['foo']),
+    },
+    {
+      source: '(foo\n\n)',
+      result: Ok(['foo']),
+    },
+    {
+      source: '(foo\n\nbar)',
+      result: Ok(['foo', 'bar']),
+    },
+    {
+      source: '(\n  foo\n  bar\n  qux\n  lit\n)',
+      result: Ok(['foo', 'bar', 'qux', 'lit']),
+    },
+    {
+      source: '(foo;\nbar)',
+      result: Ok(['foo', 'bar']),
+    },
+    {
+      source: '(foo\n;bar)',
+      result: Ok(['foo', 'bar']),
+    },
+  ].forEach(({source, result}) => {
+    test(source.replace(/\n/g, '\\n'), () => {
+      expect(parseLineSeparatorListTest(lex(source))).toEqual(result);
     });
   });
 });

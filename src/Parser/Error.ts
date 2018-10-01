@@ -34,6 +34,7 @@ export type Expected =
   | ExpectedBindingIdentifier
   | ExpectedGlyph
   | ExpectedEnd
+  | ExpectedLineSeparator
   | ExpectedType
   | ExpectedExpression
   | ExpectedPattern;
@@ -43,6 +44,7 @@ export const enum ExpectedKind {
   BindingIdentifier = 'BindingIdentifier',
   Glyph = 'Glyph',
   End = 'End',
+  LineSeparator = 'LineSeparator',
   Type = 'Type',
   Expression = 'Expression',
   Pattern = 'Pattern',
@@ -71,6 +73,11 @@ export function ExpectedGlyph(glyph: Glyph): ExpectedGlyph {
 
 export type ExpectedEnd = {readonly kind: ExpectedKind.End};
 export const ExpectedEnd: ExpectedEnd = {kind: ExpectedKind.End};
+
+export type ExpectedLineSeparator = {readonly kind: ExpectedKind.LineSeparator};
+export const ExpectedLineSeparator: ExpectedLineSeparator = {
+  kind: ExpectedKind.LineSeparator,
+};
 
 export type ExpectedType = {readonly kind: ExpectedKind.Type};
 export const ExpectedType: ExpectedType = {kind: ExpectedKind.Type};

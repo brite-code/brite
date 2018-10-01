@@ -170,12 +170,16 @@ export class Lexer implements Iterable<Token> {
   private peeked1: Token | undefined;
   private peeked2: Token | undefined;
 
-  private readonly chars: PeekableIterator<string>;
+  /**
+   * Prefixed with an underscore as syntax vinegar. You should not be calling
+   * `this._chars.next()` directly. You should be calling `this.nextChar()`.
+   */
+  private readonly _chars: PeekableIterator<string>;
 
   private constructor(pos: Pos, chars: PeekableIterator<string>) {
     this.line = pos.line;
     this.column = pos.column - 1;
-    this.chars = chars;
+    this._chars = chars;
   }
 
   [Symbol.iterator](): Iterator<Token> {
@@ -471,7 +475,7 @@ export class Lexer implements Iterable<Token> {
   private nextChar(): string | undefined {
     // NOTE: This function should be protected in Brite. So it’s only accessible
     // in this namespace.
-    const step = this.chars.next();
+    const step = this._chars.next();
     if (step.done) {
       this.column += 1;
       return undefined;
@@ -492,7 +496,7 @@ export class Lexer implements Iterable<Token> {
   private peekChar(): string | undefined {
     // NOTE: This function should be protected in Brite. So it’s only accessible
     // in this namespace.
-    const step = this.chars.peek();
+    const step = this._chars.peek();
     return step.done ? undefined : step.value;
   }
 }
