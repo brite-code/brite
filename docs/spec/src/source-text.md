@@ -98,7 +98,7 @@ Note: When reporting errors, Brite will use the number of line terminators to re
 
 ### Line Terminator Ambiguity
 
-Brite sometimes specially uses line terminators to seperate two language grammar productions. For instance, statements.
+Brite sometimes specially uses line terminators to separate two language grammar productions. For instance, statements.
 
 ```ite example
 x = 1

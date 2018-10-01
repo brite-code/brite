@@ -60,7 +60,7 @@ import {
 } from './Error';
 import {BindingIdentifier, BindingKeyword, Keyword} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, Token, TokenType} from './Lexer';
-import {Loc, Pos} from './Loc';
+import {Loc} from './Loc';
 
 export function parseType(lexer: Lexer): Result<Type, ParserError> {
   try {
