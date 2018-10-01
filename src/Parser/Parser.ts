@@ -11,6 +11,7 @@ import {
   GenericType,
   HoleExpression,
   HolePattern,
+  ListExpression,
   ListPattern,
   MemberType,
   Name,
@@ -415,6 +416,18 @@ class Parser {
       const end = this.lexer.next().loc.end;
       const loc = new Loc(start, end);
       return RecordExpression(loc, extension, properties);
+    }
+
+    // Parse `ListExpression`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.BracketLeft) {
+      const start = token.loc.start;
+      const items = this.parseCommaList(
+        () => this.parseExpression(),
+        Glyph.BracketRight
+      );
+      const end = this.lexer.next().loc.end;
+      const loc = new Loc(start, end);
+      return ListExpression(loc, items);
     }
 
     throw UnexpectedTokenError(token, ExpectedExpression);

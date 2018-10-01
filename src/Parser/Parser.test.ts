@@ -9,6 +9,7 @@ import {
   GenericType,
   HoleExpression,
   HolePattern,
+  ListExpression,
   ListPattern,
   MemberType,
   Name,
@@ -1116,6 +1117,36 @@ describe('expression', () => {
           IdentifierToken(loc('3-4'), 'if' as Identifier),
           ExpectedExpression
         )
+      ),
+    },
+    {
+      source: '[]',
+      result: Ok(ListExpression(loc('1-2'), [])),
+    },
+    {
+      source: '[a]',
+      result: Ok(
+        ListExpression(loc('1-3'), [ReferenceExpression(loc('2'), ident('a'))])
+      ),
+    },
+    {
+      source: '[a, b]',
+      result: Ok(
+        ListExpression(loc('1-6'), [
+          ReferenceExpression(loc('2'), ident('a')),
+          ReferenceExpression(loc('5'), ident('b')),
+        ])
+      ),
+    },
+    {
+      source: '[a, b, c, d]',
+      result: Ok(
+        ListExpression(loc('1-12'), [
+          ReferenceExpression(loc('2'), ident('a')),
+          ReferenceExpression(loc('5'), ident('b')),
+          ReferenceExpression(loc('8'), ident('c')),
+          ReferenceExpression(loc('11'), ident('d')),
+        ])
       ),
     },
   ].forEach(({source, result}) => {
