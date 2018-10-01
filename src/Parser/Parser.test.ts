@@ -1260,42 +1260,34 @@ describe('expression', () => {
     },
     {
       source: 'match x: (\n  _ -> y()\n  () -> z\n)',
-      result: Err(
-        UnexpectedTokenError(
-          GlyphToken(loc('2:9'), Glyph.ParenLeft),
-          ExpectedLineSeparator
+      result: Ok(
+        MatchExpression(
+          loc('1:1-4:1'),
+          ReferenceExpression(loc('1:7'), ident('x')),
+          [
+            MatchCase(
+              [HolePattern(loc('2:3'))],
+              undefined,
+              CallExpression(
+                loc('2:8-2:10'),
+                ReferenceExpression(loc('2:8'), ident('y')),
+                []
+              )
+            ),
+            MatchCase(
+              [UnitPattern(loc('3:3-3:4'))],
+              undefined,
+              ReferenceExpression(loc('3:9'), ident('z'))
+            ),
+          ]
         )
       ),
-      // TODO: When we parse CallExpression
-      //
-      // result: Ok(
-      //   MatchExpression(
-      //     loc('1:1-4:1'),
-      //     ReferenceExpression(loc('1:7'), ident('x')),
-      //     [
-      //       MatchCase(
-      //         [HolePattern(loc('2:3'))],
-      //         undefined,
-      //         CallExpression(
-      //           loc('2:8-2:10'),
-      //           ReferenceExpression(loc('2:8'), ident('y')),
-      //           []
-      //         )
-      //       ),
-      //       MatchCase(
-      //         [UnitPattern(loc('3:3-3:4'))],
-      //         undefined,
-      //         ReferenceExpression(loc('3:9'), ident('z'))
-      //       ),
-      //     ]
-      //   )
-      // ),
     },
     {
       source: 'match x: (_ -> y () -> z)',
       result: Err(
         UnexpectedTokenError(
-          GlyphToken(loc('18'), Glyph.ParenLeft),
+          GlyphToken(loc('21-22'), Glyph.Arrow),
           ExpectedLineSeparator
         )
       ),
@@ -1427,8 +1419,16 @@ describe('expression', () => {
     },
     {
       source: 'f().p',
-      result: Err(
-        UnexpectedTokenError(GlyphToken(loc('2'), Glyph.ParenLeft), ExpectedEnd)
+      result: Ok(
+        MemberExpression(
+          loc('1-5'),
+          CallExpression(
+            loc('1-3'),
+            ReferenceExpression(loc('1'), ident('f')),
+            []
+          ),
+          Name(loc('5'), ident('p'))
+        )
       ),
     },
     {
@@ -1442,6 +1442,53 @@ describe('expression', () => {
             undefined
           ),
           Name(loc('5'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: 'f()',
+      result: Ok(
+        CallExpression(
+          loc('1-3'),
+          ReferenceExpression(loc('1'), ident('f')),
+          []
+        )
+      ),
+    },
+    {
+      source: 'f(a)',
+      result: Ok(
+        CallExpression(loc('1-4'), ReferenceExpression(loc('1'), ident('f')), [
+          ReferenceExpression(loc('3'), ident('a')),
+        ])
+      ),
+    },
+    {
+      source: 'f(a, b)',
+      result: Ok(
+        CallExpression(loc('1-7'), ReferenceExpression(loc('1'), ident('f')), [
+          ReferenceExpression(loc('3'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b')),
+        ])
+      ),
+    },
+    {
+      source: 'f(a, b, c, d)',
+      result: Ok(
+        CallExpression(loc('1-13'), ReferenceExpression(loc('1'), ident('f')), [
+          ReferenceExpression(loc('3'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b')),
+          ReferenceExpression(loc('9'), ident('c')),
+          ReferenceExpression(loc('12'), ident('d')),
+        ])
+      ),
+    },
+    {
+      source: 'f\n()',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2:1'), Glyph.ParenLeft),
+          ExpectedEnd
         )
       ),
     },

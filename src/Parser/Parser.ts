@@ -5,6 +5,7 @@ import {
   AliasPattern,
   BindingName,
   BindingPattern,
+  CallExpression,
   DeconstructPattern,
   Expression,
   FunctionType,
@@ -544,14 +545,23 @@ class Parser {
 
     // Parse extensions to the `PrimaryExpression` grammar.
     while (true) {
-      const token = this.peekToken();
-
       // Parse `MemberExpression`.
-      if (token.type === TokenType.Glyph && token.glyph === Glyph.Dot) {
-        this.nextToken();
+      if (this.tryParseGlyph(Glyph.Dot)) {
         const name = this.parseName();
         const loc = new Loc(primaryExpression.loc.start, name.loc.end);
         primaryExpression = MemberExpression(loc, primaryExpression, name);
+        continue;
+      }
+
+      // Parse `CallExpression`.
+      if (this.tryParseGlyphOnSameLine(Glyph.ParenLeft)) {
+        const args = this.parseCommaList(
+          () => this.parseExpression(),
+          Glyph.ParenRight
+        );
+        const end = this.nextToken().loc.end;
+        const loc = new Loc(primaryExpression.loc.start, end);
+        primaryExpression = CallExpression(loc, primaryExpression, args);
         continue;
       }
 
@@ -579,7 +589,7 @@ class Parser {
 
       // If there is an `is` keyword on the same line as our binding identifier
       // then we have an `AliasPattern`.
-      if (this.tryParseInformalKeywordOnSameLine(token.loc.end, 'is')) {
+      if (this.tryParseInformalKeywordOnSameLine('is')) {
         const pattern = this.parsePattern();
         const loc = new Loc(token.loc.start, pattern.loc.end);
         return AliasPattern(
@@ -600,8 +610,7 @@ class Parser {
 
       // If there is an opening parentheses on the same line as our identifier
       // path then we have a `DeconstructPattern`.
-      const lastPos = identifiers[identifiers.length - 1].loc.end;
-      if (this.tryParseGlyphOnSameLine(lastPos, Glyph.ParenLeft)) {
+      if (this.tryParseGlyphOnSameLine(Glyph.ParenLeft)) {
         const callee = Array1.create(identifiers);
         const args = this.parseCommaList(
           () => this.parsePattern(),
@@ -881,12 +890,12 @@ class Parser {
    * Tries to parse a glyph but only if it is on the same line as the provided
    * position. Returns true if we could parse it. Returns false if we could not.
    */
-  tryParseGlyphOnSameLine(pos: Pos, glyph: Glyph): boolean {
+  tryParseGlyphOnSameLine(glyph: Glyph): boolean {
     const token = this.peekToken();
     if (
       token.type === TokenType.Glyph &&
       token.glyph === glyph &&
-      token.loc.start.line === pos.line
+      token.loc.start.line === this.currentLoc.end.line
     ) {
       this.nextToken();
       return true;
@@ -912,12 +921,12 @@ class Parser {
    * as the provided position. Returns true if we could parse it. Returns false
    * if we could not.
    */
-  tryParseInformalKeywordOnSameLine(pos: Pos, identifier: string): boolean {
+  tryParseInformalKeywordOnSameLine(identifier: string): boolean {
     const token = this.peekToken();
     if (
       token.type === TokenType.Identifier &&
       token.identifier === identifier &&
-      token.loc.start.line === pos.line
+      token.loc.start.line === this.currentLoc.end.line
     ) {
       this.nextToken();
       return true;

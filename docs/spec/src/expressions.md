@@ -121,9 +121,11 @@ MemberExpression : PrimaryExpression `.` Identifier
 
 ## Call Expression
 
-CallExpression : PrimaryExpression GenericArguments? CallExpressionArguments
+CallExpression :
+  - PrimaryExpression [lookahead != LineTerminator] CallExpressionArguments
+  - PrimaryExpression GenericArguments CallExpressionArguments
 
-CallExpressionArguments : [lookahead != LineTerminator] `(` CallExpressionArgumentList? `)`
+CallExpressionArguments : `(` CallExpressionArgumentList? `)`
 
 CallExpressionArgumentList :
   - Expression `,`?
