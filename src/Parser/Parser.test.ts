@@ -14,6 +14,7 @@ import {
   ListPattern,
   MatchCase,
   MatchExpression,
+  MemberExpression,
   MemberType,
   Name,
   QualifiedPattern,
@@ -1296,6 +1297,119 @@ describe('expression', () => {
         UnexpectedTokenError(
           GlyphToken(loc('18'), Glyph.ParenLeft),
           ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: 'o.p',
+      result: Ok(
+        MemberExpression(
+          loc('1-3'),
+          ReferenceExpression(loc('1'), ident('o')),
+          Name(loc('3'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '().p',
+      result: Ok(
+        MemberExpression(
+          loc('1-4'),
+          UnitExpression(loc('1-2')),
+          Name(loc('4'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '(a, b).p',
+      result: Ok(
+        MemberExpression(
+          loc('1-8'),
+          TupleExpression(loc('1-6'), [
+            TupleExpressionElement(
+              ReferenceExpression(loc('2'), ident('a')),
+              undefined
+            ),
+            TupleExpressionElement(
+              ReferenceExpression(loc('5'), ident('b')),
+              undefined
+            ),
+          ]),
+          Name(loc('8'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '{}.p',
+      result: Ok(
+        MemberExpression(
+          loc('1-4'),
+          RecordExpression(loc('1-2'), undefined, []),
+          Name(loc('4'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '{ a = b }.p',
+      result: Ok(
+        MemberExpression(
+          loc('1-11'),
+          RecordExpression(loc('1-9'), undefined, [
+            RecordExpressionProperty(
+              Name(loc('3'), ident('a')),
+              ReferenceExpression(loc('7'), ident('b')),
+              undefined
+            ),
+          ]),
+          Name(loc('11'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '[].p',
+      result: Ok(
+        MemberExpression(
+          loc('1-4'),
+          ListExpression(loc('1-2'), []),
+          Name(loc('4'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: 'o.a.b.c',
+      result: Ok(
+        MemberExpression(
+          loc('1-7'),
+          MemberExpression(
+            loc('1-5'),
+            MemberExpression(
+              loc('1-3'),
+              ReferenceExpression(loc('1'), ident('o')),
+              Name(loc('3'), ident('a'))
+            ),
+            Name(loc('5'), ident('b'))
+          ),
+          Name(loc('7'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'f().p',
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('2'), Glyph.ParenLeft), ExpectedEnd)
+      ),
+    },
+    {
+      source: '(o).p',
+      result: Ok(
+        MemberExpression(
+          loc('1-5'),
+          WrappedExpression(
+            loc('1-3'),
+            ReferenceExpression(loc('2'), ident('o')),
+            undefined
+          ),
+          Name(loc('5'), ident('p'))
         )
       ),
     },

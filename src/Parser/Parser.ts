@@ -15,6 +15,7 @@ import {
   ListPattern,
   MatchCase,
   MatchExpression,
+  MemberExpression,
   MemberType,
   Name,
   Pattern,
@@ -424,79 +425,84 @@ class Parser {
         token2.glyph === Glyph.BraceRight
       ) {
         const end = this.nextToken().loc.end;
-        return RecordExpression(new Loc(start, end), undefined, []);
-      }
-
-      // If we have an `Identifier` then we might either have an extension
-      // or we might have a record property key.
-      if (token2.type === TokenType.Identifier) {
-        const token3 = this.peek2Token();
-        // We know that if we have a property key then it must be followed by
-        // one of the tokens: `=`, `,`, `}`, `:`, or `?`.
-        const isPropertyKey =
-          token3.type === TokenType.Glyph &&
-          (token3.glyph === Glyph.Equals ||
-            token3.glyph === Glyph.Comma ||
-            token3.glyph === Glyph.BraceRight ||
-            token3.glyph === Glyph.Colon ||
-            token3.glyph === Glyph.Question);
-        // If we don’t have a property key as determined by `token3` then we
-        // have an extension.
-        if (!isPropertyKey) {
+        primaryExpression = RecordExpression(
+          new Loc(start, end),
+          undefined,
+          []
+        );
+      } else {
+        // If we have an `Identifier` then we might either have an extension
+        // or we might have a record property key.
+        if (token2.type === TokenType.Identifier) {
+          const token3 = this.peek2Token();
+          // We know that if we have a property key then it must be followed by
+          // one of the tokens: `=`, `,`, `}`, `:`, or `?`.
+          const isPropertyKey =
+            token3.type === TokenType.Glyph &&
+            (token3.glyph === Glyph.Equals ||
+              token3.glyph === Glyph.Comma ||
+              token3.glyph === Glyph.BraceRight ||
+              token3.glyph === Glyph.Colon ||
+              token3.glyph === Glyph.Question);
+          // If we don’t have a property key as determined by `token3` then we
+          // have an extension.
+          if (!isPropertyKey) {
+            extension = this.parseExpression();
+            this.parseGlyph(Glyph.Bar);
+          }
+        } else {
+          // If the next token is not an identifier then we know we have
+          // an extension.
           extension = this.parseExpression();
           this.parseGlyph(Glyph.Bar);
         }
-      } else {
-        // If the next token is not an identifier then we know we have
-        // an extension.
-        extension = this.parseExpression();
-        this.parseGlyph(Glyph.Bar);
-      }
 
-      // Parse all of the record properties in a comma list.
-      const properties = this.parseCommaList(() => {
-        // Parse the name of this record property. If we used punned record
-        // initialization syntax then we will later assert that this name is a
-        // binding identifier.
-        const key = this.parseName();
+        // Parse all of the record properties in a comma list.
+        const properties = this.parseCommaList(() => {
+          // Parse the name of this record property. If we used punned record
+          // initialization syntax then we will later assert that this name is a
+          // binding identifier.
+          const key = this.parseName();
 
-        // The code to parse a type annotation here is kind of interesting.
-        // Currently optional properties must have a type annotation so first we
-        // try to parse a question mark. If we parse a question mark then we
-        // require a colon and a type to be parsed next. If there is no question
-        // mark then we may still optionally want to parse a type annotation.
-        const optional = this.tryParseGlyph(Glyph.Question);
-        if (optional) this.parseGlyph(Glyph.Colon);
-        const type =
-          optional || this.tryParseGlyph(Glyph.Colon)
-            ? this.parseType()
-            : undefined;
+          // The code to parse a type annotation here is kind of interesting.
+          // Currently optional properties must have a type annotation so first
+          // we try to parse a question mark. If we parse a question mark then
+          // we require a colon and a type to be parsed next. If there is no
+          // question mark then we may still optionally want to parse a
+          // type annotation.
+          const optional = this.tryParseGlyph(Glyph.Question);
+          if (optional) this.parseGlyph(Glyph.Colon);
+          const type =
+            optional || this.tryParseGlyph(Glyph.Colon)
+              ? this.parseType()
+              : undefined;
 
-        // Parse the value initializer for this expression. If we are using the
-        // syntax where we don’t have an initializer (e.g. `{ a, b }`) then we
-        // need to go back and throw an error if our key name is not a
-        // binding identifier.
-        let value: Expression;
-        if (this.tryParseGlyph(Glyph.Equals)) {
-          value = this.parseExpression();
-        } else {
-          const identifier = BindingIdentifier.create(key.identifier);
-          if (identifier === undefined) {
-            throw UnexpectedTokenError(
-              IdentifierToken(key.loc, key.identifier),
-              ExpectedBindingIdentifier
-            );
+          // Parse the value initializer for this expression. If we are using
+          // the syntax where we don’t have an initializer (e.g. `{ a, b }`)
+          // then we need to go back and throw an error if our key name is not a
+          // binding identifier.
+          let value: Expression;
+          if (this.tryParseGlyph(Glyph.Equals)) {
+            value = this.parseExpression();
+          } else {
+            const identifier = BindingIdentifier.create(key.identifier);
+            if (identifier === undefined) {
+              throw UnexpectedTokenError(
+                IdentifierToken(key.loc, key.identifier),
+                ExpectedBindingIdentifier
+              );
+            }
+            value = ReferenceExpression(key.loc, identifier);
           }
-          value = ReferenceExpression(key.loc, identifier);
-        }
 
-        // Create the record property.
-        return RecordExpressionProperty(key, value, type, {optional});
-      }, Glyph.BraceRight);
+          // Create the record property.
+          return RecordExpressionProperty(key, value, type, {optional});
+        }, Glyph.BraceRight);
 
-      const end = this.nextToken().loc.end;
-      const loc = new Loc(start, end);
-      primaryExpression = RecordExpression(loc, extension, properties);
+        const end = this.nextToken().loc.end;
+        const loc = new Loc(start, end);
+        primaryExpression = RecordExpression(loc, extension, properties);
+      }
     } else if (
       // Parse `ListExpression`.
       token.type === TokenType.Glyph &&
@@ -512,6 +518,22 @@ class Parser {
       primaryExpression = ListExpression(loc, items);
     } else {
       throw UnexpectedTokenError(token, ExpectedExpression);
+    }
+
+    // Parse extensions to the `PrimaryExpression` grammar.
+    while (true) {
+      const token = this.peekToken();
+
+      // Parse `MemberExpression`.
+      if (token.type === TokenType.Glyph && token.glyph === Glyph.Dot) {
+        this.nextToken();
+        const name = this.parseName();
+        const loc = new Loc(primaryExpression.loc.start, name.loc.end);
+        primaryExpression = MemberExpression(loc, primaryExpression, name);
+        continue;
+      }
+
+      break;
     }
 
     return primaryExpression;

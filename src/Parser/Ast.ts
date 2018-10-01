@@ -462,13 +462,13 @@ export function ListExpression(
 export interface MemberExpression extends Node {
   readonly kind: ExpressionKind.Member;
   readonly namespace: Expression;
-  readonly member: Identifier;
+  readonly member: Name;
 }
 
 export function MemberExpression(
   loc: Loc,
   namespace: Expression,
-  member: Identifier
+  member: Name
 ): MemberExpression {
   return {kind: ExpressionKind.Member, loc, namespace, member};
 }
