@@ -1301,6 +1301,38 @@ describe('expression', () => {
       ),
     },
     {
+      source: 'match x: (_ | _ -> y)',
+      result: Ok(
+        MatchExpression(
+          loc('1-21'),
+          ReferenceExpression(loc('7'), ident('x')),
+          [
+            MatchCase(
+              [HolePattern(loc('11')), HolePattern(loc('15'))],
+              undefined,
+              ReferenceExpression(loc('20'), ident('y'))
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'match x: (_ if y -> z)',
+      result: Ok(
+        MatchExpression(
+          loc('1-22'),
+          ReferenceExpression(loc('7'), ident('x')),
+          [
+            MatchCase(
+              [HolePattern(loc('11'))],
+              ReferenceExpression(loc('16'), ident('y')),
+              ReferenceExpression(loc('21'), ident('z'))
+            ),
+          ]
+        )
+      ),
+    },
+    {
       source: 'o.p',
       result: Ok(
         MemberExpression(

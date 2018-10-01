@@ -55,7 +55,7 @@ import {
   ParserError,
   UnexpectedTokenError,
 } from './Error';
-import {BindingIdentifier, Keyword} from './Identifier';
+import {BindingIdentifier, BindingKeyword, Keyword} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, Token, TokenType} from './Lexer';
 import {Loc, Pos} from './Loc';
 
@@ -313,18 +313,14 @@ class Parser {
 
     // There may be some optional bounds on the generic parameter after a colon.
     // If we see a colon then try and parse our type bounds.
-    const typeParameters: Array<Type> = [];
+    let typeParameters: Array<Type> | Array1<Type> = [];
     const token = this.peekToken();
     if (token.type === TokenType.Glyph && token.glyph === Glyph.Colon) {
       this.nextToken();
-      while (true) {
-        // Try to parse a type and add it to our `typeParameters` array.
-        typeParameters.push(this.parseType());
-
-        // If there is a plus (`+`) glyph then go for another round of the loop.
-        // Otherwise stop trying to parse.
-        if (!this.tryParseGlyph(Glyph.Plus)) break;
-      }
+      typeParameters = this.parseNonEmptyList(
+        () => this.parseType(),
+        Glyph.Plus
+      );
     }
 
     return TypeParameter(name, typeParameters);
@@ -343,6 +339,8 @@ class Parser {
       token.type === TokenType.Identifier
     ) {
       const identifier = BindingIdentifier.create(token.identifier);
+      // If we have a `BindingIdentifier` then we have a reference expression.
+      // Otherwise we might have a `BindingKeyword` that we might want to parse.
       if (identifier !== undefined) {
         primaryExpression = ReferenceExpression(token.loc, identifier);
       } else if (
@@ -350,19 +348,43 @@ class Parser {
         token.identifier === 'match'
       ) {
         const start = token.loc.start;
+
+        // First, we need to parse the expression that we are testing in this
+        // match. After that we expect a colon to separate the match body.
         const test = this.parseExpression();
         this.parseGlyph(Glyph.Colon);
         this.parseGlyph(Glyph.ParenLeft);
+
+        // Parse all that match cases inside this match expression.
         const cases = this.parseLineSeparatorList(() => {
-          const binding = this.parsePattern();
+          // Parse a non-empty list of bindings separated by a single bar (`|`).
+          // This way multiple patterns can match to a single body.
+          const bindings = this.parseNonEmptyList(
+            () => this.parsePattern(),
+            Glyph.Bar
+          );
+
+          // If we see the binding keyword `if` then we have some condition on
+          // this match case.
+          let test: Expression | undefined;
+          if (this.tryParseBindingKeyword(BindingKeyword.If)) {
+            test = this.parseExpression();
+          }
+
+          // Parse the arrow and then the expression body of this case which
+          // will be executed if any of the patterns match.
           this.parseGlyph(Glyph.Arrow);
           const body = this.parseExpression();
-          return MatchCase([binding], undefined, body);
+
+          return MatchCase(bindings, test, body);
         }, Glyph.ParenRight);
+
+        // Finally, create the match expression.
         const end = this.nextToken().loc.end;
         const loc = new Loc(start, end);
         return MatchExpression(loc, test, cases);
       } else {
+        // If we have a `BindingKeyword` that we don’t use then throw an error.
         throw UnexpectedTokenError(token, ExpectedExpression);
       }
     } else if (
@@ -785,6 +807,22 @@ class Parser {
   }
 
   /**
+   * Parses a non-empty list separated by the provided separator glyph. Does not
+   * support trailing separators or empty lists.
+   */
+  parseNonEmptyList<T>(parseItem: () => T, separator: Glyph): Array1<T> {
+    const firstItem = parseItem();
+    const items: Array1<T> = [firstItem];
+
+    while (this.tryParseGlyph(separator)) {
+      const item = parseItem();
+      items.push(item);
+    }
+
+    return items;
+  }
+
+  /**
    * Test parser for `parseCommaList()`.
    */
   parseCommaListTest(): Array<string> {
@@ -850,6 +888,19 @@ class Parser {
       token.glyph === glyph &&
       token.loc.start.line === pos.line
     ) {
+      this.nextToken();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Tries to parse a binding keyword. Returns true if we could parse it.
+   * Returns false if we could not.
+   */
+  tryParseBindingKeyword(keyword: BindingKeyword): boolean {
+    const token = this.peekToken();
+    if (token.type === TokenType.Identifier && token.identifier === keyword) {
       this.nextToken();
       return true;
     }
