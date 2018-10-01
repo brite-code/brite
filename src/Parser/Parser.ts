@@ -8,6 +8,8 @@ import {
   CallExpression,
   DeconstructPattern,
   Expression,
+  FunctionExpression,
+  FunctionParameter,
   FunctionType,
   GenericType,
   HoleExpression,
@@ -330,7 +332,9 @@ class Parser {
   /**
    * Parses the `Expression` grammar.
    */
-  parseExpression(): Expression {
+  parseExpression({
+    skipFunction = false,
+  }: {skipFunction?: boolean} = {}): Expression {
     const token = this.nextToken();
 
     let primaryExpression: Expression;
@@ -343,6 +347,18 @@ class Parser {
       // If we have a `BindingIdentifier` then we have a reference expression.
       // Otherwise we might have a `BindingKeyword` that we might want to parse.
       if (identifier !== undefined) {
+        // Parse `FunctionExpression` identifier shorthand.
+        if (!skipFunction && this.tryParseGlyph(Glyph.Arrow)) {
+          const parameter = FunctionParameter(
+            BindingPattern(token.loc, identifier),
+            undefined
+          );
+          const body = this.parseExpression();
+          const loc = new Loc(token.loc.start, body.loc.end);
+          return FunctionExpression(loc, [parameter], body);
+        }
+
+        // Return the reference expression.
         primaryExpression = ReferenceExpression(token.loc, identifier);
       } else if (
         // Parse `MatchExpression`.
@@ -369,7 +385,7 @@ class Parser {
           // this match case.
           let test: Expression | undefined;
           if (this.tryParseBindingKeyword(BindingKeyword.If)) {
-            test = this.parseExpression();
+            test = this.parseExpression({skipFunction: true});
           }
 
           // Parse the arrow and then the expression body of this case which

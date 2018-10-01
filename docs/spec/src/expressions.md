@@ -101,7 +101,11 @@ MatchCasePatternList :
   - Pattern
   - MatchCasePatternList `|` Pattern
 
-MatchCaseCondition : `if` Expression
+MatchCaseCondition : `if` MatchCaseConditionExpression
+
+MatchCaseConditionExpression : Expression but not FunctionExpression
+
+Note: {MatchCondition} is followed by an arrow (`->`) so we disallow {FunctionExpression} in {MatchCaseCondition}. Consider: `match a: (_ if b -> c -> d)`. Is it equivalent to `match a: (_ if (b -> c) -> d)` or `match a: (_ if b -> (c -> d))`? With our restriction on {MatchCaseCondition} it is equivalent to the latter.
 
 ## Block Expression
 
@@ -139,7 +143,7 @@ Note: {GenericArguments} introduces ambiguity with {RelationalExpression} for LR
 
 FunctionExpression :
   - Function
-  - Identifier `->` FunctionBody
+  - BindingIdentifier `->` FunctionBody
 
 Note: You may notice the potential for significant syntactic ambiguity. Consider `(a`. Is that the start of a tuple expression `(a, b)` or the start of a function expression `(a, b) -> a + b`? We address this in [Pattern Expression Symmetry](#sec-Pattern-Expression-Symmetry).
 

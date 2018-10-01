@@ -74,6 +74,13 @@ export type FunctionParameter = {
   readonly annotation: Type | undefined;
 };
 
+export function FunctionParameter(
+  binding: Pattern,
+  annotation: Type | undefined
+): FunctionParameter {
+  return {binding, annotation};
+}
+
 /**
  * Base classes and concrete classes share a parser AST node. We assert that
  * base classes and concrete classes are well formed in our checking phase.

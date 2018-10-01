@@ -6,6 +6,8 @@ import {
   BindingPattern,
   CallExpression,
   DeconstructPattern,
+  FunctionExpression,
+  FunctionParameter,
   FunctionType,
   GenericType,
   HoleExpression,
@@ -1326,6 +1328,56 @@ describe('expression', () => {
       ),
     },
     {
+      source: 'match a: (_ if b -> c -> d)',
+      result: Ok(
+        MatchExpression(
+          loc('1-27'),
+          ReferenceExpression(loc('7'), ident('a')),
+          [
+            MatchCase(
+              [HolePattern(loc('11'))],
+              ReferenceExpression(loc('16'), ident('b')),
+              FunctionExpression(
+                loc('21-26'),
+                [
+                  FunctionParameter(
+                    BindingPattern(loc('21'), ident('c')),
+                    undefined
+                  ),
+                ],
+                ReferenceExpression(loc('26'), ident('d'))
+              )
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: 'match a: (_ if () -> c -> d)',
+      result: Ok(
+        MatchExpression(
+          loc('1-28'),
+          ReferenceExpression(loc('7'), ident('a')),
+          [
+            MatchCase(
+              [HolePattern(loc('11'))],
+              UnitExpression(loc('16-17')),
+              FunctionExpression(
+                loc('22-27'),
+                [
+                  FunctionParameter(
+                    BindingPattern(loc('22'), ident('c')),
+                    undefined
+                  ),
+                ],
+                ReferenceExpression(loc('27'), ident('d'))
+              )
+            ),
+          ]
+        )
+      ),
+    },
+    {
       source: 'o.p',
       result: Ok(
         MemberExpression(
@@ -1613,6 +1665,16 @@ describe('expression', () => {
             ReferenceExpression(loc('9'), ident('c')),
             ReferenceExpression(loc('12'), ident('d')),
           ]
+        )
+      ),
+    },
+    {
+      source: 'x -> y',
+      result: Ok(
+        FunctionExpression(
+          loc('1-6'),
+          [FunctionParameter(BindingPattern(loc('1'), ident('x')), undefined)],
+          ReferenceExpression(loc('6'), ident('y'))
         )
       ),
     },
