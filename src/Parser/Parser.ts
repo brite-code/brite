@@ -182,10 +182,13 @@ class Parser {
 
     // Assign primary types here and we will parse extensions on those types at
     // the end of this function. Return non-primary types.
-    let primaryType: Type | undefined;
+    let primaryType: Type;
 
-    // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
+    if (
+      // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
+      token.type === TokenType.Glyph &&
+      token.glyph === Glyph.ParenLeft
+    ) {
       // Parse a list of types inside parentheses.
       const start = token.loc.start;
       const types = this.parseCommaList(
@@ -209,10 +212,10 @@ class Parser {
       // Finish parsing either `UnitType`, `TupleType`, or `WrappedType`.
       const loc = new Loc(start, end);
       primaryType = createParenListType(loc, types);
-    }
-
-    // Parse `ReferenceType`.
-    if (token.type === TokenType.Identifier) {
+    } else if (
+      // Parse `ReferenceType`.
+      token.type === TokenType.Identifier
+    ) {
       const identifier = BindingIdentifier.create(token.identifier);
       if (identifier !== undefined) {
         const nextToken = this.peekToken();
@@ -233,11 +236,14 @@ class Parser {
         }
 
         primaryType = ReferenceType(token.loc, identifier);
+      } else {
+        throw UnexpectedTokenError(token, ExpectedType);
       }
-    }
-
-    // Parse `RecordType`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
+    } else if (
+      // Parse `RecordType`.
+      token.type === TokenType.Glyph &&
+      token.glyph === Glyph.BraceLeft
+    ) {
       const start = token.loc.start;
       const properties = this.parseCommaList(() => {
         const key = this.parseName();
@@ -249,10 +255,11 @@ class Parser {
       const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       primaryType = RecordType(loc, properties);
-    }
-
-    // Parse `QuantifiedType`
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
+    } else if (
+      // Parse `QuantifiedType`.
+      token.type === TokenType.Glyph &&
+      token.glyph === Glyph.LessThan
+    ) {
       const start = token.loc.start;
       const typeParameters = this.parseCommaList(
         () => this.parseGenericParameter(),
@@ -261,22 +268,11 @@ class Parser {
       this.nextToken();
       const body = this.parseType();
       return QuantifiedType(new Loc(start, body.loc.end), typeParameters, body);
-    }
-
-    // Return an error if we could not parse a primary type.
-    if (primaryType === undefined) {
+    } else {
       throw UnexpectedTokenError(token, ExpectedType);
     }
 
-    return this.parsePrimaryTypeExtension(primaryType);
-  }
-
-  /**
-   * Parses the extensions to a balanced primary type.
-   */
-  parsePrimaryTypeExtension(primaryType: Type): Type {
-    let type = primaryType;
-
+    // Parse extensions to the `PrimaryType` grammar.
     while (true) {
       const token = this.peekToken();
 
@@ -284,8 +280,8 @@ class Parser {
       if (token.type === TokenType.Glyph && token.glyph === Glyph.Dot) {
         this.nextToken();
         const name = this.parseName();
-        const loc = new Loc(type.loc.start, name.loc.end);
-        type = MemberType(loc, type, name);
+        const loc = new Loc(primaryType.loc.start, name.loc.end);
+        primaryType = MemberType(loc, primaryType, name);
         continue;
       }
 
@@ -297,14 +293,15 @@ class Parser {
           Glyph.GreaterThan
         );
         const end = this.nextToken().loc.end;
-        type = GenericType(new Loc(type.loc.start, end), type, types);
+        const loc = new Loc(primaryType.loc.start, end);
+        primaryType = GenericType(loc, primaryType, types);
         continue;
       }
 
       break;
     }
 
-    return type;
+    return primaryType;
   }
 
   /**
@@ -338,15 +335,19 @@ class Parser {
   parseExpression(): Expression {
     const token = this.nextToken();
 
-    // Parse `ReferenceExpression`.
-    if (token.type === TokenType.Identifier) {
+    let primaryExpression: Expression;
+
+    if (
+      // Parse `ReferenceExpression`.
+      token.type === TokenType.Identifier
+    ) {
       const identifier = BindingIdentifier.create(token.identifier);
       if (identifier !== undefined) {
-        return ReferenceExpression(token.loc, identifier);
-      }
-
-      // Parse `MatchExpression`.
-      if (token.identifier === 'match') {
+        primaryExpression = ReferenceExpression(token.loc, identifier);
+      } else if (
+        // Parse `MatchExpression`.
+        token.identifier === 'match'
+      ) {
         const start = token.loc.start;
         const test = this.parseExpression();
         this.parseGlyph(Glyph.Colon);
@@ -360,20 +361,23 @@ class Parser {
         const end = this.nextToken().loc.end;
         const loc = new Loc(start, end);
         return MatchExpression(loc, test, cases);
+      } else {
+        throw UnexpectedTokenError(token, ExpectedExpression);
       }
-    }
-
-    // Parse `BindingPatternHole`
-    if (
+    } else if (
+      // Parse `BindingPatternHole`
       token.type === TokenType.Keyword &&
       token.keyword === Keyword.Underscore
     ) {
-      return HoleExpression(token.loc);
-    }
-
-    // Parse `UnitExpression`, `TupleExpression`, and `WrappedExpression`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
+      primaryExpression = HoleExpression(token.loc);
+    } else if (
+      // Parse `UnitExpression`, `TupleExpression`, and `WrappedExpression`.
+      token.type === TokenType.Glyph &&
+      token.glyph === Glyph.ParenLeft
+    ) {
       const start = token.loc.start;
+
+      // Parse a list of tuple elements with optional annotations.
       const elements = this.parseCommaList(() => {
         const expression = this.parseExpression();
         const type = this.tryParseGlyph(Glyph.Colon)
@@ -381,20 +385,31 @@ class Parser {
           : undefined;
         return TupleExpressionElement(expression, type);
       }, Glyph.ParenRight);
+
       const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
+
+      // Turn our list of elements into the appropriate expression node. If
+      // there were no elements then we have a unit expression. If there was one
+      // element then we have a simple wrapped expression. If there were many
+      // elements then we have a tuple expression.
       if (elements.length === 0) {
-        return UnitExpression(loc);
+        primaryExpression = UnitExpression(loc);
       } else if (elements.length === 1) {
         const element = elements[0];
-        return WrappedExpression(loc, element.expression, element.type);
+        primaryExpression = WrappedExpression(
+          loc,
+          element.expression,
+          element.type
+        );
       } else {
-        return TupleExpression(loc, Array2.create(elements));
+        primaryExpression = TupleExpression(loc, Array2.create(elements));
       }
-    }
-
-    // Parse `RecordExpression`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.BraceLeft) {
+    } else if (
+      // Parse `RecordExpression`.
+      token.type === TokenType.Glyph &&
+      token.glyph === Glyph.BraceLeft
+    ) {
       const start = token.loc.start;
       let extension: Expression | undefined;
 
@@ -481,11 +496,12 @@ class Parser {
 
       const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
-      return RecordExpression(loc, extension, properties);
-    }
-
-    // Parse `ListExpression`.
-    if (token.type === TokenType.Glyph && token.glyph === Glyph.BracketLeft) {
+      primaryExpression = RecordExpression(loc, extension, properties);
+    } else if (
+      // Parse `ListExpression`.
+      token.type === TokenType.Glyph &&
+      token.glyph === Glyph.BracketLeft
+    ) {
       const start = token.loc.start;
       const items = this.parseCommaList(
         () => this.parseExpression(),
@@ -493,10 +509,12 @@ class Parser {
       );
       const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
-      return ListExpression(loc, items);
+      primaryExpression = ListExpression(loc, items);
+    } else {
+      throw UnexpectedTokenError(token, ExpectedExpression);
     }
 
-    throw UnexpectedTokenError(token, ExpectedExpression);
+    return primaryExpression;
   }
 
   /**
