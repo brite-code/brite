@@ -43,7 +43,7 @@ myFunction() -> (
   // Mutable values may be changed in the current process
   // but cannot be sent to another process.
   mutableValue = MyMutableValue(1)
-  mutableValue.value := 2
+  mutableValue.set(2)
 
   // Immutable values cannot be changed so they may
   // implement the `Send` interface.

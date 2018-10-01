@@ -3,7 +3,11 @@ Brite Language Specification
 
 TODO: Module imports
 
-TODO: Type inference
+TODO: Type inference. [mlsub?](https://github.com/stedolan/mlsub)
+
+TODO: Comments
+
+TODO: Annotations
 
 [Declarations](declarations/index.md)
 

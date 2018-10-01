@@ -11,6 +11,10 @@
     "**/.DS_Store": true,
     "**/node_modules": true
   },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/build": true
+  },
   "html.format.endWithNewline": true,
   "[markdown]": {
     "editor.wordWrap": "wordWrapColumn",
@@ -19,5 +23,8 @@
   "prettier.singleQuote": true,
   "prettier.trailingComma": "es5",
   "prettier.proseWrap": "always",
-  "prettier.bracketSpacing": false
+  "prettier.bracketSpacing": false,
+  "tslint.jsEnable": true,
+  "tslint.alwaysShowRuleFailuresAsWarnings": true,
+  "tslint.autoFixOnSave": true
 }

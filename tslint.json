@@ -13,7 +13,7 @@
     "unified-signatures": true,
     "await-promise": true,
     "ban-comma-operator": true,
-    "curly": true,
+    "curly": [true, "ignore-same-line"],
     "forin": true,
     "label-position": true,
     "no-arg": true,
@@ -86,10 +86,6 @@
     // suppress this lint and document why it’s safe!
     "no-non-null-assertion": true,
 
-    // We expect enabling this rule to improve the design of our application. By
-    // disallowing magic numbers we encourage reuse of common values.
-    "no-magic-numbers": true,
-
     // Use arrow functions for lambdas. Prefer function declarations at the
     // top-level since they are hoistable.
     "only-arrow-functions": [true, "allow-declarations"],
@@ -129,7 +125,7 @@
     "no-reference": true,
     "prefer-for-of": true,
     "ban-comma-operator": true,
-    "curly": true,
+    "curly": [true, "ignore-same-line"],
     "forin": true,
     "label-position": true,
     "no-arg": true,
@@ -182,10 +178,6 @@
       "allow-trailing-underscore",
       "allow-pascal-case"
     ],
-
-    // We expect enabling this rule to improve the design of our application. By
-    // disallowing magic numbers we encourage reuse of common values.
-    "no-magic-numbers": true,
 
     // Use arrow functions for lambdas. Prefer function declarations at the
     // top-level since they are hoistable.

@@ -7,13 +7,13 @@
     "watch": "node scripts/watch.js"
   },
   "dependencies": {
+    "browser-sync": "^2.24.7",
+    "chalk": "^2.4.1",
+    "chokidar": "^2.0.4",
     "spec-md": "^0.6.0"
   },
   "devDependencies": {
     "@types/browser-sync": "^0.0.41",
-    "@types/chokidar": "^1.7.5",
-    "browser-sync": "^2.24.7",
-    "chalk": "^2.4.1",
-    "chokidar": "^2.0.4"
+    "@types/chokidar": "^1.7.5"
   }
 }

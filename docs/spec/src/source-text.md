@@ -19,7 +19,6 @@ BindingKeyword :
   - `return`
   - `loop`
   - `while`
-  - `do`
   - `for`
   - `in`
   - `break`

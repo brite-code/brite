@@ -1,16 +1,7 @@
-import {ResultType} from '../Result';
-import {Loc, Pos} from './Loc';
-import {Identifier, Keyword} from './Identifier';
+import {ResultType} from '../Utils/Result';
 
-/**
- * The type for `Token`.
- */
-export const enum TokenType {
-  Identifier = 'Identifier',
-  Keyword = 'Keyword',
-  Glyph = 'Glyph',
-  Unexpected = 'Unexpected',
-}
+import {Identifier, Keyword} from './Identifier';
+import {Loc, Pos} from './Loc';
 
 /**
  * The type for the domain specific tokens that Brite turns source text into.
@@ -19,7 +10,19 @@ export type Token =
   | IdentifierToken
   | KeywordToken
   | GlyphToken
-  | UnexpectedToken;
+  | UnexpectedCharToken
+  | EndToken;
+
+/**
+ * The type for `Token`.
+ */
+export const enum TokenType {
+  Identifier = 'Identifier',
+  Keyword = 'Keyword',
+  Glyph = 'Glyph',
+  UnexpectedChar = 'UnexpectedChar',
+  End = 'End',
+}
 
 /**
  * An identifier token represents the name of some Brite construct.
@@ -34,6 +37,13 @@ export type IdentifierToken = {
   readonly identifier: Identifier;
 };
 
+export function IdentifierToken(
+  loc: Loc,
+  identifier: Identifier
+): IdentifierToken {
+  return {type: TokenType.Identifier, loc, identifier};
+}
+
 /**
  * A keyword is a reserved identifier. Despite being valid identifiers, keywords
  * are reserved for their use as syntax.
@@ -44,6 +54,10 @@ export type KeywordToken = {
   readonly keyword: Keyword;
 };
 
+export function KeywordToken(loc: Loc, keyword: Keyword): KeywordToken {
+  return {type: TokenType.Keyword, loc, keyword};
+}
+
 /**
  * A glyph is some character or characters which represents, graphically, some
  * behavior of the program. For example, the equals glyph (`=`) graphically
@@ -53,6 +67,7 @@ export const enum Glyph {
   Ampersand = '&',
   AmpersandDouble = '&&',
   Arrow = '->',
+  Assignment = ':=',
   Asterisk = '*',
   Bar = '|',
   BarDouble = '||',
@@ -65,12 +80,15 @@ export const enum Glyph {
   Dot = '.',
   Ellipsis = '...',
   Equals = '=',
+  EqualsDouble = '==',
   Exclamation = '!',
+  FatArrow = '=>',
   GreaterThan = '>',
   GreaterThanOrEqual = '>=',
   LessThan = '<',
   LessThanOrEqual = '<=',
   Minus = '-',
+  NotEquals = '!=',
   ParenLeft = '(',
   ParenRight = ')',
   Percent = '%',
@@ -90,6 +108,10 @@ export type GlyphToken = {
   readonly glyph: Glyph;
 };
 
+export function GlyphToken(loc: Loc, glyph: Glyph): GlyphToken {
+  return {type: TokenType.Glyph, loc, glyph};
+}
+
 /**
  * Sometimes during parsing we encounter a character that we did not expect. In
  * this case we insert an unexpected token. If the parser expected a specific
@@ -99,19 +121,40 @@ export type GlyphToken = {
  * able to continue parsing even in the face of one of these. If there is no
  * unexpected character we arrived at an unexpected ending.
  */
-export type UnexpectedToken = {
-  readonly type: TokenType.Unexpected;
+export type UnexpectedCharToken = {
+  readonly type: TokenType.UnexpectedChar;
   readonly loc: Loc;
-  readonly unexpected: string | null;
-  readonly expected?: string | null;
+  readonly unexpected: string | undefined;
+  readonly expected: string | undefined | false;
 };
+
+export function UnexpectedCharToken(
+  loc: Loc,
+  unexpected: string | undefined,
+  expected: string | undefined | false
+): UnexpectedCharToken {
+  return {type: TokenType.UnexpectedChar, loc, unexpected, expected};
+}
+
+/**
+ * The last token in the file. Once the iterator stops we emit this token and
+ * keep emitting it.
+ */
+export type EndToken = {
+  readonly type: TokenType.End;
+  readonly loc: Loc;
+};
+
+export function EndToken(loc: Loc): EndToken {
+  return {type: TokenType.End, loc};
+}
 
 /**
  * A Brite source program starts its life as a sequence of Unicode characters
  * (graphemes). The lexer is responsible for turning that program into a
  * sequence of domain specific tokens.
  */
-export class Lexer implements Iterator<Token>, Iterable<Token> {
+export class Lexer implements Iterable<Token> {
   /**
    * Creates a new lexer from a source text string.
    */
@@ -124,6 +167,9 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
   private line: number;
   private column: number;
 
+  private peeked1: Token | undefined;
+  private peeked2: Token | undefined;
+
   private readonly chars: PeekableIterator<string>;
 
   private constructor(pos: Pos, chars: PeekableIterator<string>) {
@@ -132,19 +178,67 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
     this.chars = chars;
   }
 
-  [Symbol.iterator](): Lexer {
-    return this;
+  [Symbol.iterator](): Iterator<Token> {
+    return {
+      next: () => {
+        const token = this.next();
+        if (token.type === TokenType.End) {
+          return {done: true, value: token};
+        } else {
+          return {done: false, value: token};
+        }
+      },
+    };
   }
 
-  next(): IteratorResult<Token> {
-    const g = (glyph: Glyph): IteratorResult<Token> => ({
-      done: false,
-      value: {type: TokenType.Glyph, loc: this.currentLoc(), glyph},
-    });
-    const g2 = (loc: Loc, glyph: Glyph): IteratorResult<Token> => ({
-      done: false,
-      value: {type: TokenType.Glyph, loc, glyph},
-    });
+  /**
+   * Look ahead at the next token without advancing the lexer.
+   */
+  peek(): Token {
+    if (this.peeked1 === undefined) {
+      this.peeked1 = this.next();
+    }
+    return this.peeked1;
+  }
+
+  /**
+   * Look ahead two tokens without advancing the lexer.
+   *
+   * Note that this makes our parser LR(2). However, that does not necessarily
+   * mean our parser is exponentially slower than if we had an LR(1) parser. We
+   * only use `peek2()` in a few places where it can make the parser simpler and
+   * faster since there’s less information to store.
+   */
+  peek2() {
+    if (this.peeked1 === undefined) {
+      this.peeked1 = this.next();
+    }
+    if (this.peeked2 === undefined) {
+      const peeked1 = this.peeked1;
+      this.peeked1 = undefined;
+      this.peeked2 = this.next();
+      this.peeked1 = peeked1;
+    }
+    return this.peeked2;
+  }
+
+  /**
+   * Advance the lexer and return the current token.
+   */
+  next(): Token {
+    if (this.peeked1 !== undefined) {
+      const peeked = this.peeked1;
+      if (this.peeked2 !== undefined) {
+        this.peeked1 = this.peeked2;
+        this.peeked2 = undefined;
+      } else {
+        this.peeked1 = undefined;
+      }
+      return peeked;
+    }
+
+    const g = (glyph: Glyph) => GlyphToken(this.currentLoc(), glyph);
+    const g2 = (loc: Loc, glyph: Glyph) => GlyphToken(loc, glyph);
 
     const c = this.nextChar();
     switch (c) {
@@ -160,14 +254,8 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
         return g(Glyph.BracketLeft);
       case ']':
         return g(Glyph.BracketRight);
-      case ':':
-        return g(Glyph.Colon);
       case ',':
         return g(Glyph.Comma);
-      case '=':
-        return g(Glyph.Equals);
-      case '!':
-        return g(Glyph.Exclamation);
       case '(':
         return g(Glyph.ParenLeft);
       case ')':
@@ -207,6 +295,46 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
         return g(Glyph.Bar);
       }
 
+      case ':': {
+        if (this.peekChar() === '=') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.Assignment);
+        }
+        return g(Glyph.Colon);
+      }
+
+      case '=': {
+        if (this.peekChar() === '=') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.EqualsDouble);
+        }
+        if (this.peekChar() === '>') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.FatArrow);
+        }
+        return g(Glyph.Equals);
+      }
+
+      case '!': {
+        if (this.peekChar() === '=') {
+          const start = this.currentPos();
+          this.nextChar();
+          const end = this.currentPos();
+          const loc = new Loc(start, end);
+          return g2(loc, Glyph.NotEquals);
+        }
+        return g(Glyph.Exclamation);
+      }
+
       case '.': {
         if (this.peekChar() === '.') {
           const start = this.currentPos();
@@ -217,15 +345,7 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
             const loc = new Loc(start, end);
             return g2(loc, Glyph.Ellipsis);
           } else {
-            return {
-              done: false,
-              value: {
-                type: TokenType.Unexpected,
-                loc: this.currentLoc(),
-                unexpected: thirdChar,
-                expected: '.',
-              },
-            };
+            return UnexpectedCharToken(this.currentLoc(), thirdChar, '.');
           }
         }
         return g(Glyph.Dot);
@@ -273,8 +393,8 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
       }
 
       // If we have no more characters then we are done!
-      case null:
-        return {done: true, value: undefined as never};
+      case undefined:
+        return EndToken(this.currentLoc());
 
       default: {
         if (Identifier.isStart(c)) {
@@ -311,42 +431,36 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
           const loc = new Loc(start, end);
           const result = Identifier.createAssumingValidSyntax(identifier);
           switch (result.type) {
-            case ResultType.Ok: {
-              return {
-                done: false,
-                value: {
-                  type: TokenType.Identifier,
-                  loc,
-                  identifier: result.value,
-                },
-              };
-            }
-            case ResultType.Err: {
-              return {
-                done: false,
-                value: {
-                  type: TokenType.Keyword,
-                  loc,
-                  keyword: result.value,
-                },
-              };
-            }
+            case ResultType.Ok:
+              return IdentifierToken(loc, result.value);
+            case ResultType.Err:
+              return KeywordToken(loc, result.value);
             default:
               throw new Error('unreachable');
           }
         } else {
           // We found an unexpected character! Return an unexpected token error.
-          return {
-            done: false,
-            value: {
-              type: TokenType.Unexpected,
-              loc: this.currentLoc(),
-              unexpected: c,
-            },
-          };
+          return UnexpectedCharToken(this.currentLoc(), c, false);
         }
       }
     }
+  }
+
+  /**
+   * The current location of the lexer. If the lexer has completed then this
+   * points to the last location of the lexer.
+   */
+  private currentLoc(): Loc {
+    const pos = this.currentPos();
+    return new Loc(pos, pos);
+  }
+
+  /**
+   * The current position of the lexer. If the lexer has completed then this
+   * points to the last position of the lexer.
+   */
+  private currentPos(): Pos {
+    return new Pos(this.line, this.column);
   }
 
   /**
@@ -354,11 +468,14 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
    * Returns undefined if there are no more characters. Updates the
    * lexer position.
    */
-  private nextChar(): string | null {
+  private nextChar(): string | undefined {
     // NOTE: This function should be protected in Brite. So it’s only accessible
     // in this namespace.
     const step = this.chars.next();
-    if (step.done) return null;
+    if (step.done) {
+      this.column += 1;
+      return undefined;
+    }
     if (step.value === '\n') {
       this.line += 1;
       this.column = 0;
@@ -378,21 +495,12 @@ export class Lexer implements Iterator<Token>, Iterable<Token> {
     const step = this.chars.peek();
     return step.done ? undefined : step.value;
   }
-
-  private currentPos(): Pos {
-    return new Pos(this.line, this.column);
-  }
-
-  private currentLoc(): Loc {
-    const pos = this.currentPos();
-    return new Loc(pos, pos);
-  }
 }
 
 /**
  * A peekable iterator allows you to peek the next item without consuming it.
  * Note that peekable iterators do not allow you to pass in a value with
- * `next()`. The interface of `PekableIterator<T>` is much more limited then the
+ * `next()`. The interface of `PeekableIterator<T>` is much more limited then the
  * interface of `Iterator<T>` to allow for peeking.
  */
 interface PeekableIterator<T> {

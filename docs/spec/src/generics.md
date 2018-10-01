@@ -21,7 +21,5 @@ GenericParameterBoundList :
 GenericArguments : `<` GenericArgumentList `>`
 
 GenericArgumentList :
-  - GenericArgument `,`?
-  - GenericArgument `,` GenericArgumentList
-
-GenericArgument : Type
+  - Type `,`?
+  - Type `,` GenericArgumentList

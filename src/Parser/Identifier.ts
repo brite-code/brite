@@ -1,4 +1,4 @@
-import {Result, Ok, Err} from '../Result';
+import {Err, Ok, Result} from '../Utils/Result';
 
 /**
  * Brite identifiers follow the [Unicode identifier specification][1]. Including
@@ -17,6 +17,19 @@ import {Result, Ok, Err} from '../Result';
  */
 export type Identifier = string & typeof IdentifierTag;
 
+// A private symbol we use to make our `Identifier` type emulate an opaque type
+// with an intersection.
+const IdentifierTag = Symbol();
+
+/**
+ * An `Identifier` but without `BindingKeyword`.
+ */
+export type BindingIdentifier = Identifier & typeof BindingIdentifierTag;
+
+// A private symbol we use to make our `BindingIdentifier` type emulate an
+// opaque type with an intersection.
+const BindingIdentifierTag = Symbol();
+
 /**
  * Valid identifier syntax which we reserve for other syntactic purposes. We try
  * to keep the set of keywords small since every keyword we reserve has the
@@ -27,11 +40,51 @@ export const enum Keyword {
   Underscore = '_',
 }
 
-// A private symbol we use to make our `Identifier` type emulate an opaque type
-// with an intersection.
-const IdentifierTag = Symbol();
+/**
+ * Keywords we don’t allow to be used unqualified in bindings. We do this to
+ * reserve some words for syntactic purposes.
+ *
+ * NOTE: We may not need all these keywords.
+ */
+export const enum BindingKeyword {
+  If = 'if',
+  Then = 'then',
+  Else = 'else',
+  Match = 'match',
+  Return = 'return',
+  Loop = 'loop',
+  While = 'while',
+  For = 'for',
+  In = 'in',
+  Break = 'break',
+  Continue = 'continue',
+}
+
+/**
+ * Creates a binding identifier and throws an error if it is not valid.
+ */
+export function ident(source: string): BindingIdentifier {
+  const identifier = Identifier.create(source);
+  if (!identifier) {
+    throw new Error(`Invalid identifier: "${source}"`);
+  }
+  const bindingIdentifier = BindingIdentifier.create(identifier);
+  if (!bindingIdentifier) {
+    throw new Error(`Invalid binding identifier: "${source}"`);
+  }
+  return bindingIdentifier;
+}
 
 export namespace Identifier {
+  /**
+   * Creates an identifier. If the string is not a valid identifier then we
+   * return undefined.
+   */
+  export function create(identifier: string): Identifier | undefined {
+    if (!isIdentifier(identifier)) return undefined;
+    return identifier as any; // tslint:disable-line no-any
+  }
+
   /**
    * Creates an identifier assuming the string provided is valid. Does not even
    * check for keywords.
@@ -47,12 +100,36 @@ export namespace Identifier {
   export function createAssumingValidSyntax(
     identifier: string
   ): Result<Identifier, Keyword> {
-    const keyword = isKeyword(identifier);
+    const keyword = getKeyword(identifier);
     if (keyword === undefined) {
       return Ok(identifier as Identifier);
     } else {
       return Err(keyword);
     }
+  }
+
+  /**
+   * Checks if a string is a valid identifier and that the identifier does not
+   * conflict with any keywords.
+   */
+  export function isIdentifier(identifier: string): boolean {
+    if (identifier.length < 1) return false;
+    let finish = false;
+    for (let i = 0; i < identifier.length; i++) {
+      if (i === 0) {
+        if (!isStart(identifier[0])) return false;
+        continue;
+      }
+      if (!finish && isContinue(identifier[i])) {
+        continue;
+      }
+      if (isFinish(identifier[i])) {
+        if (!finish) finish = true;
+        continue;
+      }
+      return false;
+    }
+    return !getKeyword(identifier);
   }
 
   /**
@@ -91,10 +168,56 @@ export namespace Identifier {
    * Is this string a keyword? If so then return the keyword. Otherwise
    * return undefined.
    */
-  function isKeyword(c: string): Keyword | undefined {
+  export function getKeyword(c: string): Keyword | undefined {
     switch (c) {
       case '_':
         return Keyword.Underscore;
+      default:
+        return undefined;
+    }
+  }
+}
+
+export namespace BindingIdentifier {
+  /**
+   * Creates a `BindingIdentifier` from an identifier. If the identifier
+   * conflicts with a binding identifier keyword then we return none.
+   */
+  export function create(
+    identifier: Identifier
+  ): BindingIdentifier | undefined {
+    if (getKeyword(identifier)) return undefined;
+    return identifier as any; // tslint:disable-line no-any
+  }
+
+  /**
+   * Is this string a binding keyword? If so then return the keyword. Otherwise
+   * return undefined.
+   */
+  export function getKeyword(c: string): BindingKeyword | undefined {
+    switch (c) {
+      case 'if':
+        return BindingKeyword.If;
+      case 'then':
+        return BindingKeyword.Then;
+      case 'else':
+        return BindingKeyword.Else;
+      case 'match':
+        return BindingKeyword.Match;
+      case 'return':
+        return BindingKeyword.Return;
+      case 'loop':
+        return BindingKeyword.Loop;
+      case 'while':
+        return BindingKeyword.While;
+      case 'for':
+        return BindingKeyword.For;
+      case 'in':
+        return BindingKeyword.In;
+      case 'break':
+        return BindingKeyword.Break;
+      case 'continue':
+        return BindingKeyword.Continue;
       default:
         return undefined;
     }

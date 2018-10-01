@@ -3,7 +3,9 @@
 Expression :
   - FunctionExpression
   - ConditionalExpression
+  - MatchExpression
   - ControlExpression
+  - LoopExpression
   - LogicalExpressionOr
 
 PrimaryExpression :
@@ -17,11 +19,13 @@ PrimaryExpression :
   - WrappedExpression
   - BlockExpression but not WrappedExpression
 
-WrappedExpression : `(` Expression TypeAnnotation? `)`
+WrappedExpression : `(` Expression TypeAnnotation? `,`? `)`
 
 The organization of this section might be a bit confusing. We have {Expression} which forms what is effectively a grammar linked-list until we arrive at {PrimaryExpression}. This is because there are complicated [order-of-operations](https://en.wikipedia.org/wiki/Order_of_operations) rules we encode in our grammar. Once we get to {PrimaryExpression} we’re left with simple expressions that have a clear order-of-operations.
 
 Note: Most of the syntax of {WrappedExpression} is ambiguous with {BlockExpression}. In the case where the two are ambiguous {WrappedExpression} wins. In practice, this doesn’t matter since the behavior is exactly the same for the ambiguous syntax. We don’t combine the two since `(x: T)` is valid syntax but not `(x = 42; x: T)`.
+
+Note: {WrappedExpression} allows a trailing comma for consistency as a single element {TupleExpression}.
 
 TODO: Literals. Strings and numbers.
 
@@ -51,58 +55,53 @@ TupleExpressionElement : Expression TypeAnnotation?
 
 ## Record Expression
 
-RecordExpression : `{` RecordExpressionPropertyList? `}`
+RecordExpression : `{` RecordExpressionExtension? RecordExpressionPropertyList? `}`
+
+RecordExpressionExtension : Expression `|`
 
 RecordExpressionPropertyList :
   - RecordExpressionProperty `,`?
   - RecordExpressionProperty `,` RecordExpressionPropertyList
 
 RecordExpressionProperty :
-  - Identifier TypeAnnotation? RecordExpressionPropertyInitializer?
+  - Identifier RecordExpressionPropertyAnnotation? `=` Expression
+  - BindingIdentifier RecordExpressionPropertyAnnotation?
 
-RecordExpressionPropertyInitializer: `=` Expression
+RecordExpressionPropertyAnnotation : `?`? TypeAnnotation
+
+A record is an anonymous collection of some labeled values. Unlike classes which are a named collection of some labeled values. Records allow bundles of values to be easily passed around and serve as the mechanism for named function arguments.
+
+{RecordExpressionExtension} allows for existing properties in a record to be updated with some new values. In JavaScript the spread operator (`{...x, ...y}`) allows many immutable objects to be “merged” at once. However, this operation cannot be easily undone in {Pattern} or in type inference. So Brite restricts extension to only one record at a time.
+
+Class fields may **not** be updated with the record extension syntax.
 
 Note: An empty {RecordExpression} (syntax: `{}`) is the same as a {UnitExpression} (syntax: `()`).
+
+Note: Currently only {RecordExpression} supports extension syntax (`{ x | y = z }`), however {Pattern} and {Type} may also make use of record extension as well to add or remove properties. See [“Extensible records with scoped labels”](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf) for what a complete implementation of a record extension feature might look like. We don’t yet see a need for the feature in its entirety, but it might be worth adding later so we make sure to only implement a subset of the full feature.
 
 ## List Expression
 
 ListExpression : `[` ListExpressionItemList? `]`
 
 ListExpressionItemList :
-  - ListExpressionItem `,`?
-  - ListExpressionItem `,` ListExpressionItemList
-
-ListExpressionItem :
-  - Expression
-  - `...` OperandExpression
+  - Expression `,`?
+  - Expression `,` ListExpressionItemList
 
 ## Match Expression
 
-MatchExpression : `match` Expression `{` MatchCaseList `}`
+MatchExpression : `match` Expression `:` `(` MatchCaseList `)`
 
 MatchCaseList :
   - MatchCase LineSeparator?
   - MatchCase LineSeparator MatchCaseList
 
-MatchCase : Pattern MatchCaseCondition? `->` MatchCaseBody
+MatchCase : MatchCasePatternList MatchCaseCondition? `->` Expression
+
+MatchCasePatternList :
+  - Pattern
+  - MatchCasePatternList `|` Pattern
 
 MatchCaseCondition : `if` Expression
-
-MatchCaseBody :
-  - Expression
-  - ControlStatement
-
-Note: {MatchExpression} cases are surrounded by curly brackets (`{}`) instead of parentheses (`()`). This is aesthetically different from other Brite “blocks.” It makes sense here because our case list is categorically different from what normally goes between parentheses—statements or expressions. This has the side-effect of making parsing {MatchExpression} easier.
-
-## Match Condition Expression
-
-MatchConditionExpression : OperandExpression [lookahead != LineTerminator] `match` Pattern
-
-This feature enables programmers to easily use pattern matching on their data structure at the expression level. Adding a whole new convenient avenue for refining human data into computer types.
-
-Note: Any {BindingPattern} in the {Pattern} will only be bound for code reachable if the {MatchConditionExpression} evaluated to true. If there are two {MatchConditionExpression} in a {BinaryExpressionLogicalOr} and they have the same {BindingPattern}s then they must have the same type.
-
-Note: We force the expression and `match` to be on the same line to avoid syntactic ambiguity.
 
 ## Block Expression
 
@@ -112,7 +111,7 @@ BlockExpressionStatementList :
   - Statement LineSeparator?
   - Statement LineSeparator BlockExpressionStatementList
 
-Note: We could change the syntax so that tuples also accept statement lists. However, then you can write programs with non-obvious operator precedance like: `(x = 1; x, y = 2; y)`. The program `((x = 1; x), (y = 2; y))` is always much clearer so we force that syntax.
+Note: We could change the syntax so that tuples also accept statement lists. However, then you can write programs with non-obvious operator precedence like: `(x = 1; x, y = 2; y)`. The program `((x = 1; x), (y = 2; y))` is always much clearer so we force that syntax.
 
 Note: In {WrappedExpression} we allow an optional {TypeAnnotation}. However, unwrapped annotations are not allowed in expression statements. For consistency we force you to add parentheses around your annotated expressions. You can’t write the program `(x = 1; x: T)`, so you must write `(x = 1; (x: T))`.
 
@@ -155,20 +154,41 @@ Note: Our syntax forbids `a + if x then y else z + b` since {ConditionalExpressi
 
 ControlExpression :
   - ReturnExpression
-  - `break`
-  - `continue`
+  - BreakExpression
+  - ContinueExpression
 
 ReturnExpression :
   - `return` [lookahead LineTerminator]
   - `return` [lookahead != LineTerminator] Expression
 
-Controls the execution of a Brite program. The most common control expression, {ReturnExpression}, allows the programmer to finish the execution of their function early and return the argument passed to the expression. `break` allows the programmer to stop the execution of the loop they are currently in. `continue` allows the programmer to skip the current iteration of the loop they are currently in.
+BreakExpression :
+  - `break` [lookahead LineTerminator]
+  - `break` [lookahead != LineTerminator] Expression
+
+ContinueExpression : `continue`
+
+Controls the execution of a Brite program. The most common control expression, {ReturnExpression}, allows the programmer to finish the execution of their function early and return the argument passed to the expression. {BreakExpression} allows the programmer to stop the execution of the loop they are currently in possibly returning a value from the loop. {ContinueExpression} allows the programmer to skip the current iteration of the loop they are currently in.
 
 Since Brite strongly encourages functional programming, one won’t often see the use of these control expressions as they are only necessary in imperative programming styles. One of the beauties of Brite is that it elegantly allows for both functional and imperative styles.
 
 Note: {ControlExpression} is an expression instead of a statement so that they may be placed anywhere in a expression that is conditionally executed. For example `if x then return y` or `x || continue`.
 
 Note: {ReturnExpression} may only have an {Expression} argument if that expression is on the same line as the `return` token. If there are no more tokens on the same line as the `return` then {ReturnExpression} receives no argument.
+
+## Loop Expression
+
+LoopExpression : `loop` `:` Expression
+
+A {LoopExpression} keeps executing its {Expression} argument until a {BreakExpression} or {ReturnExpression} stops its execution.
+
+Unlike the related loop statements {WhileLoopStatement} and {ForLoopStatement}, {LoopExpression} is an expression and returns a value! The value returned is the argument provided to {BreakExpression}. Returning a value from all the possible exits of {WhileLoopStatement} or {ForLoopStatement} would be too complex to warrant making them expressions.
+
+```ite example
+x = loop: (
+  if i.get() > 5 then break i.get()
+  i.update(i -> i + 1)
+)
+```
 
 ## Logical Expression
 
@@ -191,18 +211,18 @@ Checks whether two values are equal to each other based on some equality interfa
 
 Note: Brite does not support “referential equality” unlike other languages we take inspiration from like JavaScript and OCaml. Since referential equality presumes a certain object layout at runtime. Instead we do deep equality checks. Referential equality checks may be still used underneath the hood as an optimization technique for applicable data structures.
 
-Chained equality expressions of the same kind are treated as a test of the equality for multiple values. That is `a == b == c` is the same as `a == b && b == c`. This makes testing equality for a tripple quite simple.
+Chained equality expressions of the same kind are treated as a test of the equality for multiple values. That is `a == b == c` is the same as `a == b && b == c`. This makes testing equality for three values at once quite simple.
 
 Note: The chaining feature assumes a proper implementation of the equality interface that is transitive since `a == b == c` is only rewritten to `a == b && b == c`. We assume `a == c` so we don’t check that assumption.
 
 ## Relational Expression
 
 RelationalExpression[WithoutLessThan] :
-  - [~WithoutLessThan] RelationalExpression `<` AdditiveExpression
-  - RelationalExpression[WithoutLessThan] `>` AdditiveExpression
-  - RelationalExpression `<=` AdditiveExpression
-  - RelationalExpression `>=` AdditiveExpression
-  - AdditiveExpression
+  - [~WithoutLessThan] RelationalExpression `<` PatternExpression
+  - RelationalExpression[WithoutLessThan] `>` PatternExpression
+  - RelationalExpression `<=` PatternExpression
+  - RelationalExpression `>=` PatternExpression
+  - PatternExpression
 
 Checks the ordering relationship between two values based on some ordering interface defined in the standard library.
 
@@ -211,6 +231,14 @@ Note: We disallow the syntax in {RelationalExpression} for `a < b > c` since ang
 Chained relational expressions in the same direction are treated as a test on the ordering of all the elements. That is `a < b < c` is the same as `a < b && b < c`. This makes testing if a value is in a given range quite easy, for example: `0 <= x <= 20`.
 
 Note: The chaining feature assumes a proper implementation of the ordering interface that is transitive since `a < b < c` is only rewritten to `a < b && b < c`. We assume `a < c` so we don’t check that assumption.
+
+## Pattern Expression
+
+PatternExpression :
+  - PatternExpression `is` Pattern
+  - AdditiveExpression
+
+Tests if an expression matches a pattern. If it does then the expression returns true. We also refine the {PatternExpression} if appropriate.
 
 ## Additive Expression
 

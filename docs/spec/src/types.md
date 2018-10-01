@@ -1,7 +1,9 @@
 # Types
 
 Type :
+  - FunctionType
   - QuantifiedType
+  - PrimaryType
 
 PrimaryType :
   - ReferenceType
@@ -12,7 +14,7 @@ PrimaryType :
   - GenericType
   - WrappedType
 
-WrappedType: `(` Type `)`
+WrappedType: `(` Type `,`? `)`
 
 TypeAnnotation: `:` Type
 
@@ -25,17 +27,27 @@ A type is some static classification of a thing in Brite. Most commonly types re
 
 Note: {TypeAnnotation} is a convenience grammar rule for type annotations which can be fairly common.
 
+Note: {WrappedType} allows a trailing comma for consistency as a single element {TupleType}.
+
 ## Reference Type
 
-ReferenceType : Type
+ReferenceType : BindingIdentifier
 
-A reference to some type of any kind in our type system. If the reference cannot be statically resolved then the programmer will get an error saying so.
+A reference to some type of any type kind in our type system. If the reference cannot be statically resolved then the programmer will get an error saying so.
+
+```ite example
+type Foo = Bar
+```
 
 ## Unit Type
 
 UnitType : `(` `)`
 
 Defines a value type for exactly one value. The unit value `()`.
+
+```ite example
+type Unit = ()
+```
 
 ## Tuple Type
 
@@ -74,11 +86,31 @@ If a {RecordTypeProperty} has a question mark character (`?`) then the property 
 ({}: { x?: Option<Int> }).x == None
 ```
 
+## Function Type
+
+FunctionType :
+  - `(` FunctionTypeParameterList? `)` `->` Type
+  - BindingIdentifier `->` Type
+
+FunctionTypeParameterList :
+  - Type `,`?
+  - Type `,` FunctionTypeParameterList
+
+Defines a value type for a function which takes some values as parameters and returns some value. Functions with named parameters will use record arguments.
+
+```ite example
+type AddInts = (Int, Int) -> Int
+```
+
 ## Member Type
 
 MemberType : PrimaryType `.` Identifier
 
 Resolves a specicic type of any kind from a namespace.
+
+```ite example
+type Component = React.Component
+```
 
 ## Generic Type
 
@@ -86,25 +118,19 @@ GenericType : PrimaryType GenericArguments
 
 Applies some type arguments to a generic type.
 
+```ite example
+type IntMap<T> = Map<Int, T>
+```
+
 ## Quantified Type
 
 QuantifiedType :
-  - GenericParameters QuantifiedType
-  - FunctionType
+  - GenericParameters Type
 
 Introduces fresh type variables into the current type scope. Most often used with {FunctionType} to create a polymorphic function. For example the identity function `<T>(T) -> T`. But in fact, fresh type variables can be introduced anywhere. Like before a type alias `<T> MyAlias<T>`. Note that these type variables are always of the value kind.
 
 See [existentially quantified types](https://en.wikibooks.org/wiki/Haskell/Existentially_quantified_types) in Haskell.
 
-## Function Type
-
-FunctionType :
-  - `(` FunctionTypeParameterList? `)` `->` Type
-  - Identifier `->` Type
-  - PrimaryType
-
-FunctionTypeParameterList :
-  - Type `,`?
-  - Type `,` FunctionTypeParameterList
-
-Defines a value type for a function which takes some values as parameters and returns some value. Functions with named parameters will use record arguments.
+```ite example
+type Identity = <T>(T) -> T
+```
