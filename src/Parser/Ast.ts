@@ -402,14 +402,14 @@ export function UnitExpression(loc: Loc): UnitExpression {
 
 export interface TupleExpression extends Node {
   readonly kind: ExpressionKind.Tuple;
-  readonly expressions: ReadonlyArray2<TupleExpressionElement>;
+  readonly elements: ReadonlyArray2<TupleExpressionElement>;
 }
 
 export function TupleExpression(
   loc: Loc,
-  expressions: ReadonlyArray2<TupleExpressionElement>
+  elements: ReadonlyArray2<TupleExpressionElement>
 ): TupleExpression {
-  return {kind: ExpressionKind.Tuple, loc, expressions};
+  return {kind: ExpressionKind.Tuple, loc, elements};
 }
 
 export type TupleExpressionElement = {
@@ -823,14 +823,14 @@ export function RecordPatternProperty(
 
 export interface ListPattern extends Node {
   readonly kind: PatternKind.List;
-  readonly elements: ReadonlyArray<Pattern>;
+  readonly items: ReadonlyArray<Pattern>;
 }
 
 export function ListPattern(
   loc: Loc,
-  elements: ReadonlyArray<Pattern>
+  items: ReadonlyArray<Pattern>
 ): ListPattern {
-  return {kind: PatternKind.List, loc, elements};
+  return {kind: PatternKind.List, loc, items};
 }
 
 export interface QualifiedPattern extends Node {

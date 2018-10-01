@@ -1,4 +1,4 @@
-import {Err, Ok} from '../Utils/Result';
+import {Err, Ok, ResultType} from '../Utils/Result';
 
 import {
   AliasPattern,
@@ -19,6 +19,7 @@ import {
   MemberExpression,
   MemberType,
   Name,
+  PatternExpression,
   QualifiedPattern,
   QuantifiedType,
   RecordExpression,
@@ -57,6 +58,7 @@ import {BindingIdentifier, Identifier, ident} from './Identifier';
 import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from './Lexer';
 import {loc} from './Loc';
 import {
+  expressionIntoPattern,
   parseCommaListTest,
   parseExpression,
   parseLineSeparatorListTest,
@@ -1111,9 +1113,29 @@ describe('expression', () => {
     },
     {
       source: '{ x is T | a = b }',
+      result: Ok(
+        RecordExpression(
+          loc('1-18'),
+          PatternExpression(
+            loc('3-8'),
+            ReferenceExpression(loc('3'), ident('x')),
+            BindingPattern(loc('8'), ident('T'))
+          ),
+          [
+            RecordExpressionProperty(
+              Name(loc('12'), ident('a')),
+              ReferenceExpression(loc('16'), ident('b')),
+              undefined
+            ),
+          ]
+        )
+      ),
+    },
+    {
+      source: '{ x == y | a = b }',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('5-6'), ident('is')),
+          GlyphToken(loc('5-6'), Glyph.EqualsDouble),
           ExpectedGlyph(Glyph.Bar)
         )
       ),
@@ -1674,6 +1696,53 @@ describe('expression', () => {
         )
       ),
     },
+    {
+      source: 'x is ()',
+      result: Ok(
+        PatternExpression(
+          loc('1-7'),
+          ReferenceExpression(loc('1'), ident('x')),
+          UnitPattern(loc('6-7'))
+        )
+      ),
+    },
+    {
+      source: 'if is ()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: '() is ()',
+      result: Ok(
+        PatternExpression(
+          loc('1-8'),
+          UnitExpression(loc('1-2')),
+          UnitPattern(loc('7-8'))
+        )
+      ),
+    },
+    {
+      source: '() is () is ()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('10-11'), ident('is')),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'x\nis ()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('2:1-2:2'), ident('is')),
+          ExpectedEnd
+        )
+      ),
+    },
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseExpression(lex(source))).toEqual(result);
@@ -1682,7 +1751,7 @@ describe('expression', () => {
 });
 
 describe('pattern', () => {
-  [
+  const cases = [
     {
       source: 'foo',
       result: Ok(BindingPattern(loc('1-3'), ident('foo'))),
@@ -2268,9 +2337,48 @@ describe('pattern', () => {
         )
       ),
     },
-  ].forEach(({source, result}) => {
+    {
+      source: 'x\nis ()',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('2:1-2:2'), ident('is')),
+          ExpectedEnd
+        )
+      ),
+    },
+  ];
+
+  cases.forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parsePattern(lex(source))).toEqual(result);
+    });
+  });
+
+  describe('from expression', () => {
+    cases.forEach(({source, result: expectedResult}) => {
+      test(source.replace(/\n/g, '\\n'), () => {
+        const result = parseExpression(lex(source));
+        switch (result.type) {
+          case ResultType.Ok: {
+            const pattern = expressionIntoPattern(result.value);
+            if (!pattern) {
+              throw new Error('Could not convert expression into pattern.');
+            }
+            expect(Ok(pattern)).toEqual(expectedResult);
+            break;
+          }
+          case ResultType.Err: {
+            const error = UnexpectedTokenError(
+              result.value.unexpected,
+              result.value.expected === ExpectedExpression
+                ? ExpectedPattern
+                : result.value.expected
+            );
+            expect(Err(error)).toEqual(expectedResult);
+            break;
+          }
+        }
+      });
     });
   });
 });

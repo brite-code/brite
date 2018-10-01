@@ -8,6 +8,7 @@ import {
   CallExpression,
   DeconstructPattern,
   Expression,
+  ExpressionKind,
   FunctionExpression,
   FunctionParameter,
   FunctionType,
@@ -22,6 +23,7 @@ import {
   MemberType,
   Name,
   Pattern,
+  PatternExpression,
   QualifiedPattern,
   QuantifiedType,
   RecordExpression,
@@ -333,16 +335,17 @@ class Parser {
    * Parses the `Expression` grammar.
    */
   parseExpression({
-    skipFunction = false,
+    notFunction = false,
   }: {
-    skipFunction?: boolean;
+    notFunction?: boolean;
   } = {}): Expression {
     const token = this.nextToken();
 
     let primaryExpression: Expression;
 
     if (
-      // Parse `ReferenceExpression`.
+      // Parse `ReferenceExpression`, `MatchExpression`,
+      // and `FunctionExpression`.
       token.type === TokenType.Identifier
     ) {
       const identifier = BindingIdentifier.create(token.identifier);
@@ -350,7 +353,7 @@ class Parser {
       // Otherwise we might have a `BindingKeyword` that we might want to parse.
       if (identifier !== undefined) {
         // Parse `FunctionExpression` identifier shorthand.
-        if (!skipFunction && this.tryParseGlyph(Glyph.Arrow)) {
+        if (!notFunction && this.tryParseGlyph(Glyph.Arrow)) {
           const parameter = FunctionParameter(
             BindingPattern(token.loc, identifier),
             undefined
@@ -387,7 +390,7 @@ class Parser {
           // this match case.
           let test: Expression | undefined;
           if (this.tryParseBindingKeyword(BindingKeyword.If)) {
-            test = this.parseExpression({skipFunction: true});
+            test = this.parseExpression({notFunction: true});
           }
 
           // Parse the arrow and then the expression body of this case which
@@ -413,7 +416,8 @@ class Parser {
     ) {
       primaryExpression = HoleExpression(token.loc);
     } else if (
-      // Parse `UnitExpression`, `TupleExpression`, and `WrappedExpression`.
+      // Parse `UnitExpression`, `TupleExpression`, `WrappedExpression`,
+      // and `FunctionExpression`.
       token.type === TokenType.Glyph &&
       token.glyph === Glyph.ParenLeft
     ) {
@@ -427,8 +431,14 @@ class Parser {
           : undefined;
         return TupleExpressionElement(expression, type);
       }, Glyph.ParenRight);
-
       const end = this.nextToken().loc.end;
+
+      // If there is an arrow after the parentheses closes then we want to parse
+      // a `FunctionExpression`.
+      if (!notFunction && this.tryParseGlyph(Glyph.Arrow)) {
+        throw new Error('unimplemented');
+      }
+
       const loc = new Loc(start, end);
 
       // Turn our list of elements into the appropriate expression node. If
@@ -609,6 +619,15 @@ class Parser {
       }
 
       break;
+    }
+
+    // Parse `PatternExpression`.
+    //
+    // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
+    if (this.tryParseInformalKeywordOnSameLine('is')) {
+      const pattern = this.parsePattern();
+      const loc = new Loc(token.loc.start, pattern.loc.end);
+      return PatternExpression(loc, primaryExpression, pattern);
     }
 
     return primaryExpression;
@@ -1022,5 +1041,137 @@ function createParenListType(loc: Loc, types: Array<Type>): Type {
     return WrappedType(loc, types[0]);
   } else {
     return TupleType(loc, Array2.create(types));
+  }
+}
+
+/**
+ * Attempts to convert an expression into a pattern. Pattern syntax is a subset
+ * of expression syntax. This allows us to write an efficient parser while also
+ * supporting code like:
+ *
+ * ```ite
+ * (a, b, c) // Expression
+ * (a, b, c) = x // Pattern
+ * (a, b, c) -> x // Pattern
+ * ```
+ *
+ * This function returns nothing if the expression is not a valid pattern.
+ */
+export function expressionIntoPattern(e: Expression): Pattern | undefined {
+  switch (e.kind) {
+    case ExpressionKind.Reference:
+      return BindingPattern(e.loc, e.identifier);
+    case ExpressionKind.Hole:
+      return HolePattern(e.loc);
+    case ExpressionKind.Unit:
+      return UnitPattern(e.loc);
+    case ExpressionKind.Tuple: {
+      const elements = Array<TuplePatternElement>(e.elements.length);
+      for (let i = 0; i < e.elements.length; i++) {
+        const {expression, type} = e.elements[i];
+        const pattern = expressionIntoPattern(expression);
+        if (pattern === undefined) return undefined;
+        elements[i] = TuplePatternElement(pattern, type);
+      }
+      return TuplePattern(e.loc, Array2.create(elements));
+    }
+    case ExpressionKind.Record: {
+      if (e.extension !== undefined) return undefined;
+      const properties = Array<RecordPatternProperty>(e.properties.length);
+      for (let i = 0; i < e.properties.length; i++) {
+        const {key, value, type, optional} = e.properties[i];
+        const pattern = expressionIntoPattern(value);
+        if (pattern === undefined) return undefined;
+        properties[i] = RecordPatternProperty(key, pattern, type, {optional});
+      }
+      return RecordPattern(e.loc, properties);
+    }
+    case ExpressionKind.List: {
+      const items = Array<Pattern>(e.items.length);
+      for (let i = 0; i < e.items.length; i++) {
+        const item = expressionIntoPattern(e.items[i]);
+        if (item === undefined) return undefined;
+        items[i] = item;
+      }
+      return ListPattern(e.loc, items);
+    }
+    case ExpressionKind.Member: {
+      const identifiers: Array<Name> = [];
+      const stack: Array<[boolean, MemberExpression]> = [[false, e]];
+      while (stack.length !== 0) {
+        const [done, member] = stack.pop()!; // tslint:disable-line no-non-null-assertion
+        if (done === true) {
+          identifiers.push(member.member);
+        } else {
+          stack.push([true, member]);
+          const namespace = member.namespace;
+          if (namespace.kind === ExpressionKind.Reference) {
+            identifiers.push(Name(namespace.loc, namespace.identifier));
+          } else if (namespace.kind === ExpressionKind.Member) {
+            stack.push([false, namespace]);
+          } else {
+            return undefined;
+          }
+        }
+      }
+      return QualifiedPattern(e.loc, Array2.create(identifiers));
+    }
+    case ExpressionKind.Call: {
+      if (e.typeArguments.length > 0) return undefined;
+      const identifiers: Array<Name> = [];
+      const callee = e.callee;
+      if (callee.kind === ExpressionKind.Reference) {
+        identifiers.push(Name(callee.loc, callee.identifier));
+      } else if (callee.kind === ExpressionKind.Member) {
+        const stack: Array<[boolean, MemberExpression]> = [[false, callee]];
+        while (stack.length !== 0) {
+          const [done, member] = stack.pop()!; // tslint:disable-line no-non-null-assertion
+          if (done === true) {
+            identifiers.push(member.member);
+          } else {
+            stack.push([true, member]);
+            const namespace = member.namespace;
+            if (namespace.kind === ExpressionKind.Reference) {
+              identifiers.push(Name(namespace.loc, namespace.identifier));
+            } else if (namespace.kind === ExpressionKind.Member) {
+              stack.push([false, namespace]);
+            } else {
+              return undefined;
+            }
+          }
+        }
+      } else {
+        return undefined;
+      }
+      const args = Array<Pattern>(e.arguments.length);
+      for (let i = 0; i < e.arguments.length; i++) {
+        const arg = expressionIntoPattern(e.arguments[i]);
+        if (arg === undefined) return undefined;
+        args[i] = arg;
+      }
+      return DeconstructPattern(e.loc, Array1.create(identifiers), args);
+    }
+    case ExpressionKind.Pattern: {
+      if (e.left.kind !== ExpressionKind.Reference) return undefined;
+      const alias = BindingName(e.left.loc, e.left.identifier);
+      return AliasPattern(e.loc, alias, e.right);
+    }
+    case ExpressionKind.Wrapped: {
+      const pattern = expressionIntoPattern(e.expression);
+      if (pattern === undefined) return undefined;
+      return WrappedPattern(e.loc, pattern, e.type);
+    }
+    case ExpressionKind.Function:
+    case ExpressionKind.Conditional:
+    case ExpressionKind.Match:
+    case ExpressionKind.Return:
+    case ExpressionKind.Break:
+    case ExpressionKind.Continue:
+    case ExpressionKind.Loop:
+    case ExpressionKind.Logical:
+    case ExpressionKind.Binary:
+    case ExpressionKind.Unary:
+    case ExpressionKind.Block:
+      return undefined;
   }
 }

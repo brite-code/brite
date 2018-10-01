@@ -9,7 +9,6 @@
     "adjacent-overload-signatures": true,
     "no-reference": true,
     "no-unnecessary-type-assertion": true,
-    "prefer-for-of": true,
     "unified-signatures": true,
     "await-promise": true,
     "ban-comma-operator": true,
@@ -123,7 +122,6 @@
   "jsRules": {
     "member-ordering": [true, {"order": "statics-first"}],
     "no-reference": true,
-    "prefer-for-of": true,
     "ban-comma-operator": true,
     "curly": [true, "ignore-same-line"],
     "forin": true,

@@ -100,13 +100,13 @@ match color: (
 
 ## Deconstruct Pattern
 
-DeconstructPattern : DeconstructPatternCallee DeconstructPatternArguments
+DeconstructPattern : DeconstructPatternCallee [lookahead != LineTerminator] DeconstructPatternArguments
 
 DeconstructPatternCallee :
   - BindingIdentifier
   - DeconstructPatternCallee `.` Identifier
 
-DeconstructPatternArguments : [lookahead != LineTerminator] `(` DeconstructPatternArgumentList? `)`
+DeconstructPatternArguments : `(` DeconstructPatternArgumentList? `)`
 
 DeconstructPatternArgumentList :
   - Pattern `,`?
