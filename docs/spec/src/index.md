@@ -3,7 +3,7 @@ Brite Language Specification
 
 TODO: Module imports
 
-TODO: Type inference. [mlsub?](https://github.com/stedolan/mlsub)
+TODO: Type inference. [MLF?](http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf) [MLsub?](https://github.com/stedolan/mlsub)
 
 TODO: Comments
 
