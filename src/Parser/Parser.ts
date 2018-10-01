@@ -334,7 +334,9 @@ class Parser {
    */
   parseExpression({
     skipFunction = false,
-  }: {skipFunction?: boolean} = {}): Expression {
+  }: {
+    skipFunction?: boolean;
+  } = {}): Expression {
     const token = this.nextToken();
 
     let primaryExpression: Expression;
@@ -582,7 +584,7 @@ class Parser {
       }
 
       // Parse `CallExpression` with `GenericArguments`.
-      if (this.tryParseGlyph(Glyph.LessThan)) {
+      if (this.tryParseGlyphOnSameLine(Glyph.LessThan)) {
         // Parse the type arguments first.
         const typeArgs = this.parseCommaList(
           () => this.parseType(),

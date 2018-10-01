@@ -126,8 +126,7 @@ MemberExpression : PrimaryExpression `.` Identifier
 ## Call Expression
 
 CallExpression :
-  - PrimaryExpression [lookahead != LineTerminator] CallExpressionArguments
-  - PrimaryExpression GenericArguments CallExpressionArguments
+  - PrimaryExpression [lookahead != LineTerminator] GenericArguments? CallExpressionArguments
 
 CallExpressionArguments : `(` CallExpressionArgumentList? `)`
 
@@ -135,7 +134,7 @@ CallExpressionArgumentList :
   - Expression `,`?
   - Expression `,` CallExpressionArgumentList
 
-Note: {CallExpressionArguments} notes that there cannot be a {LineTerminator} in between the expression we are calling and the arguments. Since on a newline the arguments would be ambiguous with a {TupleExpression} statement.
+Note: {CallExpression} notes that there cannot be a {LineTerminator} in between the expression we are calling and the arguments. Since on a newline the arguments would be ambiguous with a {TupleExpression} statement.
 
 Note: {GenericArguments} introduces ambiguity with {RelationalExpression} for LR(1) parsers. Brite implementations will have to deal with this. For example `f < x > ()` could be interpreted as two {RelationalExpression}.
 

@@ -1579,12 +1579,10 @@ describe('expression', () => {
     },
     {
       source: 'f\n<>()',
-      result: Ok(
-        CallExpression(
-          loc('1:1-2:4'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [],
-          []
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2:1'), Glyph.LessThan),
+          ExpectedEnd
         )
       ),
     },
@@ -1601,12 +1599,10 @@ describe('expression', () => {
     },
     {
       source: 'f\n<>\n()',
-      result: Ok(
-        CallExpression(
-          loc('1:1-3:2'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [],
-          []
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('2:1'), Glyph.LessThan),
+          ExpectedEnd
         )
       ),
     },
