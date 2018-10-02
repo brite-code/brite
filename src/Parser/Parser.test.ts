@@ -2064,6 +2064,12 @@ describe('expression', () => {
         )
       ),
     },
+    {
+      source: 'a + if x then y else z + b',
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('3'), Glyph.Plus), ExpectedEnd)
+      ),
+    },
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseExpression(lex(source))).toEqual(result);
