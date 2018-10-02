@@ -6,7 +6,9 @@ Expression :
   - MatchExpression
   - ControlExpression
   - LoopExpression
-  - LogicalExpressionOr
+  - OperatorExpression
+
+OperatorExpression : LogicalExpressionOr
 
 PrimaryExpression :
   - ReferenceExpression
@@ -21,7 +23,7 @@ PrimaryExpression :
 
 WrappedExpression : `(` Expression TypeAnnotation? `,`? `)`
 
-The organization of this section might be a bit confusing. We have {Expression} which forms what is effectively a grammar linked-list until we arrive at {PrimaryExpression}. This is because there are complicated [order-of-operations](https://en.wikipedia.org/wiki/Order_of_operations) rules we encode in our grammar. Once we get to {PrimaryExpression} we’re left with simple expressions that have a clear order-of-operations.
+The organization of this section might be a bit confusing. We have {OperatorExpression} which forms what is effectively a grammar linked-list until we arrive at {PrimaryExpression}. This is because there are complicated [order-of-operations](https://en.wikipedia.org/wiki/Order_of_operations) rules we encode in our grammar. Once we get to {PrimaryExpression} we’re left with simple expressions that have a clear order-of-operations.
 
 Note: Most of the syntax of {WrappedExpression} is ambiguous with {BlockExpression}. In the case where the two are ambiguous {WrappedExpression} wins. In practice, this doesn’t matter since the behavior is exactly the same for the ambiguous syntax. We don’t combine the two since `(x: T)` is valid syntax but not `(x = 42; x: T)`.
 
@@ -101,9 +103,9 @@ MatchCasePatternList :
   - Pattern
   - MatchCasePatternList `|` Pattern
 
-MatchCaseCondition : `if` LogicalExpressionOr
+MatchCaseCondition : `if` OperatorExpression
 
-Note: {MatchCaseCondition} is followed by an arrow (`->`) so we only parse {LogicalExpressionOr} instead of a full {Expression} so that function expressions won’t parse. Consider: `match a: (_ if b -> c -> d)`. Is it equivalent to `match a: (_ if (b -> c) -> d)` or `match a: (_ if b -> (c -> d))`? With our restriction on {MatchCaseCondition} it is equivalent to the latter. Also consider a similar case `match a: (_ if return b -> c -> d)` which we want to be interpreted as `match a: (_ if (return b) -> (c -> d))`.
+Note: {MatchCaseCondition} is followed by an arrow (`->`) so we only parse {OperatorExpression} instead of a full {Expression} so that function expressions won’t parse. Consider: `match a: (_ if b -> c -> d)`. Is it equivalent to `match a: (_ if (b -> c) -> d)` or `match a: (_ if b -> (c -> d))`? With our restriction on {MatchCaseCondition} it is equivalent to the latter. Also consider a similar case `match a: (_ if return b -> c -> d)` which we want to be interpreted as `match a: (_ if (return b) -> (c -> d))`.
 
 ## Block Expression
 

@@ -2237,8 +2237,18 @@ describe('expression', () => {
       source: 'match a: (_ if if b then c else d -> e -> f)',
       result: Err(
         UnexpectedTokenError(
-          GlyphToken(loc('44'), Glyph.ParenRight),
-          ExpectedGlyph(Glyph.Arrow)
+          IdentifierToken(loc('16-17'), 'if' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: '_.p',
+      result: Ok(
+        MemberExpression(
+          loc('1-3'),
+          HoleExpression(loc('1')),
+          Name(loc('3'), ident('p'))
         )
       ),
     },

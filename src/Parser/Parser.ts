@@ -307,7 +307,6 @@ class Parser {
         primaryType = GenericType(loc, primaryType, types);
         continue;
       }
-
       break;
     }
 
@@ -338,47 +337,13 @@ class Parser {
   /**
    * Parses the `Expression` grammar.
    */
-  parseExpression({
-    notFunction = false,
-  }: {
-    notFunction?: boolean;
-  } = {}): Expression {
-    const token = this.nextToken();
+  parseExpression(): Expression {
+    const token = this.peekToken();
 
-    let primaryExpression: Expression;
-
-    if (
-      // Parse `ReferenceExpression`, `MatchExpression`,
-      // and `FunctionExpression`.
-      token.type === TokenType.Identifier
-    ) {
-      const identifier = BindingIdentifier.create(token.identifier);
-      // If we have a `BindingIdentifier` then we have a reference expression.
-      // Otherwise we might have a `BindingKeyword` that we might want to parse.
-      if (identifier !== undefined) {
-        // Parse `FunctionExpression` identifier shorthand.
-        if (!notFunction && this.tryParseGlyph(Glyph.Arrow)) {
-          const parameter = FunctionParameter(
-            BindingPattern(token.loc, identifier),
-            undefined
-          );
-          const body = this.parseExpression();
-          const loc = new Loc(token.loc.start, body.loc.end);
-          return FunctionExpression(loc, [], [parameter], body);
-        }
-
-        // Return the reference expression.
-        primaryExpression = ReferenceExpression(token.loc, identifier);
-      } else if (
-        // Parse `BindingPatternHole`.
-        token.identifier === '_'
-      ) {
-        primaryExpression = HoleExpression(token.loc);
-      } else if (
-        // Parse `ConditionalExpression`.
-        token.identifier === 'if'
-      ) {
-        const start = token.loc.start;
+    if (token.type === TokenType.Identifier) {
+      // Parse `ConditionalExpression`.
+      if (token.identifier === 'if') {
+        const start = this.nextToken().loc.start;
 
         // Parse the test expression for the conditional and the consequent
         // expression. Then we need to check for an optional
@@ -394,11 +359,11 @@ class Parser {
 
         const loc = new Loc(start, this.currentLoc.end);
         return ConditionalExpression(loc, test, consequent, alternate);
-      } else if (
-        // Parse `MatchExpression`.
-        token.identifier === 'match'
-      ) {
-        const start = token.loc.start;
+      }
+
+      // Parse `MatchExpression`.
+      if (token.identifier === 'match') {
+        const start = this.nextToken().loc.start;
 
         // First, we need to parse the expression that we are testing in this
         // match. After that we expect a colon to separate the match body.
@@ -419,7 +384,7 @@ class Parser {
           // this match case.
           let test: Expression | undefined;
           if (this.tryParseKeyword('if')) {
-            test = this.parseExpression({notFunction: true});
+            test = this.parseOperatorExpression();
           }
 
           // Parse the arrow and then the expression body of this case which
@@ -434,30 +399,150 @@ class Parser {
         const end = this.nextToken().loc.end;
         const loc = new Loc(start, end);
         return MatchExpression(loc, test, cases);
-      } else if (
-        // Parse `ReturnExpression`.
-        token.identifier === 'return'
-      ) {
+      }
+
+      // Parse `ReturnExpression`.
+      if (token.identifier === 'return') {
         // Unimplemented
+        this.nextToken();
         throw UnexpectedTokenError(token, ExpectedExpression);
-      } else if (
-        // Parse `BreakExpression`.
-        token.identifier === 'break'
-      ) {
+      }
+
+      // Parse `BreakExpression`.
+      if (token.identifier === 'break') {
         // Unimplemented
+        this.nextToken();
         throw UnexpectedTokenError(token, ExpectedExpression);
-      } else if (
-        // Parse `ContinueExpression`.
-        token.identifier === 'continue'
-      ) {
-        return ContinueExpression(token.loc);
+      }
+
+      // Parse `ContinueExpression`.
+      if (token.identifier === 'continue') {
+        return ContinueExpression(this.nextToken().loc);
+      }
+    }
+
+    // Parse `FunctionExpression` with generic parameters.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.LessThan) {
+      // Parse the generic type parameters for our function expression.
+      this.nextToken();
+      const typeParameters = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.nextToken();
+
+      // Parse the value parameters for our function expression.
+      this.parseGlyph(Glyph.ParenLeft);
+      const parameters = this.parseCommaList(() => {
+        const pattern = this.parsePattern();
+        const type = this.tryParseGlyph(Glyph.Colon)
+          ? this.parseType()
+          : undefined;
+        return FunctionParameter(pattern, type);
+      }, Glyph.ParenRight);
+      this.nextToken();
+
+      // Parse the body of our function expression.
+      this.parseGlyph(Glyph.Arrow);
+      const body = this.parseExpression();
+
+      const loc = new Loc(token.loc.start, body.loc.end);
+      return FunctionExpression(loc, typeParameters, parameters, body);
+    }
+
+    const expression = this.parseOperatorExpression();
+
+    // Try to parse a `FunctionExpression`.
+    const nextToken = this.peekToken();
+    if (nextToken.type === TokenType.Glyph && nextToken.glyph === Glyph.Arrow) {
+      // Parse `FunctionExpression` shorthand.
+      if (expression.kind === ExpressionKind.Reference) {
+        this.nextToken();
+        const parameter = FunctionParameter(
+          BindingPattern(expression.loc, expression.identifier),
+          undefined
+        );
+        const body = this.parseExpression();
+        const loc = new Loc(expression.loc.start, body.loc.end);
+        return FunctionExpression(loc, [], [parameter], body);
+      }
+
+      // Parse `FunctionExpression` with no arguments.
+      if (expression.kind === ExpressionKind.Unit) {
+        this.nextToken();
+        const body = this.parseExpression();
+        const loc = new Loc(expression.loc.start, body.loc.end);
+        return FunctionExpression(loc, [], [], body);
+      }
+
+      // Parse `FunctionExpression` with one argument.
+      if (expression.kind === ExpressionKind.Wrapped) {
+        this.nextToken();
+        const parameter = FunctionParameter(
+          expressionIntoPattern(nextToken, expression.expression),
+          expression.type
+        );
+        const body = this.parseExpression();
+        const loc = new Loc(expression.loc.start, body.loc.end);
+        return FunctionExpression(loc, [], [parameter], body);
+      }
+
+      // Parse `FunctionExpression` with many arguments.
+      if (expression.kind === ExpressionKind.Tuple) {
+        this.nextToken();
+        const parameters = expression.elements.map(element =>
+          FunctionParameter(
+            expressionIntoPattern(nextToken, element.expression),
+            element.type
+          )
+        );
+        const body = this.parseExpression();
+        const loc = new Loc(expression.loc.start, body.loc.end);
+        return FunctionExpression(loc, [], parameters, body);
+      }
+    }
+
+    return expression;
+  }
+
+  /**
+   * Parse the `OperatorExpression` grammar.
+   */
+  parseOperatorExpression(): Expression {
+    const expression = this.parsePrimaryExpression();
+
+    // Parse `PatternExpression`.
+    //
+    // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
+    if (this.tryParseKeywordOnSameLine('is')) {
+      const pattern = this.parsePattern();
+      const loc = new Loc(expression.loc.start, pattern.loc.end);
+      return PatternExpression(loc, expression, pattern);
+    }
+
+    return expression;
+  }
+
+  /**
+   * Parse the `PrimaryExpression` grammar.
+   */
+  parsePrimaryExpression(): Expression {
+    const token = this.nextToken();
+
+    let primaryExpression: Expression;
+
+    // Parse `ReferenceExpression` and `BindingHolePattern`.
+    if (token.type === TokenType.Identifier) {
+      const identifier = BindingIdentifier.create(token.identifier);
+      if (identifier !== undefined) {
+        primaryExpression = ReferenceExpression(token.loc, identifier);
+      } else if (token.identifier === '_') {
+        primaryExpression = HoleExpression(token.loc);
       } else {
-        // If we have a keyword that we don’t use then throw an error.
         throw UnexpectedTokenError(token, ExpectedExpression);
       }
     } else if (
-      // Parse `UnitExpression`, `TupleExpression`, `WrappedExpression`,
-      // and `FunctionExpression`.
+      // Parse `UnitExpression`, `TupleExpression`, and `WrappedExpression`.
       token.type === TokenType.Glyph &&
       token.glyph === Glyph.ParenLeft
     ) {
@@ -471,40 +556,8 @@ class Parser {
           : undefined;
         return TupleExpressionElement(expression, type);
       }, Glyph.ParenRight);
-      this.nextToken();
-
-      // If there is an arrow after the parentheses closes then we want to parse
-      // a `FunctionExpression`.
-      const nextToken = this.peekToken();
-      if (
-        !notFunction &&
-        nextToken.type === TokenType.Glyph &&
-        nextToken.glyph === Glyph.Arrow
-      ) {
-        this.nextToken();
-        const parameters = Array<FunctionParameter>(elements.length);
-
-        // Convert all the tuple expression elements into function parameters
-        // which are patterns. If the expression into pattern conversion fails
-        // then an error will be thrown pointing at the expression and the
-        // arrow token.
-        for (let i = 0; i < elements.length; i++) {
-          const {expression, type} = elements[i];
-          const pattern = expressionIntoPattern(nextToken, expression);
-          parameters[i] = FunctionParameter(pattern, type);
-        }
-
-        // Parse the body of this expression on the right-hand-side of
-        // the arrow.
-        const body = this.parseExpression();
-
-        const loc = new Loc(start, body.loc.end);
-        return FunctionExpression(loc, [], parameters, body);
-      }
-
-      // Create a location for this tuple. If we did not find an arrow then our
-      // current location will still be the closing parentheses.
-      const loc = new Loc(start, this.currentLoc.end);
+      const end = this.nextToken().loc.end;
+      const loc = new Loc(start, end);
 
       // Turn our list of elements into the appropriate expression node. If
       // there were no elements then we have a unit expression. If there was one
@@ -632,35 +685,6 @@ class Parser {
       const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       primaryExpression = ListExpression(loc, items);
-    } else if (
-      // Parse `FunctionExpression` with generic parameters.
-      token.type === TokenType.Glyph &&
-      token.glyph === Glyph.LessThan
-    ) {
-      // Parse the generic type parameters for our function expression.
-      const typeParameters = this.parseCommaList(
-        () => this.parseGenericParameter(),
-        Glyph.GreaterThan
-      );
-      this.nextToken();
-
-      // Parse the value parameters for our function expression.
-      this.parseGlyph(Glyph.ParenLeft);
-      const parameters = this.parseCommaList(() => {
-        const pattern = this.parsePattern();
-        const type = this.tryParseGlyph(Glyph.Colon)
-          ? this.parseType()
-          : undefined;
-        return FunctionParameter(pattern, type);
-      }, Glyph.ParenRight);
-      this.nextToken();
-
-      // Parse the body of our function expression.
-      this.parseGlyph(Glyph.Arrow);
-      const body = this.parseExpression();
-
-      const loc = new Loc(token.loc.start, body.loc.end);
-      return FunctionExpression(loc, typeParameters, parameters, body);
     } else {
       throw UnexpectedTokenError(token, ExpectedExpression);
     }
@@ -711,17 +735,7 @@ class Parser {
         );
         continue;
       }
-
       break;
-    }
-
-    // Parse `PatternExpression`.
-    //
-    // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
-    if (this.tryParseKeywordOnSameLine('is')) {
-      const pattern = this.parsePattern();
-      const loc = new Loc(token.loc.start, pattern.loc.end);
-      return PatternExpression(loc, primaryExpression, pattern);
     }
 
     return primaryExpression;
