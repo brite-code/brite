@@ -3,6 +3,8 @@ import {Err, Ok, Result} from '../Utils/Result';
 
 import {
   AliasPattern,
+  BinaryExpression,
+  BinaryExpressionOperator,
   BindingName,
   BindingPattern,
   CallExpression,
@@ -511,18 +513,40 @@ class Parser {
    * Parse the `OperatorExpression` grammar.
    */
   parseOperatorExpression(): Expression {
-    const expression = this.parseUnaryExpression();
+    let left = this.parseUnaryExpression();
 
     // Parse `PatternExpression`.
     //
     // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
     if (this.tryParseKeywordOnSameLine('is')) {
       const pattern = this.parsePattern();
-      const loc = new Loc(expression.loc.start, pattern.loc.end);
-      return PatternExpression(loc, expression, pattern);
+      const loc = new Loc(left.loc.start, pattern.loc.end);
+      return PatternExpression(loc, left, pattern);
     }
 
-    return expression;
+    // Parse `MultiplicativeExpression`.
+    while (true) {
+      if (this.tryParseGlyph(Glyph.Percent)) {
+        const op = BinaryExpressionOperator.Remainder;
+        const right = this.parseUnaryExpression();
+        const loc = new Loc(left.loc.start, right.loc.end);
+        left = BinaryExpression(loc, op, left, right);
+      } else if (this.tryParseGlyph(Glyph.Asterisk)) {
+        const op = BinaryExpressionOperator.Multiply;
+        const right = this.parseUnaryExpression();
+        const loc = new Loc(left.loc.start, right.loc.end);
+        left = BinaryExpression(loc, op, left, right);
+      } else if (this.tryParseGlyph(Glyph.Slash)) {
+        const op = BinaryExpressionOperator.Divide;
+        const right = this.parseUnaryExpression();
+        const loc = new Loc(left.loc.start, right.loc.end);
+        left = BinaryExpression(loc, op, left, right);
+      } else {
+        break;
+      }
+    }
+
+    return left;
   }
 
   /**
