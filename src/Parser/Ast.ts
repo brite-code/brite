@@ -504,16 +504,18 @@ export function CallExpression(
 
 export interface FunctionExpression extends Node {
   readonly kind: ExpressionKind.Function;
+  readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly body: Expression;
 }
 
 export function FunctionExpression(
   loc: Loc,
+  typeParameters: ReadonlyArray<TypeParameter>,
   parameters: ReadonlyArray<FunctionParameter>,
   body: Expression
 ): FunctionExpression {
-  return {kind: ExpressionKind.Function, loc, parameters, body};
+  return {kind: ExpressionKind.Function, loc, typeParameters, parameters, body};
 }
 
 export interface ConditionalExpression extends Node {

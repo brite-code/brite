@@ -1378,6 +1378,7 @@ describe('expression', () => {
               ReferenceExpression(loc('16'), ident('b')),
               FunctionExpression(
                 loc('21-26'),
+                [],
                 [
                   FunctionParameter(
                     BindingPattern(loc('21'), ident('c')),
@@ -1403,6 +1404,7 @@ describe('expression', () => {
               UnitExpression(loc('16-17')),
               FunctionExpression(
                 loc('22-27'),
+                [],
                 [
                   FunctionParameter(
                     BindingPattern(loc('22'), ident('c')),
@@ -1729,6 +1731,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-6'),
+          [],
           [FunctionParameter(BindingPattern(loc('1'), ident('x')), undefined)],
           ReferenceExpression(loc('6'), ident('y'))
         )
@@ -1740,6 +1743,7 @@ describe('expression', () => {
         FunctionExpression(
           loc('1-7'),
           [],
+          [],
           ReferenceExpression(loc('7'), ident('x'))
         )
       ),
@@ -1749,6 +1753,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-8'),
+          [],
           [FunctionParameter(BindingPattern(loc('2'), ident('x')), undefined)],
           ReferenceExpression(loc('8'), ident('y'))
         )
@@ -1759,6 +1764,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-11'),
+          [],
           [
             FunctionParameter(BindingPattern(loc('2'), ident('x')), undefined),
             FunctionParameter(BindingPattern(loc('5'), ident('y')), undefined),
@@ -1772,6 +1778,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-17'),
+          [],
           [
             FunctionParameter(BindingPattern(loc('2'), ident('a')), undefined),
             FunctionParameter(BindingPattern(loc('5'), ident('b')), undefined),
@@ -1787,6 +1794,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-11'),
+          [],
           [
             FunctionParameter(
               BindingPattern(loc('2'), ident('a')),
@@ -1802,6 +1810,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-17'),
+          [],
           [
             FunctionParameter(
               BindingPattern(loc('2'), ident('a')),
@@ -1821,6 +1830,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-14'),
+          [],
           [
             FunctionParameter(BindingPattern(loc('2'), ident('a')), undefined),
             FunctionParameter(
@@ -1837,6 +1847,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-14'),
+          [],
           [
             FunctionParameter(
               BindingPattern(loc('2'), ident('a')),
@@ -1853,6 +1864,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-9'),
+          [],
           [FunctionParameter(UnitPattern(loc('2-3')), undefined)],
           ReferenceExpression(loc('9'), ident('x'))
         )
@@ -1863,6 +1875,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-13'),
+          [],
           [
             FunctionParameter(
               TuplePattern(loc('2-7'), [
@@ -1887,6 +1900,7 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-19'),
+          [],
           [
             FunctionParameter(
               TuplePattern(loc('2-13'), [
@@ -1911,8 +1925,107 @@ describe('expression', () => {
       result: Ok(
         FunctionExpression(
           loc('1-9'),
+          [],
           [FunctionParameter(RecordPattern(loc('2-3'), []), undefined)],
           ReferenceExpression(loc('9'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '<>() -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-9'),
+          [],
+          [],
+          ReferenceExpression(loc('9'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '<T>() -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-10'),
+          [TypeParameter(Name(loc('2'), ident('T')), [])],
+          [],
+          ReferenceExpression(loc('10'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '<T, U>() -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-13'),
+          [
+            TypeParameter(Name(loc('2'), ident('T')), []),
+            TypeParameter(Name(loc('5'), ident('U')), []),
+          ],
+          [],
+          ReferenceExpression(loc('13'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '<T: A>() -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-13'),
+          [
+            TypeParameter(Name(loc('2'), ident('T')), [
+              ReferenceType(loc('5'), ident('A')),
+            ]),
+          ],
+          [],
+          ReferenceExpression(loc('13'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '<T: A + B>() -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-17'),
+          [
+            TypeParameter(Name(loc('2'), ident('T')), [
+              ReferenceType(loc('5'), ident('A')),
+              ReferenceType(loc('9'), ident('B')),
+            ]),
+          ],
+          [],
+          ReferenceExpression(loc('17'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '<T> x -> x',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('5'), ident('x')),
+          ExpectedGlyph(Glyph.ParenLeft)
+        )
+      ),
+    },
+    {
+      source: '<T>(()) -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-12'),
+          [TypeParameter(Name(loc('2'), ident('T')), [])],
+          [FunctionParameter(UnitPattern(loc('5-6')), undefined)],
+          ReferenceExpression(loc('12'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '<T>((): ()) -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-16'),
+          [TypeParameter(Name(loc('2'), ident('T')), [])],
+          [FunctionParameter(UnitPattern(loc('5-6')), UnitType(loc('9-10')))],
+          ReferenceExpression(loc('16'), ident('x'))
         )
       ),
     },
@@ -2126,15 +2239,6 @@ describe('expression', () => {
         UnexpectedTokenError(
           GlyphToken(loc('44'), Glyph.ParenRight),
           ExpectedGlyph(Glyph.Arrow)
-        )
-      ),
-    },
-    {
-      source: '<T>() -> x',
-      result: Err(
-        UnexpectedTokenError(
-          GlyphToken(loc('1'), Glyph.LessThan),
-          ExpectedExpression
         )
       ),
     },
@@ -3111,6 +3215,7 @@ describe('expression into pattern', () => {
           FunctionExpression(
             loc('2-8'),
             [],
+            [],
             ReferenceExpression(loc('8'), ident('x'))
           ),
           EndToken(loc('13'))
@@ -3123,6 +3228,7 @@ describe('expression into pattern', () => {
         ExpressionIntoPatternError(
           FunctionExpression(
             loc('5-11'),
+            [],
             [],
             ReferenceExpression(loc('11'), ident('x'))
           ),
@@ -3158,6 +3264,7 @@ describe('expression into pattern', () => {
           FunctionExpression(
             loc('7-13'),
             [],
+            [],
             ReferenceExpression(loc('13'), ident('x'))
           ),
           EndToken(loc('16'))
@@ -3180,6 +3287,7 @@ describe('expression into pattern', () => {
           FunctionExpression(
             loc('2-8'),
             [],
+            [],
             ReferenceExpression(loc('8'), ident('x'))
           ),
           EndToken(loc('13'))
@@ -3192,6 +3300,7 @@ describe('expression into pattern', () => {
         ExpressionIntoPatternError(
           FunctionExpression(
             loc('5-11'),
+            [],
             [],
             ReferenceExpression(loc('11'), ident('x'))
           ),
@@ -3278,6 +3387,7 @@ describe('expression into pattern', () => {
           FunctionExpression(
             loc('3-9'),
             [],
+            [],
             ReferenceExpression(loc('9'), ident('x'))
           ),
           EndToken(loc('11'))
@@ -3319,6 +3429,7 @@ describe('expression into pattern', () => {
         ExpressionIntoPatternError(
           FunctionExpression(
             loc('2-8'),
+            [],
             [],
             ReferenceExpression(loc('8'), ident('x'))
           ),

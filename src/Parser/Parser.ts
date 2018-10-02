@@ -364,7 +364,7 @@ class Parser {
           );
           const body = this.parseExpression();
           const loc = new Loc(token.loc.start, body.loc.end);
-          return FunctionExpression(loc, [parameter], body);
+          return FunctionExpression(loc, [], [parameter], body);
         }
 
         // Return the reference expression.
@@ -499,7 +499,7 @@ class Parser {
         const body = this.parseExpression();
 
         const loc = new Loc(start, body.loc.end);
-        return FunctionExpression(loc, parameters, body);
+        return FunctionExpression(loc, [], parameters, body);
       }
 
       // Create a location for this tuple. If we did not find an arrow then our
@@ -632,6 +632,35 @@ class Parser {
       const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       primaryExpression = ListExpression(loc, items);
+    } else if (
+      // Parse `FunctionExpression` with generic parameters.
+      token.type === TokenType.Glyph &&
+      token.glyph === Glyph.LessThan
+    ) {
+      // Parse the generic type parameters for our function expression.
+      const typeParameters = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.nextToken();
+
+      // Parse the value parameters for our function expression.
+      this.parseGlyph(Glyph.ParenLeft);
+      const parameters = this.parseCommaList(() => {
+        const pattern = this.parsePattern();
+        const type = this.tryParseGlyph(Glyph.Colon)
+          ? this.parseType()
+          : undefined;
+        return FunctionParameter(pattern, type);
+      }, Glyph.ParenRight);
+      this.nextToken();
+
+      // Parse the body of our function expression.
+      this.parseGlyph(Glyph.Arrow);
+      const body = this.parseExpression();
+
+      const loc = new Loc(token.loc.start, body.loc.end);
+      return FunctionExpression(loc, typeParameters, parameters, body);
     } else {
       throw UnexpectedTokenError(token, ExpectedExpression);
     }
