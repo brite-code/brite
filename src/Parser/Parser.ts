@@ -225,7 +225,13 @@ class Parser {
 
       // Finish parsing either `UnitType`, `TupleType`, or `WrappedType`.
       const loc = new Loc(start, end);
-      primaryType = createParenListType(loc, types);
+      if (types.length === 0) {
+        primaryType = UnitType(loc);
+      } else if (types.length === 1) {
+        primaryType = WrappedType(loc, types[0]);
+      } else {
+        primaryType = TupleType(loc, Array2.create(types));
+      }
     } else if (
       // Parse `ReferenceType`.
       token.type === TokenType.Identifier
@@ -388,7 +394,7 @@ class Parser {
           // this match case.
           let test: Expression | undefined;
           if (this.tryParseKeyword('if')) {
-            test = this.parseOperatorExpression();
+            test = this.parseBinaryExpression();
           }
 
           // Parse the arrow and then the expression body of this case which
@@ -454,7 +460,7 @@ class Parser {
       return FunctionExpression(loc, typeParameters, parameters, body);
     }
 
-    const expression = this.parseOperatorExpression();
+    const expression = this.parseBinaryExpression();
 
     // Try to parse a `FunctionExpression`.
     const nextToken = this.peekToken();
@@ -510,39 +516,58 @@ class Parser {
   }
 
   /**
-   * Parse the `OperatorExpression` grammar.
+   * Parse the `BinaryExpression` grammar.
    */
-  parseOperatorExpression(): Expression {
-    let left = this.parseUnaryExpression();
+  parseBinaryExpression(): Expression {
+    return this.parseBinaryExpressionOperator(0, this.parseUnaryExpression());
+  }
 
-    // Parse `PatternExpression`.
-    //
-    // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
-    if (this.tryParseKeywordOnSameLine('is')) {
-      const pattern = this.parsePattern();
-      const loc = new Loc(left.loc.start, pattern.loc.end);
-      return PatternExpression(loc, left, pattern);
+  /**
+   * Parse a binary expression operator with our precedence algorithm. The
+   * `precedence` parameter provides context into which operators we are allowed
+   * to parse.
+   */
+  parseBinaryExpressionOperator(
+    precedence: number,
+    left: Expression
+  ): Expression {
+    // Parse an `AdditiveExpression`.
+    if (precedence <= AdditivePrecedence) {
+      let op: BinaryExpressionOperator | undefined;
+      if (this.tryParseGlyph(Glyph.Plus)) {
+        op = BinaryExpressionOperator.Add;
+      } else if (this.tryParseGlyph(Glyph.Minus)) {
+        op = BinaryExpressionOperator.Subtract;
+      }
+      if (op !== undefined) {
+        const right = this.parseBinaryExpressionOperator(
+          AdditivePrecedence + 1,
+          this.parseUnaryExpression()
+        );
+        const loc = new Loc(left.loc.start, right.loc.end);
+        const node = BinaryExpression(loc, op, left, right);
+        return this.parseBinaryExpressionOperator(precedence, node);
+      }
     }
 
-    // Parse `MultiplicativeExpression`.
-    while (true) {
+    // Parse a `MultiplicativeExpression`.
+    if (precedence <= MultiplicativePrecedence) {
+      let op: BinaryExpressionOperator | undefined;
       if (this.tryParseGlyph(Glyph.Percent)) {
-        const op = BinaryExpressionOperator.Remainder;
-        const right = this.parseUnaryExpression();
-        const loc = new Loc(left.loc.start, right.loc.end);
-        left = BinaryExpression(loc, op, left, right);
+        op = BinaryExpressionOperator.Remainder;
       } else if (this.tryParseGlyph(Glyph.Asterisk)) {
-        const op = BinaryExpressionOperator.Multiply;
-        const right = this.parseUnaryExpression();
-        const loc = new Loc(left.loc.start, right.loc.end);
-        left = BinaryExpression(loc, op, left, right);
+        op = BinaryExpressionOperator.Multiply;
       } else if (this.tryParseGlyph(Glyph.Slash)) {
-        const op = BinaryExpressionOperator.Divide;
-        const right = this.parseUnaryExpression();
+        op = BinaryExpressionOperator.Divide;
+      }
+      if (op !== undefined) {
+        const right = this.parseBinaryExpressionOperator(
+          MultiplicativePrecedence + 1,
+          this.parseUnaryExpression()
+        );
         const loc = new Loc(left.loc.start, right.loc.end);
-        left = BinaryExpression(loc, op, left, right);
-      } else {
-        break;
+        const node = BinaryExpression(loc, op, left, right);
+        return this.parseBinaryExpressionOperator(precedence, node);
       }
     }
 
@@ -776,6 +801,15 @@ class Parser {
         continue;
       }
       break;
+    }
+
+    // Parse `PatternExpression`.
+    //
+    // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
+    if (this.tryParseKeywordOnSameLine('is')) {
+      const pattern = this.parsePattern();
+      const loc = new Loc(primaryExpression.loc.start, pattern.loc.end);
+      return PatternExpression(loc, primaryExpression, pattern);
     }
 
     return primaryExpression;
@@ -1205,15 +1239,13 @@ class Parser {
   }
 }
 
-function createParenListType(loc: Loc, types: Array<Type>): Type {
-  if (types.length === 0) {
-    return UnitType(loc);
-  } else if (types.length === 1) {
-    return WrappedType(loc, types[0]);
-  } else {
-    return TupleType(loc, Array2.create(types));
-  }
-}
+// Binary operator precedence levels.
+const LogicalOrPrecedence = 0;
+const LogicalAndPrecedence = 1;
+const EqualityPrecedence = 2;
+const RelationalPrecedence = 3;
+const AdditivePrecedence = 4;
+const MultiplicativePrecedence = 5;
 
 /**
  * Attempts to convert an expression into a pattern. Pattern syntax is a subset

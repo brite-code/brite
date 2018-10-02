@@ -6,9 +6,9 @@ Expression :
   - MatchExpression
   - ControlExpression
   - LoopExpression
-  - OperatorExpression
+  - BinaryExpression
 
-OperatorExpression : LogicalExpressionOr
+BinaryExpression : LogicalExpressionOr
 
 PrimaryExpression :
   - ReferenceExpression
@@ -23,7 +23,7 @@ PrimaryExpression :
 
 WrappedExpression : `(` Expression TypeAnnotation? `,`? `)`
 
-The organization of this section might be a bit confusing. We have {OperatorExpression} which forms what is effectively a grammar linked-list until we arrive at {PrimaryExpression}. This is because there are complicated [order-of-operations](https://en.wikipedia.org/wiki/Order_of_operations) rules we encode in our grammar. Once we get to {PrimaryExpression} we’re left with simple expressions that have a clear order-of-operations.
+The organization of this section might be a bit confusing. We have {BinaryExpression} which forms what is effectively a grammar linked-list until we arrive at {PrimaryExpression}. This is because there are complicated [order-of-operations](https://en.wikipedia.org/wiki/Order_of_operations) rules we encode in our grammar. Once we get to {PrimaryExpression} we’re left with simple expressions that have a clear order-of-operations.
 
 Note: Most of the syntax of {WrappedExpression} is ambiguous with {BlockExpression}. In the case where the two are ambiguous {WrappedExpression} wins. In practice, this doesn’t matter since the behavior is exactly the same for the ambiguous syntax. We don’t combine the two since `(x: T)` is valid syntax but not `(x = 42; x: T)`.
 
@@ -103,9 +103,9 @@ MatchCasePatternList :
   - Pattern
   - MatchCasePatternList `|` Pattern
 
-MatchCaseCondition : `if` OperatorExpression
+MatchCaseCondition : `if` BinaryExpression
 
-Note: {MatchCaseCondition} is followed by an arrow (`->`) so we only parse {OperatorExpression} instead of a full {Expression} so that function expressions won’t parse. Consider: `match a: (_ if b -> c -> d)`. Is it equivalent to `match a: (_ if (b -> c) -> d)` or `match a: (_ if b -> (c -> d))`? With our restriction on {MatchCaseCondition} it is equivalent to the latter. Also consider a similar case `match a: (_ if return b -> c -> d)` which we want to be interpreted as `match a: (_ if (return b) -> (c -> d))`.
+Note: {MatchCaseCondition} is followed by an arrow (`->`) so we only parse {BinaryExpression} instead of a full {Expression} so that function expressions won’t parse. Consider: `match a: (_ if b -> c -> d)`. Is it equivalent to `match a: (_ if (b -> c) -> d)` or `match a: (_ if b -> (c -> d))`? With our restriction on {MatchCaseCondition} it is equivalent to the latter. Also consider a similar case `match a: (_ if return b -> c -> d)` which we want to be interpreted as `match a: (_ if (return b) -> (c -> d))`.
 
 ## Block Expression
 
@@ -236,14 +236,6 @@ Note: We disallow the syntax in {RelationalExpression} for `a < b > c` since ang
 Chained relational expressions in the same direction are treated as a test on the ordering of all the elements. That is `a < b < c` is the same as `a < b && b < c`. This makes testing if a value is in a given range quite easy, for example: `0 <= x <= 20`.
 
 Note: The chaining feature assumes a proper implementation of the ordering interface that is transitive since `a < b < c` is only rewritten to `a < b && b < c`. We assume `a < c` so we don’t check that assumption.
-
-## Pattern Expression
-
-PatternExpression :
-  - PatternExpression `is` Pattern
-  - AdditiveExpression
-
-Tests if an expression matches a pattern. If it does then the expression returns true. We also refine the {PatternExpression} if appropriate.
 
 ## Additive Expression
 

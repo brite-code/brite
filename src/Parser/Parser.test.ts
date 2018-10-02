@@ -2185,7 +2185,10 @@ describe('expression', () => {
     {
       source: 'a + if x then y else z + b',
       result: Err(
-        UnexpectedTokenError(GlyphToken(loc('3'), Glyph.Plus), ExpectedEnd)
+        UnexpectedTokenError(
+          IdentifierToken(loc('5-6'), 'if' as Identifier),
+          ExpectedExpression
+        )
       ),
     },
     {
@@ -2530,6 +2533,260 @@ describe('expression', () => {
             ),
             undefined
           )
+        )
+      ),
+    },
+    {
+      source: 'a + b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-5'),
+          BinaryExpressionOperator.Add,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('5'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a - b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-5'),
+          BinaryExpressionOperator.Subtract,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('5'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a + b + c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-9'),
+          BinaryExpressionOperator.Add,
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          ReferenceExpression(loc('9'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a + b + c + d + e',
+      result: Ok(
+        BinaryExpression(
+          loc('1-17'),
+          BinaryExpressionOperator.Add,
+          BinaryExpression(
+            loc('1-13'),
+            BinaryExpressionOperator.Add,
+            BinaryExpression(
+              loc('1-9'),
+              BinaryExpressionOperator.Add,
+              BinaryExpression(
+                loc('1-5'),
+                BinaryExpressionOperator.Add,
+                ReferenceExpression(loc('1'), ident('a')),
+                ReferenceExpression(loc('5'), ident('b'))
+              ),
+              ReferenceExpression(loc('9'), ident('c'))
+            ),
+            ReferenceExpression(loc('13'), ident('d'))
+          ),
+          ReferenceExpression(loc('17'), ident('e'))
+        )
+      ),
+    },
+    {
+      source: 'a + b - c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-9'),
+          BinaryExpressionOperator.Subtract,
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          ReferenceExpression(loc('9'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a - b + c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-9'),
+          BinaryExpressionOperator.Add,
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Subtract,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          ReferenceExpression(loc('9'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: '(a + b) + c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-11'),
+          BinaryExpressionOperator.Add,
+          WrappedExpression(
+            loc('1-7'),
+            BinaryExpression(
+              loc('2-6'),
+              BinaryExpressionOperator.Add,
+              ReferenceExpression(loc('2'), ident('a')),
+              ReferenceExpression(loc('6'), ident('b'))
+            ),
+            undefined
+          ),
+          ReferenceExpression(loc('11'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a + (b + c)',
+      result: Ok(
+        BinaryExpression(
+          loc('1-11'),
+          BinaryExpressionOperator.Add,
+          ReferenceExpression(loc('1'), ident('a')),
+          WrappedExpression(
+            loc('5-11'),
+            BinaryExpression(
+              loc('6-10'),
+              BinaryExpressionOperator.Add,
+              ReferenceExpression(loc('6'), ident('b')),
+              ReferenceExpression(loc('10'), ident('c'))
+            ),
+            undefined
+          )
+        )
+      ),
+    },
+    {
+      source: 'a * b + c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-9'),
+          BinaryExpressionOperator.Add,
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Multiply,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          ReferenceExpression(loc('9'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a + b * c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-9'),
+          BinaryExpressionOperator.Add,
+          ReferenceExpression(loc('1'), ident('a')),
+          BinaryExpression(
+            loc('5-9'),
+            BinaryExpressionOperator.Multiply,
+            ReferenceExpression(loc('5'), ident('b')),
+            ReferenceExpression(loc('9'), ident('c'))
+          )
+        )
+      ),
+    },
+    {
+      source: 'a * (b + c)',
+      result: Ok(
+        BinaryExpression(
+          loc('1-11'),
+          BinaryExpressionOperator.Multiply,
+          ReferenceExpression(loc('1'), ident('a')),
+          WrappedExpression(
+            loc('5-11'),
+            BinaryExpression(
+              loc('6-10'),
+              BinaryExpressionOperator.Add,
+              ReferenceExpression(loc('6'), ident('b')),
+              ReferenceExpression(loc('10'), ident('c'))
+            ),
+            undefined
+          )
+        )
+      ),
+    },
+    {
+      source: '(a + b) * c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-11'),
+          BinaryExpressionOperator.Multiply,
+          WrappedExpression(
+            loc('1-7'),
+            BinaryExpression(
+              loc('2-6'),
+              BinaryExpressionOperator.Add,
+              ReferenceExpression(loc('2'), ident('a')),
+              ReferenceExpression(loc('6'), ident('b'))
+            ),
+            undefined
+          ),
+          ReferenceExpression(loc('11'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a * b + c * d',
+      result: Ok(
+        BinaryExpression(
+          loc('1-13'),
+          BinaryExpressionOperator.Add,
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Multiply,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          BinaryExpression(
+            loc('9-13'),
+            BinaryExpressionOperator.Multiply,
+            ReferenceExpression(loc('9'), ident('c')),
+            ReferenceExpression(loc('13'), ident('d'))
+          )
+        )
+      ),
+    },
+    {
+      source: 'a * (b + c) * d',
+      result: Ok(
+        BinaryExpression(
+          loc('1-15'),
+          BinaryExpressionOperator.Multiply,
+          BinaryExpression(
+            loc('1-11'),
+            BinaryExpressionOperator.Multiply,
+            ReferenceExpression(loc('1'), ident('a')),
+            WrappedExpression(
+              loc('5-11'),
+              BinaryExpression(
+                loc('6-10'),
+                BinaryExpressionOperator.Add,
+                ReferenceExpression(loc('6'), ident('b')),
+                ReferenceExpression(loc('10'), ident('c'))
+              ),
+              undefined
+            )
+          ),
+          ReferenceExpression(loc('15'), ident('d'))
         )
       ),
     },
