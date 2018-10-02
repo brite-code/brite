@@ -4,14 +4,12 @@ The source text section is last because it deals with boring, pedantic, details 
 
 ## Identifiers
 
-Identifier : /^[\_A-Za-z][_0-9a-za-z]*[']*$/ but not Keyword
+Identifier : /^[\_A-Za-z][_0-9a-za-z]*[']*$/
+
+BindingIdentifier : Identifier but not Keyword
 
 Keyword :
   - `_`
-
-BindingIdentifier : Identifier but not BindingKeyword
-
-BindingKeyword :
   - `if`
   - `then`
   - `else`
@@ -37,6 +35,8 @@ Since there are parse rules which are really difficult to express without reserv
 Note: Future specification writers, be careful about reserving common nouns like `type` or `class` in {BindingIdentifier}!
 
 TODO: This regex is clearly not compatible with the Unicode specification. Neither is our implementation. Actually make both compatible with the Unicode specification.
+
+TODO: Rewrite this section after merging keywords and binding keywords.
 
 ### Identifier Conventions
 

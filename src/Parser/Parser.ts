@@ -61,7 +61,7 @@ import {
   ParserError,
   UnexpectedTokenError,
 } from './Error';
-import {BindingIdentifier, BindingKeyword, Keyword} from './Identifier';
+import {BindingIdentifier} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, Token, TokenType} from './Lexer';
 import {Loc} from './Loc';
 
@@ -367,6 +367,11 @@ class Parser {
         // Return the reference expression.
         primaryExpression = ReferenceExpression(token.loc, identifier);
       } else if (
+        // Parse `BindingPatternHole`.
+        token.identifier === '_'
+      ) {
+        primaryExpression = HoleExpression(token.loc);
+      } else if (
         // Parse `MatchExpression`.
         token.identifier === 'match'
       ) {
@@ -390,7 +395,7 @@ class Parser {
           // If we see the binding keyword `if` then we have some condition on
           // this match case.
           let test: Expression | undefined;
-          if (this.tryParseBindingKeyword(BindingKeyword.If)) {
+          if (this.tryParseKeyword('if')) {
             test = this.parseExpression({notFunction: true});
           }
 
@@ -410,12 +415,6 @@ class Parser {
         // If we have a `BindingKeyword` that we don’t use then throw an error.
         throw UnexpectedTokenError(token, ExpectedExpression);
       }
-    } else if (
-      // Parse `BindingPatternHole`
-      token.type === TokenType.Keyword &&
-      token.keyword === Keyword.Underscore
-    ) {
-      primaryExpression = HoleExpression(token.loc);
     } else if (
       // Parse `UnitExpression`, `TupleExpression`, `WrappedExpression`,
       // and `FunctionExpression`.
@@ -650,7 +649,7 @@ class Parser {
     // Parse `PatternExpression`.
     //
     // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
-    if (this.tryParseInformalKeywordOnSameLine('is')) {
+    if (this.tryParseKeywordOnSameLine('is')) {
       const pattern = this.parsePattern();
       const loc = new Loc(token.loc.start, pattern.loc.end);
       return PatternExpression(loc, primaryExpression, pattern);
@@ -672,12 +671,17 @@ class Parser {
       // continue parsing any of our grammars.
       const firstIdentifier = BindingIdentifier.create(token.identifier);
       if (firstIdentifier === undefined) {
-        throw UnexpectedTokenError(token, ExpectedPattern);
+        // Parse `BindingPattern` hole.
+        if (token.identifier === '_') {
+          return HolePattern(token.loc);
+        } else {
+          throw UnexpectedTokenError(token, ExpectedPattern);
+        }
       }
 
       // If there is an `is` keyword on the same line as our binding identifier
       // then we have an `AliasPattern`.
-      if (this.tryParseInformalKeywordOnSameLine('is')) {
+      if (this.tryParseKeywordOnSameLine('is')) {
         const pattern = this.parsePattern();
         const loc = new Loc(token.loc.start, pattern.loc.end);
         return AliasPattern(
@@ -719,14 +723,6 @@ class Parser {
         const loc = new Loc(start, end);
         return QualifiedPattern(loc, Array2.create(identifiers));
       }
-    }
-
-    // Parse `BindingPattern` hole.
-    if (
-      token.type === TokenType.Keyword &&
-      token.keyword === Keyword.Underscore
-    ) {
-      return HolePattern(token.loc);
     }
 
     // Parse `UnitPattern`, `TuplePattern`, and `WrappedPattern`.
@@ -992,12 +988,18 @@ class Parser {
   }
 
   /**
-   * Tries to parse a binding keyword. Returns true if we could parse it.
-   * Returns false if we could not.
+   * Tries to parse a keyword. Returns true if we could parse it. Returns false
+   * if we could not.
+   *
+   * Note that the identifier does not necessarily need to be a keyword reserved
+   * in `BindingIdentifier`.
    */
-  tryParseBindingKeyword(keyword: BindingKeyword): boolean {
+  tryParseKeyword(identifier: string): boolean {
     const token = this.peekToken();
-    if (token.type === TokenType.Identifier && token.identifier === keyword) {
+    if (
+      token.type === TokenType.Identifier &&
+      token.identifier === identifier
+    ) {
       this.nextToken();
       return true;
     }
@@ -1005,11 +1007,13 @@ class Parser {
   }
 
   /**
-   * Tries to parse an identifier used as an informal keyword on the same line
-   * as the provided position. Returns true if we could parse it. Returns false
-   * if we could not.
+   * Tries to parse a keyword on the same line as the current position. Returns
+   * true if we could parse it. Returns false if we could not.
+   *
+   * Note that the identifier does not necessarily need to be a keyword reserved
+   * in `BindingIdentifier`.
    */
-  tryParseInformalKeywordOnSameLine(identifier: string): boolean {
+  tryParseKeywordOnSameLine(identifier: string): boolean {
     const token = this.peekToken();
     if (
       token.type === TokenType.Identifier &&

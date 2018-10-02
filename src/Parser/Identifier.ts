@@ -1,5 +1,3 @@
-import {Err, Ok, Result} from '../Utils/Result';
-
 /**
  * Brite identifiers follow the [Unicode identifier specification][1]. Including
  * the optional underscore (`_`) character, but not the optional dollar sign
@@ -22,43 +20,13 @@ export type Identifier = string & typeof IdentifierTag;
 const IdentifierTag = Symbol();
 
 /**
- * An `Identifier` but without `BindingKeyword`.
+ * An `Identifier` but without any keywords.
  */
 export type BindingIdentifier = Identifier & typeof BindingIdentifierTag;
 
 // A private symbol we use to make our `BindingIdentifier` type emulate an
 // opaque type with an intersection.
 const BindingIdentifierTag = Symbol();
-
-/**
- * Valid identifier syntax which we reserve for other syntactic purposes. We try
- * to keep the set of keywords small since every keyword we reserve has the
- * potential to frustrate the programmer when they try to use that name in their
- * own programs.
- */
-export const enum Keyword {
-  Underscore = '_',
-}
-
-/**
- * Keywords we don’t allow to be used unqualified in bindings. We do this to
- * reserve some words for syntactic purposes.
- *
- * NOTE: We may not need all these keywords.
- */
-export const enum BindingKeyword {
-  If = 'if',
-  Then = 'then',
-  Else = 'else',
-  Match = 'match',
-  Return = 'return',
-  Loop = 'loop',
-  While = 'while',
-  For = 'for',
-  In = 'in',
-  Break = 'break',
-  Continue = 'continue',
-}
 
 /**
  * Creates a binding identifier and throws an error if it is not valid.
@@ -94,21 +62,6 @@ export namespace Identifier {
   }
 
   /**
-   * Creates an identifier assuming that the syntax is valid. Still checks if
-   * the identifier is a keyword or not.
-   */
-  export function createAssumingValidSyntax(
-    identifier: string
-  ): Result<Identifier, Keyword> {
-    const keyword = getKeyword(identifier);
-    if (keyword === undefined) {
-      return Ok(identifier as Identifier);
-    } else {
-      return Err(keyword);
-    }
-  }
-
-  /**
    * Checks if a string is a valid identifier and that the identifier does not
    * conflict with any keywords.
    */
@@ -129,7 +82,7 @@ export namespace Identifier {
       }
       return false;
     }
-    return !getKeyword(identifier);
+    return true;
   }
 
   /**
@@ -163,19 +116,6 @@ export namespace Identifier {
   export function isFinish(c: string): boolean {
     return c === "'";
   }
-
-  /**
-   * Is this string a keyword? If so then return the keyword. Otherwise
-   * return undefined.
-   */
-  export function getKeyword(c: string): Keyword | undefined {
-    switch (c) {
-      case '_':
-        return Keyword.Underscore;
-      default:
-        return undefined;
-    }
-  }
 }
 
 export namespace BindingIdentifier {
@@ -186,7 +126,7 @@ export namespace BindingIdentifier {
   export function create(
     identifier: Identifier
   ): BindingIdentifier | undefined {
-    if (getKeyword(identifier)) return undefined;
+    if (isKeyword(identifier)) return undefined;
     return identifier as any; // tslint:disable-line no-any
   }
 
@@ -194,32 +134,23 @@ export namespace BindingIdentifier {
    * Is this string a binding keyword? If so then return the keyword. Otherwise
    * return undefined.
    */
-  export function getKeyword(c: string): BindingKeyword | undefined {
+  export function isKeyword(c: string): boolean {
     switch (c) {
+      case '_':
       case 'if':
-        return BindingKeyword.If;
       case 'then':
-        return BindingKeyword.Then;
       case 'else':
-        return BindingKeyword.Else;
       case 'match':
-        return BindingKeyword.Match;
       case 'return':
-        return BindingKeyword.Return;
       case 'loop':
-        return BindingKeyword.Loop;
       case 'while':
-        return BindingKeyword.While;
       case 'for':
-        return BindingKeyword.For;
       case 'in':
-        return BindingKeyword.In;
       case 'break':
-        return BindingKeyword.Break;
       case 'continue':
-        return BindingKeyword.Continue;
+        return true;
       default:
-        return undefined;
+        return false;
     }
   }
 }

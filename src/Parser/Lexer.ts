@@ -1,6 +1,4 @@
-import {ResultType} from '../Utils/Result';
-
-import {Identifier, Keyword} from './Identifier';
+import {Identifier} from './Identifier';
 import {Loc, Pos} from './Loc';
 
 /**
@@ -8,7 +6,6 @@ import {Loc, Pos} from './Loc';
  */
 export type Token =
   | IdentifierToken
-  | KeywordToken
   | GlyphToken
   | UnexpectedCharToken
   | EndToken;
@@ -18,7 +15,6 @@ export type Token =
  */
 export const enum TokenType {
   Identifier = 'Identifier',
-  Keyword = 'Keyword',
   Glyph = 'Glyph',
   UnexpectedChar = 'UnexpectedChar',
   End = 'End',
@@ -42,20 +38,6 @@ export function IdentifierToken(
   identifier: Identifier
 ): IdentifierToken {
   return {type: TokenType.Identifier, loc, identifier};
-}
-
-/**
- * A keyword is a reserved identifier. Despite being valid identifiers, keywords
- * are reserved for their use as syntax.
- */
-export type KeywordToken = {
-  readonly type: TokenType.Keyword;
-  readonly loc: Loc;
-  readonly keyword: Keyword;
-};
-
-export function KeywordToken(loc: Loc, keyword: Keyword): KeywordToken {
-  return {type: TokenType.Keyword, loc, keyword};
 }
 
 /**
@@ -434,15 +416,10 @@ export class Lexer implements Iterable<Token> {
           // we still want to check for keywords.
           const end = this.currentPos();
           const loc = new Loc(start, end);
-          const result = Identifier.createAssumingValidSyntax(identifier);
-          switch (result.type) {
-            case ResultType.Ok:
-              return IdentifierToken(loc, result.value);
-            case ResultType.Err:
-              return KeywordToken(loc, result.value);
-            default:
-              throw new Error('unreachable');
-          }
+          return IdentifierToken(
+            loc,
+            Identifier.createAssumingValid(identifier)
+          );
         } else {
           // We found an unexpected character! Return an unexpected token error.
           return UnexpectedCharToken(this.currentLoc(), c, false);

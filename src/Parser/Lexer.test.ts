@@ -1,9 +1,8 @@
-import {Keyword, ident} from './Identifier';
+import {ident} from './Identifier';
 import {
   Glyph,
   GlyphToken,
   IdentifierToken,
-  KeywordToken,
   Lexer,
   UnexpectedCharToken,
 } from './Lexer';
@@ -109,14 +108,6 @@ describe('identifier', () => {
       const tokens = [...Lexer.create(identifier)];
       const loc = new Loc(new Pos(1, 1), new Pos(1, identifier.length));
       expect(tokens).toEqual([IdentifierToken(loc, ident(identifier))]);
-    });
-  });
-
-  [['_', Keyword.Underscore]].forEach(([source, keyword]) => {
-    test(source, () => {
-      const tokens = [...Lexer.create(source)];
-      const loc = new Loc(new Pos(1, 1), new Pos(1, source.length));
-      expect(tokens).toEqual([KeywordToken(loc, keyword as Keyword)]);
     });
   });
 });
