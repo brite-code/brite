@@ -57,6 +57,7 @@ import {
   ExpectedLineSeparator,
   ExpectedPattern,
   ExpectedType,
+  ExpressionIntoPatternError,
   ParserError,
   UnexpectedTokenError,
 } from './Error';
@@ -431,15 +432,40 @@ class Parser {
           : undefined;
         return TupleExpressionElement(expression, type);
       }, Glyph.ParenRight);
-      const end = this.nextToken().loc.end;
+      this.nextToken();
 
       // If there is an arrow after the parentheses closes then we want to parse
       // a `FunctionExpression`.
-      if (!notFunction && this.tryParseGlyph(Glyph.Arrow)) {
-        throw new Error('unimplemented');
+      const nextToken = this.peekToken();
+      if (
+        !notFunction &&
+        nextToken.type === TokenType.Glyph &&
+        nextToken.glyph === Glyph.Arrow
+      ) {
+        this.nextToken();
+        const parameters = Array<FunctionParameter>(elements.length);
+
+        // Convert all the tuple expression elements into function parameters
+        // which are patterns. If the expression into pattern conversion fails
+        // then an error will be thrown pointing at the expression and the
+        // arrow token.
+        for (let i = 0; i < elements.length; i++) {
+          const {expression, type} = elements[i];
+          const pattern = expressionIntoPattern(nextToken, expression);
+          parameters[i] = FunctionParameter(pattern, type);
+        }
+
+        // Parse the body of this expression on the right-hand-side of
+        // the arrow.
+        const body = this.parseExpression();
+
+        const loc = new Loc(start, body.loc.end);
+        return FunctionExpression(loc, parameters, body);
       }
 
-      const loc = new Loc(start, end);
+      // Create a location for this tuple. If we did not find an arrow then our
+      // current location will still be the closing parentheses.
+      const loc = new Loc(start, this.currentLoc.end);
 
       // Turn our list of elements into the appropriate expression node. If
       // there were no elements then we have a unit expression. If there was one
@@ -1055,9 +1081,10 @@ function createParenListType(loc: Loc, types: Array<Type>): Type {
  * (a, b, c) -> x // Pattern
  * ```
  *
- * This function returns nothing if the expression is not a valid pattern.
+ * This function throws an error if the expression is not a valid pattern. The
+ * error includes the provided reason token.
  */
-export function expressionIntoPattern(e: Expression): Pattern | undefined {
+export function expressionIntoPattern(reason: Token, e: Expression): Pattern {
   switch (e.kind) {
     case ExpressionKind.Reference:
       return BindingPattern(e.loc, e.identifier);
@@ -1069,19 +1096,19 @@ export function expressionIntoPattern(e: Expression): Pattern | undefined {
       const elements = Array<TuplePatternElement>(e.elements.length);
       for (let i = 0; i < e.elements.length; i++) {
         const {expression, type} = e.elements[i];
-        const pattern = expressionIntoPattern(expression);
-        if (pattern === undefined) return undefined;
+        const pattern = expressionIntoPattern(reason, expression);
         elements[i] = TuplePatternElement(pattern, type);
       }
       return TuplePattern(e.loc, Array2.create(elements));
     }
     case ExpressionKind.Record: {
-      if (e.extension !== undefined) return undefined;
+      if (e.extension !== undefined) {
+        throw ExpressionIntoPatternError(e.extension, reason);
+      }
       const properties = Array<RecordPatternProperty>(e.properties.length);
       for (let i = 0; i < e.properties.length; i++) {
         const {key, value, type, optional} = e.properties[i];
-        const pattern = expressionIntoPattern(value);
-        if (pattern === undefined) return undefined;
+        const pattern = expressionIntoPattern(reason, value);
         properties[i] = RecordPatternProperty(key, pattern, type, {optional});
       }
       return RecordPattern(e.loc, properties);
@@ -1089,8 +1116,7 @@ export function expressionIntoPattern(e: Expression): Pattern | undefined {
     case ExpressionKind.List: {
       const items = Array<Pattern>(e.items.length);
       for (let i = 0; i < e.items.length; i++) {
-        const item = expressionIntoPattern(e.items[i]);
-        if (item === undefined) return undefined;
+        const item = expressionIntoPattern(reason, e.items[i]);
         items[i] = item;
       }
       return ListPattern(e.loc, items);
@@ -1110,14 +1136,16 @@ export function expressionIntoPattern(e: Expression): Pattern | undefined {
           } else if (namespace.kind === ExpressionKind.Member) {
             stack.push([false, namespace]);
           } else {
-            return undefined;
+            throw ExpressionIntoPatternError(namespace, reason);
           }
         }
       }
       return QualifiedPattern(e.loc, Array2.create(identifiers));
     }
     case ExpressionKind.Call: {
-      if (e.typeArguments.length > 0) return undefined;
+      if (e.typeArguments.length > 0) {
+        throw ExpressionIntoPatternError(e, reason);
+      }
       const identifiers: Array<Name> = [];
       const callee = e.callee;
       if (callee.kind === ExpressionKind.Reference) {
@@ -1136,29 +1164,29 @@ export function expressionIntoPattern(e: Expression): Pattern | undefined {
             } else if (namespace.kind === ExpressionKind.Member) {
               stack.push([false, namespace]);
             } else {
-              return undefined;
+              throw ExpressionIntoPatternError(namespace, reason);
             }
           }
         }
       } else {
-        return undefined;
+        throw ExpressionIntoPatternError(callee, reason);
       }
       const args = Array<Pattern>(e.arguments.length);
       for (let i = 0; i < e.arguments.length; i++) {
-        const arg = expressionIntoPattern(e.arguments[i]);
-        if (arg === undefined) return undefined;
+        const arg = expressionIntoPattern(reason, e.arguments[i]);
         args[i] = arg;
       }
       return DeconstructPattern(e.loc, Array1.create(identifiers), args);
     }
     case ExpressionKind.Pattern: {
-      if (e.left.kind !== ExpressionKind.Reference) return undefined;
+      if (e.left.kind !== ExpressionKind.Reference) {
+        throw ExpressionIntoPatternError(e.left, reason);
+      }
       const alias = BindingName(e.left.loc, e.left.identifier);
       return AliasPattern(e.loc, alias, e.right);
     }
     case ExpressionKind.Wrapped: {
-      const pattern = expressionIntoPattern(e.expression);
-      if (pattern === undefined) return undefined;
+      const pattern = expressionIntoPattern(reason, e.expression);
       return WrappedPattern(e.loc, pattern, e.type);
     }
     case ExpressionKind.Function:
@@ -1172,6 +1200,6 @@ export function expressionIntoPattern(e: Expression): Pattern | undefined {
     case ExpressionKind.Binary:
     case ExpressionKind.Unary:
     case ExpressionKind.Block:
-      return undefined;
+      throw ExpressionIntoPatternError(e, reason);
   }
 }

@@ -1,9 +1,11 @@
+import {Expression} from './Ast';
 import {Glyph, Token} from './Lexer';
 
-export type ParserError = UnexpectedTokenError;
+export type ParserError = UnexpectedTokenError | ExpressionIntoPatternError;
 
 export const enum ParserErrorType {
   UnexpectedToken = 'UnexpectedToken',
+  ExpressionIntoPattern = 'ExpressionIntoPattern',
 }
 
 export type UnexpectedTokenError = {
@@ -20,6 +22,23 @@ export function UnexpectedTokenError(
     type: ParserErrorType.UnexpectedToken,
     unexpected,
     expected,
+  };
+}
+
+export type ExpressionIntoPatternError = {
+  readonly type: ParserErrorType.ExpressionIntoPattern;
+  readonly expression: Expression;
+  readonly reason: Token;
+};
+
+export function ExpressionIntoPatternError(
+  expression: Expression,
+  reason: Token
+): ExpressionIntoPatternError {
+  return {
+    type: ParserErrorType.ExpressionIntoPattern,
+    expression,
+    reason,
   };
 }
 

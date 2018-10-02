@@ -166,6 +166,7 @@ export class Lexer implements Iterable<Token> {
   // allocating memory for a `Pos` on every character.
   private line: number;
   private column: number;
+  private done = false;
 
   private peeked1: Token | undefined;
   private peeked2: Token | undefined;
@@ -473,11 +474,11 @@ export class Lexer implements Iterable<Token> {
    * lexer position.
    */
   private nextChar(): string | undefined {
-    // NOTE: This function should be protected in Brite. So it’s only accessible
-    // in this namespace.
+    if (this.done) return undefined;
     const step = this._chars.next();
     if (step.done) {
       this.column += 1;
+      this.done = true;
       return undefined;
     }
     if (step.value === '\n') {
@@ -494,8 +495,6 @@ export class Lexer implements Iterable<Token> {
    * Returns undefined if there are no more characters.
    */
   private peekChar(): string | undefined {
-    // NOTE: This function should be protected in Brite. So it’s only accessible
-    // in this namespace.
     const step = this._chars.peek();
     return step.done ? undefined : step.value;
   }

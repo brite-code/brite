@@ -1,4 +1,4 @@
-import {Err, Ok, ResultType} from '../Utils/Result';
+import {Err, Ok, Result, ResultType} from '../Utils/Result';
 
 import {
   AliasPattern,
@@ -19,6 +19,7 @@ import {
   MemberExpression,
   MemberType,
   Name,
+  Pattern,
   PatternExpression,
   QualifiedPattern,
   QuantifiedType,
@@ -52,6 +53,8 @@ import {
   ExpectedLineSeparator,
   ExpectedPattern,
   ExpectedType,
+  ExpressionIntoPatternError,
+  ParserErrorType,
   UnexpectedTokenError,
 } from './Error';
 import {BindingIdentifier, Identifier, ident} from './Identifier';
@@ -1687,12 +1690,215 @@ describe('expression', () => {
       ),
     },
     {
+      source: '()()',
+      result: Ok(
+        CallExpression(loc('1-4'), UnitExpression(loc('1-2')), [], [])
+      ),
+    },
+    {
+      source: '().p()',
+      result: Ok(
+        CallExpression(
+          loc('1-6'),
+          MemberExpression(
+            loc('1-4'),
+            UnitExpression(loc('1-2')),
+            Name(loc('4'), ident('p'))
+          ),
+          [],
+          []
+        )
+      ),
+    },
+    {
       source: 'x -> y',
       result: Ok(
         FunctionExpression(
           loc('1-6'),
           [FunctionParameter(BindingPattern(loc('1'), ident('x')), undefined)],
           ReferenceExpression(loc('6'), ident('y'))
+        )
+      ),
+    },
+    {
+      source: '() -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-7'),
+          [],
+          ReferenceExpression(loc('7'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '(x) -> y',
+      result: Ok(
+        FunctionExpression(
+          loc('1-8'),
+          [FunctionParameter(BindingPattern(loc('2'), ident('x')), undefined)],
+          ReferenceExpression(loc('8'), ident('y'))
+        )
+      ),
+    },
+    {
+      source: '(x, y) -> z',
+      result: Ok(
+        FunctionExpression(
+          loc('1-11'),
+          [
+            FunctionParameter(BindingPattern(loc('2'), ident('x')), undefined),
+            FunctionParameter(BindingPattern(loc('5'), ident('y')), undefined),
+          ],
+          ReferenceExpression(loc('11'), ident('z'))
+        )
+      ),
+    },
+    {
+      source: '(a, b, c, d) -> e',
+      result: Ok(
+        FunctionExpression(
+          loc('1-17'),
+          [
+            FunctionParameter(BindingPattern(loc('2'), ident('a')), undefined),
+            FunctionParameter(BindingPattern(loc('5'), ident('b')), undefined),
+            FunctionParameter(BindingPattern(loc('8'), ident('c')), undefined),
+            FunctionParameter(BindingPattern(loc('11'), ident('d')), undefined),
+          ],
+          ReferenceExpression(loc('17'), ident('e'))
+        )
+      ),
+    },
+    {
+      source: '(a: A) -> b',
+      result: Ok(
+        FunctionExpression(
+          loc('1-11'),
+          [
+            FunctionParameter(
+              BindingPattern(loc('2'), ident('a')),
+              ReferenceType(loc('5'), ident('A'))
+            ),
+          ],
+          ReferenceExpression(loc('11'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: '(a: A, b: B) -> c',
+      result: Ok(
+        FunctionExpression(
+          loc('1-17'),
+          [
+            FunctionParameter(
+              BindingPattern(loc('2'), ident('a')),
+              ReferenceType(loc('5'), ident('A'))
+            ),
+            FunctionParameter(
+              BindingPattern(loc('8'), ident('b')),
+              ReferenceType(loc('11'), ident('B'))
+            ),
+          ],
+          ReferenceExpression(loc('17'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: '(a, b: B) -> c',
+      result: Ok(
+        FunctionExpression(
+          loc('1-14'),
+          [
+            FunctionParameter(BindingPattern(loc('2'), ident('a')), undefined),
+            FunctionParameter(
+              BindingPattern(loc('5'), ident('b')),
+              ReferenceType(loc('8'), ident('B'))
+            ),
+          ],
+          ReferenceExpression(loc('14'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: '(a: A, b) -> c',
+      result: Ok(
+        FunctionExpression(
+          loc('1-14'),
+          [
+            FunctionParameter(
+              BindingPattern(loc('2'), ident('a')),
+              ReferenceType(loc('5'), ident('A'))
+            ),
+            FunctionParameter(BindingPattern(loc('8'), ident('b')), undefined),
+          ],
+          ReferenceExpression(loc('14'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: '(()) -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-9'),
+          [FunctionParameter(UnitPattern(loc('2-3')), undefined)],
+          ReferenceExpression(loc('9'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '((x, y)) -> z',
+      result: Ok(
+        FunctionExpression(
+          loc('1-13'),
+          [
+            FunctionParameter(
+              TuplePattern(loc('2-7'), [
+                TuplePatternElement(
+                  BindingPattern(loc('3'), ident('x')),
+                  undefined
+                ),
+                TuplePatternElement(
+                  BindingPattern(loc('6'), ident('y')),
+                  undefined
+                ),
+              ]),
+              undefined
+            ),
+          ],
+          ReferenceExpression(loc('13'), ident('z'))
+        )
+      ),
+    },
+    {
+      source: '((a: A, b: B)) -> c',
+      result: Ok(
+        FunctionExpression(
+          loc('1-19'),
+          [
+            FunctionParameter(
+              TuplePattern(loc('2-13'), [
+                TuplePatternElement(
+                  BindingPattern(loc('3'), ident('a')),
+                  ReferenceType(loc('6'), ident('A'))
+                ),
+                TuplePatternElement(
+                  BindingPattern(loc('9'), ident('b')),
+                  ReferenceType(loc('12'), ident('B'))
+                ),
+              ]),
+              undefined
+            ),
+          ],
+          ReferenceExpression(loc('19'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: '({}) -> x',
+      result: Ok(
+        FunctionExpression(
+          loc('1-9'),
+          [FunctionParameter(RecordPattern(loc('2-3'), []), undefined)],
+          ReferenceExpression(loc('9'), ident('x'))
         )
       ),
     },
@@ -2357,23 +2563,24 @@ describe('pattern', () => {
   describe('from expression', () => {
     cases.forEach(({source, result: expectedResult}) => {
       test(source.replace(/\n/g, '\\n'), () => {
-        const result = parseExpression(lex(source));
+        const lexer = lex(source);
+        const result = parseExpression(lexer);
         switch (result.type) {
           case ResultType.Ok: {
-            const pattern = expressionIntoPattern(result.value);
-            if (!pattern) {
-              throw new Error('Could not convert expression into pattern.');
-            }
+            const pattern = expressionIntoPattern(lexer.next(), result.value);
             expect(Ok(pattern)).toEqual(expectedResult);
             break;
           }
           case ResultType.Err: {
-            const error = UnexpectedTokenError(
-              result.value.unexpected,
-              result.value.expected === ExpectedExpression
-                ? ExpectedPattern
-                : result.value.expected
-            );
+            const error =
+              result.value.type === ParserErrorType.UnexpectedToken
+                ? UnexpectedTokenError(
+                    result.value.unexpected,
+                    result.value.expected === ExpectedExpression
+                      ? ExpectedPattern
+                      : result.value.expected
+                  )
+                : result.value;
             expect(Err(error)).toEqual(expectedResult);
             break;
           }
@@ -2678,6 +2885,274 @@ describe('line separator list', () => {
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseLineSeparatorListTest(lex(source))).toEqual(result);
+    });
+  });
+});
+
+describe('expression into pattern', () => {
+  const cases: ReadonlyArray<{
+    source: string;
+    result: Result<Pattern, ExpressionIntoPatternError>;
+  }> = [
+    {
+      source: 'x',
+      result: Ok(BindingPattern(loc('1'), ident('x'))),
+    },
+    {
+      source: '_',
+      result: Ok(HolePattern(loc('1'))),
+    },
+    {
+      source: '()',
+      result: Ok(UnitPattern(loc('1-2'))),
+    },
+    {
+      source: '(a, b)',
+      result: Ok(
+        TuplePattern(loc('1-6'), [
+          TuplePatternElement(BindingPattern(loc('2'), ident('a')), undefined),
+          TuplePatternElement(BindingPattern(loc('5'), ident('b')), undefined),
+        ])
+      ),
+    },
+    {
+      source: '(() -> x, y)',
+      result: Err(
+        ExpressionIntoPatternError(
+          FunctionExpression(
+            loc('2-8'),
+            [],
+            ReferenceExpression(loc('8'), ident('x'))
+          ),
+          EndToken(loc('13'))
+        )
+      ),
+    },
+    {
+      source: '(y, () -> x)',
+      result: Err(
+        ExpressionIntoPatternError(
+          FunctionExpression(
+            loc('5-11'),
+            [],
+            ReferenceExpression(loc('11'), ident('x'))
+          ),
+          EndToken(loc('13'))
+        )
+      ),
+    },
+    {
+      source: '{ a = b }',
+      result: Ok(
+        RecordPattern(loc('1-9'), [
+          RecordPatternProperty(
+            Name(loc('3'), ident('a')),
+            BindingPattern(loc('7'), ident('b')),
+            undefined
+          ),
+        ])
+      ),
+    },
+    {
+      source: '{ o | a = b }',
+      result: Err(
+        ExpressionIntoPatternError(
+          ReferenceExpression(loc('3'), ident('o')),
+          EndToken(loc('14'))
+        )
+      ),
+    },
+    {
+      source: '{ a = () -> x }',
+      result: Err(
+        ExpressionIntoPatternError(
+          FunctionExpression(
+            loc('7-13'),
+            [],
+            ReferenceExpression(loc('13'), ident('x'))
+          ),
+          EndToken(loc('16'))
+        )
+      ),
+    },
+    {
+      source: '[a, b]',
+      result: Ok(
+        ListPattern(loc('1-6'), [
+          BindingPattern(loc('2'), ident('a')),
+          BindingPattern(loc('5'), ident('b')),
+        ])
+      ),
+    },
+    {
+      source: '[() -> x, y]',
+      result: Err(
+        ExpressionIntoPatternError(
+          FunctionExpression(
+            loc('2-8'),
+            [],
+            ReferenceExpression(loc('8'), ident('x'))
+          ),
+          EndToken(loc('13'))
+        )
+      ),
+    },
+    {
+      source: '[y, () -> x]',
+      result: Err(
+        ExpressionIntoPatternError(
+          FunctionExpression(
+            loc('5-11'),
+            [],
+            ReferenceExpression(loc('11'), ident('x'))
+          ),
+          EndToken(loc('13'))
+        )
+      ),
+    },
+    {
+      source: 'a.b.c',
+      result: Ok(
+        QualifiedPattern(loc('1-5'), [
+          Name(loc('1'), ident('a')),
+          Name(loc('3'), ident('b')),
+          Name(loc('5'), ident('c')),
+        ])
+      ),
+    },
+    {
+      source: '().p',
+      result: Err(
+        ExpressionIntoPatternError(
+          UnitExpression(loc('1-2')),
+          EndToken(loc('5'))
+        )
+      ),
+    },
+    {
+      source: '().a.b',
+      result: Err(
+        ExpressionIntoPatternError(
+          UnitExpression(loc('1-2')),
+          EndToken(loc('7'))
+        )
+      ),
+    },
+    {
+      source: 'f()',
+      result: Ok(
+        DeconstructPattern(loc('1-3'), [Name(loc('1'), ident('f'))], [])
+      ),
+    },
+    {
+      source: 'f<>()',
+      result: Ok(
+        DeconstructPattern(loc('1-5'), [Name(loc('1'), ident('f'))], [])
+      ),
+    },
+    {
+      source: 'f<T>()',
+      result: Err(
+        ExpressionIntoPatternError(
+          CallExpression(
+            loc('1-6'),
+            ReferenceExpression(loc('1'), ident('f')),
+            [ReferenceType(loc('3'), ident('T'))],
+            []
+          ),
+          EndToken(loc('7'))
+        )
+      ),
+    },
+    {
+      source: '()()',
+      result: Err(
+        ExpressionIntoPatternError(
+          UnitExpression(loc('1-2')),
+          EndToken(loc('5'))
+        )
+      ),
+    },
+    {
+      source: '().p()',
+      result: Err(
+        ExpressionIntoPatternError(
+          UnitExpression(loc('1-2')),
+          EndToken(loc('7'))
+        )
+      ),
+    },
+    {
+      source: 'f(() -> x)',
+      result: Err(
+        ExpressionIntoPatternError(
+          FunctionExpression(
+            loc('3-9'),
+            [],
+            ReferenceExpression(loc('9'), ident('x'))
+          ),
+          EndToken(loc('11'))
+        )
+      ),
+    },
+    {
+      source: 'x is ()',
+      result: Ok(
+        AliasPattern(
+          loc('1-7'),
+          BindingName(loc('1'), ident('x')),
+          UnitPattern(loc('6-7'))
+        )
+      ),
+    },
+    {
+      source: '() is ()',
+      result: Err(
+        ExpressionIntoPatternError(
+          UnitExpression(loc('1-2')),
+          EndToken(loc('9'))
+        )
+      ),
+    },
+    {
+      source: '(x)',
+      result: Ok(
+        WrappedPattern(
+          loc('1-3'),
+          BindingPattern(loc('2'), ident('x')),
+          undefined
+        )
+      ),
+    },
+    {
+      source: '(() -> x)',
+      result: Err(
+        ExpressionIntoPatternError(
+          FunctionExpression(
+            loc('2-8'),
+            [],
+            ReferenceExpression(loc('8'), ident('x'))
+          ),
+          EndToken(loc('10'))
+        )
+      ),
+    },
+  ];
+
+  cases.forEach(({source, result}) => {
+    test(source, () => {
+      const lexer = lex(source);
+      const expression = parseExpression(lexer);
+      if (expression.type !== ResultType.Ok) {
+        throw new Error('Could not parse expression.');
+      }
+      let pattern: Result<Pattern, unknown>;
+      try {
+        pattern = Ok(expressionIntoPattern(lexer.next(), expression.value));
+      } catch (error) {
+        pattern = Err(error);
+      }
+      expect(pattern).toEqual(result);
     });
   });
 });
