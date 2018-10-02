@@ -7,6 +7,7 @@ import {
   BindingPattern,
   CallExpression,
   ConditionalExpression,
+  ContinueExpression,
   DeconstructPattern,
   Expression,
   ExpressionKind,
@@ -433,8 +434,25 @@ class Parser {
         const end = this.nextToken().loc.end;
         const loc = new Loc(start, end);
         return MatchExpression(loc, test, cases);
+      } else if (
+        // Parse `ReturnExpression`.
+        token.identifier === 'return'
+      ) {
+        // Unimplemented
+        throw UnexpectedTokenError(token, ExpectedExpression);
+      } else if (
+        // Parse `BreakExpression`.
+        token.identifier === 'break'
+      ) {
+        // Unimplemented
+        throw UnexpectedTokenError(token, ExpectedExpression);
+      } else if (
+        // Parse `ContinueExpression`.
+        token.identifier === 'continue'
+      ) {
+        return ContinueExpression(token.loc);
       } else {
-        // If we have a `BindingKeyword` that we don’t use then throw an error.
+        // If we have a keyword that we don’t use then throw an error.
         throw UnexpectedTokenError(token, ExpectedExpression);
       }
     } else if (

@@ -101,11 +101,9 @@ MatchCasePatternList :
   - Pattern
   - MatchCasePatternList `|` Pattern
 
-MatchCaseCondition : `if` MatchCaseConditionExpression
+MatchCaseCondition : `if` LogicalExpressionOr
 
-MatchCaseConditionExpression : Expression but not FunctionExpression
-
-Note: {MatchCondition} is followed by an arrow (`->`) so we disallow {FunctionExpression} in {MatchCaseCondition}. Consider: `match a: (_ if b -> c -> d)`. Is it equivalent to `match a: (_ if (b -> c) -> d)` or `match a: (_ if b -> (c -> d))`? With our restriction on {MatchCaseCondition} it is equivalent to the latter.
+Note: {MatchCaseCondition} is followed by an arrow (`->`) so we only parse {LogicalExpressionOr} instead of a full {Expression} so that function expressions won’t parse. Consider: `match a: (_ if b -> c -> d)`. Is it equivalent to `match a: (_ if (b -> c) -> d)` or `match a: (_ if b -> (c -> d))`? With our restriction on {MatchCaseCondition} it is equivalent to the latter. Also consider a similar case `match a: (_ if return b -> c -> d)` which we want to be interpreted as `match a: (_ if (return b) -> (c -> d))`.
 
 ## Block Expression
 

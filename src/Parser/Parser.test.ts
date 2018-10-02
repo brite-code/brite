@@ -6,6 +6,7 @@ import {
   BindingPattern,
   CallExpression,
   ConditionalExpression,
+  ContinueExpression,
   DeconstructPattern,
   FunctionExpression,
   FunctionParameter,
@@ -2068,6 +2069,73 @@ describe('expression', () => {
       source: 'a + if x then y else z + b',
       result: Err(
         UnexpectedTokenError(GlyphToken(loc('3'), Glyph.Plus), ExpectedEnd)
+      ),
+    },
+    {
+      source: 'continue',
+      result: Ok(ContinueExpression(loc('1-8'))),
+    },
+    {
+      source: 'continue x',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('10'), ident('x')),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'continue\nx',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('2:1'), ident('x')),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'return <T>() -> x',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-6'), 'return' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: 'return -x',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('1-6'), 'return' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: 'match a: (_ if return b -> c -> d)',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('16-21'), 'return' as Identifier),
+          ExpectedExpression
+        )
+      ),
+    },
+    {
+      source: 'match a: (_ if if b then c else d -> e -> f)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('44'), Glyph.ParenRight),
+          ExpectedGlyph(Glyph.Arrow)
+        )
+      ),
+    },
+    {
+      source: '<T>() -> x',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('1'), Glyph.LessThan),
+          ExpectedExpression
+        )
       ),
     },
   ].forEach(({source, result}) => {
