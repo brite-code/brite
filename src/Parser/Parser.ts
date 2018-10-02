@@ -6,6 +6,7 @@ import {
   BindingName,
   BindingPattern,
   CallExpression,
+  ConditionalExpression,
   DeconstructPattern,
   Expression,
   ExpressionKind,
@@ -54,6 +55,7 @@ import {
   ExpectedExpression,
   ExpectedGlyph,
   ExpectedIdentifier,
+  ExpectedKeyword,
   ExpectedLineSeparator,
   ExpectedPattern,
   ExpectedType,
@@ -371,6 +373,26 @@ class Parser {
         token.identifier === '_'
       ) {
         primaryExpression = HoleExpression(token.loc);
+      } else if (
+        // Parse `ConditionalExpression`.
+        token.identifier === 'if'
+      ) {
+        const start = token.loc.start;
+
+        // Parse the test expression for the conditional and the consequent
+        // expression. Then we need to check for an optional
+        // alternate expression.
+        const test = this.parseExpression();
+        this.parseKeyword('then');
+        const consequent = this.parseExpression();
+
+        // If we have an `else` keyword then we have an alternate expression.
+        const alternate = this.tryParseKeyword('else')
+          ? this.parseExpression()
+          : undefined;
+
+        const loc = new Loc(start, this.currentLoc.end);
+        return ConditionalExpression(loc, test, consequent, alternate);
       } else if (
         // Parse `MatchExpression`.
         token.identifier === 'match'
@@ -985,6 +1007,24 @@ class Parser {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Parses a keyword. Throws an error if we could not parse the keyword.
+   *
+   * Note that the identifier does not necessarily need to be a keyword reserved
+   * in `BindingIdentifier`.
+   */
+  parseKeyword(identifier: string) {
+    const token = this.peekToken();
+    if (
+      token.type === TokenType.Identifier &&
+      token.identifier === identifier
+    ) {
+      this.nextToken();
+      return;
+    }
+    throw UnexpectedTokenError(token, ExpectedKeyword(identifier));
   }
 
   /**

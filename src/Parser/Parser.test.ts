@@ -5,6 +5,7 @@ import {
   BindingName,
   BindingPattern,
   CallExpression,
+  ConditionalExpression,
   DeconstructPattern,
   FunctionExpression,
   FunctionParameter,
@@ -89,10 +90,10 @@ describe('type', () => {
       ),
     },
     {
-      source: 'if',
+      source: 'in',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedType
         )
       ),
@@ -598,10 +599,10 @@ describe('expression', () => {
       result: Ok(ReferenceExpression(loc('1-3'), ident('foo'))),
     },
     {
-      source: 'if',
+      source: 'in',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedExpression
         )
       ),
@@ -981,22 +982,22 @@ describe('expression', () => {
       ),
     },
     {
-      source: "{ if = if' }",
+      source: "{ in = in' }",
       result: Ok(
         RecordExpression(loc('1-12'), undefined, [
           RecordExpressionProperty(
-            Name(loc('3-4'), 'if' as BindingIdentifier),
-            ReferenceExpression(loc('8-10'), ident("if'")),
+            Name(loc('3-4'), 'in' as BindingIdentifier),
+            ReferenceExpression(loc('8-10'), ident("in'")),
             undefined
           ),
         ])
       ),
     },
     {
-      source: '{ if }',
+      source: '{ in }',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('3-4'), 'if' as Identifier),
+          IdentifierToken(loc('3-4'), 'in' as Identifier),
           ExpectedBindingIdentifier
         )
       ),
@@ -1107,10 +1108,22 @@ describe('expression', () => {
     },
     {
       source: '{ if x then y else z | a = b }',
-      result: Err(
-        UnexpectedTokenError(
-          IdentifierToken(loc('3-4'), 'if' as Identifier),
-          ExpectedExpression
+      result: Ok(
+        RecordExpression(
+          loc('1-30'),
+          ConditionalExpression(
+            loc('3-20'),
+            ReferenceExpression(loc('6'), ident('x')),
+            ReferenceExpression(loc('13'), ident('y')),
+            ReferenceExpression(loc('20'), ident('z'))
+          ),
+          [
+            RecordExpressionProperty(
+              Name(loc('24'), ident('a')),
+              ReferenceExpression(loc('28'), ident('b')),
+              undefined
+            ),
+          ]
         )
       ),
     },
@@ -1144,10 +1157,10 @@ describe('expression', () => {
       ),
     },
     {
-      source: '{ if | }',
+      source: '{ in | }',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('3-4'), 'if' as Identifier),
+          IdentifierToken(loc('3-4'), 'in' as Identifier),
           ExpectedExpression
         )
       ),
@@ -1913,10 +1926,10 @@ describe('expression', () => {
       ),
     },
     {
-      source: 'if is ()',
+      source: 'in is ()',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedExpression
         )
       ),
@@ -1949,6 +1962,108 @@ describe('expression', () => {
         )
       ),
     },
+    {
+      source: 'if x then y else z',
+      result: Ok(
+        ConditionalExpression(
+          loc('1-18'),
+          ReferenceExpression(loc('4'), ident('x')),
+          ReferenceExpression(loc('11'), ident('y')),
+          ReferenceExpression(loc('18'), ident('z'))
+        )
+      ),
+    },
+    {
+      source: 'if x then y',
+      result: Ok(
+        ConditionalExpression(
+          loc('1-11'),
+          ReferenceExpression(loc('4'), ident('x')),
+          ReferenceExpression(loc('11'), ident('y')),
+          undefined
+        )
+      ),
+    },
+    {
+      source: 'if x then y else z()',
+      result: Ok(
+        ConditionalExpression(
+          loc('1-20'),
+          ReferenceExpression(loc('4'), ident('x')),
+          ReferenceExpression(loc('11'), ident('y')),
+          CallExpression(
+            loc('18-20'),
+            ReferenceExpression(loc('18'), ident('z')),
+            [],
+            []
+          )
+        )
+      ),
+    },
+    {
+      source: 'if x then y()',
+      result: Ok(
+        ConditionalExpression(
+          loc('1-13'),
+          ReferenceExpression(loc('4'), ident('x')),
+          CallExpression(
+            loc('11-13'),
+            ReferenceExpression(loc('11'), ident('y')),
+            [],
+            []
+          ),
+          undefined
+        )
+      ),
+    },
+    {
+      source: 'if a then b else if c then d else e',
+      result: Ok(
+        ConditionalExpression(
+          loc('1-35'),
+          ReferenceExpression(loc('4'), ident('a')),
+          ReferenceExpression(loc('11'), ident('b')),
+          ConditionalExpression(
+            loc('18-35'),
+            ReferenceExpression(loc('21'), ident('c')),
+            ReferenceExpression(loc('28'), ident('d')),
+            ReferenceExpression(loc('35'), ident('e'))
+          )
+        )
+      ),
+    },
+    {
+      source: 'if a then if b then c else d else e',
+      result: Ok(
+        ConditionalExpression(
+          loc('1-35'),
+          ReferenceExpression(loc('4'), ident('a')),
+          ConditionalExpression(
+            loc('11-28'),
+            ReferenceExpression(loc('14'), ident('b')),
+            ReferenceExpression(loc('21'), ident('c')),
+            ReferenceExpression(loc('28'), ident('d'))
+          ),
+          ReferenceExpression(loc('35'), ident('e'))
+        )
+      ),
+    },
+    {
+      source: 'if if a then b else c then d else e',
+      result: Ok(
+        ConditionalExpression(
+          loc('1-35'),
+          ConditionalExpression(
+            loc('4-21'),
+            ReferenceExpression(loc('7'), ident('a')),
+            ReferenceExpression(loc('14'), ident('b')),
+            ReferenceExpression(loc('21'), ident('c'))
+          ),
+          ReferenceExpression(loc('28'), ident('d')),
+          ReferenceExpression(loc('35'), ident('e'))
+        )
+      ),
+    },
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseExpression(lex(source))).toEqual(result);
@@ -1963,10 +2078,10 @@ describe('pattern', () => {
       result: Ok(BindingPattern(loc('1-3'), ident('foo'))),
     },
     {
-      source: 'if',
+      source: 'in',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedPattern
         )
       ),
@@ -2308,22 +2423,22 @@ describe('pattern', () => {
       ),
     },
     {
-      source: "{ if = if' }",
+      source: "{ in = in' }",
       result: Ok(
         RecordPattern(loc('1-12'), [
           RecordPatternProperty(
-            Name(loc('3-4'), 'if' as BindingIdentifier),
-            BindingPattern(loc('8-10'), ident("if'")),
+            Name(loc('3-4'), 'in' as BindingIdentifier),
+            BindingPattern(loc('8-10'), ident("in'")),
             undefined
           ),
         ])
       ),
     },
     {
-      source: '{ if }',
+      source: '{ in }',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('3-4'), 'if' as Identifier),
+          IdentifierToken(loc('3-4'), 'in' as Identifier),
           ExpectedBindingIdentifier
         )
       ),
@@ -2389,20 +2504,20 @@ describe('pattern', () => {
       ),
     },
     {
-      source: 'if.yay',
+      source: 'in.yay',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedPattern
         )
       ),
     },
     {
-      source: 'yay.if',
+      source: 'yay.in',
       result: Ok(
         QualifiedPattern(loc('1-6'), [
           Name(loc('1-3'), ident('yay')),
-          Name(loc('5-6'), 'if' as BindingIdentifier),
+          Name(loc('5-6'), 'in' as BindingIdentifier),
         ])
       ),
     },
@@ -2485,31 +2600,31 @@ describe('pattern', () => {
       ),
     },
     {
-      source: 'if()',
+      source: 'in()',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedPattern
         )
       ),
     },
     {
-      source: 'if.yay()',
+      source: 'in.yay()',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedPattern
         )
       ),
     },
     {
-      source: 'yay.if()',
+      source: 'yay.in()',
       result: Ok(
         DeconstructPattern(
           loc('1-8'),
           [
             Name(loc('1-3'), ident('yay')),
-            Name(loc('5-6'), 'if' as BindingIdentifier),
+            Name(loc('5-6'), 'in' as BindingIdentifier),
           ],
           []
         )
@@ -2535,10 +2650,10 @@ describe('pattern', () => {
       ),
     },
     {
-      source: 'if is ()',
+      source: 'in is ()',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-2'), 'if' as Identifier),
+          IdentifierToken(loc('1-2'), 'in' as Identifier),
           ExpectedPattern
         )
       ),

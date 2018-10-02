@@ -51,6 +51,7 @@ export function ExpressionIntoPatternError(
 export type Expected =
   | ExpectedIdentifier
   | ExpectedBindingIdentifier
+  | ExpectedKeyword
   | ExpectedGlyph
   | ExpectedEnd
   | ExpectedLineSeparator
@@ -61,6 +62,7 @@ export type Expected =
 export const enum ExpectedKind {
   Identifier = 'Identifier',
   BindingIdentifier = 'BindingIdentifier',
+  Keyword = 'Keyword',
   Glyph = 'Glyph',
   End = 'End',
   LineSeparator = 'LineSeparator',
@@ -80,6 +82,15 @@ export type ExpectedBindingIdentifier = {
 export const ExpectedBindingIdentifier: ExpectedBindingIdentifier = {
   kind: ExpectedKind.BindingIdentifier,
 };
+
+export type ExpectedKeyword = {
+  readonly kind: ExpectedKind.Keyword;
+  readonly keyword: string;
+};
+
+export function ExpectedKeyword(keyword: string): ExpectedKeyword {
+  return {kind: ExpectedKind.Keyword, keyword};
+}
 
 export type ExpectedGlyph = {
   readonly kind: ExpectedKind.Glyph;

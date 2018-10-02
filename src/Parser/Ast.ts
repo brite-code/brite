@@ -520,14 +520,14 @@ export interface ConditionalExpression extends Node {
   readonly kind: ExpressionKind.Conditional;
   readonly test: Expression;
   readonly consequent: Expression;
-  readonly alternate: Expression;
+  readonly alternate: Expression | undefined;
 }
 
 export function ConditionalExpression(
   loc: Loc,
   test: Expression,
   consequent: Expression,
-  alternate: Expression
+  alternate: Expression | undefined
 ): ConditionalExpression {
   return {kind: ExpressionKind.Conditional, loc, test, consequent, alternate};
 }
