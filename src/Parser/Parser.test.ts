@@ -1316,7 +1316,6 @@ describe('expression', () => {
               CallExpression(
                 loc('2:8-2:10'),
                 ReferenceExpression(loc('2:8'), ident('y')),
-                [],
                 []
               )
             ),
@@ -1523,7 +1522,6 @@ describe('expression', () => {
           CallExpression(
             loc('1-3'),
             ReferenceExpression(loc('1'), ident('f')),
-            [],
             []
           ),
           Name(loc('5'), ident('p'))
@@ -1550,7 +1548,6 @@ describe('expression', () => {
         CallExpression(
           loc('1-3'),
           ReferenceExpression(loc('1'), ident('f')),
-          [],
           []
         )
       ),
@@ -1558,42 +1555,29 @@ describe('expression', () => {
     {
       source: 'f(a)',
       result: Ok(
-        CallExpression(
-          loc('1-4'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [],
-          [ReferenceExpression(loc('3'), ident('a'))]
-        )
+        CallExpression(loc('1-4'), ReferenceExpression(loc('1'), ident('f')), [
+          ReferenceExpression(loc('3'), ident('a')),
+        ])
       ),
     },
     {
       source: 'f(a, b)',
       result: Ok(
-        CallExpression(
-          loc('1-7'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [],
-          [
-            ReferenceExpression(loc('3'), ident('a')),
-            ReferenceExpression(loc('6'), ident('b')),
-          ]
-        )
+        CallExpression(loc('1-7'), ReferenceExpression(loc('1'), ident('f')), [
+          ReferenceExpression(loc('3'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b')),
+        ])
       ),
     },
     {
       source: 'f(a, b, c, d)',
       result: Ok(
-        CallExpression(
-          loc('1-13'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [],
-          [
-            ReferenceExpression(loc('3'), ident('a')),
-            ReferenceExpression(loc('6'), ident('b')),
-            ReferenceExpression(loc('9'), ident('c')),
-            ReferenceExpression(loc('12'), ident('d')),
-          ]
-        )
+        CallExpression(loc('1-13'), ReferenceExpression(loc('1'), ident('f')), [
+          ReferenceExpression(loc('3'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b')),
+          ReferenceExpression(loc('9'), ident('c')),
+          ReferenceExpression(loc('12'), ident('d')),
+        ])
       ),
     },
     {
@@ -1608,17 +1592,18 @@ describe('expression', () => {
     {
       source: 'f<>',
       result: Err(
-        UnexpectedTokenError(EndToken(loc('4')), ExpectedGlyph(Glyph.ParenLeft))
+        UnexpectedTokenError(
+          GlyphToken(loc('3'), Glyph.GreaterThan),
+          ExpectedExpression
+        )
       ),
     },
     {
       source: 'f<>()',
-      result: Ok(
-        CallExpression(
-          loc('1-5'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [],
-          []
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('3'), Glyph.GreaterThan),
+          ExpectedExpression
         )
       ),
     },
@@ -1626,19 +1611,17 @@ describe('expression', () => {
       source: 'f\n<>()',
       result: Err(
         UnexpectedTokenError(
-          GlyphToken(loc('2:1'), Glyph.LessThan),
-          ExpectedEnd
+          GlyphToken(loc('2:2'), Glyph.GreaterThan),
+          ExpectedExpression
         )
       ),
     },
     {
       source: 'f<>\n()',
-      result: Ok(
-        CallExpression(
-          loc('1:1-2:2'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [],
-          []
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('3'), Glyph.GreaterThan),
+          ExpectedExpression
         )
       ),
     },
@@ -1646,74 +1629,41 @@ describe('expression', () => {
       source: 'f\n<>\n()',
       result: Err(
         UnexpectedTokenError(
-          GlyphToken(loc('2:1'), Glyph.LessThan),
-          ExpectedEnd
+          GlyphToken(loc('2:2'), Glyph.GreaterThan),
+          ExpectedExpression
         )
       ),
     },
     {
       source: 'f<A>()',
-      result: Ok(
-        CallExpression(
-          loc('1-6'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [ReferenceType(loc('3'), ident('A'))],
-          []
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('4'), Glyph.GreaterThan),
+          ExpectedEnd
         )
       ),
     },
     {
       source: 'f<A, B>()',
-      result: Ok(
-        CallExpression(
-          loc('1-9'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [
-            ReferenceType(loc('3'), ident('A')),
-            ReferenceType(loc('6'), ident('B')),
-          ],
-          []
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('4'), Glyph.Comma), ExpectedEnd)
       ),
     },
     {
       source: 'f<A, B, C, D>()',
-      result: Ok(
-        CallExpression(
-          loc('1-15'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [
-            ReferenceType(loc('3'), ident('A')),
-            ReferenceType(loc('6'), ident('B')),
-            ReferenceType(loc('9'), ident('C')),
-            ReferenceType(loc('12'), ident('D')),
-          ],
-          []
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('4'), Glyph.Comma), ExpectedEnd)
       ),
     },
     {
       source: 'f<A, B>(c, d)',
-      result: Ok(
-        CallExpression(
-          loc('1-13'),
-          ReferenceExpression(loc('1'), ident('f')),
-          [
-            ReferenceType(loc('3'), ident('A')),
-            ReferenceType(loc('6'), ident('B')),
-          ],
-          [
-            ReferenceExpression(loc('9'), ident('c')),
-            ReferenceExpression(loc('12'), ident('d')),
-          ]
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('4'), Glyph.Comma), ExpectedEnd)
       ),
     },
     {
       source: '()()',
-      result: Ok(
-        CallExpression(loc('1-4'), UnitExpression(loc('1-2')), [], [])
-      ),
+      result: Ok(CallExpression(loc('1-4'), UnitExpression(loc('1-2')), [])),
     },
     {
       source: '().p()',
@@ -1725,7 +1675,6 @@ describe('expression', () => {
             UnitExpression(loc('1-2')),
             Name(loc('4'), ident('p'))
           ),
-          [],
           []
         )
       ),
@@ -2112,7 +2061,6 @@ describe('expression', () => {
           CallExpression(
             loc('18-20'),
             ReferenceExpression(loc('18'), ident('z')),
-            [],
             []
           )
         )
@@ -2127,7 +2075,6 @@ describe('expression', () => {
           CallExpression(
             loc('11-13'),
             ReferenceExpression(loc('11'), ident('y')),
-            [],
             []
           ),
           undefined
@@ -2787,6 +2734,75 @@ describe('expression', () => {
             )
           ),
           ReferenceExpression(loc('15'), ident('d'))
+        )
+      ),
+    },
+    {
+      source: 'a < b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-5'),
+          BinaryExpressionOperator.LessThan,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('5'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a > b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-5'),
+          BinaryExpressionOperator.GreaterThan,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('5'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a <= b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-6'),
+          BinaryExpressionOperator.LessThanOrEqual,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a >= b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-6'),
+          BinaryExpressionOperator.GreaterThanOrEqual,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: '() < () > ()',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('9'), Glyph.GreaterThan),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'a < b < c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-9'),
+          BinaryExpressionOperator.LessThan,
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.LessThan,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          ReferenceExpression(loc('9'), ident('c'))
         )
       ),
     },
@@ -3888,26 +3904,6 @@ describe('expression into pattern', () => {
       source: 'f()',
       result: Ok(
         DeconstructPattern(loc('1-3'), [Name(loc('1'), ident('f'))], [])
-      ),
-    },
-    {
-      source: 'f<>()',
-      result: Ok(
-        DeconstructPattern(loc('1-5'), [Name(loc('1'), ident('f'))], [])
-      ),
-    },
-    {
-      source: 'f<T>()',
-      result: Err(
-        ExpressionIntoPatternError(
-          CallExpression(
-            loc('1-6'),
-            ReferenceExpression(loc('1'), ident('f')),
-            [ReferenceType(loc('3'), ident('T'))],
-            []
-          ),
-          EndToken(loc('7'))
-        )
       ),
     },
     {

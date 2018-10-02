@@ -483,21 +483,18 @@ export function MemberExpression(
 export interface CallExpression extends Node {
   readonly kind: ExpressionKind.Call;
   readonly callee: Expression;
-  readonly typeArguments: ReadonlyArray<Type>;
   readonly arguments: ReadonlyArray<Expression>;
 }
 
 export function CallExpression(
   loc: Loc,
   callee: Expression,
-  typeArgs: ReadonlyArray<Type>,
   args: ReadonlyArray<Expression>
 ): CallExpression {
   return {
     kind: ExpressionKind.Call,
     loc,
     callee,
-    typeArguments: typeArgs,
     arguments: args,
   };
 }

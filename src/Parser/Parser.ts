@@ -529,8 +529,36 @@ class Parser {
    */
   parseBinaryExpressionOperator(
     precedence: number,
-    left: Expression
+    left: Expression,
+    noGreaterThan: boolean = false
   ): Expression {
+    // Parse a `RelationalExpression`.
+    if (precedence <= RelationalPrecedence) {
+      let op: BinaryExpressionOperator | undefined;
+      if (this.tryParseGlyph(Glyph.LessThan)) {
+        op = BinaryExpressionOperator.LessThan;
+      } else if (!noGreaterThan && this.tryParseGlyph(Glyph.GreaterThan)) {
+        op = BinaryExpressionOperator.GreaterThan;
+      } else if (this.tryParseGlyph(Glyph.LessThanOrEqual)) {
+        op = BinaryExpressionOperator.LessThanOrEqual;
+      } else if (this.tryParseGlyph(Glyph.GreaterThanOrEqual)) {
+        op = BinaryExpressionOperator.GreaterThanOrEqual;
+      }
+      if (op !== undefined) {
+        const right = this.parseBinaryExpressionOperator(
+          RelationalPrecedence + 1,
+          this.parseUnaryExpression()
+        );
+        const loc = new Loc(left.loc.start, right.loc.end);
+        const node = BinaryExpression(loc, op, left, right);
+        return this.parseBinaryExpressionOperator(
+          precedence,
+          node,
+          op === BinaryExpressionOperator.LessThan
+        );
+      }
+    }
+
     // Parse an `AdditiveExpression`.
     if (precedence <= AdditivePrecedence) {
       let op: BinaryExpressionOperator | undefined;
@@ -772,34 +800,34 @@ class Parser {
         );
         const end = this.nextToken().loc.end;
         const loc = new Loc(primaryExpression.loc.start, end);
-        primaryExpression = CallExpression(loc, primaryExpression, [], args);
+        primaryExpression = CallExpression(loc, primaryExpression, args);
         continue;
       }
 
-      // Parse `CallExpression` with `GenericArguments`.
-      if (this.tryParseGlyphOnSameLine(Glyph.LessThan)) {
-        // Parse the type arguments first.
-        const typeArgs = this.parseCommaList(
-          () => this.parseType(),
-          Glyph.GreaterThan
-        );
-        this.nextToken();
-        this.parseGlyph(Glyph.ParenLeft);
-        // Then parse value arguments.
-        const args = this.parseCommaList(
-          () => this.parseExpression(),
-          Glyph.ParenRight
-        );
-        const end = this.nextToken().loc.end;
-        const loc = new Loc(primaryExpression.loc.start, end);
-        primaryExpression = CallExpression(
-          loc,
-          primaryExpression,
-          typeArgs,
-          args
-        );
-        continue;
-      }
+      // NOTE: Currently `CallExpression` with `GenericArguments` is not
+      // implemented. It would introduce a complicated cover grammar with
+      // `RelationalExpression` and is on shaky ground design-wise considering
+      // that it is the only way to apply types to a `QuantifiedType`. The
+      // syntax in question is as follows:
+      //
+      // ```ite
+      // f<T>()
+      // ```
+      //
+      // Consider this example to understand why design-wise this feature is a
+      // bit shaky:
+      //
+      // ```ite
+      // type F<T> = T -> T
+      // type Identity = <T> F<T>
+      // id: Identity = x -> x
+      // id<Int>(42)
+      // ```
+      //
+      // Here we apply a type to a `QuantifiedType`. However, there is no way to
+      // do the same operation in our `Type` grammar. Generic type application
+      // does not provide types to `QuantifiedType`.
+
       break;
     }
 
@@ -1320,9 +1348,6 @@ export function expressionIntoPattern(reason: Token, e: Expression): Pattern {
       return QualifiedPattern(e.loc, Array2.create(identifiers));
     }
     case ExpressionKind.Call: {
-      if (e.typeArguments.length > 0) {
-        throw ExpressionIntoPatternError(e, reason);
-      }
       const identifiers: Array<Name> = [];
       const callee = e.callee;
       if (callee.kind === ExpressionKind.Reference) {
