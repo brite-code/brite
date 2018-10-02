@@ -39,6 +39,8 @@ import {
   TuplePatternElement,
   TupleType,
   TypeParameter,
+  UnaryExpression,
+  UnaryExpressionOperator,
   UnitExpression,
   UnitPattern,
   UnitType,
@@ -2249,6 +2251,104 @@ describe('expression', () => {
           loc('1-3'),
           HoleExpression(loc('1')),
           Name(loc('3'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '!x',
+      result: Ok(
+        UnaryExpression(
+          loc('1-2'),
+          UnaryExpressionOperator.Not,
+          ReferenceExpression(loc('2'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '!!x',
+      result: Ok(
+        UnaryExpression(
+          loc('1-3'),
+          UnaryExpressionOperator.Not,
+          UnaryExpression(
+            loc('2-3'),
+            UnaryExpressionOperator.Not,
+            ReferenceExpression(loc('3'), ident('x'))
+          )
+        )
+      ),
+    },
+    {
+      source: '!!!!x',
+      result: Ok(
+        UnaryExpression(
+          loc('1-5'),
+          UnaryExpressionOperator.Not,
+          UnaryExpression(
+            loc('2-5'),
+            UnaryExpressionOperator.Not,
+            UnaryExpression(
+              loc('3-5'),
+              UnaryExpressionOperator.Not,
+              UnaryExpression(
+                loc('4-5'),
+                UnaryExpressionOperator.Not,
+                ReferenceExpression(loc('5'), ident('x'))
+              )
+            )
+          )
+        )
+      ),
+    },
+    {
+      source: '-x',
+      result: Ok(
+        UnaryExpression(
+          loc('1-2'),
+          UnaryExpressionOperator.Negative,
+          ReferenceExpression(loc('2'), ident('x'))
+        )
+      ),
+    },
+    {
+      source: '--x',
+      result: Ok(
+        UnaryExpression(
+          loc('1-3'),
+          UnaryExpressionOperator.Negative,
+          UnaryExpression(
+            loc('2-3'),
+            UnaryExpressionOperator.Negative,
+            ReferenceExpression(loc('3'), ident('x'))
+          )
+        )
+      ),
+    },
+    {
+      source: '!-x',
+      result: Ok(
+        UnaryExpression(
+          loc('1-3'),
+          UnaryExpressionOperator.Not,
+          UnaryExpression(
+            loc('2-3'),
+            UnaryExpressionOperator.Negative,
+            ReferenceExpression(loc('3'), ident('x'))
+          )
+        )
+      ),
+    },
+    {
+      source: '-!x',
+      result: Ok(
+        UnaryExpression(
+          loc('1-3'),
+          UnaryExpressionOperator.Negative,
+          UnaryExpression(
+            loc('2-3'),
+            UnaryExpressionOperator.Not,
+            ReferenceExpression(loc('3'), ident('x'))
+          )
         )
       ),
     },

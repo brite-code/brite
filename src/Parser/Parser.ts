@@ -43,6 +43,8 @@ import {
   TupleType,
   Type,
   TypeParameter,
+  UnaryExpression,
+  UnaryExpressionOperator,
   UnitExpression,
   UnitPattern,
   UnitType,
@@ -509,7 +511,7 @@ class Parser {
    * Parse the `OperatorExpression` grammar.
    */
   parseOperatorExpression(): Expression {
-    const expression = this.parsePrimaryExpression();
+    const expression = this.parseUnaryExpression();
 
     // Parse `PatternExpression`.
     //
@@ -524,10 +526,24 @@ class Parser {
   }
 
   /**
-   * Parse the `PrimaryExpression` grammar.
+   * Parse the `UnaryExpression` grammar.
    */
-  parsePrimaryExpression(): Expression {
+  parseUnaryExpression(): Expression {
     const token = this.nextToken();
+
+    // Parse negative `UnaryExpression`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.Minus) {
+      const argument = this.parseUnaryExpression();
+      const loc = new Loc(token.loc.start, argument.loc.end);
+      return UnaryExpression(loc, UnaryExpressionOperator.Negative, argument);
+    }
+
+    // Parse not `UnaryExpression`.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.Exclamation) {
+      const argument = this.parseUnaryExpression();
+      const loc = new Loc(token.loc.start, argument.loc.end);
+      return UnaryExpression(loc, UnaryExpressionOperator.Not, argument);
+    }
 
     let primaryExpression: Expression;
 
