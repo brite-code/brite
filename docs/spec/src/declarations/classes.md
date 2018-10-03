@@ -51,7 +51,7 @@ The “head” of a class declares some information about the class.
 
 The optional {GenericParameters} specify some type parameters. These generic types and their bounds can specialize the class so the programmer can build data structures which abstract over a category of types instead of a single type.
 
-The optional {FunctionParameters[Constructor]} specifies some data that makes up the class. This data may be retrieved when the class is destructured with a {Pattern}.
+The optional {FunctionParameters[Constructor]} specifies some data that makes up the class. This data may be retrieved when the class is deconstructed with a {Pattern}.
 
 All of the identifiers bound in {FunctionParameters[Constructor]} are exposed as class fields. Accessible through the `this` variable in methods. Not all of the class data must be bound to fields. To bind no fields one may use {BindingPatternHole}.
 
@@ -76,7 +76,7 @@ ClassMethod : Access? FunctionDeclaration
 
 BaseClassMethod : Access? `base` InterfaceMethod
 
-If the first parameter in {ClassMethod} or {BaseClassMethod} is an unannotated `this` {Identifier} then the method is an instance method. Otherwise it is a static method.
+If the first parameter in {ClassMethod} or {BaseClassMethod} is an un-annotated `this` {Identifier} then the method is an instance method. Otherwise it is a static method.
 
 Method accessibility in a Brite program is specified by its {Access} modifier.
 

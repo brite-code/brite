@@ -1,6 +1,6 @@
 # Interface Declaration
 
-InterfaceDeclaration : `interface` Identifier GenericParameters? InterfaceExtends? InterfaceBody
+InterfaceDeclaration : `interface` Identifier GenericParameters? InterfaceExtends? InterfaceBody?
 
 InterfaceBody : `{` InterfaceMemberList? `}`
 
