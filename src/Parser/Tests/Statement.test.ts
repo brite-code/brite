@@ -1,6 +1,9 @@
 import {Err, Ok, Result} from '../../Utils/Result';
 import {
+  BinaryExpression,
+  BinaryExpressionOperator,
   BindingPattern,
+  BindingStatement,
   ForLoopStatement,
   ReferenceExpression,
   ReferenceType,
@@ -9,13 +12,14 @@ import {
   WrappedPattern,
 } from '../Ast';
 import {
-  ExpectedIdentifier,
+  ExpectedGlyph,
   ExpectedKeyword,
+  ExpressionIntoPatternError,
   ParserError,
   UnexpectedTokenError,
 } from '../Error';
 import {Identifier, ident} from '../Identifier';
-import {Glyph, GlyphToken, Lexer} from '../Lexer';
+import {EndToken, Glyph, GlyphToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {parseStatement} from '../Parser';
 
@@ -68,6 +72,60 @@ describe('statement', () => {
           ReferenceExpression(loc('15'), ident('y')),
           ReferenceExpression(loc('18'), ident('z'))
         )
+      ),
+    },
+    {
+      source: 'x = y',
+      result: Ok(
+        BindingStatement(
+          BindingPattern(loc('1'), ident('x')),
+          undefined,
+          ReferenceExpression(loc('5'), ident('y'))
+        )
+      ),
+    },
+    {
+      source: 'x: T = y',
+      result: Ok(
+        BindingStatement(
+          BindingPattern(loc('1'), ident('x')),
+          ReferenceType(loc('4'), ident('T')),
+          ReferenceExpression(loc('8'), ident('y'))
+        )
+      ),
+    },
+    {
+      source: 'a + b = c',
+      result: Err(
+        ExpressionIntoPatternError(
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          GlyphToken(loc('7'), Glyph.Equals)
+        )
+      ),
+    },
+    {
+      source: 'a + b: T = c',
+      result: Err(
+        ExpressionIntoPatternError(
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          GlyphToken(loc('10'), Glyph.Equals)
+        )
+      ),
+    },
+    {
+      source: 'x: T',
+      result: Err(
+        UnexpectedTokenError(EndToken(loc('5')), ExpectedGlyph(Glyph.Equals))
       ),
     },
   ];

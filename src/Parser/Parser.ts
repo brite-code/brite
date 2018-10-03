@@ -7,6 +7,7 @@ import {
   BinaryExpressionOperator,
   BindingName,
   BindingPattern,
+  BindingStatement,
   BlockExpression,
   BreakExpression,
   CallExpression,
@@ -371,9 +372,58 @@ class Parser {
    * Parses the `Statement` grammar.
    */
   parseStatement(): Statement {
+    // Try to parse the `Statement`s which don’t look anything
+    // like `Expression`s.
     const statement = this.tryParseStatementDistinctFromExpression();
     if (statement !== undefined) return statement;
-    return ExpressionStatement(this.parseExpression());
+
+    // All our remaining statements look like expressions.
+    const expression = this.parseExpression();
+
+    const token = this.peekToken();
+
+    // If we see a colon then we expect that we are a `BindingStatement` with a
+    // type annotation.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.Colon) {
+      this.nextToken();
+      const type = this.parseType();
+
+      // We expect an equality token next. If we do not see one then throw an
+      // unexpected token error.
+      const equalsToken = this.nextToken();
+      if (
+        equalsToken.type !== TokenType.Glyph ||
+        equalsToken.glyph !== Glyph.Equals
+      ) {
+        throw UnexpectedTokenError(equalsToken, ExpectedGlyph(Glyph.Equals));
+      }
+
+      // Convert our expression into a pattern with the equals token as the
+      // reason in case we can’t convert the expression.
+      const binding = expressionIntoPattern(equalsToken, expression);
+
+      // Parse the value of this binding statement.
+      const value = this.parseExpression();
+
+      return BindingStatement(binding, type, value);
+    }
+
+    // If we see an equals then we expect that we are a `BindingStatement`
+    // without a type annotation.
+    if (token.type === TokenType.Glyph && token.glyph === Glyph.Equals) {
+      this.nextToken();
+
+      // Convert our expression into a pattern with the equals token as the
+      // reason in case we can’t convert the expression.
+      const binding = expressionIntoPattern(token, expression);
+
+      // Parse the value of this binding statement.
+      const value = this.parseExpression();
+
+      return BindingStatement(binding, undefined, value);
+    }
+
+    return ExpressionStatement(expression);
   }
 
   /**
