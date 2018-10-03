@@ -4,6 +4,7 @@ Expression :
   - FunctionExpression
   - ConditionalExpression
   - ControlExpression
+  - LoopExpression
   - BinaryExpression
 
 BinaryExpression : LogicalExpressionOr
@@ -17,7 +18,6 @@ PrimaryExpression :
   - MemberExpression
   - CallExpression
   - MatchExpression
-  - LoopExpression
   - WrappedExpression
   - BlockExpression but not WrappedExpression
 

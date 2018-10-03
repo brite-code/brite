@@ -17,6 +17,7 @@ import {
   ListPattern,
   LogicalExpression,
   LogicalExpressionOperator,
+  LoopExpression,
   MatchCase,
   MatchExpression,
   MemberExpression,
@@ -2505,6 +2506,42 @@ describe('expression', () => {
             LogicalExpressionOperator.And,
             ReferenceExpression(loc('11'), ident('c')),
             ReferenceExpression(loc('16'), ident('d'))
+          )
+        )
+      ),
+    },
+    {
+      source: 'loop: x',
+      result: Ok(
+        LoopExpression(loc('1-7'), ReferenceExpression(loc('7'), ident('x')))
+      ),
+    },
+    {
+      source: 'loop: o.p',
+      result: Ok(
+        LoopExpression(
+          loc('1-9'),
+          MemberExpression(
+            loc('7-9'),
+            ReferenceExpression(loc('7'), ident('o')),
+            Name(loc('9'), ident('p'))
+          )
+        )
+      ),
+    },
+    {
+      source: 'loop: (o).p',
+      result: Ok(
+        LoopExpression(
+          loc('1-11'),
+          MemberExpression(
+            loc('7-11'),
+            WrappedExpression(
+              loc('7-9'),
+              ReferenceExpression(loc('8'), ident('o')),
+              undefined
+            ),
+            Name(loc('11'), ident('p'))
           )
         )
       ),

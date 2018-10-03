@@ -24,6 +24,7 @@ import {
   ListPattern,
   LogicalExpression,
   LogicalExpressionOperator,
+  LoopExpression,
   MatchCase,
   MatchExpression,
   MemberExpression,
@@ -418,6 +419,15 @@ class Parser {
       // Parse `ContinueExpression`.
       if (token.identifier === 'continue') {
         return ContinueExpression(this.nextToken().loc);
+      }
+
+      // Parse `LoopExpression`.
+      if (token.identifier === 'loop') {
+        const start = this.nextToken().loc.start;
+        this.parseGlyph(Glyph.Colon);
+        const body = this.parseExpression();
+        const loc = new Loc(start, body.loc.end);
+        return LoopExpression(loc, body);
       }
     }
 
