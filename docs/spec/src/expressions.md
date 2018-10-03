@@ -225,7 +225,7 @@ Note: The chaining feature assumes a proper implementation of the equality inter
 ## Relational Expression
 
 RelationalExpression[WithoutLessThan] :
-  - [~WithoutLessThan] RelationalExpression [lookahead != LineTerminator] `<` PatternExpression
+  - [~WithoutLessThan] RelationalExpression `<` PatternExpression
   - RelationalExpression[WithoutLessThan] `>` PatternExpression
   - RelationalExpression `<=` PatternExpression
   - RelationalExpression `>=` PatternExpression
