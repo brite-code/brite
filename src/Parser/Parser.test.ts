@@ -1154,10 +1154,22 @@ describe('expression', () => {
     },
     {
       source: '{ x == y | a = b }',
-      result: Err(
-        UnexpectedTokenError(
-          GlyphToken(loc('5-6'), Glyph.EqualsDouble),
-          ExpectedGlyph(Glyph.Bar)
+      result: Ok(
+        RecordExpression(
+          loc('1-18'),
+          BinaryExpression(
+            loc('3-8'),
+            BinaryExpressionOperator.Equal,
+            ReferenceExpression(loc('3'), ident('x')),
+            ReferenceExpression(loc('8'), ident('y'))
+          ),
+          [
+            RecordExpressionProperty(
+              Name(loc('12'), ident('a')),
+              ReferenceExpression(loc('16'), ident('b')),
+              undefined
+            ),
+          ]
         )
       ),
     },
@@ -2803,6 +2815,81 @@ describe('expression', () => {
             ReferenceExpression(loc('5'), ident('b'))
           ),
           ReferenceExpression(loc('9'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a < b + c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-9'),
+          BinaryExpressionOperator.LessThan,
+          ReferenceExpression(loc('1'), ident('a')),
+          BinaryExpression(
+            loc('5-9'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('5'), ident('b')),
+            ReferenceExpression(loc('9'), ident('c'))
+          )
+        )
+      ),
+    },
+    {
+      source: 'a == b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-6'),
+          BinaryExpressionOperator.Equal,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a != b',
+      result: Ok(
+        BinaryExpression(
+          loc('1-6'),
+          BinaryExpressionOperator.EqualNot,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a == b == c',
+      result: Ok(
+        BinaryExpression(
+          loc('1-11'),
+          BinaryExpressionOperator.Equal,
+          BinaryExpression(
+            loc('1-6'),
+            BinaryExpressionOperator.Equal,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('6'), ident('b'))
+          ),
+          ReferenceExpression(loc('11'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a + b == c + d',
+      result: Ok(
+        BinaryExpression(
+          loc('1-14'),
+          BinaryExpressionOperator.Equal,
+          BinaryExpression(
+            loc('1-5'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('5'), ident('b'))
+          ),
+          BinaryExpression(
+            loc('10-14'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('10'), ident('c')),
+            ReferenceExpression(loc('14'), ident('d'))
+          )
         )
       ),
     },

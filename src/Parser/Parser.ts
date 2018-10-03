@@ -532,6 +532,25 @@ class Parser {
     left: Expression,
     noGreaterThan: boolean = false
   ): Expression {
+    // Parse an `EqualityExpression`.
+    if (precedence <= EqualityPrecedence) {
+      let op: BinaryExpressionOperator | undefined;
+      if (this.tryParseGlyph(Glyph.EqualsDouble)) {
+        op = BinaryExpressionOperator.Equal;
+      } else if (this.tryParseGlyph(Glyph.NotEquals)) {
+        op = BinaryExpressionOperator.EqualNot;
+      }
+      if (op !== undefined) {
+        const right = this.parseBinaryExpressionOperator(
+          EqualityPrecedence + 1,
+          this.parseUnaryExpression()
+        );
+        const loc = new Loc(left.loc.start, right.loc.end);
+        const node = BinaryExpression(loc, op, left, right);
+        return this.parseBinaryExpressionOperator(precedence, node);
+      }
+    }
+
     // Parse a `RelationalExpression`.
     if (precedence <= RelationalPrecedence) {
       let op: BinaryExpressionOperator | undefined;
