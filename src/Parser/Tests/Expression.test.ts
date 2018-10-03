@@ -41,6 +41,7 @@ import {
   UnitExpression,
   UnitPattern,
   UnitType,
+  WhileLoopStatement,
   WrappedExpression,
 } from '../Ast';
 import {
@@ -2599,6 +2600,62 @@ describe('expression', () => {
           IdentifierToken(loc('2:1'), ident('b')),
           ExpectedGlyph(Glyph.Comma)
         )
+      ),
+    },
+    {
+      source: '(while x: y)',
+      result: Ok(
+        BlockExpression(loc('1-12'), [
+          WhileLoopStatement(
+            ReferenceExpression(loc('8'), ident('x')),
+            ReferenceExpression(loc('11'), ident('y'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(while x: y; b)',
+      result: Ok(
+        BlockExpression(loc('1-15'), [
+          WhileLoopStatement(
+            ReferenceExpression(loc('8'), ident('x')),
+            ReferenceExpression(loc('11'), ident('y'))
+          ),
+          ExpressionStatement(ReferenceExpression(loc('14'), ident('b'))),
+        ])
+      ),
+    },
+    {
+      source: '(while x: y\nb)',
+      result: Ok(
+        BlockExpression(loc('1:1-2:2'), [
+          WhileLoopStatement(
+            ReferenceExpression(loc('1:8'), ident('x')),
+            ReferenceExpression(loc('1:11'), ident('y'))
+          ),
+          ExpressionStatement(ReferenceExpression(loc('2:1'), ident('b'))),
+        ])
+      ),
+    },
+    {
+      source: '(while x: y: T)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('12'), Glyph.Colon),
+          ExpectedLineSeparator
+        )
+      ),
+    },
+    {
+      source: '(b; while x: y)',
+      result: Ok(
+        BlockExpression(loc('1-15'), [
+          ExpressionStatement(ReferenceExpression(loc('2'), ident('b'))),
+          WhileLoopStatement(
+            ReferenceExpression(loc('11'), ident('x')),
+            ReferenceExpression(loc('14'), ident('y'))
+          ),
+        ])
       ),
     },
   ].forEach(({source, result}) => {

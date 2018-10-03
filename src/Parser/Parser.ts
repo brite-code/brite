@@ -47,6 +47,7 @@ import {
   ReferenceType,
   ReturnExpression,
   Statement,
+  StatementKind,
   TupleExpression,
   TupleExpressionElement,
   TuplePattern,
@@ -826,12 +827,17 @@ class Parser {
         primaryExpression = UnitExpression(loc);
       } else {
         // Otherwise we expect an expression maybe with an annotation.
-        const firstExpression = this.parseExpression();
+        const firstStatement =
+          this.tryParseStatementDistinctFromExpression() ||
+          ExpressionStatement(this.parseExpression());
         let firstType: Type | undefined;
 
         // If we see a colon then we have a type annotation. Parse that
         // type annotation.
-        if (this.tryParseGlyph(Glyph.Colon)) {
+        if (
+          firstStatement.kind === StatementKind.Expression &&
+          this.tryParseGlyph(Glyph.Colon)
+        ) {
           firstType = this.parseType();
         }
 
@@ -848,6 +854,7 @@ class Parser {
         const nextToken = this.peekToken();
         if (
           // A closing parentheses means we have a `WrappedExpression`.
+          firstStatement.kind === StatementKind.Expression &&
           nextToken.type === TokenType.Glyph &&
           nextToken.glyph === Glyph.ParenRight
         ) {
@@ -855,17 +862,20 @@ class Parser {
           const loc = new Loc(start, end);
           primaryExpression = WrappedExpression(
             loc,
-            firstExpression,
+            firstStatement.expression,
             firstType
           );
         } else if (
           // A comma means we have a `TupleExpression` or a `WrappedExpression`
           // with a trailing comma.
+          firstStatement.kind === StatementKind.Expression &&
           nextToken.type === TokenType.Glyph &&
           nextToken.glyph === Glyph.Comma
         ) {
           this.nextToken();
-          const elements = [TupleExpressionElement(firstExpression, firstType)];
+          const elements = [
+            TupleExpressionElement(firstStatement.expression, firstType),
+          ];
           this.parseCommaList(
             () => {
               const expression = this.parseExpression();
@@ -882,7 +892,7 @@ class Parser {
           if (elements.length === 1) {
             primaryExpression = WrappedExpression(
               loc,
-              firstExpression,
+              firstStatement.expression,
               firstType
             );
           } else {
@@ -897,7 +907,7 @@ class Parser {
           nextToken.glyph === Glyph.Semicolon
         ) {
           this.nextToken();
-          const statements = [ExpressionStatement(firstExpression)];
+          const statements = [firstStatement];
           this.parseLineSeparatorList(
             () => this.parseStatement(),
             Glyph.ParenRight,
@@ -911,9 +921,9 @@ class Parser {
           // `BlockExpression`. However, if we parsed a type annotation then we
           // do not have a `BlockExpression` so we should error instead.
           firstType === undefined &&
-          firstExpression.loc.end.line !== nextToken.loc.start.line
+          this.currentLoc.end.line !== nextToken.loc.start.line
         ) {
-          const statements = [ExpressionStatement(firstExpression)];
+          const statements = [firstStatement];
           this.parseLineSeparatorList(
             () => this.parseStatement(),
             Glyph.ParenRight,
@@ -922,11 +932,24 @@ class Parser {
           const end = this.nextToken().loc.end;
           const loc = new Loc(start, end);
           primaryExpression = BlockExpression(loc, Array1.create(statements));
+        } else if (
+          // If the next token is a closing parentheses and we do not have a
+          // type annotation then we have a `BlockStatement`.
+          firstType === undefined &&
+          nextToken.type === TokenType.Glyph &&
+          nextToken.glyph === Glyph.ParenRight
+        ) {
+          const end = this.nextToken().loc.end;
+          const loc = new Loc(start, end);
+          primaryExpression = BlockExpression(loc, [firstStatement]);
         } else {
-          // If none of the above cases are true then throw an unexpected token
-          // error saying we expected a comma which would make a
-          // tuple expression.
-          throw UnexpectedTokenError(nextToken, ExpectedGlyph(Glyph.Comma));
+          // If none of the above cases are true then throw an unexpected
+          // token error.
+          if (firstStatement.kind === StatementKind.Expression) {
+            throw UnexpectedTokenError(nextToken, ExpectedGlyph(Glyph.Comma));
+          } else {
+            throw UnexpectedTokenError(nextToken, ExpectedLineSeparator);
+          }
         }
       }
     } else if (
