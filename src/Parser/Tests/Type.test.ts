@@ -4,21 +4,14 @@ import {
   GenericType,
   MemberType,
   Name,
-  QuantifiedType,
   RecordType,
   RecordTypeProperty,
   ReferenceType,
   TupleType,
-  TypeParameter,
   UnitType,
   WrappedType,
 } from '../Ast';
-import {
-  ExpectedGlyph,
-  ExpectedIdentifier,
-  ExpectedType,
-  UnexpectedTokenError,
-} from '../Error';
+import {ExpectedIdentifier, ExpectedType, UnexpectedTokenError} from '../Error';
 import {Identifier, ident} from '../Identifier';
 import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
@@ -409,134 +402,74 @@ describe('type', () => {
     },
     {
       source: '<T> T',
-      result: Ok(
-        QuantifiedType(
-          loc('1-5'),
-          [TypeParameter(Name(loc('2'), ident('T')), [])],
-          ReferenceType(loc('5'), ident('T'))
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T> Foo<T>',
-      result: Ok(
-        QuantifiedType(
-          loc('1-10'),
-          [TypeParameter(Name(loc('2'), ident('T')), [])],
-          GenericType(loc('5-10'), ReferenceType(loc('5-7'), ident('Foo')), [
-            ReferenceType(loc('9'), ident('T')),
-          ])
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T>(T) -> T',
-      result: Ok(
-        QuantifiedType(
-          loc('1-11'),
-          [TypeParameter(Name(loc('2'), ident('T')), [])],
-          FunctionType(
-            loc('4-11'),
-            [ReferenceType(loc('5'), ident('T'))],
-            ReferenceType(loc('11'), ident('T'))
-          )
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T> T -> T',
-      result: Ok(
-        QuantifiedType(
-          loc('1-10'),
-          [TypeParameter(Name(loc('2'), ident('T')), [])],
-          FunctionType(
-            loc('5-10'),
-            [ReferenceType(loc('5'), ident('T'))],
-            ReferenceType(loc('10'), ident('T'))
-          )
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T> %',
       result: Err(
-        UnexpectedTokenError(GlyphToken(loc('5'), Glyph.Percent), ExpectedType)
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T: A> T',
-      result: Ok(
-        QuantifiedType(
-          loc('1-8'),
-          [
-            TypeParameter(Name(loc('2'), ident('T')), [
-              ReferenceType(loc('5'), ident('A')),
-            ]),
-          ],
-          ReferenceType(loc('8'), ident('T'))
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T: A + B> T',
-      result: Ok(
-        QuantifiedType(
-          loc('1-12'),
-          [
-            TypeParameter(Name(loc('2'), ident('T')), [
-              ReferenceType(loc('5'), ident('A')),
-              ReferenceType(loc('9'), ident('B')),
-            ]),
-          ],
-          ReferenceType(loc('12'), ident('T'))
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T: A + B + C + D> T',
-      result: Ok(
-        QuantifiedType(
-          loc('1-20'),
-          [
-            TypeParameter(Name(loc('2'), ident('T')), [
-              ReferenceType(loc('5'), ident('A')),
-              ReferenceType(loc('9'), ident('B')),
-              ReferenceType(loc('13'), ident('C')),
-              ReferenceType(loc('17'), ident('D')),
-            ]),
-          ],
-          ReferenceType(loc('20'), ident('T'))
-        )
+      result: Err(
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T: > T',
       result: Err(
-        UnexpectedTokenError(
-          GlyphToken(loc('5'), Glyph.GreaterThan),
-          ExpectedType
-        )
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T: %> T',
       result: Err(
-        UnexpectedTokenError(GlyphToken(loc('5'), Glyph.Percent), ExpectedType)
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T: A + %> T',
       result: Err(
-        UnexpectedTokenError(GlyphToken(loc('9'), Glyph.Percent), ExpectedType)
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
     {
       source: '<T: A B> T',
       result: Err(
-        UnexpectedTokenError(
-          IdentifierToken(loc('7'), ident('B')),
-          ExpectedGlyph(Glyph.Comma)
-        )
+        UnexpectedTokenError(GlyphToken(loc('1'), Glyph.LessThan), ExpectedType)
       ),
     },
   ].forEach(({source, result}) => {

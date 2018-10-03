@@ -37,7 +37,6 @@ import {
   Pattern,
   PatternExpression,
   QualifiedPattern,
-  QuantifiedType,
   RecordExpression,
   RecordExpressionProperty,
   RecordPattern,
@@ -299,19 +298,6 @@ class Parser {
       const end = this.nextToken().loc.end;
       const loc = new Loc(start, end);
       primaryType = RecordType(loc, properties);
-    } else if (
-      // Parse `QuantifiedType`.
-      token.type === TokenType.Glyph &&
-      token.glyph === Glyph.LessThan
-    ) {
-      const start = token.loc.start;
-      const typeParameters = this.parseCommaList(
-        () => this.parseGenericParameter(),
-        Glyph.GreaterThan
-      );
-      this.nextToken();
-      const body = this.parseType();
-      return QuantifiedType(new Loc(start, body.loc.end), typeParameters, body);
     } else {
       throw UnexpectedTokenError(token, ExpectedType);
     }
@@ -1156,27 +1142,7 @@ class Parser {
 
       // NOTE: Currently `CallExpression` with `GenericArguments` is not
       // implemented. It would introduce a complicated cover grammar with
-      // `RelationalExpression` and is on shaky ground design-wise considering
-      // that it is the only way to apply types to a `QuantifiedType`. The
-      // syntax in question is as follows:
-      //
-      // ```ite
-      // f<T>()
-      // ```
-      //
-      // Consider this example to understand why design-wise this feature is a
-      // bit shaky:
-      //
-      // ```ite
-      // type F<T> = T -> T
-      // type Identity = <T> F<T>
-      // id: Identity = x -> x
-      // id<Int>(42)
-      // ```
-      //
-      // Here we apply a type to a `QuantifiedType`. However, there is no way to
-      // do the same operation in our `Type` grammar. Generic type application
-      // does not provide types to `QuantifiedType`.
+      // `RelationalExpression`.
 
       break;
     }

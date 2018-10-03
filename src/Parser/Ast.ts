@@ -130,7 +130,6 @@ export type Type =
   | FunctionType
   | MemberType
   | GenericType
-  | QuantifiedType
   | WrappedType;
 
 export const enum TypeKind {
@@ -141,7 +140,6 @@ export const enum TypeKind {
   Function = 'Function',
   Member = 'Member',
   Generic = 'Generic',
-  Quantified = 'Quantified',
   Wrapped = 'Wrapped',
 }
 
@@ -240,20 +238,6 @@ export function GenericType(
   typeArguments: ReadonlyArray<Type>
 ): GenericType {
   return {kind: TypeKind.Generic, loc, callee, typeArguments};
-}
-
-export interface QuantifiedType extends Node {
-  readonly kind: TypeKind.Quantified;
-  readonly typeParameters: ReadonlyArray<TypeParameter>;
-  readonly body: Type;
-}
-
-export function QuantifiedType(
-  loc: Loc,
-  typeParameters: ReadonlyArray<TypeParameter>,
-  body: Type
-): QuantifiedType {
-  return {kind: TypeKind.Quantified, loc, typeParameters, body};
 }
 
 export interface WrappedType extends Node {

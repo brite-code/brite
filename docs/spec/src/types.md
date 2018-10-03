@@ -2,7 +2,6 @@
 
 Type :
   - FunctionType
-  - QuantifiedType
   - PrimaryType
 
 PrimaryType :
@@ -106,7 +105,7 @@ type AddInts = (Int, Int) -> Int
 
 MemberType : PrimaryType `.` Identifier
 
-Resolves a specicic type of any kind from a namespace.
+Resolves a specific type of any kind from a namespace.
 
 ```ite example
 type Component = React.Component
@@ -120,17 +119,4 @@ Applies some type arguments to a generic type.
 
 ```ite example
 type IntMap<T> = Map<Int, T>
-```
-
-## Quantified Type
-
-QuantifiedType :
-  - GenericParameters Type
-
-Introduces fresh type variables into the current type scope. Most often used with {FunctionType} to create a polymorphic function. For example the identity function `<T>(T) -> T`. But in fact, fresh type variables can be introduced anywhere. Like before a type alias `<T> MyAlias<T>`. Note that these type variables are always of the value kind.
-
-See [existentially quantified types](https://en.wikibooks.org/wiki/Haskell/Existentially_quantified_types) in Haskell.
-
-```ite example
-type Identity = <T>(T) -> T
 ```

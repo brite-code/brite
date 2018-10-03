@@ -138,7 +138,7 @@ Note: {CallExpression} notes that there cannot be a {LineTerminator} in between 
 
 Note: {GenericArguments} introduces ambiguity with {RelationalExpression} for LR(1) parsers. Brite implementations will have to deal with this. For example `f < x > ()` could be interpreted as two {RelationalExpression}.
 
-TODO: Passing {GenericArguments} has not been implemented yet because it introduces a complicated cover grammar. Also, it theoretically doesn’t make much sense as a generic type application give you can’t apply explicit types to a {QuantifiedType}.
+TODO: Passing {GenericArguments} has not been implemented yet because it introduces a complicated cover grammar.
 
 ## Function Expression
 
