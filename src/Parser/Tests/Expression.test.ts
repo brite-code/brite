@@ -5,6 +5,7 @@ import {
   BinaryExpressionOperator,
   BindingName,
   BindingPattern,
+  BindingStatement,
   BlockExpression,
   BreakExpression,
   CallExpression,
@@ -51,6 +52,7 @@ import {
   ExpectedGlyph,
   ExpectedLineSeparator,
   ExpectedType,
+  ExpressionIntoPatternError,
   UnexpectedTokenError,
 } from '../Error';
 import {BindingIdentifier, Identifier, ident} from '../Identifier';
@@ -2721,6 +2723,67 @@ describe('expression', () => {
             ),
           ]),
           Name(loc('14'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '(x = y)',
+      result: Ok(
+        BlockExpression(loc('1-7'), [
+          BindingStatement(
+            BindingPattern(loc('2'), ident('x')),
+            undefined,
+            ReferenceExpression(loc('6'), ident('y'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(x: T = y)',
+      result: Ok(
+        BlockExpression(loc('1-10'), [
+          BindingStatement(
+            BindingPattern(loc('2'), ident('x')),
+            ReferenceType(loc('5'), ident('T')),
+            ReferenceExpression(loc('9'), ident('y'))
+          ),
+        ])
+      ),
+    },
+    {
+      source: '(a + b = c)',
+      result: Err(
+        ExpressionIntoPatternError(
+          BinaryExpression(
+            loc('2-6'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('2'), ident('a')),
+            ReferenceExpression(loc('6'), ident('b'))
+          ),
+          GlyphToken(loc('8'), Glyph.Equals)
+        )
+      ),
+    },
+    {
+      source: '(a + b: T = c)',
+      result: Err(
+        ExpressionIntoPatternError(
+          BinaryExpression(
+            loc('2-6'),
+            BinaryExpressionOperator.Add,
+            ReferenceExpression(loc('2'), ident('a')),
+            ReferenceExpression(loc('6'), ident('b'))
+          ),
+          GlyphToken(loc('11'), Glyph.Equals)
+        )
+      ),
+    },
+    {
+      source: '(while x: y =)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('13'), Glyph.Equals),
+          ExpectedLineSeparator
         )
       ),
     },

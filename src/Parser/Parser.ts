@@ -877,7 +877,7 @@ class Parser {
         primaryExpression = UnitExpression(loc);
       } else {
         // Otherwise we expect an expression maybe with an annotation.
-        const firstStatement =
+        let firstStatement: Statement =
           this.tryParseStatementDistinctFromExpression() ||
           ExpressionStatement(this.parseExpression());
         let firstType: Type | undefined;
@@ -891,6 +891,22 @@ class Parser {
           firstType = this.parseType();
         }
 
+        // If the next token is an equals and our first statement was an
+        // expression then we have a binding statement instead of a expression.
+        let nextToken = this.peekToken();
+        if (
+          firstStatement.kind === StatementKind.Expression &&
+          nextToken.type === TokenType.Glyph &&
+          nextToken.glyph === Glyph.Equals
+        ) {
+          this.nextToken();
+          const firstExpression = firstStatement.expression;
+          const binding = expressionIntoPattern(nextToken, firstExpression);
+          const value = this.parseExpression();
+          firstStatement = BindingStatement(binding, firstType, value);
+          firstType = undefined;
+        }
+
         // Ok, so at this point there are a couple paths we could take:
         //
         // - A closing parentheses means we have a `WrappedExpression`.
@@ -901,7 +917,7 @@ class Parser {
         //   a `BlockExpression`.
         // - An equals token means we have a `BlockExpression` with
         //   a `BindingStatement`.
-        const nextToken = this.peekToken();
+        nextToken = this.peekToken();
         if (
           // A closing parentheses means we have a `WrappedExpression`.
           firstStatement.kind === StatementKind.Expression &&
