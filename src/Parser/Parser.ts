@@ -383,46 +383,6 @@ class Parser {
         return ConditionalExpression(loc, test, consequent, alternate);
       }
 
-      // Parse `MatchExpression`.
-      if (token.identifier === 'match') {
-        const start = this.nextToken().loc.start;
-
-        // First, we need to parse the expression that we are testing in this
-        // match. After that we expect a colon to separate the match body.
-        const test = this.parseExpression();
-        this.parseGlyph(Glyph.Colon);
-        this.parseGlyph(Glyph.ParenLeft);
-
-        // Parse all that match cases inside this match expression.
-        const cases = this.parseLineSeparatorList(() => {
-          // Parse a non-empty list of bindings separated by a single bar (`|`).
-          // This way multiple patterns can match to a single body.
-          const bindings = this.parseNonEmptyList(
-            () => this.parsePattern(),
-            Glyph.Bar
-          );
-
-          // If we see the binding keyword `if` then we have some condition on
-          // this match case.
-          let test: Expression | undefined;
-          if (this.tryParseKeyword('if')) {
-            test = this.parseBinaryExpression();
-          }
-
-          // Parse the arrow and then the expression body of this case which
-          // will be executed if any of the patterns match.
-          this.parseGlyph(Glyph.Arrow);
-          const body = this.parseExpression();
-
-          return MatchCase(bindings, test, body);
-        }, Glyph.ParenRight);
-
-        // Finally, create the match expression.
-        const end = this.nextToken().loc.end;
-        const loc = new Loc(start, end);
-        return MatchExpression(loc, test, cases);
-      }
-
       // Parse `ReturnExpression`.
       if (token.identifier === 'return') {
         this.nextToken();
@@ -718,6 +678,46 @@ class Parser {
         primaryExpression = ReferenceExpression(token.loc, identifier);
       } else if (token.identifier === '_') {
         primaryExpression = HoleExpression(token.loc);
+      } else if (
+        // Parse `MatchExpression`.
+        token.identifier === 'match'
+      ) {
+        const start = token.loc.start;
+
+        // First, we need to parse the expression that we are testing in this
+        // match. After that we expect a colon to separate the match body.
+        const test = this.parseExpression();
+        this.parseGlyph(Glyph.Colon);
+        this.parseGlyph(Glyph.ParenLeft);
+
+        // Parse all that match cases inside this match expression.
+        const cases = this.parseLineSeparatorList(() => {
+          // Parse a non-empty list of bindings separated by a single bar (`|`).
+          // This way multiple patterns can match to a single body.
+          const bindings = this.parseNonEmptyList(
+            () => this.parsePattern(),
+            Glyph.Bar
+          );
+
+          // If we see the binding keyword `if` then we have some condition on
+          // this match case.
+          let test: Expression | undefined;
+          if (this.tryParseKeyword('if')) {
+            test = this.parseBinaryExpression();
+          }
+
+          // Parse the arrow and then the expression body of this case which
+          // will be executed if any of the patterns match.
+          this.parseGlyph(Glyph.Arrow);
+          const body = this.parseExpression();
+
+          return MatchCase(bindings, test, body);
+        }, Glyph.ParenRight);
+
+        // Finally, create the match expression.
+        const end = this.nextToken().loc.end;
+        const loc = new Loc(start, end);
+        primaryExpression = MatchExpression(loc, test, cases);
       } else {
         throw UnexpectedTokenError(token, ExpectedExpression);
       }

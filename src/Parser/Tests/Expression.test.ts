@@ -895,6 +895,20 @@ describe('expression', () => {
       ),
     },
     {
+      source: 'match x: ().p',
+      result: Ok(
+        MemberExpression(
+          loc('1-13'),
+          MatchExpression(
+            loc('1-11'),
+            ReferenceExpression(loc('7'), ident('x')),
+            []
+          ),
+          Name(loc('13'), ident('p'))
+        )
+      ),
+    },
+    {
       source: 'o.p',
       result: Ok(
         MemberExpression(
