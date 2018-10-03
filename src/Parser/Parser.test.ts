@@ -18,6 +18,8 @@ import {
   HolePattern,
   ListExpression,
   ListPattern,
+  LogicalExpression,
+  LogicalExpressionOperator,
   MatchCase,
   MatchExpression,
   MemberExpression,
@@ -2891,6 +2893,85 @@ describe('expression', () => {
             ReferenceExpression(loc('14'), ident('d'))
           )
         )
+      ),
+    },
+    {
+      source: 'a && b',
+      result: Ok(
+        LogicalExpression(
+          loc('1-6'),
+          LogicalExpressionOperator.And,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a || b',
+      result: Ok(
+        LogicalExpression(
+          loc('1-6'),
+          LogicalExpressionOperator.Or,
+          ReferenceExpression(loc('1'), ident('a')),
+          ReferenceExpression(loc('6'), ident('b'))
+        )
+      ),
+    },
+    {
+      source: 'a && b && c',
+      result: Ok(
+        LogicalExpression(
+          loc('1-11'),
+          LogicalExpressionOperator.And,
+          LogicalExpression(
+            loc('1-6'),
+            LogicalExpressionOperator.And,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('6'), ident('b'))
+          ),
+          ReferenceExpression(loc('11'), ident('c'))
+        )
+      ),
+    },
+    {
+      source: 'a && b && c && d',
+      result: Ok(
+        LogicalExpression(
+          loc('1-16'),
+          LogicalExpressionOperator.And,
+          LogicalExpression(
+            loc('1-11'),
+            LogicalExpressionOperator.And,
+            LogicalExpression(
+              loc('1-6'),
+              LogicalExpressionOperator.And,
+              ReferenceExpression(loc('1'), ident('a')),
+              ReferenceExpression(loc('6'), ident('b'))
+            ),
+            ReferenceExpression(loc('11'), ident('c'))
+          ),
+          ReferenceExpression(loc('16'), ident('d'))
+        )
+      ),
+    },
+    {
+      source: 'a && b || c && d',
+      result: Ok(
+        LogicalExpression(
+          loc('1-16'),
+          LogicalExpressionOperator.Or,
+          LogicalExpression(
+            loc('1-6'),
+            LogicalExpressionOperator.And,
+            ReferenceExpression(loc('1'), ident('a')),
+            ReferenceExpression(loc('6'), ident('b'))
+          ),
+          LogicalExpression(
+            loc('11-16'),
+            LogicalExpressionOperator.And,
+            ReferenceExpression(loc('11'), ident('c')),
+            ReferenceExpression(loc('16'), ident('d'))
+          ),
       ),
     },
   ].forEach(({source, result}) => {

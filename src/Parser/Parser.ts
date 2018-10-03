@@ -21,6 +21,8 @@ import {
   HolePattern,
   ListExpression,
   ListPattern,
+  LogicalExpression,
+  LogicalExpressionOperator,
   MatchCase,
   MatchExpression,
   MemberExpression,
@@ -532,6 +534,34 @@ class Parser {
     left: Expression,
     noGreaterThan: boolean = false
   ): Expression {
+    // Parse a `LogicalExpressionOr`.
+    if (precedence <= LogicalOrPrecedence) {
+      if (this.tryParseGlyph(Glyph.BarDouble)) {
+        const op = LogicalExpressionOperator.Or;
+        const right = this.parseBinaryExpressionOperator(
+          LogicalOrPrecedence + 1,
+          this.parseUnaryExpression()
+        );
+        const loc = new Loc(left.loc.start, right.loc.end);
+        const node = LogicalExpression(loc, op, left, right);
+        return this.parseBinaryExpressionOperator(precedence, node);
+      }
+    }
+
+    // Parse a `LogicalExpressionAnd`.
+    if (precedence <= LogicalAndPrecedence) {
+      if (this.tryParseGlyph(Glyph.AmpersandDouble)) {
+        const op = LogicalExpressionOperator.And;
+        const right = this.parseBinaryExpressionOperator(
+          LogicalAndPrecedence + 1,
+          this.parseUnaryExpression()
+        );
+        const loc = new Loc(left.loc.start, right.loc.end);
+        const node = LogicalExpression(loc, op, left, right);
+        return this.parseBinaryExpressionOperator(precedence, node);
+      }
+    }
+
     // Parse an `EqualityExpression`.
     if (precedence <= EqualityPrecedence) {
       let op: BinaryExpressionOperator | undefined;
