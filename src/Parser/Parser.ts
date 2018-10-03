@@ -7,6 +7,7 @@ import {
   BinaryExpressionOperator,
   BindingName,
   BindingPattern,
+  BreakExpression,
   CallExpression,
   ConditionalExpression,
   ContinueExpression,
@@ -40,6 +41,7 @@ import {
   RecordTypeProperty,
   ReferenceExpression,
   ReferenceType,
+  ReturnExpression,
   TupleExpression,
   TupleExpressionElement,
   TuplePattern,
@@ -352,6 +354,14 @@ class Parser {
   parseExpression(): Expression {
     const token = this.peekToken();
 
+    // If we have debug assertions enabled then test `startsExpression()` by
+    // preemptively throwing an `UnexpectedTokenError`.
+    if (__DEBUG__) {
+      if (!startsExpression(token)) {
+        throw UnexpectedTokenError(token, ExpectedExpression);
+      }
+    }
+
     if (token.type === TokenType.Identifier) {
       // Parse `ConditionalExpression`.
       if (token.identifier === 'if') {
@@ -415,16 +425,34 @@ class Parser {
 
       // Parse `ReturnExpression`.
       if (token.identifier === 'return') {
-        // Unimplemented
         this.nextToken();
-        throw UnexpectedTokenError(token, ExpectedExpression);
+        const nextToken = this.peekToken();
+        if (
+          token.loc.end.line === nextToken.loc.start.line &&
+          startsExpression(nextToken)
+        ) {
+          const argument = this.parseExpression();
+          const loc = new Loc(token.loc.start, argument.loc.end);
+          return ReturnExpression(loc, argument);
+        } else {
+          return ReturnExpression(token.loc, undefined);
+        }
       }
 
       // Parse `BreakExpression`.
       if (token.identifier === 'break') {
-        // Unimplemented
         this.nextToken();
-        throw UnexpectedTokenError(token, ExpectedExpression);
+        const nextToken = this.peekToken();
+        if (
+          token.loc.end.line === nextToken.loc.start.line &&
+          startsExpression(nextToken)
+        ) {
+          const argument = this.parseExpression();
+          const loc = new Loc(token.loc.start, argument.loc.end);
+          return BreakExpression(loc, argument);
+        } else {
+          return BreakExpression(token.loc, undefined);
+        }
       }
 
       // Parse `ContinueExpression`.
@@ -1315,6 +1343,45 @@ class Parser {
     if (token.type === TokenType.End) return;
     throw UnexpectedTokenError(token, ExpectedEnd);
   }
+}
+
+/**
+ * Does this token start an expression? We need this for correctly parsing
+ * `return` and `break` expressions.
+ *
+ * It is dangerous for this function to match more then what characters exactly
+ * start an expression! For example, say we included all identifiers in
+ * `startsExpression()`. Then consider:
+ *
+ * ```ite
+ * if x then return else y
+ * ```
+ *
+ * Here the `return` would see that the next token is `else` which is an
+ * identifier. It would try to parse that identifier as an expression when it is
+ * not one!
+ *
+ * So be careful when adding to this function.
+ */
+function startsExpression(token: Token): boolean {
+  return (
+    (token.type === TokenType.Glyph &&
+      (token.glyph === Glyph.ParenLeft ||
+        token.glyph === Glyph.BraceLeft ||
+        token.glyph === Glyph.BracketLeft ||
+        token.glyph === Glyph.Minus ||
+        token.glyph === Glyph.Exclamation ||
+        token.glyph === Glyph.LessThan)) ||
+    (token.type === TokenType.Identifier &&
+      (!BindingIdentifier.isKeyword(token.identifier) ||
+        token.identifier === '_' ||
+        token.identifier === 'match' ||
+        token.identifier === 'if' ||
+        token.identifier === 'return' ||
+        token.identifier === 'break' ||
+        token.identifier === 'continue' ||
+        token.identifier === 'loop'))
+  );
 }
 
 // Binary operator precedence levels.

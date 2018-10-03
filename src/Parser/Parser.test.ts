@@ -6,6 +6,7 @@ import {
   BinaryExpressionOperator,
   BindingName,
   BindingPattern,
+  BreakExpression,
   CallExpression,
   ConditionalExpression,
   ContinueExpression,
@@ -37,6 +38,7 @@ import {
   RecordTypeProperty,
   ReferenceExpression,
   ReferenceType,
+  ReturnExpression,
   TupleExpression,
   TupleExpressionElement,
   TuplePattern,
@@ -2189,20 +2191,67 @@ describe('expression', () => {
       ),
     },
     {
-      source: 'return <T>() -> x',
+      source: 'return',
+      result: Ok(ReturnExpression(loc('1-6'), undefined)),
+    },
+    {
+      source: 'return x',
+      result: Ok(
+        ReturnExpression(loc('1-8'), ReferenceExpression(loc('8'), ident('x')))
+      ),
+    },
+    {
+      source: 'return\nx',
       result: Err(
         UnexpectedTokenError(
-          IdentifierToken(loc('1-6'), 'return' as Identifier),
-          ExpectedExpression
+          IdentifierToken(loc('2:1'), ident('x')),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'break',
+      result: Ok(BreakExpression(loc('1-5'), undefined)),
+    },
+    {
+      source: 'break x',
+      result: Ok(
+        BreakExpression(loc('1-7'), ReferenceExpression(loc('7'), ident('x')))
+      ),
+    },
+    {
+      source: 'break\nx',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('2:1'), ident('x')),
+          ExpectedEnd
+        )
+      ),
+    },
+    {
+      source: 'return <T>() -> x',
+      result: Ok(
+        ReturnExpression(
+          loc('1-17'),
+          FunctionExpression(
+            loc('8-17'),
+            [TypeParameter(Name(loc('9'), ident('T')), [])],
+            [],
+            ReferenceExpression(loc('17'), ident('x'))
+          )
         )
       ),
     },
     {
       source: 'return -x',
-      result: Err(
-        UnexpectedTokenError(
-          IdentifierToken(loc('1-6'), 'return' as Identifier),
-          ExpectedExpression
+      result: Ok(
+        ReturnExpression(
+          loc('1-9'),
+          UnaryExpression(
+            loc('8-9'),
+            UnaryExpressionOperator.Negative,
+            ReferenceExpression(loc('9'), ident('x'))
+          )
         )
       ),
     },
