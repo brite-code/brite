@@ -608,6 +608,16 @@ class Parser {
       }
     }
 
+    // Parse `PatternExpression`.
+    if (precedence <= PatternPrecedence) {
+      if (this.tryParseKeywordOnSameLine('is')) {
+        const pattern = this.parsePattern();
+        const loc = new Loc(left.loc.start, pattern.loc.end);
+        const node = PatternExpression(loc, left, pattern);
+        return this.parseBinaryExpressionOperator(PatternPrecedence + 1, node);
+      }
+    }
+
     // Parse an `AdditiveExpression`.
     if (precedence <= AdditivePrecedence) {
       let op: BinaryExpressionOperator | undefined;
@@ -878,15 +888,6 @@ class Parser {
       // does not provide types to `QuantifiedType`.
 
       break;
-    }
-
-    // Parse `PatternExpression`.
-    //
-    // TODO: This is a rushed job to fix `expressionIntoPattern()` tests!
-    if (this.tryParseKeywordOnSameLine('is')) {
-      const pattern = this.parsePattern();
-      const loc = new Loc(primaryExpression.loc.start, pattern.loc.end);
-      return PatternExpression(loc, primaryExpression, pattern);
     }
 
     return primaryExpression;
@@ -1321,8 +1322,9 @@ const LogicalOrPrecedence = 0;
 const LogicalAndPrecedence = 1;
 const EqualityPrecedence = 2;
 const RelationalPrecedence = 3;
-const AdditivePrecedence = 4;
-const MultiplicativePrecedence = 5;
+const PatternPrecedence = 4;
+const AdditivePrecedence = 5;
+const MultiplicativePrecedence = 6;
 
 /**
  * Attempts to convert an expression into a pattern. Pattern syntax is a subset

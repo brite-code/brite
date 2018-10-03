@@ -2035,6 +2035,20 @@ describe('expression', () => {
       ),
     },
     {
+      source: '() is x is ()',
+      result: Ok(
+        PatternExpression(
+          loc('1-13'),
+          UnitExpression(loc('1-2')),
+          AliasPattern(
+            loc('7-13'),
+            BindingName(loc('7'), ident('x')),
+            UnitPattern(loc('12-13'))
+          )
+        )
+      ),
+    },
+    {
       source: 'x\nis ()',
       result: Err(
         UnexpectedTokenError(
@@ -2971,7 +2985,8 @@ describe('expression', () => {
             LogicalExpressionOperator.And,
             ReferenceExpression(loc('11'), ident('c')),
             ReferenceExpression(loc('16'), ident('d'))
-          ),
+          )
+        )
       ),
     },
   ].forEach(({source, result}) => {

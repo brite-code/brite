@@ -242,7 +242,7 @@ Note: The chaining feature assumes a proper implementation of the ordering inter
 ## Pattern Expression
 
 PatternExpression :
-  - PatternExpression `is` Pattern
+  - AdditiveExpression `is` Pattern
   - AdditiveExpression
 
 Tests if an expression matches a pattern. If it does then the expression returns true. We also refine the {PatternExpression} if appropriate.
