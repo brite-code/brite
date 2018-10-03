@@ -2658,6 +2658,72 @@ describe('expression', () => {
         ])
       ),
     },
+    {
+      source: '(o,).p',
+      result: Ok(
+        MemberExpression(
+          loc('1-6'),
+          WrappedExpression(
+            loc('1-4'),
+            ReferenceExpression(loc('2'), ident('o'))
+          ),
+          Name(loc('6'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '(o;).p',
+      result: Ok(
+        MemberExpression(
+          loc('1-6'),
+          BlockExpression(loc('1-4'), [
+            ExpressionStatement(ReferenceExpression(loc('2'), ident('o'))),
+          ]),
+          Name(loc('6'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '(o\n).p',
+      result: Ok(
+        MemberExpression(
+          loc('1:1-2:3'),
+          WrappedExpression(
+            loc('1:1-2:1'),
+            ReferenceExpression(loc('1:2'), ident('o'))
+          ),
+          Name(loc('2:3'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '(a\nb).p',
+      result: Ok(
+        MemberExpression(
+          loc('1:1-2:4'),
+          BlockExpression(loc('1:1-2:2'), [
+            ExpressionStatement(ReferenceExpression(loc('1:2'), ident('a'))),
+            ExpressionStatement(ReferenceExpression(loc('2:1'), ident('b'))),
+          ]),
+          Name(loc('2:4'), ident('p'))
+        )
+      ),
+    },
+    {
+      source: '(while x: y).p',
+      result: Ok(
+        MemberExpression(
+          loc('1-14'),
+          BlockExpression(loc('1-12'), [
+            WhileLoopStatement(
+              ReferenceExpression(loc('8'), ident('x')),
+              ReferenceExpression(loc('11'), ident('y'))
+            ),
+          ]),
+          Name(loc('14'), ident('p'))
+        )
+      ),
+    },
   ].forEach(({source, result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       expect(parseExpression(lex(source))).toEqual(result);
