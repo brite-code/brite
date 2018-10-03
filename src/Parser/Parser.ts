@@ -7,6 +7,7 @@ import {
   BinaryExpressionOperator,
   BindingName,
   BindingPattern,
+  BlockExpression,
   BreakExpression,
   CallExpression,
   ConditionalExpression,
@@ -14,6 +15,7 @@ import {
   DeconstructPattern,
   Expression,
   ExpressionKind,
+  ExpressionStatement,
   FunctionExpression,
   FunctionParameter,
   FunctionType,
@@ -43,6 +45,7 @@ import {
   ReferenceExpression,
   ReferenceType,
   ReturnExpression,
+  Statement,
   TupleExpression,
   TupleExpressionElement,
   TuplePattern,
@@ -347,6 +350,13 @@ class Parser {
     }
 
     return TypeParameter(name, typeParameters);
+  }
+
+  /**
+   * Parses the `Statement` grammar.
+   */
+  parseStatement(): Statement {
+    return ExpressionStatement(this.parseExpression());
   }
 
   /**
@@ -732,38 +742,141 @@ class Parser {
         throw UnexpectedTokenError(token, ExpectedExpression);
       }
     } else if (
-      // Parse `UnitExpression`, `TupleExpression`, and `WrappedExpression`.
+      // Parse `BlockExpression`, `UnitExpression`, `TupleExpression`,
+      // and `WrappedExpression`.
       token.type === TokenType.Glyph &&
       token.glyph === Glyph.ParenLeft
     ) {
       const start = token.loc.start;
 
-      // Parse a list of tuple elements with optional annotations.
-      const elements = this.parseCommaList(() => {
-        const expression = this.parseExpression();
-        const type = this.tryParseGlyph(Glyph.Colon)
-          ? this.parseType()
-          : undefined;
-        return TupleExpressionElement(expression, type);
-      }, Glyph.ParenRight);
-      const end = this.nextToken().loc.end;
-      const loc = new Loc(start, end);
+      // There are many possibilities for an expression that starts with an
+      // opening parentheses. We might have:
+      //
+      // 1. A `BlockExpression` if inside there is one or more statements.
+      //    However, a `BlockExpression` may not have an annotation and may not
+      //    become a tuple.
+      // 2. A `UnitExpression` if there are no tuples or statements.
+      // 3. A `TupleExpression` if there are multiple expressions with optional
+      //    type annotations but no statements.
+      // 4. A `WrappedExpression` if there is exactly one expression and an
+      //    optional type annotation.
+      //
+      // So our parsing code is a bit tricky to make sure we cover all
+      // these cases.
 
-      // Turn our list of elements into the appropriate expression node. If
-      // there were no elements then we have a unit expression. If there was one
-      // element then we have a simple wrapped expression. If there were many
-      // elements then we have a tuple expression.
-      if (elements.length === 0) {
+      // If we immediately close the parentheses then we have a unit expression.
+      const nextToken = this.peekToken();
+      if (
+        nextToken.type === TokenType.Glyph &&
+        nextToken.glyph === Glyph.ParenRight
+      ) {
+        const end = this.nextToken().loc.end;
+        const loc = new Loc(start, end);
         primaryExpression = UnitExpression(loc);
-      } else if (elements.length === 1) {
-        const element = elements[0];
-        primaryExpression = WrappedExpression(
-          loc,
-          element.expression,
-          element.type
-        );
       } else {
-        primaryExpression = TupleExpression(loc, Array2.create(elements));
+        // Otherwise we expect an expression maybe with an annotation.
+        const firstExpression = this.parseExpression();
+        let firstType: Type | undefined;
+
+        // If we see a colon then we have a type annotation. Parse that
+        // type annotation.
+        if (this.tryParseGlyph(Glyph.Colon)) {
+          firstType = this.parseType();
+        }
+
+        // Ok, so at this point there are a couple paths we could take:
+        //
+        // - A closing parentheses means we have a `WrappedExpression`.
+        // - A comma means we have a `TupleExpression` or a `WrappedExpression`
+        //   with a trailing comma.
+        // - A semicolon means we have a `BlockExpression`.
+        // - An unrecognized token on the next line means we have
+        //   a `BlockExpression`.
+        // - An equals token means we have a `BlockExpression` with
+        //   a `BindingStatement`.
+        const nextToken = this.peekToken();
+        if (
+          // A closing parentheses means we have a `WrappedExpression`.
+          nextToken.type === TokenType.Glyph &&
+          nextToken.glyph === Glyph.ParenRight
+        ) {
+          const end = this.nextToken().loc.end;
+          const loc = new Loc(start, end);
+          primaryExpression = WrappedExpression(
+            loc,
+            firstExpression,
+            firstType
+          );
+        } else if (
+          // A comma means we have a `TupleExpression` or a `WrappedExpression`
+          // with a trailing comma.
+          nextToken.type === TokenType.Glyph &&
+          nextToken.glyph === Glyph.Comma
+        ) {
+          this.nextToken();
+          const elements = [TupleExpressionElement(firstExpression, firstType)];
+          this.parseCommaList(
+            () => {
+              const expression = this.parseExpression();
+              const type = this.tryParseGlyph(Glyph.Colon)
+                ? this.parseType()
+                : undefined;
+              return TupleExpressionElement(expression, type);
+            },
+            Glyph.ParenRight,
+            elements
+          );
+          const end = this.nextToken().loc.end;
+          const loc = new Loc(start, end);
+          if (elements.length === 1) {
+            primaryExpression = WrappedExpression(
+              loc,
+              firstExpression,
+              firstType
+            );
+          } else {
+            primaryExpression = TupleExpression(loc, Array2.create(elements));
+          }
+        } else if (
+          // A semicolon means we have a `BlockExpression`. However, if we
+          // parsed a type annotation then we do not have a `BlockExpression` so
+          // we should error instead.
+          firstType === undefined &&
+          nextToken.type === TokenType.Glyph &&
+          nextToken.glyph === Glyph.Semicolon
+        ) {
+          this.nextToken();
+          const statements = [ExpressionStatement(firstExpression)];
+          this.parseLineSeparatorList(
+            () => this.parseStatement(),
+            Glyph.ParenRight,
+            statements
+          );
+          const end = this.nextToken().loc.end;
+          const loc = new Loc(start, end);
+          primaryExpression = BlockExpression(loc, Array1.create(statements));
+        } else if (
+          // An unrecognized token on the next line means we have a
+          // `BlockExpression`. However, if we parsed a type annotation then we
+          // do not have a `BlockExpression` so we should error instead.
+          firstType === undefined &&
+          firstExpression.loc.end.line !== nextToken.loc.start.line
+        ) {
+          const statements = [ExpressionStatement(firstExpression)];
+          this.parseLineSeparatorList(
+            () => this.parseStatement(),
+            Glyph.ParenRight,
+            statements
+          );
+          const end = this.nextToken().loc.end;
+          const loc = new Loc(start, end);
+          primaryExpression = BlockExpression(loc, Array1.create(statements));
+        } else {
+          // If none of the above cases are true then throw an unexpected token
+          // error saying we expected a comma which would make a
+          // tuple expression.
+          throw UnexpectedTokenError(nextToken, ExpectedGlyph(Glyph.Comma));
+        }
       }
     } else if (
       // Parse `RecordExpression`.
@@ -1089,10 +1202,15 @@ class Parser {
    * Parses a list separated by commas and pushes items into the array parameter
    * supplied. Supports trailing commas but requires an ending to look for to
    * do so.
+   *
+   * The optional third parameter allows you to supply an array which already
+   * has some items.
    */
-  parseCommaList<T>(parseItem: () => T, endGlyph: Glyph): Array<T> {
-    const items: Array<T> = [];
-
+  parseCommaList<T>(
+    parseItem: () => T,
+    endGlyph: Glyph,
+    items: Array<T> = []
+  ): Array<T> {
     // At the beginning of our loop we check whether or not we have reached the
     // end of our comma list. This check depends on a peek of the next token.
     // So at the end of every iteration of the loop we must assign a peek of the
@@ -1131,10 +1249,15 @@ class Parser {
    * Parses a list separated by the `LineSeparator` specification construct. A
    * `LineSeparator` is either a newline or a semicolon. Supports trailing
    * separators but requires an ending glyph to look for to do so.
+   *
+   * The optional third parameter allows you to supply an array which already
+   * has some items.
    */
-  parseLineSeparatorList<T>(parseItem: () => T, endGlyph: Glyph): Array<T> {
-    const items: Array<T> = [];
-
+  parseLineSeparatorList<T>(
+    parseItem: () => T,
+    endGlyph: Glyph,
+    items: Array<T> = []
+  ): Array<T> {
     while (true) {
       // If we see the end glyph then break out of our loop. We have this check
       // here both to stop iterating for zero items and to allow

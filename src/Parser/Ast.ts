@@ -298,11 +298,25 @@ export interface ExpressionStatement {
   readonly expression: Expression;
 }
 
+export function ExpressionStatement(
+  expression: Expression
+): ExpressionStatement {
+  return {kind: StatementKind.Expression, expression};
+}
+
 export interface BindingStatement {
   readonly kind: StatementKind.Binding;
   readonly binding: Pattern;
   readonly type: Type | undefined;
   readonly value: Expression;
+}
+
+export function BindingStatement(
+  binding: Pattern,
+  type: Type | undefined,
+  value: Expression
+): BindingStatement {
+  return {kind: StatementKind.Binding, binding, type, value};
 }
 
 export interface BindingPropertyStatement {
@@ -311,10 +325,24 @@ export interface BindingPropertyStatement {
   readonly value: Expression;
 }
 
+export function BindingPropertyStatement(
+  property: ReadonlyArray2<Name>,
+  value: Expression
+): BindingPropertyStatement {
+  return {kind: StatementKind.BindingProperty, property, value};
+}
+
 export interface WhileLoopStatement {
   readonly kind: StatementKind.WhileLoop;
   readonly test: Expression;
   readonly body: Expression;
+}
+
+export function WhileLoopStatement(
+  test: Expression,
+  body: Expression
+): WhileLoopStatement {
+  return {kind: StatementKind.WhileLoop, test, body};
 }
 
 export interface ForLoopStatement {
@@ -323,6 +351,15 @@ export interface ForLoopStatement {
   readonly type: Type | undefined;
   readonly iterable: Expression;
   readonly body: Expression;
+}
+
+export function ForLoopStatement(
+  binding: Pattern,
+  type: Type | undefined,
+  iterable: Expression,
+  body: Expression
+): ForLoopStatement {
+  return {kind: StatementKind.ForLoop, binding, type, iterable, body};
 }
 
 export type Expression =
@@ -691,12 +728,12 @@ export const enum UnaryExpressionOperator {
 
 export interface BlockExpression extends Node {
   readonly kind: ExpressionKind.Block;
-  readonly statements: ReadonlyArray<Statement>;
+  readonly statements: ReadonlyArray1<Statement>;
 }
 
 export function BlockExpression(
   loc: Loc,
-  statements: ReadonlyArray<Statement>
+  statements: ReadonlyArray1<Statement>
 ): BlockExpression {
   return {kind: ExpressionKind.Block, loc, statements};
 }
@@ -710,7 +747,7 @@ export interface WrappedExpression extends Node {
 export function WrappedExpression(
   loc: Loc,
   expression: Expression,
-  type: Type | undefined
+  type: Type | undefined = undefined
 ): WrappedExpression {
   return {kind: ExpressionKind.Wrapped, loc, expression, type};
 }

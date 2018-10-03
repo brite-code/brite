@@ -5,10 +5,12 @@ import {
   BinaryExpressionOperator,
   BindingName,
   BindingPattern,
+  BlockExpression,
   BreakExpression,
   CallExpression,
   ConditionalExpression,
   ContinueExpression,
+  ExpressionStatement,
   FunctionExpression,
   FunctionParameter,
   HoleExpression,
@@ -2543,6 +2545,59 @@ describe('expression', () => {
             ),
             Name(loc('11'), ident('p'))
           )
+        )
+      ),
+    },
+    {
+      source: '(a; b)',
+      result: Ok(
+        BlockExpression(loc('1-6'), [
+          ExpressionStatement(ReferenceExpression(loc('2'), ident('a'))),
+          ExpressionStatement(ReferenceExpression(loc('5'), ident('b'))),
+        ])
+      ),
+    },
+    {
+      source: '(a;)',
+      result: Ok(
+        BlockExpression(loc('1-4'), [
+          ExpressionStatement(ReferenceExpression(loc('2'), ident('a'))),
+        ])
+      ),
+    },
+    {
+      source: '(a\nb)',
+      result: Ok(
+        BlockExpression(loc('1:1-2:2'), [
+          ExpressionStatement(ReferenceExpression(loc('1:2'), ident('a'))),
+          ExpressionStatement(ReferenceExpression(loc('2:1'), ident('b'))),
+        ])
+      ),
+    },
+    {
+      source: '(a\n)',
+      result: Ok(
+        WrappedExpression(
+          loc('1:1-2:1'),
+          ReferenceExpression(loc('1:2'), ident('a'))
+        )
+      ),
+    },
+    {
+      source: '(a: T; b)',
+      result: Err(
+        UnexpectedTokenError(
+          GlyphToken(loc('6'), Glyph.Semicolon),
+          ExpectedGlyph(Glyph.Comma)
+        )
+      ),
+    },
+    {
+      source: '(a: T\nb)',
+      result: Err(
+        UnexpectedTokenError(
+          IdentifierToken(loc('2:1'), ident('b')),
+          ExpectedGlyph(Glyph.Comma)
         )
       ),
     },
