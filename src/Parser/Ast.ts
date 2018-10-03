@@ -348,18 +348,16 @@ export function WhileLoopStatement(
 export interface ForLoopStatement {
   readonly kind: StatementKind.ForLoop;
   readonly binding: Pattern;
-  readonly type: Type | undefined;
   readonly iterable: Expression;
   readonly body: Expression;
 }
 
 export function ForLoopStatement(
   binding: Pattern,
-  type: Type | undefined,
   iterable: Expression,
   body: Expression
 ): ForLoopStatement {
-  return {kind: StatementKind.ForLoop, binding, type, iterable, body};
+  return {kind: StatementKind.ForLoop, binding, iterable, body};
 }
 
 export type Expression =

@@ -16,6 +16,7 @@ import {
   Expression,
   ExpressionKind,
   ExpressionStatement,
+  ForLoopStatement,
   FunctionExpression,
   FunctionParameter,
   FunctionType,
@@ -58,6 +59,7 @@ import {
   UnitExpression,
   UnitPattern,
   UnitType,
+  WhileLoopStatement,
   WrappedExpression,
   WrappedPattern,
   WrappedType,
@@ -86,6 +88,18 @@ export function parseType(lexer: Lexer): Result<Type, ParserError> {
     const type = parser.parseType();
     parser.parseEnding();
     return Ok(type);
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    return Err(error);
+  }
+}
+
+export function parseStatement(lexer: Lexer): Result<Statement, ParserError> {
+  try {
+    const parser = new Parser(lexer);
+    const statement = parser.parseStatement();
+    parser.parseEnding();
+    return Ok(statement);
   } catch (error) {
     if (error instanceof Error) throw error;
     return Err(error);
@@ -356,7 +370,44 @@ class Parser {
    * Parses the `Statement` grammar.
    */
   parseStatement(): Statement {
+    const statement = this.tryParseStatementDistinctFromExpression();
+    if (statement !== undefined) return statement;
     return ExpressionStatement(this.parseExpression());
+  }
+
+  /**
+   * Tries to parse `Statement` grammars which are distinct from the
+   * `Expression` grammar.
+   */
+  tryParseStatementDistinctFromExpression(): Statement | undefined {
+    const token = this.peekToken();
+    if (token.type === TokenType.Identifier) {
+      if (
+        // Parse a `WhileLoopStatement`.
+        token.identifier === 'while'
+      ) {
+        this.nextToken();
+        const test = this.parseExpression();
+        this.parseGlyph(Glyph.Colon);
+        const body = this.parseExpression();
+        return WhileLoopStatement(test, body);
+      } else if (
+        // Parse a `ForLoopStatement`.
+        token.identifier === 'for'
+      ) {
+        this.nextToken();
+        const binding = this.parsePattern();
+        this.parseKeyword('in');
+        const iterable = this.parseExpression();
+        this.parseGlyph(Glyph.Colon);
+        const body = this.parseExpression();
+        return ForLoopStatement(binding, iterable, body);
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
   }
 
   /**

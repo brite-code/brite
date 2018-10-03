@@ -43,7 +43,7 @@ object.property = computeAnotherValue()
 
 WhileLoopStatement : `while` Expression `:` Expression
 
-ForLoopStatement : `for` Pattern TypeAnnotation? `in` Expression `:` Expression
+ForLoopStatement : `for` Pattern `in` Expression `:` Expression
 
 Repeats an expression some number of times as decided by the type of the loop.
 
