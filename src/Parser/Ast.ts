@@ -280,14 +280,12 @@ export function TypeParameter(
 export type Statement =
   | ExpressionStatement
   | BindingStatement
-  | BindingPropertyStatement
   | WhileLoopStatement
   | ForLoopStatement;
 
 export const enum StatementKind {
   Expression = 'Expression',
   Binding = 'Binding',
-  BindingProperty = 'BindingProperty',
   Assignment = 'Assignment',
   WhileLoop = 'WhileLoop',
   ForLoop = 'ForLoop',
@@ -317,19 +315,6 @@ export function BindingStatement(
   value: Expression
 ): BindingStatement {
   return {kind: StatementKind.Binding, binding, type, value};
-}
-
-export interface BindingPropertyStatement {
-  readonly kind: StatementKind.BindingProperty;
-  readonly property: ReadonlyArray2<Name>;
-  readonly value: Expression;
-}
-
-export function BindingPropertyStatement(
-  property: ReadonlyArray2<Name>,
-  value: Expression
-): BindingPropertyStatement {
-  return {kind: StatementKind.BindingProperty, property, value};
 }
 
 export interface WhileLoopStatement {
