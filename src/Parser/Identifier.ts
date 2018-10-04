@@ -140,10 +140,12 @@ export namespace BindingIdentifier {
       case 'if':
       case 'then':
       case 'else':
-      case 'match':
+      case 'case':
+      case 'of':
       case 'return':
       case 'loop':
       case 'while':
+      case 'do':
       case 'for':
       case 'in':
       case 'break':

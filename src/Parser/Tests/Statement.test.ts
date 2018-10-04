@@ -28,26 +28,26 @@ const cases: ReadonlyArray<{
   readonly result: Result<Statement, ParserError>;
 }> = [
   {
-    source: 'while x: y',
+    source: 'while x do y',
     result: Ok(
       WhileLoopStatement(
         ReferenceExpression(loc('7'), ident('x')),
-        ReferenceExpression(loc('10'), ident('y'))
+        ReferenceExpression(loc('12'), ident('y'))
       )
     ),
   },
   {
-    source: 'for x in y: z',
+    source: 'for x in y do z',
     result: Ok(
       ForLoopStatement(
         BindingPattern(loc('5'), ident('x')),
         ReferenceExpression(loc('10'), ident('y')),
-        ReferenceExpression(loc('13'), ident('z'))
+        ReferenceExpression(loc('15'), ident('z'))
       )
     ),
   },
   {
-    source: 'for x: T in y: z',
+    source: 'for x: T in y do z',
     result: Err(
       UnexpectedTokenError(
         GlyphToken(loc('6'), Glyph.Colon),
@@ -56,7 +56,7 @@ const cases: ReadonlyArray<{
     ),
   },
   {
-    source: 'for (x: T) in y: z',
+    source: 'for (x: T) in y do z',
     result: Ok(
       ForLoopStatement(
         WrappedPattern(
@@ -65,7 +65,7 @@ const cases: ReadonlyArray<{
           ReferenceType(loc('9'), ident('T'))
         ),
         ReferenceExpression(loc('15'), ident('y')),
-        ReferenceExpression(loc('18'), ident('z'))
+        ReferenceExpression(loc('20'), ident('z'))
       )
     ),
   },

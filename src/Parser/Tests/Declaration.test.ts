@@ -204,6 +204,7 @@ const cases: ReadonlyArray<{
           loc('11-16'),
           [],
           [FunctionParameter(BindingPattern(loc('11'), ident('b')))],
+          undefined,
           ReferenceExpression(loc('16'), ident('c'))
         )
       )
@@ -224,6 +225,7 @@ const cases: ReadonlyArray<{
             loc('12-17'),
             [],
             [FunctionParameter(BindingPattern(loc('12'), ident('b')))],
+            undefined,
             ReferenceExpression(loc('17'), ident('c'))
           )
         )

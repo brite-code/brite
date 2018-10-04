@@ -586,7 +586,7 @@ class Parser {
       ) {
         this.nextToken();
         const test = this.parseExpression();
-        this.parseGlyph(Glyph.Colon);
+        this.parseKeyword('do');
         const body = this.parseExpression();
         return WhileLoopStatement(test, body);
       } else if (
@@ -597,7 +597,7 @@ class Parser {
         const binding = this.parsePattern();
         this.parseKeyword('in');
         const iterable = this.parseExpression();
-        this.parseGlyph(Glyph.Colon);
+        this.parseKeyword('do');
         const body = this.parseExpression();
         return ForLoopStatement(binding, iterable, body);
       } else {
@@ -683,7 +683,6 @@ class Parser {
       // Parse `LoopExpression`.
       if (token.identifier === 'loop') {
         const start = this.nextToken().loc.start;
-        this.parseGlyph(Glyph.Colon);
         const body = this.parseExpression();
         const loc = new Loc(start, body.loc.end);
         return LoopExpression(loc, body);
@@ -711,12 +710,17 @@ class Parser {
       }, Glyph.ParenRight);
       this.nextToken();
 
+      // Parse an optional type annotation for the function.
+      const ret = this.tryParseGlyph(Glyph.Colon)
+        ? this.parsePrimaryType()
+        : undefined;
+
       // Parse the body of our function expression.
       this.parseGlyph(Glyph.Arrow);
       const body = this.parseExpression();
 
       const loc = new Loc(token.loc.start, body.loc.end);
-      return FunctionExpression(loc, typeParameters, parameters, body);
+      return FunctionExpression(loc, typeParameters, parameters, ret, body);
     }
 
     const expression = this.parseBinaryExpression();
@@ -733,7 +737,7 @@ class Parser {
         );
         const body = this.parseExpression();
         const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], [parameter], body);
+        return FunctionExpression(loc, [], [parameter], undefined, body);
       }
 
       // Parse `FunctionExpression` with no arguments.
@@ -741,7 +745,7 @@ class Parser {
         this.nextToken();
         const body = this.parseExpression();
         const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], [], body);
+        return FunctionExpression(loc, [], [], undefined, body);
       }
 
       // Parse `FunctionExpression` with one argument.
@@ -753,7 +757,7 @@ class Parser {
         );
         const body = this.parseExpression();
         const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], [parameter], body);
+        return FunctionExpression(loc, [], [parameter], undefined, body);
       }
 
       // Parse `FunctionExpression` with many arguments.
@@ -767,7 +771,7 @@ class Parser {
         );
         const body = this.parseExpression();
         const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], parameters, body);
+        return FunctionExpression(loc, [], parameters, undefined, body);
       }
     }
 
@@ -949,14 +953,14 @@ class Parser {
         primaryExpression = HoleExpression(token.loc);
       } else if (
         // Parse `MatchExpression`.
-        token.identifier === 'match'
+        token.identifier === 'case'
       ) {
         const start = token.loc.start;
 
         // First, we need to parse the expression that we are testing in this
         // match. After that we expect a colon to separate the match body.
         const test = this.parseExpression();
-        this.parseGlyph(Glyph.Colon);
+        this.parseKeyword('of');
         this.parseGlyph(Glyph.ParenLeft);
 
         // Parse all that match cases inside this match expression.
@@ -1775,7 +1779,7 @@ function startsExpression(token: Token): boolean {
     (token.type === TokenType.Identifier &&
       (!BindingIdentifier.isKeyword(token.identifier) ||
         token.identifier === '_' ||
-        token.identifier === 'match' ||
+        token.identifier === 'case' ||
         token.identifier === 'if' ||
         token.identifier === 'return' ||
         token.identifier === 'break' ||

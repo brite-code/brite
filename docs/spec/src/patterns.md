@@ -91,7 +91,7 @@ QualifiedPattern :
 A {QualifiedPattern} resolves to a class in the current scope and matches values which are an instance of that class.
 
 ```ite example
-match color: (
+case color of (
   Color.Red -> "#FF0000"
   Color.Green -> "#00FF00"
   Color.Blue -> "#0000FF"
@@ -147,3 +147,15 @@ We use the same syntax in three places! Once for a {TupleExpression}, once for a
 A Brite implementation may then always parse an expression when it sees `(`. If the Brite implementation later reaches an `=` or an `->` it may check to see if its tuple expression is a valid pattern. If so we can convert the expression into a pattern and move on parsing. If not we have a syntax error at the `=` or `->`.
 
 This symmetry is also good for Brite readability as the syntax for {Expression} and {Pattern} becomes very predictable as they share so much.
+
+**Caveat**
+
+There is technically one small way in which patterns differ from expressions. {ExpressionWithTypeAnnotation} makes it clear that in an expression `((): T -> U)` is treated as a {FunctionExpression} instead of a {UnitExpression} with a {FunctionType} annotation. However, patterns have no function so this is interpreted as a {UnitPattern} with a {FunctionType} annotation.
+
+A Brite implementation may choose to make the following code a syntax error:
+
+```ite example
+((): T -> U) = ()
+```
+
+Since `((): T -> U)` is parsed as a function expression but then seeing the `=` the Brite implementation tries to convert the expression it parsed into a pattern. Except `((): T -> U)` is a function expression instead of a {UnitExpression}.

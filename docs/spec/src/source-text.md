@@ -8,19 +8,11 @@ Identifier : /^[\_A-Za-z][_0-9a-za-z]*[']*$/
 
 BindingIdentifier : Identifier but not Keyword
 
-Keyword :
-  - `_`
-  - `if`
-  - `then`
-  - `else`
-  - `match`
-  - `return`
-  - `loop`
-  - `while`
-  - `for`
-  - `in`
-  - `break`
-  - `continue`
+Keyword : one of
+  `_`     `if` `then`   `else`
+  `case`  `of` `return` `loop`
+  `while` `do` `for`    `in`
+  `break` `continue`
 
 Identifiers in Brite follow the [Unicode specification](http://www.unicode.org/reports/tr31/). With an extension allowing for `_` in the “start” character and “continue” characters.
 

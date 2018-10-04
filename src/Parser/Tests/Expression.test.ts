@@ -672,47 +672,47 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: 'match x: ()',
+    source: 'case x of ()',
     result: Ok(
       MatchExpression(
-        loc('1-11'),
-        ReferenceExpression(loc('7'), ident('x')),
+        loc('1-12'),
+        ReferenceExpression(loc('6'), ident('x')),
         []
       )
     ),
   },
   {
-    source: 'match x: (y)',
+    source: 'case x of (y)',
     result: Err(
       UnexpectedTokenError(
-        GlyphToken(loc('12'), Glyph.ParenRight),
+        GlyphToken(loc('13'), Glyph.ParenRight),
         ExpectedGlyph(Glyph.Arrow)
       )
     ),
   },
   {
-    source: 'match x: ([] -> y; _ -> z)',
+    source: 'case x of ([] -> y; _ -> z)',
     result: Ok(
-      MatchExpression(loc('1-26'), ReferenceExpression(loc('7'), ident('x')), [
+      MatchExpression(loc('1-27'), ReferenceExpression(loc('6'), ident('x')), [
         MatchCase(
-          [ListPattern(loc('11-12'), [])],
+          [ListPattern(loc('12-13'), [])],
           undefined,
-          ReferenceExpression(loc('17'), ident('y'))
+          ReferenceExpression(loc('18'), ident('y'))
         ),
         MatchCase(
-          [HolePattern(loc('20'))],
+          [HolePattern(loc('21'))],
           undefined,
-          ReferenceExpression(loc('25'), ident('z'))
+          ReferenceExpression(loc('26'), ident('z'))
         ),
       ])
     ),
   },
   {
-    source: 'match x: (\n  [] -> y\n  _ -> z\n)',
+    source: 'case x of (\n  [] -> y\n  _ -> z\n)',
     result: Ok(
       MatchExpression(
         loc('1:1-4:1'),
-        ReferenceExpression(loc('1:7'), ident('x')),
+        ReferenceExpression(loc('1:6'), ident('x')),
         [
           MatchCase(
             [ListPattern(loc('2:3-2:4'), [])],
@@ -729,28 +729,28 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: 'match x: (_ -> y; () -> z)',
+    source: 'case x of (_ -> y; () -> z)',
     result: Ok(
-      MatchExpression(loc('1-26'), ReferenceExpression(loc('7'), ident('x')), [
+      MatchExpression(loc('1-27'), ReferenceExpression(loc('6'), ident('x')), [
         MatchCase(
-          [HolePattern(loc('11'))],
+          [HolePattern(loc('12'))],
           undefined,
-          ReferenceExpression(loc('16'), ident('y'))
+          ReferenceExpression(loc('17'), ident('y'))
         ),
         MatchCase(
-          [UnitPattern(loc('19-20'))],
+          [UnitPattern(loc('20-21'))],
           undefined,
-          ReferenceExpression(loc('25'), ident('z'))
+          ReferenceExpression(loc('26'), ident('z'))
         ),
       ])
     ),
   },
   {
-    source: 'match x: (\n  _ -> y\n  () -> z\n)',
+    source: 'case x of (\n  _ -> y\n  () -> z\n)',
     result: Ok(
       MatchExpression(
         loc('1:1-4:1'),
-        ReferenceExpression(loc('1:7'), ident('x')),
+        ReferenceExpression(loc('1:6'), ident('x')),
         [
           MatchCase(
             [HolePattern(loc('2:3'))],
@@ -767,11 +767,11 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: 'match x: (\n  _ -> y()\n  () -> z\n)',
+    source: 'case x of (\n  _ -> y()\n  () -> z\n)',
     result: Ok(
       MatchExpression(
         loc('1:1-4:1'),
-        ReferenceExpression(loc('1:7'), ident('x')),
+        ReferenceExpression(loc('1:6'), ident('x')),
         [
           MatchCase(
             [HolePattern(loc('2:3'))],
@@ -792,67 +792,45 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: 'match x: (_ -> y () -> z)',
+    source: 'case x of (_ -> y () -> z)',
     result: Err(
       UnexpectedTokenError(
-        GlyphToken(loc('21-22'), Glyph.Arrow),
+        GlyphToken(loc('22-23'), Glyph.Arrow),
         ExpectedLineSeparator
       )
     ),
   },
   {
-    source: 'match x: (_ | _ -> y)',
+    source: 'case x of (_ | _ -> y)',
     result: Ok(
-      MatchExpression(loc('1-21'), ReferenceExpression(loc('7'), ident('x')), [
+      MatchExpression(loc('1-22'), ReferenceExpression(loc('6'), ident('x')), [
         MatchCase(
-          [HolePattern(loc('11')), HolePattern(loc('15'))],
+          [HolePattern(loc('12')), HolePattern(loc('16'))],
           undefined,
-          ReferenceExpression(loc('20'), ident('y'))
+          ReferenceExpression(loc('21'), ident('y'))
         ),
       ])
     ),
   },
   {
-    source: 'match x: (_ if y -> z)',
+    source: 'case x of (_ if y -> z)',
     result: Ok(
-      MatchExpression(loc('1-22'), ReferenceExpression(loc('7'), ident('x')), [
+      MatchExpression(loc('1-23'), ReferenceExpression(loc('6'), ident('x')), [
         MatchCase(
-          [HolePattern(loc('11'))],
-          ReferenceExpression(loc('16'), ident('y')),
-          ReferenceExpression(loc('21'), ident('z'))
+          [HolePattern(loc('12'))],
+          ReferenceExpression(loc('17'), ident('y')),
+          ReferenceExpression(loc('22'), ident('z'))
         ),
       ])
     ),
   },
   {
-    source: 'match a: (_ if b -> c -> d)',
+    source: 'case a of (_ if b -> c -> d)',
     result: Ok(
-      MatchExpression(loc('1-27'), ReferenceExpression(loc('7'), ident('a')), [
+      MatchExpression(loc('1-28'), ReferenceExpression(loc('6'), ident('a')), [
         MatchCase(
-          [HolePattern(loc('11'))],
-          ReferenceExpression(loc('16'), ident('b')),
-          FunctionExpression(
-            loc('21-26'),
-            [],
-            [
-              FunctionParameter(
-                BindingPattern(loc('21'), ident('c')),
-                undefined
-              ),
-            ],
-            ReferenceExpression(loc('26'), ident('d'))
-          )
-        ),
-      ])
-    ),
-  },
-  {
-    source: 'match a: (_ if () -> c -> d)',
-    result: Ok(
-      MatchExpression(loc('1-28'), ReferenceExpression(loc('7'), ident('a')), [
-        MatchCase(
-          [HolePattern(loc('11'))],
-          UnitExpression(loc('16-17')),
+          [HolePattern(loc('12'))],
+          ReferenceExpression(loc('17'), ident('b')),
           FunctionExpression(
             loc('22-27'),
             [],
@@ -862,6 +840,7 @@ import {parseExpression} from '../Parser';
                 undefined
               ),
             ],
+            undefined,
             ReferenceExpression(loc('27'), ident('d'))
           )
         ),
@@ -869,16 +848,39 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: 'match x: ().p',
+    source: 'case a of (_ if () -> c -> d)',
+    result: Ok(
+      MatchExpression(loc('1-29'), ReferenceExpression(loc('6'), ident('a')), [
+        MatchCase(
+          [HolePattern(loc('12'))],
+          UnitExpression(loc('17-18')),
+          FunctionExpression(
+            loc('23-28'),
+            [],
+            [
+              FunctionParameter(
+                BindingPattern(loc('23'), ident('c')),
+                undefined
+              ),
+            ],
+            undefined,
+            ReferenceExpression(loc('28'), ident('d'))
+          )
+        ),
+      ])
+    ),
+  },
+  {
+    source: 'case x of ().p',
     result: Ok(
       MemberExpression(
-        loc('1-13'),
+        loc('1-14'),
         MatchExpression(
-          loc('1-11'),
-          ReferenceExpression(loc('7'), ident('x')),
+          loc('1-12'),
+          ReferenceExpression(loc('6'), ident('x')),
           []
         ),
-        Name(loc('13'), ident('p'))
+        Name(loc('14'), ident('p'))
       )
     ),
   },
@@ -1137,6 +1139,7 @@ import {parseExpression} from '../Parser';
         loc('1-6'),
         [],
         [FunctionParameter(BindingPattern(loc('1'), ident('x')), undefined)],
+        undefined,
         ReferenceExpression(loc('6'), ident('y'))
       )
     ),
@@ -1148,6 +1151,7 @@ import {parseExpression} from '../Parser';
         loc('1-7'),
         [],
         [],
+        undefined,
         ReferenceExpression(loc('7'), ident('x'))
       )
     ),
@@ -1159,6 +1163,7 @@ import {parseExpression} from '../Parser';
         loc('1-8'),
         [],
         [FunctionParameter(BindingPattern(loc('2'), ident('x')), undefined)],
+        undefined,
         ReferenceExpression(loc('8'), ident('y'))
       )
     ),
@@ -1173,6 +1178,7 @@ import {parseExpression} from '../Parser';
           FunctionParameter(BindingPattern(loc('2'), ident('x')), undefined),
           FunctionParameter(BindingPattern(loc('5'), ident('y')), undefined),
         ],
+        undefined,
         ReferenceExpression(loc('11'), ident('z'))
       )
     ),
@@ -1189,6 +1195,7 @@ import {parseExpression} from '../Parser';
           FunctionParameter(BindingPattern(loc('8'), ident('c')), undefined),
           FunctionParameter(BindingPattern(loc('11'), ident('d')), undefined),
         ],
+        undefined,
         ReferenceExpression(loc('17'), ident('e'))
       )
     ),
@@ -1205,6 +1212,7 @@ import {parseExpression} from '../Parser';
             ReferenceType(loc('5'), ident('A'))
           ),
         ],
+        undefined,
         ReferenceExpression(loc('11'), ident('b'))
       )
     ),
@@ -1225,6 +1233,7 @@ import {parseExpression} from '../Parser';
             ReferenceType(loc('11'), ident('B'))
           ),
         ],
+        undefined,
         ReferenceExpression(loc('17'), ident('c'))
       )
     ),
@@ -1242,6 +1251,7 @@ import {parseExpression} from '../Parser';
             ReferenceType(loc('8'), ident('B'))
           ),
         ],
+        undefined,
         ReferenceExpression(loc('14'), ident('c'))
       )
     ),
@@ -1259,6 +1269,7 @@ import {parseExpression} from '../Parser';
           ),
           FunctionParameter(BindingPattern(loc('8'), ident('b')), undefined),
         ],
+        undefined,
         ReferenceExpression(loc('14'), ident('c'))
       )
     ),
@@ -1270,6 +1281,7 @@ import {parseExpression} from '../Parser';
         loc('1-9'),
         [],
         [FunctionParameter(UnitPattern(loc('2-3')), undefined)],
+        undefined,
         ReferenceExpression(loc('9'), ident('x'))
       )
     ),
@@ -1295,6 +1307,7 @@ import {parseExpression} from '../Parser';
             undefined
           ),
         ],
+        undefined,
         ReferenceExpression(loc('13'), ident('z'))
       )
     ),
@@ -1320,6 +1333,7 @@ import {parseExpression} from '../Parser';
             undefined
           ),
         ],
+        undefined,
         ReferenceExpression(loc('19'), ident('c'))
       )
     ),
@@ -1331,6 +1345,7 @@ import {parseExpression} from '../Parser';
         loc('1-9'),
         [],
         [FunctionParameter(RecordPattern(loc('2-3'), []), undefined)],
+        undefined,
         ReferenceExpression(loc('9'), ident('x'))
       )
     ),
@@ -1342,6 +1357,7 @@ import {parseExpression} from '../Parser';
         loc('1-9'),
         [],
         [],
+        undefined,
         ReferenceExpression(loc('9'), ident('x'))
       )
     ),
@@ -1353,6 +1369,7 @@ import {parseExpression} from '../Parser';
         loc('1-10'),
         [TypeParameter(Name(loc('2'), ident('T')), [])],
         [],
+        undefined,
         ReferenceExpression(loc('10'), ident('x'))
       )
     ),
@@ -1367,6 +1384,7 @@ import {parseExpression} from '../Parser';
           TypeParameter(Name(loc('5'), ident('U')), []),
         ],
         [],
+        undefined,
         ReferenceExpression(loc('13'), ident('x'))
       )
     ),
@@ -1382,6 +1400,7 @@ import {parseExpression} from '../Parser';
           ]),
         ],
         [],
+        undefined,
         ReferenceExpression(loc('13'), ident('x'))
       )
     ),
@@ -1398,6 +1417,7 @@ import {parseExpression} from '../Parser';
           ]),
         ],
         [],
+        undefined,
         ReferenceExpression(loc('17'), ident('x'))
       )
     ),
@@ -1418,6 +1438,7 @@ import {parseExpression} from '../Parser';
         loc('1-12'),
         [TypeParameter(Name(loc('2'), ident('T')), [])],
         [FunctionParameter(UnitPattern(loc('5-6')), undefined)],
+        undefined,
         ReferenceExpression(loc('12'), ident('x'))
       )
     ),
@@ -1429,6 +1450,7 @@ import {parseExpression} from '../Parser';
         loc('1-16'),
         [TypeParameter(Name(loc('2'), ident('T')), [])],
         [FunctionParameter(UnitPattern(loc('5-6')), UnitType(loc('9-10')))],
+        undefined,
         ReferenceExpression(loc('16'), ident('x'))
       )
     ),
@@ -1660,6 +1682,7 @@ import {parseExpression} from '../Parser';
           loc('8-17'),
           [TypeParameter(Name(loc('9'), ident('T')), [])],
           [],
+          undefined,
           ReferenceExpression(loc('17'), ident('x'))
         )
       )
@@ -1679,19 +1702,19 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: 'match a: (_ if return b -> c -> d)',
+    source: 'case a of (_ if return b -> c -> d)',
     result: Err(
       UnexpectedTokenError(
-        IdentifierToken(loc('16-21'), 'return' as Identifier),
+        IdentifierToken(loc('17-22'), 'return' as Identifier),
         ExpectedExpression
       )
     ),
   },
   {
-    source: 'match a: (_ if if b then c else d -> e -> f)',
+    source: 'case a of (_ if if b then c else d -> e -> f)',
     result: Err(
       UnexpectedTokenError(
-        IdentifierToken(loc('16-17'), 'if' as Identifier),
+        IdentifierToken(loc('17-18'), 'if' as Identifier),
         ExpectedExpression
       )
     ),
@@ -2459,37 +2482,37 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: 'loop: x',
+    source: 'loop x',
     result: Ok(
-      LoopExpression(loc('1-7'), ReferenceExpression(loc('7'), ident('x')))
+      LoopExpression(loc('1-6'), ReferenceExpression(loc('6'), ident('x')))
     ),
   },
   {
-    source: 'loop: o.p',
+    source: 'loop o.p',
     result: Ok(
       LoopExpression(
-        loc('1-9'),
+        loc('1-8'),
         MemberExpression(
-          loc('7-9'),
-          ReferenceExpression(loc('7'), ident('o')),
-          Name(loc('9'), ident('p'))
+          loc('6-8'),
+          ReferenceExpression(loc('6'), ident('o')),
+          Name(loc('8'), ident('p'))
         )
       )
     ),
   },
   {
-    source: 'loop: (o).p',
+    source: 'loop (o).p',
     result: Ok(
       LoopExpression(
-        loc('1-11'),
+        loc('1-10'),
         MemberExpression(
-          loc('7-11'),
+          loc('6-10'),
           WrappedExpression(
-            loc('7-9'),
-            ReferenceExpression(loc('8'), ident('o')),
+            loc('6-8'),
+            ReferenceExpression(loc('7'), ident('o')),
             undefined
           ),
-          Name(loc('11'), ident('p'))
+          Name(loc('10'), ident('p'))
         )
       )
     ),
@@ -2548,57 +2571,57 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: '(while x: y)',
+    source: '(while x do y)',
     result: Ok(
-      BlockExpression(loc('1-12'), [
+      BlockExpression(loc('1-14'), [
         WhileLoopStatement(
           ReferenceExpression(loc('8'), ident('x')),
-          ReferenceExpression(loc('11'), ident('y'))
+          ReferenceExpression(loc('13'), ident('y'))
         ),
       ])
     ),
   },
   {
-    source: '(while x: y; b)',
+    source: '(while x do y; b)',
     result: Ok(
-      BlockExpression(loc('1-15'), [
+      BlockExpression(loc('1-17'), [
         WhileLoopStatement(
           ReferenceExpression(loc('8'), ident('x')),
-          ReferenceExpression(loc('11'), ident('y'))
+          ReferenceExpression(loc('13'), ident('y'))
         ),
-        ExpressionStatement(ReferenceExpression(loc('14'), ident('b'))),
+        ExpressionStatement(ReferenceExpression(loc('16'), ident('b'))),
       ])
     ),
   },
   {
-    source: '(while x: y\nb)',
+    source: '(while x do y\nb)',
     result: Ok(
       BlockExpression(loc('1:1-2:2'), [
         WhileLoopStatement(
           ReferenceExpression(loc('1:8'), ident('x')),
-          ReferenceExpression(loc('1:11'), ident('y'))
+          ReferenceExpression(loc('1:13'), ident('y'))
         ),
         ExpressionStatement(ReferenceExpression(loc('2:1'), ident('b'))),
       ])
     ),
   },
   {
-    source: '(while x: y: T)',
+    source: '(while x do y: T)',
     result: Err(
       UnexpectedTokenError(
-        GlyphToken(loc('12'), Glyph.Colon),
+        GlyphToken(loc('14'), Glyph.Colon),
         ExpectedLineSeparator
       )
     ),
   },
   {
-    source: '(b; while x: y)',
+    source: '(b; while x do y)',
     result: Ok(
-      BlockExpression(loc('1-15'), [
+      BlockExpression(loc('1-17'), [
         ExpressionStatement(ReferenceExpression(loc('2'), ident('b'))),
         WhileLoopStatement(
           ReferenceExpression(loc('11'), ident('x')),
-          ReferenceExpression(loc('14'), ident('y'))
+          ReferenceExpression(loc('16'), ident('y'))
         ),
       ])
     ),
@@ -2655,17 +2678,17 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: '(while x: y).p',
+    source: '(while x do y).p',
     result: Ok(
       MemberExpression(
-        loc('1-14'),
-        BlockExpression(loc('1-12'), [
+        loc('1-16'),
+        BlockExpression(loc('1-14'), [
           WhileLoopStatement(
             ReferenceExpression(loc('8'), ident('x')),
-            ReferenceExpression(loc('11'), ident('y'))
+            ReferenceExpression(loc('13'), ident('y'))
           ),
         ]),
-        Name(loc('14'), ident('p'))
+        Name(loc('16'), ident('p'))
       )
     ),
   },
@@ -2722,14 +2745,38 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: '(while x: y =)',
+    source: '(while x do y =)',
     result: Err(
       UnexpectedTokenError(
-        GlyphToken(loc('13'), Glyph.Equals),
+        GlyphToken(loc('15'), Glyph.Equals),
         ExpectedLineSeparator
       )
     ),
   },
+  // {
+  //   source: '<>(): T -> x',
+  // },
+  // {
+  //   source: '(): T -> x',
+  // },
+  // {
+  //   source: 'x: T -> x',
+  // },
+  // {
+  //   source: '(a): T -> x',
+  // },
+  // {
+  //   source: '(a, b): T -> x',
+  // },
+  // {
+  //   source: '(): a -> b -> c',
+  // },
+  // {
+  //   source: '(): a -> (b -> c)',
+  // },
+  // {
+  //   source: '(): (a -> b) -> c',
+  // },
 ].forEach(({source, result}) => {
   test(source.replace(/\n/g, '\\n'), () => {
     expect(parseExpression(Lexer.create(source))).toEqual(result);

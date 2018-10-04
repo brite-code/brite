@@ -5,6 +5,7 @@ import {
   BindingPattern,
   DeconstructPattern,
   FunctionExpression,
+  FunctionType,
   HolePattern,
   ListPattern,
   Name,
@@ -623,6 +624,20 @@ const cases = [
       )
     ),
   },
+  {
+    source: '((): T -> U)',
+    result: Ok(
+      WrappedPattern(
+        loc('1-12'),
+        UnitPattern(loc('2-3')),
+        FunctionType(
+          loc('6-11'),
+          [ReferenceType(loc('6'), ident('T'))],
+          ReferenceType(loc('11'), ident('U'))
+        )
+      )
+    ),
+  },
 ];
 
 cases.forEach(({source, result}) => {
@@ -694,6 +709,7 @@ describe('expression into pattern', () => {
             loc('2-8'),
             [],
             [],
+            undefined,
             ReferenceExpression(loc('8'), ident('x'))
           ),
           EndToken(loc('13'))
@@ -708,6 +724,7 @@ describe('expression into pattern', () => {
             loc('5-11'),
             [],
             [],
+            undefined,
             ReferenceExpression(loc('11'), ident('x'))
           ),
           EndToken(loc('13'))
@@ -743,6 +760,7 @@ describe('expression into pattern', () => {
             loc('7-13'),
             [],
             [],
+            undefined,
             ReferenceExpression(loc('13'), ident('x'))
           ),
           EndToken(loc('16'))
@@ -766,6 +784,7 @@ describe('expression into pattern', () => {
             loc('2-8'),
             [],
             [],
+            undefined,
             ReferenceExpression(loc('8'), ident('x'))
           ),
           EndToken(loc('13'))
@@ -780,6 +799,7 @@ describe('expression into pattern', () => {
             loc('5-11'),
             [],
             [],
+            undefined,
             ReferenceExpression(loc('11'), ident('x'))
           ),
           EndToken(loc('13'))
@@ -846,6 +866,7 @@ describe('expression into pattern', () => {
             loc('3-9'),
             [],
             [],
+            undefined,
             ReferenceExpression(loc('9'), ident('x'))
           ),
           EndToken(loc('11'))
@@ -889,6 +910,7 @@ describe('expression into pattern', () => {
             loc('2-8'),
             [],
             [],
+            undefined,
             ReferenceExpression(loc('8'), ident('x'))
           ),
           EndToken(loc('10'))

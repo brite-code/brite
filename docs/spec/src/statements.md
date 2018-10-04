@@ -30,9 +30,9 @@ name = computeValue()
 
 ## Loop Statements
 
-WhileLoopStatement : `while` Expression `:` Expression
+WhileLoopStatement : `while` Expression `do` Expression
 
-ForLoopStatement : `for` Pattern `in` Expression `:` Expression
+ForLoopStatement : `for` Pattern `in` Expression `do` Expression
 
 Repeats an expression some number of times as decided by the type of the loop.
 
@@ -47,12 +47,12 @@ We include these statements in Brite as they are pretty standard for a language 
 Note: There is also a {LoopExpression} which is not listed here as it is an expression instead of a statement.
 
 ```ite example
-while i.get() < 5: (
+while i.get() < 5 do (
   debug(i.get())
   i.update(i -> i + 1)
 )
 
-for i in range(0, 5): (
+for i in range(0, 5) do (
   debug(i)
 )
 ```

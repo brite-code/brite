@@ -70,12 +70,15 @@ export function TypeDeclaration(
   return {kind: DeclarationKind.Type, access, name, typeParameters, value};
 }
 
-export interface FunctionDeclaration extends NamedDeclaration {
-  readonly kind: DeclarationKind.Function;
+export interface FunctionNode {
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly return: Type | undefined;
   readonly body: Expression;
+}
+
+export interface FunctionDeclaration extends FunctionNode, NamedDeclaration {
+  readonly kind: DeclarationKind.Function;
 }
 
 export function FunctionDeclaration(
@@ -538,20 +541,25 @@ export function CallExpression(
   };
 }
 
-export interface FunctionExpression extends Node {
+export interface FunctionExpression extends FunctionNode, Node {
   readonly kind: ExpressionKind.Function;
-  readonly typeParameters: ReadonlyArray<TypeParameter>;
-  readonly parameters: ReadonlyArray<FunctionParameter>;
-  readonly body: Expression;
 }
 
 export function FunctionExpression(
   loc: Loc,
   typeParameters: ReadonlyArray<TypeParameter>,
   parameters: ReadonlyArray<FunctionParameter>,
+  ret: Type | undefined,
   body: Expression
 ): FunctionExpression {
-  return {kind: ExpressionKind.Function, loc, typeParameters, parameters, body};
+  return {
+    kind: ExpressionKind.Function,
+    loc,
+    typeParameters,
+    parameters,
+    return: ret,
+    body,
+  };
 }
 
 export interface ConditionalExpression extends Node {
