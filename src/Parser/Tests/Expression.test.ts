@@ -60,10 +60,6 @@ import {Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {parseExpression} from '../Parser';
 
-function lex(source: string): Lexer {
-  return Lexer.create(source);
-}
-
 [
   {
     source: 'foo',
@@ -2736,6 +2732,6 @@ function lex(source: string): Lexer {
   },
 ].forEach(({source, result}) => {
   test(source.replace(/\n/g, '\\n'), () => {
-    expect(parseExpression(lex(source))).toEqual(result);
+    expect(parseExpression(Lexer.create(source))).toEqual(result);
   });
 });

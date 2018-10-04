@@ -17,10 +17,6 @@ import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {parseType} from '../Parser';
 
-function lex(source: string): Lexer {
-  return Lexer.create(source);
-}
-
 [
   {
     source: '',
@@ -470,6 +466,6 @@ function lex(source: string): Lexer {
   },
 ].forEach(({source, result}) => {
   test(source, () => {
-    expect(parseType(lex(source))).toEqual(result);
+    expect(parseType(Lexer.create(source))).toEqual(result);
   });
 });

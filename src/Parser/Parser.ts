@@ -2,6 +2,7 @@ import {Array1, Array2} from '../Utils/ArrayN';
 import {Err, Ok, Result} from '../Utils/Result';
 
 import {
+  Access,
   AliasPattern,
   BinaryExpression,
   BinaryExpressionOperator,
@@ -13,11 +14,13 @@ import {
   CallExpression,
   ConditionalExpression,
   ContinueExpression,
+  Declaration,
   DeconstructPattern,
   Expression,
   ExpressionKind,
   ExpressionStatement,
   ForLoopStatement,
+  FunctionDeclaration,
   FunctionExpression,
   FunctionParameter,
   FunctionType,
@@ -54,6 +57,7 @@ import {
   TuplePatternElement,
   TupleType,
   Type,
+  TypeKind,
   TypeParameter,
   UnaryExpression,
   UnaryExpressionOperator,
@@ -67,6 +71,7 @@ import {
 } from './Ast';
 import {
   ExpectedBindingIdentifier,
+  ExpectedDeclaration,
   ExpectedEnd,
   ExpectedExpression,
   ExpectedGlyph,
@@ -82,6 +87,20 @@ import {
 import {BindingIdentifier} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, Token, TokenType} from './Lexer';
 import {Loc} from './Loc';
+
+export function parseDeclaration(
+  lexer: Lexer
+): Result<Declaration, ParserError> {
+  try {
+    const parser = new Parser(lexer);
+    const declaration = parser.parseDeclaration();
+    parser.parseEnding();
+    return Ok(declaration);
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    return Err(error);
+  }
+}
 
 export function parseType(lexer: Lexer): Result<Type, ParserError> {
   try {
@@ -212,9 +231,180 @@ class Parser {
   }
 
   /**
+   * Parses a declaration.
+   */
+  parseDeclaration(): Declaration {
+    let token1 = this.nextToken();
+    let token2 = this.peekToken();
+
+    // Throw an error if our first token is not an identifier.
+    if (token1.type !== TokenType.Identifier) {
+      throw UnexpectedTokenError(token1, ExpectedDeclaration);
+    }
+
+    let access = Access.Private;
+
+    // First, if we have an access modifier then parse it. After parsing our
+    // modifier proceed to the next token.
+    if (token2.type === TokenType.Identifier) {
+      if (token1.identifier === 'public') {
+        access = Access.Public;
+        token1 = this.nextToken();
+        token2 = this.peekToken();
+      } else if (token1.identifier === 'protected') {
+        access = Access.Protected;
+        token1 = this.nextToken();
+        token2 = this.peekToken();
+      } else if (token1.identifier === 'private') {
+        access = Access.Private;
+        token1 = this.nextToken();
+        token2 = this.peekToken();
+      }
+    }
+
+    // Throw an error if our new first token is not an identifier.
+    if (token1.type !== TokenType.Identifier) {
+      throw UnexpectedTokenError(token1, ExpectedDeclaration);
+    }
+
+    // Look at the declaration kind. If we see a kind we recognize then parse a
+    // declaration of that kind.
+    if (token2.type === TokenType.Identifier) {
+      if (token1.identifier === 'type') {
+        throw new Error('unimplemented');
+      } else if (token1.identifier === 'class') {
+        throw new Error('unimplemented');
+      } else if (token1.identifier === 'base') {
+        throw new Error('unimplemented');
+      } else if (token1.identifier === 'unsealed') {
+        throw new Error('unimplemented');
+      } else if (token1.identifier === 'interface') {
+        throw new Error('unimplemented');
+      } else if (token1.identifier === 'namespace') {
+        throw new Error('unimplemented');
+      }
+    }
+
+    // If we did not see a kind that we recognize then we have a function
+    // declaration! Function declarations are not prefixed with any keywords.
+    // Parse our function declaration.
+    const name = Name(token1.loc, token1.identifier);
+    return this.parseFunctionDeclaration(access, name);
+  }
+
+  /**
+   * Finishes parsing a function declaration.
+   */
+  parseFunctionDeclaration(access: Access, name: Name): FunctionDeclaration {
+    let hasTypeParameters = false;
+    let typeParameters: ReadonlyArray<TypeParameter> = [];
+
+    // Try to parse type parameters if available.
+    if (this.tryParseGlyph(Glyph.LessThan)) {
+      hasTypeParameters = true;
+      typeParameters = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.nextToken();
+    }
+
+    // Parse an opening parentheses. Throwing a hard error if the next token is
+    // not an opening parentheses. We customize the error message here since if
+    // the user wrote a typo in their declaration kind then they will fall down
+    // here. Consider `class% Foo` assuming the `%` was an accidental typo. Here
+    // it is more helpful to say a declaration was expected then to say an
+    // opening parentheses was expected.
+    const token = this.nextToken();
+    if (token.type !== TokenType.Glyph || token.glyph !== Glyph.ParenLeft) {
+      throw UnexpectedTokenError(
+        token,
+        hasTypeParameters ? ExpectedGlyph(Glyph.ParenLeft) : ExpectedDeclaration
+      );
+    }
+
+    // Parse the function declaration parameters. They are patterns with an
+    // optional type annotation.
+    const parameters = this.parseCommaList(() => {
+      const pattern = this.parsePattern();
+      const type = this.tryParseGlyph(Glyph.Colon)
+        ? this.parseType()
+        : undefined;
+      return FunctionParameter(pattern, type);
+    }, Glyph.ParenRight);
+    this.nextToken();
+
+    // Parse an optional type annotation for the function.
+    const ret = this.tryParseGlyph(Glyph.Colon)
+      ? this.parsePrimaryType()
+      : undefined;
+
+    // Parse the function declaration arrow.
+    this.parseGlyph(Glyph.Arrow);
+
+    // Parse the function’s expression body.
+    const body = this.parseExpression();
+
+    // Return the final function declaration which puts everything together.
+    return FunctionDeclaration(
+      access,
+      name,
+      typeParameters,
+      parameters,
+      ret,
+      body
+    );
+  }
+
+  /**
    * Parses the `Type` grammar.
    */
   parseType(): Type {
+    const type = this.parsePrimaryType();
+
+    // Try to parse a `FunctionType`.
+    const nextToken = this.peekToken();
+    if (nextToken.type === TokenType.Glyph && nextToken.glyph === Glyph.Arrow) {
+      // Parse `FunctionType` shorthand.
+      if (type.kind === TypeKind.Reference) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, [type], body);
+      }
+
+      // Parse `FunctionType` with no arguments.
+      if (type.kind === TypeKind.Unit) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, [], body);
+      }
+
+      // Parse `FunctionType` with one argument.
+      if (type.kind === TypeKind.Wrapped) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, [type.type], body);
+      }
+
+      // Parse `FunctionType` with many arguments.
+      if (type.kind === TypeKind.Tuple) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, type.elements, body);
+      }
+    }
+
+    return type;
+  }
+
+  /**
+   * Parse the `PrimaryType` grammar.
+   */
+  parsePrimaryType(): Type {
     const token = this.nextToken();
 
     // Assign primary types here and we will parse extensions on those types at
@@ -222,7 +412,17 @@ class Parser {
     let primaryType: Type;
 
     if (
-      // Parse `FunctionType`, `UnitType`, `TupleType`, and `WrappedType`.
+      // Parse `ReferenceType`.
+      token.type === TokenType.Identifier
+    ) {
+      const identifier = BindingIdentifier.create(token.identifier);
+      if (identifier !== undefined) {
+        primaryType = ReferenceType(token.loc, identifier);
+      } else {
+        throw UnexpectedTokenError(token, ExpectedType);
+      }
+    } else if (
+      // Parse `UnitType`, `TupleType`, and `WrappedType`.
       token.type === TokenType.Glyph &&
       token.glyph === Glyph.ParenLeft
     ) {
@@ -233,18 +433,6 @@ class Parser {
         Glyph.ParenRight
       );
       const end = this.nextToken().loc.end;
-      const nextToken = this.peekToken();
-
-      // Parse `FunctionType`. Notably we return since functions are not
-      // a `PrimaryType`!
-      if (
-        nextToken.type === TokenType.Glyph &&
-        nextToken.glyph === Glyph.Arrow
-      ) {
-        this.nextToken();
-        const body = this.parseType();
-        return FunctionType(new Loc(start, body.loc.end), types, body);
-      }
 
       // Finish parsing either `UnitType`, `TupleType`, or `WrappedType`.
       const loc = new Loc(start, end);
@@ -254,33 +442,6 @@ class Parser {
         primaryType = WrappedType(loc, types[0]);
       } else {
         primaryType = TupleType(loc, Array2.create(types));
-      }
-    } else if (
-      // Parse `ReferenceType`.
-      token.type === TokenType.Identifier
-    ) {
-      const identifier = BindingIdentifier.create(token.identifier);
-      if (identifier !== undefined) {
-        const nextToken = this.peekToken();
-
-        // Parse `FunctionType`. Notably we return since functions are not
-        // a `PrimaryType`!
-        if (
-          nextToken.type === TokenType.Glyph &&
-          nextToken.glyph === Glyph.Arrow
-        ) {
-          this.nextToken();
-          const body = this.parseType();
-          return FunctionType(
-            new Loc(token.loc.start, body.loc.end),
-            [ReferenceType(token.loc, identifier)],
-            body
-          );
-        }
-
-        primaryType = ReferenceType(token.loc, identifier);
-      } else {
-        throw UnexpectedTokenError(token, ExpectedType);
       }
     } else if (
       // Parse `RecordType`.

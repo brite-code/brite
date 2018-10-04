@@ -55,6 +55,7 @@ export type Expected =
   | ExpectedGlyph
   | ExpectedEnd
   | ExpectedLineSeparator
+  | ExpectedDeclaration
   | ExpectedType
   | ExpectedExpression
   | ExpectedPattern;
@@ -66,6 +67,7 @@ export const enum ExpectedKind {
   Glyph = 'Glyph',
   End = 'End',
   LineSeparator = 'LineSeparator',
+  Declaration = 'Declaration',
   Type = 'Type',
   Expression = 'Expression',
   Pattern = 'Pattern',
@@ -107,6 +109,11 @@ export const ExpectedEnd: ExpectedEnd = {kind: ExpectedKind.End};
 export type ExpectedLineSeparator = {readonly kind: ExpectedKind.LineSeparator};
 export const ExpectedLineSeparator: ExpectedLineSeparator = {
   kind: ExpectedKind.LineSeparator,
+};
+
+export type ExpectedDeclaration = {readonly kind: ExpectedKind.Declaration};
+export const ExpectedDeclaration: ExpectedDeclaration = {
+  kind: ExpectedKind.Declaration,
 };
 
 export type ExpectedType = {readonly kind: ExpectedKind.Type};

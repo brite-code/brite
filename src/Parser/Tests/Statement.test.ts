@@ -23,10 +23,6 @@ import {EndToken, Glyph, GlyphToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {parseStatement} from '../Parser';
 
-function lex(source: string): Lexer {
-  return Lexer.create(source);
-}
-
 const cases: ReadonlyArray<{
   readonly source: string;
   readonly result: Result<Statement, ParserError>;
@@ -131,6 +127,6 @@ const cases: ReadonlyArray<{
 
 cases.forEach(({source, result}) => {
   test(source.replace(/\n/g, '\\n'), () => {
-    expect(parseStatement(lex(source))).toEqual(result);
+    expect(parseStatement(Lexer.create(source))).toEqual(result);
   });
 });

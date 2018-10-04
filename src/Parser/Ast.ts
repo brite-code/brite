@@ -3,18 +3,18 @@ import {ReadonlyArray1, ReadonlyArray2} from '../Utils/ArrayN';
 import {BindingIdentifier, Identifier} from './Identifier';
 import {Loc} from './Loc';
 
+export type File = {
+  readonly declarations: ReadonlyArray<Declaration>;
+};
+
+export function File(declarations: ReadonlyArray<Declaration>): File {
+  return {declarations};
+}
+
 export const enum Access {
   Public = 'Public',
   Private = 'Private',
   Protected = 'Protected',
-}
-
-/**
- * Any node in our AST.
- */
-export interface Node {
-  readonly kind: unknown;
-  readonly loc: Loc;
 }
 
 export interface Name {
@@ -50,7 +50,7 @@ export const enum DeclarationKind {
   Interface = 'Interface',
 }
 
-export interface NamedDeclaration extends Node {
+export interface NamedDeclaration {
   readonly access: Access;
   readonly name: Name;
 }
@@ -61,12 +61,40 @@ export interface TypeDeclaration extends NamedDeclaration {
   readonly value: Type;
 }
 
+export function TypeDeclaration(
+  access: Access,
+  name: Name,
+  typeParameters: ReadonlyArray<TypeParameter>,
+  value: Type
+): TypeDeclaration {
+  return {kind: DeclarationKind.Type, access, name, typeParameters, value};
+}
+
 export interface FunctionDeclaration extends NamedDeclaration {
   readonly kind: DeclarationKind.Function;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly return: Type | undefined;
   readonly body: Expression;
+}
+
+export function FunctionDeclaration(
+  access: Access,
+  name: Name,
+  typeParameters: ReadonlyArray<TypeParameter>,
+  parameters: ReadonlyArray<FunctionParameter>,
+  ret: Type | undefined,
+  body: Expression
+): FunctionDeclaration {
+  return {
+    kind: DeclarationKind.Function,
+    access,
+    name,
+    typeParameters,
+    parameters,
+    return: ret,
+    body,
+  };
 }
 
 export type FunctionParameter = {
@@ -76,7 +104,7 @@ export type FunctionParameter = {
 
 export function FunctionParameter(
   binding: Pattern,
-  annotation: Type | undefined
+  annotation: Type | undefined = undefined
 ): FunctionParameter {
   return {binding, annotation};
 }
@@ -120,6 +148,13 @@ export interface InterfaceDeclaration extends NamedDeclaration {
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly extends: ReadonlyArray<ReferenceType>;
   readonly body: ReadonlyArray<Member>;
+}
+
+/**
+ * Any node in our AST.
+ */
+export interface Node {
+  readonly loc: Loc;
 }
 
 export type Type =

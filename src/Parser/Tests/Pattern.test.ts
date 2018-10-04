@@ -36,10 +36,6 @@ import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {expressionIntoPattern, parseExpression, parsePattern} from '../Parser';
 
-function lex(source: string): Lexer {
-  return Lexer.create(source);
-}
-
 const cases = [
   {
     source: 'foo',
@@ -631,14 +627,14 @@ const cases = [
 
 cases.forEach(({source, result}) => {
   test(source.replace(/\n/g, '\\n'), () => {
-    expect(parsePattern(lex(source))).toEqual(result);
+    expect(parsePattern(Lexer.create(source))).toEqual(result);
   });
 });
 
 describe('from expression', () => {
   cases.forEach(({source, result: expectedResult}) => {
     test(source.replace(/\n/g, '\\n'), () => {
-      const lexer = lex(source);
+      const lexer = Lexer.create(source);
       const result = parseExpression(lexer);
       switch (result.type) {
         case ResultType.Ok: {
@@ -903,7 +899,7 @@ describe('expression into pattern', () => {
 
   cases.forEach(({source, result}) => {
     test(source, () => {
-      const lexer = lex(source);
+      const lexer = Lexer.create(source);
       const expression = parseExpression(lexer);
       if (expression.type !== ResultType.Ok) {
         throw new Error('Could not parse expression.');
