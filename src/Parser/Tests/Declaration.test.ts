@@ -7,10 +7,14 @@ import {
   FunctionExpression,
   FunctionParameter,
   FunctionType,
+  GenericType,
+  MemberType,
   Name,
   ReferenceExpression,
   ReferenceType,
+  TypeDeclaration,
   TypeParameter,
+  UnitType,
   WrappedExpression,
   WrappedType,
 } from '../Ast';
@@ -249,6 +253,53 @@ const cases: ReadonlyArray<{
           )
         ),
         ReferenceExpression(loc('18'), ident('c'))
+      )
+    ),
+  },
+  {
+    source: 'type T = ()',
+    result: Ok(
+      TypeDeclaration(
+        Access.Private,
+        Name(loc('6'), ident('T')),
+        [],
+        UnitType(loc('10-11'))
+      )
+    ),
+  },
+  {
+    source: 'public type T = ()',
+    result: Ok(
+      TypeDeclaration(
+        Access.Public,
+        Name(loc('13'), ident('T')),
+        [],
+        UnitType(loc('17-18'))
+      )
+    ),
+  },
+  {
+    source: 'type Map<K, V> = Data.Map<K, V>',
+    result: Ok(
+      TypeDeclaration(
+        Access.Private,
+        Name(loc('6-8'), ident('Map')),
+        [
+          TypeParameter(Name(loc('10'), ident('K')), []),
+          TypeParameter(Name(loc('13'), ident('V')), []),
+        ],
+        GenericType(
+          loc('18-31'),
+          MemberType(
+            loc('18-25'),
+            ReferenceType(loc('18-21'), ident('Data')),
+            Name(loc('23-25'), ident('Map'))
+          ),
+          [
+            ReferenceType(loc('27'), ident('K')),
+            ReferenceType(loc('30'), ident('V')),
+          ]
+        )
       )
     ),
   },

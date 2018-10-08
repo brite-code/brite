@@ -57,6 +57,7 @@ import {
   TuplePatternElement,
   TupleType,
   Type,
+  TypeDeclaration,
   TypeKind,
   TypeParameter,
   UnaryExpression,
@@ -271,7 +272,9 @@ class Parser {
     // declaration of that kind.
     if (token2.type === TokenType.Identifier) {
       if (token1.identifier === 'type') {
-        throw new Error('unimplemented');
+        this.nextToken();
+        const name = Name(token2.loc, token2.identifier);
+        return this.parseTypeDeclaration(access, name);
       } else if (token1.identifier === 'class') {
         throw new Error('unimplemented');
       } else if (token1.identifier === 'base') {
@@ -293,7 +296,30 @@ class Parser {
   }
 
   /**
-   * Finishes parsing a function declaration.
+   * Finishes parsing a `TypeDeclaration`.
+   */
+  parseTypeDeclaration(access: Access, name: Name): TypeDeclaration {
+    // Parse type parameters if some are available right after the name.
+    let typeParameters: ReadonlyArray<TypeParameter> = [];
+    if (this.tryParseGlyph(Glyph.LessThan)) {
+      typeParameters = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.nextToken();
+    }
+
+    // Parse an equals sign after the name and optional type parameters.
+    this.parseGlyph(Glyph.Equals);
+
+    // Parse the type part of the type declaration.
+    const value = this.parseType();
+
+    return TypeDeclaration(access, name, typeParameters, value);
+  }
+
+  /**
+   * Finishes parsing a `FunctionDeclaration`.
    */
   parseFunctionDeclaration(access: Access, name: Name): FunctionDeclaration {
     let hasTypeParameters = false;
