@@ -14,6 +14,7 @@ import {
   ExpressionStatement,
   FunctionExpression,
   FunctionParameter,
+  FunctionType,
   HoleExpression,
   HolePattern,
   ListExpression,
@@ -44,6 +45,7 @@ import {
   UnitType,
   WhileLoopStatement,
   WrappedExpression,
+  WrappedType,
 } from '../Ast';
 import {
   ExpectedBindingIdentifier,
@@ -56,7 +58,7 @@ import {
   UnexpectedTokenError,
 } from '../Error';
 import {BindingIdentifier, Identifier, ident} from '../Identifier';
-import {Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
+import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {parseExpression} from '../Parser';
 
@@ -2753,30 +2755,742 @@ import {parseExpression} from '../Parser';
       )
     ),
   },
-  // {
-  //   source: '<>(): T -> x',
-  // },
-  // {
-  //   source: '(): T -> x',
-  // },
-  // {
-  //   source: 'x: T -> x',
-  // },
-  // {
-  //   source: '(a): T -> x',
-  // },
-  // {
-  //   source: '(a, b): T -> x',
-  // },
-  // {
-  //   source: '(): a -> b -> c',
-  // },
-  // {
-  //   source: '(): a -> (b -> c)',
-  // },
-  // {
-  //   source: '(): (a -> b) -> c',
-  // },
+  {
+    source: '<>(): T -> x',
+    result: Ok(
+      FunctionExpression(
+        loc('1-12'),
+        [],
+        [],
+        ReferenceType(loc('7'), ident('T')),
+        ReferenceExpression(loc('12'), ident('x'))
+      )
+    ),
+  },
+  {
+    source: '(): T -> x',
+    result: Ok(
+      FunctionExpression(
+        loc('1-10'),
+        [],
+        [],
+        ReferenceType(loc('5'), ident('T')),
+        ReferenceExpression(loc('10'), ident('x'))
+      )
+    ),
+  },
+  {
+    source: 'x: T -> x',
+    result: Err(
+      UnexpectedTokenError(GlyphToken(loc('2'), Glyph.Colon), ExpectedEnd)
+    ),
+  },
+  {
+    source: '(a): T -> x',
+    result: Ok(
+      FunctionExpression(
+        loc('1-11'),
+        [],
+        [FunctionParameter(BindingPattern(loc('2'), ident('a')))],
+        ReferenceType(loc('6'), ident('T')),
+        ReferenceExpression(loc('11'), ident('x'))
+      )
+    ),
+  },
+  {
+    source: '(a, b): T -> x',
+    result: Ok(
+      FunctionExpression(
+        loc('1-14'),
+        [],
+        [
+          FunctionParameter(BindingPattern(loc('2'), ident('a'))),
+          FunctionParameter(BindingPattern(loc('5'), ident('b'))),
+        ],
+        ReferenceType(loc('9'), ident('T')),
+        ReferenceExpression(loc('14'), ident('x'))
+      )
+    ),
+  },
+  {
+    source: '(): a -> b -> c',
+    result: Ok(
+      FunctionExpression(
+        loc('1-15'),
+        [],
+        [],
+        ReferenceType(loc('5'), ident('a')),
+        FunctionExpression(
+          loc('10-15'),
+          [],
+          [FunctionParameter(BindingPattern(loc('10'), ident('b')))],
+          undefined,
+          ReferenceExpression(loc('15'), ident('c'))
+        )
+      )
+    ),
+  },
+  {
+    source: '(): a -> (b -> c)',
+    result: Ok(
+      FunctionExpression(
+        loc('1-17'),
+        [],
+        [],
+        ReferenceType(loc('5'), ident('a')),
+        WrappedExpression(
+          loc('10-17'),
+          FunctionExpression(
+            loc('11-16'),
+            [],
+            [FunctionParameter(BindingPattern(loc('11'), ident('b')))],
+            undefined,
+            ReferenceExpression(loc('16'), ident('c'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '(): (a -> b) -> c',
+    result: Ok(
+      FunctionExpression(
+        loc('1-17'),
+        [],
+        [],
+        WrappedType(
+          loc('5-12'),
+          FunctionType(
+            loc('6-11'),
+            [ReferenceType(loc('6'), ident('a'))],
+            ReferenceType(loc('11'), ident('b'))
+          )
+        ),
+        ReferenceExpression(loc('17'), ident('c'))
+      )
+    ),
+  },
+  {
+    source: '({}: T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-12'),
+        RecordExpression(loc('2-3'), undefined, []),
+        FunctionType(
+          loc('6-11'),
+          [ReferenceType(loc('6'), ident('T'))],
+          ReferenceType(loc('11'), ident('U'))
+        )
+      )
+    ),
+  },
+  {
+    source: '((): T -> x: U -> V)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-20'),
+        FunctionExpression(
+          loc('2-11'),
+          [],
+          [],
+          ReferenceType(loc('6'), ident('T')),
+          ReferenceExpression(loc('11'), ident('x'))
+        ),
+        FunctionType(
+          loc('14-19'),
+          [ReferenceType(loc('14'), ident('U'))],
+          ReferenceType(loc('19'), ident('V'))
+        )
+      )
+    ),
+  },
+  {
+    source: '(): T',
+    result: Err(
+      UnexpectedTokenError(EndToken(loc('6')), ExpectedGlyph(Glyph.Arrow))
+    ),
+  },
+  {
+    source: 'if x then (): T',
+    result: Err(
+      UnexpectedTokenError(EndToken(loc('16')), ExpectedGlyph(Glyph.Arrow))
+    ),
+  },
+  {
+    source: 'if x then y else (): T',
+    result: Err(
+      UnexpectedTokenError(EndToken(loc('23')), ExpectedGlyph(Glyph.Arrow))
+    ),
+  },
+  {
+    source: '((): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-12'),
+        FunctionExpression(
+          loc('2-11'),
+          [],
+          [],
+          ReferenceType(loc('6'), ident('T')),
+          ReferenceExpression(loc('11'), ident('U'))
+        )
+      )
+    ),
+  },
+  {
+    source: '((a): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-13'),
+        FunctionExpression(
+          loc('2-12'),
+          [],
+          [FunctionParameter(BindingPattern(loc('3'), ident('a')))],
+          ReferenceType(loc('7'), ident('T')),
+          ReferenceExpression(loc('12'), ident('U'))
+        )
+      )
+    ),
+  },
+  {
+    source: '((a, b): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-16'),
+        FunctionExpression(
+          loc('2-15'),
+          [],
+          [
+            FunctionParameter(BindingPattern(loc('3'), ident('a'))),
+            FunctionParameter(BindingPattern(loc('6'), ident('b'))),
+          ],
+          ReferenceType(loc('10'), ident('T')),
+          ReferenceExpression(loc('15'), ident('U'))
+        )
+      )
+    ),
+  },
+  {
+    source: '(() -> (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-18'),
+        FunctionExpression(
+          loc('2-17'),
+          [],
+          [],
+          undefined,
+          FunctionExpression(
+            loc('8-17'),
+            [],
+            [],
+            ReferenceType(loc('12'), ident('T')),
+            ReferenceExpression(loc('17'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '((a) -> (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-19'),
+        FunctionExpression(
+          loc('2-18'),
+          [],
+          [FunctionParameter(BindingPattern(loc('3'), ident('a')))],
+          undefined,
+          FunctionExpression(
+            loc('9-18'),
+            [],
+            [],
+            ReferenceType(loc('13'), ident('T')),
+            ReferenceExpression(loc('18'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '((a, b) -> (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-22'),
+        FunctionExpression(
+          loc('2-21'),
+          [],
+          [
+            FunctionParameter(BindingPattern(loc('3'), ident('a'))),
+            FunctionParameter(BindingPattern(loc('6'), ident('b'))),
+          ],
+          undefined,
+          FunctionExpression(
+            loc('12-21'),
+            [],
+            [],
+            ReferenceType(loc('16'), ident('T')),
+            ReferenceExpression(loc('21'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '(x -> (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-17'),
+        FunctionExpression(
+          loc('2-16'),
+          [],
+          [FunctionParameter(BindingPattern(loc('2'), ident('x')))],
+          undefined,
+          FunctionExpression(
+            loc('7-16'),
+            [],
+            [],
+            ReferenceType(loc('11'), ident('T')),
+            ReferenceExpression(loc('16'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '(<>() -> (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-20'),
+        FunctionExpression(
+          loc('2-19'),
+          [],
+          [],
+          undefined,
+          FunctionExpression(
+            loc('10-19'),
+            [],
+            [],
+            ReferenceType(loc('14'), ident('T')),
+            ReferenceExpression(loc('19'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '(if x then (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-22'),
+        ConditionalExpression(
+          loc('2-21'),
+          ReferenceExpression(loc('5'), ident('x')),
+          FunctionExpression(
+            loc('12-21'),
+            [],
+            [],
+            ReferenceType(loc('16'), ident('T')),
+            ReferenceExpression(loc('21'), ident('U'))
+          ),
+          undefined
+        )
+      )
+    ),
+  },
+  {
+    source: '(if x then y else (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-29'),
+        ConditionalExpression(
+          loc('2-28'),
+          ReferenceExpression(loc('5'), ident('x')),
+          ReferenceExpression(loc('12'), ident('y')),
+          FunctionExpression(
+            loc('19-28'),
+            [],
+            [],
+            ReferenceType(loc('23'), ident('T')),
+            ReferenceExpression(loc('28'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '(if x then (): T -> U else y)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-29'),
+        ConditionalExpression(
+          loc('2-28'),
+          ReferenceExpression(loc('5'), ident('x')),
+          FunctionExpression(
+            loc('12-21'),
+            [],
+            [],
+            ReferenceType(loc('16'), ident('T')),
+            ReferenceExpression(loc('21'), ident('U'))
+          ),
+          ReferenceExpression(loc('28'), ident('y'))
+        )
+      )
+    ),
+  },
+  {
+    source: '(return (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-19'),
+        ReturnExpression(
+          loc('2-18'),
+          FunctionExpression(
+            loc('9-18'),
+            [],
+            [],
+            ReferenceType(loc('13'), ident('T')),
+            ReferenceExpression(loc('18'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '(break (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-18'),
+        BreakExpression(
+          loc('2-17'),
+          FunctionExpression(
+            loc('8-17'),
+            [],
+            [],
+            ReferenceType(loc('12'), ident('T')),
+            ReferenceExpression(loc('17'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '(loop (): T -> U)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-17'),
+        LoopExpression(
+          loc('2-16'),
+          FunctionExpression(
+            loc('7-16'),
+            [],
+            [],
+            ReferenceType(loc('11'), ident('T')),
+            ReferenceExpression(loc('16'), ident('U'))
+          )
+        )
+      )
+    ),
+  },
+  {
+    source: '((): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-7'),
+        UnitExpression(loc('2-3')),
+        ReferenceType(loc('6'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '((a): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-8'),
+        WrappedExpression(
+          loc('2-4'),
+          ReferenceExpression(loc('3'), ident('a'))
+        ),
+        ReferenceType(loc('7'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '((a, b): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-11'),
+        TupleExpression(loc('2-7'), [
+          TupleExpressionElement(ReferenceExpression(loc('3'), ident('a'))),
+          TupleExpressionElement(ReferenceExpression(loc('6'), ident('b'))),
+        ]),
+        ReferenceType(loc('10'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(() -> (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-13'),
+        FunctionExpression(
+          loc('2-9'),
+          [],
+          [],
+          undefined,
+          UnitExpression(loc('8-9'))
+        ),
+        ReferenceType(loc('12'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '((a) -> (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-14'),
+        FunctionExpression(
+          loc('2-10'),
+          [],
+          [FunctionParameter(BindingPattern(loc('3'), ident('a')))],
+          undefined,
+          UnitExpression(loc('9-10'))
+        ),
+        ReferenceType(loc('13'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '((a, b) -> (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-17'),
+        FunctionExpression(
+          loc('2-13'),
+          [],
+          [
+            FunctionParameter(BindingPattern(loc('3'), ident('a'))),
+            FunctionParameter(BindingPattern(loc('6'), ident('b'))),
+          ],
+          undefined,
+          UnitExpression(loc('12-13'))
+        ),
+        ReferenceType(loc('16'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(x -> (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-12'),
+        FunctionExpression(
+          loc('2-8'),
+          [],
+          [FunctionParameter(BindingPattern(loc('2'), ident('x')))],
+          undefined,
+          UnitExpression(loc('7-8'))
+        ),
+        ReferenceType(loc('11'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(<>() -> (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-15'),
+        FunctionExpression(
+          loc('2-11'),
+          [],
+          [],
+          undefined,
+          UnitExpression(loc('10-11'))
+        ),
+        ReferenceType(loc('14'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(if x then (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-17'),
+        ConditionalExpression(
+          loc('2-13'),
+          ReferenceExpression(loc('5'), ident('x')),
+          UnitExpression(loc('12-13')),
+          undefined
+        ),
+        ReferenceType(loc('16'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(if x then y else (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-24'),
+        ConditionalExpression(
+          loc('2-20'),
+          ReferenceExpression(loc('5'), ident('x')),
+          ReferenceExpression(loc('12'), ident('y')),
+          UnitExpression(loc('19-20'))
+        ),
+        ReferenceType(loc('23'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(if x then (): T else y)',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('18-21'), 'else' as Identifier),
+        ExpectedGlyph(Glyph.Comma)
+      )
+    ),
+  },
+  {
+    source: '(return (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-14'),
+        ReturnExpression(loc('2-10'), UnitExpression(loc('9-10'))),
+        ReferenceType(loc('13'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(break (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-13'),
+        BreakExpression(loc('2-9'), UnitExpression(loc('8-9'))),
+        ReferenceType(loc('12'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '(loop (): T)',
+    result: Ok(
+      WrappedExpression(
+        loc('1-12'),
+        LoopExpression(loc('2-8'), UnitExpression(loc('7-8'))),
+        ReferenceType(loc('11'), ident('T'))
+      )
+    ),
+  },
+  {
+    source: '((): T, (): T)',
+    result: Ok(
+      TupleExpression(loc('1-14'), [
+        TupleExpressionElement(
+          UnitExpression(loc('2-3')),
+          ReferenceType(loc('6'), ident('T'))
+        ),
+        TupleExpressionElement(
+          UnitExpression(loc('9-10')),
+          ReferenceType(loc('13'), ident('T'))
+        ),
+      ])
+    ),
+  },
+  {
+    source: '((): T, (): T -> U)',
+    result: Ok(
+      TupleExpression(loc('1-19'), [
+        TupleExpressionElement(
+          UnitExpression(loc('2-3')),
+          ReferenceType(loc('6'), ident('T'))
+        ),
+        TupleExpressionElement(
+          FunctionExpression(
+            loc('9-18'),
+            [],
+            [],
+            ReferenceType(loc('13'), ident('T')),
+            ReferenceExpression(loc('18'), ident('U'))
+          )
+        ),
+      ])
+    ),
+  },
+  {
+    source: '((): T -> U, (): T)',
+    result: Ok(
+      TupleExpression(loc('1-19'), [
+        TupleExpressionElement(
+          FunctionExpression(
+            loc('2-11'),
+            [],
+            [],
+            ReferenceType(loc('6'), ident('T')),
+            ReferenceExpression(loc('11'), ident('U'))
+          )
+        ),
+        TupleExpressionElement(
+          UnitExpression(loc('14-15')),
+          ReferenceType(loc('18'), ident('T'))
+        ),
+      ])
+    ),
+  },
+  {
+    source: '((): T -> U, (): T -> U)',
+    result: Ok(
+      TupleExpression(loc('1-24'), [
+        TupleExpressionElement(
+          FunctionExpression(
+            loc('2-11'),
+            [],
+            [],
+            ReferenceType(loc('6'), ident('T')),
+            ReferenceExpression(loc('11'), ident('U'))
+          )
+        ),
+        TupleExpressionElement(
+          FunctionExpression(
+            loc('14-23'),
+            [],
+            [],
+            ReferenceType(loc('18'), ident('T')),
+            ReferenceExpression(loc('23'), ident('U'))
+          )
+        ),
+      ])
+    ),
+  },
+  {
+    source: '((x): T -> U = f)',
+    result: Err(
+      ExpressionIntoPatternError(
+        FunctionExpression(
+          loc('2-12'),
+          [],
+          [FunctionParameter(BindingPattern(loc('3'), ident('x')))],
+          ReferenceType(loc('7'), ident('T')),
+          ReferenceExpression(loc('12'), ident('U'))
+        ),
+        GlyphToken(loc('14'), Glyph.Equals)
+      )
+    ),
+  },
+  {
+    source: '(x: T -> U = f)',
+    result: Ok(
+      BlockExpression(loc('1-15'), [
+        BindingStatement(
+          BindingPattern(loc('2'), ident('x')),
+          FunctionType(
+            loc('5-10'),
+            [ReferenceType(loc('5'), ident('T'))],
+            ReferenceType(loc('10'), ident('U'))
+          ),
+          ReferenceExpression(loc('14'), ident('f'))
+        ),
+      ])
+    ),
+  },
 ].forEach(({source, result}) => {
   test(source.replace(/\n/g, '\\n'), () => {
     expect(parseExpression(Lexer.create(source))).toEqual(result);

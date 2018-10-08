@@ -360,45 +360,7 @@ class Parser {
    * Parses the `Type` grammar.
    */
   parseType(): Type {
-    const type = this.parsePrimaryType();
-
-    // Try to parse a `FunctionType`.
-    const nextToken = this.peekToken();
-    if (nextToken.type === TokenType.Glyph && nextToken.glyph === Glyph.Arrow) {
-      // Parse `FunctionType` shorthand.
-      if (type.kind === TypeKind.Reference) {
-        this.nextToken();
-        const body = this.parseType();
-        const loc = new Loc(type.loc.start, body.loc.end);
-        return FunctionType(loc, [type], body);
-      }
-
-      // Parse `FunctionType` with no arguments.
-      if (type.kind === TypeKind.Unit) {
-        this.nextToken();
-        const body = this.parseType();
-        const loc = new Loc(type.loc.start, body.loc.end);
-        return FunctionType(loc, [], body);
-      }
-
-      // Parse `FunctionType` with one argument.
-      if (type.kind === TypeKind.Wrapped) {
-        this.nextToken();
-        const body = this.parseType();
-        const loc = new Loc(type.loc.start, body.loc.end);
-        return FunctionType(loc, [type.type], body);
-      }
-
-      // Parse `FunctionType` with many arguments.
-      if (type.kind === TypeKind.Tuple) {
-        this.nextToken();
-        const body = this.parseType();
-        const loc = new Loc(type.loc.start, body.loc.end);
-        return FunctionType(loc, type.elements, body);
-      }
-    }
-
-    return type;
+    return this.parseFunctionTypeExtension(this.parsePrimaryType());
   }
 
   /**
@@ -495,6 +457,49 @@ class Parser {
   }
 
   /**
+   * Tries to parse a `FunctionType` by checking if there is an arrow and
+   * converting the right types. The parameter should be a `PrimaryType`.
+   */
+  parseFunctionTypeExtension(type: Type): Type {
+    // Try to parse a `FunctionType`.
+    const nextToken = this.peekToken();
+    if (nextToken.type === TokenType.Glyph && nextToken.glyph === Glyph.Arrow) {
+      // Parse `FunctionType` shorthand.
+      if (type.kind === TypeKind.Reference) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, [type], body);
+      }
+
+      // Parse `FunctionType` with no arguments.
+      if (type.kind === TypeKind.Unit) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, [], body);
+      }
+
+      // Parse `FunctionType` with one argument.
+      if (type.kind === TypeKind.Wrapped) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, [type.type], body);
+      }
+
+      // Parse `FunctionType` with many arguments.
+      if (type.kind === TypeKind.Tuple) {
+        this.nextToken();
+        const body = this.parseType();
+        const loc = new Loc(type.loc.start, body.loc.end);
+        return FunctionType(loc, type.elements, body);
+      }
+    }
+    return type;
+  }
+
+  /**
    * Parses the `GenericPattern` grammar. Returns `undefined` if parsing fails.
    */
   parseGenericParameter(): TypeParameter {
@@ -521,7 +526,7 @@ class Parser {
   parseStatement(): Statement {
     // Try to parse the `Statement`s which don’t look anything
     // like `Expression`s.
-    const statement = this.tryParseStatementDistinctFromExpression();
+    const statement = this.tryParseDistinctStatement();
     if (statement !== undefined) return statement;
 
     // All our remaining statements look like expressions.
@@ -577,7 +582,7 @@ class Parser {
    * Tries to parse `Statement` grammars which are distinct from the
    * `Expression` grammar.
    */
-  tryParseStatementDistinctFromExpression(): Statement | undefined {
+  tryParseDistinctStatement(): Statement | undefined {
     const token = this.peekToken();
     if (token.type === TokenType.Identifier) {
       if (
@@ -609,9 +614,21 @@ class Parser {
   }
 
   /**
-   * Parses the `Expression` grammar.
+   * Parses the `Expression` grammar. Extra care must be taken to properly parse
+   * the `ExpressionWithTypeAnnotation` grammar.
    */
-  parseExpression(): Expression {
+  parseExpression(
+    /**
+     * Option to help us parse the `ExpressionWithTypeAnnotation` grammar. If we
+     * see a colon after `FunctionParameters` then we either have an annotation
+     * or a `FunctionExpression` return type. If we were not provided
+     * `setTypeAnnotation` then we assume we have a `FunctionExpression`. If we
+     * were provided `setTypeAnnotation` and we don’t find an arrow after
+     * parsing the type annotation type then we call the function with the type
+     * we parsed so the caller may use the type annotation.
+     */
+    setTypeAnnotation?: ((type: Type) => void) | undefined
+  ): Expression {
     const token = this.peekToken();
 
     // If we have debug assertions enabled then test `startsExpression()` by
@@ -632,15 +649,40 @@ class Parser {
         // alternate expression.
         const test = this.parseExpression();
         this.parseKeyword('then');
-        const consequent = this.parseExpression();
 
-        // If we have an `else` keyword then we have an alternate expression.
-        const alternate = this.tryParseKeyword('else')
-          ? this.parseExpression()
-          : undefined;
+        // If we have `setTypeAnnotation` then a conditional expression is a bit
+        // special since the last expression may either be the `then` or `else`.
+        if (!setTypeAnnotation) {
+          const consequent = this.parseExpression();
 
-        const loc = new Loc(start, this.currentLoc.end);
-        return ConditionalExpression(loc, test, consequent, alternate);
+          // If we have an `else` keyword then we have an alternate expression.
+          const alternate = this.tryParseKeyword('else')
+            ? this.parseExpression()
+            : undefined;
+
+          const end = (alternate ? alternate : consequent).loc.end;
+          const loc = new Loc(start, end);
+          return ConditionalExpression(loc, test, consequent, alternate);
+        } else {
+          let type: Type | undefined;
+
+          const consequent = this.parseExpression(t => (type = t));
+
+          // If we have an `else` keyword and we did not parse a type with our
+          // consequent then we have an alternate expression.
+          const alternate =
+            type === undefined && this.tryParseKeyword('else')
+              ? this.parseExpression(t => (type = t))
+              : undefined;
+
+          // If we parsed a type annotation then call `setTypeAnnotation`
+          // with it.
+          if (type !== undefined) setTypeAnnotation(type);
+
+          const end = (alternate ? alternate : consequent).loc.end;
+          const loc = new Loc(start, end);
+          return ConditionalExpression(loc, test, consequent, alternate);
+        }
       }
 
       // Parse `ReturnExpression`.
@@ -651,7 +693,7 @@ class Parser {
           token.loc.end.line === nextToken.loc.start.line &&
           startsExpression(nextToken)
         ) {
-          const argument = this.parseExpression();
+          const argument = this.parseExpression(setTypeAnnotation);
           const loc = new Loc(token.loc.start, argument.loc.end);
           return ReturnExpression(loc, argument);
         } else {
@@ -667,7 +709,7 @@ class Parser {
           token.loc.end.line === nextToken.loc.start.line &&
           startsExpression(nextToken)
         ) {
-          const argument = this.parseExpression();
+          const argument = this.parseExpression(setTypeAnnotation);
           const loc = new Loc(token.loc.start, argument.loc.end);
           return BreakExpression(loc, argument);
         } else {
@@ -683,7 +725,7 @@ class Parser {
       // Parse `LoopExpression`.
       if (token.identifier === 'loop') {
         const start = this.nextToken().loc.start;
-        const body = this.parseExpression();
+        const body = this.parseExpression(setTypeAnnotation);
         const loc = new Loc(start, body.loc.end);
         return LoopExpression(loc, body);
       }
@@ -717,7 +759,7 @@ class Parser {
 
       // Parse the body of our function expression.
       this.parseGlyph(Glyph.Arrow);
-      const body = this.parseExpression();
+      const body = this.parseExpression(setTypeAnnotation);
 
       const loc = new Loc(token.loc.start, body.loc.end);
       return FunctionExpression(loc, typeParameters, parameters, ret, body);
@@ -725,57 +767,103 @@ class Parser {
 
     const expression = this.parseBinaryExpression();
 
-    // Try to parse a `FunctionExpression`.
-    const nextToken = this.peekToken();
-    if (nextToken.type === TokenType.Glyph && nextToken.glyph === Glyph.Arrow) {
-      // Parse `FunctionExpression` shorthand.
-      if (expression.kind === ExpressionKind.Reference) {
-        this.nextToken();
-        const parameter = FunctionParameter(
-          BindingPattern(expression.loc, expression.identifier),
-          undefined
-        );
-        const body = this.parseExpression();
-        const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], [parameter], undefined, body);
-      }
-
-      // Parse `FunctionExpression` with no arguments.
-      if (expression.kind === ExpressionKind.Unit) {
-        this.nextToken();
-        const body = this.parseExpression();
-        const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], [], undefined, body);
-      }
-
-      // Parse `FunctionExpression` with one argument.
-      if (expression.kind === ExpressionKind.Wrapped) {
-        this.nextToken();
-        const parameter = FunctionParameter(
-          expressionIntoPattern(nextToken, expression.expression),
-          expression.type
-        );
-        const body = this.parseExpression();
-        const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], [parameter], undefined, body);
-      }
-
-      // Parse `FunctionExpression` with many arguments.
-      if (expression.kind === ExpressionKind.Tuple) {
-        this.nextToken();
-        const parameters = expression.elements.map(element =>
-          FunctionParameter(
-            expressionIntoPattern(nextToken, element.expression),
-            element.type
-          )
-        );
-        const body = this.parseExpression();
-        const loc = new Loc(expression.loc.start, body.loc.end);
-        return FunctionExpression(loc, [], parameters, undefined, body);
-      }
+    // Parse `FunctionExpression` shorthand.
+    if (
+      expression.kind === ExpressionKind.Reference &&
+      this.tryParseGlyph(Glyph.Arrow)
+    ) {
+      const parameter = FunctionParameter(
+        BindingPattern(expression.loc, expression.identifier)
+      );
+      const body = this.parseExpression(setTypeAnnotation);
+      const loc = new Loc(expression.loc.start, body.loc.end);
+      return FunctionExpression(loc, [], [parameter], undefined, body);
     }
 
-    return expression;
+    // Try to parse a `FunctionExpression` if we parsed an expression that looks
+    // a little bit like function parameters.
+    if (
+      expression.kind === ExpressionKind.Unit ||
+      expression.kind === ExpressionKind.Wrapped ||
+      expression.kind === ExpressionKind.Tuple
+    ) {
+      // We may have a `FunctionExpression` with an annotated return type or an
+      // annotated expression.
+      //
+      // Note that we parse a `PrimaryType`. This is because according to the
+      // `ExpressionWithTypeAnnotation` grammar unit, wrapped, and tuple
+      // expressions may only be annotated with `PrimaryType` to avoid ambiguity
+      // with `FunctionExpression`.
+      const type = this.tryParseGlyph(Glyph.Colon)
+        ? this.parsePrimaryType()
+        : undefined;
+
+      // Look ahead at the next token and determine if it is an arrow.
+      const nextToken = this.peekToken();
+
+      // Deal with the fact that we don’t have an arrow as the next token. Gets
+      // complicated if we also have a type annotation.
+      if (
+        !(nextToken.type === TokenType.Glyph && nextToken.glyph === Glyph.Arrow)
+      ) {
+        if (type) {
+          if (setTypeAnnotation) {
+            // If we have `setTypeAnnotation` then the arrow is optional. We may
+            // treat the parsed type as an annotation.
+            setTypeAnnotation(type);
+            return expression;
+          } else {
+            // An arrow is required after a type annotation if we don’t
+            // have `setTypeAnnotation`.
+            throw UnexpectedTokenError(nextToken, ExpectedGlyph(Glyph.Arrow));
+          }
+        } else {
+          // If we don’t have an arrow but we also don’t have a type annotation,
+          // then return the expression as-is.
+          return expression;
+        }
+      } else {
+        this.nextToken();
+
+        // Parse `FunctionExpression` with no arguments.
+        if (expression.kind === ExpressionKind.Unit) {
+          const body = this.parseExpression(setTypeAnnotation);
+          const loc = new Loc(expression.loc.start, body.loc.end);
+          return FunctionExpression(loc, [], [], type, body);
+        }
+
+        // Parse `FunctionExpression` with one argument.
+        if (expression.kind === ExpressionKind.Wrapped) {
+          const parameter = FunctionParameter(
+            expressionIntoPattern(nextToken, expression.expression),
+            expression.type
+          );
+          const body = this.parseExpression(setTypeAnnotation);
+          const loc = new Loc(expression.loc.start, body.loc.end);
+          return FunctionExpression(loc, [], [parameter], type, body);
+        }
+
+        // Parse `FunctionExpression` with many arguments.
+        if (expression.kind === ExpressionKind.Tuple) {
+          const parameters = expression.elements.map(element =>
+            FunctionParameter(
+              expressionIntoPattern(nextToken, element.expression),
+              element.type
+            )
+          );
+          const body = this.parseExpression(setTypeAnnotation);
+          const loc = new Loc(expression.loc.start, body.loc.end);
+          return FunctionExpression(loc, [], parameters, type, body);
+        }
+
+        // This is unreachable. Cast to `never` to assert this and return
+        // `never` to make TypeScript happy.
+        const unreachable: never = expression;
+        return unreachable;
+      }
+    } else {
+      return expression;
+    }
   }
 
   /**
@@ -1028,14 +1116,15 @@ class Parser {
         primaryExpression = UnitExpression(loc);
       } else {
         // Otherwise we expect an expression maybe with an annotation.
-        let firstStatement: Statement =
-          this.tryParseStatementDistinctFromExpression() ||
-          ExpressionStatement(this.parseExpression());
         let firstType: Type | undefined;
+        let firstStatement: Statement =
+          this.tryParseDistinctStatement() ||
+          ExpressionStatement(this.parseExpression(type => (firstType = type)));
 
-        // If we see a colon then we have a type annotation. Parse that
-        // type annotation.
+        // If we did not already parse a type annotation, we see a colon, and we
+        // have a colon then parse a type annotation.
         if (
+          firstType === undefined &&
           firstStatement.kind === StatementKind.Expression &&
           this.tryParseGlyph(Glyph.Colon)
         ) {
@@ -1095,10 +1184,11 @@ class Parser {
           ];
           this.parseCommaList(
             () => {
-              const expression = this.parseExpression();
-              const type = this.tryParseGlyph(Glyph.Colon)
-                ? this.parseType()
-                : undefined;
+              let type: Type | undefined;
+              const expression = this.parseExpression(t => (type = t));
+              if (type === undefined && this.tryParseGlyph(Glyph.Colon)) {
+                type = this.parseType();
+              }
               return TupleExpressionElement(expression, type);
             },
             Glyph.ParenRight,

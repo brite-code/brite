@@ -5,6 +5,9 @@ import {
   BindingPattern,
   BindingStatement,
   ForLoopStatement,
+  FunctionExpression,
+  FunctionParameter,
+  FunctionType,
   ReferenceExpression,
   ReferenceType,
   Statement,
@@ -121,6 +124,35 @@ const cases: ReadonlyArray<{
     source: 'x: T',
     result: Err(
       UnexpectedTokenError(EndToken(loc('5')), ExpectedGlyph(Glyph.Equals))
+    ),
+  },
+  {
+    source: '(x): T -> U = f',
+    result: Err(
+      ExpressionIntoPatternError(
+        FunctionExpression(
+          loc('1-11'),
+          [],
+          [FunctionParameter(BindingPattern(loc('2'), ident('x')))],
+          ReferenceType(loc('6'), ident('T')),
+          ReferenceExpression(loc('11'), ident('U'))
+        ),
+        GlyphToken(loc('13'), Glyph.Equals)
+      )
+    ),
+  },
+  {
+    source: 'x: T -> U = f',
+    result: Ok(
+      BindingStatement(
+        BindingPattern(loc('1'), ident('x')),
+        FunctionType(
+          loc('4-9'),
+          [ReferenceType(loc('4'), ident('T'))],
+          ReferenceType(loc('9'), ident('U'))
+        ),
+        ReferenceExpression(loc('13'), ident('f'))
+      )
     ),
   },
 ];

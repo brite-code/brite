@@ -461,7 +461,7 @@ export type TupleExpressionElement = {
 
 export function TupleExpressionElement(
   expression: Expression,
-  type: Type | undefined
+  type: Type | undefined = undefined
 ): TupleExpressionElement {
   return {expression, type};
 }

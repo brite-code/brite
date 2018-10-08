@@ -276,7 +276,10 @@ ExpressionWithTypeAnnotation:
   - ExpressionWithTrailingFunctionParameters `:` PrimaryType
   - ExpressionWithoutTrailingFunctionParameters `:` Type
 
-ExpressionWithTrailingFunctionParameters : Expression "ends with" FunctionParameters
+ExpressionWithTrailingFunctionParameters :
+  - Expression "ends with" UnitExpression
+  - Expression "ends with" WrappedExpression
+  - Expression "ends with" TupleExpression
 
 ExpressionWithoutTrailingFunctionParameters : Expression but not ExpressionWithTrailingFunctionParameters
 
@@ -288,7 +291,7 @@ Annotating an arbitrary expression is tricky business syntactically speaking bec
 
 Is this a {FunctionExpression} with a return type of `T` and a body of reference expression `U`? Or is this a {UnitExpression} with an annotated {FunctionType} of `T -> U`? In our grammar it is the former because of how {ExpressionWithTypeAnnotation} is structured. However if we naively declared {ExpressionWithTypeAnnotation} as an {Expression} followed by an optional {TypeAnnotation} then we’d be ambiguous in the case presented above.
 
-To solve this we state that if an {Expression} ends with {FunctionParameters} compatible syntax then we may not annotate with a {FunctionType}. Only a valid type of the {PrimaryType} grammar.
+To solve this we state that if an {Expression} ends with an expression which could be coercible to {FunctionParameters} then we may not annotate with a {FunctionType}. Only a valid type of the {PrimaryType} grammar.
 
 Examples of code which may only be annotated with a {PrimaryType} include:
 

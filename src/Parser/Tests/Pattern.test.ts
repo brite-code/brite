@@ -29,6 +29,7 @@ import {
   ExpectedPattern,
   ExpectedType,
   ExpressionIntoPatternError,
+  ParserError,
   ParserErrorType,
   UnexpectedTokenError,
 } from '../Error';
@@ -37,7 +38,11 @@ import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {expressionIntoPattern, parseExpression, parsePattern} from '../Parser';
 
-const cases = [
+const cases: ReadonlyArray<{
+  readonly source: string;
+  readonly result: Result<Pattern, ParserError>;
+  readonly fromExpressionResult?: Result<Pattern, ParserError>;
+}> = [
   {
     source: 'foo',
     result: Ok(BindingPattern(loc('1-3'), ident('foo'))),
@@ -637,6 +642,18 @@ const cases = [
         )
       )
     ),
+    fromExpressionResult: Err(
+      ExpressionIntoPatternError(
+        FunctionExpression(
+          loc('2-11'),
+          [],
+          [],
+          ReferenceType(loc('6'), ident('T')),
+          ReferenceExpression(loc('11'), ident('U'))
+        ),
+        EndToken(loc('13'))
+      )
+    ),
   },
 ];
 
@@ -647,14 +664,20 @@ cases.forEach(({source, result}) => {
 });
 
 describe('from expression', () => {
-  cases.forEach(({source, result: expectedResult}) => {
+  cases.forEach(({source, result, fromExpressionResult = result}) => {
     test(source.replace(/\n/g, '\\n'), () => {
       const lexer = Lexer.create(source);
       const result = parseExpression(lexer);
       switch (result.type) {
         case ResultType.Ok: {
-          const pattern = expressionIntoPattern(lexer.next(), result.value);
-          expect(Ok(pattern)).toEqual(expectedResult);
+          let pattern;
+          try {
+            pattern = Ok(expressionIntoPattern(lexer.next(), result.value));
+          } catch (error) {
+            if (error instanceof Error) throw error;
+            pattern = Err(error);
+          }
+          expect(pattern).toEqual(fromExpressionResult);
           break;
         }
         case ResultType.Err: {
@@ -667,7 +690,7 @@ describe('from expression', () => {
                     : result.value.expected
                 )
               : result.value;
-          expect(Err(error)).toEqual(expectedResult);
+          expect(Err(error)).toEqual(fromExpressionResult);
           break;
         }
       }
