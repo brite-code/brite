@@ -102,4 +102,24 @@ If the first parameter in {ClassMethod} or {BaseClassMethod} is an un-annotated 
 
 Method accessibility in a Brite program is specified by its {Access} modifier.
 
+Unlike other Brite declarations, if {ClassMethod} does not have an {Access} modifier, and it overrides another method, then the new method inherits its accessibility from the overriden method.
+
+The programmer may not decrease the scope of accessibility of an overriden method. Since then the method cannot be called in general. Consider the following example:
+
+```ite example
+base class Parent {
+  public base getInt(this): Int
+}
+
+class Child extends Parent {
+  private getInt(this) -> 42
+}
+
+// In another file...
+
+printInt(parent: Parent) -> print(parent.getInt())
+```
+
+Since `Child.getInt(this)` is private should we allow `Parent.getInt(this)` to ever be called? If we do allow it to be called then a simple cast could get around the accessibility of `Child.getInt(this)`, for instance `((child: Child): Parent).getInt()`. This would break accessibility guarantees so  we don’t want that. To make `Child.getInt(this)` truly private we must not allow `Parent.getInt(this)` to be called outside of the accessibility scope of `Child.getInt(this)`. This is a terrible experience and unenforceable on unsealed base classes. So instead we don’t allow the programmer to decrease the accessibility of an overriden method.
+
 Note: Instead of making instance methods the default and introducing a `static` keyword, Brite chooses to require a `this` parameter on all instance methods. This is to hammer home that class instance methods are actually functions. For instance a method can be called from a class `MyClass.myMethod(this, foo, bar)` or from an instance `this.myMethod(foo, bar)`. The `this` identifier does not come out of nowhere unlike other languages (JavaScript, Java).

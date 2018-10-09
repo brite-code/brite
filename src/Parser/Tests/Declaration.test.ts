@@ -3,7 +3,6 @@ import {
   Access,
   BindingPattern,
   ClassDeclaration,
-  ClassImplements,
   ClassMethod,
   Declaration,
   FunctionDeclaration,
@@ -11,6 +10,8 @@ import {
   FunctionParameter,
   FunctionType,
   GenericType,
+  ImplementsDeclaration,
+  InterfaceDeclaration,
   MemberType,
   Name,
   ReferenceExpression,
@@ -635,7 +636,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: false,
             name: Name(loc('11-16'), ident('public')),
             typeParameters: [],
@@ -661,7 +662,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: true,
             name: Name(loc('16-21'), ident('public')),
             typeParameters: [],
@@ -774,7 +775,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: true,
             name: Name(loc('16'), ident('f')),
             typeParameters: [],
@@ -800,7 +801,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: false,
             name: Name(loc('11-16'), ident('public')),
             typeParameters: [],
@@ -826,7 +827,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: true,
             name: Name(loc('16-21'), ident('public')),
             typeParameters: [],
@@ -930,7 +931,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: true,
             name: Name(loc('16'), ident('f')),
             typeParameters: [],
@@ -992,7 +993,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: true,
             name: Name(loc('16'), ident('f')),
             typeParameters: [],
@@ -1018,7 +1019,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: true,
             name: Name(loc('16'), ident('f')),
             typeParameters: [],
@@ -1053,7 +1054,7 @@ const cases: ReadonlyArray<{
         implements: [],
         body: [
           ClassMethod({
-            access: Access.Private,
+            access: undefined,
             base: false,
             name: Name(loc('11'), ident('f')),
             typeParameters: [],
@@ -1121,7 +1122,9 @@ const cases: ReadonlyArray<{
         typeParameters: [],
         parameters: [],
         extends: undefined,
-        implements: [ClassImplements(ReferenceType(loc('20'), ident('I')))],
+        implements: [
+          ImplementsDeclaration(ReferenceType(loc('20'), ident('I'))),
+        ],
         body: [],
       })
     ),
@@ -1138,8 +1141,8 @@ const cases: ReadonlyArray<{
         parameters: [],
         extends: undefined,
         implements: [
-          ClassImplements(ReferenceType(loc('20-21'), ident('I1'))),
-          ClassImplements(ReferenceType(loc('34-35'), ident('I2'))),
+          ImplementsDeclaration(ReferenceType(loc('20-21'), ident('I1'))),
+          ImplementsDeclaration(ReferenceType(loc('34-35'), ident('I2'))),
         ],
         body: [],
       })
@@ -1157,11 +1160,77 @@ const cases: ReadonlyArray<{
         parameters: [],
         extends: undefined,
         implements: [
-          ClassImplements(ReferenceType(loc('39-46'), ident('Equality')), [
-            TypeParameter(Name(loc('26'), ident('T')), [
-              ReferenceType(loc('29-36'), ident('Equality')),
-            ]),
-          ]),
+          ImplementsDeclaration(
+            ReferenceType(loc('39-46'), ident('Equality')),
+            [
+              TypeParameter(Name(loc('26'), ident('T')), [
+                ReferenceType(loc('29-36'), ident('Equality')),
+              ]),
+            ]
+          ),
+        ],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'interface I',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'interface I<>',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'interface I<T>',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [TypeParameter(Name(loc('13'), ident('T')))],
+        extends: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'interface I extends A',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [ImplementsDeclaration(ReferenceType(loc('21'), ident('A')))],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'interface I extends A extends B',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [
+          ImplementsDeclaration(ReferenceType(loc('21'), ident('A'))),
+          ImplementsDeclaration(ReferenceType(loc('31'), ident('B'))),
         ],
         body: [],
       })

@@ -13,7 +13,6 @@ import {
   BreakExpression,
   CallExpression,
   ClassDeclaration,
-  ClassImplements,
   ClassMember,
   ClassMethod,
   ConditionalExpression,
@@ -31,6 +30,7 @@ import {
   GenericType,
   HoleExpression,
   HolePattern,
+  ImplementsDeclaration,
   InterfaceDeclaration,
   ListExpression,
   ListPattern,
@@ -365,12 +365,12 @@ class Parser {
       extend = this.parseType();
     }
 
-    // Try to parse the interfaces this class implements if available.
-    const implement: Array<ClassImplements> = [];
+    // Try to parse the interfaces this class implements.
+    const implement: Array<ImplementsDeclaration> = [];
     while (this.tryParseKeyword('implements')) {
       const constrain = this.tryParseGenericParameters() || [];
       const type = this.parseType();
-      implement.push(ClassImplements(type, constrain));
+      implement.push(ImplementsDeclaration(type, constrain));
     }
 
     // Try to parse a class body if available.
@@ -405,7 +405,7 @@ class Parser {
     let token2 = this.peekToken();
 
     // The default access level is private.
-    let access = Access.Private;
+    let access = undefined;
 
     // Whether or not this is a base member.
     let base = false;
@@ -477,7 +477,24 @@ class Parser {
    * Finishes parsing the `InterfaceDeclaration` grammar.
    */
   parseInterfaceDeclaration(access: Access, name: Name): InterfaceDeclaration {
-    throw new Error('unimplemented');
+    // Try to parse type parameters if available.
+    const typeParameters = this.tryParseGenericParameters() || [];
+
+    // Try to parse the interfaces this interface extends.
+    const extend: Array<ImplementsDeclaration> = [];
+    while (this.tryParseKeyword('extends')) {
+      const constrain = this.tryParseGenericParameters() || [];
+      const type = this.parseType();
+      extend.push(ImplementsDeclaration(type, constrain));
+    }
+
+    return InterfaceDeclaration({
+      access,
+      name,
+      typeParameters,
+      extends: extend,
+      body: [],
+    });
   }
 
   /**

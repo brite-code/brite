@@ -70,14 +70,21 @@ export function TypeDeclaration(
   return {kind: DeclarationKind.Type, access, name, typeParameters, value};
 }
 
-export interface FunctionNode {
+export interface Function {
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly return: Type | undefined;
   readonly body: Expression;
 }
 
-export interface FunctionDeclaration extends FunctionNode, NamedDeclaration {
+export interface FunctionWithOptionalBody {
+  readonly typeParameters: ReadonlyArray<TypeParameter>;
+  readonly parameters: ReadonlyArray<FunctionParameter>;
+  readonly return: Type | undefined;
+  readonly body: Expression | undefined;
+}
+
+export interface FunctionDeclaration extends Function, NamedDeclaration {
   readonly kind: DeclarationKind.Function;
 }
 
@@ -123,7 +130,7 @@ export interface ClassDeclaration extends NamedDeclaration {
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly extends: Type | undefined;
-  readonly implements: ReadonlyArray<Type>;
+  readonly implements: ReadonlyArray<ImplementsDeclaration>;
   readonly body: ReadonlyArray<ClassMember>;
 }
 
@@ -135,7 +142,7 @@ export function ClassDeclaration(data: {
   typeParameters: ReadonlyArray<TypeParameter>;
   parameters: ReadonlyArray<FunctionParameter>;
   extends: Type | undefined;
-  implements: ReadonlyArray<ClassImplements>;
+  implements: ReadonlyArray<ImplementsDeclaration>;
   body: ReadonlyArray<ClassMember>;
 }): ClassDeclaration {
   return {
@@ -152,20 +159,12 @@ export function ClassDeclaration(data: {
   };
 }
 
-/**
- * Concrete methods, base methods, and interface methods all use the `Member`
- * interface. We assert that members are well formed in our checking phase.
- */
 export type ClassMember = ClassMethod;
 
-export interface ClassMethod {
-  readonly access: Access;
+export interface ClassMethod extends FunctionWithOptionalBody {
+  readonly access: Access | undefined;
   readonly base: boolean;
   readonly name: Name;
-  readonly typeParameters: ReadonlyArray<TypeParameter>;
-  readonly parameters: ReadonlyArray<FunctionParameter>;
-  readonly return: Type | undefined;
-  readonly body: Expression | undefined;
 }
 
 export function ClassMethod({
@@ -177,7 +176,7 @@ export function ClassMethod({
   return: ret,
   body,
 }: {
-  access: Access;
+  access: Access | undefined;
   base: boolean;
   name: Name;
   typeParameters: ReadonlyArray<TypeParameter>;
@@ -196,23 +195,72 @@ export function ClassMethod({
   };
 }
 
-export type ClassImplements = {
+export type ImplementsDeclaration = {
   readonly type: Type;
   readonly constrain: ReadonlyArray<TypeParameter>;
 };
 
-export function ClassImplements(
+export function ImplementsDeclaration(
   type: Type,
   constrain: ReadonlyArray<TypeParameter> = []
-): ClassImplements {
+): ImplementsDeclaration {
   return {type, constrain};
 }
 
 export interface InterfaceDeclaration extends NamedDeclaration {
   readonly kind: DeclarationKind.Interface;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
-  readonly extends: ReadonlyArray<ReferenceType>;
-  // TODO: readonly body: ReadonlyArray<ClassMember>;
+  readonly extends: ReadonlyArray<ImplementsDeclaration>;
+  readonly body: ReadonlyArray<InterfaceMember>;
+}
+
+export function InterfaceDeclaration(data: {
+  access: Access;
+  name: Name;
+  typeParameters: ReadonlyArray<TypeParameter>;
+  extends: ReadonlyArray<ImplementsDeclaration>;
+  body: ReadonlyArray<InterfaceMember>;
+}): InterfaceDeclaration {
+  return {
+    kind: DeclarationKind.Interface,
+    access: data.access,
+    name: data.name,
+    typeParameters: data.typeParameters,
+    extends: data.extends,
+    body: data.body,
+  };
+}
+
+export type InterfaceMember = InterfaceMethod;
+
+export interface InterfaceMethod extends FunctionWithOptionalBody {
+  readonly access: Access | undefined;
+  readonly name: Name;
+}
+
+export function InterfaceMethod({
+  access,
+  name,
+  typeParameters,
+  parameters,
+  return: ret,
+  body,
+}: {
+  access: Access | undefined;
+  name: Name;
+  typeParameters: ReadonlyArray<TypeParameter>;
+  parameters: ReadonlyArray<FunctionParameter>;
+  return: Type | undefined;
+  body: Expression | undefined;
+}): InterfaceMethod {
+  return {
+    access,
+    name,
+    typeParameters,
+    parameters,
+    return: ret,
+    body,
+  };
 }
 
 /**
@@ -603,7 +651,7 @@ export function CallExpression(
   };
 }
 
-export interface FunctionExpression extends FunctionNode, Node {
+export interface FunctionExpression extends Function, Node {
   readonly kind: ExpressionKind.Function;
 }
 
