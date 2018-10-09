@@ -1073,6 +1073,42 @@ const cases: ReadonlyArray<{
       )
     ),
   },
+  {
+    source: 'class C extends P',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: ReferenceType(loc('17'), ident('P')),
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C<T> extends P<T>',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [TypeParameter(Name(loc('9'), ident('T')))],
+        parameters: [],
+        extends: GenericType(
+          loc('20-23'),
+          ReferenceType(loc('20'), ident('P')),
+          [ReferenceType(loc('22'), ident('T'))]
+        ),
+        implements: [],
+        body: [],
+      })
+    ),
+  },
 ];
 
 cases.forEach(({source, result}) => {

@@ -14,6 +14,10 @@ Keyword : one of
   `while` `do` `for`    `in`
   `break` `continue`
 
+QualifiedIdentifier :
+  - Identifier
+  - QualifiedIdentifier `.` Identifier
+
 Identifiers in Brite follow the [Unicode specification](http://www.unicode.org/reports/tr31/). With an extension allowing for `_` in the “start” character and “continue” characters.
 
 It is common to use apostrophes as “primes” to denote new values with small modifications. For instance: `x`, `x'`, and `x''`.
@@ -23,6 +27,8 @@ There are some keywords which we do not allow as identifiers. We try to keep the
 We have some pseudo-keywords we don’t reserve like `type`. We can design a non-ambiguous grammar for `type` which means we don’t need to reserve it. An identifier like `type` is also very common for a wide range of programs.
 
 Since there are parse rules which are really difficult to express without reserving some keywords, we have a second category of keyword called {BindingKeyword}. These keywords are excluded from {BindingIdentifier} but not all identifiers in general. Binding keywords may not be used to bind a variable, but they may be used anywhere else. For instance, one cannot write the program `return = 42`, but they could write the program `x = { return = 42 }` since a property label is not a {BindingIdentifier}.
+
+{QualifiedIdentifier} allows for the selection of an identifier from some namespace.
 
 Note: Future specification writers, be careful about reserving common nouns like `type` or `class` in {BindingIdentifier}!
 

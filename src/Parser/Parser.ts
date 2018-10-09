@@ -362,8 +362,6 @@ class Parser {
   ): ClassDeclaration {
     // TODO:
     //
-    // - Parse body.
-    // - Parse extends.
     // - Parse implements.
     // - Parse constructor pattern.
 
@@ -387,6 +385,12 @@ class Parser {
       this.nextToken();
     }
 
+    // Try to parse an extends clause if available.
+    let extend: Type | undefined;
+    if (this.tryParseKeyword('extends')) {
+      extend = this.parseType();
+    }
+
     // Try to parse a class body if available.
     let body: ReadonlyArray<ClassMember> = [];
     if (this.tryParseGlyph(Glyph.BraceLeft)) {
@@ -405,7 +409,7 @@ class Parser {
       unsealed,
       typeParameters,
       parameters,
-      extends: undefined,
+      extends: extend,
       implements: [],
       body,
     });

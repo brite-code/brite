@@ -24,6 +24,18 @@ A type is some static classification of a thing in Brite. Most commonly types re
 - **Interface:** Interface types represent the type created by {InterfaceDeclaration}. These types may only be used in generic parameter bounds or implements clauses. There are no values which match interface types.
 - **Namespace:** Namespace types represent an entire namespace. They may only be used in {MemberType} where one of the namespace members is selected.
 
+By dividing types into kinds we enable abstraction of all type kinds with {TypeDeclaration}. For example we can build aliases for specific interface instantiations without introducing a new interface.
+
+```ite example
+interface Iterator<Value> {
+  // ...
+}
+
+type IntIterator = Iterator<Int>
+```
+
+In this example `IntIterator` is still of the interface type kind and so may only be used in generic bounds.
+
 Note: {TypeAnnotation} is a convenience grammar rule for type annotations which can be fairly common.
 
 Note: {WrappedType} allows a trailing comma for consistency as a single element {TupleType}.
