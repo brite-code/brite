@@ -13,6 +13,7 @@ import {
   BreakExpression,
   CallExpression,
   ClassDeclaration,
+  ClassImplements,
   ClassMember,
   ClassMethod,
   ConditionalExpression,
@@ -30,6 +31,7 @@ import {
   GenericType,
   HoleExpression,
   HolePattern,
+  InterfaceDeclaration,
   ListExpression,
   ListPattern,
   LogicalExpression,
@@ -293,7 +295,10 @@ class Parser {
       // Parse a `TypeDeclaration`.
       if (token1.identifier === 'type') {
         const name = this.parseName();
-        return this.parseTypeDeclaration(access, name);
+        const typeParameters = this.tryParseGenericParameters() || [];
+        this.parseGlyph(Glyph.Equals);
+        const value = this.parseType();
+        return TypeDeclaration(access, name, typeParameters, value);
       }
 
       // Parse a `ClassDeclaration`.
@@ -319,36 +324,14 @@ class Parser {
 
       // Parse an `InterfaceDeclaration`.
       if (token1.identifier === 'interface') {
-        throw new Error('unimplemented');
+        const name = this.parseName();
+        return this.parseInterfaceDeclaration(access, name);
       }
 
       // Throw an error if we don’t recognize any of the identifiers that
       // we parsed.
       throw UnexpectedTokenError(token1, ExpectedDeclaration);
     }
-  }
-
-  /**
-   * Finishes parsing a `TypeDeclaration`.
-   */
-  parseTypeDeclaration(access: Access, name: Name): TypeDeclaration {
-    // Parse type parameters if some are available right after the name.
-    let typeParameters: ReadonlyArray<TypeParameter> = [];
-    if (this.tryParseGlyph(Glyph.LessThan)) {
-      typeParameters = this.parseCommaList(
-        () => this.parseGenericParameter(),
-        Glyph.GreaterThan
-      );
-      this.nextToken();
-    }
-
-    // Parse an equals sign after the name and optional type parameters.
-    this.parseGlyph(Glyph.Equals);
-
-    // Parse the type part of the type declaration.
-    const value = this.parseType();
-
-    return TypeDeclaration(access, name, typeParameters, value);
   }
 
   /**
@@ -361,19 +344,10 @@ class Parser {
     unsealed: boolean
   ): ClassDeclaration {
     // TODO:
-    //
-    // - Parse implements.
     // - Parse constructor pattern.
 
     // Try to parse type parameters if available.
-    let typeParameters: ReadonlyArray<TypeParameter> = [];
-    if (this.tryParseGlyph(Glyph.LessThan)) {
-      typeParameters = this.parseCommaList(
-        () => this.parseGenericParameter(),
-        Glyph.GreaterThan
-      );
-      this.nextToken();
-    }
+    const typeParameters = this.tryParseGenericParameters() || [];
 
     // Try to parse function parameters if available.
     let parameters: ReadonlyArray<FunctionParameter> = [];
@@ -392,8 +366,11 @@ class Parser {
     }
 
     // Try to parse the interfaces this class implements if available.
-    if (this.tryParseKeyword('implements')) {
-      throw new Error('unimplemented');
+    const implement: Array<ClassImplements> = [];
+    while (this.tryParseKeyword('implements')) {
+      const constrain = this.tryParseGenericParameters() || [];
+      const type = this.parseType();
+      implement.push(ClassImplements(type, constrain));
     }
 
     // Try to parse a class body if available.
@@ -415,7 +392,7 @@ class Parser {
       typeParameters,
       parameters,
       extends: extend,
-      implements: [],
+      implements: implement,
       body,
     });
   }
@@ -497,6 +474,13 @@ class Parser {
   }
 
   /**
+   * Finishes parsing the `InterfaceDeclaration` grammar.
+   */
+  parseInterfaceDeclaration(access: Access, name: Name): InterfaceDeclaration {
+    throw new Error('unimplemented');
+  }
+
+  /**
    * Parses the `Function` grammar.
    */
   parseFunction(): {
@@ -506,14 +490,7 @@ class Parser {
     readonly body: Expression;
   } {
     // Try to parse type parameters if available.
-    let typeParameters: ReadonlyArray<TypeParameter> = [];
-    if (this.tryParseGlyph(Glyph.LessThan)) {
-      typeParameters = this.parseCommaList(
-        () => this.parseGenericParameter(),
-        Glyph.GreaterThan
-      );
-      this.nextToken();
-    }
+    const typeParameters = this.tryParseGenericParameters() || [];
 
     // Parse an opening parentheses.
     this.parseGlyph(Glyph.ParenLeft);
@@ -555,14 +532,7 @@ class Parser {
     readonly body: Expression | undefined;
   } {
     // Try to parse type parameters if available.
-    let typeParameters: ReadonlyArray<TypeParameter> = [];
-    if (this.tryParseGlyph(Glyph.LessThan)) {
-      typeParameters = this.parseCommaList(
-        () => this.parseGenericParameter(),
-        Glyph.GreaterThan
-      );
-      this.nextToken();
-    }
+    const typeParameters = this.tryParseGenericParameters() || [];
 
     // Parse an opening parentheses.
     this.parseGlyph(Glyph.ParenLeft);
@@ -753,7 +723,23 @@ class Parser {
   }
 
   /**
-   * Parses the `GenericPattern` grammar. Returns `undefined` if parsing fails.
+   * Tries to parse the `GenericParameters` grammar. If unsuccessful then
+   * nothing is returned.
+   */
+  tryParseGenericParameters(): ReadonlyArray<TypeParameter> | undefined {
+    if (this.tryParseGlyph(Glyph.LessThan)) {
+      const result = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.nextToken();
+      return result;
+    }
+    return undefined;
+  }
+
+  /**
+   * Parses the `GenericPattern` grammar.
    */
   parseGenericParameter(): TypeParameter {
     const name = this.parseName();

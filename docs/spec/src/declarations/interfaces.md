@@ -1,14 +1,15 @@
 # Interface Declaration
 
-InterfaceDeclaration : `interface` Identifier GenericParameters? InterfaceExtends? InterfaceBody?
+InterfaceDeclaration : `interface` Identifier GenericParameters? InterfaceExtendsList InterfaceBody?
 
 InterfaceBody : `{` InterfaceMemberList `}`
 
-InterfaceExtends : `extends` InterfaceExtendsList
-
 InterfaceExtendsList :
-  - Type `,`?
-  - Type `,` InterfaceExtendsList
+  - [empty]
+  - InterfaceExtends
+  - InterfaceExtendsList InterfaceExtends
+
+InterfaceExtends : `extends` GenericParameters? Type
 
 InterfaceMemberList :
   - [empty]

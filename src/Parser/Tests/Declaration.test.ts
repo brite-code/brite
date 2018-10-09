@@ -3,6 +3,7 @@ import {
   Access,
   BindingPattern,
   ClassDeclaration,
+  ClassImplements,
   ClassMethod,
   Declaration,
   FunctionDeclaration,
@@ -1105,6 +1106,63 @@ const cases: ReadonlyArray<{
           [ReferenceType(loc('22'), ident('T'))]
         ),
         implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C implements I',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [ClassImplements(ReferenceType(loc('20'), ident('I')))],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C implements I1 implements I2',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [
+          ClassImplements(ReferenceType(loc('20-21'), ident('I1'))),
+          ClassImplements(ReferenceType(loc('34-35'), ident('I2'))),
+        ],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class List<T> implements<T: Equality> Equality',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7-10'), ident('List')),
+        base: false,
+        unsealed: false,
+        typeParameters: [TypeParameter(Name(loc('12'), ident('T')))],
+        parameters: [],
+        extends: undefined,
+        implements: [
+          ClassImplements(ReferenceType(loc('39-46'), ident('Equality')), [
+            TypeParameter(Name(loc('26'), ident('T')), [
+              ReferenceType(loc('29-36'), ident('Equality')),
+            ]),
+          ]),
+        ],
         body: [],
       })
     ),

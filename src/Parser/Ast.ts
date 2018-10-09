@@ -135,7 +135,7 @@ export function ClassDeclaration(data: {
   typeParameters: ReadonlyArray<TypeParameter>;
   parameters: ReadonlyArray<FunctionParameter>;
   extends: Type | undefined;
-  implements: ReadonlyArray<Type>;
+  implements: ReadonlyArray<ClassImplements>;
   body: ReadonlyArray<ClassMember>;
 }): ClassDeclaration {
   return {
@@ -194,6 +194,18 @@ export function ClassMethod({
     return: ret,
     body,
   };
+}
+
+export type ClassImplements = {
+  readonly type: Type;
+  readonly constrain: ReadonlyArray<TypeParameter>;
+};
+
+export function ClassImplements(
+  type: Type,
+  constrain: ReadonlyArray<TypeParameter> = []
+): ClassImplements {
+  return {type, constrain};
 }
 
 export interface InterfaceDeclaration extends NamedDeclaration {

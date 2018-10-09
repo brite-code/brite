@@ -44,11 +44,16 @@ TODO: I would like to introduce associated types to classes. How will this work 
 
 ## Class Head
 
-ClassHead : `class` Identifier GenericParameters? FunctionParameters[Constructor]? ClassExtends? ClassImplements?
+ClassHead : `class` Identifier GenericParameters? FunctionParameters[Constructor]? ClassExtends? ClassImplementsList
 
 ClassExtends : `extends` Type
 
-ClassImplements : `implements` InterfaceExtendsList
+ClassImplementsList :
+  - [empty]
+  - ClassImplements
+  - ClassImplementsList ClassImplements
+
+ClassImplements : `implements` GenericParameters? Type
 
 The “head” of a class declares some information about the class.
 
@@ -71,7 +76,21 @@ The {FunctionParameters[Constructor]} from a class extended in {ClassExtends} wi
 
 The types from {GenericParameters} are in scope of {ClassExtends}.
 
-The optional {ClassImplements} list specifies some interfaces to which the class body should comply.
+The optional {ClassImplementsList} specifies some interfaces to which the class body should comply.
+
+{ClassImplements} may have {GenericParameters}, not to create new types, but instead to constrain existing types. For example, if we have a `List<T>` class then we may want to implement the `Equals` interface for that class when `T` implements the `Equals` interface. We would write this as the following:
+
+```ite example
+class List<T>
+  implements<T: Equals> Equals
+{
+  equals<T: Equals>(this, other) -> (
+    // ...
+  )
+}
+```
+
+Notice how the “equals” class method also restrains `T` by the `Equals` interface.
 
 ## Class Methods
 
