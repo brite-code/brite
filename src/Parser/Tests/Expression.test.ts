@@ -1408,7 +1408,7 @@ import {parseExpression} from '../Parser';
     ),
   },
   {
-    source: '<T: A + B>() -> x',
+    source: '<T: A & B>() -> x',
     result: Ok(
       FunctionExpression(
         loc('1-17'),

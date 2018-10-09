@@ -761,7 +761,7 @@ class Parser {
       this.nextToken();
       typeParameters = this.parseNonEmptyList(
         () => this.parseType(),
-        Glyph.Plus
+        Glyph.Ampersand
       );
     }
 
