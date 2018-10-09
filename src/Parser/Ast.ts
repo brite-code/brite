@@ -900,13 +900,17 @@ export const enum PatternKind {
 export interface BindingPattern extends Node {
   readonly kind: PatternKind.Binding;
   readonly identifier: BindingIdentifier;
+  readonly modifiers:
+    | {readonly access: Access; readonly mutable: boolean}
+    | undefined;
 }
 
 export function BindingPattern(
   loc: Loc,
-  identifier: BindingIdentifier
+  identifier: BindingIdentifier,
+  modifiers?: {readonly access: Access; readonly mutable: boolean}
 ): BindingPattern {
-  return {kind: PatternKind.Binding, loc, identifier};
+  return {kind: PatternKind.Binding, loc, identifier, modifiers};
 }
 
 export interface HolePattern extends Node {

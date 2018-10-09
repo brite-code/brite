@@ -151,7 +151,7 @@ export function parseExpression(lexer: Lexer): Result<Expression, ParserError> {
 export function parsePattern(lexer: Lexer): Result<Pattern, ParserError> {
   try {
     const parser = new Parser(lexer);
-    const pattern = parser.parsePattern();
+    const pattern = parser.parsePattern(false);
     parser.parseEnding();
     return Ok(pattern);
   } catch (error) {
@@ -244,94 +244,72 @@ class Parser {
    * Parses a declaration.
    */
   parseDeclaration(): Declaration {
-    let token1 = this.nextToken();
-    let token2 = this.peekToken();
+    // Try to parse the access level is private.
+    const access = this.tryParseAccess() || Access.Private;
 
-    // The default access level is private.
-    let access = Access.Private;
+    // Look at the next two tokens to determine what declaration to parse.
+    const token1 = this.nextToken();
+    const token2 = this.peekToken();
 
-    // Use a loop to parse common declaration modifiers like the access modifier
-    // and decorator modifiers.
-    while (true) {
-      if (token1.type === TokenType.Identifier) {
-        // If the token after our identifier suggests that we have a function
-        // declaration then parse that `FunctionDeclaration`.
-        if (
-          token2.type === TokenType.Glyph &&
-          (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
-        ) {
-          const name = Name(token1.loc, token1.identifier);
-          const f = this.parseFunction();
-          return FunctionDeclaration(
-            access,
-            name,
-            f.typeParameters,
-            f.parameters,
-            f.return,
-            f.body
-          );
-        }
-
-        // First, if we have an access modifier then parse it. After parsing our
-        // modifier proceed to the next token.
-        if (token1.identifier === 'public') {
-          access = Access.Public;
-          token1 = this.nextToken();
-          token2 = this.peekToken();
-          continue;
-        } else if (token1.identifier === 'protected') {
-          access = Access.Protected;
-          token1 = this.nextToken();
-          token2 = this.peekToken();
-          continue;
-        } else if (token1.identifier === 'private') {
-          access = Access.Private;
-          token1 = this.nextToken();
-          token2 = this.peekToken();
-          continue;
-        }
-
-        // Parse a `TypeDeclaration`.
-        if (token1.identifier === 'type') {
-          const name = this.parseName();
-          const typeParameters = this.tryParseGenericParameters() || [];
-          this.parseGlyph(Glyph.Equals);
-          const value = this.parseType();
-          return TypeDeclaration(access, name, typeParameters, value);
-        }
-
-        // Parse a `ClassDeclaration`.
-        if (token1.identifier === 'class') {
-          const name = this.parseName();
-          return this.parseClassDeclaration(access, name, false, false);
-        }
-
-        // Parse a `BaseClassDeclaration`.
-        if (token1.identifier === 'base') {
-          this.parseKeyword('class');
-          const name = this.parseName();
-          return this.parseClassDeclaration(access, name, true, false);
-        }
-
-        // Parse an unsealed `BaseClassDeclaration`.
-        if (token1.identifier === 'unsealed') {
-          this.parseKeyword('base');
-          this.parseKeyword('class');
-          const name = this.parseName();
-          return this.parseClassDeclaration(access, name, true, true);
-        }
-
-        // Parse an `InterfaceDeclaration`.
-        if (token1.identifier === 'interface') {
-          const name = this.parseName();
-          return this.parseInterfaceDeclaration(access, name);
-        }
+    if (token1.type === TokenType.Identifier) {
+      // If the token after our identifier suggests that we have a function
+      // declaration then parse that `FunctionDeclaration`.
+      if (
+        token2.type === TokenType.Glyph &&
+        (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
+      ) {
+        const name = Name(token1.loc, token1.identifier);
+        const f = this.parseFunction();
+        return FunctionDeclaration(
+          access,
+          name,
+          f.typeParameters,
+          f.parameters,
+          f.return,
+          f.body
+        );
       }
 
-      // Throw an error if we don’t recognize any of the identifiers that
-      // we parsed.
-      throw UnexpectedTokenError(token1, ExpectedDeclaration);
+      // Parse a `TypeDeclaration`.
+      if (token1.identifier === 'type') {
+        const name = this.parseName();
+        const typeParameters = this.tryParseGenericParameters() || [];
+        this.parseGlyph(Glyph.Equals);
+        const value = this.parseType();
+        return TypeDeclaration(access, name, typeParameters, value);
+      }
+
+      // Parse a `ClassDeclaration`.
+      if (token1.identifier === 'class') {
+        const name = this.parseName();
+        return this.parseClassDeclaration(access, name, false, false);
+      }
+
+      // Parse a `BaseClassDeclaration`.
+      if (token1.identifier === 'base') {
+        this.parseKeyword('class');
+        const name = this.parseName();
+        return this.parseClassDeclaration(access, name, true, false);
+      }
+
+      // Parse an unsealed `BaseClassDeclaration`.
+      if (token1.identifier === 'unsealed') {
+        this.parseKeyword('base');
+        this.parseKeyword('class');
+        const name = this.parseName();
+        return this.parseClassDeclaration(access, name, true, true);
+      }
+
+      // Parse an `InterfaceDeclaration`.
+      if (token1.identifier === 'interface') {
+        const name = this.parseName();
+        return this.parseInterfaceDeclaration(access, name);
+      }
     }
+
+    // Throw an error if we don’t recognize any of the identifiers that
+    // we parsed.
+    throw UnexpectedTokenError(token1, ExpectedDeclaration);
   }
 
   /**
@@ -343,9 +321,6 @@ class Parser {
     base: boolean,
     unsealed: boolean
   ): ClassDeclaration {
-    // TODO:
-    // - Parse constructor pattern.
-
     // Try to parse type parameters if available.
     const typeParameters = this.tryParseGenericParameters() || [];
 
@@ -353,7 +328,7 @@ class Parser {
     let parameters: ReadonlyArray<FunctionParameter> = [];
     if (this.tryParseGlyph(Glyph.ParenLeft)) {
       parameters = this.parseCommaList(
-        () => this.parseFunctionParameter(),
+        () => this.parseFunctionParameter(true),
         Glyph.ParenRight
       );
       this.nextToken();
@@ -401,73 +376,34 @@ class Parser {
    * Parses the `ClassMember` grammar.
    */
   parseClassMember(): ClassMember {
-    let token1 = this.nextToken();
-    let token2 = this.peekToken();
+    // Parse the modifiers for this member.
+    const access = this.tryParseAccess();
+    const base = this.tryParseModifier('base');
 
-    // The default access level is private.
-    let access = undefined;
+    const token1 = this.nextToken();
+    const token2 = this.peekToken();
 
-    // Whether or not this is a base member.
-    let base = false;
-
-    // Use a loop to parse common declaration modifiers like the access modifier
-    // and decorator modifiers.
-    while (true) {
-      if (token1.type === TokenType.Identifier) {
-        // If the token after our identifier suggests that we have a function
-        // declaration then parse that `FunctionDeclaration`.
-        if (
-          token2.type === TokenType.Glyph &&
-          (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
-        ) {
-          const name = Name(token1.loc, token1.identifier);
-          const f = this.parseFunctionWithOptionalBody();
-          return ClassMethod({
-            access,
-            base,
-            name,
-            typeParameters: f.typeParameters,
-            parameters: f.parameters,
-            return: f.return,
-            body: f.body,
-          });
-        }
-
-        // First, if we have an access modifier then parse it. After parsing our
-        // modifier proceed to the next token. If we have already parsed the
-        // `base` modifier then we may not parse an access modifier.
-        if (!base) {
-          if (token1.identifier === 'public') {
-            access = Access.Public;
-            token1 = this.nextToken();
-            token2 = this.peekToken();
-            continue;
-          } else if (token1.identifier === 'protected') {
-            access = Access.Protected;
-            token1 = this.nextToken();
-            token2 = this.peekToken();
-            continue;
-          } else if (token1.identifier === 'private') {
-            access = Access.Private;
-            token1 = this.nextToken();
-            token2 = this.peekToken();
-            continue;
-          }
-        }
-
-        // If we have a base modifier then parse it. After parsing our modifier
-        // proceed to the next token.
-        if (token1.identifier === 'base') {
-          base = true;
-          token1 = this.nextToken();
-          token2 = this.peekToken();
-          continue;
-        }
-      }
-
-      // Throw an error if we don’t recognize anything that we parsed.
-      throw UnexpectedTokenError(token1, ExpectedClassMember);
+    // Parse a `ClassMethod`.
+    if (
+      token1.type === TokenType.Identifier &&
+      token2.type === TokenType.Glyph &&
+      (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
+    ) {
+      const name = Name(token1.loc, token1.identifier);
+      const f = this.parseFunctionWithOptionalBody();
+      return ClassMethod({
+        access,
+        base,
+        name,
+        typeParameters: f.typeParameters,
+        parameters: f.parameters,
+        return: f.return,
+        body: f.body,
+      });
     }
+
+    // Throw an error if we don’t recognize anything that we parsed.
+    throw UnexpectedTokenError(token1, ExpectedClassMember);
   }
 
   /**
@@ -508,57 +444,32 @@ class Parser {
    * Parses the `InterfaceMember` grammar.
    */
   parseInterfaceMember(): InterfaceMember {
-    let token1 = this.nextToken();
-    let token2 = this.peekToken();
+    // Parse the modifiers for this member.
+    const access = this.tryParseAccess();
 
-    // The default access level is private.
-    let access = undefined;
+    const token1 = this.nextToken();
+    const token2 = this.peekToken();
 
-    // Use a loop to parse common declaration modifiers like the access modifier
-    // and decorator modifiers.
-    while (true) {
-      if (token1.type === TokenType.Identifier) {
-        // If the token after our identifier suggests that we have a function
-        // declaration then parse that `FunctionDeclaration`.
-        if (
-          token2.type === TokenType.Glyph &&
-          (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
-        ) {
-          const name = Name(token1.loc, token1.identifier);
-          const f = this.parseFunctionWithOptionalBody();
-          return InterfaceMethod({
-            access,
-            name,
-            typeParameters: f.typeParameters,
-            parameters: f.parameters,
-            return: f.return,
-            body: f.body,
-          });
-        }
-
-        // First, if we have an access modifier then parse it. After parsing our
-        // modifier proceed to the next token.
-        if (token1.identifier === 'public') {
-          access = Access.Public;
-          token1 = this.nextToken();
-          token2 = this.peekToken();
-          continue;
-        } else if (token1.identifier === 'protected') {
-          access = Access.Protected;
-          token1 = this.nextToken();
-          token2 = this.peekToken();
-          continue;
-        } else if (token1.identifier === 'private') {
-          access = Access.Private;
-          token1 = this.nextToken();
-          token2 = this.peekToken();
-          continue;
-        }
-      }
-
-      // Throw an error if we don’t recognize anything that we parsed.
-      throw UnexpectedTokenError(token1, ExpectedInterfaceMember);
+    // Parse an `InterfaceMethod`.
+    if (
+      token1.type === TokenType.Identifier &&
+      token2.type === TokenType.Glyph &&
+      (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
+    ) {
+      const name = Name(token1.loc, token1.identifier);
+      const f = this.parseFunctionWithOptionalBody();
+      return InterfaceMethod({
+        access,
+        name,
+        typeParameters: f.typeParameters,
+        parameters: f.parameters,
+        return: f.return,
+        body: f.body,
+      });
     }
+
+    // Throw an error if we don’t recognize anything that we parsed.
+    throw UnexpectedTokenError(token1, ExpectedInterfaceMember);
   }
 
   /**
@@ -579,7 +490,7 @@ class Parser {
     // Parse the function declaration parameters. They are patterns with an
     // optional type annotation.
     const parameters = this.parseCommaList(
-      () => this.parseFunctionParameter(),
+      () => this.parseFunctionParameter(false),
       Glyph.ParenRight
     );
     this.nextToken();
@@ -621,7 +532,7 @@ class Parser {
     // Parse the function declaration parameters. They are patterns with an
     // optional type annotation.
     const parameters = this.parseCommaList(
-      () => this.parseFunctionParameter(),
+      () => this.parseFunctionParameter(false),
       Glyph.ParenRight
     );
     this.nextToken();
@@ -654,8 +565,8 @@ class Parser {
   /**
    * Parses the `FunctionParameter` grammar.
    */
-  parseFunctionParameter(): FunctionParameter {
-    const pattern = this.parsePattern();
+  parseFunctionParameter(inConstructor: boolean): FunctionParameter {
+    const pattern = this.parsePattern(inConstructor);
     const type = this.tryParseGlyph(Glyph.Colon) ? this.parseType() : undefined;
     return FunctionParameter(pattern, type);
   }
@@ -919,7 +830,7 @@ class Parser {
         token.identifier === 'for'
       ) {
         this.nextToken();
-        const binding = this.parsePattern();
+        const binding = this.parsePattern(false);
         this.parseKeyword('in');
         const iterable = this.parseExpression();
         this.parseKeyword('do');
@@ -1064,7 +975,7 @@ class Parser {
       // Parse the value parameters for our function expression.
       this.parseGlyph(Glyph.ParenLeft);
       const parameters = this.parseCommaList(
-        () => this.parseFunctionParameter(),
+        () => this.parseFunctionParameter(false),
         Glyph.ParenRight
       );
       this.nextToken();
@@ -1277,7 +1188,7 @@ class Parser {
     // Parse `PatternExpression`.
     if (precedence <= PatternPrecedence) {
       if (this.tryParseKeywordOnSameLine('is')) {
-        const pattern = this.parsePattern();
+        const pattern = this.parsePattern(false);
         const loc = new Loc(left.loc.start, pattern.loc.end);
         const node = PatternExpression(loc, left, pattern);
         return this.parseBinaryExpressionOperator(PatternPrecedence + 1, node);
@@ -1373,7 +1284,7 @@ class Parser {
           // Parse a non-empty list of bindings separated by a single bar (`|`).
           // This way multiple patterns can match to a single body.
           const bindings = this.parseNonEmptyList(
-            () => this.parsePattern(),
+            () => this.parsePattern(false),
             Glyph.Bar
           );
 
@@ -1725,12 +1636,27 @@ class Parser {
   /**
    * Parses the `Pattern` grammar.
    */
-  parsePattern(): Pattern {
+  parsePattern(inConstructor: boolean): Pattern {
     const token = this.nextToken();
 
     // Parse `BindingPattern`, `QualifiedPattern`, `DeconstructPattern`,
     // and `AliasPattern`.
     if (token.type === TokenType.Identifier) {
+      // if (inConstructor) {
+      //   const token2 = this.peekToken();
+      //   if (token2.type === TokenType.Identifier) {
+      //     let access: Access | undefined;
+      //     let mutable: boolean | undefined;
+      //     if (token.identifier === 'public') {
+      //       access = Access.Public;
+      //     } else if (token.identifier === 'protected') {
+      //       access = Access.Protected;
+      //     } else if (token.identifier === 'private') {
+      //       access = Access.Private;
+      //     }
+      //   }
+      // }
+
       // If the first identifier is not a `BindingIdentifier` then we may not
       // continue parsing any of our grammars.
       const firstIdentifier = BindingIdentifier.create(token.identifier);
@@ -1746,7 +1672,7 @@ class Parser {
       // If there is an `is` keyword on the same line as our binding identifier
       // then we have an `AliasPattern`.
       if (this.tryParseKeywordOnSameLine('is')) {
-        const pattern = this.parsePattern();
+        const pattern = this.parsePattern(inConstructor);
         const loc = new Loc(token.loc.start, pattern.loc.end);
         return AliasPattern(
           loc,
@@ -1769,7 +1695,7 @@ class Parser {
       if (this.tryParseGlyphOnSameLine(Glyph.ParenLeft)) {
         const callee = Array1.create(identifiers);
         const args = this.parseCommaList(
-          () => this.parsePattern(),
+          () => this.parsePattern(inConstructor),
           Glyph.ParenRight
         );
         const end = this.nextToken().loc.end;
@@ -1793,7 +1719,7 @@ class Parser {
     if (token.type === TokenType.Glyph && token.glyph === Glyph.ParenLeft) {
       const start = token.loc.start;
       const elements = this.parseCommaList(() => {
-        const pattern = this.parsePattern();
+        const pattern = this.parsePattern(inConstructor);
         const type = this.tryParseGlyph(Glyph.Colon)
           ? this.parseType()
           : undefined;
@@ -1840,7 +1766,7 @@ class Parser {
         // binding identifier.
         let value: Pattern;
         if (this.tryParseGlyph(Glyph.Equals)) {
-          value = this.parsePattern();
+          value = this.parsePattern(inConstructor);
         } else {
           const identifier = BindingIdentifier.create(key.identifier);
           if (identifier === undefined) {
@@ -1865,7 +1791,7 @@ class Parser {
     if (token.type === TokenType.Glyph && token.glyph === Glyph.BracketLeft) {
       const start = token.loc.start;
       const items = this.parseCommaList(
-        () => this.parsePattern(),
+        () => this.parsePattern(inConstructor),
         Glyph.BracketRight
       );
       const end = this.nextToken().loc.end;
@@ -2096,6 +2022,58 @@ class Parser {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Tries to parse a modifier keyword but only if the token following the
+   * modifier is not the start of the `Function` grammar.
+   */
+  tryParseModifier(identifier: string): boolean {
+    const token1 = this.peekToken();
+    const token2 = this.peek2Token();
+    if (
+      token1.type === TokenType.Identifier &&
+      token1.identifier === identifier &&
+      !(
+        token2.type === TokenType.Glyph &&
+        (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
+      )
+    ) {
+      this.nextToken();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Tries to parse an `Access` modifier under the assumption that the token
+   * following an `Access` modifier is not the start of the `Function` grammar.
+   */
+  tryParseAccess(): Access | undefined {
+    const token1 = this.peekToken();
+    const token2 = this.peek2Token();
+    if (
+      token1.type === TokenType.Identifier &&
+      !(
+        token2.type === TokenType.Glyph &&
+        (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
+      )
+    ) {
+      if (token1.identifier === 'public') {
+        this.nextToken();
+        return Access.Public;
+      } else if (token1.identifier === 'protected') {
+        this.nextToken();
+        return Access.Protected;
+      } else if (token1.identifier === 'private') {
+        this.nextToken();
+        return Access.Private;
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
   }
 
   /**

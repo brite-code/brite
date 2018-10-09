@@ -40,6 +40,7 @@ import {loc} from '../Loc';
 import {parseDeclaration} from '../Parser';
 
 const cases: ReadonlyArray<{
+  readonly only?: boolean;
   readonly source: string;
   readonly result: Result<Declaration, ParserError>;
 }> = [
@@ -1474,8 +1475,8 @@ const cases: ReadonlyArray<{
   },
 ];
 
-cases.forEach(({source, result}) => {
-  test(source.replace(/\n/g, '\\n'), () => {
+cases.forEach(({only, source, result}) => {
+  (only ? test.only : test)(source.replace(/\n/g, '\\n'), () => {
     expect(parseDeclaration(Lexer.create(source))).toEqual(result);
   });
 });
