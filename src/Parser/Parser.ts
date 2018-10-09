@@ -322,11 +322,6 @@ class Parser {
         throw new Error('unimplemented');
       }
 
-      // Parse a `NamespaceDeclaration`.
-      if (token1.identifier === 'namespace') {
-        throw new Error('unimplemented');
-      }
-
       // Throw an error if we don’t recognize any of the identifiers that
       // we parsed.
       throw UnexpectedTokenError(token1, ExpectedDeclaration);
