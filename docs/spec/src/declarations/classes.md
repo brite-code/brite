@@ -40,6 +40,8 @@ Here’s why we impose these restrictions on Brite classes:
 - Also, base class methods are not overridable by default since this enables more efficient program generation. Overridable methods require resolution at runtime. Since we don’t know which specific concrete class we have. This is why you must be explicit about marking a method as “base.”
 - Classes can only extend classes from the same module or parent modules by default so that programmers can exhaustively pattern match on base classes. It also means the compiler may generate more efficient code. These two properties make sealed classes an attractive default. Unsealed base classes are an advanced feature for library authors who want to accept user defined classes. Pit of success baby.
 
+TODO: I would like to introduce associated types to classes. How will this work in the type system? I’m not sure yet. It will be difficult to understand how this works with bounds.
+
 ## Class Head
 
 ClassHead : `class` Identifier GenericParameters? FunctionParameters[Constructor]? ClassExtends? ClassImplements?

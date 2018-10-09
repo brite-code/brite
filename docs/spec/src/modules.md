@@ -23,7 +23,7 @@ Access :
 Describes the access level for a declaration in the entire Brite program. Brite access modifiers have a different meaning then access modifiers in object-oriented languages like Java.
 
 - Public: The declaration may be accessed from anywhere.
-- Protected: The declaration may only be accessed in the current module or child modules.
+- Protected: The declaration may only be accessed in the current namespace or child namespaces. If an unsealed class member is protected then it may also be accessed in any child classes.
 - Private: The declaration may only be accessed in the current file.
 
 By default if there is no access modifier then a declaration is private.
