@@ -12,6 +12,7 @@ import {
   BlockExpression,
   BreakExpression,
   CallExpression,
+  ClassDeclaration,
   ConditionalExpression,
   ContinueExpression,
   Declaration,
@@ -238,61 +239,87 @@ class Parser {
     let token1 = this.nextToken();
     let token2 = this.peekToken();
 
-    // Throw an error if our first token is not an identifier.
-    if (token1.type !== TokenType.Identifier) {
-      throw UnexpectedTokenError(token1, ExpectedDeclaration);
-    }
-
+    // The default access level is private.
     let access = Access.Private;
 
-    // First, if we have an access modifier then parse it. After parsing our
-    // modifier proceed to the next token.
-    if (token2.type === TokenType.Identifier) {
+    // Use a loop to parse common declaration modifiers like the access modifier
+    // and decorator modifiers.
+    while (true) {
+      // Throw an error if our first token is not an identifier.
+      if (token1.type !== TokenType.Identifier) {
+        throw UnexpectedTokenError(token1, ExpectedDeclaration);
+      }
+
+      // If the token after our identifier suggests that we have a function
+      // declaration then parse that function.
+      if (
+        token2.type === TokenType.Glyph &&
+        (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
+      ) {
+        const name = Name(token1.loc, token1.identifier);
+        return this.parseFunctionDeclaration(access, name);
+      }
+
+      // First, if we have an access modifier then parse it. After parsing our
+      // modifier proceed to the next token.
       if (token1.identifier === 'public') {
         access = Access.Public;
         token1 = this.nextToken();
         token2 = this.peekToken();
+        continue;
       } else if (token1.identifier === 'protected') {
         access = Access.Protected;
         token1 = this.nextToken();
         token2 = this.peekToken();
+        continue;
       } else if (token1.identifier === 'private') {
         access = Access.Private;
         token1 = this.nextToken();
         token2 = this.peekToken();
+        continue;
       }
-    }
 
-    // Throw an error if our new first token is not an identifier.
-    if (token1.type !== TokenType.Identifier) {
+      // Parse a `TypeDeclaration`.
+      if (token1.identifier === 'type') {
+        const name = this.parseName();
+        return this.parseTypeDeclaration(access, name);
+      }
+
+      // Parse a `ClassDeclaration`.
+      if (token1.identifier === 'class') {
+        const name = this.parseName();
+        return this.parseClassDeclaration(access, name, false, false);
+      }
+
+      // Parse a `BaseClassDeclaration`.
+      if (token1.identifier === 'base') {
+        this.parseKeyword('class');
+        const name = this.parseName();
+        return this.parseClassDeclaration(access, name, true, false);
+      }
+
+      // Parse an unsealed `BaseClassDeclaration`.
+      if (token1.identifier === 'unsealed') {
+        this.parseKeyword('base');
+        this.parseKeyword('class');
+        const name = this.parseName();
+        return this.parseClassDeclaration(access, name, true, true);
+      }
+
+      // Parse an `InterfaceDeclaration`.
+      if (token1.identifier === 'interface') {
+        throw new Error('unimplemented');
+      }
+
+      // Parse a `NamespaceDeclaration`.
+      if (token1.identifier === 'namespace') {
+        throw new Error('unimplemented');
+      }
+
+      // Throw an error if we don’t recognize any of the identifiers that
+      // we parsed.
       throw UnexpectedTokenError(token1, ExpectedDeclaration);
     }
-
-    // Look at the declaration kind. If we see a kind we recognize then parse a
-    // declaration of that kind.
-    if (token2.type === TokenType.Identifier) {
-      if (token1.identifier === 'type') {
-        this.nextToken();
-        const name = Name(token2.loc, token2.identifier);
-        return this.parseTypeDeclaration(access, name);
-      } else if (token1.identifier === 'class') {
-        throw new Error('unimplemented');
-      } else if (token1.identifier === 'base') {
-        throw new Error('unimplemented');
-      } else if (token1.identifier === 'unsealed') {
-        throw new Error('unimplemented');
-      } else if (token1.identifier === 'interface') {
-        throw new Error('unimplemented');
-      } else if (token1.identifier === 'namespace') {
-        throw new Error('unimplemented');
-      }
-    }
-
-    // If we did not see a kind that we recognize then we have a function
-    // declaration! Function declarations are not prefixed with any keywords.
-    // Parse our function declaration.
-    const name = Name(token1.loc, token1.identifier);
-    return this.parseFunctionDeclaration(access, name);
   }
 
   /**
@@ -319,15 +346,24 @@ class Parser {
   }
 
   /**
-   * Finishes parsing a `FunctionDeclaration`.
+   * Finishes parsing a `ClassDeclaration`.
    */
-  parseFunctionDeclaration(access: Access, name: Name): FunctionDeclaration {
-    let hasTypeParameters = false;
-    let typeParameters: ReadonlyArray<TypeParameter> = [];
+  parseClassDeclaration(
+    access: Access,
+    name: Name,
+    base: boolean,
+    unsealed: boolean
+  ): ClassDeclaration {
+    // TODO:
+    //
+    // - Parse body.
+    // - Parse extends.
+    // - Parse implements.
+    // - Parse constructor pattern.
 
     // Try to parse type parameters if available.
+    let typeParameters: ReadonlyArray<TypeParameter> = [];
     if (this.tryParseGlyph(Glyph.LessThan)) {
-      hasTypeParameters = true;
       typeParameters = this.parseCommaList(
         () => this.parseGenericParameter(),
         Glyph.GreaterThan
@@ -335,29 +371,53 @@ class Parser {
       this.nextToken();
     }
 
-    // Parse an opening parentheses. Throwing a hard error if the next token is
-    // not an opening parentheses. We customize the error message here since if
-    // the user wrote a typo in their declaration kind then they will fall down
-    // here. Consider `class% Foo` assuming the `%` was an accidental typo. Here
-    // it is more helpful to say a declaration was expected then to say an
-    // opening parentheses was expected.
-    const token = this.nextToken();
-    if (token.type !== TokenType.Glyph || token.glyph !== Glyph.ParenLeft) {
-      throw UnexpectedTokenError(
-        token,
-        hasTypeParameters ? ExpectedGlyph(Glyph.ParenLeft) : ExpectedDeclaration
+    // Try to parse function parameters if available.
+    let parameters: ReadonlyArray<FunctionParameter> = [];
+    if (this.tryParseGlyph(Glyph.ParenLeft)) {
+      parameters = this.parseCommaList(
+        () => this.parseFunctionParameter(),
+        Glyph.ParenRight
       );
+      this.nextToken();
     }
+
+    // Return the final class.
+    return ClassDeclaration({
+      access,
+      name,
+      base,
+      unsealed,
+      typeParameters,
+      parameters,
+      extends: undefined,
+      implements: [],
+      body: [],
+    });
+  }
+
+  /**
+   * Finishes parsing a `FunctionDeclaration`.
+   */
+  parseFunctionDeclaration(access: Access, name: Name): FunctionDeclaration {
+    // Try to parse type parameters if available.
+    let typeParameters: ReadonlyArray<TypeParameter> = [];
+    if (this.tryParseGlyph(Glyph.LessThan)) {
+      typeParameters = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.nextToken();
+    }
+
+    // Parse an opening parentheses.
+    this.parseGlyph(Glyph.ParenLeft);
 
     // Parse the function declaration parameters. They are patterns with an
     // optional type annotation.
-    const parameters = this.parseCommaList(() => {
-      const pattern = this.parsePattern();
-      const type = this.tryParseGlyph(Glyph.Colon)
-        ? this.parseType()
-        : undefined;
-      return FunctionParameter(pattern, type);
-    }, Glyph.ParenRight);
+    const parameters = this.parseCommaList(
+      () => this.parseFunctionParameter(),
+      Glyph.ParenRight
+    );
     this.nextToken();
 
     // Parse an optional type annotation for the function.
@@ -380,6 +440,15 @@ class Parser {
       ret,
       body
     );
+  }
+
+  /**
+   * Parses the `FunctionParameter` grammar.
+   */
+  parseFunctionParameter(): FunctionParameter {
+    const pattern = this.parsePattern();
+    const type = this.tryParseGlyph(Glyph.Colon) ? this.parseType() : undefined;
+    return FunctionParameter(pattern, type);
   }
 
   /**
@@ -769,13 +838,10 @@ class Parser {
 
       // Parse the value parameters for our function expression.
       this.parseGlyph(Glyph.ParenLeft);
-      const parameters = this.parseCommaList(() => {
-        const pattern = this.parsePattern();
-        const type = this.tryParseGlyph(Glyph.Colon)
-          ? this.parseType()
-          : undefined;
-        return FunctionParameter(pattern, type);
-      }, Glyph.ParenRight);
+      const parameters = this.parseCommaList(
+        () => this.parseFunctionParameter(),
+        Glyph.ParenRight
+      );
       this.nextToken();
 
       // Parse an optional type annotation for the function.

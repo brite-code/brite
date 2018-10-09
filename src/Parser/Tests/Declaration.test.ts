@@ -2,6 +2,7 @@ import {Err, Ok, Result} from '../../Utils/Result';
 import {
   Access,
   BindingPattern,
+  ClassDeclaration,
   Declaration,
   FunctionDeclaration,
   FunctionExpression,
@@ -14,6 +15,7 @@ import {
   ReferenceType,
   TypeDeclaration,
   TypeParameter,
+  UnitExpression,
   UnitType,
   WrappedExpression,
   WrappedType,
@@ -21,11 +23,13 @@ import {
 import {
   ExpectedDeclaration,
   ExpectedGlyph,
+  ExpectedIdentifier,
+  ExpectedKeyword,
   ParserError,
   UnexpectedTokenError,
 } from '../Error';
 import {Identifier, ident} from '../Identifier';
-import {Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
+import {EndToken, Glyph, GlyphToken, IdentifierToken, Lexer} from '../Lexer';
 import {loc} from '../Loc';
 import {parseDeclaration} from '../Parser';
 
@@ -102,7 +106,7 @@ const cases: ReadonlyArray<{
     source: 'data Foo',
     result: Err(
       UnexpectedTokenError(
-        IdentifierToken(loc('6-8'), ident('Foo')),
+        IdentifierToken(loc('1-4'), ident('data')),
         ExpectedDeclaration
       )
     ),
@@ -129,7 +133,7 @@ const cases: ReadonlyArray<{
     source: 'f{',
     result: Err(
       UnexpectedTokenError(
-        GlyphToken(loc('2'), Glyph.BraceLeft),
+        IdentifierToken(loc('1'), ident('f')),
         ExpectedDeclaration
       )
     ),
@@ -301,6 +305,253 @@ const cases: ReadonlyArray<{
           ]
         )
       )
+    ),
+  },
+  {
+    source: 'class',
+    result: Err(UnexpectedTokenError(EndToken(loc('6')), ExpectedIdentifier)),
+  },
+  {
+    source: 'base %',
+    result: Err(
+      UnexpectedTokenError(
+        GlyphToken(loc('6'), Glyph.Percent),
+        ExpectedKeyword('class')
+      )
+    ),
+  },
+  {
+    source: 'base foo',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('6-8'), ident('foo')),
+        ExpectedKeyword('class')
+      )
+    ),
+  },
+  {
+    source: 'base() -> ()',
+    result: Ok(
+      FunctionDeclaration(
+        Access.Private,
+        Name(loc('1-4'), ident('base')),
+        [],
+        [],
+        undefined,
+        UnitExpression(loc('11-12'))
+      )
+    ),
+  },
+  {
+    source: 'unsealed foo',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('10-12'), ident('foo')),
+        ExpectedKeyword('base')
+      )
+    ),
+  },
+  {
+    source: 'unsealed base foo',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('15-17'), ident('foo')),
+        ExpectedKeyword('class')
+      )
+    ),
+  },
+  {
+    source: 'class C',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'base class C',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('12'), ident('C')),
+        base: true,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'unsealed base class C',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('21'), ident('C')),
+        base: true,
+        unsealed: true,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'unsealed class C',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('10-14'), ident('class')),
+        ExpectedKeyword('base')
+      )
+    ),
+  },
+  {
+    source: 'base unsealed class C',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('6-13'), ident('unsealed')),
+        ExpectedKeyword('class')
+      )
+    ),
+  },
+  {
+    source: 'class C<>',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C()',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C<T>',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [TypeParameter(Name(loc('9'), ident('T')))],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C(x)',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [FunctionParameter(BindingPattern(loc('9'), ident('x')))],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C<>()',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C<T>()',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [TypeParameter(Name(loc('9'), ident('T')))],
+        parameters: [],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C<>(x)',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [],
+        parameters: [FunctionParameter(BindingPattern(loc('11'), ident('x')))],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'class C<T>(x)',
+    result: Ok(
+      ClassDeclaration({
+        access: Access.Private,
+        name: Name(loc('7'), ident('C')),
+        base: false,
+        unsealed: false,
+        typeParameters: [TypeParameter(Name(loc('9'), ident('T')))],
+        parameters: [FunctionParameter(BindingPattern(loc('12'), ident('x')))],
+        extends: undefined,
+        implements: [],
+        body: [],
+      })
     ),
   },
 ];

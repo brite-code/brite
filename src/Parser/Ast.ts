@@ -122,9 +122,34 @@ export interface ClassDeclaration extends NamedDeclaration {
   readonly unsealed: boolean;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
-  readonly extends: ReferenceType | undefined;
-  readonly implements: ReadonlyArray<ReferenceType>;
+  readonly extends: Type | undefined;
+  readonly implements: ReadonlyArray<Type>;
   readonly body: ReadonlyArray<Member>;
+}
+
+export function ClassDeclaration(data: {
+  access: Access;
+  name: Name;
+  base: boolean;
+  unsealed: boolean;
+  typeParameters: ReadonlyArray<TypeParameter>;
+  parameters: ReadonlyArray<FunctionParameter>;
+  extends: Type | undefined;
+  implements: ReadonlyArray<Type>;
+  body: ReadonlyArray<Member>;
+}): ClassDeclaration {
+  return {
+    kind: DeclarationKind.Class,
+    access: data.access,
+    name: data.name,
+    base: data.base,
+    unsealed: data.unsealed,
+    typeParameters: data.typeParameters,
+    parameters: data.parameters,
+    extends: data.extends,
+    implements: data.implements,
+    body: data.body,
+  };
 }
 
 /**
@@ -294,7 +319,7 @@ export type TypeParameter = {
 
 export function TypeParameter(
   name: Name,
-  bounds: ReadonlyArray<Type>
+  bounds: ReadonlyArray<Type> = []
 ): TypeParameter {
   return {name, bounds};
 }
