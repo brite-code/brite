@@ -57,6 +57,7 @@ export type Expected =
   | ExpectedLineSeparator
   | ExpectedDeclaration
   | ExpectedClassMember
+  | ExpectedInterfaceMember
   | ExpectedType
   | ExpectedExpression
   | ExpectedPattern;
@@ -70,6 +71,7 @@ export const enum ExpectedKind {
   LineSeparator = 'LineSeparator',
   Declaration = 'Declaration',
   ClassMember = 'ClassMember',
+  InterfaceMember = 'InterfaceMember',
   Type = 'Type',
   Expression = 'Expression',
   Pattern = 'Pattern',
@@ -121,6 +123,13 @@ export const ExpectedDeclaration: ExpectedDeclaration = {
 export type ExpectedClassMember = {readonly kind: ExpectedKind.ClassMember};
 export const ExpectedClassMember: ExpectedClassMember = {
   kind: ExpectedKind.ClassMember,
+};
+
+export type ExpectedInterfaceMember = {
+  readonly kind: ExpectedKind.InterfaceMember;
+};
+export const ExpectedInterfaceMember: ExpectedInterfaceMember = {
+  kind: ExpectedKind.InterfaceMember,
 };
 
 export type ExpectedType = {readonly kind: ExpectedKind.Type};

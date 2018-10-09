@@ -12,6 +12,7 @@ import {
   GenericType,
   ImplementsDeclaration,
   InterfaceDeclaration,
+  InterfaceMethod,
   MemberType,
   Name,
   ReferenceExpression,
@@ -28,6 +29,7 @@ import {
   ExpectedDeclaration,
   ExpectedGlyph,
   ExpectedIdentifier,
+  ExpectedInterfaceMember,
   ExpectedKeyword,
   ParserError,
   UnexpectedTokenError,
@@ -1234,6 +1236,240 @@ const cases: ReadonlyArray<{
         ],
         body: [],
       })
+    ),
+  },
+  {
+    source: 'interface I {}',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [],
+      })
+    ),
+  },
+  {
+    source: 'interface I { public() -> () }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: undefined,
+            name: Name(loc('15-20'), ident('public')),
+            typeParameters: [],
+            parameters: [],
+            return: undefined,
+            body: UnitExpression(loc('27-28')),
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { base public() -> () }',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('15-18'), ident('base')),
+        ExpectedInterfaceMember
+      )
+    ),
+  },
+  {
+    source: 'interface I { public base() -> () }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: Access.Public,
+            name: Name(loc('22-25'), ident('base')),
+            typeParameters: [],
+            parameters: [],
+            return: undefined,
+            body: UnitExpression(loc('32-33')),
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { public base f() -> () }',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('22-25'), ident('base')),
+        ExpectedInterfaceMember
+      )
+    ),
+  },
+  {
+    source: 'interface I { base public f() -> () }',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('15-18'), ident('base')),
+        ExpectedInterfaceMember
+      )
+    ),
+  },
+  {
+    source: 'interface I { public f() -> () }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: Access.Public,
+            name: Name(loc('22'), ident('f')),
+            typeParameters: [],
+            parameters: [],
+            return: undefined,
+            body: UnitExpression(loc('29-30')),
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { public<>() -> () }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: undefined,
+            name: Name(loc('15-20'), ident('public')),
+            typeParameters: [],
+            parameters: [],
+            return: undefined,
+            body: UnitExpression(loc('29-30')),
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { public base<>() -> () }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: Access.Public,
+            name: Name(loc('22-25'), ident('base')),
+            typeParameters: [],
+            parameters: [],
+            return: undefined,
+            body: UnitExpression(loc('34-35')),
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { public f<>() -> () }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: Access.Public,
+            name: Name(loc('22'), ident('f')),
+            typeParameters: [],
+            parameters: [],
+            return: undefined,
+            body: UnitExpression(loc('31-32')),
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { f % }',
+    result: Err(
+      UnexpectedTokenError(
+        IdentifierToken(loc('15'), ident('f')),
+        ExpectedInterfaceMember
+      )
+    ),
+  },
+  {
+    source: 'interface I { public % }',
+    result: Err(
+      UnexpectedTokenError(
+        GlyphToken(loc('22'), Glyph.Percent),
+        ExpectedInterfaceMember
+      )
+    ),
+  },
+  {
+    source: 'interface I { f(): T -> () }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: undefined,
+            name: Name(loc('15'), ident('f')),
+            typeParameters: [],
+            parameters: [],
+            return: ReferenceType(loc('20'), ident('T')),
+            body: UnitExpression(loc('25-26')),
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { f(): T }',
+    result: Ok(
+      InterfaceDeclaration({
+        access: Access.Private,
+        name: Name(loc('11'), ident('I')),
+        typeParameters: [],
+        extends: [],
+        body: [
+          InterfaceMethod({
+            access: undefined,
+            name: Name(loc('15'), ident('f')),
+            typeParameters: [],
+            parameters: [],
+            return: ReferenceType(loc('20'), ident('T')),
+            body: undefined,
+          }),
+        ],
+      })
+    ),
+  },
+  {
+    source: 'interface I { f() }',
+    result: Err(
+      UnexpectedTokenError(
+        GlyphToken(loc('19'), Glyph.BraceRight),
+        ExpectedGlyph(Glyph.Arrow)
+      )
     ),
   },
 ];

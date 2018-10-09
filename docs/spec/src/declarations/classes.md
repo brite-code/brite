@@ -94,15 +94,19 @@ Notice how the “equals” class method also restrains `T` by the `Equals` inte
 
 ## Class Methods
 
-ClassMethod : Access? FunctionDeclaration
+ClassMethod : Access? Identifier Function
 
-BaseClassMethod : Access? `base` InterfaceMethod
+BaseClassMethod :
+  - Access? `base` Identifier Function
+  - Access? `base` Identifier FunctionWithoutBody
 
 If the first parameter in {ClassMethod} or {BaseClassMethod} is an un-annotated `this` {Identifier} then the method is an instance method. Otherwise it is a static method.
 
 Method accessibility in a Brite program is specified by its {Access} modifier.
 
-Unlike other Brite declarations, if {ClassMethod} does not have an {Access} modifier, and it overrides another method, then the new method inherits its accessibility from the overriden method.
+If {BaseClassMethod} does not have an {Access} modifier then it defaults to protected. A {BaseClassMethod} may have a private {Access} modifier, but the method may only be overwritten in a scope with access to the method.
+
+If {ClassMethod} does not have an {Access} modifier, and it overrides another method, then the new method inherits its accessibility from the overriden method.
 
 The programmer may not decrease the scope of accessibility of an overriden method. Since then the method cannot be called in general. Consider the following example:
 
