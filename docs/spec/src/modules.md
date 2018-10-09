@@ -2,9 +2,10 @@
 
 Brite source code is written in files. All of the files in a folder make up a module. You can think of a module as all of the files in a directory combined together. This means private declarations of a file are accessible to every other file in the folder. The syntax of a single Brite file is represented by {File}.
 
-File : DeclarationList?
+File : DeclarationList
 
 DeclarationList :
+  - [empty]
   - Declaration LineSeparator?
   - Declaration LineSeparator DeclarationList
 

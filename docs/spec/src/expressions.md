@@ -57,11 +57,12 @@ TupleExpressionElement : ExpressionWithTypeAnnotation
 
 ## Record Expression
 
-RecordExpression : `{` RecordExpressionExtension? RecordExpressionPropertyList? `}`
+RecordExpression : `{` RecordExpressionExtension? RecordExpressionPropertyList `}`
 
 RecordExpressionExtension : Expression `|`
 
 RecordExpressionPropertyList :
+  - [empty]
   - RecordExpressionProperty `,`?
   - RecordExpressionProperty `,` RecordExpressionPropertyList
 
@@ -83,9 +84,10 @@ Note: Currently only {RecordExpression} supports extension syntax (`{ x | y = z 
 
 ## List Expression
 
-ListExpression : `[` ListExpressionItemList? `]`
+ListExpression : `[` ListExpressionItemList `]`
 
 ListExpressionItemList :
+  - [empty]
   - Expression `,`?
   - Expression `,` ListExpressionItemList
 
@@ -94,6 +96,7 @@ ListExpressionItemList :
 MatchExpression : `case` Expression `of` `(` MatchCaseList `)`
 
 MatchCaseList :
+  - [empty]
   - MatchCase LineSeparator?
   - MatchCase LineSeparator MatchCaseList
 
@@ -128,9 +131,10 @@ MemberExpression : PrimaryExpression `.` Identifier
 CallExpression :
   - PrimaryExpression [lookahead != LineTerminator] GenericArguments? CallExpressionArguments
 
-CallExpressionArguments : `(` CallExpressionArgumentList? `)`
+CallExpressionArguments : `(` CallExpressionArgumentList `)`
 
 CallExpressionArgumentList :
+  - [empty]
   - Expression `,`?
   - Expression `,` CallExpressionArgumentList
 

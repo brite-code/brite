@@ -2,7 +2,7 @@
 
 InterfaceDeclaration : `interface` Identifier GenericParameters? InterfaceExtends? InterfaceBody?
 
-InterfaceBody : `{` InterfaceMemberList? `}`
+InterfaceBody : `{` InterfaceMemberList `}`
 
 InterfaceExtends : `extends` InterfaceExtendsList
 
@@ -11,6 +11,7 @@ InterfaceExtendsList :
   - Type `,` InterfaceExtendsList
 
 InterfaceMemberList :
+  - [empty]
   - InterfaceMember LineSeparator?
   - InterfaceMember LineSeparator InterfaceMember
 

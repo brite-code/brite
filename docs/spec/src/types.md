@@ -69,9 +69,10 @@ For example, a type of `(Bool, Bool)` will accept four values. The product of th
 
 ## Record Type
 
-RecordType : `{` RecordTypePropertyList? `}`
+RecordType : `{` RecordTypePropertyList `}`
 
 RecordTypePropertyList :
+  - [empty]
   - RecordTypeProperty `,`?
   - RecordTypeProperty `,` RecordTypePropertyList
 
@@ -88,10 +89,11 @@ If a {RecordTypeProperty} has a question mark character (`?`) then the property 
 ## Function Type
 
 FunctionType :
-  - `(` FunctionTypeParameterList? `)` `->` Type
+  - `(` FunctionTypeParameterList `)` `->` Type
   - BindingIdentifier `->` Type
 
 FunctionTypeParameterList :
+  - [empty]
   - Type `,`?
   - Type `,` FunctionTypeParameterList
 

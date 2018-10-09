@@ -5,6 +5,7 @@
 GenericParameters : `<` GenericParameterList `>`
 
 GenericParameterList :
+  - [empty]
   - GenericParameter `,`?
   - GenericParameter `,` GenericParameterList
 
@@ -21,5 +22,6 @@ GenericParameterBoundList :
 GenericArguments : `<` GenericArgumentList `>`
 
 GenericArgumentList :
+  - [empty]
   - Type `,`?
   - Type `,` GenericArgumentList

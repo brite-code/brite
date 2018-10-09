@@ -4,9 +4,10 @@ ClassDeclaration : ClassHead ClassBody?
 
 BaseClassDeclaration : `unsealed`? `base` ClassHead ClassBody[Base]?
 
-ClassBody[Base] : `{` ClassMemberList[?Base]? `}`
+ClassBody[Base] : `{` ClassMemberList[?Base] `}`
 
 ClassMemberList[Base] :
+  - [empty]
   - ClassMember[?Base] LineSeparator?
   - ClassMember[?Base] LineSeparator ClassMemberList[?Base]
 

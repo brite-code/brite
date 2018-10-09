@@ -8,9 +8,10 @@ FunctionWithoutBody : GenericParameters? FunctionParameters FunctionReturnType
 
 FunctionReturnType : `:` PrimaryType
 
-FunctionParameters[Constructor] : `(` FunctionParameterList[?Constructor]? `)`
+FunctionParameters[Constructor] : `(` FunctionParameterList[?Constructor] `)`
 
 FunctionParameterList[Constructor] :
+  - [empty]
   - FunctionParameter[?Constructor] `,`?
   - FunctionParameter[?Constructor] `,` FunctionParameterList[?Constructor]
 

@@ -50,9 +50,10 @@ TuplePatternElement : Pattern TypeAnnotation?
 
 ## Record Pattern
 
-RecordPattern : `{` RecordPatternPropertyList? `}`
+RecordPattern : `{` RecordPatternPropertyList `}`
 
 RecordPatternPropertyList :
+  - [empty]
   - RecordPatternProperty `,`?
   - RecordPatternProperty `,` RecordPatternPropertyList
 
@@ -70,9 +71,10 @@ Note: In {RecordPatternProperty} adding the constructor tag breaks [expression/p
 
 ## List Pattern
 
-ListPattern : `[` ListPatternItemList? `]`
+ListPattern : `[` ListPatternItemList `]`
 
 ListPatternItemList :
+  - [empty]
   - Pattern `,`?
   - Pattern `,` ListPatternItemList
 
@@ -106,9 +108,10 @@ DeconstructPatternCallee :
   - BindingIdentifier
   - DeconstructPatternCallee `.` Identifier
 
-DeconstructPatternArguments : `(` DeconstructPatternArgumentList? `)`
+DeconstructPatternArguments : `(` DeconstructPatternArgumentList `)`
 
 DeconstructPatternArgumentList :
+  - [empty]
   - Pattern `,`?
   - Pattern `,` DeconstructPatternArgumentList
 

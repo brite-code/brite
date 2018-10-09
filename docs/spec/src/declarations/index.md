@@ -8,6 +8,7 @@ NamedDeclaration :
   - ClassDeclaration
   - BaseClassDeclaration
   - InterfaceDeclaration
+  - NamespaceDeclaration
 
 Declarations are the main organizational tool for Brite programs. A {TypeDeclaration} allows the programmer to describe the shape of some data in their program. A {FunctionDeclaration} allows the programmer to describe some behavior on their program data. A {ClassDeclaration} allows the programmer to create a named data structure with some associated behaviors.
 
@@ -22,3 +23,5 @@ Declaration accessibility in a Brite program is specified by its {Access} modifi
 [Classes](classes.md)
 
 [Interfaces](interfaces.md)
+
+[Namespaces](namespaces.md)
