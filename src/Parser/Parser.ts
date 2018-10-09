@@ -391,6 +391,11 @@ class Parser {
       extend = this.parseType();
     }
 
+    // Try to parse the interfaces this class implements if available.
+    if (this.tryParseKeyword('implements')) {
+      throw new Error('unimplemented');
+    }
+
     // Try to parse a class body if available.
     let body: ReadonlyArray<ClassMember> = [];
     if (this.tryParseGlyph(Glyph.BraceLeft)) {
