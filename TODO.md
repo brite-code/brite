@@ -7,4 +7,5 @@
 - Documentation comments
 - Decorators?
 - Fuzzer
+- Parser error recovery
 - Declaration organization

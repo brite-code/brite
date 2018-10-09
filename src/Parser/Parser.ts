@@ -13,6 +13,8 @@ import {
   BreakExpression,
   CallExpression,
   ClassDeclaration,
+  ClassMember,
+  ClassMethod,
   ConditionalExpression,
   ContinueExpression,
   Declaration,
@@ -73,6 +75,7 @@ import {
 } from './Ast';
 import {
   ExpectedBindingIdentifier,
+  ExpectedClassMember,
   ExpectedDeclaration,
   ExpectedEnd,
   ExpectedExpression,
@@ -251,13 +254,21 @@ class Parser {
       }
 
       // If the token after our identifier suggests that we have a function
-      // declaration then parse that function.
+      // declaration then parse that `FunctionDeclaration`.
       if (
         token2.type === TokenType.Glyph &&
         (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
       ) {
         const name = Name(token1.loc, token1.identifier);
-        return this.parseFunctionDeclaration(access, name);
+        const f = this.parseFunction();
+        return FunctionDeclaration(
+          access,
+          name,
+          f.typeParameters,
+          f.parameters,
+          f.return,
+          f.body
+        );
       }
 
       // First, if we have an access modifier then parse it. After parsing our
@@ -381,6 +392,16 @@ class Parser {
       this.nextToken();
     }
 
+    // Try to parse a class body if available.
+    let body: ReadonlyArray<ClassMember> = [];
+    if (this.tryParseGlyph(Glyph.BraceLeft)) {
+      body = this.parseLineSeparatorList(
+        () => this.parseClassMember(),
+        Glyph.BraceRight
+      );
+      this.nextToken();
+    }
+
     // Return the final class.
     return ClassDeclaration({
       access,
@@ -391,14 +412,95 @@ class Parser {
       parameters,
       extends: undefined,
       implements: [],
-      body: [],
+      body,
     });
   }
 
   /**
-   * Finishes parsing a `FunctionDeclaration`.
+   * Parses the `ClassMember` grammar.
    */
-  parseFunctionDeclaration(access: Access, name: Name): FunctionDeclaration {
+  parseClassMember(): ClassMember {
+    let token1 = this.nextToken();
+    let token2 = this.peekToken();
+
+    // The default access level is private.
+    let access = Access.Private;
+
+    // Whether or not this is a base member.
+    let base = false;
+
+    // Use a loop to parse common declaration modifiers like the access modifier
+    // and decorator modifiers.
+    while (true) {
+      // Throw an error if our first token is not an identifier.
+      if (token1.type !== TokenType.Identifier) {
+        throw UnexpectedTokenError(token1, ExpectedClassMember);
+      }
+
+      // If the token after our identifier suggests that we have a function
+      // declaration then parse that `FunctionDeclaration`.
+      if (
+        token2.type === TokenType.Glyph &&
+        (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
+      ) {
+        const name = Name(token1.loc, token1.identifier);
+        const f = this.parseFunctionWithOptionalBody();
+        return ClassMethod({
+          access,
+          base,
+          name,
+          typeParameters: f.typeParameters,
+          parameters: f.parameters,
+          return: f.return,
+          body: f.body,
+        });
+      }
+
+      // First, if we have an access modifier then parse it. After parsing our
+      // modifier proceed to the next token. If we have already parsed the
+      // `base` modifier then we may not parse an access modifier.
+      if (!base) {
+        if (token1.identifier === 'public') {
+          access = Access.Public;
+          token1 = this.nextToken();
+          token2 = this.peekToken();
+          continue;
+        } else if (token1.identifier === 'protected') {
+          access = Access.Protected;
+          token1 = this.nextToken();
+          token2 = this.peekToken();
+          continue;
+        } else if (token1.identifier === 'private') {
+          access = Access.Private;
+          token1 = this.nextToken();
+          token2 = this.peekToken();
+          continue;
+        }
+      }
+
+      // If we have a base modifier then parse it. After parsing our modifier
+      // proceed to the next token.
+      if (token1.identifier === 'base') {
+        base = true;
+        token1 = this.nextToken();
+        token2 = this.peekToken();
+        continue;
+      }
+
+      // Throw an error if we don’t recognize anything that we parsed.
+      throw UnexpectedTokenError(token1, ExpectedClassMember);
+    }
+  }
+
+  /**
+   * Parses the `Function` grammar.
+   */
+  parseFunction(): {
+    readonly typeParameters: ReadonlyArray<TypeParameter>;
+    readonly parameters: ReadonlyArray<FunctionParameter>;
+    readonly return: Type | undefined;
+    readonly body: Expression;
+  } {
     // Try to parse type parameters if available.
     let typeParameters: ReadonlyArray<TypeParameter> = [];
     if (this.tryParseGlyph(Glyph.LessThan)) {
@@ -431,15 +533,67 @@ class Parser {
     // Parse the function’s expression body.
     const body = this.parseExpression();
 
-    // Return the final function declaration which puts everything together.
-    return FunctionDeclaration(
-      access,
-      name,
+    return {
       typeParameters,
       parameters,
-      ret,
-      body
+      return: ret,
+      body,
+    };
+  }
+
+  /**
+   * Parses the `Function` or `FunctionWithoutBody` grammar.
+   */
+  parseFunctionWithOptionalBody(): {
+    readonly typeParameters: ReadonlyArray<TypeParameter>;
+    readonly parameters: ReadonlyArray<FunctionParameter>;
+    readonly return: Type | undefined;
+    readonly body: Expression | undefined;
+  } {
+    // Try to parse type parameters if available.
+    let typeParameters: ReadonlyArray<TypeParameter> = [];
+    if (this.tryParseGlyph(Glyph.LessThan)) {
+      typeParameters = this.parseCommaList(
+        () => this.parseGenericParameter(),
+        Glyph.GreaterThan
+      );
+      this.nextToken();
+    }
+
+    // Parse an opening parentheses.
+    this.parseGlyph(Glyph.ParenLeft);
+
+    // Parse the function declaration parameters. They are patterns with an
+    // optional type annotation.
+    const parameters = this.parseCommaList(
+      () => this.parseFunctionParameter(),
+      Glyph.ParenRight
     );
+    this.nextToken();
+
+    // Parse an optional type annotation for the function.
+    const ret = this.tryParseGlyph(Glyph.Colon)
+      ? this.parsePrimaryType()
+      : undefined;
+
+    // If we have a return type annotation then the body for this function
+    // is optional. Otherwise it is required.
+    let body: Expression | undefined;
+    if (ret !== undefined) {
+      if (this.tryParseGlyph(Glyph.Arrow)) {
+        body = this.parseExpression();
+      }
+    } else {
+      this.parseGlyph(Glyph.Arrow);
+      body = this.parseExpression();
+    }
+
+    return {
+      typeParameters,
+      parameters,
+      return: ret,
+      body,
+    };
   }
 
   /**

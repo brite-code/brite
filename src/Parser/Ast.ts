@@ -124,7 +124,7 @@ export interface ClassDeclaration extends NamedDeclaration {
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly extends: Type | undefined;
   readonly implements: ReadonlyArray<Type>;
-  readonly body: ReadonlyArray<Member>;
+  readonly body: ReadonlyArray<ClassMember>;
 }
 
 export function ClassDeclaration(data: {
@@ -136,7 +136,7 @@ export function ClassDeclaration(data: {
   parameters: ReadonlyArray<FunctionParameter>;
   extends: Type | undefined;
   implements: ReadonlyArray<Type>;
-  body: ReadonlyArray<Member>;
+  body: ReadonlyArray<ClassMember>;
 }): ClassDeclaration {
   return {
     kind: DeclarationKind.Class,
@@ -156,26 +156,51 @@ export function ClassDeclaration(data: {
  * Concrete methods, base methods, and interface methods all use the `Member`
  * interface. We assert that members are well formed in our checking phase.
  */
-export type Member = MethodMember;
+export type ClassMember = ClassMethod;
 
-export interface NamedMember {
+export interface ClassMethod {
   readonly access: Access;
-  readonly name: Name;
-}
-
-export interface MethodMember extends NamedMember {
   readonly base: boolean;
+  readonly name: Name;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly parameters: ReadonlyArray<FunctionParameter>;
   readonly return: Type | undefined;
   readonly body: Expression | undefined;
 }
 
+export function ClassMethod({
+  access,
+  base,
+  name,
+  typeParameters,
+  parameters,
+  return: ret,
+  body,
+}: {
+  access: Access;
+  base: boolean;
+  name: Name;
+  typeParameters: ReadonlyArray<TypeParameter>;
+  parameters: ReadonlyArray<FunctionParameter>;
+  return: Type | undefined;
+  body: Expression | undefined;
+}): ClassMethod {
+  return {
+    access,
+    base,
+    name,
+    typeParameters,
+    parameters,
+    return: ret,
+    body,
+  };
+}
+
 export interface InterfaceDeclaration extends NamedDeclaration {
   readonly kind: DeclarationKind.Interface;
   readonly typeParameters: ReadonlyArray<TypeParameter>;
   readonly extends: ReadonlyArray<ReferenceType>;
-  readonly body: ReadonlyArray<Member>;
+  // TODO: readonly body: ReadonlyArray<ClassMember>;
 }
 
 /**
