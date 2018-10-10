@@ -655,6 +655,16 @@ const cases: ReadonlyArray<{
       )
     ),
   },
+  {
+    source: 'public is ()',
+    result: Ok(
+      AliasPattern(
+        loc('1-12'),
+        BindingName(loc('1-6'), ident('public')),
+        UnitPattern(loc('11-12'))
+      )
+    ),
+  },
 ];
 
 cases.forEach(({source, result}) => {

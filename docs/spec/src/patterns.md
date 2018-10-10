@@ -22,7 +22,7 @@ Note: {WrappedPattern} allows a trailing comma for consistency as a single eleme
 BindingPattern :
   - BindingIdentifier
   - BindingPatternHole
-  - [+Constructor] Access? `mutable`? Identifier
+  - [+Constructor] Access? `mutable`? BindingIdentifier
 
 BindingPatternHole : `_`
 
@@ -31,8 +31,6 @@ Binds a value to a name in the current scope.
 If the identifier resolves to a class in the current scope then instead of binding a name we check if the value we are matching is an instance of the class. This rule is a bit problematic from an implementation perspective. It requires us to know every variable that is in scope before we can know the behavior of a binding pattern.
 
 Note: Enabling the constructor tag breaks [expression/pattern symmetry](#sec-Pattern-Expression-Symmetry) since it allows the {Access} modifier and the `mutable` modifier whereas that is not allowed in expressions. However, this is ok since we don’t need expression/pattern symmetry for implementation efficiency in constructors.
-
-Note: Enabling the constructor tag intentionally allows the programmer to use any {Identifier} as a binding pattern. Including the {BindingKeyword} words excluded from {BindingIdentifier}. This is because these bindings must be first accessed through `this`.
 
 ## Unit Pattern
 
