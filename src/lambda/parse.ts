@@ -1,5 +1,3 @@
-import * as Immutable from 'immutable';
-
 import {
   Identifier,
   Term,
@@ -19,7 +17,7 @@ import {
  */
 export function parse<T>(source: string): Term<T> {
   const iterator = peekable(tokenize(source[Symbol.iterator]()));
-  const term = parseTerm<T>(iterator, Scope.empty());
+  const term = parseTerm<T>(iterator);
   const step = iterator.next();
   if (!step.done) {
     throw new Error(`Unexpected token "${step.value.type}" expected ending`);
@@ -30,30 +28,27 @@ export function parse<T>(source: string): Term<T> {
 /**
  * Does the actual lambda calculus parsing on an iterator.
  */
-function parseTerm<T>(
-  iterator: PeekableIterator<Token>,
-  scope: Scope,
-): Term<T> {
+function parseTerm<T>(iterator: PeekableIterator<Token>): Term<T> {
   // Parse an abstraction.
   if (tryParseToken(iterator, TokenType.Lambda)) {
-    const [newScope, name] = Scope.declare(scope, parseIdentifier(iterator));
+    const parameter = parseIdentifier(iterator);
     parseToken(iterator, TokenType.Dot);
-    const body = parseTerm<T>(iterator, newScope);
-    return abstraction(name, body);
+    const body = parseTerm<T>(iterator);
+    return abstraction(parameter, body);
   }
 
   // Parse a binding
   if (tryParseToken(iterator, TokenType.Let)) {
-    const [newScope, name] = Scope.declare(scope, parseIdentifier(iterator));
+    const name = parseIdentifier(iterator);
     parseToken(iterator, TokenType.Equals);
-    const value = parseTerm<T>(iterator, scope);
+    const value = parseTerm<T>(iterator);
     parseToken(iterator, TokenType.In);
-    const body = parseTerm<T>(iterator, newScope);
+    const body = parseTerm<T>(iterator);
     return binding<T>(name, value, body);
   }
 
   // Parses an unwrapped term.
-  let term = parseUnwrappedTerm<T>(iterator, scope);
+  let term = parseUnwrappedTerm<T>(iterator);
   if (term === undefined) {
     const step = iterator.next();
     if (step.done) throw new Error('Unexpected ending expected term');
@@ -62,7 +57,7 @@ function parseTerm<T>(
 
   // Parse as many application arguments as we can.
   while (true) {
-    const argument = parseUnwrappedTerm<T>(iterator, scope);
+    const argument = parseUnwrappedTerm<T>(iterator);
     if (argument === undefined) {
       break;
     } else {
@@ -79,11 +74,10 @@ function parseTerm<T>(
  */
 function parseUnwrappedTerm<T>(
   iterator: PeekableIterator<Token>,
-  scope: Scope,
 ): Term<T> | undefined {
   // Parse a term inside parentheses.
   if (tryParseToken(iterator, TokenType.ParenLeft)) {
-    const term = parseTerm<T>(iterator, scope);
+    const term = parseTerm<T>(iterator);
     parseToken(iterator, TokenType.ParenRight);
     return term;
   }
@@ -92,7 +86,7 @@ function parseUnwrappedTerm<T>(
   const step = iterator.peek();
   if (!step.done && step.value.type === TokenType.Identifier) {
     iterator.next();
-    return variable(Scope.resolve(scope, step.value.data));
+    return variable(step.value.data);
   }
 
   // Otherwise we couldn’t parse any unwrapped terms.
@@ -131,7 +125,7 @@ function tryParseToken(
 /**
  * Parses an identifier from the iterator. Throws if no identifier was found.
  */
-function parseIdentifier(iterator: PeekableIterator<Token>): string {
+function parseIdentifier(iterator: PeekableIterator<Token>): Identifier {
   const step = iterator.next();
   if (step.done) {
     throw new Error('Unexpected ending expected identifier');
@@ -142,35 +136,6 @@ function parseIdentifier(iterator: PeekableIterator<Token>): string {
     );
   }
   return step.value.data;
-}
-
-type Scope = {
-  readonly identifiers: Array<string>;
-  readonly variables: Immutable.Map<string, Identifier>;
-};
-
-namespace Scope {
-  export function empty(): Scope {
-    return {identifiers: [], variables: Immutable.Map()};
-  }
-
-  export function declare(scope: Scope, name: string): [Scope, Identifier] {
-    const identifier = scope.identifiers.length;
-    scope.identifiers.push(name);
-    const newScope = {
-      identifiers: scope.identifiers,
-      variables: scope.variables.set(name, identifier),
-    };
-    return [newScope, identifier];
-  }
-
-  export function resolve<T>(scope: Scope, name: string): Identifier {
-    const identifier = scope.variables.get(name);
-    if (identifier === undefined) {
-      throw new Error(`Variable "${name}" was not declared.`);
-    }
-    return identifier;
-  }
 }
 
 /**
@@ -199,7 +164,7 @@ type Token =
   | {type: TokenType.Equals}
   | {type: TokenType.Let}
   | {type: TokenType.In}
-  | {type: TokenType.Identifier; data: string};
+  | {type: TokenType.Identifier; data: Identifier};
 
 const identifierStart = /\w/;
 const identifierContinue = /[\w\d]/;
@@ -211,7 +176,7 @@ const whitespace = /\s/;
  */
 function* tokenize(source: Iterator<string>): IterableIterator<Token> {
   let step = source.next();
-  let identifier: string | undefined = undefined;
+  let identifier: Identifier | undefined = undefined;
   while (true) {
     // If an identifier has been started either add to the identifier or yield
     // the completed identifier or keyword.
@@ -260,8 +225,8 @@ function* tokenize(source: Iterator<string>): IterableIterator<Token> {
 /**
  * A peekable iterator allows you to peek the next item without consuming it.
  * Note that peekable iterators do not allow you to pass in a value with
- * `next()`. The interface of `PeekableIterator<T>` is much more limited then
- * the interface of `Iterator<T>` to allow for peeking.
+ * `next()`. The interface of `PekableIterator<T>` is much more limited then the
+ * interface of `Iterator<T>` to allow for peeking.
  */
 interface PeekableIterator<T> {
   next(): IteratorResult<T>;
