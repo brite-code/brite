@@ -1473,33 +1473,6 @@ const cases: ReadonlyArray<{
       )
     ),
   },
-  {
-    source: 'class C(public x)',
-  },
-  // {
-  //   source: 'class C(public is)',
-  // },
-  // {
-  //   source: 'class C(public is ())',
-  // },
-  // {
-  //   source: 'class C(mutable is)',
-  // },
-  // {
-  //   source: 'class C(mutable is ())',
-  // },
-  // {
-  //   source: 'class C(public.p)',
-  // },
-  // {
-  //   source: 'class C(mutable.p)',
-  // },
-  // {
-  //   source: 'class C(public())',
-  // },
-  // {
-  //   source: 'class C(mutable())',
-  // },
 ];
 
 cases.forEach(({only, source, result}) => {

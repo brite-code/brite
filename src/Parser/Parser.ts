@@ -16,7 +16,6 @@ import {
   ClassMember,
   ClassMethod,
   ConditionalExpression,
-  ConstructorModifiersPattern,
   ContinueExpression,
   Declaration,
   DeconstructPattern,
@@ -95,7 +94,7 @@ import {
   ParserError,
   UnexpectedTokenError,
 } from './Error';
-import {BindingIdentifier, ident} from './Identifier';
+import {BindingIdentifier} from './Identifier';
 import {Glyph, IdentifierToken, Lexer, Token, TokenType} from './Lexer';
 import {Loc} from './Loc';
 
@@ -1640,25 +1639,24 @@ class Parser {
   parsePattern(inConstructor: boolean): Pattern {
     const token = this.nextToken();
 
-    // Parse `BindingPattern` with modifiers if we are in a constructor.
-    if (inConstructor) {
-      const access = this.tryParseAccess();
-      const mutable = this.tryParseModifier('mutable');
-      if (access !== undefined || mutable !== false) {
-        const name = this.parseBindingName();
-        const loc = new Loc(token.loc.start, name.loc.end);
-        return ConstructorModifiersPattern(
-          loc,
-          access || Access.Private,
-          mutable,
-          BindingPattern(name.loc, name.identifier)
-        );
-      }
-    }
-
     // Parse `BindingPattern`, `QualifiedPattern`, `DeconstructPattern`,
     // and `AliasPattern`.
     if (token.type === TokenType.Identifier) {
+      // if (inConstructor) {
+      //   const token2 = this.peekToken();
+      //   if (token2.type === TokenType.Identifier) {
+      //     let access: Access | undefined;
+      //     let mutable: boolean | undefined;
+      //     if (token.identifier === 'public') {
+      //       access = Access.Public;
+      //     } else if (token.identifier === 'protected') {
+      //       access = Access.Protected;
+      //     } else if (token.identifier === 'private') {
+      //       access = Access.Private;
+      //     }
+      //   }
+      // }
+
       // If the first identifier is not a `BindingIdentifier` then we may not
       // continue parsing any of our grammars.
       const firstIdentifier = BindingIdentifier.create(token.identifier);
@@ -2038,9 +2036,7 @@ class Parser {
       token1.identifier === identifier &&
       !(
         token2.type === TokenType.Glyph &&
-        (token2.glyph === Glyph.ParenLeft ||
-          token2.glyph === Glyph.LessThan ||
-          token2.glyph === Glyph.Dot)
+        (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
       )
     ) {
       this.nextToken();
@@ -2060,9 +2056,7 @@ class Parser {
       token1.type === TokenType.Identifier &&
       !(
         token2.type === TokenType.Glyph &&
-        (token2.glyph === Glyph.ParenLeft ||
-          token2.glyph === Glyph.LessThan ||
-          token2.glyph === Glyph.Dot)
+        (token2.glyph === Glyph.ParenLeft || token2.glyph === Glyph.LessThan)
       )
     ) {
       if (token1.identifier === 'public') {
@@ -2124,18 +2118,6 @@ class Parser {
   parseName(): Name {
     const identifier = this.parseIdentifier();
     return Name(identifier.loc, identifier.identifier);
-  }
-
-  /**
-   * Parses a `BindingName`.
-   */
-  parseBindingName(): BindingName {
-    const token = this.parseIdentifier();
-    const identifier = BindingIdentifier.create(token.identifier);
-    if (identifier === undefined) {
-      throw UnexpectedTokenError(token, ExpectedBindingIdentifier);
-    }
-    return BindingName(token.loc, identifier);
   }
 
   /**

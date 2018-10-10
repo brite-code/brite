@@ -882,8 +882,7 @@ export type Pattern =
   | QualifiedPattern
   | DeconstructPattern
   | AliasPattern
-  | WrappedPattern
-  | ConstructorModifiersPattern;
+  | WrappedPattern;
 
 export const enum PatternKind {
   Binding = 'Binding',
@@ -896,19 +895,22 @@ export const enum PatternKind {
   Deconstruct = 'Deconstruct',
   Alias = 'Alias',
   Wrapped = 'Wrapped',
-  ConstructorModifiers = 'ConstructorBinding',
 }
 
 export interface BindingPattern extends Node {
   readonly kind: PatternKind.Binding;
   readonly identifier: BindingIdentifier;
+  readonly modifiers:
+    | {readonly access: Access; readonly mutable: boolean}
+    | undefined;
 }
 
 export function BindingPattern(
   loc: Loc,
-  identifier: BindingIdentifier
+  identifier: BindingIdentifier,
+  modifiers?: {readonly access: Access; readonly mutable: boolean}
 ): BindingPattern {
-  return {kind: PatternKind.Binding, loc, identifier};
+  return {kind: PatternKind.Binding, loc, identifier, modifiers};
 }
 
 export interface HolePattern extends Node {
@@ -1043,26 +1045,4 @@ export function WrappedPattern(
   type: Type | undefined
 ): WrappedPattern {
   return {kind: PatternKind.Wrapped, loc, pattern, type};
-}
-
-export interface ConstructorModifiersPattern extends Node {
-  readonly kind: PatternKind.ConstructorModifiers;
-  readonly access: Access;
-  readonly mutable: boolean;
-  readonly binding: BindingPattern;
-}
-
-export function ConstructorModifiersPattern(
-  loc: Loc,
-  access: Access,
-  mutable: boolean,
-  binding: BindingPattern
-): ConstructorModifiersPattern {
-  return {
-    kind: PatternKind.ConstructorModifiers,
-    loc,
-    access,
-    mutable,
-    binding,
-  };
 }
