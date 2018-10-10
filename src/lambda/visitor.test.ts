@@ -1,12 +1,14 @@
+// tslint:disable no-any
+
 import {
   Term,
-  variable,
   abstraction,
   application,
   binding,
   native,
+  variable,
 } from './term';
-import {visit, Visitor} from './visitor';
+import {Visitor, visit} from './visitor';
 
 let record: Array<[string, Term<any>]> = [];
 

@@ -1,5 +1,9 @@
+// tslint:disable no-eval
+
 import generate from '@babel/generator';
+
 import {parse} from '../parse';
+
 import {addRuntime} from './runtime';
 import {serialize} from './serialize';
 

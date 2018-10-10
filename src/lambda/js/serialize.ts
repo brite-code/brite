@@ -1,6 +1,8 @@
 import * as t from '@babel/types';
 import * as Immutable from 'immutable';
+
 import {Term, TermType} from '../term';
+
 import {ScopeStack} from './scope';
 
 type JsTerm = Term<t.Expression>;

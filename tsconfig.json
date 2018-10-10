@@ -12,12 +12,6 @@
     "strict": true,
     "noUnusedLocals": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "plugins": [
-      {
-        "name": "tslint-language-service",
-        "alwaysShowRuleFailuresAsWarnings": true
-      }
-    ]
+    "noFallthroughCasesInSwitch": true
   }
 }

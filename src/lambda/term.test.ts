@@ -1,14 +1,16 @@
-import {getFreeVariables, variable, abstraction, native} from './term';
 import {parse} from './parse';
+import {abstraction, getFreeVariables, native, variable} from './term';
 
 describe('getFreeVariables', () => {
-  [
+  const cases: ReadonlyArray<[string, ReadonlyArray<string>]> = [
     ['x', ['x']],
     ['λx.x', []],
     ['x y', ['x', 'y']],
     ['(λx.x) x', ['x']],
     ['x (λx.x)', ['x']],
-  ].forEach(([input, outputArray]: any) => {
+  ];
+
+  cases.forEach(([input, outputArray]) => {
     const output = new Set(outputArray);
     test(`${input} → {${[...output].join(', ')}}`, () => {
       expect(getFreeVariables(parse(input))).toEqual(output);

@@ -1,13 +1,14 @@
 import * as t from '@babel/types';
+
+import {parse} from '../parse';
 import {
   Term,
-  variable,
   abstraction,
-  native,
   binding,
   getFreeVariables,
+  native,
+  variable,
 } from '../term';
-import {parse} from '../parse';
 
 type JsTerm = Term<t.Expression>;
 

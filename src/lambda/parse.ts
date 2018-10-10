@@ -3,8 +3,8 @@ import {
   Term,
   abstraction,
   application,
-  variable,
   binding,
+  variable,
 } from './term';
 
 /**

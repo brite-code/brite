@@ -1,12 +1,12 @@
-import {variable, abstraction, application, binding} from './term';
 import {parse} from './parse';
+import {Term, abstraction, application, binding, variable} from './term';
 
 const v = variable;
 const f = abstraction;
 const c = application;
 const b = binding;
 
-[
+const cases: ReadonlyArray<[string, Term<{}>]> = [
   ['x', v('x')],
   ['λx.x', f('x', v('x'))],
   ['x y', c(v('x'), v('y'))],
@@ -29,7 +29,9 @@ const b = binding;
   ['λb.let a = b in c', f('b', b('a', v('b'), v('c')))],
   ['let a = let b = c in d in e', b('a', b('b', v('c'), v('d')), v('e'))],
   ['let a = b in let c = d in e', b('a', v('b'), b('c', v('d'), v('e')))],
-].forEach(([input, output]: any) => {
+];
+
+cases.forEach(([input, output]) => {
   test(input, () => {
     expect(parse(input)).toEqual(output);
   });

@@ -1,4 +1,5 @@
 import * as t from '@babel/types';
+
 import {Identifier} from '../term';
 
 /**
@@ -17,12 +18,12 @@ export class ScopeStack {
   nest<T>(f: () => T): T {
     this.stack.push(newScope());
     const result = f();
-    this.stack.pop()!;
+    this.stack.pop();
     return result;
   }
 
   /**
-   * Declares a variable in our scope and returns an escaped, deduplicated,
+   * Declares a variable in our scope and returns an escaped, de-duplicated,
    * JavaScript identifier.
    */
   declareVariable(identifier: Identifier): t.Identifier {
@@ -45,10 +46,24 @@ export class ScopeStack {
   }
 
   /**
+   * Creates an internal identifier. Internal identifiers are guaranteed to
+   * never collide with programmer defined identifiers. Identifiers are of the
+   * form: "_$\(name)\(dedupe)". These will never collide with programmer
+   * identifiers since the dollar sign (`$`) is not valid in Brite identifiers
+   * and a lone underscore (`_`) is not a valid Brite identifier.
+   */
+  createInternalIdentifier(name: string): t.Identifier {
+    let identifier = `_$${name}`;
+    const dedupe = this.identifierDedupeNumber(identifier);
+    if (dedupe !== 1 || name === '') identifier += dedupe;
+    return t.identifier(identifier);
+  }
+
+  /**
    * Returns the current scope. One is always guaranteed to exist.
    */
   private currentScope(): Scope {
-    return this.stack[this.stack.length - 1]!;
+    return this.stack[this.stack.length - 1]!; // tslint:disable-line no-non-null-assertion
   }
 
   /**
@@ -76,20 +91,6 @@ export class ScopeStack {
     let identifier = !reservedWords.has(name) ? name : `${name}_`;
     const dedupe = this.identifierDedupeNumber(name);
     if (dedupe !== 1) identifier += `$${dedupe}`;
-    return t.identifier(identifier);
-  }
-
-  /**
-   * Creates an internal identifier. Internal identifiers are guaranteed to
-   * never collide with programmer defined identifiers. Identifiers are of the
-   * form: "_$\(name)\(dedupe)". These will never collide with programmer
-   * identifiers since the dollar sign (`$`) is not valid in Brite identifiers
-   * and a lone underscore (`_`) is not a valid Brite identifier.
-   */
-  createInternalIdentifier(name: string): t.Identifier {
-    let identifier = `_$${name}`;
-    const dedupe = this.identifierDedupeNumber(identifier);
-    if (dedupe !== 1 || name === '') identifier += dedupe;
     return t.identifier(identifier);
   }
 }

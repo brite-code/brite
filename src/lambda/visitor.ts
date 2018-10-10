@@ -1,10 +1,10 @@
 import {
-  Term,
-  VariableTerm,
   AbstractionTerm,
   ApplicationTerm,
   NativeTerm,
+  Term,
   TermType,
+  VariableTerm,
   abstraction,
   application,
   native,
@@ -43,7 +43,7 @@ export type Visitor<T> = {
 /**
  * A visitor that does nothing.
  */
-export const noopVisitor: Visitor<any> = {
+export const noopVisitor: Visitor<unknown> = {
   enterVariable: () => {},
   leaveVariable: () => {},
   enterAbstraction: () => {},
@@ -80,7 +80,9 @@ export function visit<T>(initialTerm: Term<T>, callbacks: Visitor<T>): Term<T> {
     let enter: VisitorEnter<T> = undefined;
     let leaving = false;
     let leave: VisitorLeave<T> = undefined;
-    let {state, term, args, updated} = stack.pop()!;
+    const frame = stack.pop()!; // tslint:disable-line no-non-null-assertion
+    const {state, args} = frame;
+    let {term, updated} = frame;
 
     if (state > 1 && args[state - 2] !== returnTerm) {
       args[state - 2] = returnTerm;
