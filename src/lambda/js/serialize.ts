@@ -32,11 +32,6 @@ type SerializeResult = {
 /**
  * Serializes a lambda calculus term to a JavaScript expression in the provided
  * scope stack.
- *
- * Returns a function which builds the resulting JavaScript expression. The
- * function should be called precisely at the place where it should be executed.
- * This way calling `serialize()` adds statements then calling the result of
- * `serialize` adds the resulting expression.
  */
 function serialize(scope: ScopeStack, term: JsTerm): SerializeResult {
   switch (term.type) {

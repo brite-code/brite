@@ -1,7 +1,7 @@
 /**
  * An identifier in a lambda calculus term.
  */
-export type Identifier = string;
+export type Identifier = number;
 
 /**
  * The type of a term. We want to keep this private to the `lambda` directory.
