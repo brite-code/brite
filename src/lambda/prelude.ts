@@ -31,7 +31,21 @@ prelude.set('const', parse('λx y.x'));
 // use the standard fix-point combinator.
 //
 // https://en.wikipedia.org/wiki/Fixed-point_combinator
-prelude.set('fix', parse('λf.(λx.f (λv.x x v)) (λx.f (λv.x x v))'));
+const fix = native([variable(1)], {
+  js: ([f]) =>
+    t.functionExpression(
+      t.identifier('g'),
+      [t.identifier('x')],
+      t.blockStatement([
+        t.returnStatement(
+          t.callExpression(t.callExpression(f, [t.identifier('g')]), [
+            t.identifier('x'),
+          ]),
+        ),
+      ]),
+    ),
+});
+prelude.set('fix', abstraction('f', fix));
 
 // Common numbers
 prelude.set('zero', native([], {js: () => t.numericLiteral(0)}));

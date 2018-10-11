@@ -14,10 +14,8 @@ const add = x => y => x + y;
 const one = 1;
 const zero = 0;
 
-const fix = f => {
-  const x = x => f(v => x(x)(v));
-
-  return f(v => x(x)(v));
+const fix = f => function g(x) {
+  return f(g)(x);
 };
 
 const const_ = x => y => x;
@@ -41,10 +39,8 @@ const add = x => y => x + y;
 const one = 1;
 const zero = 0;
 
-const fix = f => {
-  const x = x => f(v => x(x)(v));
-
-  return f(v => x(x)(v));
+const fix = f => function g(x) {
+  return f(g)(x);
 };
 
 const const_ = x => y => x;
@@ -52,4 +48,35 @@ const const_ = x => y => x;
 const id = x => x;
 
 fix(f => n => eq(n)(zero) ? zero : eq(n)(one) ? one : add(f(sub(n)(one)))(f(sub(sub(n)(one))(one))));"
+`;
+
+exports[`let fix = λf.(λx.f (λv.x x v)) (λx.f (λv.x x v)) in fix (λf.λn.if (eq n zero) then one else mul n (f (sub n one))) 1`] = `
+"const eq = x => y => x === y | 0;
+
+const div = x => y => x / y;
+
+const mul = x => y => x * y;
+
+const sub = x => y => x - y;
+
+const add = x => y => x + y;
+
+const one = 1;
+const zero = 0;
+
+const fix = f => function g(x) {
+  return f(g)(x);
+};
+
+const const_ = x => y => x;
+
+const id = x => x;
+
+const fix$2 = f => {
+  const x = x => f(v => x(x)(v));
+
+  return f(v => x(x)(v));
+};
+
+fix$2(f => n => eq(n)(zero) ? one : mul(n)(f(sub(n)(one))));"
 `;

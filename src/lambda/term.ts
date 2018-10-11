@@ -90,6 +90,8 @@ export type ConditionalTerm = {
   readonly alternate: Term;
 };
 
+// export type FixpointTerm
+
 /**
  * A native term serializes some custom native code for all target platforms.
  *
