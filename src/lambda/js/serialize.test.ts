@@ -21,12 +21,17 @@ import {serialize} from './serialize';
 
   [
     'let x = (λx.x) in let x = (λx.x) in (λx.x) x',
-    'const x = x => x;\n\nconst x$2 = x => x;\n\nconst x$3 = x$2;\nx$3;',
+    'const x = x => x;\n\nconst x$2 = x$2 => x$2;\n\nconst x$3 = x$2;\nx$3;',
   ],
 
   [
     'let x = (λx.let x = x in x) in let x = (λx.let x = x in x) in x',
-    'const x = x => {\n  const x$2 = x;\n  return x$2;\n};\n\nconst x$2 = x => {\n  const x$2 = x;\n  return x$2;\n};\n\nx$2;',
+    'const x = x => {\n  const x$2 = x;\n  return x$2;\n};\n\nconst x$2 = x$2 => {\n  const x$3 = x$2;\n  return x$3;\n};\n\nx$2;',
+  ],
+
+  [
+    'let x = (λy.y) in let x = λy.x in (λy.y)',
+    'const x = y => y;\n\nconst x$2 = y => x;\n\ny => y;',
   ],
 
   [
@@ -36,12 +41,12 @@ import {serialize} from './serialize';
 
   [
     'let f = λx.x in f (f f) (let y = f f f in y)',
-    'const f = x => x;\n\nconst _$1 = f(f(f));\n\nconst y = f(f)(f);\n\n_$1(y);',
+    'const f = x => x;\n\nconst $1 = f(f(f));\nconst y = f(f)(f);\n$1(y);',
   ],
 
   [
     'let f = λx.x in f (f f) (let y = f f f in y) (f f)',
-    'const f = x => x;\n\nconst _$1 = f(f(f));\n\nconst y = f(f)(f);\n\n_$1(y)(f(f));',
+    'const f = x => x;\n\nconst $1 = f(f(f));\nconst y = f(f)(f);\n$1(y)(f(f));',
   ],
 
   [
@@ -51,7 +56,7 @@ import {serialize} from './serialize';
 
   [
     'let f = λx.x in f (λz.z) (let y = f f f in y)',
-    'const f = x => x;\n\nconst _$1 = f(z => z);\n\nconst y = f(f)(f);\n\n_$1(y);',
+    'const f = x => x;\n\nconst $1 = f(z => z);\nconst y = f(f)(f);\n$1(y);',
   ],
 
   [

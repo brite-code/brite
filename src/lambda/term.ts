@@ -1,3 +1,5 @@
+import * as t from '@babel/types';
+
 /**
  * The type of a term. We want to keep this private to the `lambda` directory.
  */
@@ -14,7 +16,11 @@ export const enum TermType {
  * [1]: https://en.wikipedia.org/wiki/Lambda_calculus
  * [2]: https://en.wikipedia.org/wiki/De_Bruijn_index
  */
-export type Term = VariableTerm | AbstractionTerm | ApplicationTerm;
+export type Term =
+  | VariableTerm
+  | AbstractionTerm
+  | ApplicationTerm
+  | NativeTerm;
 
 /**
  * A character or string representing a parameter or mathematical/logical value.
@@ -50,6 +56,26 @@ export type ApplicationTerm = {
   readonly type: TermType.Application;
   readonly callee: Term;
   readonly argument: Term;
+};
+
+/**
+ * A native term serializes some custom native code for all target platforms.
+ *
+ * It takes an array of input terms. Corresponding serialized values for these
+ * terms are provided to the `serialize()` function.
+ */
+export type NativeTerm = {
+  readonly type: TermType.Native;
+  readonly inputs: ReadonlyArray<Term>;
+  readonly serializers: NativeTermSerializers;
+};
+
+/**
+ * The serializer functions for native terms. We have a serializer for
+ * each back-end.
+ */
+export type NativeTermSerializers = {
+  readonly js: (inputs: ReadonlyArray<t.Expression>) => t.Expression;
 };
 
 /**
@@ -95,4 +121,21 @@ export function application(callee: Term, argument: Term): ApplicationTerm {
  */
 export function binding(name: string, value: Term, body: Term): Term {
   return application(abstraction(name, body), value);
+}
+
+/**
+ * Creates a native term.
+ *
+ * There is no such equivalent in lambda calculus. This is an extension for our
+ * language to be practically useful.
+ */
+export function native(
+  inputs: ReadonlyArray<Term>,
+  serializers: NativeTermSerializers,
+): NativeTerm {
+  return {
+    type: TermType.Native,
+    inputs,
+    serializers,
+  };
 }

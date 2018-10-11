@@ -31,10 +31,14 @@ export class Scope {
   }
 
   /**
-   *
+   * Resolves a binding by index.
    */
   resolve(index: number): t.Identifier {
-    return this.bindings[this.bindings.length - index]!; // tslint:disable-line no-non-null-assertion
+    const binding = this.bindings[this.bindings.length - index];
+    if (binding === undefined) {
+      throw new Error('Could not find binding.');
+    }
+    return binding;
   }
 
   /**
@@ -52,7 +56,7 @@ export class Scope {
     }
     this.variables[this.variables.length - 1].set(name, count + 1);
     if (reservedWords.has(name)) {
-      name = `$${name}`;
+      name = `${name}_`;
     }
     if (count > 0 || name === '') {
       return t.identifier(`${name}$${count + 1}`);

@@ -120,6 +120,24 @@ function serializeTerm(scope: Scope, term: Term): SerializedTerm {
         }
       }
     }
+    case TermType.Native: {
+      return combineSerializedTerms(
+        scope,
+        term.inputs.map(input => serializeTerm(scope, input)),
+        inputs => {
+          let strict = false;
+          const serializeInputs = inputs.map(input => {
+            strict = strict || input.strict;
+            return input.expression;
+          });
+          return {
+            statements: Immutable.List(),
+            strict,
+            expression: term.serializers.js(serializeInputs),
+          };
+        },
+      );
+    }
   }
 }
 
@@ -131,4 +149,55 @@ export function serialize(term: Term): t.Program {
   const programStatements = statements.toArray();
   programStatements.push(t.expressionStatement(expression));
   return t.program(programStatements);
+}
+
+/**
+ * Combines an array of serialized terms into a single serialized term with a
+ * combiner function. Concatenates all the statement lists together and
+ * maintains the ordering of strict expressions.
+ */
+function combineSerializedTerms(
+  scope: Scope,
+  terms: ReadonlyArray<SerializedTerm>,
+  combine: (
+    expressions: ReadonlyArray<{strict: boolean; expression: t.Expression}>,
+  ) => SerializedTerm,
+): SerializedTerm {
+  // Create the initial variables we will be modifying.
+  let statements = Immutable.List<t.Statement>();
+  const expressions = Array(terms.length);
+  // Iterate through the results we were provided backwards. This way we can
+  // detect if there are statements _after_ the position of a strict expression.
+  // If there are then we need to hoist the expression into a statement.
+  for (let i = terms.length - 1; i >= 0; i--) {
+    const result = terms[i];
+    // If our result expression is strictly evaluated and there are some
+    // statements evaluated after our strict expression then we need to take
+    // care to evaluate our expression in the proper order. So we hoist our
+    // strict expression into a variable declaration so that it evaluates after
+    // its own statements and before the other statements. We then use a
+    // temporary identifier for the hoisted expression.
+    if (result.strict && !statements.isEmpty()) {
+      const identifier = scope.newInternalVariable();
+      expressions[i] = {strict: false, expression: identifier};
+      const bindingStatement = t.variableDeclaration('const', [
+        t.variableDeclarator(identifier, result.expression),
+      ]);
+      statements = result.statements.concat(
+        bindingStatement,
+        statements,
+      ) as StatementList;
+    } else {
+      // Add our expression to our array and prepend our statements to the list.
+      expressions[i] = {strict: result.strict, expression: result.expression};
+      statements = result.statements.concat(statements) as StatementList;
+    }
+  }
+  const result = combine(expressions);
+  statements = statements.concat(result.statements) as StatementList;
+  return {
+    statements,
+    strict: result.strict,
+    expression: result.expression,
+  };
 }

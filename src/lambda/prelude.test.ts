@@ -2,10 +2,8 @@
 
 import generate from '@babel/generator';
 
-import {parse} from '../parse';
-
-import {addRuntime} from './runtime';
-import {serialize} from './serialize';
+import {serialize} from './js/serialize';
+import {parseWithPrelude} from './prelude';
 
 [
   {source: 'id', input: 42, output: 42},
@@ -19,29 +17,23 @@ import {serialize} from './serialize';
   {source: 'mul (add one one)', input: 3, output: 6},
   {source: 'div one (add one one)', output: 0.5},
   {source: 'div (add (add one one) (add one one))', input: 2, output: 2},
-  {source: 'eq one one', output: true},
-  {source: 'eq one zero', output: false},
-  {source: 'eq one', input: 1, output: true},
-  {source: 'eq one', input: 0, output: false},
+  {source: 'eq one one', output: 1},
+  {source: 'eq one zero', output: 0},
+  {source: 'eq one', input: 1, output: 1},
+  {source: 'eq one', input: 0, output: 0},
   {source: 'if (eq one one) (const one) (const zero)', output: 1},
-  {source: 'λx.if x (const one) (const zero)', input: true, output: 1},
-  {source: 'λx.if x (const one) (const zero)', input: false, output: 0},
+  {source: 'λx.if x (const one) (const zero)', input: 1, output: 1},
+  {source: 'λx.if x (const one) (const zero)', input: 0, output: 0},
 ].forEach(({source, input, output}) => {
   if (input !== undefined) {
-    test(`(${source}) ${input} == ${output}`, () => {
-      const f = eval(generate(serialize(addRuntime(parse(source)))).code);
+    test(`${source} with ${input} == ${output}`, () => {
+      const f = eval(generate(serialize(parseWithPrelude(source))).code);
       expect(f(input)).toEqual(output);
     });
   } else {
     test(`${source} == ${output}`, () => {
-      const input = eval(generate(serialize(addRuntime(parse(source)))).code);
+      const input = eval(generate(serialize(parseWithPrelude(source))).code);
       expect(input).toEqual(output);
     });
   }
-});
-
-test('only adds referenced variables', () => {
-  expect(addRuntime(parse('id (λv.v)'))).toEqual(
-    parse('(λid.id (λv.v)) (λx.x)'),
-  );
 });

@@ -1,32 +1,13 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`fix (λf.λn.if (eq n zero) (const one) (λz.mul n (f (sub n one)))) 1`] = `
-"const eq = x => y => x === y;
+"const eq = x => y => x === y | 0;
 
-const if_ = x => y => z => x ? y() : z();
+const if_ = x => y => z => x !== 0 ? y() : z();
+
+const div = x => y => x / y;
 
 const mul = x => y => x * y;
-
-const sub = x => y => x - y;
-
-const one = 1;
-const zero = 0;
-
-const fix = f => {
-  const x = x => f(v => x(x)(v));
-
-  return f(v => x(x)(v));
-};
-
-const const_ = x => y => x;
-
-fix(f => n => if_(eq(n)(zero))(const_(one))(z => mul(n)(f(sub(n)(one)))));"
-`;
-
-exports[`fix (λf.λn.if (eq n zero) (const zero) (λz.if (eq n one) (const one) (λz.add (f (sub n one)) (f (sub (sub n one) one))))) 1`] = `
-"const eq = x => y => x === y;
-
-const if_ = x => y => z => x ? y() : z();
 
 const sub = x => y => x - y;
 
@@ -43,22 +24,26 @@ const fix = f => {
 
 const const_ = x => y => x;
 
-fix(f => n => if_(eq(n)(zero))(const_(zero))(z => if_(eq(n)(one))(const_(one))(z => add(f(sub(n)(one)))(f(sub(sub(n)(one))(one))))));"
+const id = x => x;
+
+fix(f => n => if_(eq(n)(zero))(const_(one))(z => mul(n)(f(sub(n)(one)))));"
 `;
 
-exports[`let fix = λf.(λx.f (λv.x x v)) (λx.f (λv.x x v)) in fix (λf.λn.if (eq n zero) (const one) (λz.mul n (f (sub n one)))) 1`] = `
-"const eq = x => y => x === y;
+exports[`fix (λf.λn.if (eq n zero) (const zero) (λz.if (eq n one) (const one) (λz.add (f (sub n one)) (f (sub (sub n one) one))))) 1`] = `
+"const eq = x => y => x === y | 0;
 
-const if_ = x => y => z => x ? y() : z();
+const if_ = x => y => z => x !== 0 ? y() : z();
+
+const div = x => y => x / y;
 
 const mul = x => y => x * y;
 
 const sub = x => y => x - y;
 
+const add = x => y => x + y;
+
 const one = 1;
 const zero = 0;
-
-const const_ = x => y => x;
 
 const fix = f => {
   const x = x => f(v => x(x)(v));
@@ -66,5 +51,9 @@ const fix = f => {
   return f(v => x(x)(v));
 };
 
-fix(f => n => if_(eq(n)(zero))(const_(one))(z => mul(n)(f(sub(n)(one)))));"
+const const_ = x => y => x;
+
+const id = x => x;
+
+fix(f => n => if_(eq(n)(zero))(const_(zero))(z => if_(eq(n)(one))(const_(one))(z$2 => add(f(sub(n)(one)))(f(sub(sub(n)(one))(one))))));"
 `;
