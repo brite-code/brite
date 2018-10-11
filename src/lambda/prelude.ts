@@ -61,17 +61,6 @@ const div = native([variable(2), variable(1)], {
 });
 prelude.set('div', abstraction('x', abstraction('y', div)));
 
-// Conditional
-const if_ = native([variable(3), variable(2), variable(1)], {
-  js: ([x, y, z]) =>
-    t.conditionalExpression(
-      t.binaryExpression('!==', x, t.numericLiteral(0)),
-      t.callExpression(y, []),
-      t.callExpression(z, []),
-    ),
-});
-prelude.set('if', abstraction('x', abstraction('y', abstraction('z', if_))));
-
 // Equality
 const eq = native([variable(2), variable(1)], {
   js: ([x, y]) =>

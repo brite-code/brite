@@ -1,9 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`fix (λf.λn.if (eq n zero) (const one) (λz.mul n (f (sub n one)))) 1`] = `
+exports[`fix (λf.λn.if (eq n zero) then one else mul n (f (sub n one))) 1`] = `
 "const eq = x => y => x === y | 0;
-
-const if_ = x => y => z => x !== 0 ? y() : z();
 
 const div = x => y => x / y;
 
@@ -26,13 +24,11 @@ const const_ = x => y => x;
 
 const id = x => x;
 
-fix(f => n => if_(eq(n)(zero))(const_(one))(z => mul(n)(f(sub(n)(one)))));"
+fix(f => n => eq(n)(zero) ? one : mul(n)(f(sub(n)(one))));"
 `;
 
-exports[`fix (λf.λn.if (eq n zero) (const zero) (λz.if (eq n one) (const one) (λz.add (f (sub n one)) (f (sub (sub n one) one))))) 1`] = `
+exports[`fix (λf.λn.if (eq n zero) then zero else if (eq n one) then one else add (f (sub n one)) (f (sub (sub n one) one))) 1`] = `
 "const eq = x => y => x === y | 0;
-
-const if_ = x => y => z => x !== 0 ? y() : z();
 
 const div = x => y => x / y;
 
@@ -55,5 +51,5 @@ const const_ = x => y => x;
 
 const id = x => x;
 
-fix(f => n => if_(eq(n)(zero))(const_(zero))(z => if_(eq(n)(one))(const_(one))(z$2 => add(f(sub(n)(one)))(f(sub(sub(n)(one))(one))))));"
+fix(f => n => eq(n)(zero) ? zero : eq(n)(one) ? one : add(f(sub(n)(one)))(f(sub(sub(n)(one))(one))));"
 `;

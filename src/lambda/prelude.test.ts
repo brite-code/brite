@@ -21,9 +21,9 @@ import {parseWithPrelude} from './prelude';
   {source: 'eq one zero', output: 0},
   {source: 'eq one', input: 1, output: 1},
   {source: 'eq one', input: 0, output: 0},
-  {source: 'if (eq one one) (const one) (const zero)', output: 1},
-  {source: 'λx.if x (const one) (const zero)', input: 1, output: 1},
-  {source: 'λx.if x (const one) (const zero)', input: 0, output: 0},
+  {source: 'if (eq one one) then one else zero', output: 1},
+  {source: 'λx.if x then one else zero', input: 1, output: 1},
+  {source: 'λx.if x then one else zero', input: 0, output: 0},
 ].forEach(({source, input, output}) => {
   if (input !== undefined) {
     test(`${source} with ${input} == ${output}`, () => {

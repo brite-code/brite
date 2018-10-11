@@ -1,10 +1,18 @@
 import {parse} from './parse';
-import {Term, abstraction, application, binding, variable} from './term';
+import {
+  Term,
+  abstraction,
+  application,
+  binding,
+  conditional,
+  variable,
+} from './term';
 
 const v = variable;
 const f = abstraction;
 const c = application;
 const b = binding;
+const t = conditional;
 
 const cases: ReadonlyArray<[string, Term]> = [
   ['x', v(1)],
@@ -34,6 +42,7 @@ const cases: ReadonlyArray<[string, Term]> = [
   ['λx.λx.^2', f('x', f('x', v(2)))],
   ['λx y.x', f('x', f('y', v(2)))],
   ['λx y.y', f('x', f('y', v(1)))],
+  ['if a then b else c', t(v(3), v(4), v(5))],
 ];
 
 cases.forEach(([input, output]) => {

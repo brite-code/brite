@@ -1,6 +1,13 @@
 import * as Immutable from 'immutable';
 
-import {Term, abstraction, application, binding, variable} from './term';
+import {
+  Term,
+  abstraction,
+  application,
+  binding,
+  conditional,
+  variable,
+} from './term';
 
 /**
  * Parses a lambda calculus term.
@@ -9,6 +16,7 @@ import {Term, abstraction, application, binding, variable} from './term';
  * - `(λx.y)` → `abstraction(x, y)`
  * - `(x y)` → `application(x, y)`
  * - `let x = y in z` → `binding(x, y, z)`
+ * - `if x then y else z` → `conditional(x, y, z)`
  *
  * The term may have free variables which we are told are in scope by the
  * `scope` array. This array contains the names of available variables in
@@ -80,6 +88,15 @@ function parseTerm(
     return binding(name, value, body);
   }
 
+  if (tryParseToken(tokens, TokenType.If)) {
+    const test = parseTerm(tokens, depth, variables);
+    parseToken(tokens, TokenType.Then);
+    const consequent = parseTerm(tokens, depth, variables);
+    parseToken(tokens, TokenType.Else);
+    const alternate = parseTerm(tokens, depth, variables);
+    return conditional(test, consequent, alternate);
+  }
+
   // Parses an unwrapped term.
   let term = parseUnwrappedTerm(tokens, depth, variables);
   if (term === undefined) {
@@ -142,29 +159,13 @@ function parseUnwrappedTerm(
   return undefined;
 }
 
-// /**
-//  * Parses the body of an abstraction while introducing the provided variable
-//  * into scope.
-//  */
-// function parseAbstractionBodyTerm(
-//   tokens: PeekableIterator<Token>,
-//   parameter: string,
-//   depth: number,
-//   variables: Immutable.Map<string, number>,
-// ): Term {
-//   const newDepth = depth + 1;
-//   const newVariables = variables.set(parameter, newDepth);
-//   const body = parseTerm(tokens, newDepth, newVariables);
-//   return body;
-// }
-
 /**
  * Parses a token in the iterator and throws if it was not found.
  */
 function parseToken(tokens: PeekableIterator<Token>, token: TokenType) {
   const step = tokens.next();
   if (step.done) {
-    throw new Error(`Unexpected ending expected "${token}"`);
+    throw new Error(`Unexpected ending, expected "${token}"`);
   }
   if (step.value.type !== token) {
     throw new Error(
@@ -228,6 +229,9 @@ const enum TokenType {
   Equals = '=',
   Let = 'let',
   In = 'in',
+  If = 'if',
+  Then = 'then',
+  Else = 'else',
   Identifier = 'identifier',
   Index = 'index',
 }
@@ -244,6 +248,9 @@ type Token =
   | {readonly type: TokenType.Equals}
   | {readonly type: TokenType.Let}
   | {readonly type: TokenType.In}
+  | {readonly type: TokenType.If}
+  | {readonly type: TokenType.Then}
+  | {readonly type: TokenType.Else}
   | {readonly type: TokenType.Identifier; readonly data: string}
   | {readonly type: TokenType.Index; readonly data: number};
 
@@ -269,12 +276,25 @@ function* tokenize(source: Iterator<string>): IterableIterator<Token> {
         step = source.next();
         continue;
       } else {
-        if (identifier === 'let') {
-          yield {type: TokenType.Let};
-        } else if (identifier === 'in') {
-          yield {type: TokenType.In};
-        } else {
-          yield {type: TokenType.Identifier, data: identifier};
+        switch (identifier) {
+          case 'let':
+            yield {type: TokenType.Let};
+            break;
+          case 'in':
+            yield {type: TokenType.In};
+            break;
+          case 'if':
+            yield {type: TokenType.If};
+            break;
+          case 'then':
+            yield {type: TokenType.Then};
+            break;
+          case 'else':
+            yield {type: TokenType.Else};
+            break;
+          default:
+            yield {type: TokenType.Identifier, data: identifier};
+            break;
         }
         identifier = undefined;
       }

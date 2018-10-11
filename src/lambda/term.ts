@@ -7,6 +7,7 @@ export const enum TermType {
   Variable = 'Variable',
   Abstraction = 'Abstraction',
   Application = 'Application',
+  Conditional = 'Conditional',
   Native = 'Native',
 }
 
@@ -20,6 +21,7 @@ export type Term =
   | VariableTerm
   | AbstractionTerm
   | ApplicationTerm
+  | ConditionalTerm
   | NativeTerm;
 
 /**
@@ -56,6 +58,36 @@ export type ApplicationTerm = {
   readonly type: TermType.Application;
   readonly callee: Term;
   readonly argument: Term;
+};
+
+/**
+ * A conditional abstraction in pure lambda calculus with [church encoded
+ * booleans][1] might look like `λc t f.c t f`. Where the church encoded
+ * booleans are `λt f.t` for true and `λt f.f` for false. So the program:
+ *
+ * ```
+ * let true = λt f.t in
+ * let false = λt f.f in
+ * let if = λc t f.c t f in
+ * if true a b
+ * ```
+ *
+ * Evaluates to `a` as expected. However, our lambda calculus is [strictly
+ * evaluated][2]. This means that `a` and `b` have already been evaluated. If
+ * `b` contains some expensive computation it will always be evaluated even
+ * though the result is never used.
+ *
+ * So we add a special term for conditionals. The consequent and alternate will
+ * only be evaluated if they are needed.
+ *
+ * [1]: https://en.wikipedia.org/wiki/Church_encoding#Church_Booleans
+ * [2]: https://en.wikipedia.org/wiki/Eager_evaluation
+ */
+export type ConditionalTerm = {
+  readonly type: TermType.Conditional;
+  readonly test: Term;
+  readonly consequent: Term;
+  readonly alternate: Term;
 };
 
 /**
@@ -121,6 +153,22 @@ export function application(callee: Term, argument: Term): ApplicationTerm {
  */
 export function binding(name: string, value: Term, body: Term): Term {
   return application(abstraction(name, body), value);
+}
+
+/**
+ * Creates a conditional expression.
+ */
+export function conditional(
+  test: Term,
+  consequent: Term,
+  alternate: Term,
+): Term {
+  return {
+    type: TermType.Conditional,
+    test,
+    consequent,
+    alternate,
+  };
 }
 
 /**
