@@ -1,20 +1,15 @@
 import * as t from '@babel/types';
 import * as Immutable from 'immutable';
 
-import {ConditionalTerm, Term, TermType} from '../term';
+import {Term, TermType} from '../term';
 
 import {Scope} from './scope';
 
 /**
- * The result of serialization. Contains the expression to be returned and some
- * statements which represent side-effects on the environment.
+ * The result of serialization. Contains the expression to be returned with
+ * some metadata.
  */
 type SerializedTerm = {
-  /**
-   * Side-effects in the environment. We use an immutable list since we want to
-   * efficiently concatenate lists together pretty often.
-   */
-  readonly statements: Immutable.Iterable<number, t.Statement>;
   /**
    * Should the expression be evaluated strictly? If false then the expression
    * may be ordered anywhere in our statements.
@@ -35,40 +30,52 @@ type SerializedTerm = {
  * This way calling `serialize()` adds statements then calling the result of
  * `serialize` adds the resulting expression.
  */
-function serializeTerm(scope: Scope, term: Term): SerializedTerm {
+function serializeTerm(
+  scope: Scope,
+  term: Term,
+): {
+  readonly statements: Immutable.Iterable<number, t.Statement>;
+  readonly term: SerializedTerm;
+} {
   switch (term.type) {
     case TermType.Variable: {
       return {
         statements: Immutable.List(),
-        strict: false,
-        expression: scope.resolve(term.index),
+        term: {
+          strict: false,
+          expression: scope.resolve(term.index),
+        },
       };
     }
 
     case TermType.Abstraction: {
       return scope.block(() =>
         scope.binding(term.parameter, parameter => {
-          const {statements, expression} = serializeTermWithStatementOutput(
+          const result = serializeTermWithStatementOutput(
             scope,
             term.body,
             expression => t.returnStatement(expression),
           );
           let body: t.Expression | t.BlockStatement;
-          if (expression !== undefined) {
-            if (statements.isEmpty()) {
-              body = expression;
+          if (result.term !== undefined) {
+            if (result.statements.isEmpty()) {
+              body = result.term.expression;
             } else {
               body = t.blockStatement(
-                statements.concat(t.returnStatement(expression)).toArray(),
+                result.statements
+                  .concat(t.returnStatement(result.term.expression))
+                  .toArray(),
               );
             }
           } else {
-            body = t.blockStatement(statements.toArray());
+            body = t.blockStatement(result.statements.toArray());
           }
           return {
             statements: Immutable.List<t.Statement>(),
-            strict: false,
-            expression: t.arrowFunctionExpression([parameter], body),
+            term: {
+              strict: false,
+              expression: t.arrowFunctionExpression([parameter], body),
+            },
           };
         }),
       );
@@ -82,7 +89,7 @@ function serializeTerm(scope: Scope, term: Term): SerializedTerm {
         const argument = serializeTerm(scope, term.argument);
         return scope.binding(callee.parameter, parameter => {
           const bindingStatement = t.variableDeclaration('const', [
-            t.variableDeclarator(parameter, argument.expression),
+            t.variableDeclarator(parameter, argument.term.expression),
           ]);
           const body = serializeTerm(scope, callee.body);
           const statements = argument.statements.concat(
@@ -91,8 +98,7 @@ function serializeTerm(scope: Scope, term: Term): SerializedTerm {
           );
           return {
             statements,
-            strict: body.strict,
-            expression: body.expression,
+            term: body.term,
           };
         });
       } else {
@@ -101,10 +107,10 @@ function serializeTerm(scope: Scope, term: Term): SerializedTerm {
         // If the callee needs to be evaluated strictly and the argument adds
         // some statements, then we need to hoist the callee expression above
         // the argument statements.
-        if (callee.strict && !argument.statements.isEmpty()) {
+        if (callee.term.strict && !argument.statements.isEmpty()) {
           const variable = scope.newInternalVariable();
           const statement = t.variableDeclaration('const', [
-            t.variableDeclarator(variable, callee.expression),
+            t.variableDeclarator(variable, callee.term.expression),
           ]);
           const statements = callee.statements.concat(
             statement,
@@ -112,16 +118,22 @@ function serializeTerm(scope: Scope, term: Term): SerializedTerm {
           );
           return {
             statements,
-            strict: true,
-            expression: t.callExpression(variable, [argument.expression]),
+            term: {
+              strict: true,
+              expression: t.callExpression(variable, [
+                argument.term.expression,
+              ]),
+            },
           };
         } else {
           return {
             statements: callee.statements.concat(argument.statements),
-            strict: true,
-            expression: t.callExpression(callee.expression, [
-              argument.expression,
-            ]),
+            term: {
+              strict: true,
+              expression: t.callExpression(callee.term.expression, [
+                argument.term.expression,
+              ]),
+            },
           };
         }
       }
@@ -143,41 +155,45 @@ function serializeTerm(scope: Scope, term: Term): SerializedTerm {
       if (
         !left.statements.isEmpty() ||
         !right.statements.isEmpty() ||
-        left.expression === undefined ||
-        right.expression === undefined
+        left.term === undefined ||
+        right.term === undefined
       ) {
         const statements = test.statements.concat(
           t.variableDeclaration('let', [t.variableDeclarator(phi)]),
           t.ifStatement(
-            test.expression,
+            test.term.expression,
             t.blockStatement(
-              (left.expression === undefined
+              (left.term === undefined
                 ? left.statements
-                : left.statements.concat(out(left.expression))
+                : left.statements.concat(out(left.term.expression))
               ).toArray(),
             ),
             t.blockStatement(
-              (right.expression === undefined
+              (right.term === undefined
                 ? right.statements
-                : right.statements.concat(out(right.expression))
+                : right.statements.concat(out(right.term.expression))
               ).toArray(),
             ),
           ),
         );
         return {
           statements,
-          strict: false,
-          expression: phi,
+          term: {
+            strict: false,
+            expression: phi,
+          },
         };
       } else {
         return {
           statements: test.statements,
-          strict: test.strict || left.strict || right.strict,
-          expression: t.conditionalExpression(
-            test.expression,
-            left.expression,
-            right.expression,
-          ),
+          term: {
+            strict: test.term.strict || left.term.strict || right.term.strict,
+            expression: t.conditionalExpression(
+              test.term.expression,
+              left.term.expression,
+              right.term.expression,
+            ),
+          },
         };
       }
     }
@@ -195,7 +211,6 @@ function serializeTerm(scope: Scope, term: Term): SerializedTerm {
             return input.expression;
           });
           return {
-            statements: Immutable.List(),
             strict,
             expression: term.serializers.js(serializeInputs),
           };
@@ -216,8 +231,7 @@ function serializeTermWithStatementOutput(
   out: (expression: t.Expression) => t.Statement,
 ): {
   readonly statements: Immutable.Iterable<number, t.Statement>;
-  readonly strict: boolean;
-  readonly expression: t.Expression | undefined;
+  readonly term: SerializedTerm | undefined;
 } {
   // Special case bindings. The body of a binding should be serialized with our
   // custom statement output function.
@@ -229,7 +243,7 @@ function serializeTermWithStatementOutput(
     const argument = serializeTerm(scope, term.argument);
     return scope.binding(callee.parameter, parameter => {
       const bindingStatement = t.variableDeclaration('const', [
-        t.variableDeclarator(parameter, argument.expression),
+        t.variableDeclarator(parameter, argument.term.expression),
       ]);
       const body = serializeTermWithStatementOutput(scope, callee.body, out);
       const statements = argument.statements.concat(
@@ -238,8 +252,7 @@ function serializeTermWithStatementOutput(
       );
       return {
         statements,
-        strict: body.strict,
-        expression: body.expression,
+        term: body.term,
       };
     });
   }
@@ -257,55 +270,55 @@ function serializeTermWithStatementOutput(
     if (
       !left.statements.isEmpty() ||
       !right.statements.isEmpty() ||
-      left.expression === undefined ||
-      right.expression === undefined
+      left.term === undefined ||
+      right.term === undefined
     ) {
       const statements = test.statements.concat(
         t.ifStatement(
-          test.expression,
+          test.term.expression,
           t.blockStatement(
-            (left.expression === undefined
+            (left.term === undefined
               ? left.statements
-              : left.statements.concat(out(left.expression))
+              : left.statements.concat(out(left.term.expression))
             ).toArray(),
           ),
           t.blockStatement(
-            (right.expression === undefined
+            (right.term === undefined
               ? right.statements
-              : right.statements.concat(out(right.expression))
+              : right.statements.concat(out(right.term.expression))
             ).toArray(),
           ),
         ),
       );
       return {
         statements,
-        strict: false,
-        expression: undefined,
+        term: undefined,
       };
     } else {
       return {
         statements: test.statements,
-        strict: test.strict || left.strict || right.strict,
-        expression: t.conditionalExpression(
-          test.expression,
-          left.expression,
-          right.expression,
-        ),
+        term: {
+          strict: test.term.strict || left.term.strict || right.term.strict,
+          expression: t.conditionalExpression(
+            test.term.expression,
+            left.term.expression,
+            right.term.expression,
+          ),
+        },
       };
     }
   }
 
-  const {statements, strict, expression} = serializeTerm(scope, term);
-  return {statements, strict, expression};
+  return serializeTerm(scope, term);
 }
 
 /**
  * Serializes a lambda calculus term to a JavaScript program.
  */
 export function serialize(term: Term): t.Program {
-  const {statements, expression} = serializeTerm(new Scope(), term);
-  const programStatements = statements.toArray();
-  programStatements.push(t.expressionStatement(expression));
+  const result = serializeTerm(new Scope(), term);
+  const programStatements = result.statements.toArray();
+  programStatements.push(t.expressionStatement(result.term.expression));
   return t.program(programStatements);
 }
 
@@ -316,43 +329,44 @@ export function serialize(term: Term): t.Program {
  */
 function combine(
   scope: Scope,
-  terms: ReadonlyArray<SerializedTerm>,
-  combiner: (
-    expressions: ReadonlyArray<{strict: boolean; expression: t.Expression}>,
-  ) => SerializedTerm,
-): SerializedTerm {
+  results: ReadonlyArray<{
+    readonly statements: Immutable.Iterable<number, t.Statement>;
+    readonly term: SerializedTerm;
+  }>,
+  combiner: (expressions: ReadonlyArray<SerializedTerm>) => SerializedTerm,
+): {
+  readonly statements: Immutable.Iterable<number, t.Statement>;
+  readonly term: SerializedTerm;
+} {
   // Create the initial variables we will be modifying.
   let statements: Immutable.Iterable<number, t.Statement> = Immutable.List();
-  const expressions = Array(terms.length);
+  const terms = Array(results.length);
   // Iterate through the results we were provided backwards. This way we can
   // detect if there are statements _after_ the position of a strict expression.
   // If there are then we need to hoist the expression into a statement.
-  for (let i = terms.length - 1; i >= 0; i--) {
-    const result = terms[i];
+  for (let i = results.length - 1; i >= 0; i--) {
+    const result = results[i];
     // If our result expression is strictly evaluated and there are some
     // statements evaluated after our strict expression then we need to take
     // care to evaluate our expression in the proper order. So we hoist our
     // strict expression into a variable declaration so that it evaluates after
     // its own statements and before the other statements. We then use a
     // temporary identifier for the hoisted expression.
-    if (result.strict && !statements.isEmpty()) {
+    if (result.term.strict && !statements.isEmpty()) {
       const identifier = scope.newInternalVariable();
-      expressions[i] = {strict: false, expression: identifier};
+      terms[i] = {strict: false, expression: identifier};
       const bindingStatement = t.variableDeclaration('const', [
-        t.variableDeclarator(identifier, result.expression),
+        t.variableDeclarator(identifier, result.term.expression),
       ]);
       statements = result.statements.concat(bindingStatement, statements);
     } else {
       // Add our expression to our array and prepend our statements to the list.
-      expressions[i] = {strict: result.strict, expression: result.expression};
+      terms[i] = result.term;
       statements = result.statements.concat(statements);
     }
   }
-  const result = combiner(expressions);
-  statements = statements.concat(result.statements);
   return {
     statements,
-    strict: result.strict,
-    expression: result.expression,
+    term: combiner(terms),
   };
 }
