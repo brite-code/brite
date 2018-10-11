@@ -95,8 +95,9 @@ function parseUnwrappedTerm(
     return term;
   }
 
-  // Parse a variable.
   const step = tokens.peek();
+
+  // Parse a variable.
   if (!step.done && step.value.type === TokenType.Identifier) {
     tokens.next();
     const variableDepth = variables.get(step.value.data);
@@ -104,6 +105,15 @@ function parseUnwrappedTerm(
       throw new Error(`Could not find variable "${step.value.data}".`);
     }
     return variable(depth - variableDepth + 1);
+  }
+
+  // Parse a variable in index annotation.
+  if (!step.done && step.value.type === TokenType.Index) {
+    tokens.next();
+    if (step.value.data > depth || step.value.data <= 0) {
+      throw new Error(`Index out of bounds: 0 < ${step.value.data} < ${depth}`);
+    }
+    return variable(step.value.data);
   }
 
   // Otherwise we couldn’t parse any unwrapped terms.
@@ -189,6 +199,7 @@ const enum TokenType {
   Let = 'let',
   In = 'in',
   Identifier = 'identifier',
+  Index = 'index',
 }
 
 /**
@@ -196,18 +207,20 @@ const enum TokenType {
  * associated with a value. Like `TokenType.Identifier`.
  */
 type Token =
-  | {type: TokenType.Lambda}
-  | {type: TokenType.Dot}
-  | {type: TokenType.ParenLeft}
-  | {type: TokenType.ParenRight}
-  | {type: TokenType.Equals}
-  | {type: TokenType.Let}
-  | {type: TokenType.In}
-  | {type: TokenType.Identifier; data: string};
+  | {readonly type: TokenType.Lambda}
+  | {readonly type: TokenType.Dot}
+  | {readonly type: TokenType.ParenLeft}
+  | {readonly type: TokenType.ParenRight}
+  | {readonly type: TokenType.Equals}
+  | {readonly type: TokenType.Let}
+  | {readonly type: TokenType.In}
+  | {readonly type: TokenType.Identifier; readonly data: string}
+  | {readonly type: TokenType.Index; readonly data: number};
 
 const identifierStart = /\w/;
 const identifierContinue = /[\w\d]/;
 const whitespace = /\s/;
+const indexContinue = /\d/;
 
 /**
  * Takes a source iterator of characters and returns an iterator of tokens. The
@@ -216,6 +229,7 @@ const whitespace = /\s/;
 function* tokenize(source: Iterator<string>): IterableIterator<Token> {
   let step = source.next();
   let identifier: string | undefined = undefined;
+  let index: string | undefined = undefined;
   while (true) {
     // If an identifier has been started either add to the identifier or yield
     // the completed identifier or keyword.
@@ -235,6 +249,20 @@ function* tokenize(source: Iterator<string>): IterableIterator<Token> {
         identifier = undefined;
       }
     }
+    if (index !== undefined) {
+      if (!step.done && indexContinue.test(step.value)) {
+        index += step.value;
+        step = source.next();
+        continue;
+      } else {
+        const actualIndex = parseInt(index, 10);
+        if (isNaN(actualIndex)) {
+          throw new Error(`Invalid index syntax: "%${index}"`);
+        }
+        yield {type: TokenType.Index, data: actualIndex};
+        index = undefined;
+      }
+    }
     // If we are done then break out of the loop!
     if (step.done) {
       break;
@@ -249,6 +277,9 @@ function* tokenize(source: Iterator<string>): IterableIterator<Token> {
       yield {type: TokenType.ParenRight};
     } else if (step.value === '=') {
       yield {type: TokenType.Equals};
+    } else if (step.value === '^') {
+      // Start an index with this step.
+      index = '';
     } else if (identifierStart.test(step.value)) {
       // Start an identifier with this step.
       identifier = step.value;

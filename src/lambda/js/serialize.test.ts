@@ -35,6 +35,26 @@ import {serialize} from './serialize';
   ],
 
   [
+    'let x = (λx.x) in let x = (λx.x) in x',
+    'const x = x => x;\n\nconst x$2 = x$2 => x$2;\n\nx$2;',
+  ],
+
+  [
+    'let x = (λx.x) in let x = (λx.^2) in x',
+    'const x = x => x;\n\nconst x$2 = x$2 => x;\n\nx$2;',
+  ],
+
+  [
+    'let x = (λy.y) in let x = (λy.y) in ^1',
+    'const x = y => y;\n\nconst x$2 = y => y;\n\nx$2;',
+  ],
+
+  [
+    'let x = (λy.y) in let x = (λy.y) in ^2',
+    'const x = y => y;\n\nconst x$2 = y => y;\n\nx;',
+  ],
+
+  [
     'let f = λx.x in f (let y = f f f in y) (f f)',
     'const f = x => x;\n\nconst y = f(f)(f);\nf(y)(f(f));',
   ],
