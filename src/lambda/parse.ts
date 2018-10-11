@@ -1,11 +1,4 @@
-import {
-  Identifier,
-  Term,
-  abstraction,
-  application,
-  binding,
-  variable,
-} from './term';
+import {Term, abstraction, application, binding, variable} from './term';
 
 /**
  * Parses a lambda calculus term.
@@ -14,50 +7,68 @@ import {
  * - `(λx.y)` → `abstraction(x, y)`
  * - `(x y)` → `application(x, y)`
  * - `let x = y in z` → `binding(x, y, z)`
+ *
+ * The term may have free variables which we are told are in scope by the
+ * `scope` array. This array contains the names of available variables in
+ * reverse order of which they were introduced.
  */
-export function parse<T>(source: string): Term<T> {
-  const iterator = peekable(tokenize(source[Symbol.iterator]()));
-  const term = parseTerm<T>(iterator);
-  const step = iterator.next();
+export function parse(source: string, scope: ReadonlyArray<string> = []): Term {
+  // Calculate the initial depth and initial variables map for our program.
+  const depth = scope.length;
+  const variables = new Map(
+    scope.map((variable, i): [string, number] => [variable, scope.length - i]),
+  );
+
+  // Parse the program.
+  const tokens = peekable(tokenize(source[Symbol.iterator]()));
+  const term = parseTerm(tokens, depth, variables);
+
+  // Make sure there are no remaining tokens.
+  const step = tokens.next();
   if (!step.done) {
     throw new Error(`Unexpected token "${step.value.type}" expected ending`);
   }
+
   return term;
 }
 
 /**
  * Does the actual lambda calculus parsing on an iterator.
  */
-function parseTerm<T>(iterator: PeekableIterator<Token>): Term<T> {
+function parseTerm(
+  tokens: PeekableIterator<Token>,
+  depth: number,
+  variables: Map<string, number>,
+): Term {
   // Parse an abstraction.
-  if (tryParseToken(iterator, TokenType.Lambda)) {
-    const parameter = parseIdentifier(iterator);
-    parseToken(iterator, TokenType.Dot);
-    const body = parseTerm<T>(iterator);
+  if (tryParseToken(tokens, TokenType.Lambda)) {
+    const parameter = parseIdentifier(tokens);
+    parseToken(tokens, TokenType.Dot);
+    const body = parseAbstractionBodyTerm(tokens, parameter, depth, variables);
     return abstraction(parameter, body);
   }
 
   // Parse a binding
-  if (tryParseToken(iterator, TokenType.Let)) {
-    const name = parseIdentifier(iterator);
-    parseToken(iterator, TokenType.Equals);
-    const value = parseTerm<T>(iterator);
-    parseToken(iterator, TokenType.In);
-    const body = parseTerm<T>(iterator);
-    return binding<T>(name, value, body);
+  if (tryParseToken(tokens, TokenType.Let)) {
+    const name = parseIdentifier(tokens);
+    parseToken(tokens, TokenType.Equals);
+    const value = parseTerm(tokens, depth, variables);
+    parseToken(tokens, TokenType.In);
+    const body = parseAbstractionBodyTerm(tokens, name, depth, variables);
+    return binding(name, value, body);
   }
 
   // Parses an unwrapped term.
-  let term = parseUnwrappedTerm<T>(iterator);
+  let term = parseUnwrappedTerm(tokens, depth, variables);
   if (term === undefined) {
-    const step = iterator.next();
+    const step = tokens.next();
     if (step.done) throw new Error('Unexpected ending expected term');
     throw new Error(`Unexpected token "${step.value.type}" expected term`);
   }
 
   // Parse as many application arguments as we can.
   while (true) {
-    const argument = parseUnwrappedTerm<T>(iterator);
+    const argument = parseUnwrappedTerm(tokens, depth, variables);
     if (argument === undefined) {
       break;
     } else {
@@ -72,21 +83,27 @@ function parseTerm<T>(iterator: PeekableIterator<Token>): Term<T> {
  * Parses an unwrapped term. Either a variable or a wrapped term. Returns
  * undefined if a term could not be parsed.
  */
-function parseUnwrappedTerm<T>(
-  iterator: PeekableIterator<Token>,
-): Term<T> | undefined {
+function parseUnwrappedTerm(
+  tokens: PeekableIterator<Token>,
+  depth: number,
+  variables: Map<string, number>,
+): Term | undefined {
   // Parse a term inside parentheses.
-  if (tryParseToken(iterator, TokenType.ParenLeft)) {
-    const term = parseTerm<T>(iterator);
-    parseToken(iterator, TokenType.ParenRight);
+  if (tryParseToken(tokens, TokenType.ParenLeft)) {
+    const term = parseTerm(tokens, depth, variables);
+    parseToken(tokens, TokenType.ParenRight);
     return term;
   }
 
   // Parse a variable.
-  const step = iterator.peek();
+  const step = tokens.peek();
   if (!step.done && step.value.type === TokenType.Identifier) {
-    iterator.next();
-    return variable(step.value.data);
+    tokens.next();
+    const variableDepth = variables.get(step.value.data);
+    if (variableDepth === undefined) {
+      throw new Error(`Could not find variable "${step.value.data}".`);
+    }
+    return variable(depth - variableDepth + 1);
   }
 
   // Otherwise we couldn’t parse any unwrapped terms.
@@ -94,10 +111,32 @@ function parseUnwrappedTerm<T>(
 }
 
 /**
+ * Parses the body of an abstraction while introducing the provided variable
+ * into scope.
+ */
+function parseAbstractionBodyTerm(
+  tokens: PeekableIterator<Token>,
+  parameter: string,
+  depth: number,
+  variables: Map<string, number>,
+): Term {
+  const newDepth = depth + 1;
+  const shadow = variables.get(parameter);
+  variables.set(parameter, newDepth);
+  const body = parseTerm(tokens, newDepth, variables);
+  if (shadow === undefined) {
+    variables.delete(parameter);
+  } else {
+    variables.set(parameter, shadow);
+  }
+  return body;
+}
+
+/**
  * Parses a token in the iterator and throws if it was not found.
  */
-function parseToken(iterator: PeekableIterator<Token>, token: TokenType) {
-  const step = iterator.next();
+function parseToken(tokens: PeekableIterator<Token>, token: TokenType) {
+  const step = tokens.next();
   if (step.done) {
     throw new Error(`Unexpected ending expected "${token}"`);
   }
@@ -113,20 +152,20 @@ function parseToken(iterator: PeekableIterator<Token>, token: TokenType) {
  * false if it was not.
  */
 function tryParseToken(
-  iterator: PeekableIterator<Token>,
+  tokens: PeekableIterator<Token>,
   token: TokenType,
 ): boolean {
-  const step = iterator.peek();
+  const step = tokens.peek();
   const found = !step.done && step.value.type === token;
-  if (found) iterator.next();
+  if (found) tokens.next();
   return found;
 }
 
 /**
  * Parses an identifier from the iterator. Throws if no identifier was found.
  */
-function parseIdentifier(iterator: PeekableIterator<Token>): Identifier {
-  const step = iterator.next();
+function parseIdentifier(tokens: PeekableIterator<Token>): string {
+  const step = tokens.next();
   if (step.done) {
     throw new Error('Unexpected ending expected identifier');
   }
@@ -164,7 +203,7 @@ type Token =
   | {type: TokenType.Equals}
   | {type: TokenType.Let}
   | {type: TokenType.In}
-  | {type: TokenType.Identifier; data: Identifier};
+  | {type: TokenType.Identifier; data: string};
 
 const identifierStart = /\w/;
 const identifierContinue = /[\w\d]/;
@@ -176,7 +215,7 @@ const whitespace = /\s/;
  */
 function* tokenize(source: Iterator<string>): IterableIterator<Token> {
   let step = source.next();
-  let identifier: Identifier | undefined = undefined;
+  let identifier: string | undefined = undefined;
   while (true) {
     // If an identifier has been started either add to the identifier or yield
     // the completed identifier or keyword.
@@ -225,8 +264,8 @@ function* tokenize(source: Iterator<string>): IterableIterator<Token> {
 /**
  * A peekable iterator allows you to peek the next item without consuming it.
  * Note that peekable iterators do not allow you to pass in a value with
- * `next()`. The interface of `PekableIterator<T>` is much more limited then the
- * interface of `Iterator<T>` to allow for peeking.
+ * `next()`. The interface of `PeekableIterator<T>` is much more limited then
+ * the interface of `Iterator<T>` to allow for peeking.
  */
 interface PeekableIterator<T> {
   next(): IteratorResult<T>;

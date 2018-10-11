@@ -1,123 +1,72 @@
 import * as t from '@babel/types';
 
-import {Identifier} from '../term';
+import {Binding} from '../term';
 
 /**
  * A stack of JavaScript scopes. Manages things like identifier collision.
  */
-export class ScopeStack {
-  /**
-   * The current stack of JavaScript scopes. Will always have at least
-   * one scope.
-   */
-  private readonly stack: Array<Scope> = [newScope()];
+export class Scope {
+  private readonly bindings: Array<t.Identifier> = [];
+  private readonly variables: Array<Map<string, number>> = [new Map()];
 
   /**
-   * Nests the call to `f` in a new scope.
+   * Executes the function in a new JavaScript block.
    */
-  nest<T>(f: () => T): T {
-    this.stack.push(newScope());
+  block<T>(f: () => T): T {
+    this.variables.push(new Map());
     const result = f();
-    this.stack.pop();
+    this.variables.pop();
     return result;
   }
 
   /**
-   * Declares a variable in our scope and returns an escaped, de-duplicated,
-   * JavaScript identifier.
+   * Executes the function with access to the provided binding.
    */
-  declareVariable(identifier: Identifier): t.Identifier {
-    const newIdentifier = this.createIdentifier(identifier);
-    this.currentScope().variables.set(identifier, {identifier: newIdentifier});
-    return newIdentifier;
+  binding<T>(binding: Binding, f: (variable: t.Identifier) => T): T {
+    const variable = this.newVariable(binding.name);
+    this.bindings.push(variable);
+    const result = f(variable);
+    this.bindings.pop();
+    return result;
   }
 
   /**
-   * Resolves a variable in our scope stack and returns its escaped identifier.
+   *
    */
-  resolveVariable(identifier: Identifier): t.Identifier {
-    for (let i = this.stack.length - 1; i >= 0; i--) {
-      const variable = this.stack[i].variables.get(identifier);
-      if (variable !== undefined) {
-        return variable.identifier;
+  resolve(index: number): t.Identifier {
+    return this.bindings[this.bindings.length - index]!; // tslint:disable-line no-non-null-assertion
+  }
+
+  /**
+   * Creates a new identifier for a variable in this scope based off the
+   * provided name.
+   */
+  newVariable(name: string): t.Identifier {
+    let count = 0;
+    for (let i = this.variables.length - 1; i >= 0; i--) {
+      const actualCount = this.variables[i].get(name);
+      if (actualCount !== undefined) {
+        count = actualCount;
+        break;
       }
     }
-    throw new Error(`Could not resolve variable "${identifier}"`);
+    this.variables[this.variables.length - 1].set(name, count + 1);
+    if (reservedWords.has(name)) {
+      name = `$${name}`;
+    }
+    if (count > 0 || name === '') {
+      return t.identifier(`${name}$${count + 1}`);
+    } else {
+      return t.identifier(name);
+    }
   }
 
   /**
-   * Creates an internal identifier. Internal identifiers are guaranteed to
-   * never collide with programmer defined identifiers. Identifiers are of the
-   * form: "_$\(name)\(dedupe)". These will never collide with programmer
-   * identifiers since the dollar sign (`$`) is not valid in Brite identifiers
-   * and a lone underscore (`_`) is not a valid Brite identifier.
+   * Creates a new internal variable.
    */
-  createInternalIdentifier(name: string): t.Identifier {
-    let identifier = `_$${name}`;
-    const dedupe = this.identifierDedupeNumber(identifier);
-    if (dedupe !== 1 || name === '') identifier += dedupe;
-    return t.identifier(identifier);
+  newInternalVariable(): t.Identifier {
+    return this.newVariable('');
   }
-
-  /**
-   * Returns the current scope. One is always guaranteed to exist.
-   */
-  private currentScope(): Scope {
-    return this.stack[this.stack.length - 1]!; // tslint:disable-line no-non-null-assertion
-  }
-
-  /**
-   * It is valid to use an identifier multiple times in the same Brite scope.
-   * However, this is not valid in JavaScript. So we maintain a count of every
-   * time an identifier is used in our JavaScript scope so that we can
-   * deduplicate identifiers.
-   *
-   * Also increments the dedupe number for this identifier.
-   */
-  private identifierDedupeNumber(identifier: string): number {
-    const scope = this.currentScope();
-    const dedupe = (scope.identifierDedupe.get(identifier) || 0) + 1;
-    scope.identifierDedupe.set(identifier, dedupe);
-    return dedupe;
-  }
-
-  /**
-   * Creates an identifier for a variable declared in the programmer’s source
-   * code. Of the form: "\(name)$\(dedupe)". The dollar sign (`$`) is a valid
-   * JavaScript identifier character, but not a valid Brite identifier
-   * character. So we can use it to deduplicate identifiers.
-   */
-  private createIdentifier(name: string): t.Identifier {
-    let identifier = !reservedWords.has(name) ? name : `${name}_`;
-    const dedupe = this.identifierDedupeNumber(name);
-    if (dedupe !== 1) identifier += `$${dedupe}`;
-    return t.identifier(identifier);
-  }
-}
-
-/**
- * A single JavaScript scope.
- */
-type Scope = {
-  identifierDedupe: Map<Identifier, number>;
-  variables: Map<Identifier, Variable>;
-};
-
-/**
- * A single JavaScript variable.
- */
-type Variable = {
-  identifier: t.Identifier;
-};
-
-/**
- * Creates a new empty `Scope`.
- */
-function newScope(): Scope {
-  return {
-    identifierDedupe: new Map(),
-    variables: new Map(),
-  };
 }
 
 /**

@@ -1,9 +1,4 @@
 /**
- * An identifier in a lambda calculus term.
- */
-export type Identifier = string;
-
-/**
  * The type of a term. We want to keep this private to the `lambda` directory.
  */
 export const enum TermType {
@@ -14,34 +9,35 @@ export const enum TermType {
 }
 
 /**
- * A [lambda calculus][1] term.
- *
- * Parameterized by the native serialization result type. Since one may embed
- * native terms with custom serialization rules.
+ * A [lambda calculus][1] term encoded with [De Bruijn indexing][2].
  *
  * [1]: https://en.wikipedia.org/wiki/Lambda_calculus
+ * [2]: https://en.wikipedia.org/wiki/De_Bruijn_index
  */
-export type Term<T> =
-  | VariableTerm
-  | AbstractionTerm<T>
-  | ApplicationTerm<T>
-  | NativeTerm<T>;
+export type Term = VariableTerm | AbstractionTerm | ApplicationTerm;
 
 /**
  * A character or string representing a parameter or mathematical/logical value.
  */
 export type VariableTerm = {
   readonly type: TermType.Variable;
-  readonly name: Identifier;
+  readonly index: number;
 };
 
 /**
  * Function definition. The variable becomes bound in the term.
  */
-export type AbstractionTerm<T> = {
+export type AbstractionTerm = {
   readonly type: TermType.Abstraction;
-  readonly parameter: Identifier;
-  readonly body: Term<T>;
+  readonly parameter: Binding;
+  readonly body: Term;
+};
+
+/**
+ * Information about a variable binding.
+ */
+export type Binding = {
+  readonly name: string;
 };
 
 /**
@@ -50,44 +46,29 @@ export type AbstractionTerm<T> = {
  * Applications are evaluated strictly. First evaluate the callee and then
  * the argument.
  */
-export type ApplicationTerm<T> = {
+export type ApplicationTerm = {
   readonly type: TermType.Application;
-  readonly callee: Term<T>;
-  readonly argument: Term<T>;
-};
-
-/**
- * A native term serializes some custom native code for the target platform.
- *
- * It takes an array of input terms. Corresponding serialized values for these
- * terms are provided to the `serialize()` function.
- */
-export type NativeTerm<T> = {
-  readonly type: TermType.Native;
-  readonly inputs: ReadonlyArray<Term<T>>;
-  readonly serialize: (inputs: ReadonlyArray<T>) => T;
+  readonly callee: Term;
+  readonly argument: Term;
 };
 
 /**
  * Creates a variable term.
  */
-export function variable(name: Identifier): VariableTerm {
+export function variable(index: number): VariableTerm {
   return {
     type: TermType.Variable,
-    name,
+    index,
   };
 }
 
 /**
  * Creates an abstraction term.
  */
-export function abstraction<T>(
-  parameter: Identifier,
-  body: Term<T>,
-): AbstractionTerm<T> {
+export function abstraction(parameter: string, body: Term): AbstractionTerm {
   return {
     type: TermType.Abstraction,
-    parameter,
+    parameter: {name: parameter},
     body,
   };
 }
@@ -95,10 +76,7 @@ export function abstraction<T>(
 /**
  * Creates an application term.
  */
-export function application<T>(
-  callee: Term<T>,
-  argument: Term<T>,
-): ApplicationTerm<T> {
+export function application(callee: Term, argument: Term): ApplicationTerm {
   return {
     type: TermType.Application,
     callee,
@@ -115,78 +93,6 @@ export function application<T>(
  *
  * Binding terms are syntax sugar over the pure lambda calculus.
  */
-export function binding<T>(
-  name: Identifier,
-  value: Term<T>,
-  body: Term<T>,
-): Term<T> {
+export function binding(name: string, value: Term, body: Term): Term {
   return application(abstraction(name, body), value);
 }
-
-/**
- * Creates a native term.
- *
- * There is no such equivalent in lambda calculus. This is an extension for our
- * language to be practically useful.
- */
-export function native<T>(
-  inputs: ReadonlyArray<Term<T>>,
-  serialize: (inputs: ReadonlyArray<T>) => T,
-): NativeTerm<T> {
-  return {
-    type: TermType.Native,
-    inputs,
-    serialize,
-  };
-}
-
-/**
- * Recursively finds all the free variables in `term`. If `term` has a free
- * variable that does not exist in the `bound` set then it is added to the
- * `free` set.
- */
-function getFreeVariables<T>(
-  term: Term<T>,
-  bound: Set<Identifier>,
-  free: Set<Identifier>,
-) {
-  switch (term.type) {
-    case TermType.Variable: {
-      if (!bound.has(term.name)) free.add(term.name);
-      break;
-    }
-    case TermType.Abstraction: {
-      if (!bound.has(term.parameter)) {
-        bound.add(term.parameter);
-        getFreeVariables(term.body, bound, free);
-        bound.delete(term.parameter);
-      } else {
-        getFreeVariables(term.body, bound, free);
-      }
-      break;
-    }
-    case TermType.Application: {
-      getFreeVariables(term.callee, bound, free);
-      getFreeVariables(term.argument, bound, free);
-      break;
-    }
-    case TermType.Native: {
-      for (const variable of term.inputs) {
-        getFreeVariables(variable, bound, free);
-      }
-      break;
-    }
-  }
-}
-
-/**
- * Returns all the free variables in the provided term.
- */
-function getFreeVariablesStart<T>(term: Term<T>): ReadonlySet<Identifier> {
-  const bound = new Set();
-  const free = new Set();
-  getFreeVariables(term, bound, free);
-  return free;
-}
-
-export {getFreeVariablesStart as getFreeVariables};

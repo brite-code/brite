@@ -1,14 +1,7 @@
 import * as t from '@babel/types';
 
 import {parse} from '../parse';
-import {
-  Term,
-  abstraction,
-  binding,
-  getFreeVariables,
-  native,
-  variable,
-} from '../term';
+import {Term, abstraction, native, variable} from '../term';
 
 type JsTerm = Term<t.Expression>;
 
@@ -55,7 +48,9 @@ function initNativeVariables(): Map<string, JsTerm> {
   // Constant function
   variables.set('const', parse('λx.λy.x'));
 
-  // Fix-point combinator (Z-combinator) since we are strictly evaluated.
+  // Fix-point combinator (Z-combinator). We are strictly evaluated so we can’t
+  // use the standard fix-point combinator.
+  //
   // https://en.wikipedia.org/wiki/Fixed-point_combinator
   variables.set('fix', parse('λf.(λx.f (λv.x x v)) (λx.f (λv.x x v))'));
 
