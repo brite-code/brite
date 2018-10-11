@@ -12,11 +12,16 @@ import {Term, abstraction, application, binding, variable} from './term';
  * `scope` array. This array contains the names of available variables in
  * reverse order of which they were introduced.
  */
-export function parse(source: string, scope: ReadonlyArray<string> = []): Term {
+export function parse(
+  source: string,
+  boundVariables: ReadonlyArray<string> = [],
+): Term {
   // Calculate the initial depth and initial variables map for our program.
-  const depth = scope.length;
+  const depth = boundVariables.length;
   const variables = new Map(
-    scope.map((variable, i): [string, number] => [variable, scope.length - i]),
+    boundVariables.map(
+      (variable, i): [string, number] => [variable, boundVariables.length - i],
+    ),
   );
 
   // Parse the program.
