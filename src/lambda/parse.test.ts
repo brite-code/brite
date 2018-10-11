@@ -32,6 +32,8 @@ const cases: ReadonlyArray<[string, Term]> = [
   ['λx.^1', f('x', v(1))],
   ['λx.λx.^1', f('x', f('x', v(1)))],
   ['λx.λx.^2', f('x', f('x', v(2)))],
+  ['λx y.x', f('x', f('y', v(2)))],
+  ['λx y.y', f('x', f('y', v(1)))],
 ];
 
 cases.forEach(([input, output]) => {

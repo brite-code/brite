@@ -1,3 +1,5 @@
+import * as Immutable from 'immutable';
+
 import {Term, abstraction, application, binding, variable} from './term';
 
 /**
@@ -18,7 +20,7 @@ export function parse(
 ): Term {
   // Calculate the initial depth and initial variables map for our program.
   const depth = boundVariables.length;
-  const variables = new Map(
+  const variables = Immutable.Map<string, number>(
     boundVariables.map(
       (variable, i): [string, number] => [variable, boundVariables.length - i],
     ),
@@ -43,14 +45,27 @@ export function parse(
 function parseTerm(
   tokens: PeekableIterator<Token>,
   depth: number,
-  variables: Map<string, number>,
+  variables: Immutable.Map<string, number>,
 ): Term {
   // Parse an abstraction.
   if (tryParseToken(tokens, TokenType.Lambda)) {
-    const parameter = parseIdentifier(tokens);
+    const firstParameter = parseIdentifier(tokens);
+    const parameters = [firstParameter];
+    let newDepth = depth + 1;
+    let newVariables = variables.set(firstParameter, newDepth);
+    while (true) {
+      const identifier = tryParseIdentifier(tokens);
+      if (identifier === undefined) break;
+      parameters.push(identifier);
+      newDepth = newDepth + 1;
+      newVariables = newVariables.set(identifier, newDepth);
+    }
     parseToken(tokens, TokenType.Dot);
-    const body = parseAbstractionBodyTerm(tokens, parameter, depth, variables);
-    return abstraction(parameter, body);
+    const body = parseTerm(tokens, newDepth, newVariables);
+    return parameters.reduceRight(
+      (body, parameter) => abstraction(parameter, body),
+      body,
+    );
   }
 
   // Parse a binding
@@ -59,7 +74,9 @@ function parseTerm(
     parseToken(tokens, TokenType.Equals);
     const value = parseTerm(tokens, depth, variables);
     parseToken(tokens, TokenType.In);
-    const body = parseAbstractionBodyTerm(tokens, name, depth, variables);
+    const newDepth = depth + 1;
+    const newVariables = variables.set(name, newDepth);
+    const body = parseTerm(tokens, newDepth, newVariables);
     return binding(name, value, body);
   }
 
@@ -91,7 +108,7 @@ function parseTerm(
 function parseUnwrappedTerm(
   tokens: PeekableIterator<Token>,
   depth: number,
-  variables: Map<string, number>,
+  variables: Immutable.Map<string, number>,
 ): Term | undefined {
   // Parse a term inside parentheses.
   if (tryParseToken(tokens, TokenType.ParenLeft)) {
@@ -125,27 +142,21 @@ function parseUnwrappedTerm(
   return undefined;
 }
 
-/**
- * Parses the body of an abstraction while introducing the provided variable
- * into scope.
- */
-function parseAbstractionBodyTerm(
-  tokens: PeekableIterator<Token>,
-  parameter: string,
-  depth: number,
-  variables: Map<string, number>,
-): Term {
-  const newDepth = depth + 1;
-  const shadow = variables.get(parameter);
-  variables.set(parameter, newDepth);
-  const body = parseTerm(tokens, newDepth, variables);
-  if (shadow === undefined) {
-    variables.delete(parameter);
-  } else {
-    variables.set(parameter, shadow);
-  }
-  return body;
-}
+// /**
+//  * Parses the body of an abstraction while introducing the provided variable
+//  * into scope.
+//  */
+// function parseAbstractionBodyTerm(
+//   tokens: PeekableIterator<Token>,
+//   parameter: string,
+//   depth: number,
+//   variables: Immutable.Map<string, number>,
+// ): Term {
+//   const newDepth = depth + 1;
+//   const newVariables = variables.set(parameter, newDepth);
+//   const body = parseTerm(tokens, newDepth, newVariables);
+//   return body;
+// }
 
 /**
  * Parses a token in the iterator and throws if it was not found.
@@ -189,6 +200,20 @@ function parseIdentifier(tokens: PeekableIterator<Token>): string {
       `Unexpected token "${step.value.type}" expected identifier`,
     );
   }
+  return step.value.data;
+}
+
+/**
+ * Tries to parse an identifier from the iterator. Returns nothing if an
+ * identifier was not found.
+ */
+function tryParseIdentifier(
+  tokens: PeekableIterator<Token>,
+): string | undefined {
+  const step = tokens.peek();
+  if (step.done) return undefined;
+  if (step.value.type !== TokenType.Identifier) return undefined;
+  tokens.next();
   return step.value.data;
 }
 

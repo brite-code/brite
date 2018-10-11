@@ -25,7 +25,7 @@ const prelude = new Map<string, Term>();
 prelude.set('id', parse('λx.x'));
 
 // Constant function
-prelude.set('const', parse('λx.λy.x'));
+prelude.set('const', parse('λx y.x'));
 
 // Fix-point combinator (Z-combinator). We are strictly evaluated so we can’t
 // use the standard fix-point combinator.
