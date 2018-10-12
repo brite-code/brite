@@ -32,3 +32,20 @@ export type PolymorphicType =
       readonly boundType: 'flexible' | 'rigid';
       readonly body: PolymorphicType;
     };
+
+export const BooleanType: MonomorphicType = {
+  kind: 'Constant',
+  constant: {kind: 'Boolean'},
+};
+
+export const NumberType: MonomorphicType = {
+  kind: 'Constant',
+  constant: {kind: 'Number'},
+};
+
+export const StringType: MonomorphicType = {
+  kind: 'Constant',
+  constant: {kind: 'String'},
+};
+
+export const BottomType: PolymorphicType = {kind: 'Bottom'};

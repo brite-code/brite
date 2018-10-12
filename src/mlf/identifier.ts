@@ -1,4 +1,4 @@
-const opaque = Symbol('Identifier');
+const opaque = Symbol();
 
 export type Identifier = string & typeof opaque;
 
