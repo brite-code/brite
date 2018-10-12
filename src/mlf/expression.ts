@@ -21,7 +21,7 @@ export type ExpressionDescription<Error, Type> =
       readonly constant: Constant;
     }
   | {
-      readonly kind: 'Abstraction';
+      readonly kind: 'Function';
       readonly parameter: Identifier;
       readonly body: Expression<Error, Type>;
     }
