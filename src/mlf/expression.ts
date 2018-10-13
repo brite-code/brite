@@ -1,4 +1,4 @@
-import {ReportedDiagnostic} from './diagnostics';
+import {Reported} from './diagnostics';
 import {Identifier} from './identifier';
 
 export type Constant =
@@ -6,12 +6,12 @@ export type Constant =
   | {readonly kind: 'Number'; readonly value: number}
   | {readonly kind: 'String'; readonly value: string};
 
-export type Expression<Error = never, Type = undefined> = {
+export type Expression<Diagnostic = never, Type = undefined> = {
   readonly type: Type;
-  readonly description: ExpressionDescription<Error, Type>;
+  readonly description: ExpressionDescription<Diagnostic, Type>;
 };
 
-export type ExpressionDescription<Error, Type> =
+export type ExpressionDescription<Diagnostic, Type> =
   | {
       readonly kind: 'Variable';
       readonly identifier: Identifier;
@@ -23,20 +23,20 @@ export type ExpressionDescription<Error, Type> =
   | {
       readonly kind: 'Function';
       readonly parameter: Identifier;
-      readonly body: Expression<Error, Type>;
+      readonly body: Expression<Diagnostic, Type>;
     }
   | {
       readonly kind: 'Application';
-      readonly callee: Expression<Error, Type>;
-      readonly argument: Expression<Error, Type>;
+      readonly callee: Expression<Diagnostic, Type>;
+      readonly argument: Expression<Diagnostic, Type>;
     }
   | {
       readonly kind: 'Binding';
       readonly binding: Identifier;
-      readonly value: Expression<Error, Type>;
-      readonly body: Expression<Error, Type>;
+      readonly value: Expression<Diagnostic, Type>;
+      readonly body: Expression<Diagnostic, Type>;
     }
   | {
       readonly kind: 'Error';
-      readonly error: ReportedDiagnostic<Error>;
+      readonly error: Reported<Diagnostic>;
     };

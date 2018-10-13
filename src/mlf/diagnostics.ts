@@ -1,15 +1,12 @@
 const opaque = Symbol();
 
-export type ReportedDiagnostic<T> = T & typeof opaque;
+export type Reported<T> = T & typeof opaque;
 
-export class Diagnostics {
-  static report<T>(
-    diagnostics: Diagnostics,
-    diagnostic: T
-  ): ReportedDiagnostic<T> {
-    diagnostics.reported.push(diagnostic);
-    return diagnostic as ReportedDiagnostic<T>;
+export class Diagnostics<T> {
+  private readonly reported: Array<T> = [];
+
+  report(diagnostic: T): Reported<T> {
+    this.reported.push(diagnostic);
+    return diagnostic as Reported<T>;
   }
-
-  private readonly reported: Array<unknown> = [];
 }

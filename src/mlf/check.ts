@@ -1,34 +1,37 @@
+import * as Immutable from 'immutable';
+
 import {Diagnostics} from './diagnostics';
-import {Context, Prefix} from './environment';
 import {Expression} from './expression';
 import {Identifier} from './identifier';
 import {
   BooleanType,
   BottomType,
   NumberType,
-  PolymorphicType,
+  Prefix,
   StringType,
+  Type,
 } from './type';
 
-export function check<Error>(
-  diagnostics: Diagnostics,
+export function check<Diagnostic>(
+  diagnostics: Diagnostics<CheckError<Diagnostic>>,
   prefix: Prefix,
   context: Context,
-  expression: Expression<Error>
-): Expression<Error | CheckError, PolymorphicType> {
+  expression: Expression<Diagnostic>
+): Expression<CheckError<Diagnostic>, Type> {
   switch (expression.description.kind) {
     case 'Variable': {
-      const identifier = expression.description.identifier;
-      const type = context.bindings.get(identifier);
+      const variable = expression.description;
+      const identifier = variable.identifier;
+      const type = context.get(identifier);
       if (type !== undefined) {
-        return {type, description: expression.description};
+        return {type, description: variable};
       } else {
         return {
           type: BottomType,
           description: {
             kind: 'Error',
-            error: Diagnostics.report<CheckError>(diagnostics, {
-              kind: 'VariableUnbound',
+            error: diagnostics.report({
+              kind: 'UnboundVariable',
               identifier,
             }),
           },
@@ -50,13 +53,22 @@ export function check<Error>(
       }
     }
 
+    case 'Function': {
+      const function_ = expression.description;
+      return;
+    }
+
+    case 'Application': {
+      return;
+    }
+
     case 'Binding': {
       const binding = expression.description;
       const value = check(diagnostics, prefix, context, binding.value);
       const body = check(
         diagnostics,
         prefix,
-        {bindings: context.bindings.set(binding.binding, value.type)},
+        context.set(binding.binding, value.type),
         binding.body
       );
       return {
@@ -65,13 +77,34 @@ export function check<Error>(
       };
     }
 
+    case 'Error':
+      return {type: BottomType, description: expression.description};
+
     default:
       const never: never = expression.description;
       return never;
   }
 }
 
-export type CheckError = {
-  readonly kind: 'VariableUnbound';
-  readonly identifier: Identifier;
-};
+export class Context {
+  private readonly bindings: Immutable.Map<Identifier, Type>;
+
+  private constructor(bindings: Immutable.Map<Identifier, Type>) {
+    this.bindings = bindings;
+  }
+
+  get(identifier: Identifier): Type | undefined {
+    return this.bindings.get(identifier);
+  }
+
+  set(identifier: Identifier, type: Type): Context {
+    return new Context(this.bindings.set(identifier, type));
+  }
+}
+
+export type CheckError<T> =
+  | T
+  | {
+      readonly kind: 'UnboundVariable';
+      readonly identifier: Identifier;
+    };
