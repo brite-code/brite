@@ -12,12 +12,12 @@ import {
   Type,
 } from './type';
 
-export function check<Diagnostic>(
-  diagnostics: Diagnostics<CheckError<Diagnostic>>,
+export function infer<Diagnostic>(
+  diagnostics: Diagnostics<InferError<Diagnostic>>,
   prefix: Prefix,
   context: Context,
   expression: Expression<Diagnostic>
-): Expression<CheckError<Diagnostic>, Type> {
+): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
     case 'Variable': {
       const variable = expression.description;
@@ -64,8 +64,8 @@ export function check<Diagnostic>(
 
     case 'Binding': {
       const binding = expression.description;
-      const value = check(diagnostics, prefix, context, binding.value);
-      const body = check(
+      const value = infer(diagnostics, prefix, context, binding.value);
+      const body = infer(
         diagnostics,
         prefix,
         context.set(binding.binding, value.type),
@@ -102,7 +102,7 @@ export class Context {
   }
 }
 
-export type CheckError<T> =
+export type InferError<T> =
   | T
   | {
       readonly kind: 'UnboundVariable';
