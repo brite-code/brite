@@ -30,7 +30,7 @@ declare module 'immutable' {
     asImmutable(): Map<K, V>;
   }
 
-  export function List<T>(): List<T>;
+  export function List<T>(iterable?: Iterable<T>): List<T>;
 
   export interface List<T> extends ListCommonMethods<T>, Iterable<T> {
     readonly mutable: false;

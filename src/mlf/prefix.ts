@@ -4,7 +4,7 @@ import {TypeIdentifier} from './identifier';
 import {Bound} from './type';
 
 export class Prefix {
-  public static empty = new Prefix(0, Immutable.List());
+  public static empty = new Prefix(0, Immutable.List([Immutable.Map()]));
 
   private readonly nextTypeIdentifier: number;
 
