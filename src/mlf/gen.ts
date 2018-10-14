@@ -5,6 +5,8 @@ import {TypeIdentifier} from './identifier';
 import {Prefix} from './prefix';
 import {Bound, MonomorphicType, Type} from './type';
 
+const OK = Symbol('OK');
+
 /**
  * Testcheck.js runner for Jest.
  */
@@ -16,7 +18,7 @@ export function testCheck<T>(
   test(`testcheck: ${name}`, () => {
     const prop = property(generator, f);
     const {fail} = check(prop);
-    expect(fail).toBe(undefined);
+    expect(fail ? fail[0] : OK).toBe(OK);
   });
 }
 
