@@ -7,7 +7,7 @@ export type Type = PolymorphicType;
 export const BooleanType: Type = {kind: 'Constant', constant: {kind: 'Boolean'}}; // prettier-ignore
 export const NumberType: Type = {kind: 'Constant', constant: {kind: 'Number'}};
 export const StringType: Type = {kind: 'Constant', constant: {kind: 'String'}};
-export const BottomType: Type = {kind: 'Bottom'};
+export const BottomType: BottomType<never> = {kind: 'Bottom'};
 
 export type MonomorphicType<T = never> =
   | T
@@ -40,7 +40,7 @@ export type QuantifiedType<T = never> =
   | T
   | {
       readonly kind: 'Quantified';
-      readonly prefix: Prefix;
+      readonly prefix: Immutable.Map<TypeIdentifier, Bound>;
       readonly body: BottomType<MonomorphicType>;
     };
 
@@ -48,34 +48,3 @@ export type Bound = {
   readonly kind: 'flexible' | 'rigid';
   readonly type: Type;
 };
-
-export class Prefix {
-  public static empty = new Prefix(Immutable.Map());
-
-  private readonly bindings: Immutable.Map<TypeIdentifier, Bound>;
-
-  private constructor(bindings: Immutable.Map<TypeIdentifier, Bound>) {
-    this.bindings = bindings;
-  }
-
-  get(identifier: TypeIdentifier): Bound | undefined {
-    return this.bindings.get(identifier);
-  }
-
-  set(identifier: TypeIdentifier, bound: Bound): Prefix {
-    return new Prefix(this.bindings.set(identifier, bound));
-  }
-
-  /**
-   * Merges this prefix with another prefix.
-   *
-   * We expect that the prefixes have disjoint domains, so we panic if we find
-   * they both contain the same type variable.
-   */
-  merge(other: Prefix): Prefix {
-    const bindings = this.bindings.mergeWith(() => {
-      throw new Error('Expected distinct types in merged prefixes.');
-    }, other.bindings);
-    return new Prefix(bindings);
-  }
-}

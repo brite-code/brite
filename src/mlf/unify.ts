@@ -1,15 +1,12 @@
 import * as Immutable from 'immutable';
 
-import {Err, Ok, Result} from '../utils/result';
-
 import {Diagnostics, Reported} from './diagnostics';
-import {TypeIdentifier} from './identifier';
+import {Prefix} from './prefix';
 import {
   BottomType,
   Bound,
   MonomorphicType,
   PolymorphicType,
-  Prefix,
   Type,
 } from './type';
 
@@ -32,11 +29,11 @@ import {
  */
 function unifyMonomorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  prefixes: Immutable.List<Prefix>,
+  prefix: Prefix,
   actual: MonomorphicType,
   expected: MonomorphicType
 ): {
-  readonly prefixes: Immutable.List<Prefix>;
+  readonly prefix: Prefix;
   readonly error: Reported<UnifyError<Diagnostic>> | undefined;
 } {
   if (
@@ -44,96 +41,59 @@ function unifyMonomorphicType<Diagnostic>(
     expected.kind === 'Variable' &&
     actual.identifier === expected.identifier
   ) {
-    return {prefixes, error: undefined};
+    return {prefix, error: undefined};
   } else if (actual.kind === 'Variable' && expected.kind === 'Variable') {
-    const {bound: actualBound, index: actualIndex} = resolveTypeVariable(
-      prefixes,
-      actual.identifier
-    );
-    const {bound: expectedBound, index: expectedIndex} = resolveTypeVariable(
-      prefixes,
-      expected.identifier
-    );
-    if (actualBound === undefined || expectedBound === undefined) {
-      throw new Error('Could not find type variable.');
-    }
-    const {prefixes: newPrefixes, type} = unifyPolymorphicType(
+    const actualBound = prefix.find(actual.identifier);
+    const expectedBound = prefix.find(expected.identifier);
+    const {prefix: newPrefix, type, error} = unifyPolymorphicType(
       diagnostics,
-      prefixes,
+      prefix,
       actualBound.type,
       expectedBound.type
     );
-    if (type.kind === 'ok') {
-      return {
-        prefixes: newPrefixes
-          .update(actualIndex, prefix =>
-            prefix.set(actual.identifier, {
-              kind: actualBound.kind,
-              type: type.value,
-            })
-          )
-          .update(expectedIndex, prefix =>
-            prefix.set(expected.identifier, {
-              kind: expectedBound.kind,
-              type: type.value,
-            })
-          ),
-        error: undefined,
-      };
-    } else {
-      return {
-        prefixes: newPrefixes
-          .update(actualIndex, prefix =>
-            prefix.set(actual.identifier, {
-              kind: actualBound.kind,
-              type: BottomType,
-            })
-          )
-          .update(expectedIndex, prefix =>
-            prefix.set(expected.identifier, {
-              kind: expectedBound.kind,
-              type: BottomType,
-            })
-          ),
-        error: type.value,
-      };
-    }
+    const kind =
+      actualBound.kind === 'flexible' && expectedBound.kind === 'flexible'
+        ? 'flexible'
+        : 'rigid';
+    const bound: Bound = {kind, type};
+    return {
+      prefix: newPrefix
+        .update(actual.identifier, bound)
+        .update(expected.identifier, bound),
+      error,
+    };
   } else if (actual.kind === 'Variable') {
-    const {bound, index} = resolveTypeVariable(prefixes, actual.identifier);
-    if (bound === undefined) throw new Error('Could not find type variable.');
+    const bound = prefix.find(actual.identifier);
     if (bound.type.kind !== 'Quantified' && bound.type.kind !== 'Bottom') {
-      return unifyMonomorphicType(diagnostics, prefixes, bound.type, expected);
+      return unifyMonomorphicType(diagnostics, prefix, bound.type, expected);
     } else {
-      const {prefixes: newPrefixes, type} = unifyPolymorphicType(
+      const {prefix: newPrefix, error} = unifyPolymorphicType(
         diagnostics,
-        prefixes,
+        prefix,
         bound.type,
         expected
       );
+      const newBound: Bound = {kind: 'rigid', type: expected};
       return {
-        prefixes: newPrefixes.update(index, prefix =>
-          prefix.set(actual.identifier, {kind: 'rigid', type: expected})
-        ),
-        error: type.kind === 'err' ? type.value : undefined,
+        prefix: newPrefix.update(actual.identifier, newBound),
+        error,
       };
     }
   } else if (expected.kind === 'Variable') {
-    const {bound, index} = resolveTypeVariable(prefixes, expected.identifier);
-    if (bound === undefined) throw new Error('Could not find type variable.');
+    const bound = prefix.find(expected.identifier);
     if (bound.type.kind !== 'Quantified' && bound.type.kind !== 'Bottom') {
-      return unifyMonomorphicType(diagnostics, prefixes, actual, bound.type);
+      return unifyMonomorphicType(diagnostics, prefix, actual, bound.type);
     } else {
-      const {prefixes: newPrefixes} = unifyPolymorphicType(
+      const {prefix: newPrefix, error} = unifyPolymorphicType(
         diagnostics,
-        prefixes,
+        prefix,
         actual,
         bound.type
       );
+      const newBound: Bound = {kind: 'rigid', type: actual};
       return {
-        prefixes: newPrefixes.update(index, prefix =>
-          prefix.set(expected.identifier, {kind: 'rigid', type: actual})
-        ),
-        error: undefined,
+        prefix: newPrefix.update(expected.identifier, newBound),
+        error,
       };
     }
   } else if (
@@ -146,27 +106,27 @@ function unifyMonomorphicType<Diagnostic>(
       (actual.constant.kind === 'String' &&
         expected.constant.kind === 'String'))
   ) {
-    return {prefixes, error: undefined};
+    return {prefix, error: undefined};
   } else if (actual.kind === 'Function' && expected.kind === 'Function') {
-    const {prefixes: prefixes1, error: diagnostic1} = unifyMonomorphicType(
+    const {prefix: prefix1, error: diagnostic1} = unifyMonomorphicType(
       diagnostics,
-      prefixes,
+      prefix,
       actual.parameter,
       expected.parameter
     );
-    const {prefixes: prefixes2, error: diagnostic2} = unifyMonomorphicType(
+    const {prefix: prefix2, error: diagnostic2} = unifyMonomorphicType(
       diagnostics,
-      prefixes1,
+      prefix1,
       actual.body,
       expected.body
     );
     return {
-      prefixes: prefixes2,
+      prefix: prefix2,
       error: diagnostic1 || diagnostic2,
     };
   } else {
     return {
-      prefixes,
+      prefix,
       error: diagnostics.report({
         type: 'IncompatibleTypes',
         expected,
@@ -178,71 +138,58 @@ function unifyMonomorphicType<Diagnostic>(
 
 function unifyPolymorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  prefixes: Immutable.List<Prefix>,
+  prefix: Prefix,
   actual: PolymorphicType,
   expected: PolymorphicType
 ): {
-  readonly prefixes: Immutable.List<Prefix>;
-  readonly type: Result<Type, Reported<UnifyError<Diagnostic>>>;
+  readonly prefix: Prefix;
+  readonly type: Type;
+  readonly error: Reported<UnifyError<Diagnostic>> | undefined;
 } {
   // Bottom unifies with everything.
   if (actual.kind === 'Bottom') {
-    return {prefixes, type: Ok(expected)};
+    return {prefix, type: expected, error: undefined};
   } else if (expected.kind === 'Bottom') {
-    return {prefixes, type: Ok(actual)};
+    return {prefix, type: actual, error: undefined};
   }
 
   // If the types are monomorphic then convert them to quantified types with
   // an empty prefix.
   actual =
     actual.kind !== 'Quantified'
-      ? {kind: 'Quantified', prefix: Prefix.empty, body: actual}
+      ? {kind: 'Quantified', prefix: Immutable.Map(), body: actual}
       : actual;
   expected =
     expected.kind !== 'Quantified'
-      ? {kind: 'Quantified', prefix: Prefix.empty, body: expected}
+      ? {kind: 'Quantified', prefix: Immutable.Map(), body: expected}
       : expected;
 
   // Bottom unifies with everything.
-  if (actual.body.kind === 'Bottom') return {prefixes, type: Ok(expected)};
-  if (expected.body.kind === 'Bottom') return {prefixes, type: Ok(expected)};
+  if (actual.body.kind === 'Bottom') {
+    return {prefix, type: expected, error: undefined};
+  } else if (expected.body.kind === 'Bottom') {
+    return {prefix, type: actual, error: undefined};
+  }
 
-  const {prefixes: newPrefixes, error} = unifyMonomorphicType(
+  const {prefix: prefix1, error} = unifyMonomorphicType(
     diagnostics,
-    prefixes.unshift(actual.prefix.merge(expected.prefix)), // Assumes `List.unshift()` is O(1).
+    prefix.pushScope(actual.prefix.merge(expected.prefix)), // TODO: Domain collisions?
     actual.body,
     expected.body
   );
 
-  if (!error) {
-    const prefix = newPrefixes.first()!; // tslint:disable-line no-non-null-assertion
-    const type: Type = {kind: 'Quantified', prefix, body: actual.body};
-    return {
-      prefixes: newPrefixes.shift(), // Assumes `List.shift()` is O(1).
-      type: Ok(type),
-    };
-  } else {
-    return {
-      prefixes,
-      type: Err(error),
-    };
-  }
-}
+  const {prefix: prefix2, bindings} = prefix1.popScope();
 
-function resolveTypeVariable(
-  prefixes: Immutable.List<Prefix>,
-  identifier: TypeIdentifier
-): {
-  readonly bound: Bound | undefined;
-  readonly index: number;
-} {
-  let index = 0;
-  for (const prefix of prefixes) {
-    const bound = prefix.get(identifier);
-    if (bound !== undefined) return {bound, index};
-    index += 1;
-  }
-  return {bound: undefined, index: -1};
+  const type: Type = {
+    kind: 'Quantified',
+    prefix: bindings,
+    // If we had an error then `actual` and `expected` aren’t equivalent. We can
+    // only get away with returning `actual` if we believe it to be equivalent
+    // with `expected`. Instead return the bottom type.
+    body: error !== undefined ? actual.body : BottomType,
+  };
+
+  return {prefix: prefix2, type, error};
 }
 
 export type UnifyError<T> =
