@@ -24,7 +24,7 @@ export class Prefix {
    * Creates a new type variable with the provided bound referenced with the
    * returned identifier.
    */
-  newVariable(
+  add(
     bound: Bound
   ): {
     readonly prefix: Prefix;

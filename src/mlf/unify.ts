@@ -27,6 +27,18 @@ import {
  *
  * [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
  */
+export function unify<Diagnostic>(
+  diagnostics: Diagnostics<UnifyError<Diagnostic>>,
+  prefix: Prefix,
+  actual: MonomorphicType,
+  expected: MonomorphicType
+): {
+  readonly prefix: Prefix;
+  readonly error: Reported<UnifyError<Diagnostic>> | undefined;
+} {
+  return unifyMonomorphicType(diagnostics, prefix, actual, expected);
+}
+
 function unifyMonomorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
   prefix: Prefix,
