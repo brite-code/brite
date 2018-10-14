@@ -27,7 +27,7 @@ type StateType = {
 /**
  * A state monad to provide some state when generating things.
  */
-class State<T> {
+export class State<T> {
   public static return<T>(value: T): State<T> {
     return new State(state => ({value, state}));
   }
