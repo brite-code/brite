@@ -1,7 +1,7 @@
 import * as Immutable from 'immutable';
 
 import {Diagnostics} from './diagnostics';
-import {Expression, Identifier} from './expression';
+import {Expression} from './expression';
 import {Prefix} from './prefix';
 import {BooleanType, BottomType, NumberType, StringType, Type} from './type';
 import {UnifyError, unify} from './unify';
@@ -13,7 +13,7 @@ import {UnifyError, unify} from './unify';
  */
 export function infer<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
-  scope: Immutable.Map<Identifier, Type>,
+  scope: Immutable.Map<string, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   return inferExpression(diagnostics, new Prefix(), scope, expression);
@@ -22,7 +22,7 @@ export function infer<Diagnostic>(
 function inferExpression<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
   prefix: Prefix,
-  scope: Immutable.Map<Identifier, Type>,
+  scope: Immutable.Map<string, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
@@ -213,5 +213,5 @@ export type InferError<T> =
   | UnifyError<T>
   | {
       readonly kind: 'UnboundVariable';
-      readonly identifier: Identifier;
+      readonly identifier: string;
     };

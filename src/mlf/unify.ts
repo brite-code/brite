@@ -6,7 +6,6 @@ import {
   MonomorphicType,
   PolymorphicType,
   Type,
-  TypeIdentifier,
 } from './type';
 
 /**
@@ -50,8 +49,8 @@ export function unify<Diagnostic>(
 function unifyMonomorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
   commonPrefix: Prefix,
-  actualPrefix: Map<TypeIdentifier, Bound>,
-  expectedPrefix: Map<TypeIdentifier, Bound>,
+  actualPrefix: Map<string, Bound>,
+  expectedPrefix: Map<string, Bound>,
   actual: MonomorphicType,
   expected: MonomorphicType
 ): {
@@ -115,8 +114,8 @@ function unifyMonomorphicType<Diagnostic>(
     // Get all the shared variable information from actual and expected. In
     // another language we might select all this in our pattern match.
     let isActual: boolean;
-    let identifier: TypeIdentifier;
-    let variablePrefix: Map<TypeIdentifier, Bound>;
+    let identifier: string;
+    let variablePrefix: Map<string, Bound>;
     if (actual.kind === 'Variable') {
       isActual = true;
       identifier = actual.identifier;
@@ -230,8 +229,8 @@ function unifyMonomorphicType<Diagnostic>(
 function unifyPolymorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
   commonPrefix: Prefix,
-  actualPrefix: Map<TypeIdentifier, Bound>,
-  expectedPrefix: Map<TypeIdentifier, Bound>,
+  actualPrefix: Map<string, Bound>,
+  expectedPrefix: Map<string, Bound>,
   actual: PolymorphicType,
   expected: PolymorphicType
 ): {
@@ -249,11 +248,11 @@ function unifyPolymorphicType<Diagnostic>(
   // an empty bindings map.
   const {bindings: actualBindings, body: actualBody} =
     actual.kind !== 'Quantified'
-      ? {bindings: new Map<TypeIdentifier, Bound>(), body: actual}
+      ? {bindings: new Map<string, Bound>(), body: actual}
       : {bindings: actual.bindings, body: actual.body};
   const {bindings: expectedBindings, body: expectedBody} =
     expected.kind !== 'Quantified'
-      ? {bindings: new Map<TypeIdentifier, Bound>(), body: expected}
+      ? {bindings: new Map<string, Bound>(), body: expected}
       : {bindings: expected.bindings, body: expected.body};
 
   // Bottom unifies with everything.
@@ -266,7 +265,7 @@ function unifyPolymorphicType<Diagnostic>(
   // Add all the new “actual” bindings to our “actual” prefix. If we are
   // shadowing anything in the “actual” prefix then we save it so that we may
   // restore the entry later.
-  const actualBindingsOld = new Map<TypeIdentifier, Bound>();
+  const actualBindingsOld = new Map<string, Bound>();
   for (const [identifier, bound] of actualBindings) {
     const oldBound = actualPrefix.get(identifier);
     if (oldBound !== undefined) actualBindingsOld.set(identifier, oldBound);
@@ -276,7 +275,7 @@ function unifyPolymorphicType<Diagnostic>(
   // Add all the new “expected” bindings to our “expected” prefix. If we are
   // shadowing anything in the “expected” prefix then we save it so that we may
   // restore the entry later.
-  const expectedBindingsOld = new Map<TypeIdentifier, Bound>();
+  const expectedBindingsOld = new Map<string, Bound>();
   for (const [identifier, bound] of expectedBindings) {
     const oldBound = expectedPrefix.get(identifier);
     if (oldBound !== undefined) expectedBindingsOld.set(identifier, oldBound);
@@ -300,7 +299,7 @@ function unifyPolymorphicType<Diagnostic>(
   //
   // IMPORTANT: However, If there was an error then the types are not
   // equivalent! Instead we return the bottom type with the error in that case.
-  const bindings = new Map<TypeIdentifier, Bound>();
+  const bindings = new Map<string, Bound>();
 
   // Restore our “actual” prefix to its old state. Before we added
   // new bindings.

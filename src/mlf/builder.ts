@@ -1,62 +1,37 @@
-import {Expression, Identifier} from './expression';
+import {Expression} from './expression';
 
 export function variable(identifier: string): Expression {
   return {
     type: undefined,
-    description: {
-      kind: 'Variable',
-      identifier: Identifier.create(identifier),
-    },
+    description: {kind: 'Variable', identifier},
   };
 }
 
 export function boolean(value: boolean): Expression {
   return {
     type: undefined,
-    description: {
-      kind: 'Constant',
-      constant: {
-        kind: 'Boolean',
-        value,
-      },
-    },
+    description: {kind: 'Constant', constant: {kind: 'Boolean', value}},
   };
 }
 
 export function number(value: number): Expression {
   return {
     type: undefined,
-    description: {
-      kind: 'Constant',
-      constant: {
-        kind: 'Number',
-        value,
-      },
-    },
+    description: {kind: 'Constant', constant: {kind: 'Number', value}},
   };
 }
 
 export function string(value: string): Expression {
   return {
     type: undefined,
-    description: {
-      kind: 'Constant',
-      constant: {
-        kind: 'String',
-        value,
-      },
-    },
+    description: {kind: 'Constant', constant: {kind: 'String', value}},
   };
 }
 
 export function function_(parameter: string, body: Expression): Expression {
   return {
     type: undefined,
-    description: {
-      kind: 'Function',
-      parameter: Identifier.create(parameter),
-      body,
-    },
+    description: {kind: 'Function', parameter, body},
   };
 }
 
@@ -66,11 +41,7 @@ export function application(
 ): Expression {
   return {
     type: undefined,
-    description: {
-      kind: 'Application',
-      callee,
-      argument,
-    },
+    description: {kind: 'Application', callee, argument},
   };
 }
 
@@ -81,11 +52,6 @@ export function binding(
 ): Expression {
   return {
     type: undefined,
-    description: {
-      kind: 'Binding',
-      binding: Identifier.create(binding),
-      value,
-      body,
-    },
+    description: {kind: 'Binding', binding, value, body},
   };
 }

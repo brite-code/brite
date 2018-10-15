@@ -1,23 +1,23 @@
-import {Bound, TypeIdentifier} from './type';
+import {Bound} from './type';
 
 export class Prefix {
   private counter = 0;
   private readonly bindings = new Map<string, Bound>();
-  private readonly newBindings: Array<Array<TypeIdentifier>> = [];
+  private readonly newBindings: Array<Array<string>> = [];
 
   /**
    * Creates a unique type identifier in this prefix and sets the bound to
    * that identifier. Returns the identifier so that it may be retrieved from
    * the prefix later.
    */
-  add(bound: Bound): TypeIdentifier {
+  add(bound: Bound): string {
     // Find an identifier in our bindings map that has not already been taken.
     let counter = this.counter + 1;
     while (this.bindings.has(`t${counter}`)) {
       counter = counter + 1;
     }
     // Add the fresh identifier with its bound to our prefix and return.
-    const identifier = TypeIdentifier.create(`t${counter}`);
+    const identifier = `t${counter}`;
     this.bindings.set(identifier, bound);
     // If we are tracking newly created type variables then add this one.
     if (this.newBindings.length > 0) {
@@ -29,7 +29,7 @@ export class Prefix {
   /**
    * Gets the bound for this type identifier. If it exists.
    */
-  get(identifier: TypeIdentifier): Bound | undefined {
+  get(identifier: string): Bound | undefined {
     return this.bindings.get(identifier);
   }
 
@@ -37,7 +37,7 @@ export class Prefix {
    * Updates an existing binding. Throws an error if the binding does not exist
    * in the prefix.
    */
-  update(identifier: TypeIdentifier, bound: Bound) {
+  update(identifier: string, bound: Bound) {
     if (!this.bindings.has(identifier)) {
       throw new Error('Can only update an existing binding.');
     }
@@ -53,16 +53,16 @@ export class Prefix {
     f: () => T
   ): {
     readonly result: T;
-    readonly bindings: ReadonlyMap<TypeIdentifier, Bound>;
+    readonly bindings: ReadonlyMap<string, Bound>;
   } {
     const oldCounter = this.counter;
-    const newBindings: Array<TypeIdentifier> = [];
+    const newBindings: Array<string> = [];
     this.newBindings.push(newBindings);
     const result = f();
     this.newBindings.pop();
     const bindings = new Map(
       newBindings.map(
-        (binding): [TypeIdentifier, Bound] => {
+        (binding): [string, Bound] => {
           const bound = this.bindings.get(binding)!; // tslint:disable-line no-non-null-assertion
           this.bindings.delete(binding);
           return [binding, bound];

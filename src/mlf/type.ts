@@ -1,15 +1,3 @@
-import * as Immutable from 'immutable';
-
-const opaque = Symbol();
-
-export type TypeIdentifier = string & typeof opaque;
-
-export namespace TypeIdentifier {
-  export function create(x: string): TypeIdentifier {
-    return x as TypeIdentifier;
-  }
-}
-
 export type Type = PolymorphicType;
 
 export const BooleanType: MonomorphicType = {kind: 'Constant', constant: {kind: 'Boolean'}}; // prettier-ignore
@@ -21,7 +9,7 @@ export type MonomorphicType<T = never> =
   | T
   | {
       readonly kind: 'Variable';
-      readonly identifier: TypeIdentifier;
+      readonly identifier: string;
     }
   | {
       readonly kind: 'Constant';
@@ -48,7 +36,7 @@ export type QuantifiedType<T = never> =
   | T
   | {
       readonly kind: 'Quantified';
-      readonly bindings: ReadonlyMap<TypeIdentifier, Bound>;
+      readonly bindings: ReadonlyMap<string, Bound>;
       readonly body: BottomType<MonomorphicType>;
     };
 

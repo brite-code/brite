@@ -1,15 +1,5 @@
 import {Reported} from './diagnostics';
 
-const opaque = Symbol();
-
-export type Identifier = string & typeof opaque;
-
-export namespace Identifier {
-  export function create(x: string): Identifier {
-    return x as Identifier;
-  }
-}
-
 export type Constant =
   | {readonly kind: 'Boolean'; readonly value: boolean}
   | {readonly kind: 'Number'; readonly value: number}
@@ -23,7 +13,7 @@ export type Expression<Diagnostic = never, Type = undefined> = {
 export type ExpressionDescription<Diagnostic, Type> =
   | {
       readonly kind: 'Variable';
-      readonly identifier: Identifier;
+      readonly identifier: string;
     }
   | {
       readonly kind: 'Constant';
@@ -31,7 +21,7 @@ export type ExpressionDescription<Diagnostic, Type> =
     }
   | {
       readonly kind: 'Function';
-      readonly parameter: Identifier;
+      readonly parameter: string;
       readonly body: Expression<Diagnostic, Type>;
     }
   | {
@@ -41,7 +31,7 @@ export type ExpressionDescription<Diagnostic, Type> =
     }
   | {
       readonly kind: 'Binding';
-      readonly binding: Identifier;
+      readonly binding: string;
       readonly value: Expression<Diagnostic, Type>;
       readonly body: Expression<Diagnostic, Type>;
     }
