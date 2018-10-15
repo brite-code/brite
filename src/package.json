@@ -3,7 +3,6 @@
   "name": "@brite/src",
   "version": "0.0.0",
   "dependencies": {
-    "immutable": "^3.8.2",
-    "testcheck": "^1.0.0-rc.2"
+    "immutable": "^3.8.2"
   }
 }
