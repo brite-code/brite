@@ -1,4 +1,12 @@
-import {TypeIdentifier} from './identifier';
+const opaque = Symbol();
+
+export type TypeIdentifier = number & typeof opaque;
+
+export namespace TypeIdentifier {
+  export function create(x: number): TypeIdentifier {
+    return x as TypeIdentifier;
+  }
+}
 
 export type Type = PolymorphicType;
 

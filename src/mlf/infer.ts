@@ -1,8 +1,7 @@
 import * as Immutable from 'immutable';
 
 import {Diagnostics} from './diagnostics';
-import {Expression} from './expression';
-import {Identifier} from './identifier';
+import {Expression, Identifier} from './expression';
 import {Prefix} from './prefix';
 import {BooleanType, BottomType, NumberType, StringType, Type} from './type';
 import {UnifyError, unify} from './unify';

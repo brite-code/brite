@@ -1,5 +1,14 @@
 import {Reported} from './diagnostics';
-import {Identifier} from './identifier';
+
+const opaque = Symbol();
+
+export type Identifier = string & typeof opaque;
+
+export namespace Identifier {
+  export function create(x: string): Identifier {
+    return x as Identifier;
+  }
+}
 
 export type Constant =
   | {readonly kind: 'Boolean'; readonly value: boolean}

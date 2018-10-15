@@ -1,5 +1,4 @@
-import {Expression} from './expression';
-import {Identifier} from './identifier';
+import {Expression, Identifier} from './expression';
 
 export function variable(identifier: string): Expression {
   return {

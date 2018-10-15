@@ -1,5 +1,4 @@
 import {Diagnostics, Reported} from './diagnostics';
-import {TypeIdentifier} from './identifier';
 import {Prefix} from './prefix';
 import {
   BottomType,
@@ -7,6 +6,7 @@ import {
   MonomorphicType,
   PolymorphicType,
   Type,
+  TypeIdentifier,
 } from './type';
 
 /**

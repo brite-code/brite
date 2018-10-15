@@ -1,5 +1,4 @@
-import {TypeIdentifier} from './identifier';
-import {Bound} from './type';
+import {Bound, TypeIdentifier} from './type';
 
 export class Prefix {
   public static create(): Prefix {
