@@ -1,9 +1,7 @@
-import * as Immutable from 'immutable';
 import {Generator, check, gen, property} from 'testcheck';
 
-import {TypeIdentifier} from './identifier';
 import {Prefix} from './prefix';
-import {Bound, MonomorphicType, Type} from './type';
+import {MonomorphicType, Type} from './type';
 
 const OK = Symbol('OK');
 
@@ -17,91 +15,20 @@ export function testCheck<T>(
 ) {
   test(`testcheck: ${name}`, () => {
     const prop = property(generator, f);
-    const {fail} = check(prop);
+    const {result, fail} = check(prop);
+    if (typeof result !== 'boolean') {
+      throw result;
+    }
     expect(fail ? fail[0] : OK).toBe(OK);
   });
-}
-
-type StateType = {
-  readonly prefix: Prefix;
-};
-
-/**
- * A state monad to provide some state when generating things.
- */
-export class State<T> {
-  public static return<T>(value: T): State<T> {
-    return new State(state => ({value, state}));
-  }
-
-  public static then2<T, U, V>(
-    monad1: State<T>,
-    monad2: State<U>,
-    g: (value1: T, value2: U) => State<V>
-  ): State<V> {
-    return new State(state => {
-      const {value: value1, state: state1} = monad1.f(state);
-      const {value: value2, state: state2} = monad2.f(state1);
-      return g(value1, value2).f(state2);
-    });
-  }
-
-  public static add(bound: Bound): State<TypeIdentifier> {
-    return new State(state => {
-      const {prefix, identifier} = state.prefix.add(bound);
-      return {value: identifier, state: {...state, prefix}};
-    });
-  }
-
-  public static quantify(monad: State<Type>): State<Type> {
-    return new State(state0 => {
-      const state1 = {
-        ...state0,
-        prefix: state0.prefix.pushScope(Immutable.Map()),
-      };
-      const {value: type, state: state2} = monad.f(state1);
-      const {prefix: prefix3, bindings} = state2.prefix.popScope();
-      const state3 = {...state2, prefix: prefix3};
-      return {
-        value: createQuantifiedType(bindings, type),
-        state: state3,
-      };
-    });
-  }
-
-  private readonly f: (state: StateType) => {value: T; state: StateType};
-
-  private constructor(f: (state: StateType) => {value: T; state: StateType}) {
-    this.f = f;
-  }
-
-  public then<U>(g: (value: T) => State<U>): State<U> {
-    return new State(state => {
-      const {value: value1, state: state1} = this.f(state);
-      return g(value1).f(state1);
-    });
-  }
-
-  public run(): {
-    readonly value: T;
-    readonly prefix: Prefix;
-  } {
-    const {value, state} = this.f({
-      prefix: Prefix.empty,
-    });
-    return {
-      value,
-      prefix: state.prefix,
-    };
-  }
 }
 
 /**
  * Generates a polymorphic or monomorphic type.
  */
-export const genType: Generator<State<Type>> = gen.nested(
+export const genType: Generator<(prefix: Prefix) => Type> = gen.nested(
   genType =>
-    gen.oneOfWeighted<State<Type>>([
+    gen.oneOfWeighted<(prefix: Prefix) => Type>([
       // Variable type
       [
         10,
@@ -110,34 +37,49 @@ export const genType: Generator<State<Type>> = gen.nested(
             gen.oneOf<'flexible' | 'rigid'>(['flexible', 'rigid']),
             genType,
           ])
-          .then(([kind, type]) =>
-            type.then(type =>
-              State.add({kind, type}).then(identifier =>
-                State.return<Type>({kind: 'Variable', identifier})
-              )
-            )
-          ),
+          .then(([kind, createType]) => (prefix: Prefix): Type => {
+            const type = createType(prefix);
+            const identifier = prefix.add({kind, type});
+            return {kind: 'Variable', identifier};
+          }),
       ],
 
       // Function type
       [
         10,
-        gen.array([genType, genType]).then(([parameter, body]) =>
-          State.then2(
-            intoMonomorphicType(parameter),
-            intoMonomorphicType(body),
-            (parameter, body) =>
-              State.return<MonomorphicType>({
-                kind: 'Function',
-                parameter,
-                body,
-              })
-          )
-        ),
+        gen
+          .array([genType, genType])
+          .then(
+            ([createParameterType, createBodyType]) => (
+              prefix: Prefix
+            ): Type => {
+              const parameter = intoMonomorphicType(
+                prefix,
+                createParameterType(prefix)
+              );
+              const body = intoMonomorphicType(prefix, createBodyType(prefix));
+              return {kind: 'Function', parameter, body};
+            }
+          ),
       ],
 
       // Quantified type
-      [5, genType.then(State.quantify)],
+      [
+        5,
+        genType.then(createType => (prefix: Prefix): Type => {
+          prefix.captureStart();
+          const type = createType(prefix);
+          const bindings = prefix.captureStop();
+          if (type.kind === 'Quantified') {
+            for (const [identifier, bound] of type.prefix) {
+              bindings.set(identifier, bound);
+            }
+            return {kind: 'Quantified', prefix: bindings, body: type.body};
+          } else {
+            return {kind: 'Quantified', prefix: bindings, body: type};
+          }
+        }),
+      ],
 
       // Ignored type variable
       [
@@ -148,57 +90,45 @@ export const genType: Generator<State<Type>> = gen.nested(
             genType,
             genType,
           ])
-          .then(([kind, boundType, type]) =>
-            boundType.then(boundType =>
-              State.add({kind, type: boundType}).then(() => type)
-            )
+          .then(
+            ([kind, createBoundType, createType]) => (prefix: Prefix): Type => {
+              prefix.add({kind, type: createBoundType(prefix)});
+              return createType(prefix);
+            }
           ),
       ],
     ]),
-  gen.oneOfWeighted([
-    // Boolean type
-    [3, State.return<Type>({kind: 'Constant', constant: {kind: 'Boolean'}})],
+  gen
+    .oneOfWeighted([
+      // Boolean type
+      [3, gen.return<Type>({kind: 'Constant', constant: {kind: 'Boolean'}})],
 
-    // Number type
-    [3, State.return<Type>({kind: 'Constant', constant: {kind: 'Number'}})],
+      // Number type
+      [3, gen.return<Type>({kind: 'Constant', constant: {kind: 'Number'}})],
 
-    // String type
-    [3, State.return<Type>({kind: 'Constant', constant: {kind: 'String'}})],
+      // String type
+      [3, gen.return<Type>({kind: 'Constant', constant: {kind: 'String'}})],
 
-    // Bottom type
-    [1, State.return<Type>({kind: 'Bottom'})],
-  ])
+      // Bottom type
+      [1, gen.return<Type>({kind: 'Bottom'})],
+    ])
+    .then(type => (_prefix: Prefix) => type)
 );
 
 /**
  * Generates a monomorphic type.
  */
 export const genMonomorphicType: Generator<
-  State<MonomorphicType>
-> = genType.then(intoMonomorphicType);
+  (prefix: Prefix) => MonomorphicType
+> = genType.then(createType => (prefix: Prefix) =>
+  intoMonomorphicType(prefix, createType(prefix))
+);
 
-function intoMonomorphicType(monad: State<Type>): State<MonomorphicType> {
-  return monad.then(
-    type =>
-      type.kind === 'Quantified' || type.kind === 'Bottom'
-        ? State.add({kind: 'rigid', type}).then(identifier =>
-            State.return<MonomorphicType>({kind: 'Variable', identifier})
-          )
-        : State.return(type)
-  );
-}
-
-function createQuantifiedType(
-  prefix: Immutable.Map<TypeIdentifier, Bound>,
-  body: Type
-): Type {
-  if (body.kind === 'Quantified') {
-    return {
-      kind: 'Quantified',
-      prefix: prefix.merge(body.prefix),
-      body: body.body,
-    };
+function intoMonomorphicType(prefix: Prefix, type: Type): MonomorphicType {
+  if (type.kind === 'Quantified' || type.kind === 'Bottom') {
+    const identifier = prefix.add({kind: 'rigid', type});
+    return {kind: 'Variable', identifier};
   } else {
-    return {kind: 'Quantified', prefix, body};
+    return type;
   }
 }

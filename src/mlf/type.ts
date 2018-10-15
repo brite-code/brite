@@ -1,5 +1,3 @@
-import * as Immutable from 'immutable';
-
 import {TypeIdentifier} from './identifier';
 
 export type Type = PolymorphicType;
@@ -40,7 +38,7 @@ export type QuantifiedType<T = never> =
   | T
   | {
       readonly kind: 'Quantified';
-      readonly prefix: Immutable.Map<TypeIdentifier, Bound>;
+      readonly prefix: ReadonlyMap<TypeIdentifier, Bound>;
       readonly body: BottomType<MonomorphicType>;
     };
 
