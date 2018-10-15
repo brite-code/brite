@@ -1,9 +1,10 @@
 import * as Immutable from 'immutable';
 
+import {booleanType, bottomType, numberType, stringType} from './builder';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
 import {Prefix} from './prefix';
-import {BooleanType, BottomType, NumberType, StringType, Type} from './type';
+import {Type} from './type';
 import {UnifyError, unify} from './unify';
 
 /**
@@ -37,7 +38,7 @@ function inferExpression<Diagnostic>(
         return {type, description: variable};
       } else {
         return {
-          type: BottomType,
+          type: bottomType,
           description: {
             kind: 'Error',
             error: diagnostics.report({
@@ -54,13 +55,13 @@ function inferExpression<Diagnostic>(
       let type: Type;
       switch (expression.description.constant.kind) {
         case 'Boolean':
-          type = BooleanType;
+          type = booleanType;
           break;
         case 'Number':
-          type = NumberType;
+          type = numberType;
           break;
         case 'String':
-          type = StringType;
+          type = stringType;
           break;
         default:
           const never: never = expression.description.constant;
@@ -79,7 +80,7 @@ function inferExpression<Diagnostic>(
       } = prefix.quantify(() => {
         // Introduce a new type variable for the function parameter. Through the
         // inference of our function body we should solve this to a proper type.
-        const parameterType = prefix.add({kind: 'flexible', type: BottomType});
+        const parameterType = prefix.add({kind: 'flexible', type: bottomType});
 
         // Infer our function body. Introducing the variable we just defined
         // into scope.
@@ -123,7 +124,7 @@ function inferExpression<Diagnostic>(
       };
     }
 
-    case 'Application': {
+    case 'Call': {
       const call = expression.description;
 
       const {
@@ -147,7 +148,7 @@ function inferExpression<Diagnostic>(
         // resolved through this unification.
         const calleeType = prefix.add({kind: 'flexible', type: callee.type});
         const argumentType = prefix.add({kind: 'flexible', type: argument.type}); // prettier-ignore
-        const bodyType = prefix.add({kind: 'flexible', type: BottomType});
+        const bodyType = prefix.add({kind: 'flexible', type: bottomType});
 
         // Unify the type of the callee with the function type we expect. This
         // should solve any unknown type variables.
@@ -173,9 +174,9 @@ function inferExpression<Diagnostic>(
 
       // If there was an error during unification then we need to return an
       // error expression which will fail at runtime instead of an
-      // application expression.
+      // call expression.
       return error === undefined
-        ? {type, description: {kind: 'Application', callee, argument}}
+        ? {type, description: {kind: 'Call', callee, argument}}
         : {type, description: {kind: 'Error', error}};
     }
 
@@ -201,7 +202,7 @@ function inferExpression<Diagnostic>(
 
     // Runtime errors have the bottom type since they will crash at runtime.
     case 'Error':
-      return {type: BottomType, description: expression.description};
+      return {type: bottomType, description: expression.description};
 
     default:
       const never: never = expression.description;

@@ -25,7 +25,7 @@ export type ExpressionDescription<Diagnostic, Type> =
       readonly body: Expression<Diagnostic, Type>;
     }
   | {
-      readonly kind: 'Application';
+      readonly kind: 'Call';
       readonly callee: Expression<Diagnostic, Type>;
       readonly argument: Expression<Diagnostic, Type>;
     }

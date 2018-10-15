@@ -1,51 +1,55 @@
 import {Expression} from './expression';
+import {BottomType, Bound, MonomorphicType, PolymorphicType} from './type';
 
-export function variable(identifier: string): Expression {
+export function variableExpression(identifier: string): Expression {
   return {
     type: undefined,
     description: {kind: 'Variable', identifier},
   };
 }
 
-export function boolean(value: boolean): Expression {
+export function booleanExpression(value: boolean): Expression {
   return {
     type: undefined,
     description: {kind: 'Constant', constant: {kind: 'Boolean', value}},
   };
 }
 
-export function number(value: number): Expression {
+export function numberExpression(value: number): Expression {
   return {
     type: undefined,
     description: {kind: 'Constant', constant: {kind: 'Number', value}},
   };
 }
 
-export function string(value: string): Expression {
+export function stringExpression(value: string): Expression {
   return {
     type: undefined,
     description: {kind: 'Constant', constant: {kind: 'String', value}},
   };
 }
 
-export function function_(parameter: string, body: Expression): Expression {
+export function functionExpression(
+  parameter: string,
+  body: Expression
+): Expression {
   return {
     type: undefined,
     description: {kind: 'Function', parameter, body},
   };
 }
 
-export function application(
+export function callExpression(
   callee: Expression,
   argument: Expression
 ): Expression {
   return {
     type: undefined,
-    description: {kind: 'Application', callee, argument},
+    description: {kind: 'Call', callee, argument},
   };
 }
 
-export function binding(
+export function bindingExpression(
   binding: string,
   value: Expression,
   body: Expression
@@ -55,3 +59,57 @@ export function binding(
     description: {kind: 'Binding', binding, value, body},
   };
 }
+
+export function variableType(identifier: string): MonomorphicType {
+  return {kind: 'Variable', identifier};
+}
+
+export const booleanType: MonomorphicType = {
+  kind: 'Constant',
+  constant: {kind: 'Boolean'},
+};
+
+export const numberType: MonomorphicType = {
+  kind: 'Constant',
+  constant: {kind: 'Number'},
+};
+
+export const stringType: MonomorphicType = {
+  kind: 'Constant',
+  constant: {kind: 'String'},
+};
+
+export function functionType(
+  parameter: MonomorphicType,
+  body: MonomorphicType
+): MonomorphicType {
+  return {kind: 'Function', parameter, body};
+}
+
+export function quantifiedType(
+  boundKind: 'flexible' | 'rigid',
+  binding: string,
+  boundType: PolymorphicType,
+  body: PolymorphicType
+): PolymorphicType {
+  if (body.kind === 'Quantified') {
+    return {
+      kind: 'Quantified',
+      bindings: new Map<string, Bound>([
+        ...body.bindings,
+        [binding, {kind: boundKind, type: boundType}],
+      ]),
+      body: body.body,
+    };
+  } else {
+    return {
+      kind: 'Quantified',
+      bindings: new Map<string, Bound>([
+        [binding, {kind: boundKind, type: boundType}],
+      ]),
+      body,
+    };
+  }
+}
+
+export const bottomType: BottomType = {kind: 'Bottom'};

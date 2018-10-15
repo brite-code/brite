@@ -1,12 +1,7 @@
+import {bottomType} from './builder';
 import {Diagnostics, Reported} from './diagnostics';
 import {Prefix} from './prefix';
-import {
-  BottomType,
-  Bound,
-  MonomorphicType,
-  PolymorphicType,
-  Type,
-} from './type';
+import {Bound, MonomorphicType, PolymorphicType, Type} from './type';
 
 /**
  * Implements the unification algorithm from Appendix A in the MLF paper
@@ -335,7 +330,7 @@ function unifyPolymorphicType<Diagnostic>(
     const type: Type = {kind: 'Quantified', bindings, body: actualBody};
     return {type, error: undefined};
   } else {
-    return {type: BottomType, error};
+    return {type: bottomType, error};
   }
 }
 
