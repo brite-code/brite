@@ -3,7 +3,7 @@ import {gen} from 'testcheck';
 import {Diagnostics} from './diagnostics';
 import {genMonomorphicType, testCheck} from './gen';
 import {Prefix} from './prefix';
-import {BottomType, Type} from './type';
+import {BooleanType, BottomType, MonomorphicType, Type} from './type';
 import {unify} from './unify';
 
 testCheck(
@@ -60,3 +60,34 @@ testCheck(
     return true;
   }
 );
+
+// Example 4 from the [MLF paper][1] we implement.
+//
+// [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
+test('example 4', () => {
+  const diagnostics = Diagnostics.create();
+  const prefix = Prefix.create();
+  const identifier1 = prefix.add({kind: 'flexible', type: BottomType});
+  const type1: MonomorphicType = BooleanType;
+  const type2: MonomorphicType = {kind: 'Variable', identifier: identifier1};
+  const identifier2 = prefix.add({
+    kind: 'flexible',
+    type: {
+      kind: 'Quantified',
+      prefix: new Map([[identifier1, prefix.find(identifier1)]]),
+      body: type2,
+    },
+  });
+  const actual: MonomorphicType = {
+    kind: 'Function',
+    parameter: type1,
+    body: {kind: 'Variable', identifier: identifier2},
+  };
+  const expected: MonomorphicType = {
+    kind: 'Function',
+    parameter: type1,
+    body: type2,
+  };
+  const {error} = unify(diagnostics, prefix, actual, expected);
+  expect(error).toBeUndefined();
+});

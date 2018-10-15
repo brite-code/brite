@@ -2,10 +2,10 @@ import {TypeIdentifier} from './identifier';
 
 export type Type = PolymorphicType;
 
-export const BooleanType: Type = {kind: 'Constant', constant: {kind: 'Boolean'}}; // prettier-ignore
-export const NumberType: Type = {kind: 'Constant', constant: {kind: 'Number'}};
-export const StringType: Type = {kind: 'Constant', constant: {kind: 'String'}};
-export const BottomType: BottomType<never> = {kind: 'Bottom'};
+export const BooleanType: MonomorphicType = {kind: 'Constant', constant: {kind: 'Boolean'}}; // prettier-ignore
+export const NumberType: MonomorphicType = {kind: 'Constant', constant: {kind: 'Number'}}; // prettier-ignore
+export const StringType: MonomorphicType = {kind: 'Constant', constant: {kind: 'String'}}; // prettier-ignore
+export const BottomType: BottomType = {kind: 'Bottom'};
 
 export type MonomorphicType<T = never> =
   | T
