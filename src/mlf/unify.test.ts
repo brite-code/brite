@@ -14,7 +14,7 @@ testCheck(
     return gen.return({prefix, type});
   }),
   ({prefix, type}) => {
-    const diagnostics = Diagnostics.create();
+    const diagnostics = new Diagnostics();
     const {error} = unify(diagnostics, prefix, type, type);
     return error === undefined;
   }
@@ -29,7 +29,7 @@ testCheck(
     return gen.return({prefix, actual, expected});
   }),
   ({prefix, actual, expected}) => {
-    const diagnostics = Diagnostics.create();
+    const diagnostics = new Diagnostics();
     const {error} = unify(diagnostics, prefix, actual, expected);
     return error === undefined;
   }
@@ -43,7 +43,7 @@ testCheck(
     return gen.return({prefix, type});
   }),
   ({prefix, type: actual}) => {
-    const diagnostics = Diagnostics.create();
+    const diagnostics = new Diagnostics();
     const identifier = prefix.add({
       kind: 'flexible',
       type: BottomType,
@@ -65,7 +65,7 @@ testCheck(
 //
 // [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
 test('example 4', () => {
-  const diagnostics = Diagnostics.create();
+  const diagnostics = new Diagnostics();
   const prefix = Prefix.create();
   const identifier1 = prefix.add({kind: 'flexible', type: BottomType});
   const type1: MonomorphicType = BooleanType;

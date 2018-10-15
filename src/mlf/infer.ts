@@ -13,8 +13,16 @@ import {UnifyError, unify} from './unify';
  */
 export function infer<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
+  scope: Immutable.Map<Identifier, Type>,
+  expression: Expression<Diagnostic>
+): Expression<InferError<Diagnostic>, Type> {
+  return inferExpression(diagnostics, new Prefix(), scope, expression);
+}
+
+function inferExpression<Diagnostic>(
+  diagnostics: Diagnostics<InferError<Diagnostic>>,
   prefix: Prefix,
-  context: Immutable.Map<Identifier, Type>,
+  scope: Immutable.Map<Identifier, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
@@ -24,7 +32,7 @@ export function infer<Diagnostic>(
     case 'Variable': {
       const variable = expression.description;
       const identifier = variable.identifier;
-      const type = context.get(identifier);
+      const type = scope.get(identifier);
       if (type !== undefined) {
         return {type, description: variable};
       } else {
@@ -65,38 +73,39 @@ export function infer<Diagnostic>(
     case 'Function': {
       const function_ = expression.description;
 
-      // Start capturing new variables and create a fresh type variable for the
-      // parameter type. It starts out with a flexible bound on the bottom type.
-      prefix.captureStart();
-      const parameterType = prefix.add({
-        kind: 'flexible',
-        type: BottomType,
+      const {
+        result: {parameterType, bodyType, body},
+        bindings,
+      } = prefix.quantify(() => {
+        // Introduce a new type variable for the function parameter. Through the
+        // inference of our function body we should solve this to a proper type.
+        const parameterType = prefix.add({kind: 'flexible', type: BottomType});
+
+        // Infer our function body. Introducing the variable we just defined
+        // into scope.
+        const body = inferExpression(
+          diagnostics,
+          prefix,
+          scope.set(function_.parameter, {
+            kind: 'Variable',
+            identifier: parameterType,
+          }),
+          function_.body
+        );
+
+        // The type of our function body is a type variable with a flexible
+        // bound on the polymorphic body type. This is so that the body may be
+        // instantiated to different types.
+        const bodyType = prefix.add({kind: 'flexible', type: body.type});
+
+        return {parameterType, bodyType, body};
       });
 
-      // Infer the type of the function body. Making sure to add the new
-      // parameter type to our context.
-      const body = infer(
-        diagnostics,
-        prefix,
-        context.set(function_.parameter, {
-          kind: 'Variable',
-          identifier: parameterType,
-        }),
-        function_.body
-      );
-
-      // The type of the function body is polymorphic. That means we can’t add
-      // it directly to our monomorphic function type. So we create a new type
-      // variable in the scope we just pushed that will be available in our
-      // popped scope prefix. Also create our quantified function type.
-      const bodyType = prefix.add({
-        kind: 'flexible',
-        type: body.type,
-      });
-      const bindings = prefix.captureStop();
+      // Create the type of our function. It is quantified by at least the
+      // parameter type and body type.
       const type: Type = {
         kind: 'Quantified',
-        prefix: bindings,
+        bindings,
         body: {
           kind: 'Function',
           parameter: {kind: 'Variable', identifier: parameterType},
@@ -116,39 +125,49 @@ export function infer<Diagnostic>(
 
     case 'Application': {
       const call = expression.description;
-      prefix.captureStart();
 
-      // Infer the types for the expression being called and the argument to
-      // that expression.
-      const callee = infer(diagnostics, prefix, context, call.callee);
-      const argument = infer(diagnostics, prefix, context, call.argument);
+      const {
+        result: {bodyType, callee, argument, error},
+        bindings,
+      } = prefix.quantify(() => {
+        // Infer the types for our callee and argument inside of our type
+        // variable quantification.
+        const callee = inferExpression(diagnostics, prefix, scope, call.callee);
+        const argument = inferExpression(
+          diagnostics,
+          prefix,
+          scope,
+          call.argument
+        );
 
-      // Create three new type variables for the callee, argument, and body. We
-      // do not yet know the type for the body. The following unification should
-      // resolve the body type.
-      const calleeType = prefix.add({kind: 'flexible', type: callee.type});
-      const argumentType = prefix.add({kind: 'flexible', type: argument.type});
-      const bodyType = prefix.add({kind: 'flexible', type: BottomType});
+        // Create three new flexible type variables for the callee, argument,
+        // and body. This is because the callee and argument types may be
+        // polymorphic but they need to be monomorphic for instantiation
+        // in unify. The body type is an unresolved bottom type which should be
+        // resolved through this unification.
+        const calleeType = prefix.add({kind: 'flexible', type: callee.type});
+        const argumentType = prefix.add({kind: 'flexible', type: argument.type}); // prettier-ignore
+        const bodyType = prefix.add({kind: 'flexible', type: BottomType});
 
-      // Unify the type of the callee with the function type we expect. This
-      // should solve any unknown type variables.
-      const {error} = unify(
-        diagnostics,
-        prefix,
-        {kind: 'Variable', identifier: calleeType},
-        {
-          kind: 'Function',
-          parameter: {kind: 'Variable', identifier: argumentType},
-          body: {kind: 'Variable', identifier: bodyType},
-        }
-      );
+        // Unify the type of the callee with the function type we expect. This
+        // should solve any unknown type variables.
+        const {error} = unify(
+          diagnostics,
+          prefix,
+          {kind: 'Variable', identifier: calleeType},
+          {
+            kind: 'Function',
+            parameter: {kind: 'Variable', identifier: argumentType},
+            body: {kind: 'Variable', identifier: bodyType},
+          }
+        );
 
-      // The type of this application is quantified by the type variables
-      // we created.
-      const bindings = prefix.captureStop();
+        return {bodyType, callee, argument, error};
+      });
+
       const type: Type = {
         kind: 'Quantified',
-        prefix: bindings,
+        bindings,
         body: {kind: 'Variable', identifier: bodyType},
       };
 
@@ -161,14 +180,17 @@ export function infer<Diagnostic>(
     }
 
     // A binding infers a type for its value and introduces that value into
-    // scope for the body.
+    // scope for the body. In a typical ML type system we would perform
+    // generalization at let-bindings. However, in our MLF type system we keep
+    // variables as polymorphic until they are applied. At which point we
+    // instantiate them.
     case 'Binding': {
       const binding = expression.description;
-      const value = infer(diagnostics, prefix, context, binding.value);
-      const body = infer(
+      const value = inferExpression(diagnostics, prefix, scope, binding.value);
+      const body = inferExpression(
         diagnostics,
         prefix,
-        context.set(binding.binding, value.type),
+        scope.set(binding.binding, value.type),
         binding.body
       );
       return {
@@ -177,7 +199,7 @@ export function infer<Diagnostic>(
       };
     }
 
-    // Errors have the bottom type since they will crash at runtime.
+    // Runtime errors have the bottom type since they will crash at runtime.
     case 'Error':
       return {type: BottomType, description: expression.description};
 

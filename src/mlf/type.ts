@@ -1,9 +1,11 @@
+import * as Immutable from 'immutable';
+
 const opaque = Symbol();
 
-export type TypeIdentifier = number & typeof opaque;
+export type TypeIdentifier = string & typeof opaque;
 
 export namespace TypeIdentifier {
-  export function create(x: number): TypeIdentifier {
+  export function create(x: string): TypeIdentifier {
     return x as TypeIdentifier;
   }
 }
@@ -46,7 +48,7 @@ export type QuantifiedType<T = never> =
   | T
   | {
       readonly kind: 'Quantified';
-      readonly prefix: ReadonlyMap<TypeIdentifier, Bound>;
+      readonly bindings: ReadonlyMap<TypeIdentifier, Bound>;
       readonly body: BottomType<MonomorphicType>;
     };
 
