@@ -1,7 +1,7 @@
 // The TypeScript types which come with Immutable.js are frequently innacurate,
 // so we define our own for the subset of Immutable.js that we use.
 declare module 'immutable' {
-  export function Map<K, V>(): Map<K, V>;
+  export function Map<K, V>(iterable?: Iterable<[K, V]>): Map<K, V>;
 
   export interface Map<K, V> extends MapCommonMethods<K, V> {
     readonly mutable: false;
