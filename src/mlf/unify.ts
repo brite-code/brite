@@ -1,4 +1,4 @@
-import {bottomType} from './builder';
+import * as t from './builder';
 import {Diagnostics, Reported} from './diagnostics';
 import {Prefix} from './prefix';
 import {Bound, MonomorphicType, PolymorphicType, Type} from './type';
@@ -142,7 +142,7 @@ function unifyMonomorphicType<Diagnostic>(
     // If the bound type is monomorphic then we do a monomorphic unification
     // with our current type. If it is polymorphic then we do a polymorphic
     // unification and update the bound.
-    if (bound.type.kind !== 'Quantified' && bound.type.kind !== 'Bottom') {
+    if (Type.isMonomorphic(bound.type)) {
       return unifyMonomorphicType(
         diagnostics,
         commonPrefix,
@@ -331,11 +331,11 @@ function unifyPolymorphicType<Diagnostic>(
   if (error === undefined) {
     let type: Type = actual;
     for (const [binding, bound] of bindings) {
-      type = {kind: 'Quantified', binding, bound, body: type};
+      type = t.quantifiedType(binding, bound, type);
     }
     return {type, error: undefined};
   } else {
-    return {type: bottomType, error};
+    return {type: t.bottomType, error};
   }
 }
 

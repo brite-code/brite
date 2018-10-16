@@ -39,6 +39,13 @@ export type Bound = {
 
 export namespace Type {
   /**
+   * Returns true if the provided type is monomorphic.
+   */
+  export function isMonomorphic(type: Type): type is MonomorphicType {
+    return type.kind !== 'Quantified' && type.kind !== 'Bottom';
+  }
+
+  /**
    * Prints a type to a display string using the standard syntax for types in
    * academic literature. Particularly the [MLF][1] paper we implement.
    *

@@ -1,10 +1,10 @@
 import * as Immutable from 'immutable';
 
-import {booleanType, bottomType, numberType, stringType} from './builder';
+import * as t from './builder';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
 import {Prefix} from './prefix';
-import {MonomorphicType, Type} from './type';
+import {Type} from './type';
 import {UnifyError, unify} from './unify';
 
 /**
@@ -38,7 +38,7 @@ function inferExpression<Diagnostic>(
         return {type, description: variable};
       } else {
         return {
-          type: bottomType,
+          type: t.bottomType,
           description: {
             kind: 'Error',
             error: diagnostics.report({
@@ -55,13 +55,13 @@ function inferExpression<Diagnostic>(
       let type: Type;
       switch (expression.description.constant.kind) {
         case 'Boolean':
-          type = booleanType;
+          type = t.booleanType;
           break;
         case 'Number':
-          type = numberType;
+          type = t.numberType;
           break;
         case 'String':
-          type = stringType;
+          type = t.stringType;
           break;
         default:
           const never: never = expression.description.constant;
@@ -80,44 +80,37 @@ function inferExpression<Diagnostic>(
       } = prefix.quantify(() => {
         // Introduce a new type variable for the function parameter. Through the
         // inference of our function body we should solve this to a proper type.
-        const parameterType = prefix.add({kind: 'flexible', type: bottomType});
+        const parameterType = t.variableType(
+          prefix.add({
+            kind: 'flexible',
+            type: t.bottomType,
+          })
+        );
 
         // Infer our function body. Introducing the variable we just defined
         // into scope.
         const body = inferExpression(
           diagnostics,
           prefix,
-          scope.set(function_.parameter, {
-            kind: 'Variable',
-            identifier: parameterType,
-          }),
+          scope.set(function_.parameter, parameterType),
           function_.body
         );
 
         // The type of our function body is a type variable with a flexible
         // bound on the polymorphic body type. This is so that the body may be
         // instantiated to different types.
-        let bodyType: MonomorphicType;
-        if (body.type.kind === 'Quantified' || body.type.kind === 'Bottom') {
-          const identifier = prefix.add({kind: 'flexible', type: body.type});
-          bodyType = {kind: 'Variable', identifier};
-        } else {
-          bodyType = body.type;
-        }
+        const bodyType = Type.isMonomorphic(body.type)
+          ? body.type
+          : t.variableType(prefix.add({kind: 'flexible', type: body.type}));
 
         return {parameterType, bodyType, body};
       });
 
       // Create the type of our function. It is quantified by at least the
       // parameter type and body type.
-      let type: Type = {
-        kind: 'Function',
-        parameter: {kind: 'Variable', identifier: parameterType},
-        body: bodyType,
-      };
-
+      let type: Type = t.functionType(parameterType, bodyType);
       for (const [binding, bound] of Array.from(bindings).reverse()) {
-        type = {kind: 'Quantified', binding, bound, body: type};
+        type = t.quantifiedType(binding, bound, type);
       }
 
       return {
@@ -149,47 +142,34 @@ function inferExpression<Diagnostic>(
 
         // Convert the callee and argument types to monomorphic types which we
         // can use in a monomorphic function constructor.
-
-        let calleeType: MonomorphicType;
-        if (
-          callee.type.kind === 'Quantified' ||
-          callee.type.kind === 'Bottom'
-        ) {
-          const identifier = prefix.add({kind: 'flexible', type: callee.type});
-          calleeType = {kind: 'Variable', identifier};
-        } else {
-          calleeType = callee.type;
-        }
-
-        let argumentType: MonomorphicType;
-        if (
-          argument.type.kind === 'Quantified' ||
-          argument.type.kind === 'Bottom'
-        ) {
-          const identifier = prefix.add({kind: 'flexible', type: argument.type}); // prettier-ignore
-          argumentType = {kind: 'Variable', identifier};
-        } else {
-          argumentType = argument.type;
-        }
+        const calleeType = Type.isMonomorphic(callee.type)
+          ? callee.type
+          : t.variableType(prefix.add({kind: 'flexible', type: callee.type}));
+        const argumentType = Type.isMonomorphic(argument.type)
+          ? argument.type
+          : t.variableType(prefix.add({kind: 'flexible', type: argument.type}));
 
         // Create a fresh type variable for the body type. This type will be
         // solved during unification.
-        const bodyType = prefix.add({kind: 'flexible', type: bottomType});
+        const bodyType = t.variableType(
+          prefix.add({kind: 'flexible', type: t.bottomType})
+        );
 
         // Unify the type of the callee with the function type we expect. This
         // should solve any unknown type variables.
-        const {error} = unify(diagnostics, prefix, calleeType, {
-          kind: 'Function',
-          parameter: argumentType,
-          body: {kind: 'Variable', identifier: bodyType},
-        });
+        const {error} = unify(
+          diagnostics,
+          prefix,
+          calleeType,
+          t.functionType(argumentType, bodyType)
+        );
 
         return {bodyType, callee, argument, error};
       });
 
-      let type: Type = {kind: 'Variable', identifier: bodyType};
+      let type: Type = bodyType;
       for (const [binding, bound] of Array.from(bindings).reverse()) {
-        type = {kind: 'Quantified', binding, bound, body: type};
+        type = t.quantifiedType(binding, bound, type);
       }
 
       // If there was an error during unification then we need to return an
@@ -222,7 +202,7 @@ function inferExpression<Diagnostic>(
 
     // Runtime errors have the bottom type since they will crash at runtime.
     case 'Error':
-      return {type: bottomType, description: expression.description};
+      return {type: t.bottomType, description: expression.description};
 
     default:
       const never: never = expression.description;
