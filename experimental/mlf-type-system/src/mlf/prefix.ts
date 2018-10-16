@@ -108,7 +108,7 @@ export class Prefix {
     // If the bound we are updating is at a lower level than our current level
     // then we need to move up bindings referenced by our new bound which are
     // not accessible at our level.
-    if (currentBound.level < this.levels.length) {
+    if (currentBound.level <= this.levels.length) {
       this.levelUp(
         currentBound.level,
         currentBound.order - 1,
@@ -152,16 +152,18 @@ export class Prefix {
         if (bound === undefined) break;
         // If the bound’s level is larger than our own we need to level up
         // the bound!
-        if (level < bound.level) {
+        if (level <= bound.level) {
           // TODO: What if by moving the type variable’s level we are overriding
           // some other type variable???
 
-          // Remove this bound from its current level and add it to its
-          // new level.
-          this.levels[bound.level - 1].delete(type.identifier);
-          if (level > 0) this.levels[level - 1].add(type.identifier);
-          // Set the new level and order on the bound.
-          bound.level = level;
+          // Move this bound to its new level if the level should change.
+          if (level !== bound.level) {
+            this.levels[bound.level - 1].delete(type.identifier);
+            if (level > 0) this.levels[level - 1].add(type.identifier);
+            bound.level = level;
+          }
+
+          // Update this bound’s order.
           bound.order = order;
         }
         break;
