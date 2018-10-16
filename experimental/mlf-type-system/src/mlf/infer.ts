@@ -35,32 +35,40 @@ function inferExpression<Diagnostic>(
       const identifier = variable.identifier;
       const type = scope.get(identifier);
       if (type !== undefined) {
-        return t.variableExpressionTyped(type, identifier);
+        return {type, description: variable};
       } else {
-        return t.errorExpressionTyped(
-          t.bottomType,
-          diagnostics.report({
-            kind: 'UnboundVariable',
-            identifier,
-          })
-        );
+        return {
+          type: t.bottomType,
+          description: {
+            kind: 'Error',
+            error: diagnostics.report({
+              kind: 'UnboundVariable',
+              identifier,
+            }),
+          },
+        };
       }
     }
 
     // Constant expressions have a native type.
     case 'Constant': {
-      const constant = expression.description.constant;
-      switch (constant.kind) {
+      let type: Type;
+      switch (expression.description.constant.kind) {
         case 'Boolean':
-          return t.booleanExpressionTyped(constant.value);
+          type = t.booleanType;
+          break;
         case 'Number':
-          return t.numberExpressionTyped(constant.value);
+          type = t.numberType;
+          break;
         case 'String':
-          return t.stringExpressionTyped(constant.value);
+          type = t.stringType;
+          break;
         default:
-          const never: never = constant;
-          return never;
+          const never: never = expression.description.constant;
+          type = never;
+          break;
       }
+      return {type, description: expression.description};
     }
 
     case 'Function': {
@@ -105,7 +113,14 @@ function inferExpression<Diagnostic>(
         type = t.quantifiedType(binding, bound, type);
       }
 
-      return t.functionExpressionTyped(type, function_.parameter, body);
+      return {
+        type,
+        description: {
+          kind: 'Function',
+          parameter: function_.parameter,
+          body,
+        },
+      };
     }
 
     case 'Call': {
@@ -161,8 +176,8 @@ function inferExpression<Diagnostic>(
       // error expression which will fail at runtime instead of an
       // call expression.
       return error === undefined
-        ? t.callExpressionTyped(type, callee, argument)
-        : t.errorExpressionTyped(type, error);
+        ? {type, description: {kind: 'Call', callee, argument}}
+        : {type, description: {kind: 'Error', error}};
     }
 
     // A binding infers a type for its value and introduces that value into
@@ -179,12 +194,15 @@ function inferExpression<Diagnostic>(
         scope.set(binding.binding, value.type),
         binding.body
       );
-      return t.bindingExpressionTyped(binding.binding, value, body);
+      return {
+        type: body.type,
+        description: {kind: 'Binding', binding: binding.binding, value, body},
+      };
     }
 
     // Runtime errors have the bottom type since they will crash at runtime.
     case 'Error':
-      return t.errorExpressionTyped(t.bottomType, expression.description.error);
+      return {type: t.bottomType, description: expression.description};
 
     default:
       const never: never = expression.description;
