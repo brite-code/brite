@@ -1,0 +1,5 @@
+# Package Managers
+node_modules/
+
+# Operating Systems
+.DS_Store
