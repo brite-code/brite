@@ -5,7 +5,6 @@
 // ownership over our digital resources.
 {
   "rules": {
-    "member-ordering": [true, {"order": "statics-first"}],
     "adjacent-overload-signatures": true,
     "no-reference": true,
     "no-unnecessary-type-assertion": true,
@@ -120,7 +119,6 @@
     "strict-boolean-expressions": true
   },
   "jsRules": {
-    "member-ordering": [true, {"order": "statics-first"}],
     "no-reference": true,
     "ban-comma-operator": true,
     "curly": [true, "ignore-same-line"],

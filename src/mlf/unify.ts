@@ -99,10 +99,16 @@ function unifyMonomorphicType<Diagnostic>(
 
     // Update the actual and expected type variables in their
     // respective prefixes.
-    if (isActualCommon) commonPrefix.update(actual.identifier, bound);
-    else actualPrefix.set(actual.identifier, bound);
-    if (isExpectedCommon) commonPrefix.update(expected.identifier, bound);
-    else expectedPrefix.set(expected.identifier, bound);
+    if (isActualCommon) {
+      commonPrefix.update(actual.identifier, bound);
+    } else {
+      actualPrefix.set(actual.identifier, bound);
+    }
+    if (isExpectedCommon) {
+      commonPrefix.update(expected.identifier, bound);
+    } else {
+      expectedPrefix.set(expected.identifier, bound);
+    }
 
     return {error};
   } else if (actual.kind === 'Variable' || expected.kind === 'Variable') {

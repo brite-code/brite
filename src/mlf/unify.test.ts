@@ -306,7 +306,7 @@ test('quantified monomorphic flexible expected variable unifies with same type',
   expect([...diagnostics].length).toEqual(0);
 });
 
-test('quantified  monomorphic rigid expected variable does not unify with different type', () => {
+test('quantified monomorphic rigid expected variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
   const prefix = new Prefix([
     [

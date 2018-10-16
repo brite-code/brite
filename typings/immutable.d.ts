@@ -30,6 +30,28 @@ declare module 'immutable' {
     asImmutable(): Map<K, V>;
   }
 
+  export function Set<V>(iterable?: Iterable<V>): Set<V>;
+
+  export interface Set<V> extends SetCommonMethods<V> {
+    readonly mutable: false;
+    withMutations(mutator: (mutable: MutableSet<V>) => void): this;
+    asMutable(): TemporaryMutableSet<V>;
+  }
+
+  interface SetCommonMethods<V> {
+    readonly size: number;
+    add(value: V): this;
+    has(value: V): boolean;
+  }
+
+  export interface MutableSet<V> extends SetCommonMethods<V> {
+    readonly mutable: true;
+  }
+
+  export interface TemporaryMutableSet<V> extends MutableSet<V> {
+    asImmutable(): Set<V>;
+  }
+
   export function List<T>(iterable?: Iterable<T>): List<T>;
 
   export interface List<T> extends ListCommonMethods<T>, Iterable<T> {
