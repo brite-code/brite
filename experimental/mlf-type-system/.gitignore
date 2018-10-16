@@ -1,0 +1,6 @@
+# Package Managers
+node_modules/
+yarn-error.log
+
+# Operating Systems
+.DS_Store
