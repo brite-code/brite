@@ -101,7 +101,7 @@ function inferExpression<Diagnostic>(
       // Create the type of our function. It is quantified by at least the
       // parameter type and body type.
       let type: Type = t.functionType(parameterType, bodyType);
-      for (const [binding, bound] of bindings) {
+      for (const {binding, bound} of bindings) {
         type = t.quantifiedType(binding, bound, type);
       }
 
@@ -153,7 +153,7 @@ function inferExpression<Diagnostic>(
       });
 
       let type: Type = bodyType;
-      for (const [binding, bound] of bindings) {
+      for (const {binding, bound} of bindings) {
         type = t.quantifiedType(binding, bound, type);
       }
 

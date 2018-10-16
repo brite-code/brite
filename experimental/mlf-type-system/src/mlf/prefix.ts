@@ -67,7 +67,10 @@ export class Prefix {
     f: () => T
   ): {
     readonly result: T;
-    readonly bindings: ReadonlyMap<string, Bound>;
+    readonly bindings: ReadonlyArray<{
+      readonly binding: string;
+      readonly bound: Bound;
+    }>;
   } {
     const oldCounter = this.counter;
     const level = new Set<string>();
@@ -76,19 +79,15 @@ export class Prefix {
     this.levels.pop();
     // Collect all the bindings created at this level into a map. Make sure they
     // are in their proper order.
-    const bindings = new Map(
-      Array.from(level)
-        .map(
-          (binding): [string, PrefixBound] => {
-            const bound = this.bindings.get(binding)!; // tslint:disable-line no-non-null-assertion
-            this.bindings.delete(binding);
-            return [binding, bound];
-          }
-        )
-        .sort(([, a], [, b]) => a.order - b.order)
-        .map(([binding, {bound}]): [string, Bound] => [binding, bound])
-        .reverse()
-    );
+    const bindings = Array.from(level)
+      .map(binding => {
+        const bound = this.bindings.get(binding)!; // tslint:disable-line no-non-null-assertion
+        this.bindings.delete(binding);
+        return {binding, bound};
+      })
+      .sort((a, b) => a.bound.order - b.bound.order)
+      .map(({binding, bound: {bound}}) => ({binding, bound}))
+      .reverse();
     // Restore the old counter variable after we delete all the type variables
     // created by `f()` since there will be no collisions with those type
     // variables now. This way we can reuse type variable names.
