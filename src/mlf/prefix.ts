@@ -16,12 +16,13 @@ export class Prefix {
    */
   add(bound: Bound): string {
     // Find an identifier in our bindings map that has not already been taken.
-    let counter = this.counter + 1;
-    while (this.bindings.has(`t${counter}`)) {
+    let counter = this.counter;
+    let identifier = typeVariableName(counter);
+    while (this.bindings.has(identifier)) {
       counter = counter + 1;
+      identifier = typeVariableName(counter);
     }
     // Add the fresh identifier with its bound to our prefix and return.
-    const identifier = `t${counter}`;
     this.bindings.set(identifier, bound);
     // If we are tracking newly created type variables then add this one.
     if (this.newBindings.length > 0) {
@@ -80,3 +81,45 @@ export class Prefix {
     return {result, bindings};
   }
 }
+
+/**
+ * Get a type variable name for the current counter value.
+ */
+function typeVariableName(counter: number): string {
+  if (counter >= LETTERS.length) {
+    return `t${counter}`;
+  } else {
+    return LETTERS[counter];
+  }
+}
+
+// All the ASCII lowercase letters. We use these for creating type
+// variable names.
+const LETTERS: ReadonlyArray<string> = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'i',
+  'j',
+  'k',
+  'l',
+  'm',
+  'n',
+  'o',
+  'p',
+  'q',
+  'r',
+  's',
+  't',
+  'u',
+  'v',
+  'w',
+  'x',
+  'y',
+  'z',
+];

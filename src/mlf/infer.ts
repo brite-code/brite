@@ -4,7 +4,7 @@ import {booleanType, bottomType, numberType, stringType} from './builder';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
 import {Prefix} from './prefix';
-import {Type} from './type';
+import {MonomorphicType, Type} from './type';
 import {UnifyError, unify} from './unify';
 
 /**
@@ -97,7 +97,13 @@ function inferExpression<Diagnostic>(
         // The type of our function body is a type variable with a flexible
         // bound on the polymorphic body type. This is so that the body may be
         // instantiated to different types.
-        const bodyType = prefix.add({kind: 'flexible', type: body.type});
+        let bodyType: MonomorphicType;
+        if (body.type.kind === 'Quantified' || body.type.kind === 'Bottom') {
+          const identifier = prefix.add({kind: 'flexible', type: body.type});
+          bodyType = {kind: 'Variable', identifier};
+        } else {
+          bodyType = body.type;
+        }
 
         return {parameterType, bodyType, body};
       });
@@ -107,7 +113,7 @@ function inferExpression<Diagnostic>(
       let type: Type = {
         kind: 'Function',
         parameter: {kind: 'Variable', identifier: parameterType},
-        body: {kind: 'Variable', identifier: bodyType},
+        body: bodyType,
       };
 
       for (const [binding, bound] of Array.from(bindings).reverse()) {
@@ -141,27 +147,42 @@ function inferExpression<Diagnostic>(
           call.argument
         );
 
-        // Create three new flexible type variables for the callee, argument,
-        // and body. This is because the callee and argument types may be
-        // polymorphic but they need to be monomorphic for instantiation
-        // in unify. The body type is an unresolved bottom type which should be
-        // resolved through this unification.
-        const calleeType = prefix.add({kind: 'flexible', type: callee.type});
-        const argumentType = prefix.add({kind: 'flexible', type: argument.type}); // prettier-ignore
+        // Convert the callee and argument types to monomorphic types which we
+        // can use in a monomorphic function constructor.
+
+        let calleeType: MonomorphicType;
+        if (
+          callee.type.kind === 'Quantified' ||
+          callee.type.kind === 'Bottom'
+        ) {
+          const identifier = prefix.add({kind: 'flexible', type: callee.type});
+          calleeType = {kind: 'Variable', identifier};
+        } else {
+          calleeType = callee.type;
+        }
+
+        let argumentType: MonomorphicType;
+        if (
+          argument.type.kind === 'Quantified' ||
+          argument.type.kind === 'Bottom'
+        ) {
+          const identifier = prefix.add({kind: 'flexible', type: argument.type}); // prettier-ignore
+          argumentType = {kind: 'Variable', identifier};
+        } else {
+          argumentType = argument.type;
+        }
+
+        // Create a fresh type variable for the body type. This type will be
+        // solved during unification.
         const bodyType = prefix.add({kind: 'flexible', type: bottomType});
 
         // Unify the type of the callee with the function type we expect. This
         // should solve any unknown type variables.
-        const {error} = unify(
-          diagnostics,
-          prefix,
-          {kind: 'Variable', identifier: calleeType},
-          {
-            kind: 'Function',
-            parameter: {kind: 'Variable', identifier: argumentType},
-            body: {kind: 'Variable', identifier: bodyType},
-          }
-        );
+        const {error} = unify(diagnostics, prefix, calleeType, {
+          kind: 'Function',
+          parameter: argumentType,
+          body: {kind: 'Variable', identifier: bodyType},
+        });
 
         return {bodyType, callee, argument, error};
       });
