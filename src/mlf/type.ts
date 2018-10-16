@@ -1,7 +1,6 @@
 export type Type = PolymorphicType;
 
-export type MonomorphicType<T = never> =
-  | T
+export type MonomorphicType =
   | {
       readonly kind: 'Variable';
       readonly identifier: string;
@@ -21,18 +20,16 @@ export type ConstantType =
   | {readonly kind: 'Number'}
   | {readonly kind: 'String'};
 
-export type PolymorphicType<T = never> = QuantifiedType<
-  BottomType<MonomorphicType<T>>
->;
-
-export type BottomType<T = never> = T | {readonly kind: 'Bottom'};
-
-export type QuantifiedType<T = never> =
-  | T
+export type PolymorphicType =
+  | MonomorphicType
+  | {
+      readonly kind: 'Bottom';
+    }
   | {
       readonly kind: 'Quantified';
-      readonly bindings: ReadonlyMap<string, Bound>;
-      readonly body: BottomType<MonomorphicType>;
+      readonly binding: string;
+      readonly bound: Bound;
+      readonly body: PolymorphicType;
     };
 
 export type Bound = {

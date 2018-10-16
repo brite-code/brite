@@ -241,42 +241,37 @@ function unifyPolymorphicType<Diagnostic>(
     return {type: actual, error: undefined};
   }
 
-  // If the types are monomorphic then convert them to quantified types with
-  // an empty bindings map.
-  const {bindings: actualBindings, body: actualBody} =
-    actual.kind !== 'Quantified'
-      ? {bindings: new Map<string, Bound>(), body: actual}
-      : {bindings: actual.bindings, body: actual.body};
-  const {bindings: expectedBindings, body: expectedBody} =
-    expected.kind !== 'Quantified'
-      ? {bindings: new Map<string, Bound>(), body: expected}
-      : {bindings: expected.bindings, body: expected.body};
+  // Get all the new bindings and save all the old bindings from our quantified
+  // “actual” type.
+  const actualBindingsOld = new Map<string, Bound>();
+  const actualBindings: Array<string> = [];
+  while (actual.kind === 'Quantified') {
+    const {binding, bound} = actual;
+    actualBindings.push(binding);
+    const oldBound = actualPrefix.get(binding);
+    if (oldBound !== undefined) actualBindingsOld.set(binding, oldBound);
+    actualPrefix.set(binding, bound);
+    actual = actual.body;
+  }
+
+  // Get all the new bindings and save all the old bindings from our quantified
+  // “expected” type.
+  const expectedBindingsOld = new Map<string, Bound>();
+  const expectedBindings: Array<string> = [];
+  while (expected.kind === 'Quantified') {
+    const {binding, bound} = expected;
+    expectedBindings.push(binding);
+    const oldBound = expectedPrefix.get(binding);
+    if (oldBound !== undefined) expectedBindingsOld.set(binding, oldBound);
+    expectedPrefix.set(binding, bound);
+    expected = expected.body;
+  }
 
   // Bottom unifies with everything.
-  if (actualBody.kind === 'Bottom') {
+  if (actual.kind === 'Bottom') {
     return {type: expected, error: undefined};
-  } else if (expectedBody.kind === 'Bottom') {
+  } else if (expected.kind === 'Bottom') {
     return {type: actual, error: undefined};
-  }
-
-  // Add all the new “actual” bindings to our “actual” prefix. If we are
-  // shadowing anything in the “actual” prefix then we save it so that we may
-  // restore the entry later.
-  const actualBindingsOld = new Map<string, Bound>();
-  for (const [identifier, bound] of actualBindings) {
-    const oldBound = actualPrefix.get(identifier);
-    if (oldBound !== undefined) actualBindingsOld.set(identifier, oldBound);
-    actualPrefix.set(identifier, bound);
-  }
-
-  // Add all the new “expected” bindings to our “expected” prefix. If we are
-  // shadowing anything in the “expected” prefix then we save it so that we may
-  // restore the entry later.
-  const expectedBindingsOld = new Map<string, Bound>();
-  for (const [identifier, bound] of expectedBindings) {
-    const oldBound = expectedPrefix.get(identifier);
-    if (oldBound !== undefined) expectedBindingsOld.set(identifier, oldBound);
-    expectedPrefix.set(identifier, bound);
   }
 
   // Unify the actual quantified type body and the expected quantified
@@ -286,8 +281,8 @@ function unifyPolymorphicType<Diagnostic>(
     commonPrefix,
     actualPrefix,
     expectedPrefix,
-    actualBody,
-    expectedBody
+    actual,
+    expected
   );
 
   // If we did not have an error then actual and expected are equivalent. So we
@@ -298,28 +293,33 @@ function unifyPolymorphicType<Diagnostic>(
   // equivalent! Instead we return the bottom type with the error in that case.
   const bindings = new Map<string, Bound>();
 
+  // Reverses `actualBindings` before adding them to `bindings`. This way they
+  // will be added in reverse order so we may easily construct a quantified
+  // type from them.
+  actualBindings.reverse();
+
   // Restore our “actual” prefix to its old state. Before we added
   // new bindings.
-  for (const identifier of actualBindings.keys()) {
-    const newBound = actualPrefix.get(identifier)!; // tslint:disable-line no-non-null-assertion
-    bindings.set(identifier, newBound);
+  for (const binding of actualBindings) {
+    const newBound = actualPrefix.get(binding)!; // tslint:disable-line no-non-null-assertion
+    bindings.set(binding, newBound);
 
-    const oldBound = actualBindingsOld.get(identifier);
+    const oldBound = actualBindingsOld.get(binding);
     if (oldBound === undefined) {
-      actualPrefix.delete(identifier);
+      actualPrefix.delete(binding);
     } else {
-      actualPrefix.set(identifier, oldBound);
+      actualPrefix.set(binding, oldBound);
     }
   }
 
   // Restore our “expected” prefix to its old state. Before we added
   // new bindings.
-  for (const identifier of expectedBindings.keys()) {
-    const oldBound = expectedBindingsOld.get(identifier);
+  for (const binding of expectedBindings) {
+    const oldBound = expectedBindingsOld.get(binding);
     if (oldBound === undefined) {
-      expectedPrefix.delete(identifier);
+      expectedPrefix.delete(binding);
     } else {
-      expectedPrefix.set(identifier, oldBound);
+      expectedPrefix.set(binding, oldBound);
     }
   }
 
@@ -329,7 +329,10 @@ function unifyPolymorphicType<Diagnostic>(
   //
   // If there was an error then we return the bottom type with the error.
   if (error === undefined) {
-    const type: Type = {kind: 'Quantified', bindings, body: actualBody};
+    let type: Type = actual;
+    for (const [binding, bound] of bindings) {
+      type = {kind: 'Quantified', binding, bound, body: type};
+    }
     return {type, error: undefined};
   } else {
     return {type: bottomType, error};

@@ -1,5 +1,5 @@
 import {Expression} from './expression';
-import {BottomType, Bound, MonomorphicType, PolymorphicType} from './type';
+import {Bound, MonomorphicType, PolymorphicType} from './type';
 
 export function variableExpression(identifier: string): Expression {
   return {
@@ -91,22 +91,10 @@ export function quantifiedType(
   bound: Bound,
   body: PolymorphicType
 ): PolymorphicType {
-  if (body.kind === 'Quantified') {
-    return {
-      kind: 'Quantified',
-      bindings: new Map<string, Bound>([...body.bindings, [binding, bound]]),
-      body: body.body,
-    };
-  } else {
-    return {
-      kind: 'Quantified',
-      bindings: new Map<string, Bound>([[binding, bound]]),
-      body,
-    };
-  }
+  return {kind: 'Quantified', binding, bound, body};
 }
 
-export const bottomType: BottomType = {kind: 'Bottom'};
+export const bottomType: PolymorphicType = {kind: 'Bottom'};
 
 export function rigidBound(type: PolymorphicType): Bound {
   return {kind: 'rigid', type};

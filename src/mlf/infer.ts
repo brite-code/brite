@@ -104,15 +104,15 @@ function inferExpression<Diagnostic>(
 
       // Create the type of our function. It is quantified by at least the
       // parameter type and body type.
-      const type: Type = {
-        kind: 'Quantified',
-        bindings,
-        body: {
-          kind: 'Function',
-          parameter: {kind: 'Variable', identifier: parameterType},
-          body: {kind: 'Variable', identifier: bodyType},
-        },
+      let type: Type = {
+        kind: 'Function',
+        parameter: {kind: 'Variable', identifier: parameterType},
+        body: {kind: 'Variable', identifier: bodyType},
       };
+
+      for (const [binding, bound] of Array.from(bindings).reverse()) {
+        type = {kind: 'Quantified', binding, bound, body: type};
+      }
 
       return {
         type,
@@ -166,11 +166,10 @@ function inferExpression<Diagnostic>(
         return {bodyType, callee, argument, error};
       });
 
-      const type: Type = {
-        kind: 'Quantified',
-        bindings,
-        body: {kind: 'Variable', identifier: bodyType},
-      };
+      let type: Type = {kind: 'Variable', identifier: bodyType};
+      for (const [binding, bound] of Array.from(bindings).reverse()) {
+        type = {kind: 'Quantified', binding, bound, body: type};
+      }
 
       // If there was an error during unification then we need to return an
       // error expression which will fail at runtime instead of an
