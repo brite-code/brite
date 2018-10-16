@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "pretty": true,
+    "allowJs": true,
+    "checkJs": true,
+    "target": "es2017",
+    "module": "es2015",
+    "lib": ["es2017"],
+    "moduleResolution": "node",
+    "jsx": "preserve",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}
