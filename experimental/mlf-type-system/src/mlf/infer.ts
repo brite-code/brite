@@ -1,5 +1,4 @@
-import * as Immutable from 'immutable';
-
+import {BindingMap} from './bindings';
 import * as t from './builder';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
@@ -14,7 +13,7 @@ import {UnifyError, unify} from './unify';
  */
 export function infer<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
-  scope: Immutable.Map<string, Type>,
+  scope: BindingMap<string, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   return inferExpression(diagnostics, new Prefix(), scope, expression);
@@ -23,7 +22,7 @@ export function infer<Diagnostic>(
 function inferExpression<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
   prefix: Prefix,
-  scope: Immutable.Map<string, Type>,
+  scope: BindingMap<string, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
@@ -64,7 +63,7 @@ function inferExpression<Diagnostic>(
     }
 
     case 'Function': {
-      const function_ = expression.description;
+      const fun = expression.description;
 
       const {
         result: {parameterType, bodyType, body},
@@ -81,12 +80,9 @@ function inferExpression<Diagnostic>(
 
         // Infer our function body. Introducing the variable we just defined
         // into scope.
-        const body = inferExpression(
-          diagnostics,
-          prefix,
-          scope.set(function_.parameter, parameterType),
-          function_.body
-        );
+        scope.push(fun.parameter, parameterType);
+        const body = inferExpression(diagnostics, prefix, scope, fun.body);
+        scope.pop(fun.parameter);
 
         // The type of our function body is a type variable with a flexible
         // bound on the polymorphic body type. This is so that the body may be
@@ -105,7 +101,7 @@ function inferExpression<Diagnostic>(
         type = t.quantifiedType(binding, bound, type);
       }
 
-      return t.functionExpressionTyped(type, function_.parameter, body);
+      return t.functionExpressionTyped(type, fun.parameter, body);
     }
 
     case 'Call': {
@@ -173,12 +169,9 @@ function inferExpression<Diagnostic>(
     case 'Binding': {
       const binding = expression.description;
       const value = inferExpression(diagnostics, prefix, scope, binding.value);
-      const body = inferExpression(
-        diagnostics,
-        prefix,
-        scope.set(binding.binding, value.type),
-        binding.body
-      );
+      scope.push(binding.binding, value.type);
+      const body = inferExpression(diagnostics, prefix, scope, binding.body);
+      scope.pop(binding.binding);
       return t.bindingExpressionTyped(binding.binding, value, body);
     }
 
