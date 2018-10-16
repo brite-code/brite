@@ -1,192 +1,253 @@
-import {Bound, PolymorphicType} from './type';
+import {BindingMap} from './bindings';
+import * as t from './builder';
+import {Bound, Type} from './type';
 
-type PrefixBound = {
+type Entry = {
   level: number;
-  order: number;
+  moved: boolean;
+  readonly counter: number | undefined;
   bound: Bound;
+  readonly dependencies: Array<{
+    readonly binding: string;
+    readonly entry: Entry;
+  }>;
 };
 
+/**
+ * Manages the type variables of our program during type inferences. Handles
+ * naming collisions, bound updates, fresh variable creation, and more.
+ */
 export class Prefix {
-  private counter = 0;
-  private readonly bindings: Map<string, PrefixBound>;
-  private readonly levels: Array<Set<string>> = [];
-
-  constructor(bindings?: ReadonlyArray<[string, Bound]>) {
-    this.bindings = new Map(
-      (bindings || []).map(
-        ([binding, bound]): [string, PrefixBound] => [
-          binding,
-          {level: 0, order: 0, bound},
-        ]
-      )
-    );
-  }
-
   /**
-   * Gets the bound for this type identifier. If it exists.
+   * Creates an empty prefix.
    */
-  get(identifier: string): Bound | undefined {
-    const bound = this.bindings.get(identifier);
-    return bound !== undefined ? bound.bound : undefined;
+  static create(): Prefix {
+    return new Prefix();
   }
 
   /**
-   * Creates a unique type identifier in this prefix and sets the bound to
-   * that identifier. Returns the identifier so that it may be retrieved from
-   * the prefix later.
+   * Creates a prefix with a parent.
+   */
+  static withParent(parent: Prefix): Prefix {
+    return new Prefix(parent);
+  }
+
+  /**
+   * Creates a prefix with some bindings already set.
+   */
+  static withBindings(bindings: Iterable<[string, Bound]>): Prefix {
+    const prefix = new Prefix();
+    for (const [binding, bound] of bindings) {
+      prefix.push(binding, bound);
+    }
+    return prefix;
+  }
+
+  private level: number;
+  private counter: number;
+  private readonly bindings = new BindingMap<string, Entry>();
+  private readonly parent: Prefix | undefined;
+
+  private constructor(parent?: Prefix) {
+    this.level = parent ? parent.level : 0;
+    this.counter = parent ? parent.counter : 0;
+    this.parent = parent;
+  }
+
+  /**
+   * Adds a bound to the prefix, giving the bound a unique identifier. Returns
+   * the identifier so that the bound may be retrieved from the prefix later.
+   *
+   * Make sure to call `Prefix.pop()` or `Prefix.quantify()` when the binding
+   * goes out of scope.
+   *
+   * If our prefix has a parent then we only add the binding to this prefix. Not
+   * our parent prefix. We will make sure that the name we create is unique in
+   * our parent prefix as well, though.
    */
   add(bound: Bound): string {
     // Find an identifier in our bindings map that has not already been taken.
-    let counter = this.counter;
-    let identifier = typeVariableName(counter);
-    while (this.bindings.has(identifier)) {
-      counter = counter + 1;
-      identifier = typeVariableName(counter);
+    let identifier = typeVariableName(this.counter);
+    while (this.has(identifier)) {
+      this.counter = this.counter + 1;
+      identifier = typeVariableName(this.counter);
     }
-    // Add the fresh identifier with its bound to our prefix and return.
-    this.bindings.set(identifier, {
-      level: this.levels.length,
-      order: counter,
-      bound,
-    });
-    // If we are tracking newly created type variables then add this one.
-    if (this.levels.length > 0) {
-      this.levels[this.levels.length - 1].add(identifier);
-    }
+    // Add the bound to our bindings map.
+    this.pushEntry(identifier, {counter: this.counter, bound});
+    // Increment our counter by one.
+    this.counter = this.counter + 1;
     return identifier;
   }
 
   /**
-   * Tracks all the new bindings created in the execution of `f()`. At the end
-   * of execution we remove all the new bindings from our prefix and move them
-   * to a new bindings map.
+   * Pushes a bound into our prefix. If a type variable of this identifier is
+   * already defined in our prefix we don’t override it. Instead we only shadow
+   * the binding.
    *
-   * The bindings are in reverse order for easy conversion to a quantified type.
+   * Make sure to call `Prefix.pop()` or `Prefix.quantify()` when the binding
+   * goes out of scope.
+   *
+   * We only push to the local prefix and not the parent prefix if we have one.
    */
-  quantify<T>(
-    f: () => T
-  ): {
-    readonly result: T;
-    readonly bindings: ReadonlyArray<{
-      readonly binding: string;
-      readonly bound: Bound;
-    }>;
-  } {
-    const oldCounter = this.counter;
-    const level = new Set<string>();
-    this.levels.push(level);
-    const result = f();
-    this.levels.pop();
-    // Collect all the bindings created at this level into a map. Make sure they
-    // are in their proper order.
-    const bindings = Array.from(level)
-      .map(binding => {
-        const bound = this.bindings.get(binding)!; // tslint:disable-line no-non-null-assertion
-        this.bindings.delete(binding);
-        return {binding, bound};
-      })
-      .sort((a, b) => a.bound.order - b.bound.order)
-      .map(({binding, bound: {bound}}) => ({binding, bound}))
-      .reverse();
-    // Restore the old counter variable after we delete all the type variables
-    // created by `f()` since there will be no collisions with those type
-    // variables now. This way we can reuse type variable names.
-    this.counter = oldCounter;
-    return {result, bindings};
+  push(identifier: string, bound: Bound) {
+    this.pushEntry(identifier, {counter: undefined, bound});
   }
 
   /**
-   * Updates an existing binding. Throws an error if the binding does not exist
-   * in the prefix. If the type has bindings at a higher levels then the binding
-   * we are updating then those bounds will be moved to a lower level.
+   * Pushes an entry to our local prefix.
+   */
+  private pushEntry(
+    identifier: string,
+    entry: Pick<Entry, Exclude<keyof Entry, 'level' | 'moved' | 'dependencies'>>
+  ) {
+    this.bindings.push(identifier, {
+      ...entry,
+      level: this.level,
+      moved: false,
+      dependencies: [],
+    });
+    this.level += 1;
+  }
+
+  /**
+   * Pops an entry from our local prefix.
+   */
+  private popEntry(identifier: string): Entry | undefined {
+    this.level -= 1;
+    const entry = this.bindings.pop(identifier);
+    // If this type variable’s name was generated then reset our counter to
+    // this entry’s counter so that we can reuse the generated name.
+    if (entry !== undefined && entry.counter !== undefined) {
+      this.counter = entry.counter;
+    }
+    // Return the entry.
+    return entry;
+  }
+
+  /**
+   * Removes a bound from our local prefix when it goes out of scope. Returns
+   * the bound if the identifier references an actual type variable.
+   *
+   * Remember that this operation is _local only_. We never pop our
+   * parent prefix.
+   */
+  pop(identifier: string) {
+    this.popEntry(identifier);
+  }
+
+  /**
+   * Removes a bound from our local prefix and uses it to quantify the
+   * provided type.
+   */
+  quantify(identifier: string, type: Type): Type {
+    const entry = this.popEntry(identifier);
+    if (entry === undefined) return type;
+    if (entry.moved) return type;
+    const newType = t.quantifiedType(identifier, entry.bound, type);
+    return entry.dependencies.reduceRight(
+      (type, dependency) =>
+        dependency.entry.level === entry.level
+          ? t.quantifiedType(dependency.binding, dependency.entry.bound, type)
+          : type,
+      newType
+    );
+  }
+
+  /**
+   * Gets the entry for the provided type identifier.
+   */
+  private getEntry(identifier: string): Entry | undefined {
+    const entry = this.bindings.get(identifier);
+    if (entry !== undefined) {
+      return entry;
+    } else if (this.parent !== undefined) {
+      return this.parent.getEntry(identifier);
+    } else {
+      return undefined;
+    }
+  }
+
+  /**
+   * Gets the bound for the provided type identifier.
+   */
+  get(identifier: string): Bound | undefined {
+    const entry = this.bindings.get(identifier);
+    if (entry !== undefined) {
+      return entry.bound;
+    } else if (this.parent !== undefined) {
+      return this.parent.get(identifier);
+    } else {
+      return undefined;
+    }
+  }
+
+  /**
+   * Does this prefix have a type variable with the provided identifier?
+   */
+  has(identifier: string): boolean {
+    if (this.bindings.has(identifier)) return true;
+    if (this.parent !== undefined) return this.parent.has(identifier);
+    return false;
+  }
+
+  /**
+   * Returns true if a type variable with the provided identifier _is not_
+   * defined in the local prefix but _is_ defined in the parent prefix.
+   */
+  isInParent(identifier: string): boolean {
+    if (this.parent === undefined) return false;
+    if (this.bindings.has(identifier)) return false;
+    return this.parent.has(identifier);
+  }
+
+  /**
+   * Are there no bindings in our prefix? Also makes sure there are no bindings
+   * in our parent prefix.
+   */
+  isEmpty(): boolean {
+    return (
+      this.bindings.isEmpty() && (this.parent ? this.parent.isEmpty() : true)
+    );
+  }
+
+  /**
+   * Are there no bindings in our local prefix? Does not consider whether or not
+   * there are bindings in our parent prefix.
+   */
+  isLocallyEmpty(): boolean {
+    return this.bindings.isEmpty();
+  }
+
+  /**
+   * Updates a type variable with the provided identifier in our prefix. May
+   * update a type variable in a parent prefix.
    */
   update(identifier: string, bound: Bound) {
-    const currentBound = this.bindings.get(identifier);
-    if (currentBound === undefined) {
+    const entry = this.getEntry(identifier);
+    if (entry === undefined) {
       throw new Error('Can only update an existing binding.');
     }
-    // If the bound we are updating is at a lower level than our current level
-    // then we need to move up bindings referenced by our new bound which are
-    // not accessible at our level.
-    if (currentBound.level <= this.levels.length) {
-      this.levelUp(
-        currentBound.level,
-        currentBound.order - 1,
-        new Set(),
-        bound.type
-      );
-    }
-    // Actually update the bound.
-    currentBound.bound = bound;
-  }
-
-  /**
-   * Moves type variables bound in our prefix at a higher level then the one
-   * specified to that level and to the specified order.
-   *
-   * In other words when we unify `f` to `a → b` in
-   * `∀(f = a → b).∀(g ≥ ∀a.∀b.a → b)` we need to “level up” `a` and `b` so that
-   * the type variables are accessible in `f`. So we convert that previous
-   * prefix to `∀a.∀b.∀(f = a → b).∀(g ≥ a → b)`.
-   *
-   * Oh, and regarding the name of this function, pun totally intended.
-   */
-  private levelUp(
-    level: number,
-    order: number,
-    scope: Set<string>,
-    type: PolymorphicType
-  ) {
-    // NOTE: This is kind of inefficient since we may end up recursively
-    // checking deep types multiple times. We may want some cache to improve
-    // performance of this step. Measure first before assuming this is slowing
-    // us down, though!
-
-    switch (type.kind) {
-      case 'Variable': {
-        // If this variable is defined in scope then we don’t need to level up.
-        if (scope.has(type.identifier)) break;
-        // Get the bound for this type. If no bound exists in our prefix then
-        // ignore this type variable.
-        const bound = this.bindings.get(type.identifier);
-        if (bound === undefined) break;
-        // If the bound’s level is larger than our own we need to level up
-        // the bound!
-        if (level <= bound.level) {
-          // TODO: What if by moving the type variable’s level we are overriding
-          // some other type variable???
-
-          // Move this bound to its new level if the level should change.
-          if (level !== bound.level) {
-            this.levels[bound.level - 1].delete(type.identifier);
-            if (level > 0) this.levels[level - 1].add(type.identifier);
-            bound.level = level;
-          }
-
-          // Update this bound’s order.
-          bound.order = order;
-        }
-        break;
-      }
-      case 'Quantified': {
-        this.levelUp(level, order, scope, type.bound.type);
-        const hasBinding = scope.has(type.binding);
-        if (!hasBinding) scope.add(type.binding);
-        this.levelUp(level, order, scope, type.body);
-        if (!hasBinding) scope.delete(type.binding);
-        break;
-      }
-      case 'Constant':
-        break;
-      case 'Function':
-        this.levelUp(level, order, scope, type.parameter);
-        this.levelUp(level, order, scope, type.body);
-        break;
-      case 'Bottom':
-        break;
-      default:
-        const never: never = type;
-        throw never;
+    // Update the entry’s bound.
+    entry.bound = bound;
+    // Check to see if any of the free variables in our new type need to
+    // be moved.
+    for (const dependencyIdentifier of Type.getFreeVariables(bound.type)) {
+      const dependencyEntry = this.getEntry(dependencyIdentifier);
+      // If our dependency entry is at a lower level then our dependant entry we
+      // don’t need to do anything since it is already in-scope.
+      //
+      // TODO: IMPORTANT: But what if the dependency is shadowed?
+      if (dependencyEntry === undefined) continue;
+      if (dependencyEntry.level < entry.level) continue;
+      // TODO: IMPORTANT: But what if the dependency is listed twice?
+      // TODO: IMPORTANT: But what if the dependency shadows an important type variable?
+      // TODO: IMPORTANT: But what if two type variables unify to this entry?
+      dependencyEntry.level = entry.level;
+      dependencyEntry.moved = true;
+      entry.dependencies.push({
+        binding: dependencyIdentifier,
+        entry: dependencyEntry,
+      });
     }
   }
 }

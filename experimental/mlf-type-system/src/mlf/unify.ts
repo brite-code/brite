@@ -28,14 +28,19 @@ export function unify<Diagnostic>(
 ): {
   readonly error: Reported<UnifyError<Diagnostic>> | undefined;
 } {
-  return unifyMonomorphicType(
+  const actualPrefix = Prefix.withParent(prefix);
+  const expectedPrefix = Prefix.withParent(prefix);
+  const result = unifyMonomorphicType(
     diagnostics,
-    prefix,
-    new Map(),
-    new Map(),
+    actualPrefix,
+    expectedPrefix,
     actual,
     expected
   );
+  if (!actualPrefix.isLocallyEmpty() || !expectedPrefix.isLocallyEmpty()) {
+    throw new Error('Must cleanup all local type variables.');
+  }
+  return result;
 }
 
 /**
@@ -43,44 +48,36 @@ export function unify<Diagnostic>(
  */
 function unifyMonomorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  commonPrefix: Prefix,
-  actualPrefix: Map<string, Bound>,
-  expectedPrefix: Map<string, Bound>,
+  actualPrefix: Prefix,
+  expectedPrefix: Prefix,
   actual: MonomorphicType,
   expected: MonomorphicType
 ): {
   readonly error: Reported<UnifyError<Diagnostic>> | undefined;
 } {
   if (actual.kind === 'Variable' && expected.kind === 'Variable') {
-    // Find the actual variable’s bound.
-    let isActualCommon = false;
-    let actualBound = actualPrefix.get(actual.identifier);
-    if (actualBound === undefined) {
-      isActualCommon = true;
-      actualBound = commonPrefix.get(actual.identifier);
-      if (actualBound === undefined) throw new Error('Could not find type.');
-    }
-
-    // Find the expected variable’s bound.
-    let isExpectedCommon = false;
-    let expectedBound = expectedPrefix.get(expected.identifier);
-    if (expectedBound === undefined) {
-      isExpectedCommon = true;
-      expectedBound = commonPrefix.get(expected.identifier);
-      if (expectedBound === undefined) throw new Error('Could not find type.');
-    }
-
-    // If both the actual variable and expected variable are in the common
-    // prefix then they are identical. We don’t need to do any unification and
-    // may instead immediately return.
-    if (isActualCommon && isExpectedCommon) {
+    // If both the actual variable and expected variable are in the parent of
+    // their respective prefix then they are identical since the actual prefix
+    // and expected prefix share a common parent. We don’t need to do any
+    // unification and may instead immediately return.
+    if (
+      actualPrefix.isInParent(actual.identifier) &&
+      expectedPrefix.isInParent(expected.identifier)
+    ) {
       return {error: undefined};
     }
+
+    // Find the actual variable’s bound.
+    const actualBound = actualPrefix.get(actual.identifier);
+    if (actualBound === undefined) throw new Error('Could not find type.');
+
+    // Find the expected variable’s bound.
+    const expectedBound = expectedPrefix.get(expected.identifier);
+    if (expectedBound === undefined) throw new Error('Could not find type.');
 
     // Unify the two polymorphic types.
     const {type, error} = unifyPolymorphicType(
       diagnostics,
-      commonPrefix,
       actualPrefix,
       expectedPrefix,
       actualBound.type,
@@ -99,16 +96,12 @@ function unifyMonomorphicType<Diagnostic>(
 
     // Update the actual and expected type variables in their
     // respective prefixes.
-    if (isActualCommon) {
-      commonPrefix.update(actual.identifier, bound);
-    } else {
-      actualPrefix.set(actual.identifier, bound);
-    }
-    if (isExpectedCommon) {
-      commonPrefix.update(expected.identifier, bound);
-    } else {
-      expectedPrefix.set(expected.identifier, bound);
-    }
+    //
+    // If both the actual and expected type variables are defined in the common
+    // parent prefix then we won’t reach this point since we’ll instead be
+    // returning early above.
+    actualPrefix.update(actual.identifier, bound);
+    expectedPrefix.update(expected.identifier, bound);
 
     return {error};
   } else if (actual.kind === 'Variable' || expected.kind === 'Variable') {
@@ -116,34 +109,19 @@ function unifyMonomorphicType<Diagnostic>(
     // another language we might select all this in our pattern match.
     let isActual: boolean;
     let identifier: string;
-    let variablePrefix: Map<string, Bound>;
     if (actual.kind === 'Variable') {
       isActual = true;
       identifier = actual.identifier;
-      variablePrefix = actualPrefix;
     } else if (expected.kind === 'Variable') {
       isActual = false;
       identifier = expected.identifier;
-      variablePrefix = expectedPrefix;
     } else {
       throw new Error('Unreachable');
     }
 
-    // Resolve the bound. First we check the specific prefix for our
-    // actual/expected variable. If it does not exist in there then we check the
-    // common prefix for both types. If it does not exist in there then
-    // we panic.
-    let bound: Bound | undefined = variablePrefix.get(identifier);
-    let isCommon = false;
-    if (bound === undefined) {
-      bound = commonPrefix.get(identifier);
-      isCommon = true;
-      // TODO: If, as a programmer I write `∀(y)x` where `x` is not defined
-      // anywhere then I expect to get a diagnostic, not a panic. Also, we need
-      // to make sure that temporary variables allocated by `Prefix.all()` are
-      // not accessible by the programmer’s type annotations.
-      if (bound === undefined) throw new Error('Could not find type.');
-    }
+    // Find the variable’s bound.
+    const bound = (isActual ? actualPrefix : expectedPrefix).get(identifier);
+    if (bound === undefined) throw new Error('Could not find type.');
 
     // If the bound type is monomorphic then we do a monomorphic unification
     // with our current type. If it is polymorphic then we do a polymorphic
@@ -151,7 +129,6 @@ function unifyMonomorphicType<Diagnostic>(
     if (Type.isMonomorphic(bound.type)) {
       return unifyMonomorphicType(
         diagnostics,
-        commonPrefix,
         actualPrefix,
         expectedPrefix,
         isActual ? bound.type : actual,
@@ -160,22 +137,16 @@ function unifyMonomorphicType<Diagnostic>(
     } else {
       const {error} = unifyPolymorphicType(
         diagnostics,
-        commonPrefix,
         actualPrefix,
         expectedPrefix,
         isActual ? bound.type : actual,
         isActual ? expected : bound.type
       );
       // Update the type variable’s bound in the respective prefix.
-      const newBound: Bound = {
+      (isActual ? actualPrefix : expectedPrefix).update(identifier, {
         kind: 'rigid',
         type: isActual ? expected : actual,
-      };
-      if (isCommon) {
-        commonPrefix.update(identifier, newBound);
-      } else {
-        variablePrefix.set(identifier, newBound);
-      }
+      });
       return {error};
     }
   } else if (
@@ -199,7 +170,6 @@ function unifyMonomorphicType<Diagnostic>(
     // parameter since the function parameter is contravariant.
     const {error: diagnostic1} = unifyMonomorphicType(
       diagnostics,
-      commonPrefix,
       expectedPrefix,
       actualPrefix,
       expected.parameter,
@@ -207,7 +177,6 @@ function unifyMonomorphicType<Diagnostic>(
     );
     const {error: diagnostic2} = unifyMonomorphicType(
       diagnostics,
-      commonPrefix,
       actualPrefix,
       expectedPrefix,
       actual.body,
@@ -231,9 +200,8 @@ function unifyMonomorphicType<Diagnostic>(
  */
 function unifyPolymorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  commonPrefix: Prefix,
-  actualPrefix: Map<string, Bound>,
-  expectedPrefix: Map<string, Bound>,
+  actualPrefix: Prefix,
+  expectedPrefix: Prefix,
   actual: PolymorphicType,
   expected: PolymorphicType
 ): {
@@ -247,36 +215,40 @@ function unifyPolymorphicType<Diagnostic>(
     return {type: actual, error: undefined};
   }
 
-  // Get all the new bindings and save all the old bindings from our quantified
-  // “actual” type.
-  const actualBindingsOld = new Map<string, Bound>();
+  // Push all the actual bindings into our actual prefix.
   const actualBindings: Array<string> = [];
   while (actual.kind === 'Quantified') {
     const {binding, bound} = actual;
     actualBindings.push(binding);
-    const oldBound = actualPrefix.get(binding);
-    if (oldBound !== undefined) actualBindingsOld.set(binding, oldBound);
-    actualPrefix.set(binding, bound);
+    actualPrefix.push(binding, bound);
     actual = actual.body;
   }
+  // Reverse actual bindings since we’ll need to call `Prefix.pop()` in the
+  // opposite order we called `Prefix.push()`.
+  actualBindings.reverse();
 
-  // Get all the new bindings and save all the old bindings from our quantified
-  // “expected” type.
-  const expectedBindingsOld = new Map<string, Bound>();
+  // Push all the expected bindings into our expected prefix.
   const expectedBindings: Array<string> = [];
   while (expected.kind === 'Quantified') {
     const {binding, bound} = expected;
     expectedBindings.push(binding);
-    const oldBound = expectedPrefix.get(binding);
-    if (oldBound !== undefined) expectedBindingsOld.set(binding, oldBound);
-    expectedPrefix.set(binding, bound);
+    expectedPrefix.push(binding, bound);
     expected = expected.body;
   }
+  // Reverse expected bindings since we’ll need to call `Prefix.pop()` in the
+  // opposite order we called `Prefix.push()`.
+  expectedBindings.reverse();
 
-  // Bottom unifies with everything.
+  // Bottom unifies with everything. While we have this check at the top of our
+  // function we need to check again here. We also need to make sure and clean
+  // up our prefixes
   if (actual.kind === 'Bottom') {
+    for (const binding of actualBindings) actualPrefix.pop(binding);
+    for (const binding of expectedBindings) expectedPrefix.pop(binding);
     return {type: expected, error: undefined};
   } else if (expected.kind === 'Bottom') {
+    for (const binding of actualBindings) actualPrefix.pop(binding);
+    for (const binding of expectedBindings) expectedPrefix.pop(binding);
     return {type: actual, error: undefined};
   }
 
@@ -284,65 +256,32 @@ function unifyPolymorphicType<Diagnostic>(
   // type body.
   const {error} = unifyMonomorphicType(
     diagnostics,
-    commonPrefix,
     actualPrefix,
     expectedPrefix,
     actual,
     expected
   );
 
-  // If we did not have an error then actual and expected are equivalent. So we
-  // pick actual and return it. Which type we pick doesn’t matter since they
-  // are equivalent.
-  //
-  // IMPORTANT: However, If there was an error then the types are not
-  // equivalent! Instead we return the bottom type with the error in that case.
-  const bindings = new Map<string, Bound>();
+  // We return the unified type from this function. If there was no error then
+  // the types are equivalent so we pick the “actual” type to return. However,
+  // if there was an error we can’t just pick a winner. So instead we return the
+  // bottom type.
+  let type: Type = error !== undefined ? t.bottomType : actual;
 
-  // Reverses `actualBindings` before adding them to `bindings`. This way they
-  // will be added in reverse order so we may easily construct a quantified
-  // type from them.
-  actualBindings.reverse();
-
-  // Restore our “actual” prefix to its old state. Before we added
-  // new bindings.
+  // Cleanup the actual type bindings and also quantify our return type.
   for (const binding of actualBindings) {
-    const newBound = actualPrefix.get(binding)!; // tslint:disable-line no-non-null-assertion
-    bindings.set(binding, newBound);
-
-    const oldBound = actualBindingsOld.get(binding);
-    if (oldBound === undefined) {
-      actualPrefix.delete(binding);
+    if (error === undefined) {
+      type = actualPrefix.quantify(binding, type);
     } else {
-      actualPrefix.set(binding, oldBound);
+      actualPrefix.pop(binding);
     }
   }
 
-  // Restore our “expected” prefix to its old state. Before we added
-  // new bindings.
-  for (const binding of expectedBindings) {
-    const oldBound = expectedBindingsOld.get(binding);
-    if (oldBound === undefined) {
-      expectedPrefix.delete(binding);
-    } else {
-      expectedPrefix.set(binding, oldBound);
-    }
-  }
+  // Cleanup the expected type bindings.
+  for (const binding of expectedBindings) expectedPrefix.pop(binding);
 
-  // If we did not have an error then actual and expected are equivalent. So we
-  // pick actual and return it. Although it shouldn’t matter since both types
-  // are equivalent.
-  //
-  // If there was an error then we return the bottom type with the error.
-  if (error === undefined) {
-    let type: Type = actual;
-    for (const [binding, bound] of bindings) {
-      type = t.quantifiedType(binding, bound, type);
-    }
-    return {type, error: undefined};
-  } else {
-    return {type: t.bottomType, error};
-  }
+  // Return the unified type and our error.
+  return {type, error};
 }
 
 export type UnifyError<T> =

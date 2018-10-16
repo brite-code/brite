@@ -46,6 +46,51 @@ export namespace Type {
   }
 
   /**
+   * Gets all the free type variables in the provided type.
+   *
+   * Does not add the type variables of an unused quantified bound.
+   */
+  export function getFreeVariables(type: Type): ReadonlySet<string> {
+    // NOTE: This function may get called a lot on some large types. It could be
+    // a good idea to memoize this function based on the structure of types.
+
+    function getFreeVariables(set: Set<string>, type: Type): void {
+      switch (type.kind) {
+        case 'Variable':
+          set.add(type.identifier);
+          break;
+        case 'Constant':
+          break;
+        case 'Function':
+          getFreeVariables(set, type.parameter);
+          getFreeVariables(set, type.body);
+          break;
+        case 'Bottom':
+          break;
+        case 'Quantified': {
+          getFreeVariables(set, type.body);
+          // NOTE: If the quantified type variable is unused then we don’t add
+          // its type variables to the free variables set. We will never use it
+          // so what’s the point?
+          if (set.has(type.binding)) {
+            set.delete(type.binding);
+            return getFreeVariables(set, type.bound.type); // Tail recursion
+          }
+          break;
+        }
+        default:
+          const never: never = type;
+          set.add(never);
+          break;
+      }
+    }
+
+    const set = new Set();
+    getFreeVariables(set, type);
+    return set;
+  }
+
+  /**
    * Prints a type to a display string using the standard syntax for types in
    * academic literature. Particularly the [MLF][1] paper we implement.
    *

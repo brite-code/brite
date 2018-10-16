@@ -15,9 +15,11 @@ export class BindingMap<K, V> {
   // values in the array are shadowed.
   private readonly bindings = new Map<K, Array<V>>();
 
-  constructor(bindings: Iterable<[K, V]>) {
-    for (const [key, value] of bindings) {
-      this.push(key, value);
+  constructor(bindings?: Iterable<[K, V]>) {
+    if (bindings !== undefined) {
+      for (const [key, value] of bindings) {
+        this.push(key, value);
+      }
     }
   }
 
@@ -36,15 +38,19 @@ export class BindingMap<K, V> {
   }
 
   /**
-   * Removes a binding for the provided key when it goes out of scope.
+   * Removes a binding for the provided key when it goes out of scope. Returns
+   * the value of the binding if there was a value for this key.
    */
-  pop(key: K) {
+  pop(key: K): V | undefined {
     const shadowedBindings = this.bindings.get(key);
     if (shadowedBindings !== undefined) {
-      shadowedBindings.pop();
+      const value = shadowedBindings.pop();
       if (shadowedBindings.length === 0) {
         this.bindings.delete(key);
       }
+      return value;
+    } else {
+      return undefined;
     }
   }
 
@@ -63,5 +69,12 @@ export class BindingMap<K, V> {
    */
   has(key: K): boolean {
     return this.bindings.has(key);
+  }
+
+  /**
+   * Are there no bindings?
+   */
+  isEmpty(): boolean {
+    return this.bindings.size === 0;
   }
 }
