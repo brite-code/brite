@@ -2,8 +2,12 @@ import {Bound} from './type';
 
 export class Prefix {
   private counter = 0;
-  private readonly bindings = new Map<string, Bound>();
+  private readonly bindings: Map<string, Bound>;
   private readonly newBindings: Array<Array<string>> = [];
+
+  constructor(bindings?: ReadonlyArray<[string, Bound]>) {
+    this.bindings = new Map(bindings);
+  }
 
   /**
    * Creates a unique type identifier in this prefix and sets the bound to

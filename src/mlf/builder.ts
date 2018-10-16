@@ -87,29 +87,31 @@ export function functionType(
 }
 
 export function quantifiedType(
-  boundKind: 'flexible' | 'rigid',
   binding: string,
-  boundType: PolymorphicType,
+  bound: Bound,
   body: PolymorphicType
 ): PolymorphicType {
   if (body.kind === 'Quantified') {
     return {
       kind: 'Quantified',
-      bindings: new Map<string, Bound>([
-        ...body.bindings,
-        [binding, {kind: boundKind, type: boundType}],
-      ]),
+      bindings: new Map<string, Bound>([...body.bindings, [binding, bound]]),
       body: body.body,
     };
   } else {
     return {
       kind: 'Quantified',
-      bindings: new Map<string, Bound>([
-        [binding, {kind: boundKind, type: boundType}],
-      ]),
+      bindings: new Map<string, Bound>([[binding, bound]]),
       body,
     };
   }
 }
 
 export const bottomType: BottomType = {kind: 'Bottom'};
+
+export function rigidBound(type: PolymorphicType): Bound {
+  return {kind: 'rigid', type};
+}
+
+export function flexibleBound(type: PolymorphicType): Bound {
+  return {kind: 'flexible', type};
+}

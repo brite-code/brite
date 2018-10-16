@@ -189,13 +189,15 @@ function unifyMonomorphicType<Diagnostic>(
     actual.kind === 'Function' &&
     expected.kind === 'Function'
   ) {
+    // NOTE: We switch `expected` and `actual` when we unify the function
+    // parameter since the function parameter is contravariant.
     const {error: diagnostic1} = unifyMonomorphicType(
       diagnostics,
       commonPrefix,
-      actualPrefix,
       expectedPrefix,
-      actual.parameter,
-      expected.parameter
+      actualPrefix,
+      expected.parameter,
+      actual.parameter
     );
     const {error: diagnostic2} = unifyMonomorphicType(
       diagnostics,
@@ -210,9 +212,9 @@ function unifyMonomorphicType<Diagnostic>(
     // If two types are not compatible then report a diagnostic and return.
     return {
       error: diagnostics.report({
-        type: 'IncompatibleTypes',
-        expected,
+        kind: 'IncompatibleTypes',
         actual,
+        expected,
       }),
     };
   }
@@ -326,7 +328,7 @@ function unifyPolymorphicType<Diagnostic>(
   // are equivalent.
   //
   // If there was an error then we return the bottom type with the error.
-  if (error !== undefined) {
+  if (error === undefined) {
     const type: Type = {kind: 'Quantified', bindings, body: actualBody};
     return {type, error: undefined};
   } else {
@@ -337,7 +339,7 @@ function unifyPolymorphicType<Diagnostic>(
 export type UnifyError<T> =
   | T
   | {
-      readonly type: 'IncompatibleTypes';
-      readonly expected: MonomorphicType;
+      readonly kind: 'IncompatibleTypes';
       readonly actual: MonomorphicType;
+      readonly expected: MonomorphicType;
     };
