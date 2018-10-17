@@ -1,6 +1,6 @@
 import * as t from './builder';
 import {Diagnostics, Reported} from './diagnostics';
-import {Prefix} from './prefix';
+import {ForkedPrefix, Prefix} from './prefix';
 import {Bound, MonomorphicType, PolymorphicType, Type} from './type';
 
 /**
@@ -28,8 +28,8 @@ export function unify<Diagnostic>(
 ): {
   readonly error: Reported<UnifyError<Diagnostic>> | undefined;
 } {
-  const actualPrefix = Prefix.withParent(prefix);
-  const expectedPrefix = Prefix.withParent(prefix);
+  const actualPrefix = new ForkedPrefix(prefix);
+  const expectedPrefix = new ForkedPrefix(prefix);
   const result = unifyMonomorphicType(
     diagnostics,
     actualPrefix,
@@ -48,8 +48,8 @@ export function unify<Diagnostic>(
  */
 function unifyMonomorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  actualPrefix: Prefix,
-  expectedPrefix: Prefix,
+  actualPrefix: ForkedPrefix,
+  expectedPrefix: ForkedPrefix,
   actual: MonomorphicType,
   expected: MonomorphicType
 ): {
@@ -200,8 +200,8 @@ function unifyMonomorphicType<Diagnostic>(
  */
 function unifyPolymorphicType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  actualPrefix: Prefix,
-  expectedPrefix: Prefix,
+  actualPrefix: ForkedPrefix,
+  expectedPrefix: ForkedPrefix,
   actual: PolymorphicType,
   expected: PolymorphicType
 ): {

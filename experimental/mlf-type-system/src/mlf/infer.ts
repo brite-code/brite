@@ -16,7 +16,7 @@ export function infer<Diagnostic>(
   scope: BindingMap<string, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
-  const prefix = Prefix.create();
+  const prefix = new Prefix();
   const result = inferExpression(diagnostics, prefix, scope, expression);
   if (!prefix.isEmpty()) throw new Error('Must cleanup all type variables.');
   return result;

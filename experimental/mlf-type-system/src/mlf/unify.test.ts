@@ -7,8 +7,8 @@ const constantTypes = [t.booleanType, t.numberType, t.stringType];
 
 test('constant types unify with each other', () => {
   constantTypes.forEach(type => {
-    const diagnostics = Diagnostics.create();
-    const prefix = Prefix.create();
+    const diagnostics = new Diagnostics();
+    const prefix = new Prefix();
     expect(unify(diagnostics, prefix, type, type).error).toEqual(undefined);
     expect([...diagnostics].length).toEqual(0);
   });
@@ -18,8 +18,8 @@ test('constant types do not unify with different constant types', () => {
   constantTypes.forEach((actual, i) => {
     constantTypes.forEach((expected, j) => {
       if (i !== j) {
-        const diagnostics = Diagnostics.create();
-        const prefix = Prefix.create();
+        const diagnostics = new Diagnostics();
+        const prefix = new Prefix();
         expect(unify(diagnostics, prefix, actual, expected).error).toEqual({
           kind: 'IncompatibleTypes',
           actual,
@@ -34,8 +34,8 @@ test('constant types do not unify with different constant types', () => {
 test('functions are ok if parameter and body are the same', () => {
   constantTypes.forEach(parameter => {
     constantTypes.forEach(body => {
-      const diagnostics = Diagnostics.create();
-      const prefix = Prefix.create();
+      const diagnostics = new Diagnostics();
+      const prefix = new Prefix();
       expect(
         unify(
           diagnostics,
@@ -55,8 +55,8 @@ test('functions are not ok if parameter and body are not the same', () => {
       constantTypes.forEach((parameter2, i2) => {
         constantTypes.forEach((body2, j2) => {
           if (i1 !== i2 && j1 !== j2) {
-            const diagnostics = Diagnostics.create();
-            const prefix = Prefix.create();
+            const diagnostics = new Diagnostics();
+            const prefix = new Prefix();
             expect(
               unify(
                 diagnostics,
@@ -89,8 +89,8 @@ test('functions are not ok if parameter and body are not the same', () => {
 });
 
 test('monomorphic rigid actual variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.rigidBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.variableType('x'), t.booleanType).error
   ).toEqual(undefined);
@@ -99,8 +99,8 @@ test('monomorphic rigid actual variable unifies with same type', () => {
 });
 
 test('monomorphic flexible actual variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.flexibleBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.variableType('x'), t.booleanType).error
   ).toEqual(undefined);
@@ -109,8 +109,8 @@ test('monomorphic flexible actual variable unifies with same type', () => {
 });
 
 test('monomorphic rigid actual variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.rigidBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.variableType('x'), t.numberType).error
   ).toEqual({
@@ -123,8 +123,8 @@ test('monomorphic rigid actual variable does not unify with different type', () 
 });
 
 test('monomorphic flexible actual variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.flexibleBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.variableType('x'), t.numberType).error
   ).toEqual({
@@ -137,8 +137,8 @@ test('monomorphic flexible actual variable does not unify with different type', 
 });
 
 test('monomorphic rigid expected variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.rigidBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.booleanType, t.variableType('x')).error
   ).toEqual(undefined);
@@ -147,8 +147,8 @@ test('monomorphic rigid expected variable unifies with same type', () => {
 });
 
 test('monomorphic flexible expected variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.flexibleBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.booleanType, t.variableType('x')).error
   ).toEqual(undefined);
@@ -157,8 +157,8 @@ test('monomorphic flexible expected variable unifies with same type', () => {
 });
 
 test('monomorphic rigid expected variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.rigidBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.numberType, t.variableType('x')).error
   ).toEqual({
@@ -171,8 +171,8 @@ test('monomorphic rigid expected variable does not unify with different type', (
 });
 
 test('monomorphic flexible expected variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([['x', t.flexibleBound(t.booleanType)]]);
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
   expect(
     unify(diagnostics, prefix, t.numberType, t.variableType('x')).error
   ).toEqual({
@@ -185,8 +185,8 @@ test('monomorphic flexible expected variable does not unify with different type'
 });
 
 test('quantified monomorphic rigid actual variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
@@ -202,8 +202,8 @@ test('quantified monomorphic rigid actual variable unifies with same type', () =
 });
 
 test('quantified monomorphic flexible actual variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
@@ -223,8 +223,8 @@ test('quantified monomorphic flexible actual variable unifies with same type', (
 });
 
 test('quantified monomorphic rigid actual variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
@@ -244,8 +244,8 @@ test('quantified monomorphic rigid actual variable does not unify with different
 });
 
 test('quantified monomorphic flexible actual variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
@@ -269,8 +269,8 @@ test('quantified monomorphic flexible actual variable does not unify with differ
 });
 
 test('quantified monomorphic rigid expected variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
@@ -286,8 +286,8 @@ test('quantified monomorphic rigid expected variable unifies with same type', ()
 });
 
 test('quantified monomorphic flexible expected variable unifies with same type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
@@ -307,8 +307,8 @@ test('quantified monomorphic flexible expected variable unifies with same type',
 });
 
 test('quantified monomorphic rigid expected variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
@@ -328,8 +328,8 @@ test('quantified monomorphic rigid expected variable does not unify with differe
 });
 
 test('quantified monomorphic flexible expected variable does not unify with different type', () => {
-  const diagnostics = Diagnostics.create();
-  const prefix = Prefix.withBindings([
+  const diagnostics = new Diagnostics();
+  const prefix = new Prefix([
     [
       'x',
       t.rigidBound(
