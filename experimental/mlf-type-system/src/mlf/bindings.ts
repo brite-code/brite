@@ -15,6 +15,9 @@ export class BindingMap<K, V> {
   // values in the array are shadowed.
   private readonly bindings = new Map<K, Array<V>>();
 
+  // When we pop, we pop the last key that we pushed.
+  private readonly bindingsStack: Array<K> = [];
+
   constructor(bindings?: Iterable<[K, V]>) {
     if (bindings !== undefined) {
       for (const [key, value] of bindings) {
@@ -29,6 +32,7 @@ export class BindingMap<K, V> {
    * binding once this new binding goes out of scope call `BindingMap.pop()`.
    */
   push(key: K, value: V) {
+    this.bindingsStack.push(key);
     const shadowedBindings = this.bindings.get(key);
     if (shadowedBindings !== undefined) {
       shadowedBindings.push(value);
@@ -38,17 +42,18 @@ export class BindingMap<K, V> {
   }
 
   /**
-   * Removes a binding for the provided key when it goes out of scope. Returns
-   * the value of the binding if there was a value for this key.
+   * Removes the last binding we pushed. Returns the value of this binding.
    */
-  pop(key: K): V | undefined {
+  pop(): {readonly key: K; readonly value: V} | undefined {
+    const key = this.bindingsStack.pop();
+    if (key === undefined) return undefined;
     const shadowedBindings = this.bindings.get(key);
     if (shadowedBindings !== undefined) {
-      const value = shadowedBindings.pop();
+      const value = shadowedBindings.pop()!; // tslint:disable-line no-non-null-assertion
       if (shadowedBindings.length === 0) {
         this.bindings.delete(key);
       }
-      return value;
+      return {key, value};
     } else {
       return undefined;
     }

@@ -3,7 +3,7 @@ import * as t from './builder';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
 import {Prefix} from './prefix';
-import {MonomorphicType, Type} from './type';
+import {Bound, MonomorphicType, Type} from './type';
 import {UnifyError, unify} from './unify';
 
 /**
@@ -16,10 +16,7 @@ export function infer<Diagnostic>(
   scope: BindingMap<string, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
-  const prefix = new Prefix();
-  const result = inferExpression(diagnostics, prefix, scope, expression);
-  if (!prefix.isEmpty()) throw new Error('Must cleanup all type variables.');
-  return result;
+  return inferExpression(diagnostics, new Prefix(), scope, expression);
 }
 
 function inferExpression<Diagnostic>(
@@ -70,17 +67,18 @@ function inferExpression<Diagnostic>(
 
       // Introduce a new type variable for the function parameter. Through the
       // inference of our function body we should solve this to a proper type.
-      const parameterTypeVariable = prefix.add({
-        kind: 'flexible',
-        type: t.bottomType,
-      });
-      const parameterType = t.variableType(parameterTypeVariable);
+      const parameterType = t.variableType(
+        prefix.pushWithGeneratedName({
+          kind: 'flexible',
+          type: t.bottomType,
+        })
+      );
 
       // Infer our function body type. Introducing the variable we just defined
       // into scope.
       scope.push(fun.parameter, parameterType);
       const body = inferExpression(diagnostics, prefix, scope, fun.body);
-      scope.pop(fun.parameter);
+      scope.pop();
 
       // If the type of our body is polymorphic then we need to quantify the
       // type of our function by our body type.
@@ -88,15 +86,15 @@ function inferExpression<Diagnostic>(
       if (Type.isMonomorphic(body.type)) {
         type = t.functionType(parameterType, body.type);
       } else {
-        const identifier = prefix.add({kind: 'flexible', type: body.type});
-        type = prefix.quantify(
-          identifier,
+        const bound: Bound = {kind: 'flexible', type: body.type};
+        const identifier = prefix.pushWithGeneratedName(bound);
+        type = prefix.pop(
           t.functionType(parameterType, t.variableType(identifier))
         );
       }
 
       // Quantify our function type by the parameter type variable.
-      type = prefix.quantify(parameterTypeVariable, type);
+      type = prefix.pop(type);
 
       return t.functionExpressionTyped(type, fun.parameter, body);
     }
@@ -114,9 +112,9 @@ function inferExpression<Diagnostic>(
         call.argument
       );
 
-      // Hold the type variables we declare so that we can take them out of
+      // Counts the type variables we declare so that we can pop them out of
       // scope later.
-      const localTypeVariables: Array<string> = [];
+      let pops: number = 0;
 
       // Convert the callee to a monomorphic type. If the callee type is
       // polymorphic then we need to add a type variable to our prefix.
@@ -124,8 +122,9 @@ function inferExpression<Diagnostic>(
       if (Type.isMonomorphic(callee.type)) {
         calleeType = callee.type;
       } else {
-        const identifier = prefix.add({kind: 'flexible', type: callee.type});
-        localTypeVariables.push(identifier);
+        const bound: Bound = {kind: 'flexible', type: callee.type};
+        const identifier = prefix.pushWithGeneratedName(bound);
+        pops++;
         calleeType = t.variableType(identifier);
       }
 
@@ -135,23 +134,21 @@ function inferExpression<Diagnostic>(
       if (Type.isMonomorphic(argument.type)) {
         argumentType = argument.type;
       } else {
-        const identifier = prefix.add({kind: 'flexible', type: argument.type});
-        localTypeVariables.push(identifier);
+        const bound: Bound = {kind: 'flexible', type: argument.type};
+        const identifier = prefix.pushWithGeneratedName(bound);
+        pops++;
         argumentType = t.variableType(identifier);
       }
 
       // Create a fresh type variable for the body type. This type will be
       // solved during unification.
-      let bodyType: MonomorphicType;
-      {
-        const identifier = prefix.add({kind: 'flexible', type: t.bottomType});
-        localTypeVariables.push(identifier);
-        bodyType = t.variableType(identifier);
-      }
+      const bodyType = t.variableType(
+        prefix.pushWithGeneratedName({kind: 'flexible', type: t.bottomType})
+      );
 
       // Unify the type of the callee with the function type we expect. This
       // should solve any unknown type variables.
-      const {error} = unify(
+      const error = unify(
         diagnostics,
         prefix,
         calleeType,
@@ -160,10 +157,8 @@ function inferExpression<Diagnostic>(
 
       // Create our return type by quantifying in the reverse order of which we
       // added our local type variables.
-      const type = localTypeVariables.reduceRight<Type>(
-        (body, identifier) => prefix.quantify(identifier, body),
-        bodyType
-      );
+      let type = prefix.pop(bodyType);
+      for (let i = 0; i < pops; i++) type = prefix.pop(type);
 
       // If there was an error during unification then we need to return an
       // error expression which will fail at runtime instead of an
@@ -183,7 +178,7 @@ function inferExpression<Diagnostic>(
       const value = inferExpression(diagnostics, prefix, scope, binding.value);
       scope.push(binding.binding, value.type);
       const body = inferExpression(diagnostics, prefix, scope, binding.body);
-      scope.pop(binding.binding);
+      scope.pop();
       return t.bindingExpressionTyped(binding.binding, value, body);
     }
 

@@ -9,7 +9,7 @@ test('constant types unify with each other', () => {
   constantTypes.forEach(type => {
     const diagnostics = new Diagnostics();
     const prefix = new Prefix();
-    expect(unify(diagnostics, prefix, type, type).error).toEqual(undefined);
+    expect(unify(diagnostics, prefix, type, type)).toEqual(undefined);
     expect([...diagnostics].length).toEqual(0);
   });
 });
@@ -20,7 +20,7 @@ test('constant types do not unify with different constant types', () => {
       if (i !== j) {
         const diagnostics = new Diagnostics();
         const prefix = new Prefix();
-        expect(unify(diagnostics, prefix, actual, expected).error).toEqual({
+        expect(unify(diagnostics, prefix, actual, expected)).toEqual({
           kind: 'IncompatibleTypes',
           actual,
           expected,
@@ -42,7 +42,7 @@ test('functions are ok if parameter and body are the same', () => {
           prefix,
           t.functionType(parameter, body),
           t.functionType(parameter, body)
-        ).error
+        )
       ).toEqual(undefined);
       expect([...diagnostics].length).toEqual(0);
     });
@@ -63,7 +63,7 @@ test('functions are not ok if parameter and body are not the same', () => {
                 prefix,
                 t.functionType(parameter1, body1),
                 t.functionType(parameter2, body2)
-              ).error
+              )
             ).toEqual({
               kind: 'IncompatibleTypes',
               actual: parameter2,
@@ -90,9 +90,10 @@ test('functions are not ok if parameter and body are not the same', () => {
 
 test('monomorphic rigid actual variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
+  const prefix = new Prefix();
+  prefix.push('x', t.rigidBound(t.booleanType));
   expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.booleanType).error
+    unify(diagnostics, prefix, t.variableType('x'), t.booleanType)
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -100,9 +101,10 @@ test('monomorphic rigid actual variable unifies with same type', () => {
 
 test('monomorphic flexible actual variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
+  const prefix = new Prefix();
+  prefix.push('x', t.flexibleBound(t.booleanType));
   expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.booleanType).error
+    unify(diagnostics, prefix, t.variableType('x'), t.booleanType)
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.flexibleBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -110,37 +112,40 @@ test('monomorphic flexible actual variable unifies with same type', () => {
 
 test('monomorphic rigid actual variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
-  expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.numberType).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.booleanType,
-    expected: t.numberType,
-  });
+  const prefix = new Prefix();
+  prefix.push('x', t.rigidBound(t.booleanType));
+  expect(unify(diagnostics, prefix, t.variableType('x'), t.numberType)).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.booleanType,
+      expected: t.numberType,
+    }
+  );
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(1);
 });
 
 test('monomorphic flexible actual variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
-  expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.numberType).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.booleanType,
-    expected: t.numberType,
-  });
+  const prefix = new Prefix();
+  prefix.push('x', t.flexibleBound(t.booleanType));
+  expect(unify(diagnostics, prefix, t.variableType('x'), t.numberType)).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.booleanType,
+      expected: t.numberType,
+    }
+  );
   expect(prefix.get('x')).toEqual(t.flexibleBound(t.booleanType));
   expect([...diagnostics].length).toEqual(1);
 });
 
 test('monomorphic rigid expected variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
+  const prefix = new Prefix();
+  prefix.push('x', t.rigidBound(t.booleanType));
   expect(
-    unify(diagnostics, prefix, t.booleanType, t.variableType('x')).error
+    unify(diagnostics, prefix, t.booleanType, t.variableType('x'))
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -148,9 +153,10 @@ test('monomorphic rigid expected variable unifies with same type', () => {
 
 test('monomorphic flexible expected variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
+  const prefix = new Prefix();
+  prefix.push('x', t.flexibleBound(t.booleanType));
   expect(
-    unify(diagnostics, prefix, t.booleanType, t.variableType('x')).error
+    unify(diagnostics, prefix, t.booleanType, t.variableType('x'))
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.flexibleBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -158,44 +164,45 @@ test('monomorphic flexible expected variable unifies with same type', () => {
 
 test('monomorphic rigid expected variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.rigidBound(t.booleanType)]]);
-  expect(
-    unify(diagnostics, prefix, t.numberType, t.variableType('x')).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.numberType,
-    expected: t.booleanType,
-  });
+  const prefix = new Prefix();
+  prefix.push('x', t.rigidBound(t.booleanType));
+  expect(unify(diagnostics, prefix, t.numberType, t.variableType('x'))).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.numberType,
+      expected: t.booleanType,
+    }
+  );
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(1);
 });
 
 test('monomorphic flexible expected variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([['x', t.flexibleBound(t.booleanType)]]);
-  expect(
-    unify(diagnostics, prefix, t.numberType, t.variableType('x')).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.numberType,
-    expected: t.booleanType,
-  });
+  const prefix = new Prefix();
+  prefix.push('x', t.flexibleBound(t.booleanType));
+  expect(unify(diagnostics, prefix, t.numberType, t.variableType('x'))).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.numberType,
+      expected: t.booleanType,
+    }
+  );
   expect(prefix.get('x')).toEqual(t.flexibleBound(t.booleanType));
   expect([...diagnostics].length).toEqual(1);
 });
 
 test('quantified monomorphic rigid actual variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
-      ),
-    ],
-  ]);
+  const prefix = new Prefix();
+  prefix.push(
+    'x',
+    t.rigidBound(
+      t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
+    )
+  );
   expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.booleanType).error
+    unify(diagnostics, prefix, t.variableType('x'), t.booleanType)
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -203,20 +210,15 @@ test('quantified monomorphic rigid actual variable unifies with same type', () =
 
 test('quantified monomorphic flexible actual variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType(
-          'y',
-          t.flexibleBound(t.booleanType),
-          t.variableType('y')
-        )
-      ),
-    ],
-  ]);
+  const prefix = new Prefix();
+  prefix.push(
+    'x',
+    t.rigidBound(
+      t.quantifiedType('y', t.flexibleBound(t.booleanType), t.variableType('y'))
+    )
+  );
   expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.booleanType).error
+    unify(diagnostics, prefix, t.variableType('x'), t.booleanType)
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -224,62 +226,51 @@ test('quantified monomorphic flexible actual variable unifies with same type', (
 
 test('quantified monomorphic rigid actual variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
-      ),
-    ],
-  ]);
-  expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.numberType).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.booleanType,
-    expected: t.numberType,
-  });
-  expect(prefix.get('x')).toEqual(t.rigidBound(t.numberType));
+  const prefix = new Prefix();
+  const bound = t.rigidBound(
+    t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
+  );
+  prefix.push('x', bound);
+  expect(unify(diagnostics, prefix, t.variableType('x'), t.numberType)).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.booleanType,
+      expected: t.numberType,
+    }
+  );
+  expect(prefix.get('x')).toEqual(bound);
   expect([...diagnostics].length).toEqual(1);
 });
 
 test('quantified monomorphic flexible actual variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType(
-          'y',
-          t.flexibleBound(t.booleanType),
-          t.variableType('y')
-        )
-      ),
-    ],
-  ]);
-  expect(
-    unify(diagnostics, prefix, t.variableType('x'), t.numberType).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.booleanType,
-    expected: t.numberType,
-  });
-  expect(prefix.get('x')).toEqual(t.rigidBound(t.numberType));
+  const prefix = new Prefix();
+  const bound = t.rigidBound(
+    t.quantifiedType('y', t.flexibleBound(t.booleanType), t.variableType('y'))
+  );
+  prefix.push('x', bound);
+  expect(unify(diagnostics, prefix, t.variableType('x'), t.numberType)).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.booleanType,
+      expected: t.numberType,
+    }
+  );
+  expect(prefix.get('x')).toEqual(bound);
   expect([...diagnostics].length).toEqual(1);
 });
 
 test('quantified monomorphic rigid expected variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
-      ),
-    ],
-  ]);
+  const prefix = new Prefix();
+  prefix.push(
+    'x',
+    t.rigidBound(
+      t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
+    )
+  );
   expect(
-    unify(diagnostics, prefix, t.booleanType, t.variableType('x')).error
+    unify(diagnostics, prefix, t.booleanType, t.variableType('x'))
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -287,20 +278,15 @@ test('quantified monomorphic rigid expected variable unifies with same type', ()
 
 test('quantified monomorphic flexible expected variable unifies with same type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType(
-          'y',
-          t.flexibleBound(t.booleanType),
-          t.variableType('y')
-        )
-      ),
-    ],
-  ]);
+  const prefix = new Prefix();
+  prefix.push(
+    'x',
+    t.rigidBound(
+      t.quantifiedType('y', t.flexibleBound(t.booleanType), t.variableType('y'))
+    )
+  );
   expect(
-    unify(diagnostics, prefix, t.booleanType, t.variableType('x')).error
+    unify(diagnostics, prefix, t.booleanType, t.variableType('x'))
   ).toEqual(undefined);
   expect(prefix.get('x')).toEqual(t.rigidBound(t.booleanType));
   expect([...diagnostics].length).toEqual(0);
@@ -308,46 +294,36 @@ test('quantified monomorphic flexible expected variable unifies with same type',
 
 test('quantified monomorphic rigid expected variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
-      ),
-    ],
-  ]);
-  expect(
-    unify(diagnostics, prefix, t.numberType, t.variableType('x')).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.numberType,
-    expected: t.booleanType,
-  });
-  expect(prefix.get('x')).toEqual(t.rigidBound(t.numberType));
+  const prefix = new Prefix();
+  const bound = t.rigidBound(
+    t.quantifiedType('y', t.rigidBound(t.booleanType), t.variableType('y'))
+  );
+  prefix.push('x', bound);
+  expect(unify(diagnostics, prefix, t.numberType, t.variableType('x'))).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.numberType,
+      expected: t.booleanType,
+    }
+  );
+  expect(prefix.get('x')).toEqual(bound);
   expect([...diagnostics].length).toEqual(1);
 });
 
 test('quantified monomorphic flexible expected variable does not unify with different type', () => {
   const diagnostics = new Diagnostics();
-  const prefix = new Prefix([
-    [
-      'x',
-      t.rigidBound(
-        t.quantifiedType(
-          'y',
-          t.flexibleBound(t.booleanType),
-          t.variableType('y')
-        )
-      ),
-    ],
-  ]);
-  expect(
-    unify(diagnostics, prefix, t.numberType, t.variableType('x')).error
-  ).toEqual({
-    kind: 'IncompatibleTypes',
-    actual: t.numberType,
-    expected: t.booleanType,
-  });
-  expect(prefix.get('x')).toEqual(t.rigidBound(t.numberType));
+  const prefix = new Prefix();
+  const bound = t.rigidBound(
+    t.quantifiedType('y', t.flexibleBound(t.booleanType), t.variableType('y'))
+  );
+  prefix.push('x', bound);
+  expect(unify(diagnostics, prefix, t.numberType, t.variableType('x'))).toEqual(
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.numberType,
+      expected: t.booleanType,
+    }
+  );
+  expect(prefix.get('x')).toEqual(bound);
   expect([...diagnostics].length).toEqual(1);
 });

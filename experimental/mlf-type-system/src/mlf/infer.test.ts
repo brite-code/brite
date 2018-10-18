@@ -1,4 +1,5 @@
 // tslint:disable no-any
+// tslint:disable no-non-null-assertion
 
 import {BindingMap} from './bindings';
 import * as t from './builder';
@@ -52,7 +53,48 @@ const prelude = new BindingMap<string, Type>([
   ['app', appTyped.type],
 ]);
 
-test.skip('application function', () => {
+test('negative function call', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    t.callExpression(t.variableExpression('neg'), t.numberExpression(42))
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(expression).toEqual(
+    t.callExpressionTyped(
+      t.quantifiedType('a', t.rigidBound(t.numberType), t.variableType('a')),
+      t.variableExpressionTyped(prelude.get('neg')!, 'neg'),
+      t.numberExpressionTyped(42)
+    )
+  );
+  expect(allDiagnostics).toEqual([]);
+});
+
+test('negative function call with wrong argument', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    t.callExpression(t.variableExpression('neg'), t.booleanExpression(true))
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(expression).toEqual(
+    t.errorExpressionTyped(
+      t.quantifiedType('a', t.rigidBound(t.numberType), t.variableType('a')),
+      allDiagnostics[0] as any
+    )
+  );
+  expect(allDiagnostics).toEqual([
+    {
+      kind: 'IncompatibleTypes',
+      actual: t.booleanType,
+      expected: t.numberType,
+    },
+  ]);
+});
+
+test('application function', () => {
   const diagnostics = new Diagnostics<InferError<never>>();
   expect(infer(diagnostics, prelude, app)).toEqual(appTyped);
   expect([...diagnostics]).toEqual([]);
@@ -65,17 +107,93 @@ test('application function call', () => {
     prelude,
     t.callExpression(t.variableExpression('app'), t.variableExpression('neg'))
   );
-  console.log(Type.toDisplayString(infer(diagnostics, prelude, app).type));
-  console.log(Type.toDisplayString(expression.type));
-  // const allDiagnostics = [...diagnostics];
-  // expect(expression).toEqual(
-  //   t.callExpressionTyped(
-  //     undefined,
-  //     t.variableExpressionTyped(appTyped.type, 'app'),
-  //     t.numberExpressionTyped(42)
-  //   )
-  // );
-  // expect(allDiagnostics).toEqual([]);
+  const allDiagnostics = [...diagnostics];
+  expect(expression).toEqual(
+    t.callExpressionTyped(
+      t.quantifiedType(
+        'b',
+        t.rigidBound(t.numberType),
+        t.quantifiedType(
+          'c',
+          t.rigidBound(t.numberType),
+          t.quantifiedType(
+            'b',
+            t.rigidBound(
+              t.functionType(t.variableType('b'), t.variableType('c'))
+            ),
+            t.quantifiedType(
+              'a',
+              t.rigidBound(
+                t.functionType(
+                  t.functionType(t.numberType, t.numberType),
+                  t.variableType('b')
+                )
+              ),
+              t.variableType('b')
+            )
+          )
+        )
+      ),
+      t.variableExpressionTyped(appTyped.type, 'app'),
+      t.variableExpressionTyped(prelude.get('neg')!, 'neg')
+    )
+  );
+  expect(allDiagnostics).toEqual([]);
+});
+
+test.only('application function call with second argument', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    t.callExpression(
+      t.callExpression(
+        t.variableExpression('app'),
+        t.variableExpression('neg')
+      ),
+      t.numberExpression(42)
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  const callType = t.quantifiedType(
+    'b',
+    t.rigidBound(t.numberType),
+    t.quantifiedType(
+      'c',
+      t.rigidBound(t.numberType),
+      t.quantifiedType(
+        'b',
+        t.rigidBound(t.functionType(t.variableType('b'), t.variableType('c'))),
+        t.quantifiedType(
+          'a',
+          t.rigidBound(
+            t.functionType(
+              t.functionType(t.numberType, t.numberType),
+              t.variableType('b')
+            )
+          ),
+          t.variableType('b')
+        )
+      )
+    )
+  );
+  console.log(Type.toDisplayString(callType));
+  expect(allDiagnostics).toEqual([]);
+  expect(expression).toEqual(
+    t.callExpressionTyped(
+      t.quantifiedType(
+        'a',
+        t.flexibleBound(callType),
+        t.quantifiedType('b', t.rigidBound(t.numberType), t.variableType('b'))
+      ),
+      t.callExpressionTyped(
+        callType,
+        t.variableExpressionTyped(appTyped.type, 'app'),
+        t.variableExpressionTyped(prelude.get('neg')!, 'neg')
+      ),
+      t.numberExpressionTyped(42)
+    )
+  );
 });
 
 // test('call with wrong argument', () => {
