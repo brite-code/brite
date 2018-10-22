@@ -26,7 +26,6 @@ export function unify<Diagnostic>(
   actual: MonomorphicType,
   expected: MonomorphicType
 ): Reported<UnifyError<Diagnostic>> | undefined {
-  console.log('UUUUNNNNIIIIFFFYYYY');
   const actualPrefix = new Prefix(prefix);
   const expectedPrefix = new Prefix(prefix);
   return unifyType(diagnostics, actualPrefix, expectedPrefix, actual, expected);
@@ -42,13 +41,6 @@ function unifyType<Diagnostic>(
   actual: MonomorphicType,
   expected: MonomorphicType
 ): Reported<UnifyError<Diagnostic>> | undefined {
-  console.log(
-    [
-      `  actual: ${Type.toDisplayString(actual)}`,
-      `expected: ${Type.toDisplayString(expected)}`,
-    ].join('\n')
-  );
-
   if (actual.kind === 'Variable' && expected.kind === 'Variable') {
     return unifyVariable(
       diagnostics,

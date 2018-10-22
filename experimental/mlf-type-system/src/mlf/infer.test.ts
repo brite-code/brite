@@ -177,7 +177,7 @@ test.only('application function call with second argument', () => {
       )
     )
   );
-  console.log(Type.toDisplayString(callType));
+  console.log(Type.toDisplayString(expression.type));
   expect(allDiagnostics).toEqual([]);
   expect(expression).toEqual(
     t.callExpressionTyped(
