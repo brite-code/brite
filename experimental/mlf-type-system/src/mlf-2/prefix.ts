@@ -20,7 +20,11 @@ export class Prefix {
     return new Prefix(this.bindings.set(name, {prefix: this, bound}));
   }
 
-  find(name: string): PrefixBound {
+  find(name: string): PrefixBound | undefined {
+    return this.bindings.get(name);
+  }
+
+  findOrPanic(name: string): PrefixBound {
     const prefixBound = this.bindings.get(name);
     if (prefixBound === undefined) {
       throw new Error(`Unbound type variable "${name}".`);

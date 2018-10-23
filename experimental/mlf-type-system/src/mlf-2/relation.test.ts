@@ -265,6 +265,22 @@ const equivalenceSuccess: ReadonlyArray<{
       Type.variable('x')
     ),
   },
+  {
+    a: Type.quantify(
+      'x',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.quantify(
+        'x',
+        Type.flexibleBound(Type.variable('x')),
+        Type.variable('x')
+      )
+    ),
+    b: Type.quantify(
+      'x',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.variable('x')
+    ),
+  },
 ];
 
 const equivalenceFailure: ReadonlyArray<{
