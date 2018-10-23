@@ -1,10 +1,10 @@
-import {BindingMap} from './bindings';
+import * as Immutable from 'immutable';
+
 import * as t from './builder';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
-import {Prefix} from './prefix';
 import {Bound, MonomorphicType, Type} from './type';
-import {UnifyError, unify} from './unify';
+import {TypeVariable, UnifyError, unify} from './unify';
 
 /**
  * Infers the type of an untyped expression. Detects type incompatibilities and
@@ -13,16 +13,24 @@ import {UnifyError, unify} from './unify';
  */
 export function infer<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
-  scope: BindingMap<string, Type>,
+  context: Iterable<[string, Type]>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
-  return inferExpression(diagnostics, new Prefix(), scope, expression);
+  id = 1;
+  return inferExpression(
+    diagnostics,
+    Immutable.Map(),
+    Immutable.Map(context),
+    expression
+  );
 }
+
+let id = 1;
 
 function inferExpression<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
-  prefix: Prefix,
-  scope: BindingMap<string, Type>,
+  prefix: Immutable.Map<string, TypeVariable>,
+  context: Immutable.Map<string, Type>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
@@ -32,7 +40,7 @@ function inferExpression<Diagnostic>(
     case 'Variable': {
       const variable = expression.description;
       const identifier = variable.identifier;
-      const type = scope.get(identifier);
+      const type = context.get(identifier);
       if (type !== undefined) {
         return t.variableExpressionTyped(type, identifier);
       } else {
@@ -67,18 +75,20 @@ function inferExpression<Diagnostic>(
 
       // Introduce a new type variable for the function parameter. Through the
       // inference of our function body we should solve this to a proper type.
-      const parameterType = t.variableType(
-        prefix.pushWithGeneratedName({
-          kind: 'flexible',
-          type: t.bottomType,
-        })
-      );
+      const parameterIdentifier = `$${id++}`;
+      const parameterType = t.variableType(parameterIdentifier);
+      const parameterBound: Bound = {kind: 'flexible', type: t.bottomType};
+      const parameterVariable = TypeVariable.newRoot(prefix, parameterBound);
+      prefix = prefix.set(parameterIdentifier, parameterVariable);
 
       // Infer our function body type. Introducing the variable we just defined
       // into scope.
-      scope.push(fun.parameter, parameterType);
-      const body = inferExpression(diagnostics, prefix, scope, fun.body);
-      scope.pop();
+      const body = inferExpression(
+        diagnostics,
+        prefix,
+        context.set(fun.parameter, parameterType),
+        fun.body
+      );
 
       // If the type of our body is polymorphic then we need to quantify the
       // type of our function by our body type.
@@ -86,15 +96,17 @@ function inferExpression<Diagnostic>(
       if (Type.isMonomorphic(body.type)) {
         type = t.functionType(parameterType, body.type);
       } else {
+        const identifier = `$${id++}`;
         const bound: Bound = {kind: 'flexible', type: body.type};
-        const identifier = prefix.pushWithGeneratedName(bound);
-        type = prefix.pop(
+        const typeVariable = TypeVariable.newRoot(prefix, bound);
+        type = typeVariable.quantify(
+          'todo',
           t.functionType(parameterType, t.variableType(identifier))
         );
       }
 
-      // Quantify our function type by the parameter type variable.
-      type = prefix.pop(type);
+      // Quantify the type by our parameter type variable.
+      type = parameterVariable.quantify('todo', type);
 
       return t.functionExpressionTyped(type, fun.parameter, body);
     }
@@ -104,17 +116,17 @@ function inferExpression<Diagnostic>(
 
       // Infer the types for our callee and argument inside of our type
       // variable quantification.
-      const callee = inferExpression(diagnostics, prefix, scope, call.callee);
+      const callee = inferExpression(diagnostics, prefix, context, call.callee);
       const argument = inferExpression(
         diagnostics,
         prefix,
-        scope,
+        context,
         call.argument
       );
 
-      // Counts the type variables we declare so that we can pop them out of
-      // scope later.
-      let pops: number = 0;
+      // Keeps track of the type variables we declare so that we can quantify
+      // them later.
+      const localTypeVariables: Array<TypeVariable> = [];
 
       // Convert the callee to a monomorphic type. If the callee type is
       // polymorphic then we need to add a type variable to our prefix.
@@ -122,9 +134,11 @@ function inferExpression<Diagnostic>(
       if (Type.isMonomorphic(callee.type)) {
         calleeType = callee.type;
       } else {
+        const identifier = `$${id++}`;
         const bound: Bound = {kind: 'flexible', type: callee.type};
-        const identifier = prefix.pushWithGeneratedName(bound);
-        pops++;
+        const typeVariable = TypeVariable.newRoot(prefix, bound);
+        prefix = prefix.set(identifier, typeVariable);
+        localTypeVariables.push(typeVariable);
         calleeType = t.variableType(identifier);
       }
 
@@ -134,17 +148,21 @@ function inferExpression<Diagnostic>(
       if (Type.isMonomorphic(argument.type)) {
         argumentType = argument.type;
       } else {
+        const identifier = `$${id++}`;
         const bound: Bound = {kind: 'flexible', type: argument.type};
-        const identifier = prefix.pushWithGeneratedName(bound);
-        pops++;
+        const typeVariable = TypeVariable.newRoot(prefix, bound);
+        prefix = prefix.set(identifier, typeVariable);
+        localTypeVariables.push(typeVariable);
         argumentType = t.variableType(identifier);
       }
 
       // Create a fresh type variable for the body type. This type will be
       // solved during unification.
-      const bodyType = t.variableType(
-        prefix.pushWithGeneratedName({kind: 'flexible', type: t.bottomType})
-      );
+      const bodyIdentifier = `$${id++}`;
+      const bodyBound: Bound = {kind: 'flexible', type: t.bottomType};
+      const bodyTypeVariable = TypeVariable.newRoot(prefix, bodyBound);
+      prefix = prefix.set(bodyIdentifier, bodyTypeVariable);
+      const bodyType = t.variableType(bodyIdentifier);
 
       // Unify the type of the callee with the function type we expect. This
       // should solve any unknown type variables.
@@ -155,10 +173,12 @@ function inferExpression<Diagnostic>(
         t.functionType(argumentType, bodyType)
       );
 
-      // Create our return type by quantifying in the reverse order of which we
-      // added our local type variables.
-      let type = prefix.pop(bodyType);
-      for (let i = 0; i < pops; i++) type = prefix.pop(type);
+      // Quantify our body type in the reverse order of which we added our local
+      // type variables.
+      const type = localTypeVariables.reduceRight(
+        (type, localTypeVariable) => localTypeVariable.quantify('todo', type),
+        bodyTypeVariable.quantify('todo', bodyType)
+      );
 
       // If there was an error during unification then we need to return an
       // error expression which will fail at runtime instead of an
@@ -175,10 +195,18 @@ function inferExpression<Diagnostic>(
     // instantiate them.
     case 'Binding': {
       const binding = expression.description;
-      const value = inferExpression(diagnostics, prefix, scope, binding.value);
-      scope.push(binding.binding, value.type);
-      const body = inferExpression(diagnostics, prefix, scope, binding.body);
-      scope.pop();
+      const value = inferExpression(
+        diagnostics,
+        prefix,
+        context,
+        binding.value
+      );
+      const body = inferExpression(
+        diagnostics,
+        prefix,
+        context.set(binding.binding, value.type),
+        binding.body
+      );
       return t.bindingExpressionTyped(binding.binding, value, body);
     }
 

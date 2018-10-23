@@ -1,7 +1,6 @@
 // tslint:disable no-any
 // tslint:disable no-non-null-assertion
 
-import {BindingMap} from './bindings';
 import * as t from './builder';
 import {Diagnostics} from './diagnostics';
 import {InferError, infer} from './infer';
@@ -44,7 +43,7 @@ const appTyped = t.functionExpressionTyped(
   )
 );
 
-const prelude = new BindingMap<string, Type>([
+const prelude = new Map<string, Type>([
   ['neg', t.functionType(t.numberType, t.numberType)],
   [
     'add',
@@ -146,13 +145,10 @@ test.only('application function call with second argument', () => {
   const expression = infer(
     diagnostics,
     prelude,
-    t.callExpression(
-      t.callExpression(
-        t.variableExpression('app'),
-        t.variableExpression('neg')
-      ),
-      t.numberExpression(42)
-    )
+    // t.callExpression(
+    t.callExpression(t.variableExpression('app'), t.variableExpression('neg'))
+    // t.numberExpression(42)
+    // )
   );
   const allDiagnostics = [...diagnostics];
   const callType = t.quantifiedType(
@@ -179,21 +175,21 @@ test.only('application function call with second argument', () => {
   );
   console.log(Type.toDisplayString(expression.type));
   expect(allDiagnostics).toEqual([]);
-  expect(expression).toEqual(
-    t.callExpressionTyped(
-      t.quantifiedType(
-        'a',
-        t.flexibleBound(callType),
-        t.quantifiedType('b', t.rigidBound(t.numberType), t.variableType('b'))
-      ),
-      t.callExpressionTyped(
-        callType,
-        t.variableExpressionTyped(appTyped.type, 'app'),
-        t.variableExpressionTyped(prelude.get('neg')!, 'neg')
-      ),
-      t.numberExpressionTyped(42)
-    )
-  );
+  // expect(expression).toEqual(
+  //   t.callExpressionTyped(
+  //     t.quantifiedType(
+  //       'a',
+  //       t.flexibleBound(callType),
+  //       t.quantifiedType('b', t.rigidBound(t.numberType), t.variableType('b'))
+  //     ),
+  //     t.callExpressionTyped(
+  //       callType,
+  //       t.variableExpressionTyped(appTyped.type, 'app'),
+  //       t.variableExpressionTyped(prelude.get('neg')!, 'neg')
+  //     ),
+  //     t.numberExpressionTyped(42)
+  //   )
+  // );
 });
 
 // test('call with wrong argument', () => {
