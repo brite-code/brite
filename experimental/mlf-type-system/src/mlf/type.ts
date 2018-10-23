@@ -1,6 +1,18 @@
+import {Derivable, DerivableConstant} from '../utils/derive';
+
 export type Type = PolymorphicType;
 
-export type MonomorphicType =
+export type MonomorphicType = {
+  readonly level: Derivable<number>;
+  readonly description: MonomorphicTypeDescription;
+};
+
+export type PolymorphicType = {
+  readonly level: Derivable<number>;
+  readonly description: PolymorphicTypeDescription;
+};
+
+export type MonomorphicTypeDescription =
   | {
       readonly kind: 'Variable';
       readonly identifier: string;
@@ -20,8 +32,8 @@ export type ConstantType =
   | {readonly kind: 'Number'}
   | {readonly kind: 'String'};
 
-export type PolymorphicType =
-  | MonomorphicType
+export type PolymorphicTypeDescription =
+  | MonomorphicTypeDescription
   | {
       readonly kind: 'Bottom';
     }
@@ -42,52 +54,10 @@ export namespace Type {
    * Returns true if the provided type is monomorphic.
    */
   export function isMonomorphic(type: Type): type is MonomorphicType {
-    return type.kind !== 'Quantified' && type.kind !== 'Bottom';
-  }
-
-  /**
-   * Gets all the free type variables in the provided type.
-   *
-   * Does not add the type variables of an unused quantified bound.
-   */
-  export function getFreeVariables(type: Type): ReadonlySet<string> {
-    // NOTE: This function may get called a lot on some large types. It could be
-    // a good idea to memoize this function based on the structure of types.
-
-    function getFreeVariables(set: Set<string>, type: Type): void {
-      switch (type.kind) {
-        case 'Variable':
-          set.add(type.identifier);
-          break;
-        case 'Constant':
-          break;
-        case 'Function':
-          getFreeVariables(set, type.parameter);
-          getFreeVariables(set, type.body);
-          break;
-        case 'Bottom':
-          break;
-        case 'Quantified': {
-          getFreeVariables(set, type.body);
-          // NOTE: If the quantified type variable is unused then we don’t add
-          // its type variables to the free variables set. We will never use it
-          // so what’s the point?
-          if (set.has(type.binding)) {
-            set.delete(type.binding);
-            return getFreeVariables(set, type.bound.type); // Tail recursion
-          }
-          break;
-        }
-        default:
-          const never: never = type;
-          set.add(never);
-          break;
-      }
-    }
-
-    const set = new Set();
-    getFreeVariables(set, type);
-    return set;
+    return (
+      type.description.kind !== 'Quantified' &&
+      type.description.kind !== 'Bottom'
+    );
   }
 
   /**
@@ -100,12 +70,12 @@ export namespace Type {
    * [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
    */
   export function toDisplayString(type: Type): string {
-    switch (type.kind) {
+    switch (type.description.kind) {
       case 'Variable':
-        return type.identifier;
+        return type.description.identifier;
 
       case 'Constant': {
-        switch (type.constant.kind) {
+        switch (type.description.constant.kind) {
           case 'Boolean':
             return 'boolean';
           case 'Number':
@@ -113,42 +83,122 @@ export namespace Type {
           case 'String':
             return 'string';
           default:
-            const never: never = type.constant;
+            const never: never = type.description.constant;
             return never;
         }
       }
 
       case 'Function': {
-        let parameter = toDisplayString(type.parameter);
+        let parameter = toDisplayString(type.description.parameter);
         parameter =
-          type.parameter.kind === 'Variable' ||
-          type.parameter.kind === 'Constant'
+          type.description.parameter.description.kind === 'Variable' ||
+          type.description.parameter.description.kind === 'Constant'
             ? parameter
             : `(${parameter})`;
-        return `${parameter} → ${toDisplayString(type.body)}`;
+        return `${parameter} → ${toDisplayString(type.description.body)}`;
       }
 
       case 'Bottom':
         return '⊥';
 
       case 'Quantified': {
-        const body = toDisplayString(type.body);
+        const quantified = type.description;
+        const body = toDisplayString(quantified.body);
         if (
-          type.bound.kind === 'flexible' &&
-          type.bound.type.kind === 'Bottom'
+          quantified.bound.kind === 'flexible' &&
+          quantified.bound.type.description.kind === 'Bottom'
         ) {
-          return `∀${type.binding}.${body}`;
+          return `∀${quantified.binding}.${body}`;
         } else {
-          const boundKind = type.bound.kind === 'flexible' ? '≥' : '=';
-          const boundType = toDisplayString(type.bound.type);
-          const binding = `${type.binding} ${boundKind} ${boundType}`;
+          const boundKind = quantified.bound.kind === 'flexible' ? '≥' : '=';
+          const boundType = toDisplayString(quantified.bound.type);
+          const binding = `${quantified.binding} ${boundKind} ${boundType}`;
           return `∀(${binding}).${body}`;
         }
       }
 
       default:
-        const never: never = type;
+        const never: never = type.description;
         return never;
     }
+  }
+
+  export function variable(identifier: string): MonomorphicType {
+    return {
+      level: new DerivableConstant(0),
+      description: {kind: 'Variable', identifier},
+    };
+  }
+
+  export function variableWithLevel(
+    identifier: string,
+    level: Derivable<number>
+  ): MonomorphicType {
+    return {
+      level,
+      description: {kind: 'Variable', identifier},
+    };
+  }
+
+  export const boolean: MonomorphicType = {
+    level: new DerivableConstant(0),
+    description: {
+      kind: 'Constant',
+      constant: {kind: 'Boolean'},
+    },
+  };
+
+  export const number: MonomorphicType = {
+    level: new DerivableConstant(0),
+    description: {
+      kind: 'Constant',
+      constant: {kind: 'Number'},
+    },
+  };
+
+  export const string: MonomorphicType = {
+    level: new DerivableConstant(0),
+    description: {
+      kind: 'Constant',
+      constant: {kind: 'String'},
+    },
+  };
+
+  export function function_(
+    parameter: MonomorphicType,
+    body: MonomorphicType
+  ): MonomorphicType {
+    return {
+      level: Derivable.then2(parameter.level, body.level, (a, b) =>
+        Math.max(a, b)
+      ),
+      description: {kind: 'Function', parameter, body},
+    };
+  }
+
+  export function quantified(
+    binding: string,
+    bound: Bound,
+    body: PolymorphicType
+  ): PolymorphicType {
+    return {
+      level: Derivable.then2(bound.type.level, body.level, (a, b) =>
+        Math.max(a, b)
+      ),
+      description: {kind: 'Quantified', binding, bound, body},
+    };
+  }
+
+  export const bottom: PolymorphicType = {
+    level: new DerivableConstant(0),
+    description: {kind: 'Bottom'},
+  };
+
+  export function rigidBound(type: PolymorphicType): Bound {
+    return {kind: 'rigid', type};
+  }
+
+  export function flexibleBound(type: PolymorphicType): Bound {
+    return {kind: 'flexible', type};
   }
 }

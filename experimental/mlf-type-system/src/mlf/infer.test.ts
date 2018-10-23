@@ -1,53 +1,53 @@
 // tslint:disable no-any
 // tslint:disable no-non-null-assertion
 
-import * as t from './builder';
 import {Diagnostics} from './diagnostics';
+import {Expression} from './expression';
 import {InferError, infer} from './infer';
 import {Type} from './type';
 
-const app = t.functionExpression(
+const app = Expression.function_(
   'f',
-  t.functionExpression(
+  Expression.function_(
     'x',
-    t.callExpression(t.variableExpression('f'), t.variableExpression('x'))
+    Expression.call(Expression.variable('f'), Expression.variable('x'))
   )
 );
 
-const appTyped = t.functionExpressionTyped(
-  t.quantifiedType(
+const appTyped = Expression.Typed.function_(
+  Type.quantified(
     'b',
-    t.flexibleBound(t.bottomType),
-    t.quantifiedType(
+    Type.flexibleBound(Type.bottom),
+    Type.quantified(
       'c',
-      t.flexibleBound(t.bottomType),
-      t.quantifiedType(
+      Type.flexibleBound(Type.bottom),
+      Type.quantified(
         'a',
-        t.rigidBound(t.functionType(t.variableType('b'), t.variableType('c'))),
-        t.functionType(
-          t.variableType('a'),
-          t.functionType(t.variableType('b'), t.variableType('c'))
+        Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
+        Type.function_(
+          Type.variable('a'),
+          Type.function_(Type.variable('b'), Type.variable('c'))
         )
       )
     )
   ),
   'f',
-  t.functionExpressionTyped(
-    t.functionType(t.variableType('b'), t.variableType('c')),
+  Expression.Typed.function_(
+    Type.function_(Type.variable('b'), Type.variable('c')),
     'x',
-    t.callExpressionTyped(
-      t.variableType('c'),
-      t.variableExpressionTyped(t.variableType('a'), 'f'),
-      t.variableExpressionTyped(t.variableType('b'), 'x')
+    Expression.Typed.call(
+      Type.variable('c'),
+      Expression.Typed.variable(Type.variable('a'), 'f'),
+      Expression.Typed.variable(Type.variable('b'), 'x')
     )
   )
 );
 
 const prelude = new Map<string, Type>([
-  ['neg', t.functionType(t.numberType, t.numberType)],
+  ['neg', Type.function_(Type.number, Type.number)],
   [
     'add',
-    t.functionType(t.numberType, t.functionType(t.numberType, t.numberType)),
+    Type.function_(Type.number, Type.function_(Type.number, Type.number)),
   ],
   ['app', appTyped.type],
 ]);
@@ -57,14 +57,14 @@ test('negative function call', () => {
   const expression = infer(
     diagnostics,
     prelude,
-    t.callExpression(t.variableExpression('neg'), t.numberExpression(42))
+    Expression.call(Expression.variable('neg'), Expression.number(42))
   );
   const allDiagnostics = [...diagnostics];
   expect(expression).toEqual(
-    t.callExpressionTyped(
-      t.quantifiedType('a', t.rigidBound(t.numberType), t.variableType('a')),
-      t.variableExpressionTyped(prelude.get('neg')!, 'neg'),
-      t.numberExpressionTyped(42)
+    Expression.Typed.call(
+      Type.quantified('a', Type.rigidBound(Type.number), Type.variable('a')),
+      Expression.Typed.variable(prelude.get('neg')!, 'neg'),
+      Expression.Typed.number(42)
     )
   );
   expect(allDiagnostics).toEqual([]);
@@ -75,20 +75,20 @@ test('negative function call with wrong argument', () => {
   const expression = infer(
     diagnostics,
     prelude,
-    t.callExpression(t.variableExpression('neg'), t.booleanExpression(true))
+    Expression.call(Expression.variable('neg'), Expression.boolean(true))
   );
   const allDiagnostics = [...diagnostics];
   expect(expression).toEqual(
-    t.errorExpressionTyped(
-      t.quantifiedType('a', t.rigidBound(t.numberType), t.variableType('a')),
+    Expression.Typed.error(
+      Type.quantified('a', Type.rigidBound(Type.number), Type.variable('a')),
       allDiagnostics[0] as any
     )
   );
   expect(allDiagnostics).toEqual([
     {
       kind: 'IncompatibleTypes',
-      actual: t.booleanType,
-      expected: t.numberType,
+      actual: Type.boolean,
+      expected: Type.number,
     },
   ]);
 });
@@ -104,37 +104,37 @@ test('application function call', () => {
   const expression = infer(
     diagnostics,
     prelude,
-    t.callExpression(t.variableExpression('app'), t.variableExpression('neg'))
+    Expression.call(Expression.variable('app'), Expression.variable('neg'))
   );
   const allDiagnostics = [...diagnostics];
   expect(expression).toEqual(
-    t.callExpressionTyped(
-      t.quantifiedType(
+    Expression.Typed.call(
+      Type.quantified(
         'b',
-        t.rigidBound(t.numberType),
-        t.quantifiedType(
+        Type.rigidBound(Type.number),
+        Type.quantified(
           'c',
-          t.rigidBound(t.numberType),
-          t.quantifiedType(
+          Type.rigidBound(Type.number),
+          Type.quantified(
             'b',
-            t.rigidBound(
-              t.functionType(t.variableType('b'), t.variableType('c'))
+            Type.rigidBound(
+              Type.function_(Type.variable('b'), Type.variable('c'))
             ),
-            t.quantifiedType(
+            Type.quantified(
               'a',
-              t.rigidBound(
-                t.functionType(
-                  t.functionType(t.numberType, t.numberType),
-                  t.variableType('b')
+              Type.rigidBound(
+                Type.function_(
+                  Type.function_(Type.number, Type.number),
+                  Type.variable('b')
                 )
               ),
-              t.variableType('b')
+              Type.variable('b')
             )
           )
         )
       ),
-      t.variableExpressionTyped(appTyped.type, 'app'),
-      t.variableExpressionTyped(prelude.get('neg')!, 'neg')
+      Expression.Typed.variable(prelude.get('app')!, 'app'),
+      Expression.Typed.variable(prelude.get('neg')!, 'neg')
     )
   );
   expect(allDiagnostics).toEqual([]);
@@ -146,29 +146,29 @@ test.only('application function call with second argument', () => {
     diagnostics,
     prelude,
     // t.callExpression(
-    t.callExpression(t.variableExpression('app'), t.variableExpression('neg'))
+    Expression.call(Expression.variable('app'), Expression.variable('neg'))
     // t.numberExpression(42)
     // )
   );
   const allDiagnostics = [...diagnostics];
-  const callType = t.quantifiedType(
+  const callType = Type.quantified(
     'b',
-    t.rigidBound(t.numberType),
-    t.quantifiedType(
+    Type.rigidBound(Type.number),
+    Type.quantified(
       'c',
-      t.rigidBound(t.numberType),
-      t.quantifiedType(
+      Type.rigidBound(Type.number),
+      Type.quantified(
         'b',
-        t.rigidBound(t.functionType(t.variableType('b'), t.variableType('c'))),
-        t.quantifiedType(
+        Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
+        Type.quantified(
           'a',
-          t.rigidBound(
-            t.functionType(
-              t.functionType(t.numberType, t.numberType),
-              t.variableType('b')
+          Type.rigidBound(
+            Type.function_(
+              Type.function_(Type.number, Type.number),
+              Type.variable('b')
             )
           ),
-          t.variableType('b')
+          Type.variable('b')
         )
       )
     )
