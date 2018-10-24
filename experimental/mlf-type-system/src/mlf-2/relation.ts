@@ -44,6 +44,34 @@ export function equivalent(
       type2 = type2.body;
     }
 
+    // Variables directly under a polytype are substituted. Note that this rule
+    // is intentionally different when testing monotype equivalence.
+    if (type1.kind === 'Variable') {
+      const {prefix: boundPrefix1, bound: bound1} =
+        prefix1.find(type1.name) || prefix0.findOrPanic(type1.name);
+      return equivalentPolytype(
+        prefix0,
+        boundPrefix1,
+        prefix2,
+        bound1.type,
+        type2
+      );
+    }
+
+    // Variables directly under a polytype are substituted. Note that this rule
+    // is intentionally different when testing monotype equivalence.
+    if (type2.kind === 'Variable') {
+      const {prefix: boundPrefix2, bound: bound2} =
+        prefix2.find(type2.name) || prefix0.findOrPanic(type2.name);
+      return equivalentPolytype(
+        prefix0,
+        prefix1,
+        boundPrefix2,
+        type1,
+        bound2.type
+      );
+    }
+
     // Bottom is only equivalent to itself.
     if (type1.kind === 'Bottom') return type2.kind === 'Bottom';
     if (type2.kind === 'Bottom') return false;

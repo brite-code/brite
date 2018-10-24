@@ -4,6 +4,7 @@ import {Polytype, Type} from './type';
 
 const equivalenceSuccess: ReadonlyArray<{
   readonly only?: boolean;
+  readonly prefix?: Prefix;
   readonly a: Polytype;
   readonly b: Polytype;
 }> = [
@@ -281,10 +282,164 @@ const equivalenceSuccess: ReadonlyArray<{
       Type.variable('x')
     ),
   },
+  {
+    a: Type.quantify(
+      'a',
+      Type.flexibleBound(Type.unit),
+      Type.function_(Type.variable('a'), Type.variable('a'))
+    ),
+    b: Type.function_(Type.unit, Type.unit),
+  },
+  {
+    a: Type.quantify(
+      'a',
+      Type.rigidBound(Type.unit),
+      Type.function_(Type.variable('a'), Type.variable('a'))
+    ),
+    b: Type.function_(Type.unit, Type.unit),
+  },
+  {
+    a: Type.quantify(
+      'a',
+      Type.rigidBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+      Type.variable('a')
+    ),
+    b: Type.quantifyUnbounded('x', Type.variable('x')),
+  },
+  {
+    a: Type.quantify(
+      'a',
+      Type.flexibleBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+      Type.variable('a')
+    ),
+    b: Type.quantifyUnbounded('x', Type.variable('x')),
+  },
+  {
+    a: Type.quantify(
+      'x',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.variable('x')
+    ),
+    b: Type.quantify(
+      'x',
+      Type.rigidBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.variable('x')
+    ),
+  },
+  {
+    a: Type.quantify(
+      'x',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.variable('x')
+    ),
+    b: Type.quantify(
+      'y',
+      Type.rigidBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.variable('y')
+    ),
+  },
+  {
+    a: Type.quantify(
+      'x',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.variable('x')
+    ),
+    b: Type.quantify(
+      'y',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.variable('y')
+    ),
+  },
+  {
+    a: Type.quantifyUnbounded('x', Type.variable('x')),
+    b: Type.quantifyUnbounded('y', Type.variable('y')),
+  },
+  {
+    a: Type.quantify(
+      'x',
+      Type.flexibleBound(
+        Type.quantifyUnbounded(
+          'z',
+          Type.function_(Type.variable('z'), Type.unit)
+        )
+      ),
+      Type.variable('x')
+    ),
+    b: Type.quantify(
+      'x',
+      Type.rigidBound(
+        Type.quantifyUnbounded(
+          'z',
+          Type.quantifyUnbounded(
+            'z',
+            Type.function_(Type.variable('z'), Type.unit)
+          )
+        )
+      ),
+      Type.variable('x')
+    ),
+  },
+  {
+    a: Type.quantify(
+      'a',
+      Type.flexibleBound(Type.quantifyUnbounded('b', Type.variable('b'))),
+      Type.variable('a')
+    ),
+    b: Type.quantifyUnbounded('b', Type.variable('b')),
+  },
+  {
+    a: Type.quantify(
+      'a',
+      Type.rigidBound(Type.quantifyUnbounded('b', Type.variable('b'))),
+      Type.variable('a')
+    ),
+    b: Type.quantifyUnbounded('b', Type.variable('b')),
+  },
+  {
+    prefix: Prefix.empty
+      .add('b', Type.flexibleBound(Type.bottom))
+      .add(
+        'a',
+        Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('b')))
+      ),
+    a: Type.variable('a'),
+    b: Type.function_(Type.variable('b'), Type.variable('b')),
+  },
+  {
+    prefix: Prefix.empty
+      .add('b', Type.flexibleBound(Type.bottom))
+      .add(
+        'a',
+        Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('b')))
+      ),
+    a: Type.function_(Type.variable('a'), Type.unit),
+    b: Type.function_(
+      Type.function_(Type.variable('b'), Type.variable('b')),
+      Type.unit
+    ),
+  },
+  {
+    a: Type.quantifyUnbounded(
+      'a',
+      Type.quantify(
+        'b',
+        Type.rigidBound(Type.function_(Type.variable('a'), Type.variable('a'))),
+        Type.function_(Type.variable('b'), Type.variable('b'))
+      )
+    ),
+    b: Type.quantifyUnbounded(
+      'a',
+      Type.function_(
+        Type.function_(Type.variable('a'), Type.variable('a')),
+        Type.function_(Type.variable('a'), Type.variable('a'))
+      )
+    ),
+  },
 ];
 
 const equivalenceFailure: ReadonlyArray<{
   readonly only?: boolean;
+  readonly prefix?: Prefix;
   readonly a: Polytype;
   readonly b: Polytype;
 }> = [
@@ -309,24 +464,36 @@ const equivalenceFailure: ReadonlyArray<{
     a: Type.quantify(
       'x',
       Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('x')
+      Type.function_(Type.variable('x'), Type.unit)
     ),
     b: Type.quantify(
       'x',
       Type.rigidBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('x')
+      Type.function_(Type.variable('x'), Type.unit)
     ),
   },
   {
     a: Type.quantify(
       'x',
       Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('x')
+      Type.function_(Type.variable('x'), Type.unit)
     ),
     b: Type.quantify(
       'y',
       Type.rigidBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('y')
+      Type.function_(Type.variable('y'), Type.unit)
+    ),
+  },
+  {
+    a: Type.quantify(
+      'x',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.function_(Type.variable('x'), Type.unit)
+    ),
+    b: Type.quantify(
+      'y',
+      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
+      Type.function_(Type.variable('y'), Type.unit)
     ),
   },
   {
@@ -354,8 +521,14 @@ const equivalenceFailure: ReadonlyArray<{
     b: Type.string,
   },
   {
-    a: Type.quantifyUnbounded('x', Type.variable('x')),
-    b: Type.quantifyUnbounded('y', Type.variable('y')),
+    a: Type.quantifyUnbounded(
+      'x',
+      Type.function_(Type.variable('x'), Type.unit)
+    ),
+    b: Type.quantifyUnbounded(
+      'y',
+      Type.function_(Type.variable('y'), Type.unit)
+    ),
   },
   {
     a: Type.quantifyUnbounded(
@@ -500,37 +673,13 @@ const equivalenceFailure: ReadonlyArray<{
   {
     a: Type.quantify(
       'x',
-      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('x')
-    ),
-    b: Type.quantify(
-      'x',
-      Type.rigidBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('x')
-    ),
-  },
-  {
-    a: Type.quantify(
-      'x',
-      Type.flexibleBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('x')
-    ),
-    b: Type.quantify(
-      'y',
-      Type.rigidBound(Type.quantifyUnbounded('z', Type.variable('z'))),
-      Type.variable('y')
-    ),
-  },
-  {
-    a: Type.quantify(
-      'x',
       Type.flexibleBound(
         Type.quantifyUnbounded(
           'z',
           Type.function_(Type.variable('z'), Type.unit)
         )
       ),
-      Type.variable('x')
+      Type.function_(Type.variable('x'), Type.unit)
     ),
     b: Type.quantify(
       'x',
@@ -543,7 +692,7 @@ const equivalenceFailure: ReadonlyArray<{
           )
         )
       ),
-      Type.variable('x')
+      Type.function_(Type.variable('x'), Type.unit)
     ),
   },
   {
@@ -562,26 +711,139 @@ const equivalenceFailure: ReadonlyArray<{
     ),
     b: Type.unit,
   },
+  {
+    a: Type.quantify(
+      'a',
+      Type.flexibleBound(Type.unit),
+      Type.function_(Type.variable('a'), Type.variable('a'))
+    ),
+    b: Type.function_(Type.boolean, Type.unit),
+  },
+  {
+    a: Type.quantify(
+      'a',
+      Type.flexibleBound(Type.quantifyUnbounded('b', Type.variable('b'))),
+      Type.function_(Type.variable('a'), Type.unit)
+    ),
+    b: Type.quantifyUnbounded(
+      'b',
+      Type.function_(Type.variable('b'), Type.unit)
+    ),
+  },
+  {
+    a: Type.quantify(
+      'a',
+      Type.rigidBound(Type.quantifyUnbounded('b', Type.variable('b'))),
+      Type.function_(Type.variable('a'), Type.unit)
+    ),
+    b: Type.quantifyUnbounded(
+      'b',
+      Type.function_(Type.variable('b'), Type.unit)
+    ),
+  },
+  {
+    // In Definition 1.5.1 of the [MLF Thesis][1] this example is called out
+    // explicitly as one the equivalence relation should not support.
+    //
+    // [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+
+    a: Type.quantify(
+      'a1',
+      Type.rigidBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+      Type.quantify(
+        'a2',
+        Type.rigidBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+        Type.function_(Type.variable('a1'), Type.variable('a2'))
+      )
+    ),
+    b: Type.quantify(
+      'a',
+      Type.rigidBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+      Type.function_(Type.variable('a'), Type.variable('a'))
+    ),
+  },
+  {
+    a: Type.quantify(
+      'a1',
+      Type.flexibleBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+      Type.quantify(
+        'a2',
+        Type.flexibleBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+        Type.function_(Type.variable('a1'), Type.variable('a2'))
+      )
+    ),
+    b: Type.quantify(
+      'a',
+      Type.flexibleBound(Type.quantifyUnbounded('x', Type.variable('x'))),
+      Type.function_(Type.variable('a'), Type.variable('a'))
+    ),
+  },
 ];
 
 describe('equivalence', () => {
-  for (const {only, a, b} of equivalenceSuccess) {
+  for (const {only, prefix, a, b} of equivalenceSuccess) {
     const declareTest = only ? test.only : test;
-    const name =
+    let name =
       Polytype.toDisplayString(a) + ' ≡ ' + Polytype.toDisplayString(b);
+    if (prefix) {
+      name = `${prefix.toDisplayString()} ${name}`;
+    }
     declareTest(name, () => {
-      expect(equivalent(Prefix.empty, a, b)).toEqual(true);
-      expect(equivalent(Prefix.empty, b, a)).toEqual(true);
+      expect(equivalent(prefix || Prefix.empty, a, b)).toEqual(true);
+      expect(equivalent(prefix || Prefix.empty, b, a)).toEqual(true);
+      if (a.kind === 'Quantify') {
+        let prefix2 = prefix || Prefix.empty;
+        let a2: Polytype = a;
+        while (a2.kind === 'Quantify') {
+          prefix2 = prefix2.add(a2.name, a2.bound);
+          a2 = a2.body;
+        }
+        expect(equivalent(prefix2, a2, b)).toEqual(true);
+        expect(equivalent(prefix2, b, a2)).toEqual(true);
+      }
+      if (b.kind === 'Quantify') {
+        let prefix2 = prefix || Prefix.empty;
+        let b2: Polytype = b;
+        while (b2.kind === 'Quantify') {
+          prefix2 = prefix2.add(b2.name, b2.bound);
+          b2 = b2.body;
+        }
+        expect(equivalent(prefix2, a, b2)).toEqual(true);
+        expect(equivalent(prefix2, b2, a)).toEqual(true);
+      }
     });
   }
 
-  for (const {only, a, b} of equivalenceFailure) {
+  for (const {only, prefix, a, b} of equivalenceFailure) {
     const declareTest = only ? test.only : test;
-    const name =
+    let name =
       Polytype.toDisplayString(a) + ' ≢ ' + Polytype.toDisplayString(b);
+    if (prefix) {
+      name = `${prefix.toDisplayString()} ${name}`;
+    }
     declareTest(name, () => {
-      expect(equivalent(Prefix.empty, a, b)).toEqual(false);
-      expect(equivalent(Prefix.empty, b, a)).toEqual(false);
+      expect(equivalent(prefix || Prefix.empty, a, b)).toEqual(false);
+      expect(equivalent(prefix || Prefix.empty, b, a)).toEqual(false);
+      if (a.kind === 'Quantify') {
+        let prefix2 = prefix || Prefix.empty;
+        let a2: Polytype = a;
+        while (a2.kind === 'Quantify') {
+          prefix2 = prefix2.add(a2.name, a2.bound);
+          a2 = a2.body;
+        }
+        expect(equivalent(prefix2, a2, b)).toEqual(false);
+        expect(equivalent(prefix2, b, a2)).toEqual(false);
+      }
+      if (b.kind === 'Quantify') {
+        let prefix2 = prefix || Prefix.empty;
+        let b2: Polytype = b;
+        while (b2.kind === 'Quantify') {
+          prefix2 = prefix2.add(b2.name, b2.bound);
+          b2 = b2.body;
+        }
+        expect(equivalent(prefix2, a, b2)).toEqual(false);
+        expect(equivalent(prefix2, b2, a)).toEqual(false);
+      }
     });
   }
 });

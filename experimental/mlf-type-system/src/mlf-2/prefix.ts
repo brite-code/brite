@@ -1,6 +1,6 @@
 import * as Immutable from 'immutable';
 
-import {Bound} from './type';
+import {Bound, Polytype} from './type';
 
 export type PrefixBound = {
   readonly prefix: Prefix;
@@ -30,5 +30,20 @@ export class Prefix {
       throw new Error(`Unbound type variable "${name}".`);
     }
     return prefixBound;
+  }
+
+  toDisplayString() {
+    if (this.bindings.isEmpty()) return `(∅)`;
+    const bounds = [];
+    for (const [name, {bound}] of this.bindings) {
+      if (bound.kind === 'flexible' && bound.type.kind === 'Bottom') {
+        bounds.push(name);
+      } else {
+        const boundKind = bound.kind === 'flexible' ? '≥' : '=';
+        const boundType = Polytype.toDisplayString(bound.type);
+        bounds.push(`${name} ${boundKind} ${boundType}`);
+      }
+    }
+    return `(${bounds.join(', ')})`;
   }
 }

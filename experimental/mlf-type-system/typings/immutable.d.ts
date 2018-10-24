@@ -3,7 +3,7 @@
 declare module 'immutable' {
   export function Map<K, V>(iterable?: Iterable<[K, V]>): Map<K, V>;
 
-  export interface Map<K, V> extends MapCommonMethods<K, V> {
+  export interface Map<K, V> extends MapCommonMethods<K, V>, Iterable<[K, V]> {
     readonly mutable: false;
     merge(other: Map<K, V>, ...others: Array<Map<K, V>>): this;
     mergeWith(
@@ -20,6 +20,7 @@ declare module 'immutable' {
     set(key: K, value: V): this;
     get(key: K): V | undefined;
     has(key: K): boolean;
+    isEmpty(): boolean;
   }
 
   export interface MutableMap<K, V> extends MapCommonMethods<K, V> {
