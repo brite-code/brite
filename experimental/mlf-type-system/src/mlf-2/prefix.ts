@@ -14,38 +14,64 @@ export class Prefix {
   /**
    * An empty prefix with no bindings.
    */
-  static empty = new Prefix(Immutable.Map());
+  static empty = new Prefix(0, 0, Immutable.Map());
 
-  // Every binding in our prefix holds a reference to the prefix when it was
-  // added. This way we may properly resolve the variables in the bound.
-  // Otherwise consider an equivalence check like ∀(x = unit, x = x).x ≡ unit.
-  // If the bound x = x does not resolve the right-hand-side x to x = unit then
-  // we are at risk of recursing infinitely.
-  private readonly bindings: Immutable.Map<string, PrefixBound>;
+  // The number of bindings in the prefix.
+  private readonly level: number;
 
-  private constructor(bindings: Immutable.Map<string, PrefixBound>) {
+  // The level at which bindings may be accessed.
+  private readonly accessLevel: number;
+
+  // Every binding in our prefix includes its level. This way when we fetch a
+  // bound from the prefix we can return a prefix which can only access bindings
+  // above the level of the binding we just found.
+  private readonly bindings: Immutable.Map<string, Immutable.List<PrefixBound>>;
+
+  private constructor(
+    level: number,
+    accessLevel: number,
+    bindings: Immutable.Map<string, Immutable.List<PrefixBound>>
+  ) {
+    this.level = level;
+    this.accessLevel = accessLevel;
     this.bindings = bindings;
   }
 
   /**
-   * Adds a bound to the prefix.
+   * Adds a bound to the end of the prefix. Moves the access level in the
+   * returned prefix to the end.
    */
   add(name: string, bound: Bound): Prefix {
-    return new Prefix(this.bindings.set(name, {prefix: this, bound}));
+    return new Prefix(
+      this.level + 1,
+      this.level,
+      this.bindings.update(name, list =>
+        (list || Immutable.List()).push({level: this.level, bound})
+      )
+    );
   }
 
   /**
    * Finds a bound in the prefix. Returns nothing if the bound could not
    * be found.
    */
-  find(name: string): PrefixBound | undefined {
-    return this.bindings.get(name);
+  find(name: string): {prefix: Prefix; bound: Bound} | undefined {
+    const bindings = this.bindings.get(name);
+    if (bindings === undefined) return undefined;
+    const binding = bindings.findLast(
+      binding => binding.level <= this.accessLevel
+    );
+    if (binding === undefined) return undefined;
+    const prefix = new Prefix(this.level, binding.level - 1);
+    return {
+      bound: binding.bound,
+    };
   }
 
   /**
    * Finds a bound in the prefix. Panics if the bound could not be found.
    */
-  findOrPanic(name: string): PrefixBound {
+  findOrPanic(name: string): {prefix: Prefix; bound: Bound} {
     const prefixBound = this.bindings.get(name);
     if (prefixBound === undefined) {
       throw new Error(`Unbound type variable "${name}".`);
@@ -78,7 +104,7 @@ export class Prefix {
   }
 }
 
-export type PrefixBound = {
-  readonly prefix: Prefix;
+type PrefixBound = {
+  readonly level: number;
   readonly bound: Bound;
 };

@@ -20,6 +20,8 @@ declare module 'immutable' {
     set(key: K, value: V): this;
     get(key: K): V | undefined;
     has(key: K): boolean;
+    update(key: K, updater: (value: V | undefined) => V): this;
+    update(key: K, notSetValue: V, updater: (value: V) => V): this;
     isEmpty(): boolean;
   }
 
@@ -69,7 +71,8 @@ declare module 'immutable' {
     push(value: T): List<T>;
     unshift(value: T): List<T>;
     shift(): List<T>;
-    update(index: number, updater: (value: T) => T): List<T>;
+    update(index: number, updater: (value: T | undefined) => T): List<T>;
+    findLast(predicate: (value: T, index: number) => boolean): T | undefined;
   }
 
   export interface MutableList<T> extends ListCommonMethods<T> {
