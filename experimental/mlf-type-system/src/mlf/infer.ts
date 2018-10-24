@@ -43,7 +43,7 @@ function inferExpression<Diagnostic>(
     // report an unbound variable.
     case 'Variable': {
       const variable = expression.description;
-      const identifier = variable.identifier;
+      const identifier = variable.name;
       const type = context.get(identifier);
       if (type !== undefined) {
         return Expression.Typed.variable(type, identifier);
@@ -95,7 +95,7 @@ function inferExpression<Diagnostic>(
       const body = inferExpression(
         diagnostics,
         prefix,
-        context.set(fun.parameter, parameterType),
+        context.set(fun.param, parameterType),
         level,
         fun.body
       );
@@ -118,7 +118,7 @@ function inferExpression<Diagnostic>(
       // Generalize dead type variables at this level before continuing on.
       const newType = generalize(prefix, level, type);
 
-      return Expression.Typed.function_(newType, fun.parameter, body);
+      return Expression.Typed.function_(newType, fun.param, body);
     }
 
     case 'Call': {
@@ -142,7 +142,7 @@ function inferExpression<Diagnostic>(
         prefix,
         context,
         level,
-        call.argument
+        call.arg
       );
 
       // Convert the callee to a monomorphic type. If the callee type is
@@ -222,11 +222,11 @@ function inferExpression<Diagnostic>(
       const body = inferExpression(
         diagnostics,
         prefix,
-        context.set(binding.binding, value.type),
+        context.set(binding.name, value.type),
         level,
         binding.body
       );
-      return Expression.Typed.binding(binding.binding, value, body);
+      return Expression.Typed.binding(binding.name, value, body);
     }
 
     // Runtime errors have the bottom type since they will crash at runtime.
@@ -274,21 +274,23 @@ function generalize(
 
     switch (type.description.kind) {
       case 'Variable': {
-        const variable = prefix.get(type.description.identifier);
+        const variable = prefix.get(type.description.name);
         if (variable === undefined) return type;
         const bound = variable.getBound();
         // TODO: Prevent double quantification.
-        quantifications.push({name: type.description.identifier, bound});
+        quantifications.push({name: type.description.name, bound});
         return type;
       }
 
-      case 'Constant':
+      case 'Boolean':
+      case 'Number':
+      case 'String':
         return type;
 
       case 'Function': {
-        const {parameter, body} = type.description;
+        const {param, body} = type.description;
         return Type.function_(
-          generalizeMonomorphicType(quantifications, prefix, level, parameter),
+          generalizeMonomorphicType(quantifications, prefix, level, param),
           generalizeMonomorphicType(quantifications, prefix, level, body)
         );
       }
@@ -327,7 +329,7 @@ function generalize(
     type
   );
   return quantifications.reduceRight<PolymorphicType>(
-    (type, {name, bound}) => Type.quantified(name, bound, type),
+    (type, {name, bound}) => Type.quantify(name, bound, type),
     newType
   );
 }

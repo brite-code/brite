@@ -48,12 +48,12 @@ function unifyType<Diagnostic>(
     expected.description.kind === 'Variable'
   ) {
     // Find the actual variable.
-    const actualIdentifier = actual.description.identifier;
+    const actualIdentifier = actual.description.name;
     const actualVariable = actualPrefix.get(actualIdentifier);
     if (actualVariable === undefined) throw new Error('Could not find type.');
 
     // Find the expected variable.
-    const expectedIdentifier = expected.description.identifier;
+    const expectedIdentifier = expected.description.name;
     const expectedVariable = expectedPrefix.get(expectedIdentifier);
     if (expectedVariable === undefined) throw new Error('Could not find type.');
 
@@ -65,7 +65,7 @@ function unifyType<Diagnostic>(
     return unifyVariable(diagnostics, level, actualVariable, expectedVariable);
   } else if (actual.description.kind === 'Variable') {
     // Find the variable.
-    const variable = actualPrefix.get(actual.description.identifier);
+    const variable = actualPrefix.get(actual.description.name);
     if (variable === undefined) throw new Error('Could not find type.');
 
     return unifyVariableWithType(
@@ -78,7 +78,7 @@ function unifyType<Diagnostic>(
     );
   } else if (expected.description.kind === 'Variable') {
     // Find the variable.
-    const variable = expectedPrefix.get(expected.description.identifier);
+    const variable = expectedPrefix.get(expected.description.name);
     if (variable === undefined) throw new Error('Could not find type.');
 
     return unifyVariableWithType(
@@ -91,14 +91,12 @@ function unifyType<Diagnostic>(
     );
   } else if (
     // Matching constants unify.
-    actual.description.kind === 'Constant' &&
-    expected.description.kind === 'Constant' &&
-    ((actual.description.constant.kind === 'Boolean' &&
-      expected.description.constant.kind === 'Boolean') ||
-      (actual.description.constant.kind === 'Number' &&
-        expected.description.constant.kind === 'Number') ||
-      (actual.description.constant.kind === 'String' &&
-        expected.description.constant.kind === 'String'))
+    (actual.description.kind === 'Boolean' &&
+      expected.description.kind === 'Boolean') ||
+    (actual.description.kind === 'Number' &&
+      expected.description.kind === 'Number') ||
+    (actual.description.kind === 'String' &&
+      expected.description.kind === 'String')
   ) {
     return undefined;
   } else if (
@@ -113,8 +111,8 @@ function unifyType<Diagnostic>(
       level,
       expectedPrefix,
       actualPrefix,
-      expected.description.parameter,
-      actual.description.parameter
+      expected.description.param,
+      actual.description.param
     );
     const diagnostic2 = unifyType(
       diagnostics,
@@ -162,9 +160,9 @@ function unifyVariableWithType<Diagnostic>(
     );
   } else {
     // Add all of our quantifications into scope.
-    while (variableType.description.kind === 'Quantified') {
+    while (variableType.description.kind === 'Quantify') {
       variablePrefix = variablePrefix.set(
-        variableType.description.binding,
+        variableType.description.name,
         new TypeVariable(
           new DerivableValue(level),
           variablePrefix,
@@ -214,9 +212,9 @@ function unifyVariable<Diagnostic>(
   // Add all of our actual quantifications into scope.
   let actualPrefix = actualVariable.getPrefix();
   let actualType = actualVariable.getBound().type;
-  while (actualType.description.kind === 'Quantified') {
+  while (actualType.description.kind === 'Quantify') {
     actualPrefix = actualPrefix.set(
-      actualType.description.binding,
+      actualType.description.name,
       new TypeVariable(
         new DerivableValue(level),
         actualPrefix,
@@ -229,9 +227,9 @@ function unifyVariable<Diagnostic>(
   // Add all of our expected quantifications into scope.
   let expectedPrefix = expectedVariable.getPrefix();
   let expectedType = expectedVariable.getBound().type;
-  while (expectedType.description.kind === 'Quantified') {
+  while (expectedType.description.kind === 'Quantify') {
     expectedPrefix = expectedPrefix.set(
-      expectedType.description.binding,
+      expectedType.description.name,
       new TypeVariable(
         new DerivableValue(level),
         expectedPrefix,

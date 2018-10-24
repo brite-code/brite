@@ -15,13 +15,13 @@ const app = Expression.function_(
 );
 
 const appTyped = Expression.Typed.function_(
-  Type.quantified(
+  Type.quantify(
     'b',
     Type.flexibleBound(Type.bottom),
-    Type.quantified(
+    Type.quantify(
       'c',
       Type.flexibleBound(Type.bottom),
-      Type.quantified(
+      Type.quantify(
         'a',
         Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
         Type.function_(
@@ -62,7 +62,7 @@ test('negative function call', () => {
   const allDiagnostics = [...diagnostics];
   expect(expression).toEqual(
     Expression.Typed.call(
-      Type.quantified('a', Type.rigidBound(Type.number), Type.variable('a')),
+      Type.quantify('a', Type.rigidBound(Type.number), Type.variable('a')),
       Expression.Typed.variable(prelude.get('neg')!, 'neg'),
       Expression.Typed.number(42)
     )
@@ -80,7 +80,7 @@ test('negative function call with wrong argument', () => {
   const allDiagnostics = [...diagnostics];
   expect(expression).toEqual(
     Expression.Typed.error(
-      Type.quantified('a', Type.rigidBound(Type.number), Type.variable('a')),
+      Type.quantify('a', Type.rigidBound(Type.number), Type.variable('a')),
       allDiagnostics[0] as any
     )
   );
@@ -109,18 +109,18 @@ test('application function call', () => {
   const allDiagnostics = [...diagnostics];
   expect(expression).toEqual(
     Expression.Typed.call(
-      Type.quantified(
+      Type.quantify(
         'b',
         Type.rigidBound(Type.number),
-        Type.quantified(
+        Type.quantify(
           'c',
           Type.rigidBound(Type.number),
-          Type.quantified(
+          Type.quantify(
             'b',
             Type.rigidBound(
               Type.function_(Type.variable('b'), Type.variable('c'))
             ),
-            Type.quantified(
+            Type.quantify(
               'a',
               Type.rigidBound(
                 Type.function_(
@@ -151,16 +151,16 @@ test.only('application function call with second argument', () => {
     // )
   );
   const allDiagnostics = [...diagnostics];
-  const callType = Type.quantified(
+  const callType = Type.quantify(
     'b',
     Type.rigidBound(Type.number),
-    Type.quantified(
+    Type.quantify(
       'c',
       Type.rigidBound(Type.number),
-      Type.quantified(
+      Type.quantify(
         'b',
         Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
-        Type.quantified(
+        Type.quantify(
           'a',
           Type.rigidBound(
             Type.function_(

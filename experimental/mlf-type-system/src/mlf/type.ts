@@ -13,24 +13,18 @@ export type PolymorphicType = {
 };
 
 export type MonomorphicTypeDescription =
-  | {
-      readonly kind: 'Variable';
-      readonly identifier: string;
-    }
-  | {
-      readonly kind: 'Constant';
-      readonly constant: ConstantType;
-    }
-  | {
-      readonly kind: 'Function';
-      readonly parameter: MonomorphicType;
-      readonly body: MonomorphicType;
-    };
-
-export type ConstantType =
   | {readonly kind: 'Boolean'}
   | {readonly kind: 'Number'}
-  | {readonly kind: 'String'};
+  | {readonly kind: 'String'}
+  | {
+      readonly kind: 'Function';
+      readonly param: MonomorphicType;
+      readonly body: MonomorphicType;
+    }
+  | {
+      readonly kind: 'Variable';
+      readonly name: string;
+    };
 
 export type PolymorphicTypeDescription =
   | MonomorphicTypeDescription
@@ -38,8 +32,8 @@ export type PolymorphicTypeDescription =
       readonly kind: 'Bottom';
     }
   | {
-      readonly kind: 'Quantified';
-      readonly binding: string;
+      readonly kind: 'Quantify';
+      readonly name: string;
       readonly bound: Bound;
       readonly body: PolymorphicType;
     };
@@ -55,8 +49,7 @@ export namespace Type {
    */
   export function isMonomorphic(type: Type): type is MonomorphicType {
     return (
-      type.description.kind !== 'Quantified' &&
-      type.description.kind !== 'Bottom'
+      type.description.kind !== 'Quantify' && type.description.kind !== 'Bottom'
     );
   }
 
@@ -72,49 +65,54 @@ export namespace Type {
   export function toDisplayString(type: Type): string {
     switch (type.description.kind) {
       case 'Variable':
-        return type.description.identifier;
+        return type.description.name;
 
-      case 'Constant': {
-        switch (type.description.constant.kind) {
-          case 'Boolean':
-            return 'boolean';
-          case 'Number':
-            return 'number';
-          case 'String':
-            return 'string';
-          default:
-            const never: never = type.description.constant;
-            return never;
-        }
-      }
+      case 'Boolean':
+        return 'boolean';
+      case 'Number':
+        return 'number';
+      case 'String':
+        return 'string';
 
       case 'Function': {
-        let parameter = toDisplayString(type.description.parameter);
-        parameter =
-          type.description.parameter.description.kind === 'Variable' ||
-          type.description.parameter.description.kind === 'Constant'
-            ? parameter
-            : `(${parameter})`;
-        return `${parameter} → ${toDisplayString(type.description.body)}`;
+        let param = toDisplayString(type.description.param);
+        const body = toDisplayString(type.description.body);
+        if (type.description.param.description.kind === 'Function') {
+          param = `(${param})`;
+        }
+        return `${param} → ${body}`;
       }
 
       case 'Bottom':
         return '⊥';
 
-      case 'Quantified': {
-        const quantified = type.description;
-        const body = toDisplayString(quantified.body);
+      case 'Quantify': {
         if (
-          quantified.bound.kind === 'flexible' &&
-          quantified.bound.type.description.kind === 'Bottom'
+          type.description.body.description.kind !== 'Quantify' &&
+          type.description.bound.kind === 'flexible' &&
+          type.description.bound.type.description.kind === 'Bottom'
         ) {
-          return `∀${quantified.binding}.${body}`;
-        } else {
-          const boundKind = quantified.bound.kind === 'flexible' ? '≥' : '=';
-          const boundType = toDisplayString(quantified.bound.type);
-          const binding = `${quantified.binding} ${boundKind} ${boundType}`;
-          return `∀(${binding}).${body}`;
+          const name = type.description.name;
+          const body = Type.toDisplayString(type.description.body);
+          return `∀${name}.${body}`;
         }
+        const bounds = [];
+        while (type.description.kind === 'Quantify') {
+          if (
+            type.description.bound.kind === 'flexible' &&
+            type.description.bound.type.description.kind === 'Bottom'
+          ) {
+            bounds.push(type.description.name);
+          } else {
+            const name = type.description.name;
+            const kind = type.description.bound.kind === 'flexible' ? '≥' : '=';
+            const bound = Type.toDisplayString(type.description.bound.type);
+            bounds.push(`${name} ${kind} ${bound}`);
+          }
+          type = type.description.body;
+        }
+        const body = Type.toDisplayString(type);
+        return `∀(${bounds.join(', ')}).${body}`;
       }
 
       default:
@@ -123,69 +121,56 @@ export namespace Type {
     }
   }
 
-  export function variable(identifier: string): MonomorphicType {
+  export function variable(name: string): MonomorphicType {
     return {
       level: new DerivableConstant(0),
-      description: {kind: 'Variable', identifier},
+      description: {kind: 'Variable', name},
     };
   }
 
   export function variableWithLevel(
-    identifier: string,
+    name: string,
     level: Derivable<number>
   ): MonomorphicType {
     return {
       level,
-      description: {kind: 'Variable', identifier},
+      description: {kind: 'Variable', name},
     };
   }
 
   export const boolean: MonomorphicType = {
     level: new DerivableConstant(0),
-    description: {
-      kind: 'Constant',
-      constant: {kind: 'Boolean'},
-    },
+    description: {kind: 'Boolean'},
   };
 
   export const number: MonomorphicType = {
     level: new DerivableConstant(0),
-    description: {
-      kind: 'Constant',
-      constant: {kind: 'Number'},
-    },
+    description: {kind: 'Number'},
   };
 
   export const string: MonomorphicType = {
     level: new DerivableConstant(0),
-    description: {
-      kind: 'Constant',
-      constant: {kind: 'String'},
-    },
+    description: {kind: 'String'},
   };
 
   export function function_(
-    parameter: MonomorphicType,
+    param: MonomorphicType,
     body: MonomorphicType
   ): MonomorphicType {
     return {
-      level: Derivable.then2(parameter.level, body.level, (a, b) =>
-        Math.max(a, b)
-      ),
-      description: {kind: 'Function', parameter, body},
+      level: Derivable.then2(param.level, body.level, Math.max),
+      description: {kind: 'Function', param, body},
     };
   }
 
-  export function quantified(
-    binding: string,
+  export function quantify(
+    name: string,
     bound: Bound,
     body: PolymorphicType
   ): PolymorphicType {
     return {
-      level: Derivable.then2(bound.type.level, body.level, (a, b) =>
-        Math.max(a, b)
-      ),
-      description: {kind: 'Quantified', binding, bound, body},
+      level: Derivable.then2(bound.type.level, body.level, Math.max),
+      description: {kind: 'Quantify', name, bound, body},
     };
   }
 

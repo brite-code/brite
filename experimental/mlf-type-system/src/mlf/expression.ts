@@ -14,7 +14,7 @@ export type Expression<Diagnostic = never, Type = undefined> = {
 export type ExpressionDescription<Diagnostic, Type> =
   | {
       readonly kind: 'Variable';
-      readonly identifier: string;
+      readonly name: string;
     }
   | {
       readonly kind: 'Constant';
@@ -22,17 +22,17 @@ export type ExpressionDescription<Diagnostic, Type> =
     }
   | {
       readonly kind: 'Function';
-      readonly parameter: string;
+      readonly param: string;
       readonly body: Expression<Diagnostic, Type>;
     }
   | {
       readonly kind: 'Call';
       readonly callee: Expression<Diagnostic, Type>;
-      readonly argument: Expression<Diagnostic, Type>;
+      readonly arg: Expression<Diagnostic, Type>;
     }
   | {
       readonly kind: 'Binding';
-      readonly binding: string;
+      readonly name: string;
       readonly value: Expression<Diagnostic, Type>;
       readonly body: Expression<Diagnostic, Type>;
     }
@@ -42,10 +42,10 @@ export type ExpressionDescription<Diagnostic, Type> =
     };
 
 export namespace Expression {
-  export function variable(identifier: string): Expression {
+  export function variable(name: string): Expression {
     return {
       type: undefined,
-      description: {kind: 'Variable', identifier},
+      description: {kind: 'Variable', name},
     };
   }
 
@@ -70,28 +70,28 @@ export namespace Expression {
     };
   }
 
-  export function function_(parameter: string, body: Expression): Expression {
+  export function function_(param: string, body: Expression): Expression {
     return {
       type: undefined,
-      description: {kind: 'Function', parameter, body},
+      description: {kind: 'Function', param, body},
     };
   }
 
-  export function call(callee: Expression, argument: Expression): Expression {
+  export function call(callee: Expression, arg: Expression): Expression {
     return {
       type: undefined,
-      description: {kind: 'Call', callee, argument},
+      description: {kind: 'Call', callee, arg},
     };
   }
 
   export function binding(
-    binding: string,
+    name: string,
     value: Expression,
     body: Expression
   ): Expression {
     return {
       type: undefined,
-      description: {kind: 'Binding', binding, value, body},
+      description: {kind: 'Binding', name, value, body},
     };
   }
 
@@ -107,11 +107,11 @@ export namespace Expression {
   export namespace Typed {
     export function variable(
       type: Type,
-      identifier: string
+      name: string
     ): Expression<never, Type> {
       return {
         type,
-        description: {kind: 'Variable', identifier},
+        description: {kind: 'Variable', name},
       };
     }
 
@@ -138,34 +138,34 @@ export namespace Expression {
 
     export function function_<Diagnostic = never>(
       type: Type,
-      parameter: string,
+      param: string,
       body: Expression<Diagnostic, Type>
     ): Expression<Diagnostic, Type> {
       return {
         type,
-        description: {kind: 'Function', parameter, body},
+        description: {kind: 'Function', param, body},
       };
     }
 
     export function call<Diagnostic = never>(
       type: Type,
       callee: Expression<Diagnostic, Type>,
-      argument: Expression<Diagnostic, Type>
+      arg: Expression<Diagnostic, Type>
     ): Expression<Diagnostic, Type> {
       return {
         type,
-        description: {kind: 'Call', callee, argument},
+        description: {kind: 'Call', callee, arg},
       };
     }
 
     export function binding<Diagnostic = never>(
-      binding: string,
+      name: string,
       value: Expression<Diagnostic, Type>,
       body: Expression<Diagnostic, Type>
     ): Expression<Diagnostic, Type> {
       return {
         type: body.type,
-        description: {kind: 'Binding', binding, value, body},
+        description: {kind: 'Binding', name, value, body},
       };
     }
 
