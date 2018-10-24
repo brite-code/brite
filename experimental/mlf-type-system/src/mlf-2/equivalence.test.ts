@@ -435,6 +435,18 @@ const equivalenceSuccess: ReadonlyArray<{
       )
     ),
   },
+  {
+    a: Type.quantify(
+      'x',
+      Type.rigidBound(Type.unit),
+      Type.quantify(
+        'x',
+        Type.rigidBound(Type.variable('x')),
+        Type.variable('x')
+      )
+    ),
+    b: Type.unit,
+  },
 ];
 
 const equivalenceFailure: ReadonlyArray<{

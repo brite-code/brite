@@ -29,6 +29,15 @@ export type Bound = {
 };
 
 export namespace Monotype {
+  /**
+   * Converts a monotype to a string for debugging purposes. The format of the
+   * string is chosen based on the [MLF paper][1] and so is quite academic.
+   *
+   * Brite programmers will not be familiar with this syntax. It is for
+   * debugging purposes only.
+   *
+   * [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
+   */
   export function toDisplayString(type: Monotype): string {
     switch (type.kind) {
       case 'Unit':
@@ -60,7 +69,7 @@ export namespace Polytype {
   /**
    * Returns true if the provided polytype is a monotype.
    *
-   * IMPORTANT: Some polytypes may still be semantically monotypes. For example
+   * NOTE: Some polytypes may still be semantically monotypes. For example
    * `∀x.boolean` is structurally a polytype, but according to the rules of our
    * equivalence relation it can be considered a monotype after applying the
    * [Eq-Free][1] rule.
@@ -71,6 +80,15 @@ export namespace Polytype {
     return type.kind !== 'Bottom' && type.kind !== 'Quantify';
   }
 
+  /**
+   * Converts a polytype to a string for debugging purposes. The format of the
+   * string is chosen based on the [MLF paper][1] and so is quite academic.
+   *
+   * Brite programmers will not be familiar with this syntax. It is for
+   * debugging purposes only.
+   *
+   * [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
+   */
   export function toDisplayString(type: Polytype): string {
     switch (type.kind) {
       case 'Bottom':
