@@ -1,14 +1,10 @@
-import {Derivable, DerivableConstant} from '../utils/derive';
-
 export type Type = PolymorphicType;
 
 export type MonomorphicType = {
-  readonly level: Derivable<number>;
   readonly description: MonomorphicTypeDescription;
 };
 
 export type PolymorphicType = {
-  readonly level: Derivable<number>;
   readonly description: PolymorphicTypeDescription;
 };
 
@@ -123,33 +119,19 @@ export namespace Type {
 
   export function variable(name: string): MonomorphicType {
     return {
-      level: new DerivableConstant(0),
-      description: {kind: 'Variable', name},
-    };
-  }
-
-  export function variableWithLevel(
-    name: string,
-    level: Derivable<number>
-  ): MonomorphicType {
-    return {
-      level,
       description: {kind: 'Variable', name},
     };
   }
 
   export const boolean: MonomorphicType = {
-    level: new DerivableConstant(0),
     description: {kind: 'Boolean'},
   };
 
   export const number: MonomorphicType = {
-    level: new DerivableConstant(0),
     description: {kind: 'Number'},
   };
 
   export const string: MonomorphicType = {
-    level: new DerivableConstant(0),
     description: {kind: 'String'},
   };
 
@@ -158,7 +140,6 @@ export namespace Type {
     body: MonomorphicType
   ): MonomorphicType {
     return {
-      level: Derivable.then2(param.level, body.level, Math.max),
       description: {kind: 'Function', param, body},
     };
   }
@@ -169,13 +150,11 @@ export namespace Type {
     body: PolymorphicType
   ): PolymorphicType {
     return {
-      level: Derivable.then2(bound.type.level, body.level, Math.max),
       description: {kind: 'Quantify', name, bound, body},
     };
   }
 
   export const bottom: PolymorphicType = {
-    level: new DerivableConstant(0),
     description: {kind: 'Bottom'},
   };
 
