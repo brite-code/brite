@@ -264,15 +264,3 @@ export function equivalent(
     return true;
   }
 }
-
-export function abstracted(
-  prefix: Prefix,
-  type1: Polytype,
-  type2: Polytype
-): boolean {}
-
-export function instance(
-  prefix: Prefix,
-  type1: Polytype,
-  type2: Polytype
-): boolean {}

@@ -1,5 +1,5 @@
+import {equivalent} from './equivalence';
 import {Prefix} from './prefix';
-import {equivalent} from './relation';
 import {Polytype, Type} from './type';
 
 const equivalenceSuccess: ReadonlyArray<{
@@ -780,70 +780,66 @@ const equivalenceFailure: ReadonlyArray<{
   },
 ];
 
-describe('equivalence', () => {
-  for (const {only, prefix, a, b} of equivalenceSuccess) {
-    const declareTest = only ? test.only : test;
-    let name =
-      Polytype.toDisplayString(a) + ' ≡ ' + Polytype.toDisplayString(b);
-    if (prefix) {
-      name = `${prefix.toDisplayString()} ${name}`;
-    }
-    declareTest(name, () => {
-      expect(equivalent(prefix || Prefix.empty, a, b)).toEqual(true);
-      expect(equivalent(prefix || Prefix.empty, b, a)).toEqual(true);
-      if (a.kind === 'Quantify') {
-        let prefix2 = prefix || Prefix.empty;
-        let a2: Polytype = a;
-        while (a2.kind === 'Quantify') {
-          prefix2 = prefix2.add(a2.name, a2.bound);
-          a2 = a2.body;
-        }
-        expect(equivalent(prefix2, a2, b)).toEqual(true);
-        expect(equivalent(prefix2, b, a2)).toEqual(true);
-      }
-      if (b.kind === 'Quantify') {
-        let prefix2 = prefix || Prefix.empty;
-        let b2: Polytype = b;
-        while (b2.kind === 'Quantify') {
-          prefix2 = prefix2.add(b2.name, b2.bound);
-          b2 = b2.body;
-        }
-        expect(equivalent(prefix2, a, b2)).toEqual(true);
-        expect(equivalent(prefix2, b2, a)).toEqual(true);
-      }
-    });
+for (const {only, prefix, a, b} of equivalenceSuccess) {
+  const declareTest = only ? test.only : test;
+  let name = Polytype.toDisplayString(a) + ' ≡ ' + Polytype.toDisplayString(b);
+  if (prefix) {
+    name = `${prefix.toDisplayString()} ${name}`;
   }
+  declareTest(name, () => {
+    expect(equivalent(prefix || Prefix.empty, a, b)).toEqual(true);
+    expect(equivalent(prefix || Prefix.empty, b, a)).toEqual(true);
+    if (a.kind === 'Quantify') {
+      let prefix2 = prefix || Prefix.empty;
+      let a2: Polytype = a;
+      while (a2.kind === 'Quantify') {
+        prefix2 = prefix2.add(a2.name, a2.bound);
+        a2 = a2.body;
+      }
+      expect(equivalent(prefix2, a2, b)).toEqual(true);
+      expect(equivalent(prefix2, b, a2)).toEqual(true);
+    }
+    if (b.kind === 'Quantify') {
+      let prefix2 = prefix || Prefix.empty;
+      let b2: Polytype = b;
+      while (b2.kind === 'Quantify') {
+        prefix2 = prefix2.add(b2.name, b2.bound);
+        b2 = b2.body;
+      }
+      expect(equivalent(prefix2, a, b2)).toEqual(true);
+      expect(equivalent(prefix2, b2, a)).toEqual(true);
+    }
+  });
+}
 
-  for (const {only, prefix, a, b} of equivalenceFailure) {
-    const declareTest = only ? test.only : test;
-    let name =
-      Polytype.toDisplayString(a) + ' ≢ ' + Polytype.toDisplayString(b);
-    if (prefix) {
-      name = `${prefix.toDisplayString()} ${name}`;
-    }
-    declareTest(name, () => {
-      expect(equivalent(prefix || Prefix.empty, a, b)).toEqual(false);
-      expect(equivalent(prefix || Prefix.empty, b, a)).toEqual(false);
-      if (a.kind === 'Quantify') {
-        let prefix2 = prefix || Prefix.empty;
-        let a2: Polytype = a;
-        while (a2.kind === 'Quantify') {
-          prefix2 = prefix2.add(a2.name, a2.bound);
-          a2 = a2.body;
-        }
-        expect(equivalent(prefix2, a2, b)).toEqual(false);
-        expect(equivalent(prefix2, b, a2)).toEqual(false);
-      }
-      if (b.kind === 'Quantify') {
-        let prefix2 = prefix || Prefix.empty;
-        let b2: Polytype = b;
-        while (b2.kind === 'Quantify') {
-          prefix2 = prefix2.add(b2.name, b2.bound);
-          b2 = b2.body;
-        }
-        expect(equivalent(prefix2, a, b2)).toEqual(false);
-        expect(equivalent(prefix2, b2, a)).toEqual(false);
-      }
-    });
+for (const {only, prefix, a, b} of equivalenceFailure) {
+  const declareTest = only ? test.only : test;
+  let name = Polytype.toDisplayString(a) + ' ≢ ' + Polytype.toDisplayString(b);
+  if (prefix) {
+    name = `${prefix.toDisplayString()} ${name}`;
   }
-});
+  declareTest(name, () => {
+    expect(equivalent(prefix || Prefix.empty, a, b)).toEqual(false);
+    expect(equivalent(prefix || Prefix.empty, b, a)).toEqual(false);
+    if (a.kind === 'Quantify') {
+      let prefix2 = prefix || Prefix.empty;
+      let a2: Polytype = a;
+      while (a2.kind === 'Quantify') {
+        prefix2 = prefix2.add(a2.name, a2.bound);
+        a2 = a2.body;
+      }
+      expect(equivalent(prefix2, a2, b)).toEqual(false);
+      expect(equivalent(prefix2, b, a2)).toEqual(false);
+    }
+    if (b.kind === 'Quantify') {
+      let prefix2 = prefix || Prefix.empty;
+      let b2: Polytype = b;
+      while (b2.kind === 'Quantify') {
+        prefix2 = prefix2.add(b2.name, b2.bound);
+        b2 = b2.body;
+      }
+      expect(equivalent(prefix2, a, b2)).toEqual(false);
+      expect(equivalent(prefix2, b2, a)).toEqual(false);
+    }
+  });
+}
