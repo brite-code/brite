@@ -1,29 +1,29 @@
-export type Type = PolymorphicType;
+export type Type = Polytype;
 
-export type MonomorphicType = {
-  readonly description: MonomorphicTypeDescription;
+export type Monotype = {
+  readonly description: MonotypeDescription;
 };
 
-export type PolymorphicType = {
-  readonly description: PolymorphicTypeDescription;
+export type Polytype = {
+  readonly description: PolytypeDescription;
 };
 
-export type MonomorphicTypeDescription =
+export type MonotypeDescription =
   | {readonly kind: 'Boolean'}
   | {readonly kind: 'Number'}
   | {readonly kind: 'String'}
   | {
       readonly kind: 'Function';
-      readonly param: MonomorphicType;
-      readonly body: MonomorphicType;
+      readonly param: Monotype;
+      readonly body: Monotype;
     }
   | {
       readonly kind: 'Variable';
       readonly name: string;
     };
 
-export type PolymorphicTypeDescription =
-  | MonomorphicTypeDescription
+export type PolytypeDescription =
+  | MonotypeDescription
   | {
       readonly kind: 'Bottom';
     }
@@ -31,7 +31,7 @@ export type PolymorphicTypeDescription =
       readonly kind: 'Quantify';
       readonly name: string;
       readonly bound: Bound;
-      readonly body: PolymorphicType;
+      readonly body: Polytype;
     };
 
 export type Bound = {
@@ -43,7 +43,7 @@ export namespace Type {
   /**
    * Returns true if the provided type is monomorphic.
    */
-  export function isMonomorphic(type: Type): type is MonomorphicType {
+  export function isMonotype(type: Type): type is Monotype {
     return (
       type.description.kind !== 'Quantify' && type.description.kind !== 'Bottom'
     );
@@ -117,28 +117,25 @@ export namespace Type {
     }
   }
 
-  export function variable(name: string): MonomorphicType {
+  export function variable(name: string): Monotype {
     return {
       description: {kind: 'Variable', name},
     };
   }
 
-  export const boolean: MonomorphicType = {
+  export const boolean: Monotype = {
     description: {kind: 'Boolean'},
   };
 
-  export const number: MonomorphicType = {
+  export const number: Monotype = {
     description: {kind: 'Number'},
   };
 
-  export const string: MonomorphicType = {
+  export const string: Monotype = {
     description: {kind: 'String'},
   };
 
-  export function function_(
-    param: MonomorphicType,
-    body: MonomorphicType
-  ): MonomorphicType {
+  export function function_(param: Monotype, body: Monotype): Monotype {
     return {
       description: {kind: 'Function', param, body},
     };
@@ -147,22 +144,22 @@ export namespace Type {
   export function quantify(
     name: string,
     bound: Bound,
-    body: PolymorphicType
-  ): PolymorphicType {
+    body: Polytype
+  ): Polytype {
     return {
       description: {kind: 'Quantify', name, bound, body},
     };
   }
 
-  export const bottom: PolymorphicType = {
+  export const bottom: Polytype = {
     description: {kind: 'Bottom'},
   };
 
-  export function rigidBound(type: PolymorphicType): Bound {
+  export function rigidBound(type: Polytype): Bound {
     return {kind: 'rigid', type};
   }
 
-  export function flexibleBound(type: PolymorphicType): Bound {
+  export function flexibleBound(type: Polytype): Bound {
     return {kind: 'flexible', type};
   }
 }
