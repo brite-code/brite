@@ -2,6 +2,7 @@ import * as Immutable from 'immutable';
 
 import {DerivableValue} from '../utils/derive';
 
+import {BindingMap} from './bindings';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
 import {Bound, MonomorphicType, PolymorphicType, Type} from './type';
@@ -16,7 +17,7 @@ let id = 1;
  */
 export function infer<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
-  context: Iterable<[string, Type]>,
+  scope: Iterable<[string, Type]>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   id = 1;
@@ -24,7 +25,7 @@ export function infer<Diagnostic>(
   return inferExpression(
     diagnostics,
     Immutable.Map(),
-    Immutable.Map(context),
+    new BindingMap(scope),
     level,
     expression
   );
@@ -33,7 +34,7 @@ export function infer<Diagnostic>(
 function inferExpression<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
   prefix: Immutable.Map<string, TypeVariable>,
-  context: Immutable.Map<string, Type>,
+  scope: BindingMap<string, Type>,
   level: number,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
@@ -44,7 +45,7 @@ function inferExpression<Diagnostic>(
     case 'Variable': {
       const variable = expression.description;
       const identifier = variable.name;
-      const type = context.get(identifier);
+      const type = scope.get(identifier);
       if (type !== undefined) {
         return Expression.Typed.variable(type, identifier);
       } else {
@@ -92,13 +93,9 @@ function inferExpression<Diagnostic>(
 
       // Infer our function body type. Introducing the variable we just defined
       // into scope.
-      const body = inferExpression(
-        diagnostics,
-        prefix,
-        context.set(fun.param, parameterType),
-        level,
-        fun.body
-      );
+      scope.push(fun.param, parameterType);
+      const body = inferExpression(diagnostics, prefix, scope, level, fun.body);
+      scope.pop();
 
       // If the type of our body is polymorphic then we need to quantify the
       // type of our function by our body type.
@@ -133,14 +130,14 @@ function inferExpression<Diagnostic>(
       const callee = inferExpression(
         diagnostics,
         prefix,
-        context,
+        scope,
         level,
         call.callee
       );
       const argument = inferExpression(
         diagnostics,
         prefix,
-        context,
+        scope,
         level,
         call.arg
       );
@@ -211,22 +208,35 @@ function inferExpression<Diagnostic>(
     // variables as polymorphic until they are applied. At which point we
     // instantiate them.
     case 'Binding': {
-      const binding = expression.description;
-      const value = inferExpression(
-        diagnostics,
-        prefix,
-        context,
-        level,
-        binding.value
-      );
+      const values = [];
+      // Infer all the bindings we can in a loop to avoid stack overflows.
+      while (expression.description.kind === 'Binding') {
+        const binding = expression.description;
+        const value = inferExpression(
+          diagnostics,
+          prefix,
+          scope,
+          level,
+          binding.value
+        );
+        scope.push(binding.name, value.type);
+        values.push({name: binding.name, value});
+        expression = binding.body;
+      }
       const body = inferExpression(
         diagnostics,
         prefix,
-        context.set(binding.name, value.type),
+        scope,
         level,
-        binding.body
+        expression
       );
-      return Expression.Typed.binding(binding.name, value, body);
+      let result = body;
+      for (let i = 0; i < values.length; i++) {
+        scope.pop();
+        const {name, value} = values.pop()!; // tslint:disable-line no-non-null-assertion
+        result = Expression.Typed.binding(name, value, result);
+      }
+      return result;
     }
 
     // Runtime errors have the bottom type since they will crash at runtime.
