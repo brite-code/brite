@@ -11,6 +11,11 @@ export type UnifyError<T> =
       readonly kind: 'IncompatibleTypes';
       readonly actual: Monotype;
       readonly expected: Monotype;
+    }
+  | {
+      readonly kind: 'InfiniteType';
+      readonly name: string;
+      readonly type: Polytype;
     };
 
 /**
@@ -121,8 +126,7 @@ function unifyVariableWithType<Diagnostic>(
   // type we are unifying to. Remember to take our quantifications out of
   // scope as well!
   if (bound.type === undefined) {
-    state.updateType(variable, {kind: 'rigid', type});
-    return undefined;
+    return updateType(diagnostics, state, variable, type);
   }
 
   // If our type variable has a monomorphic bound then we unify the variable
@@ -149,10 +153,10 @@ function unifyVariableWithType<Diagnostic>(
     // If there was no error then update our variable to the monomorphic type
     // we unified with since our variable and the type are equivalent.
     if (error === undefined) {
-      state.updateType(variable, {kind: 'rigid', type});
+      return updateType(diagnostics, state, variable, type);
+    } else {
+      return error;
     }
-
-    return error;
   }
 }
 
@@ -177,20 +181,14 @@ function unifyVariable<Diagnostic>(
 
   // If actual is the bottom type then unify to expected.
   if (actualBound.type === undefined) {
-    state.updateType(actualVariable, {
-      kind: 'rigid',
-      type: Type.variable(expectedVariable),
-    });
-    return undefined;
+    const expectedType = Type.variable(expectedVariable);
+    return updateType(diagnostics, state, actualVariable, expectedType);
   }
 
   // If expected is the bottom type then unify to actual.
   if (expectedBound.type === undefined) {
-    state.updateType(expectedVariable, {
-      kind: 'rigid',
-      type: Type.variable(actualVariable),
-    });
-    return undefined;
+    const actualType = Type.variable(actualVariable);
+    return updateType(diagnostics, state, expectedVariable, actualType);
   }
 
   // Instantiate our type bounds.
@@ -204,13 +202,28 @@ function unifyVariable<Diagnostic>(
   // actual type. Since unification shows that the actual and expected types
   // are equivalent.
   if (error === undefined) {
-    state.updateType(expectedVariable, {
-      kind: 'rigid',
-      type: Type.variable(actualVariable),
-    });
+    const actualType = Type.variable(actualVariable);
+    return updateType(diagnostics, state, expectedVariable, actualType);
+  } else {
+    return error;
   }
+}
 
-  return error;
+/**
+ * Updates a type in our state while also handling failures in the occurs check.
+ */
+function updateType<Diagnostic>(
+  diagnostics: Diagnostics<UnifyError<Diagnostic>>,
+  state: State,
+  name: string,
+  type: Polytype
+): Reported<UnifyError<Diagnostic>> | undefined {
+  const ok = state.updateTypeWithOccursCheck(name, {kind: 'rigid', type});
+  if (ok === true) {
+    return undefined;
+  } else {
+    return diagnostics.report({kind: 'InfiniteType', name, type});
+  }
 }
 
 /**

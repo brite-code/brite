@@ -1,8 +1,8 @@
 import {Bound, Monotype, Polytype, Type} from './type';
 
 /**
- * State required to type-check a Brite application. Holds things like all
- * allocated type variables.
+ * State required to type-check a Brite application. Holds things like allocated
+ * type variables.
  */
 export class State {
   // The id for the type variable in our program.
@@ -97,20 +97,33 @@ export class State {
    * scoping shenanigans are necessary since all type names are guaranteed to be
    * unique in the program.
    *
+   * Returns true if the type was successfully updated. Returns false if
+   * performing this update would result in an infinite type. We add
+   * `withOccursCheck` to the name so that the programmer is reminded to handle
+   * failed occurrence checks.
+   *
    * Also, if a free type variable in the provided bound has a higher level then
    * the type variable we are updating then we “level up” the type variable in
    * the bound so that it won’t be deallocated before the type variable we are
    * updating.
    */
-  updateType(name: string, bound: Bound) {
+  updateTypeWithOccursCheck(name: string, bound: Bound): boolean {
     const entry = this.typeVariables.get(name);
     if (entry === undefined) {
       throw new Error(`Type variable not found: "${name}"`);
     }
+    // Checks to see if the type variable we are updating exists in the type we
+    // are updating to. If so then we have an infinite type. Fail early!
+    if (bound.type !== undefined && this.occurs(name, bound.type)) {
+      return false;
+    }
     // Update the entry’s bound to the new bound.
     entry.bound = bound;
     // Level up all the free type variables in our bound’s type.
-    if (bound.type !== undefined) this.levelUp(entry.level, bound.type);
+    if (bound.type !== undefined) {
+      this.levelUp(entry.level, bound.type);
+    }
+    return true;
   }
 
   /**
@@ -146,6 +159,27 @@ export class State {
         }
       }
     }
+  }
+
+  /**
+   * Recursively tests to see if the provided type or any of the type’s bounds
+   * in state contain the provided name. If so then it is not safe to update the
+   * provided name with the provided type.
+   */
+  private occurs(testName: string, type: Polytype): boolean {
+    // For all free type variables...
+    for (const name of Type.getFreeVariables(type)) {
+      // If this name is the one we are testing for then the test name does
+      // occur in our type! Uh oh...
+      if (name === testName) return true;
+      // Get the bound for this type variable.
+      const entry = this.typeVariables.get(name);
+      if (entry === undefined) continue;
+      if (entry.bound.type === undefined) continue;
+      // Recursively check to see if our name occurs in the type bound.
+      if (this.occurs(testName, entry.bound.type)) return true;
+    }
+    return false;
   }
 
   /**

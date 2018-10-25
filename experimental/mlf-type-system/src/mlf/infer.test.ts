@@ -174,6 +174,118 @@ test('λx.x x', () => {
   console.log(Type.toDisplayString(expression.type));
 });
 
+test('λx.λy.let z = choose x y in x y', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.function_(
+      'x',
+      Expression.function_(
+        'y',
+        Expression.binding(
+          'z',
+          Expression.call(
+            Expression.call(
+              Expression.variable('choose'),
+              Expression.variable('x')
+            ),
+            Expression.variable('y')
+          ),
+          Expression.call(Expression.variable('x'), Expression.variable('y'))
+        )
+      )
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  // expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('λx.λy.let z = choose y x in x y', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.function_(
+      'x',
+      Expression.function_(
+        'y',
+        Expression.binding(
+          'z',
+          Expression.call(
+            Expression.call(
+              Expression.variable('choose'),
+              Expression.variable('y')
+            ),
+            Expression.variable('x')
+          ),
+          Expression.call(Expression.variable('x'), Expression.variable('y'))
+        )
+      )
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  // expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('λx.λy.let z = choose x y in y x', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.function_(
+      'x',
+      Expression.function_(
+        'y',
+        Expression.binding(
+          'z',
+          Expression.call(
+            Expression.call(
+              Expression.variable('choose'),
+              Expression.variable('x')
+            ),
+            Expression.variable('y')
+          ),
+          Expression.call(Expression.variable('y'), Expression.variable('x'))
+        )
+      )
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  // expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('λx.λy.let z = choose y x in y x', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.function_(
+      'x',
+      Expression.function_(
+        'y',
+        Expression.binding(
+          'z',
+          Expression.call(
+            Expression.call(
+              Expression.variable('choose'),
+              Expression.variable('y')
+            ),
+            Expression.variable('x')
+          ),
+          Expression.call(Expression.variable('y'), Expression.variable('x'))
+        )
+      )
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  // expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
 test('λx.let x = (x: ∀a.a → a) in x x', () => {
   const diagnostics = new Diagnostics<InferError<never>>();
   const expression = infer(
