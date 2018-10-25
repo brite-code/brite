@@ -77,7 +77,7 @@ export namespace Expression {
     };
   }
 
-  export function call(callee: Expression, arg: Expression): Expression {
+  export function call(callee: Expression, argument: Expression): Expression {
     return {
       type: undefined,
       description: {kind: 'Call', callee, argument},
@@ -150,7 +150,7 @@ export namespace Expression {
     export function call<Diagnostic = never>(
       type: Type,
       callee: Expression<Diagnostic, Type>,
-      arg: Expression<Diagnostic, Type>
+      argument: Expression<Diagnostic, Type>
     ): Expression<Diagnostic, Type> {
       return {
         type,

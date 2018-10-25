@@ -15,12 +15,10 @@ const app = Expression.function_(
 );
 
 const appTyped = Expression.Typed.function_(
-  Type.quantify(
+  Type.quantifyUnbounded(
     'b',
-    Type.flexibleBound(Type.bottom),
-    Type.quantify(
+    Type.quantifyUnbounded(
       'c',
-      Type.flexibleBound(Type.bottom),
       Type.quantify(
         'a',
         Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
@@ -151,28 +149,28 @@ test.only('application function call with second argument', () => {
     // )
   );
   const allDiagnostics = [...diagnostics];
-  const callType = Type.quantify(
-    'b',
-    Type.rigidBound(Type.number),
-    Type.quantify(
-      'c',
-      Type.rigidBound(Type.number),
-      Type.quantify(
-        'b',
-        Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
-        Type.quantify(
-          'a',
-          Type.rigidBound(
-            Type.function_(
-              Type.function_(Type.number, Type.number),
-              Type.variable('b')
-            )
-          ),
-          Type.variable('b')
-        )
-      )
-    )
-  );
+  // const callType = Type.quantify(
+  //   'b',
+  //   Type.rigidBound(Type.number),
+  //   Type.quantify(
+  //     'c',
+  //     Type.rigidBound(Type.number),
+  //     Type.quantify(
+  //       'b',
+  //       Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
+  //       Type.quantify(
+  //         'a',
+  //         Type.rigidBound(
+  //           Type.function_(
+  //             Type.function_(Type.number, Type.number),
+  //             Type.variable('b')
+  //           )
+  //         ),
+  //         Type.variable('b')
+  //       )
+  //     )
+  //   )
+  // );
   console.log(Type.toDisplayString(expression.type));
   expect(allDiagnostics).toEqual([]);
   // expect(expression).toEqual(

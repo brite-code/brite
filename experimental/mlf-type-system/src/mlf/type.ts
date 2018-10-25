@@ -1,16 +1,26 @@
 import {BindingMap} from './bindings';
 
+/**
+ * A type in our type system. Actually an alias for `Polytype`.
+ */
 export type Type = Polytype;
 
+/**
+ * Monotypes are types which do not contain quantifiers.
+ */
 export type Monotype = {
-  readonly description: MonomorphicTypeDescription;
+  readonly description: MonotypeDescription;
 };
 
+/**
+ * Polytypes are types which do contain quantifiers. All monotypes are also
+ * polytypes. In general when we say “type” we are referring to a polytype.
+ */
 export type Polytype = {
-  readonly description: PolymorphicTypeDescription;
+  readonly description: PolytypeDescription;
 };
 
-export type MonomorphicTypeDescription =
+export type MonotypeDescription =
   | {readonly kind: 'Boolean'}
   | {readonly kind: 'Number'}
   | {readonly kind: 'String'}
@@ -24,11 +34,8 @@ export type MonomorphicTypeDescription =
       readonly name: string;
     };
 
-export type PolymorphicTypeDescription =
-  | MonomorphicTypeDescription
-  | {
-      readonly kind: 'Bottom';
-    }
+export type PolytypeDescription =
+  | MonotypeDescription
   | {
       readonly kind: 'Quantify';
       readonly name: string;
@@ -36,9 +43,13 @@ export type PolymorphicTypeDescription =
       readonly body: Polytype;
     };
 
+/**
+ * Bound of a polytype quantification. An undefined type bound should be treated
+ * as the bottom type.
+ */
 export type Bound = {
   readonly kind: 'flexible' | 'rigid';
-  readonly type: Type;
+  readonly type: Type | undefined;
 };
 
 export namespace Type {
@@ -46,9 +57,7 @@ export namespace Type {
    * Returns true if the provided type is monomorphic.
    */
   export function isMonotype(type: Type): type is Monotype {
-    return (
-      type.description.kind !== 'Quantify' && type.description.kind !== 'Bottom'
-    );
+    return type.description.kind !== 'Quantify';
   }
 
   /**
@@ -81,14 +90,11 @@ export namespace Type {
         return `${param} → ${body}`;
       }
 
-      case 'Bottom':
-        return '⊥';
-
       case 'Quantify': {
         if (
           type.description.body.description.kind !== 'Quantify' &&
           type.description.bound.kind === 'flexible' &&
-          type.description.bound.type.description.kind === 'Bottom'
+          type.description.bound.type === undefined
         ) {
           const name = type.description.name;
           const body = Type.toDisplayString(type.description.body);
@@ -98,13 +104,16 @@ export namespace Type {
         while (type.description.kind === 'Quantify') {
           if (
             type.description.bound.kind === 'flexible' &&
-            type.description.bound.type.description.kind === 'Bottom'
+            type.description.bound.type === undefined
           ) {
             bounds.push(type.description.name);
           } else {
             const name = type.description.name;
             const kind = type.description.bound.kind === 'flexible' ? '≥' : '=';
-            const bound = Type.toDisplayString(type.description.bound.type);
+            const bound =
+              type.description.bound.type !== undefined
+                ? Type.toDisplayString(type.description.bound.type)
+                : '⊥';
             bounds.push(`${name} ${kind} ${bound}`);
           }
           type = type.description.body;
@@ -146,7 +155,9 @@ export namespace Type {
           while (type.description.kind === 'Quantify') {
             pops++;
             scope.push(type.description.name, undefined);
-            forEachFreeVariable(scope, type.description.bound.type, f);
+            if (type.description.bound.type !== undefined) {
+              forEachFreeVariable(scope, type.description.bound.type, f);
+            }
             type = type.description.body;
           }
           forEachFreeVariable(scope, type, f);
@@ -163,7 +174,6 @@ export namespace Type {
         case 'Boolean':
         case 'Number':
         case 'String':
-        case 'Bottom':
           return;
 
         default:
@@ -191,22 +201,24 @@ export namespace Type {
       f: (name: string) => Monotype | undefined
     ): Polytype | undefined {
       switch (type.description.kind) {
-        case 'Bottom':
-          return undefined;
-
         case 'Quantify': {
           let changed = false;
           const quantifications = [];
           while (type.description.kind === 'Quantify') {
             const {name, bound} = type.description;
             scope.push(name, undefined);
-            const t1 = bound.type;
-            const t2 = transformPolytypeFreeVariables(scope, t1, f);
-            if (t2 === undefined) {
-              quantifications.push({name, bound});
+            if (bound.type !== undefined) {
+              const t1 = bound.type;
+              const t2 = transformPolytypeFreeVariables(scope, t1, f);
+              if (t2 === undefined) {
+                quantifications.push({name, bound});
+              } else {
+                changed = true;
+                const newBound = {kind: bound.kind, type: t2};
+                quantifications.push({name, bound: newBound});
+              }
             } else {
-              changed = true;
-              quantifications.push({name, bound: {kind: bound.kind, type: t2}});
+              quantifications.push({name, bound});
             }
             type = type.description.body;
           }
@@ -296,16 +308,16 @@ export namespace Type {
     bound: Bound,
     body: Polytype
   ): Polytype {
-    // Quantifying a bottom type is useless, so just return the bottom type.
-    if (body.description.kind === 'Bottom') return body;
     return {
       description: {kind: 'Quantify', name, bound, body},
     };
   }
 
-  export const bottom: Polytype = {
-    description: {kind: 'Bottom'},
-  };
+  export function quantifyUnbounded(name: string, body: Polytype): Polytype {
+    return {
+      description: {kind: 'Quantify', name, bound: unbounded, body},
+    };
+  }
 
   export function rigidBound(type: Polytype): Bound {
     return {kind: 'rigid', type};
@@ -314,4 +326,6 @@ export namespace Type {
   export function flexibleBound(type: Polytype): Bound {
     return {kind: 'flexible', type};
   }
+
+  export const unbounded: Bound = {kind: 'flexible', type: undefined};
 }

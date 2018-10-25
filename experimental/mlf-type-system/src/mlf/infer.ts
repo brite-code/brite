@@ -48,7 +48,7 @@ function inferExpression<Diagnostic>(
         return Expression.Typed.variable(type, identifier);
       } else {
         return Expression.Typed.error(
-          Type.bottom,
+          state.newType(),
           diagnostics.report({
             kind: 'UnboundVariable',
             identifier,
@@ -191,7 +191,10 @@ function inferExpression<Diagnostic>(
 
     // Runtime errors have the bottom type since they will crash at runtime.
     case 'Error':
-      return Expression.Typed.error(Type.bottom, expression.description.error);
+      return Expression.Typed.error(
+        state.newType(),
+        expression.description.error
+      );
 
     default:
       const never: never = expression.description;
@@ -226,7 +229,7 @@ function generalize(state: State, type: Polytype): Polytype {
       const {level, bound} = state.lookupType(name);
       // If we have a type variable with a level greater than our current
       // level then we need to quantify that type variable.
-      if (level > state.getLevel()) {
+      if (level >= state.getLevel()) {
         // If `quantify` already contains this type variable then we don’t
         // need to add it again.
         if (!quantify.has(name)) {
@@ -234,7 +237,7 @@ function generalize(state: State, type: Polytype): Polytype {
           // important that we call this function before we add the variable
           // name to `quantify`. The order of type variables in `quantify`
           // does matter.
-          generalize(quantify, state, bound.type);
+          if (bound.type !== undefined) generalize(quantify, state, bound.type);
           quantify.add(name);
         }
       }

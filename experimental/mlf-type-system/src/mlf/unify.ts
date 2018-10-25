@@ -114,6 +114,14 @@ function unifyVariableWithType<Diagnostic>(
   // Lookup the bound for our variable.
   const {bound} = state.lookupType(variable);
 
+  // If our type variable is the bottom type then update our variable to the
+  // type we are unifying to. Remember to take our quantifications out of
+  // scope as well!
+  if (bound.type === undefined) {
+    state.updateType(variable, {kind: 'rigid', type});
+    return undefined;
+  }
+
   // If our type variable has a monomorphic bound then we unify the variable
   // bound and the type without updating our variable.
   if (Type.isMonotype(bound.type)) {
@@ -124,14 +132,6 @@ function unifyVariableWithType<Diagnostic>(
       isVariableActual ? type : bound.type
     );
   } else {
-    // If our type variable is the bottom type then update our variable to the
-    // type we are unifying to. Remember to take our quantifications out of
-    // scope as well!
-    if (bound.type.description.kind === 'Bottom') {
-      state.updateType(variable, {kind: 'rigid', type});
-      return undefined;
-    }
-
     // Instantiate the variable type.
     const variableType = instantiate(state, bound.type);
 
@@ -180,14 +180,14 @@ function unifyVariable<Diagnostic>(
       : 'rigid';
 
   // If actual is the bottom type then unify to expected.
-  if (actualBound.type.description.kind === 'Bottom') {
+  if (actualBound.type === undefined) {
     const bound = {kind: boundKind, type: expectedBound.type};
     state.updateType(actualVariable, bound);
     return undefined;
   }
 
   // If expected is the bottom type then unify to actual.
-  if (expectedBound.type.description.kind === 'Bottom') {
+  if (expectedBound.type === undefined) {
     const bound = {kind: boundKind, type: actualBound.type};
     state.updateType(expectedVariable, bound);
     return undefined;
@@ -234,7 +234,7 @@ function instantiate(state: State, type: Polytype): Monotype {
     const {name, bound} = type.description;
     const newType = state.newTypeWithBound({
       kind: bound.kind,
-      type: substitute(bound.type),
+      type: bound.type !== undefined ? substitute(bound.type) : undefined,
     });
     substitutions.set(name, newType);
     type = type.description.body;
@@ -245,12 +245,6 @@ function instantiate(state: State, type: Polytype): Monotype {
 
   // We decomposed all the quantifications. We should never see another one.
   if (newType.description.kind === 'Quantify') throw new Error('Unreachable');
-
-  // We don’t support bottom types under quantifications well in instantiation.
-  // Instead of trying, let’s just throw. This should never happen anyway.
-  if (newType.description.kind === 'Bottom') {
-    throw new Error('Unsupported bottom type under quantification.');
-  }
 
   return newType as Monotype;
 }
