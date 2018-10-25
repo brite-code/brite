@@ -6,219 +6,310 @@ import {Expression} from './expression';
 import {InferError, infer} from './infer';
 import {Type} from './type';
 
-const app = Expression.function_(
-  'f',
-  Expression.function_(
-    'x',
-    Expression.call(Expression.variable('f'), Expression.variable('x'))
-  )
-);
-
-const appTyped = Expression.Typed.function_(
-  Type.quantifyUnbounded(
-    'b',
-    Type.quantifyUnbounded(
-      'c',
-      Type.quantify(
-        'a',
-        Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
-        Type.function_(
-          Type.variable('a'),
-          Type.function_(Type.variable('b'), Type.variable('c'))
-        )
-      )
-    )
-  ),
-  'f',
-  Expression.Typed.function_(
-    Type.function_(Type.variable('b'), Type.variable('c')),
-    'x',
-    Expression.Typed.call(
-      Type.variable('c'),
-      Expression.Typed.variable(Type.variable('a'), 'f'),
-      Expression.Typed.variable(Type.variable('b'), 'x')
-    )
-  )
-);
-
 const prelude = new Map<string, Type>([
   ['neg', Type.function_(Type.number, Type.number)],
   [
-    'add',
-    Type.function_(Type.number, Type.function_(Type.number, Type.number)),
+    'id',
+    Type.quantifyUnbounded(
+      'x',
+      Type.function_(Type.variable('x'), Type.variable('x'))
+    ),
   ],
-  ['app', appTyped.type],
-]);
-
-test('negative function call', () => {
-  const diagnostics = new Diagnostics<InferError<never>>();
-  const expression = infer(
-    diagnostics,
-    prelude,
-    Expression.call(Expression.variable('neg'), Expression.number(42))
-  );
-  const allDiagnostics = [...diagnostics];
-  expect(expression).toEqual(
-    Expression.Typed.call(
-      Type.quantify('a', Type.rigidBound(Type.number), Type.variable('a')),
-      Expression.Typed.variable(prelude.get('neg')!, 'neg'),
-      Expression.Typed.number(42)
-    )
-  );
-  expect(allDiagnostics).toEqual([]);
-});
-
-test('negative function call with wrong argument', () => {
-  const diagnostics = new Diagnostics<InferError<never>>();
-  const expression = infer(
-    diagnostics,
-    prelude,
-    Expression.call(Expression.variable('neg'), Expression.boolean(true))
-  );
-  const allDiagnostics = [...diagnostics];
-  expect(expression).toEqual(
-    Expression.Typed.error(
-      Type.quantify('a', Type.rigidBound(Type.number), Type.variable('a')),
-      allDiagnostics[0] as any
-    )
-  );
-  expect(allDiagnostics).toEqual([
-    {
-      kind: 'IncompatibleTypes',
-      actual: Type.boolean,
-      expected: Type.number,
-    },
-  ]);
-});
-
-test('application function', () => {
-  const diagnostics = new Diagnostics<InferError<never>>();
-  expect(infer(diagnostics, prelude, app)).toEqual(appTyped);
-  expect([...diagnostics]).toEqual([]);
-});
-
-test('application function call', () => {
-  const diagnostics = new Diagnostics<InferError<never>>();
-  const expression = infer(
-    diagnostics,
-    prelude,
-    Expression.call(Expression.variable('app'), Expression.variable('neg'))
-  );
-  const allDiagnostics = [...diagnostics];
-  expect(expression).toEqual(
-    Expression.Typed.call(
-      Type.quantify(
+  [
+    'succ',
+    Type.quantifyUnbounded(
+      't',
+      Type.function_(Type.variable('t'), Type.variable('t'))
+    ),
+  ],
+  [
+    'app',
+    Type.quantifyUnbounded(
+      'a',
+      Type.quantifyUnbounded(
         'b',
-        Type.rigidBound(Type.number),
-        Type.quantify(
-          'c',
-          Type.rigidBound(Type.number),
-          Type.quantify(
-            'b',
-            Type.rigidBound(
-              Type.function_(Type.variable('b'), Type.variable('c'))
-            ),
-            Type.quantify(
-              'a',
-              Type.rigidBound(
-                Type.function_(
-                  Type.function_(Type.number, Type.number),
-                  Type.variable('b')
-                )
-              ),
-              Type.variable('b')
-            )
-          )
+        Type.function_(
+          Type.function_(Type.variable('a'), Type.variable('b')),
+          Type.function_(Type.variable('a'), Type.variable('b'))
+        )
+      )
+    ),
+  ],
+  [
+    'choose',
+    Type.quantifyUnbounded(
+      'a',
+      Type.function_(
+        Type.variable('a'),
+        Type.function_(Type.variable('a'), Type.variable('a'))
+      )
+    ),
+  ],
+  [
+    'auto',
+    Type.quantify(
+      'a',
+      Type.rigidBound(
+        Type.quantifyUnbounded(
+          'a',
+          Type.function_(Type.variable('a'), Type.variable('a'))
         )
       ),
-      Expression.Typed.variable(prelude.get('app')!, 'app'),
-      Expression.Typed.variable(prelude.get('neg')!, 'neg')
-    )
-  );
-  expect(allDiagnostics).toEqual([]);
-});
+      Type.function_(Type.variable('a'), Type.variable('a'))
+    ),
+  ],
+]);
 
-test.only('application function call with second argument', () => {
+test('λ(f, x).f x', () => {
   const diagnostics = new Diagnostics<InferError<never>>();
   const expression = infer(
     diagnostics,
     prelude,
-    // t.callExpression(
-    Expression.call(Expression.variable('app'), Expression.variable('neg'))
-    // t.numberExpression(42)
-    // )
+    Expression.function_(
+      'f',
+      Expression.function_(
+        'x',
+        Expression.call(Expression.variable('f'), Expression.variable('x'))
+      )
+    )
   );
   const allDiagnostics = [...diagnostics];
-  // const callType = Type.quantify(
-  //   'b',
-  //   Type.rigidBound(Type.number),
-  //   Type.quantify(
-  //     'c',
-  //     Type.rigidBound(Type.number),
-  //     Type.quantify(
-  //       'b',
-  //       Type.rigidBound(Type.function_(Type.variable('b'), Type.variable('c'))),
-  //       Type.quantify(
-  //         'a',
-  //         Type.rigidBound(
-  //           Type.function_(
-  //             Type.function_(Type.number, Type.number),
-  //             Type.variable('b')
-  //           )
-  //         ),
-  //         Type.variable('b')
-  //       )
-  //     )
-  //   )
-  // );
-  console.log(Type.toDisplayString(expression.type));
   expect(allDiagnostics).toEqual([]);
-  // expect(expression).toEqual(
-  //   t.callExpressionTyped(
-  //     t.quantifiedType(
-  //       'a',
-  //       t.flexibleBound(callType),
-  //       t.quantifiedType('b', t.rigidBound(t.numberType), t.variableType('b'))
-  //     ),
-  //     t.callExpressionTyped(
-  //       callType,
-  //       t.variableExpressionTyped(appTyped.type, 'app'),
-  //       t.variableExpressionTyped(prelude.get('neg')!, 'neg')
-  //     ),
-  //     t.numberExpressionTyped(42)
-  //   )
-  // );
+  console.log(Type.toDisplayString(expression.type));
 });
 
-// test('call with wrong argument', () => {
-//   const diagnostics = new Diagnostics<InferError<never>>();
-//   const expression = infer(
-//     diagnostics,
-//     prelude,
-//     t.callExpression(t.variableExpression('app'), t.numberExpression(42))
-//   );
-//   const allDiagnostics = [...diagnostics];
-//   expect(expression).toEqual(
-//     t.errorExpressionTyped(
-//       t.quantifiedType(
-//         'a',
-//         t.rigidBound(t.functionType(t.numberType, t.variableType('b'))),
-//         t.quantifiedType(
-//           'b',
-//           t.rigidBound(
-//             t.functionType(t.variableType('b'), t.variableType('c'))
-//           ),
-//           t.variableType('b')
-//         )
-//       ),
-//       allDiagnostics[0] as any
-//     )
-//   );
-//   expect(allDiagnostics).toEqual([
-//     {
-//       kind: 'IncompatibleTypes',
-//       actual: t.numberType,
-//       expected: t.functionType(t.variableType('b'), t.variableType('c')),
-//     },
-//   ]);
-// });
+test('app neg', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(Expression.variable('app'), Expression.variable('neg'))
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('app neg 42', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(Expression.variable('app'), Expression.variable('neg')),
+      Expression.number(42)
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('app id', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(Expression.variable('app'), Expression.variable('id'))
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('app id 42', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(Expression.variable('app'), Expression.variable('id')),
+      Expression.number(42)
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('choose id', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(Expression.variable('choose'), Expression.variable('id'))
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('choose id 42', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(Expression.variable('choose'), Expression.variable('id')),
+      Expression.number(42)
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  // expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('λx.x x', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.function_(
+      'x',
+      Expression.call(Expression.variable('x'), Expression.variable('x'))
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  // expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('λx.let x = (x: ∀a.a → a) in x x', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.function_(
+      'x',
+      Expression.binding(
+        'x',
+        Expression.annotation(
+          Expression.variable('x'),
+          Type.quantifyUnbounded(
+            'a',
+            Type.function_(Type.variable('a'), Type.variable('a'))
+          )
+        ),
+        Expression.call(Expression.variable('x'), Expression.variable('x'))
+      )
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('choose id succ', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(Expression.variable('choose'), Expression.variable('id')),
+      Expression.variable('succ')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('choose succ id', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(
+        Expression.variable('choose'),
+        Expression.variable('succ')
+      ),
+      Expression.variable('id')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('choose id auto', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(Expression.variable('choose'), Expression.variable('id')),
+      Expression.variable('auto')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('choose auto id', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(
+        Expression.variable('choose'),
+        Expression.variable('auto')
+      ),
+      Expression.variable('id')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('id auto', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(Expression.variable('id'), Expression.variable('auto'))
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+// NOTE: This should be ok!!!
+test('(λx.x (λy.y)) auto', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.function_(
+        'x',
+        Expression.call(
+          Expression.variable('x'),
+          Expression.function_('y', Expression.variable('y'))
+        )
+      ),
+      Expression.variable('auto')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('app auto id', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(Expression.variable('app'), Expression.variable('auto')),
+      Expression.variable('id')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});

@@ -1,5 +1,5 @@
 import {Reported} from './diagnostics';
-import {Type} from './type';
+import {Polytype, Type} from './type';
 
 export type Constant =
   | {readonly kind: 'Boolean'; readonly value: boolean}
@@ -22,7 +22,7 @@ export type ExpressionDescription<Diagnostic, Type> =
     }
   | {
       readonly kind: 'Function';
-      readonly param: string;
+      readonly parameter: string;
       readonly body: Expression<Diagnostic, Type>;
     }
   | {
@@ -35,6 +35,11 @@ export type ExpressionDescription<Diagnostic, Type> =
       readonly name: string;
       readonly value: Expression<Diagnostic, Type>;
       readonly body: Expression<Diagnostic, Type>;
+    }
+  | {
+      readonly kind: 'Annotation';
+      readonly value: Expression<Diagnostic, Type>;
+      readonly type: Polytype;
     }
   | {
       readonly kind: 'Error';
@@ -70,10 +75,10 @@ export namespace Expression {
     };
   }
 
-  export function function_(param: string, body: Expression): Expression {
+  export function function_(parameter: string, body: Expression): Expression {
     return {
       type: undefined,
-      description: {kind: 'Function', param, body},
+      description: {kind: 'Function', parameter, body},
     };
   }
 
@@ -92,6 +97,13 @@ export namespace Expression {
     return {
       type: undefined,
       description: {kind: 'Binding', name, value, body},
+    };
+  }
+
+  export function annotation(value: Expression, type: Type): Expression {
+    return {
+      type: undefined,
+      description: {kind: 'Annotation', value, type},
     };
   }
 
@@ -138,12 +150,12 @@ export namespace Expression {
 
     export function function_<Diagnostic = never>(
       type: Type,
-      param: string,
+      parameter: string,
       body: Expression<Diagnostic, Type>
     ): Expression<Diagnostic, Type> {
       return {
         type,
-        description: {kind: 'Function', param, body},
+        description: {kind: 'Function', parameter, body},
       };
     }
 
@@ -166,6 +178,16 @@ export namespace Expression {
       return {
         type: body.type,
         description: {kind: 'Binding', name, value, body},
+      };
+    }
+
+    export function annotation<Diagnostic = never>(
+      value: Expression<Diagnostic, Type>,
+      type: Type
+    ): Expression<Diagnostic, Type> {
+      return {
+        type,
+        description: {kind: 'Annotation', value, type},
       };
     }
 

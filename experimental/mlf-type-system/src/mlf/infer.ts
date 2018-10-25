@@ -86,7 +86,7 @@ function inferExpression<Diagnostic>(
 
       // Infer our function body type. Introducing the variable we just defined
       // into scope.
-      scope.push(function_.param, parameterType);
+      scope.push(function_.parameter, parameterType);
       const body = inferExpression(diagnostics, scope, state, function_.body);
       scope.pop();
 
@@ -103,7 +103,7 @@ function inferExpression<Diagnostic>(
       // Decrement the level after generalizing.
       state.decrementLevel();
 
-      return Expression.Typed.function_(type, function_.param, body);
+      return Expression.Typed.function_(type, function_.parameter, body);
     }
 
     case 'Call': {
@@ -194,6 +194,41 @@ function inferExpression<Diagnostic>(
       }
 
       return result;
+    }
+
+    // An annotation allows us to expect a type for a given expression. We
+    // require type annotations for a function argument to be used
+    // polymorphically. For example the auto function needs an annotation for
+    // the function parameter: λx.x x
+    case 'Annotation': {
+      const annotation = expression.description;
+
+      // Infer the annotation expression.
+      const value = inferExpression(
+        diagnostics,
+        scope,
+        state,
+        annotation.value
+      );
+
+      // Produce a monotype for the value type.
+      const valueType = Type.isMonotype(value.type)
+        ? value.type
+        : state.newTypeWithBound(Type.flexibleBound(value.type));
+
+      // Produce a monotype for the annotation type.
+      const annotationType = Type.isMonotype(annotation.type)
+        ? annotation.type
+        : state.newTypeWithBound(Type.rigidBound(annotation.type));
+
+      // Unify the value and annotation types.
+      const error = unify(diagnostics, state, valueType, annotationType);
+
+      // If unification was not a success then we return an error expression.
+      // The error expression is still of the annotation type, however.
+      return error === undefined
+        ? Expression.Typed.annotation(value, annotation.type)
+        : Expression.Typed.error(annotation.type, error);
     }
 
     // Runtime errors have the bottom type since they will crash at runtime.
