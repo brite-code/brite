@@ -75,4 +75,27 @@ export class BindingMap<K, V> {
   has(key: K): boolean {
     return this.bindings.has(key);
   }
+
+  /**
+   * Is this bindings map empty?
+   */
+  isEmpty(): boolean {
+    return this.bindingsStack.length === 0;
+  }
+
+  /**
+   * Returns the count of all distinct keys in the map.
+   */
+  distinctKeysCount(): number {
+    return this.bindings.size;
+  }
+
+  /**
+   * Returns an iterator of all the distinct keys in the map. No order is
+   * guaranteed. Even if a key has multiple values it will only appear once in
+   * the iterator.
+   */
+  distinctKeys(): IterableIterator<K> {
+    return this.bindings.keys();
+  }
 }

@@ -225,7 +225,7 @@ function generalize(state: State, type: Polytype): Polytype {
   // Iterate over every free type variable and determine if we need to
   // quantify it.
   function generalize(quantify: Set<string>, state: State, type: Polytype) {
-    Type.forEachFreeVariable(type, name => {
+    for (const name of Type.getFreeVariables(type)) {
       const {level, bound} = state.lookupType(name);
       // If we have a type variable with a level greater than our current
       // level then we need to quantify that type variable.
@@ -233,14 +233,14 @@ function generalize(state: State, type: Polytype): Polytype {
         // If `quantify` already contains this type variable then we don’t
         // need to add it again.
         if (!quantify.has(name)) {
-          // Generalize the dead type variables in our bound as well. It is
-          // important that we call this function before we add the variable
-          // name to `quantify`. The order of type variables in `quantify`
-          // does matter.
+          // Generalize the dead type variables in our bound as well.
           if (bound.type !== undefined) generalize(quantify, state, bound.type);
+          // It is important that we add the name to `quantify` _after_ we
+          // generalize the bound type. The order of variables in `quantify`
+          // does matter.
           quantify.add(name);
         }
       }
-    });
+    }
   }
 }

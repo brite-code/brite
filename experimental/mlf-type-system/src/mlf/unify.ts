@@ -1,3 +1,6 @@
+import * as Immutable from 'immutable';
+
+import {BindingMap} from './bindings';
 import {Diagnostics, Reported} from './diagnostics';
 import {State} from './state';
 import {Monotype, Polytype, Type} from './type';
@@ -219,32 +222,88 @@ function unifyVariable<Diagnostic>(
  * This function will never return a quantified polytype.
  */
 function instantiate(state: State, type: Polytype): Monotype {
-  const substitutions = new Map<string, Monotype>();
+  if (type.description.kind !== 'Quantify') return type as Monotype; // Shortcut
+  const substitutions = new BindingMap<string, Monotype>();
+  return instantiatePolytype(type);
 
-  // If we have some substitutions for free type variables then this function
-  // will apply them to the provided type.
-  function substitute(type: Polytype): Polytype {
-    if (substitutions.size < 1) return type;
-    return Type.transformFreeVariables(type, name => substitutions.get(name));
+  // Decompose any quantified polytypes and add their bounds to our
+  // `substitutions` map. Then recurse into the  resulting monotype to apply
+  // the substitutions.
+  function instantiatePolytype(type: Polytype): Monotype {
+    // Decompose the quantified type by instantiating the bounds and creating
+    // fresh types for the instantiated bounds.
+    let pops = 0;
+    while (type.description.kind === 'Quantify') {
+      const {name, bound} = type.description;
+      const newType = state.newTypeWithBound({
+        kind: bound.kind,
+        type:
+          bound.type !== undefined
+            ? instantiatePolytype(bound.type)
+            : undefined,
+      });
+      substitutions.push(name, newType);
+      pops++;
+      type = type.description.body;
+    }
+
+    // If we have some substitutions then instantiate the monotype before
+    // returning it.
+    const instantiatedType = instantiateMonotype(type as Monotype);
+
+    // Take all our quantified types out of the substitutions map.
+    for (let i = 0; i < pops; i++) substitutions.pop();
+
+    return instantiatedType;
   }
 
-  // Decompose the quantified type. Create fresh types for all the bounds and
-  // substitute the bound types if applicable.
-  while (type.description.kind === 'Quantify') {
-    const {name, bound} = type.description;
-    const newType = state.newTypeWithBound({
-      kind: bound.kind,
-      type: bound.type !== undefined ? substitute(bound.type) : undefined,
-    });
-    substitutions.set(name, newType);
-    type = type.description.body;
+  // Apply our `substitutions` map to a monotype. We aid our search with
+  // `Type.getFreeVariables()` to know whether or not we need to traverse.
+  function instantiateMonotype(type: Monotype): Monotype {
+    // If there is no overlap between this type’s free type variables and the
+    // type variables we want to substitute then we don’t need to recurse.
+    if (!overlapsWithSubstitutions(Type.getFreeVariables(type))) return type;
+
+    switch (type.description.kind) {
+      case 'Variable': {
+        const newType = substitutions.get(type.description.name);
+        return newType || type;
+      }
+
+      case 'Function': {
+        return Type.function_(
+          instantiateMonotype(type.description.parameter),
+          instantiateMonotype(type.description.body)
+        );
+      }
+
+      case 'Boolean':
+      case 'Number':
+      case 'String':
+        return type;
+
+      default:
+        const never: never = type.description;
+        return never;
+    }
   }
 
-  // Substitute the body type before returning it.
-  const newType = substitute(type);
-
-  // We decomposed all the quantifications. We should never see another one.
-  if (newType.description.kind === 'Quantify') throw new Error('Unreachable');
-
-  return newType as Monotype;
+  // Check to see if the free type variables set we were provided overlaps with
+  // the `substitutions` type variable set. If they overlap return true.
+  // Otherwise return false.
+  function overlapsWithSubstitutions(
+    freeVariables: Immutable.Set<string>
+  ): boolean {
+    // Iterate over the smaller set.
+    if (freeVariables.size <= substitutions.distinctKeysCount()) {
+      for (const variable of freeVariables) {
+        if (substitutions.has(variable)) return true;
+      }
+    } else {
+      for (const variable of substitutions.distinctKeys()) {
+        if (freeVariables.has(variable)) return true;
+      }
+    }
+    return false;
+  }
 }

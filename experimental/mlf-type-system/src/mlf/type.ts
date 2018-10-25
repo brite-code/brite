@@ -1,4 +1,4 @@
-import {BindingMap} from './bindings';
+import * as Immutable from 'immutable';
 
 /**
  * A type in our type system. Actually an alias for `Polytype`.
@@ -9,6 +9,7 @@ export type Type = Polytype;
  * Monotypes are types which do not contain quantifiers.
  */
 export type Monotype = {
+  _freeVariables: Immutable.Set<string> | undefined;
   readonly description: MonotypeDescription;
 };
 
@@ -17,6 +18,7 @@ export type Monotype = {
  * polytypes. In general when we say “type” we are referring to a polytype.
  */
 export type Polytype = {
+  _freeVariables: Immutable.Set<string> | undefined;
   readonly description: PolytypeDescription;
 };
 
@@ -129,176 +131,90 @@ export namespace Type {
   }
 
   /**
-   * Iterates through every free variable in the polytype. Will iterate over the
-   * same free variable twice if it appears multiple times.
+   * Gets all the free type variables in the provided type. This function caches
+   * its results so that subsequent accesses are fast.
    */
-  export function forEachFreeVariable(
-    type: Polytype,
-    f: (name: string) => void
-  ): void {
-    return forEachFreeVariable(new BindingMap(), type, f);
+  export function getFreeVariables(type: Polytype): Immutable.Set<string> {
+    // If the result is already cached on the type then return it. Otherwise we
+    // need to compute the free type variables.
+    if (type._freeVariables !== undefined) return type._freeVariables;
 
-    function forEachFreeVariable(
-      scope: BindingMap<string, undefined>,
-      type: Polytype,
-      f: (name: string) => void
-    ) {
-      switch (type.description.kind) {
-        case 'Variable': {
-          const name = type.description.name;
-          if (!scope.has(name)) f(name);
-          return;
+    let freeVariables: Immutable.Set<string>;
+    switch (type.description.kind) {
+      case 'Quantify': {
+        const body = getFreeVariables(type.description.body);
+        if (body.has(type.description.name)) {
+          // Only add the free variables from the quantified type bound if the
+          // bound is actually used. Otherwise it doesn’t matter what’s free and
+          // what’s not in the bound.
+          const bound =
+            type.description.bound.type !== undefined
+              ? getFreeVariables(type.description.bound.type)
+              : Immutable.Set<string>();
+          freeVariables = body.delete(type.description.name).union(bound);
+        } else {
+          freeVariables = body;
         }
-
-        case 'Quantify': {
-          let pops = 0;
-          while (type.description.kind === 'Quantify') {
-            pops++;
-            scope.push(type.description.name, undefined);
-            if (type.description.bound.type !== undefined) {
-              forEachFreeVariable(scope, type.description.bound.type, f);
-            }
-            type = type.description.body;
-          }
-          forEachFreeVariable(scope, type, f);
-          for (let i = 0; i < pops; i++) scope.pop();
-          return;
-        }
-
-        case 'Function': {
-          forEachFreeVariable(scope, type.description.parameter, f);
-          forEachFreeVariable(scope, type.description.body, f);
-          return;
-        }
-
-        case 'Boolean':
-        case 'Number':
-        case 'String':
-          return;
-
-        default:
-          const never: never = type.description;
-          f(never);
-          return;
+        break;
       }
-    }
-  }
 
-  /**
-   * Iterates through every free variable in the polytype giving the caller the
-   * opportunity to return a new type to replace that free variable. If the same
-   * type variable appears twice then a transform will be attempted twice.
-   */
-  export function transformFreeVariables(
-    type: Polytype,
-    f: (name: string) => Monotype | undefined
-  ): Polytype {
-    return transformPolytypeFreeVariables(new BindingMap(), type, f) || type;
-
-    function transformPolytypeFreeVariables(
-      scope: BindingMap<string, undefined>,
-      type: Polytype,
-      f: (name: string) => Monotype | undefined
-    ): Polytype | undefined {
-      switch (type.description.kind) {
-        case 'Quantify': {
-          let changed = false;
-          const quantifications = [];
-          while (type.description.kind === 'Quantify') {
-            const {name, bound} = type.description;
-            scope.push(name, undefined);
-            if (bound.type !== undefined) {
-              const t1 = bound.type;
-              const t2 = transformPolytypeFreeVariables(scope, t1, f);
-              if (t2 === undefined) {
-                quantifications.push({name, bound});
-              } else {
-                changed = true;
-                const newBound = {kind: bound.kind, type: t2};
-                quantifications.push({name, bound: newBound});
-              }
-            } else {
-              quantifications.push({name, bound});
-            }
-            type = type.description.body;
-          }
-          let newType = transformPolytypeFreeVariables(scope, type, f);
-          if (changed === true || newType !== undefined) {
-            newType = newType || type;
-            for (let i = quantifications.length - 1; i >= 0; i--) {
-              scope.pop();
-              const {name, bound} = quantifications[i]!; // tslint:disable-line no-non-null-assertion
-              newType = Type.quantify(name, bound, newType);
-            }
-            return newType;
-          } else {
-            for (let i = 0; i < quantifications.length; i++) scope.pop();
-            return undefined;
-          }
-        }
-
-        default:
-          return transformMonotypeFreeVariables(scope, type as Monotype, f);
+      case 'Function': {
+        const parameter = getFreeVariables(type.description.parameter);
+        const body = getFreeVariables(type.description.body);
+        freeVariables = parameter.union(body);
+        break;
       }
+
+      case 'Variable':
+        freeVariables = Immutable.Set([type.description.name]);
+        break;
+
+      case 'Boolean':
+      case 'Number':
+      case 'String':
+        freeVariables = Immutable.Set();
+        break;
+
+      default:
+        const never: never = type.description;
+        freeVariables = never;
+        break;
     }
 
-    function transformMonotypeFreeVariables(
-      scope: BindingMap<string, undefined>,
-      type: Monotype,
-      f: (name: string) => Monotype | undefined
-    ): Monotype | undefined {
-      switch (type.description.kind) {
-        case 'Variable': {
-          const name = type.description.name;
-          if (!scope.has(name)) {
-            return f(name);
-          } else {
-            return undefined;
-          }
-        }
-
-        case 'Function': {
-          const a1 = type.description.parameter;
-          const b1 = type.description.body;
-          const a2 = transformMonotypeFreeVariables(scope, a1, f);
-          const b2 = transformMonotypeFreeVariables(scope, b1, f);
-          return a2 !== undefined || b2 !== undefined
-            ? Type.function_(a2 || a1, b2 || b1)
-            : undefined;
-        }
-
-        case 'Boolean':
-        case 'Number':
-        case 'String':
-          return undefined;
-
-        default:
-          const never: never = type.description;
-          return f(never);
-      }
-    }
+    // Cache the free variables we computed on our type so that if
+    // `getFreeVariables()` is ever called again we will have them ready.
+    //
+    // TODO: Measure if caching the result of this function actually causes a
+    // significant performance improvement.
+    type._freeVariables = freeVariables;
+    return freeVariables;
   }
 
   export function variable(name: string): Monotype {
     return {
+      _freeVariables: Immutable.Set([name]),
       description: {kind: 'Variable', name},
     };
   }
 
   export const boolean: Monotype = {
+    _freeVariables: Immutable.Set(),
     description: {kind: 'Boolean'},
   };
 
   export const number: Monotype = {
+    _freeVariables: Immutable.Set(),
     description: {kind: 'Number'},
   };
 
   export const string: Monotype = {
+    _freeVariables: Immutable.Set(),
     description: {kind: 'String'},
   };
 
   export function function_(parameter: Monotype, body: Monotype): Monotype {
     return {
+      _freeVariables: undefined,
       description: {kind: 'Function', parameter, body},
     };
   }
@@ -309,12 +225,14 @@ export namespace Type {
     body: Polytype
   ): Polytype {
     return {
+      _freeVariables: undefined,
       description: {kind: 'Quantify', name, bound, body},
     };
   }
 
   export function quantifyUnbounded(name: string, body: Polytype): Polytype {
     return {
+      _freeVariables: undefined,
       description: {kind: 'Quantify', name, bound: unbounded, body},
     };
   }

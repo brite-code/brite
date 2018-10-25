@@ -33,7 +33,7 @@ declare module 'immutable' {
 
   export function Set<V>(iterable?: Iterable<V>): Set<V>;
 
-  export interface Set<V> extends SetCommonMethods<V> {
+  export interface Set<V> extends SetCommonMethods<V>, Iterable<V> {
     readonly mutable: false;
     withMutations(mutator: (mutable: MutableSet<V>) => void): this;
     asMutable(): TemporaryMutableSet<V>;
