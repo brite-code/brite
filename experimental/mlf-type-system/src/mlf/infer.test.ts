@@ -8,18 +8,12 @@ import {Type} from './type';
 
 const prelude = new Map<string, Type>([
   ['neg', Type.function_(Type.number, Type.number)],
+  ['succ', Type.function_(Type.number, Type.number)],
   [
     'id',
     Type.quantifyUnbounded(
       'x',
       Type.function_(Type.variable('x'), Type.variable('x'))
-    ),
-  ],
-  [
-    'succ',
-    Type.quantifyUnbounded(
-      't',
-      Type.function_(Type.variable('t'), Type.variable('t'))
     ),
   ],
   [
@@ -304,6 +298,21 @@ test('λx.let x = (x: ∀a.a → a) in x x', () => {
         ),
         Expression.call(Expression.variable('x'), Expression.variable('x'))
       )
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('choose id id', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(Expression.variable('choose'), Expression.variable('id')),
+      Expression.variable('id')
     )
   );
   const allDiagnostics = [...diagnostics];

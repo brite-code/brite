@@ -14,8 +14,6 @@ export type UnifyError<T> =
     }
   | {
       readonly kind: 'InfiniteType';
-      readonly name: string;
-      readonly type: Polytype;
     };
 
 /**
@@ -179,6 +177,18 @@ function unifyVariable<Diagnostic>(
   const {bound: actualBound} = state.lookupType(actualVariable);
   const {bound: expectedBound} = state.lookupType(expectedVariable);
 
+  // If the actual bound is a monotype then let’s try unification again.
+  if (actualBound.type !== undefined && Type.isMonotype(actualBound.type)) {
+    const expectedType = Type.variable(expectedVariable);
+    return unifyType(diagnostics, state, actualBound.type, expectedType);
+  }
+
+  // If the expected bound is a monotype then let’s try unification again.
+  if (expectedBound.type !== undefined && Type.isMonotype(expectedBound.type)) {
+    const actualType = Type.variable(actualVariable);
+    return unifyType(diagnostics, state, actualType, expectedBound.type);
+  }
+
   // If actual is the bottom type then unify to expected.
   if (actualBound.type === undefined) {
     const expectedType = Type.variable(expectedVariable);
@@ -222,7 +232,7 @@ function updateType<Diagnostic>(
   if (ok === true) {
     return undefined;
   } else {
-    return diagnostics.report({kind: 'InfiniteType', name, type});
+    return diagnostics.report({kind: 'InfiniteType'});
   }
 }
 
