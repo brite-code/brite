@@ -398,8 +398,25 @@ test('id auto', () => {
   console.log(Type.toDisplayString(expression.type));
 });
 
-// NOTE: This should be ok!!!
-test('(λx.x (λy.y)) auto', () => {
+test('(λx.x id) auto', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.function_(
+        'x',
+        Expression.call(Expression.variable('x'), Expression.variable('id'))
+      ),
+      Expression.variable('auto')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('(λx.x (λx.x)) (λx.let x = (x: ∀a.a → a) in x x)', () => {
   const diagnostics = new Diagnostics<InferError<never>>();
   const expression = infer(
     diagnostics,
@@ -409,10 +426,23 @@ test('(λx.x (λy.y)) auto', () => {
         'x',
         Expression.call(
           Expression.variable('x'),
-          Expression.function_('y', Expression.variable('y'))
+          Expression.function_('x', Expression.variable('x'))
         )
       ),
-      Expression.variable('auto')
+      Expression.function_(
+        'x',
+        Expression.binding(
+          'x',
+          Expression.annotation(
+            Expression.variable('x'),
+            Type.quantifyUnbounded(
+              'a',
+              Type.function_(Type.variable('a'), Type.variable('a'))
+            )
+          ),
+          Expression.call(Expression.variable('x'), Expression.variable('x'))
+        )
+      )
     )
   );
   const allDiagnostics = [...diagnostics];
@@ -428,6 +458,43 @@ test('app auto id', () => {
     Expression.call(
       Expression.call(Expression.variable('app'), Expression.variable('auto')),
       Expression.variable('id')
+    )
+  );
+  const allDiagnostics = [...diagnostics];
+  expect(allDiagnostics).toEqual([]);
+  console.log(Type.toDisplayString(expression.type));
+});
+
+test('(λf.λx.f x) (λx.let x = (x: ∀a.a → a) in x x) (λx.x)', () => {
+  const diagnostics = new Diagnostics<InferError<never>>();
+  const expression = infer(
+    diagnostics,
+    prelude,
+    Expression.call(
+      Expression.call(
+        Expression.function_(
+          'f',
+          Expression.function_(
+            'x',
+            Expression.call(Expression.variable('f'), Expression.variable('x'))
+          )
+        ),
+        Expression.function_(
+          'x',
+          Expression.binding(
+            'x',
+            Expression.annotation(
+              Expression.variable('x'),
+              Type.quantifyUnbounded(
+                'a',
+                Type.function_(Type.variable('a'), Type.variable('a'))
+              )
+            ),
+            Expression.call(Expression.variable('x'), Expression.variable('x'))
+          )
+        )
+      ),
+      Expression.function_('x', Expression.variable('x'))
     )
   );
   const allDiagnostics = [...diagnostics];
