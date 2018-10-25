@@ -1,20 +1,22 @@
+import {BindingMap} from './bindings';
+
 export type Type = Polytype;
 
 export type Monotype = {
-  readonly description: MonotypeDescription;
+  readonly description: MonomorphicTypeDescription;
 };
 
 export type Polytype = {
-  readonly description: PolytypeDescription;
+  readonly description: PolymorphicTypeDescription;
 };
 
-export type MonotypeDescription =
+export type MonomorphicTypeDescription =
   | {readonly kind: 'Boolean'}
   | {readonly kind: 'Number'}
   | {readonly kind: 'String'}
   | {
       readonly kind: 'Function';
-      readonly param: Monotype;
+      readonly parameter: Monotype;
       readonly body: Monotype;
     }
   | {
@@ -22,8 +24,8 @@ export type MonotypeDescription =
       readonly name: string;
     };
 
-export type PolytypeDescription =
-  | MonotypeDescription
+export type PolymorphicTypeDescription =
+  | MonomorphicTypeDescription
   | {
       readonly kind: 'Bottom';
     }
@@ -71,9 +73,9 @@ export namespace Type {
         return 'string';
 
       case 'Function': {
-        let param = toDisplayString(type.description.param);
+        let param = toDisplayString(type.description.parameter);
         const body = toDisplayString(type.description.body);
-        if (type.description.param.description.kind === 'Function') {
+        if (type.description.parameter.description.kind === 'Function') {
           param = `(${param})`;
         }
         return `${param} → ${body}`;
@@ -117,6 +119,154 @@ export namespace Type {
     }
   }
 
+  /**
+   * Iterates through every free variable in the polytype. Will iterate over the
+   * same free variable twice if it appears multiple times.
+   */
+  export function forEachFreeVariable(
+    type: Polytype,
+    f: (name: string) => void
+  ): void {
+    return forEachFreeVariable(new BindingMap(), type, f);
+
+    function forEachFreeVariable(
+      scope: BindingMap<string, undefined>,
+      type: Polytype,
+      f: (name: string) => void
+    ) {
+      switch (type.description.kind) {
+        case 'Variable': {
+          const name = type.description.name;
+          if (!scope.has(name)) f(name);
+          return;
+        }
+
+        case 'Quantify': {
+          let pops = 0;
+          while (type.description.kind === 'Quantify') {
+            pops++;
+            scope.push(type.description.name, undefined);
+            forEachFreeVariable(scope, type.description.bound.type, f);
+            type = type.description.body;
+          }
+          forEachFreeVariable(scope, type, f);
+          for (let i = 0; i < pops; i++) scope.pop();
+          return;
+        }
+
+        case 'Function': {
+          forEachFreeVariable(scope, type.description.parameter, f);
+          forEachFreeVariable(scope, type.description.body, f);
+          return;
+        }
+
+        case 'Boolean':
+        case 'Number':
+        case 'String':
+        case 'Bottom':
+          return;
+
+        default:
+          const never: never = type.description;
+          f(never);
+          return;
+      }
+    }
+  }
+
+  /**
+   * Iterates through every free variable in the polytype giving the caller the
+   * opportunity to return a new type to replace that free variable. If the same
+   * type variable appears twice then a transform will be attempted twice.
+   */
+  export function transformFreeVariables(
+    type: Polytype,
+    f: (name: string) => Monotype | undefined
+  ): Polytype {
+    return transformPolytypeFreeVariables(new BindingMap(), type, f) || type;
+
+    function transformPolytypeFreeVariables(
+      scope: BindingMap<string, undefined>,
+      type: Polytype,
+      f: (name: string) => Monotype | undefined
+    ): Polytype | undefined {
+      switch (type.description.kind) {
+        case 'Bottom':
+          return undefined;
+
+        case 'Quantify': {
+          let changed = false;
+          const quantifications = [];
+          while (type.description.kind === 'Quantify') {
+            const {name, bound} = type.description;
+            scope.push(name, undefined);
+            const t1 = bound.type;
+            const t2 = transformPolytypeFreeVariables(scope, t1, f);
+            if (t2 === undefined) {
+              quantifications.push({name, bound});
+            } else {
+              changed = true;
+              quantifications.push({name, bound: {kind: bound.kind, type: t2}});
+            }
+            type = type.description.body;
+          }
+          let newType = transformPolytypeFreeVariables(scope, type, f);
+          if (changed === true || newType !== undefined) {
+            newType = newType || type;
+            for (let i = quantifications.length - 1; i >= 0; i--) {
+              scope.pop();
+              const {name, bound} = quantifications[i]!; // tslint:disable-line no-non-null-assertion
+              newType = Type.quantify(name, bound, newType);
+            }
+            return newType;
+          } else {
+            for (let i = 0; i < quantifications.length; i++) scope.pop();
+            return undefined;
+          }
+        }
+
+        default:
+          return transformMonotypeFreeVariables(scope, type as Monotype, f);
+      }
+    }
+
+    function transformMonotypeFreeVariables(
+      scope: BindingMap<string, undefined>,
+      type: Monotype,
+      f: (name: string) => Monotype | undefined
+    ): Monotype | undefined {
+      switch (type.description.kind) {
+        case 'Variable': {
+          const name = type.description.name;
+          if (!scope.has(name)) {
+            return f(name);
+          } else {
+            return undefined;
+          }
+        }
+
+        case 'Function': {
+          const a1 = type.description.parameter;
+          const b1 = type.description.body;
+          const a2 = transformMonotypeFreeVariables(scope, a1, f);
+          const b2 = transformMonotypeFreeVariables(scope, b1, f);
+          return a2 !== undefined || b2 !== undefined
+            ? Type.function_(a2 || a1, b2 || b1)
+            : undefined;
+        }
+
+        case 'Boolean':
+        case 'Number':
+        case 'String':
+          return undefined;
+
+        default:
+          const never: never = type.description;
+          return f(never);
+      }
+    }
+  }
+
   export function variable(name: string): Monotype {
     return {
       description: {kind: 'Variable', name},
@@ -135,9 +285,9 @@ export namespace Type {
     description: {kind: 'String'},
   };
 
-  export function function_(param: Monotype, body: Monotype): Monotype {
+  export function function_(parameter: Monotype, body: Monotype): Monotype {
     return {
-      description: {kind: 'Function', param, body},
+      description: {kind: 'Function', parameter, body},
     };
   }
 
@@ -146,6 +296,8 @@ export namespace Type {
     bound: Bound,
     body: Polytype
   ): Polytype {
+    // Quantifying a bottom type is useless, so just return the bottom type.
+    if (body.description.kind === 'Bottom') return body;
     return {
       description: {kind: 'Quantify', name, bound, body},
     };

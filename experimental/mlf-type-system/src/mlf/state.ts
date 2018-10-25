@@ -1,11 +1,16 @@
-import {Bound, MonomorphicType, Type} from './type';
+import {Bound, Monotype, Type} from './type';
 
-const unresolvedTypeBound: Bound = {kind: 'flexible', type: Type.bottom};
+const unresolvedBound: Bound = {kind: 'flexible', type: Type.bottom};
+
+type TypeVariableEntry = {
+  readonly level: number;
+  readonly bound: Bound;
+};
 
 export class State {
   private level = 0;
   private nextType = 0;
-  private readonly typeVariables = new Map<string, Bound>();
+  private readonly typeVariables = new Map<string, TypeVariableEntry>();
 
   getLevel(): number {
     return this.level;
@@ -19,24 +24,30 @@ export class State {
     this.level--;
   }
 
-  newType(): MonomorphicType {
+  newType(): Monotype {
     const name = `$${this.nextType++}`;
+    this.typeVariables.set(name, {level: this.level, bound: unresolvedBound});
     return Type.variable(name);
   }
 
-  newTypeWithBound(bound: Bound): MonomorphicType {
+  newTypeWithBound(bound: Bound): Monotype {
     const name = `$${this.nextType++}`;
-    this.typeVariables.set(name, bound);
+    this.typeVariables.set(name, {level: this.level, bound});
     return Type.variable(name);
   }
 
-  lookupType(name: string): Bound {
-    if (name[0] !== '$') throw new Error('May only lookup generated types.');
-    return this.typeVariables.get(name) || unresolvedTypeBound;
+  lookupType(name: string): {readonly level: number; readonly bound: Bound} {
+    const entry = this.typeVariables.get(name);
+    if (entry === undefined) {
+      throw new Error(`Type variable not found: "${name}"`);
+    }
+    return entry;
   }
 
   updateType(name: string, bound: Bound) {
-    if (name[0] !== '$') throw new Error('May only update generated types.');
-    this.typeVariables.set(name, bound);
+    if (!this.typeVariables.has(name)) {
+      throw new Error(`Type variable not found: "${name}"`);
+    }
+    this.typeVariables.set(name, {level: this.level, bound});
   }
 }

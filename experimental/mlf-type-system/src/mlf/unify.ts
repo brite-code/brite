@@ -1,9 +1,14 @@
-import * as Immutable from 'immutable';
-
-import {DerivableValue} from '../utils/derive';
-
 import {Diagnostics, Reported} from './diagnostics';
-import {Bound, MonomorphicType, Type} from './type';
+import {State} from './state';
+import {Monotype, Polytype, Type} from './type';
+
+export type UnifyError<T> =
+  | T
+  | {
+      readonly kind: 'IncompatibleTypes';
+      readonly actual: Monotype;
+      readonly expected: Monotype;
+    };
 
 /**
  * Implements the unification algorithm from Appendix A in the MLF paper
@@ -24,12 +29,11 @@ import {Bound, MonomorphicType, Type} from './type';
  */
 export function unify<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  prefix: Immutable.Map<string, TypeVariable>,
-  level: number,
-  actual: MonomorphicType,
-  expected: MonomorphicType
+  state: State,
+  actual: Monotype,
+  expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
-  return unifyType(diagnostics, level, prefix, prefix, actual, expected);
+  return unifyType(diagnostics, state, actual, expected);
 }
 
 /**
@@ -37,58 +41,26 @@ export function unify<Diagnostic>(
  */
 function unifyType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  level: number,
-  actualPrefix: Immutable.Map<string, TypeVariable>,
-  expectedPrefix: Immutable.Map<string, TypeVariable>,
-  actual: MonomorphicType,
-  expected: MonomorphicType
+  state: State,
+  actual: Monotype,
+  expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
   if (
     actual.description.kind === 'Variable' &&
     expected.description.kind === 'Variable'
   ) {
-    // Find the actual variable.
-    const actualIdentifier = actual.description.name;
-    const actualVariable = actualPrefix.get(actualIdentifier);
-    if (actualVariable === undefined) throw new Error('Could not find type.');
-
-    // Find the expected variable.
-    const expectedIdentifier = expected.description.name;
-    const expectedVariable = expectedPrefix.get(expectedIdentifier);
-    if (expectedVariable === undefined) throw new Error('Could not find type.');
-
-    // If the two variables are referentially identical then we know them to be
-    // equal so we don’t need to unify recursively.
-    if (actualVariable.equals(expectedVariable)) return undefined;
-
-    // Unify the two variables.
-    return unifyVariable(diagnostics, level, actualVariable, expectedVariable);
+    return unifyVariable(
+      diagnostics,
+      state,
+      actual.description.name,
+      expected.description.name
+    );
   } else if (actual.description.kind === 'Variable') {
-    // Find the variable.
-    const variable = actualPrefix.get(actual.description.name);
-    if (variable === undefined) throw new Error('Could not find type.');
-
-    return unifyVariableWithType(
-      diagnostics,
-      level,
-      expectedPrefix,
-      expected,
-      variable,
-      true
-    );
+    const variable = actual.description.name;
+    return unifyVariableWithType(diagnostics, state, expected, variable, true);
   } else if (expected.description.kind === 'Variable') {
-    // Find the variable.
-    const variable = expectedPrefix.get(expected.description.name);
-    if (variable === undefined) throw new Error('Could not find type.');
-
-    return unifyVariableWithType(
-      diagnostics,
-      level,
-      actualPrefix,
-      actual,
-      variable,
-      false
-    );
+    const variable = expected.description.name;
+    return unifyVariableWithType(diagnostics, state, actual, variable, false);
   } else if (
     // Matching constants unify.
     (actual.description.kind === 'Boolean' &&
@@ -108,17 +80,13 @@ function unifyType<Diagnostic>(
     // parameter since the function parameter is contravariant.
     const diagnostic1 = unifyType(
       diagnostics,
-      level,
-      expectedPrefix,
-      actualPrefix,
-      expected.description.param,
-      actual.description.param
+      state,
+      expected.description.parameter,
+      actual.description.parameter
     );
     const diagnostic2 = unifyType(
       diagnostics,
-      level,
-      actualPrefix,
-      expectedPrefix,
+      state,
       actual.description.body,
       expected.description.body
     );
@@ -138,62 +106,47 @@ function unifyType<Diagnostic>(
  */
 function unifyVariableWithType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  level: number,
-  typePrefix: Immutable.Map<string, TypeVariable>,
-  type: MonomorphicType,
-  variable: TypeVariable,
+  state: State,
+  type: Monotype,
+  variable: string,
   isVariableActual: boolean
 ): Reported<UnifyError<Diagnostic>> | undefined {
-  let variablePrefix = variable.getPrefix();
-  let variableType = variable.getBound().type;
+  // Lookup the bound for our variable.
+  const {bound} = state.lookupType(variable);
 
   // If our type variable has a monomorphic bound then we unify the variable
   // bound and the type without updating our variable.
-  if (Type.isMonomorphic(variableType)) {
+  if (Type.isMonotype(bound.type)) {
     return unifyType(
       diagnostics,
-      level,
-      isVariableActual ? variablePrefix : typePrefix,
-      isVariableActual ? typePrefix : variablePrefix,
-      isVariableActual ? variableType : type,
-      isVariableActual ? type : variableType
+      state,
+      isVariableActual ? bound.type : type,
+      isVariableActual ? type : bound.type
     );
   } else {
-    // Add all of our quantifications into scope.
-    while (variableType.description.kind === 'Quantify') {
-      variablePrefix = variablePrefix.set(
-        variableType.description.name,
-        new TypeVariable(
-          new DerivableValue(level),
-          variablePrefix,
-          variableType.description.bound
-        )
-      );
-      variableType = variableType.description.body;
-    }
-
     // If our type variable is the bottom type then update our variable to the
     // type we are unifying to. Remember to take our quantifications out of
     // scope as well!
-    if (variableType.description.kind === 'Bottom') {
-      variable.update(typePrefix, {kind: 'rigid', type});
+    if (bound.type.description.kind === 'Bottom') {
+      state.updateType(variable, {kind: 'rigid', type});
       return undefined;
     }
+
+    // Instantiate the variable type.
+    const variableType = instantiate(state, bound.type);
 
     // Unify the variable’s monomorphic bound with our type.
     const error = unifyType(
       diagnostics,
-      level,
-      isVariableActual ? variablePrefix : typePrefix,
-      isVariableActual ? typePrefix : variablePrefix,
-      isVariableActual ? (variableType as MonomorphicType) : type,
-      isVariableActual ? type : (variableType as MonomorphicType)
+      state,
+      isVariableActual ? variableType : type,
+      isVariableActual ? type : variableType
     );
 
     // If there was no error then update our variable to the monomorphic type
     // we unified with since our variable and the type are equivalent.
     if (error === undefined) {
-      variable.update(typePrefix, {kind: 'rigid', type});
+      state.updateType(variable, {kind: 'rigid', type});
     }
 
     return error;
@@ -205,126 +158,99 @@ function unifyVariableWithType<Diagnostic>(
  */
 function unifyVariable<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  level: number,
-  actualVariable: TypeVariable,
-  expectedVariable: TypeVariable
+  state: State,
+  actualVariable: string,
+  expectedVariable: string
 ): Reported<UnifyError<Diagnostic>> | undefined {
-  // Add all of our actual quantifications into scope.
-  let actualPrefix = actualVariable.getPrefix();
-  let actualType = actualVariable.getBound().type;
-  while (actualType.description.kind === 'Quantify') {
-    actualPrefix = actualPrefix.set(
-      actualType.description.name,
-      new TypeVariable(
-        new DerivableValue(level),
-        actualPrefix,
-        actualType.description.bound
-      )
-    );
-    actualType = actualType.description.body;
-  }
+  // If the actual and expected type variable names match then we know the two
+  // types are identical and we don’t need to recursively unify. This only
+  // works because we rename variables in actual and expected instantiation so
+  // they don’t conflict!
+  if (actualVariable === expectedVariable) return undefined;
 
-  // Add all of our expected quantifications into scope.
-  let expectedPrefix = expectedVariable.getPrefix();
-  let expectedType = expectedVariable.getBound().type;
-  while (expectedType.description.kind === 'Quantify') {
-    expectedPrefix = expectedPrefix.set(
-      expectedType.description.name,
-      new TypeVariable(
-        new DerivableValue(level),
-        expectedPrefix,
-        expectedType.description.bound
-      )
-    );
-    expectedType = expectedType.description.body;
-  }
+  // Lookup the bounds for our types.
+  const {bound: actualBound} = state.lookupType(actualVariable);
+  const {bound: expectedBound} = state.lookupType(expectedVariable);
 
   // Get the bound kind for the bound we will create between our two type
   // variables. The bound is rigid unless both bounds are flexible.
   const boundKind: 'flexible' | 'rigid' =
-    actualVariable.getBound().kind === 'flexible' &&
-    expectedVariable.getBound().kind === 'flexible'
+    actualBound.kind === 'flexible' && expectedBound.kind === 'flexible'
       ? 'flexible'
       : 'rigid';
 
-  // If actual is the bottom type then unify to expected. Make sure to take all
-  // the type variables out of scope.
-  if (actualType.description.kind === 'Bottom') {
-    const bound = {kind: boundKind, type: expectedType};
-    actualVariable.update(expectedPrefix, bound);
-    expectedVariable.update(expectedPrefix, bound);
+  // If actual is the bottom type then unify to expected.
+  if (actualBound.type.description.kind === 'Bottom') {
+    const bound = {kind: boundKind, type: expectedBound.type};
+    state.updateType(actualVariable, bound);
     return undefined;
   }
 
-  // If expected is the bottom type then unify to actual. Make sure to take all
-  // the type variables out of scope.
-  if (expectedType.description.kind === 'Bottom') {
-    const bound = {kind: boundKind, type: actualType};
-    actualVariable.update(actualPrefix, bound);
-    expectedVariable.update(actualPrefix, bound);
+  // If expected is the bottom type then unify to actual.
+  if (expectedBound.type.description.kind === 'Bottom') {
+    const bound = {kind: boundKind, type: actualBound.type};
+    state.updateType(expectedVariable, bound);
     return undefined;
   }
+
+  // Instantiate our type bounds.
+  const actualType = instantiate(state, actualBound.type);
+  const expectedType = instantiate(state, expectedBound.type);
 
   // Unify the actual and expected types.
-  const error = unifyType(
-    diagnostics,
-    level,
-    actualPrefix,
-    expectedPrefix,
-    actualType as MonomorphicType,
-    expectedType as MonomorphicType
-  );
+  const error = unifyType(diagnostics, state, actualType, expectedType);
 
   // If unification was successful then unify both actual and expected to the
   // actual type. Since unification shows that the actual and expected types
   // are equivalent.
   if (error === undefined) {
     const bound = {kind: boundKind, type: actualType};
-    actualVariable.update(actualPrefix, bound);
-    expectedVariable.update(actualPrefix, bound);
+    state.updateType(actualVariable, bound);
+    state.updateType(expectedVariable, bound);
   }
 
   return error;
 }
 
-export class TypeVariable {
-  private readonly level: DerivableValue<number>;
-  private prefix: Immutable.Map<string, TypeVariable>;
-  private bound: Bound;
+/**
+ * Removes all the quantifications on the provided type and replaces them with
+ * fresh type variables in state.
+ *
+ * This function will never return a quantified polytype.
+ */
+function instantiate(state: State, type: Polytype): Monotype {
+  const substitutions = new Map<string, Monotype>();
 
-  constructor(
-    level: DerivableValue<number>,
-    prefix: Immutable.Map<string, TypeVariable>,
-    bound: Bound
-  ) {
-    this.level = level;
-    this.prefix = prefix;
-    this.bound = bound;
+  // If we have some substitutions for free type variables then this function
+  // will apply them to the provided type.
+  function substitute(type: Polytype): Polytype {
+    if (substitutions.size < 1) return type;
+    return Type.transformFreeVariables(type, name => substitutions.get(name));
   }
 
-  getPrefix(): Immutable.Map<string, TypeVariable> {
-    return this.prefix;
+  // Decompose the quantified type. Create fresh types for all the bounds and
+  // substitute the bound types if applicable.
+  while (type.description.kind === 'Quantify') {
+    const {name, bound} = type.description;
+    const newType = state.newTypeWithBound({
+      kind: bound.kind,
+      type: substitute(bound.type),
+    });
+    substitutions.set(name, newType);
+    type = type.description.body;
   }
 
-  getBound(): Bound {
-    return this.bound;
+  // Substitute the body type before returning it.
+  const newType = substitute(type);
+
+  // We decomposed all the quantifications. We should never see another one.
+  if (newType.description.kind === 'Quantify') throw new Error('Unreachable');
+
+  // We don’t support bottom types under quantifications well in instantiation.
+  // Instead of trying, let’s just throw. This should never happen anyway.
+  if (newType.description.kind === 'Bottom') {
+    throw new Error('Unsupported bottom type under quantification.');
   }
 
-  equals(other: TypeVariable) {
-    return this === other;
-  }
-
-  update(prefix: Immutable.Map<string, TypeVariable>, bound: Bound) {
-    this.prefix = prefix;
-    this.bound = bound;
-    this.level.set(Math.max(this.level.get(), bound.type.level.get()));
-  }
+  return newType as Monotype;
 }
-
-export type UnifyError<T> =
-  | T
-  | {
-      readonly kind: 'IncompatibleTypes';
-      readonly actual: MonomorphicType;
-      readonly expected: MonomorphicType;
-    };

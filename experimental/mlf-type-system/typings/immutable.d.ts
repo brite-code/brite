@@ -43,6 +43,8 @@ declare module 'immutable' {
     readonly size: number;
     add(value: V): this;
     has(value: V): boolean;
+    delete(value: V): this;
+    union(other: Set<V>): this;
   }
 
   export interface MutableSet<V> extends SetCommonMethods<V> {

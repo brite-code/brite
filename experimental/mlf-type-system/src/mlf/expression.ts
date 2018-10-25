@@ -28,7 +28,7 @@ export type ExpressionDescription<Diagnostic, Type> =
   | {
       readonly kind: 'Call';
       readonly callee: Expression<Diagnostic, Type>;
-      readonly arg: Expression<Diagnostic, Type>;
+      readonly argument: Expression<Diagnostic, Type>;
     }
   | {
       readonly kind: 'Binding';
@@ -80,7 +80,7 @@ export namespace Expression {
   export function call(callee: Expression, arg: Expression): Expression {
     return {
       type: undefined,
-      description: {kind: 'Call', callee, arg},
+      description: {kind: 'Call', callee, argument},
     };
   }
 
@@ -154,7 +154,7 @@ export namespace Expression {
     ): Expression<Diagnostic, Type> {
       return {
         type,
-        description: {kind: 'Call', callee, arg},
+        description: {kind: 'Call', callee, argument},
       };
     }
 

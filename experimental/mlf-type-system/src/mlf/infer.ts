@@ -1,11 +1,16 @@
-import * as Immutable from 'immutable';
-
 import {BindingMap} from './bindings';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
 import {State} from './state';
-import {Bound, MonomorphicType, PolymorphicType, Type} from './type';
-import {TypeVariable, UnifyError, unify} from './unify';
+import {Polytype, Type} from './type';
+import {UnifyError, unify} from './unify';
+
+export type InferError<T> =
+  | UnifyError<T>
+  | {
+      readonly kind: 'UnboundVariable';
+      readonly identifier: string;
+    };
 
 /**
  * Infers the type of an untyped expression. Detects type incompatibilities and
@@ -87,18 +92,17 @@ function inferExpression<Diagnostic>(
 
       // If the type of our body is polymorphic then we need to quantify the
       // type of our function by our body type.
-      const type = Type.isMonomorphic(body.type)
-        ? Type.function_(parameterType, body.type)
+      const bodyType = Type.isMonotype(body.type)
+        ? body.type
         : state.newTypeWithBound(Type.flexibleBound(body.type));
 
-      // Generalize dead type variables at this level before continuing on.
-      const newType = generalize(prefix, level, type);
-
-      // Decrement the level now that we’ve generalized the types we created at
-      // this level.
+      // Decrement the level before generalizing.
       state.decrementLevel();
 
-      return Expression.Typed.function_(newType, function_.param, body);
+      // Generalize dead type variables at this level before continuing on.
+      const type = generalize(state, Type.function_(parameterType, bodyType));
+
+      return Expression.Typed.function_(type, function_.param, body);
     }
 
     case 'Call': {
@@ -111,17 +115,17 @@ function inferExpression<Diagnostic>(
       // Infer the types for our callee and argument inside of our type
       // variable quantification.
       const callee = inferExpression(diagnostics, scope, state, call.callee);
-      const arg = inferExpression(diagnostics, scope, state, call.arg);
+      const arg = inferExpression(diagnostics, scope, state, call.argument);
 
       // Convert the callee to a monomorphic type. If the callee type is
       // polymorphic then we need to add a type variable to our prefix.
-      const calleeType = Type.isMonomorphic(callee.type)
+      const calleeType = Type.isMonotype(callee.type)
         ? callee.type
         : state.newTypeWithBound(Type.flexibleBound(callee.type));
 
       // Convert the argument type to a monomorphic type. If the argument type
       // is polymorphic then we need to add a type variable to our prefix.
-      const argType = Type.isMonomorphic(arg.type)
+      const argType = Type.isMonotype(arg.type)
         ? arg.type
         : state.newTypeWithBound(Type.flexibleBound(arg.type));
 
@@ -133,18 +137,16 @@ function inferExpression<Diagnostic>(
       // should solve any unknown type variables.
       const error = unify(
         diagnostics,
-        prefix,
-        level,
+        state,
         calleeType,
         Type.function_(argType, bodyType)
       );
 
-      // Generalize the body type and return it.
-      const type: Type = generalize(prefix, level, bodyType);
-
-      // Decrement the level now that we’ve generalized the types we created at
-      // this level.
+      // Decrement the level before generalizing.
       state.decrementLevel();
+
+      // Generalize the body type and return it.
+      const type = generalize(state, bodyType);
 
       // If there was an error during unification then we need to return an
       // error expression which will fail at runtime instead of an
@@ -197,86 +199,45 @@ function inferExpression<Diagnostic>(
   }
 }
 
-function generalize(
-  prefix: Immutable.Map<string, TypeVariable>,
-  level: number,
-  type: MonomorphicType
-): Type {
-  function generalizeMonomorphicType(
-    quantifications: Array<{readonly name: string; readonly bound: Bound}>,
-    prefix: Immutable.Map<string, TypeVariable>,
-    level: number,
-    type: MonomorphicType
-  ): MonomorphicType {
-    // If the type’s level is smaller than our current level then all type
-    // variables inside the type are still alive and should not be generalized.
-    if (type.level.get() < level) return type;
+/**
+ * Turns type variables at a level larger then the current level into generic
+ * quantified type bounds.
+ */
+function generalize(state: State, type: Polytype): Polytype {
+  const quantify = new Set();
+  generalize(quantify, state, type);
+  // Quantify our type for every variable in the `quantify` set. The order of
+  // the `quantify` set does matter! Since some type variables may have a
+  // dependency on others.
+  const quantifyReverse = Array(quantify.size);
+  quantify.forEach((name, i) => {
+    quantifyReverse[quantify.size - i - 1] = name;
+  });
+  quantifyReverse.forEach(name => {
+    const {bound} = state.lookupType(name);
+    type = Type.quantify(name, bound, type);
+  });
+  return type;
 
-    switch (type.description.kind) {
-      case 'Variable': {
-        const variable = prefix.get(type.description.name);
-        if (variable === undefined) return type;
-        const bound = variable.getBound();
-        // TODO: Prevent double quantification.
-        quantifications.push({name: type.description.name, bound});
-        return type;
+  // Iterate over every free type variable and determine if we need to
+  // quantify it.
+  function generalize(quantify: Set<string>, state: State, type: Polytype) {
+    Type.forEachFreeVariable(type, name => {
+      const {level, bound} = state.lookupType(name);
+      // If we have a type variable with a level greater than our current
+      // level then we need to quantify that type variable.
+      if (level > state.getLevel()) {
+        // If `quantify` already contains this type variable then we don’t
+        // need to add it again.
+        if (!quantify.has(name)) {
+          // Generalize the dead type variables in our bound as well. It is
+          // important that we call this function before we add the variable
+          // name to `quantify`. The order of type variables in `quantify`
+          // does matter.
+          generalize(quantify, state, bound.type);
+          quantify.add(name);
+        }
       }
-
-      case 'Boolean':
-      case 'Number':
-      case 'String':
-        return type;
-
-      case 'Function': {
-        const {param, body} = type.description;
-        return Type.function_(
-          generalizeMonomorphicType(quantifications, prefix, level, param),
-          generalizeMonomorphicType(quantifications, prefix, level, body)
-        );
-      }
-
-      default:
-        const never: never = type.description;
-        return never;
-    }
+    });
   }
-
-  // function generalizePolymorphicType(
-  //   quantifications: Array<{readonly name: string; readonly bound: Bound}>,
-  //   prefix: Immutable.Map<string, TypeVariable>,
-  //   level: number,
-  //   type: PolymorphicType
-  // ): PolymorphicType {
-  //   // If the type’s level is smaller than our current level then all type
-  //   // variables inside the type are still alive and should not be generalized.
-  //   if (type.level.get() < level) return type;
-
-  //   switch (type.description.kind) {
-  //     case 'Bottom':
-  //       return type;
-  //   }
-  // }
-
-  // Add the generalized type variables as quantifications.
-  const quantifications: Array<{
-    readonly name: string;
-    readonly bound: Bound;
-  }> = [];
-  const newType = generalizeMonomorphicType(
-    quantifications,
-    prefix,
-    level,
-    type
-  );
-  return quantifications.reduceRight<PolymorphicType>(
-    (type, {name, bound}) => Type.quantify(name, bound, type),
-    newType
-  );
 }
-
-export type InferError<T> =
-  | UnifyError<T>
-  | {
-      readonly kind: 'UnboundVariable';
-      readonly identifier: string;
-    };
