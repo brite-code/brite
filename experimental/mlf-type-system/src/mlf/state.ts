@@ -147,4 +147,32 @@ export class State {
       }
     }
   }
+
+  /**
+   * Prints the state  type variable prefix to a display string using the
+   * standard syntax for types in academic literature. Particularly the [MLF][1]
+   * paper we implement.
+   *
+   * Brite programmers will not be familiar with this syntax. It is for
+   * debugging purposes only.
+   *
+   * [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
+   */
+  toDisplayString() {
+    if (this.typeVariables.size === 0) {
+      return '(∅)';
+    }
+    const bounds: Array<string> = [];
+    for (const [name, {bound}] of this.typeVariables) {
+      if (bound.kind === 'flexible' && bound.type === undefined) {
+        bounds.push(name);
+      } else {
+        const kind = bound.kind === 'flexible' ? '≥' : '=';
+        const type =
+          bound.type !== undefined ? Type.toDisplayString(bound.type) : '⊥';
+        bounds.push(`${name} ${kind} ${type}`);
+      }
+    }
+    return `(${bounds.join(', ')})`;
+  }
 }

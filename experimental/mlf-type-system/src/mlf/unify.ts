@@ -175,24 +175,21 @@ function unifyVariable<Diagnostic>(
   const {bound: actualBound} = state.lookupType(actualVariable);
   const {bound: expectedBound} = state.lookupType(expectedVariable);
 
-  // Get the bound kind for the bound we will create between our two type
-  // variables. The bound is rigid unless both bounds are flexible.
-  const boundKind: 'flexible' | 'rigid' =
-    actualBound.kind === 'flexible' && expectedBound.kind === 'flexible'
-      ? 'flexible'
-      : 'rigid';
-
   // If actual is the bottom type then unify to expected.
   if (actualBound.type === undefined) {
-    const bound = {kind: boundKind, type: expectedBound.type};
-    state.updateType(actualVariable, bound);
+    state.updateType(actualVariable, {
+      kind: 'rigid',
+      type: Type.variable(expectedVariable),
+    });
     return undefined;
   }
 
   // If expected is the bottom type then unify to actual.
   if (expectedBound.type === undefined) {
-    const bound = {kind: boundKind, type: actualBound.type};
-    state.updateType(expectedVariable, bound);
+    state.updateType(expectedVariable, {
+      kind: 'rigid',
+      type: Type.variable(actualVariable),
+    });
     return undefined;
   }
 
@@ -207,9 +204,10 @@ function unifyVariable<Diagnostic>(
   // actual type. Since unification shows that the actual and expected types
   // are equivalent.
   if (error === undefined) {
-    const bound = {kind: boundKind, type: actualType};
-    state.updateType(actualVariable, bound);
-    state.updateType(expectedVariable, bound);
+    state.updateType(expectedVariable, {
+      kind: 'rigid',
+      type: Type.variable(actualVariable),
+    });
   }
 
   return error;

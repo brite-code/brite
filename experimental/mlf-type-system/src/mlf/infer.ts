@@ -96,11 +96,12 @@ function inferExpression<Diagnostic>(
         ? body.type
         : state.newTypeWithBound(Type.flexibleBound(body.type));
 
-      // Decrement the level before generalizing.
-      state.decrementLevel();
-
-      // Generalize dead type variables at this level before continuing on.
+      // Generalize the function type. We must generalize before deallocating
+      // all the type variables at this level.
       const type = generalize(state, Type.function_(parameterType, bodyType));
+
+      // Decrement the level after generalizing.
+      state.decrementLevel();
 
       return Expression.Typed.function_(type, function_.param, body);
     }
@@ -115,7 +116,12 @@ function inferExpression<Diagnostic>(
       // Infer the types for our callee and argument inside of our type
       // variable quantification.
       const callee = inferExpression(diagnostics, scope, state, call.callee);
-      const arg = inferExpression(diagnostics, scope, state, call.argument);
+      const argument = inferExpression(
+        diagnostics,
+        scope,
+        state,
+        call.argument
+      );
 
       // Convert the callee to a monomorphic type. If the callee type is
       // polymorphic then we need to add a type variable to our prefix.
@@ -125,9 +131,9 @@ function inferExpression<Diagnostic>(
 
       // Convert the argument type to a monomorphic type. If the argument type
       // is polymorphic then we need to add a type variable to our prefix.
-      const argType = Type.isMonotype(arg.type)
-        ? arg.type
-        : state.newTypeWithBound(Type.flexibleBound(arg.type));
+      const argumentType = Type.isMonotype(argument.type)
+        ? argument.type
+        : state.newTypeWithBound(Type.flexibleBound(argument.type));
 
       // Create a fresh type variable for the body type. This type will be
       // solved during unification.
@@ -139,20 +145,21 @@ function inferExpression<Diagnostic>(
         diagnostics,
         state,
         calleeType,
-        Type.function_(argType, bodyType)
+        Type.function_(argumentType, bodyType)
       );
 
-      // Decrement the level before generalizing.
-      state.decrementLevel();
-
-      // Generalize the body type and return it.
+      // Generalize the body type and return it. We must generalize before
+      // deallocating all the type variables at this level.
       const type = generalize(state, bodyType);
+
+      // Decrement the level after generalizing.
+      state.decrementLevel();
 
       // If there was an error during unification then we need to return an
       // error expression which will fail at runtime instead of an
       // call expression.
       return error === undefined
-        ? Expression.Typed.call(type, callee, arg)
+        ? Expression.Typed.call(type, callee, argument)
         : Expression.Typed.error(type, error);
     }
 
@@ -207,19 +214,20 @@ function inferExpression<Diagnostic>(
  * quantified type bounds.
  */
 function generalize(state: State, type: Polytype): Polytype {
-  const quantify = new Set();
+  const quantify = new Set<string>();
   generalize(quantify, state, type);
   // Quantify our type for every variable in the `quantify` set. The order of
   // the `quantify` set does matter! Since some type variables may have a
   // dependency on others.
   const quantifyReverse = Array(quantify.size);
-  quantify.forEach((name, i) => {
-    quantifyReverse[quantify.size - i - 1] = name;
-  });
-  quantifyReverse.forEach(name => {
+  let i = 0;
+  for (const name of quantify) {
+    quantifyReverse[quantify.size - i++ - 1] = name;
+  }
+  for (const name of quantifyReverse) {
     const {bound} = state.lookupType(name);
     type = Type.quantify(name, bound, type);
-  });
+  }
   return type;
 
   // Iterate over every free type variable and determine if we need to
