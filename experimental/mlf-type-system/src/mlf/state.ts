@@ -4,7 +4,7 @@ import {Bound, Monotype, Polytype, Type} from './type';
  * State required to type-check a Brite application. Holds things like allocated
  * type variables.
  */
-export class State {
+export class UnifyState {
   // The id for the type variable in our program.
   private nextType = 0;
 
@@ -114,9 +114,9 @@ export class State {
    * updating.
    *
    * NOTE: We don’t enforce this, but according to the [MLF thesis][1] the
-   * current value of the bound we are updating (`a`) and the new value of the
-   * bound we are updating to (`b`) should be in an instance relation
-   * (in notation: `a ⊑ b`). See the documentation comment above `unify()` for
+   * current value of the bound we are updating (`old`) and the new value of the
+   * bound we are updating to (`new`) should be in an instance relation
+   * (in notation: `old ⊑ new`). See the documentation comment above `unify()` for
    * more information.
    *
    * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf

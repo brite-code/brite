@@ -1,7 +1,7 @@
 import {BindingMap} from './bindings';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
-import {State} from './state';
+import {UnifyState} from './state';
 import {Polytype, Type} from './type';
 import {UnifyError, unify} from './unify';
 
@@ -25,7 +25,7 @@ export function infer<Diagnostic>(
   return inferExpression(
     diagnostics,
     new BindingMap(scope),
-    new State(),
+    new UnifyState(),
     expression
   );
 }
@@ -33,7 +33,7 @@ export function infer<Diagnostic>(
 function inferExpression<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
   scope: BindingMap<string, Type>,
-  state: State,
+  state: UnifyState,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
@@ -248,7 +248,7 @@ function inferExpression<Diagnostic>(
  * Turns type variables at a level larger then the current level into generic
  * quantified type bounds.
  */
-function generalize(state: State, type: Polytype): Polytype {
+function generalize(state: UnifyState, type: Polytype): Polytype {
   const quantify = new Set<string>();
   generalize(quantify, state, type);
   // Quantify our type for every variable in the `quantify` set. The order of
@@ -267,7 +267,11 @@ function generalize(state: State, type: Polytype): Polytype {
 
   // Iterate over every free type variable and determine if we need to
   // quantify it.
-  function generalize(quantify: Set<string>, state: State, type: Polytype) {
+  function generalize(
+    quantify: Set<string>,
+    state: UnifyState,
+    type: Polytype
+  ) {
     for (const name of Type.getFreeVariables(type)) {
       const {level, bound} = state.lookupType(name);
       // If we have a type variable with a level greater than our current

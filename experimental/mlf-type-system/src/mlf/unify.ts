@@ -2,7 +2,7 @@ import * as Immutable from 'immutable';
 
 import {BindingMap} from './bindings';
 import {Diagnostics, Reported} from './diagnostics';
-import {State} from './state';
+import {UnifyState} from './state';
 import {Monotype, Polytype, Type} from './type';
 
 /**
@@ -61,7 +61,7 @@ import {Monotype, Polytype, Type} from './type';
  */
 export function unify<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  state: UnifyState,
   actual: Monotype,
   expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
@@ -84,7 +84,7 @@ export type UnifyError<T> =
  */
 function unifyType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  state: UnifyState,
   actual: Monotype,
   expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
@@ -149,7 +149,7 @@ function unifyType<Diagnostic>(
  */
 function unifyVariableWithType<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  state: UnifyState,
   type: Monotype,
   variable: string,
   isVariableActual: boolean
@@ -162,7 +162,7 @@ function unifyVariableWithType<Diagnostic>(
   // scope as well!
   if (bound.type === undefined) {
     // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
-    return updateType(diagnostics, state, variable, type);
+    return updateVariable(diagnostics, state, variable, type);
   }
 
   // If our type variable has a monomorphic bound then we unify the variable
@@ -191,7 +191,7 @@ function unifyVariableWithType<Diagnostic>(
     if (error === undefined) {
       // Maintains `Q ⊑ Q'` because if unify did not error then the two types
       // are equivalent (`≡`) and equivalence is part of the instance relation.
-      return updateType(diagnostics, state, variable, type);
+      return updateVariable(diagnostics, state, variable, type);
     } else {
       return error;
     }
@@ -203,7 +203,7 @@ function unifyVariableWithType<Diagnostic>(
  */
 function unifyVariable<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  state: UnifyState,
   actualVariable: string,
   expectedVariable: string
 ): Reported<UnifyError<Diagnostic>> | undefined {
@@ -233,14 +233,14 @@ function unifyVariable<Diagnostic>(
   if (actualBound.type === undefined) {
     const expectedType = Type.variable(expectedVariable);
     // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
-    return updateType(diagnostics, state, actualVariable, expectedType);
+    return updateVariable(diagnostics, state, actualVariable, expectedType);
   }
 
   // If expected is the bottom type then unify to actual.
   if (expectedBound.type === undefined) {
     const actualType = Type.variable(actualVariable);
     // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
-    return updateType(diagnostics, state, expectedVariable, actualType);
+    return updateVariable(diagnostics, state, expectedVariable, actualType);
   }
 
   // Instantiate our type bounds.
@@ -257,7 +257,7 @@ function unifyVariable<Diagnostic>(
     const actualType = Type.variable(actualVariable);
     // Maintains `Q ⊑ Q'` because if unify did not error then the two types
     // are equivalent (`≡`) and equivalence is part of the instance relation.
-    return updateType(diagnostics, state, expectedVariable, actualType);
+    return updateVariable(diagnostics, state, expectedVariable, actualType);
   } else {
     return error;
   }
@@ -265,12 +265,24 @@ function unifyVariable<Diagnostic>(
 
 /**
  * Updates a type in our state while also handling failures in the occurs check.
+ *
+ * See that we may only update types to a monotype. This is based on the
+ * core constraint of type inference in MLF. We do not infer types for function
+ * arguments that are used polymorphically.
+ *
+ * NOTE: We don’t enforce this, but according to the [MLF thesis][1] the
+ * current value of the bound we are updating (`old`) and the new value of the
+ * bound we are updating to (`new`) should be in an instance relation
+ * (in notation: `old ⊑ new`). See the documentation comment above `unify()` for
+ * more information.
+ *
+ * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
  */
-function updateType<Diagnostic>(
+function updateVariable<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  state: UnifyState,
   name: string,
-  type: Polytype
+  type: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
   const ok = state.updateTypeWithOccursCheck(name, {kind: 'rigid', type});
   if (ok === true) {
@@ -286,7 +298,7 @@ function updateType<Diagnostic>(
  *
  * This function will never return a quantified polytype.
  */
-function instantiate(state: State, type: Polytype): Monotype {
+function instantiate(state: UnifyState, type: Polytype): Monotype {
   if (type.description.kind !== 'Quantify') return type as Monotype; // Shortcut
   const substitutions = new BindingMap<string, Monotype>();
   return instantiatePolytype(type);
