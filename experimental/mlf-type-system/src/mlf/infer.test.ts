@@ -1,5 +1,4 @@
 import {Diagnostics} from './diagnostics';
-import {Expression} from './expression';
 import {InferError, infer} from './infer';
 import {parseExpression, parseType} from './parser';
 import {Type} from './type';

@@ -1,9 +1,8 @@
 import {BindingMap} from './bindings';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
-import {UnifyState} from './state';
 import {Polytype, Type} from './type';
-import {UnifyError, unify} from './unify';
+import {UnifyError, UnifyState, unify} from './unify';
 
 export type InferError<T> =
   | UnifyError<T>
