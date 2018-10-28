@@ -97,10 +97,6 @@ class Parser {
       }
     }
 
-    // Parse a boolean.
-    if (this.tryParseGlyph(Glyph.True)) return Expression.boolean(true);
-    if (this.tryParseGlyph(Glyph.False)) return Expression.boolean(false);
-
     // Parse a variable.
     const identifier = this.tryParseIdentifier();
     if (identifier !== undefined) {
@@ -255,8 +251,6 @@ const enum Glyph {
   ParenRight = ')',
 
   // Keywords
-  True = 'true',
-  False = 'false',
   Let = 'let',
   In = 'in',
   Boolean = 'boolean',
