@@ -92,6 +92,12 @@ export class State {
   }
 
   /**
+   * IMPORTANT: We really shouldn’t be calling this function outside of the
+   * `unify()` function. We need to maintain an instance relation between the
+   * old bound and the new bound (`old ⊑ new`) whenever this function is called.
+   * We take care to maintain that relation in `unify()`. We don’t trust other
+   * callers to take the same care.
+   *
    * Updates a type variable in our state. The type variable must have come
    * from `State.newType()` or `State.newTypeWithBound()` as to assure no
    * scoping shenanigans are necessary since all type names are guaranteed to be
@@ -106,6 +112,14 @@ export class State {
    * the type variable we are updating then we “level up” the type variable in
    * the bound so that it won’t be deallocated before the type variable we are
    * updating.
+   *
+   * NOTE: We don’t enforce this, but according to the [MLF thesis][1] the
+   * current value of the bound we are updating (`a`) and the new value of the
+   * bound we are updating to (`b`) should be in an instance relation
+   * (in notation: `a ⊑ b`). See the documentation comment above `unify()` for
+   * more information.
+   *
+   * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
    */
   updateTypeWithOccursCheck(name: string, bound: Bound): boolean {
     const entry = this.typeVariables.get(name);

@@ -5,6 +5,69 @@ import {Diagnostics, Reported} from './diagnostics';
 import {State} from './state';
 import {Monotype, Polytype, Type} from './type';
 
+/**
+ * Implements the unification algorithm from the [MLF thesis][1].
+ *
+ * In theory, the paper defines unification as:
+ *
+ * > Definition 4.1.1 (Unification): A prefix `Q'` unifies `t1` and `t2` under
+ * > `Q` if and only if `Q ⊑ Q'` and `(Q') t1 ≡ t2` hold.
+ *
+ * In our implementation, one can think of “state” as the prefix. So every
+ * mutation to type variable state must maintain the invariant `Q ⊑ Q'`. In
+ * practice, we mostly only mutate unbounded type variables in state. In our
+ * implementation an unbounded `a` type variable represent the theory for the
+ * prefix entry `a ≥ ⊥`. According to the instance relation every polymorphic
+ * type is an instance of bottom (`⊥`).
+ *
+ * As an optimization we also mutate type variables in state to an equivalent
+ * type when unification proves it is safe.
+ *
+ * So `Q ⊑ Q'` holds, but what about `(Q') t1 ≡ t2`? This one is interesting
+ * since for an improved developer experience we don’t want to stop type
+ * checking if any component of `t1` is not equivalent to the same component
+ * in `t2`. For example, `unify((a), number → string, boolean → a)`. Here
+ * `number ≢ boolean`. The result in the [MLF thesis][1] would be to fail type
+ * checking. In our implementation, however, this unification will emit an error
+ * when it sees `number ≢ boolean` but will also continue and update `a` to
+ * `string` resulting in the prefix `Q'` as `(a = string)`. Here `Q ⊑ Q'` holds,
+ * but `(Q') t1 ≡ t2` does not!
+ *
+ * How do we maintain soundness? Our implementation of unify will return an
+ * error. It is then expected that the caller of unify handle that error! So if
+ * the caller expects `(Q') t1 ≡ t2` to hold and it does not then the caller
+ * should insert a runtime error in the program where the assertion failed.
+ *
+ * Consider the program:
+ *
+ * ```
+ * let x = 42 in
+ * let y = (x: string) in
+ * ...
+ * ```
+ *
+ * Here `number ≢ string`, so we convert this code to:
+ *
+ * ```
+ * let x = 42 in
+ * let y = error "number ≢ string" in
+ * ...
+ * ```
+ *
+ * At runtime this will halt execution of our program. It is yet to be shown in
+ * theory that this strategy is type sound.
+ *
+ * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+ */
+export function unify<Diagnostic>(
+  diagnostics: Diagnostics<UnifyError<Diagnostic>>,
+  state: State,
+  actual: Monotype,
+  expected: Monotype
+): Reported<UnifyError<Diagnostic>> | undefined {
+  return unifyType(diagnostics, state, actual, expected);
+}
+
 export type UnifyError<T> =
   | T
   | {
@@ -15,32 +78,6 @@ export type UnifyError<T> =
   | {
       readonly kind: 'InfiniteType';
     };
-
-/**
- * Implements the unification algorithm from Appendix A in the MLF paper
- * [“Raising ML to the Power of System F”][1].
- *
- * Modified to support our custom types and to support error recovery.
- *
- * When unification encounters incompatible types we don’t fatal. Instead we
- * continue type-checking. The unification caller should is responsible for
- * ensuring that failed unifications crash the program at runtime.
- *
- * We don’t yet know if our error-recovery behavior here is sound. However,
- * we are comfortable giving up soundness guarantees in the presence of a type
- * error. No program should be shipped to production if it has a type error.
- * Programs executed with type-errors are purely a development time convenience.
- *
- * [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
- */
-export function unify<Diagnostic>(
-  diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
-  actual: Monotype,
-  expected: Monotype
-): Reported<UnifyError<Diagnostic>> | undefined {
-  return unifyType(diagnostics, state, actual, expected);
-}
 
 /**
  * Unifies two monomorphic types.
@@ -124,6 +161,7 @@ function unifyVariableWithType<Diagnostic>(
   // type we are unifying to. Remember to take our quantifications out of
   // scope as well!
   if (bound.type === undefined) {
+    // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
     return updateType(diagnostics, state, variable, type);
   }
 
@@ -151,6 +189,8 @@ function unifyVariableWithType<Diagnostic>(
     // If there was no error then update our variable to the monomorphic type
     // we unified with since our variable and the type are equivalent.
     if (error === undefined) {
+      // Maintains `Q ⊑ Q'` because if unify did not error then the two types
+      // are equivalent (`≡`) and equivalence is part of the instance relation.
       return updateType(diagnostics, state, variable, type);
     } else {
       return error;
@@ -192,12 +232,14 @@ function unifyVariable<Diagnostic>(
   // If actual is the bottom type then unify to expected.
   if (actualBound.type === undefined) {
     const expectedType = Type.variable(expectedVariable);
+    // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
     return updateType(diagnostics, state, actualVariable, expectedType);
   }
 
   // If expected is the bottom type then unify to actual.
   if (expectedBound.type === undefined) {
     const actualType = Type.variable(actualVariable);
+    // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
     return updateType(diagnostics, state, expectedVariable, actualType);
   }
 
@@ -213,6 +255,8 @@ function unifyVariable<Diagnostic>(
   // are equivalent.
   if (error === undefined) {
     const actualType = Type.variable(actualVariable);
+    // Maintains `Q ⊑ Q'` because if unify did not error then the two types
+    // are equivalent (`≡`) and equivalence is part of the instance relation.
     return updateType(diagnostics, state, expectedVariable, actualType);
   } else {
     return error;
