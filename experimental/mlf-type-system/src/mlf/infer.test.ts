@@ -7,12 +7,12 @@ const prelude = new Map<string, Type>(
   [
     ['true', 'boolean'],
     ['false', 'boolean'],
-    ['neg', 'number → number'],
     ['succ', 'number → number'],
     ['id', '∀x.x → x'],
     ['app', '∀(a, b).(a → b) → a → b'],
     ['choose', '∀a.a → a → a'],
     ['auto', '∀(a = ∀a.a → a).a → a'],
+    ['undefined', '∀x.x'],
   ].map(([name, type]): [string, Type] => [name, parseType(type)])
 );
 
@@ -22,24 +22,160 @@ const cases: ReadonlyArray<{
   readonly errors?: ReadonlyArray<string>;
 }> = [
   {
-    expression: 'neg 42',
+    expression: 'nope',
+    type: '∀x.x',
+    errors: ['unbound variable "nope"'],
+  },
+  {
+    expression: 'succ 42',
     type: '∀($0 = number).$0',
   },
   {
-    expression: 'neg true',
+    expression: 'succ true',
     type: '∀($0 = number).$0',
     errors: ['number ≢ boolean'],
+  },
+  {
+    expression: 'succ nope',
+    type: '∀($1 = number).$1',
+    errors: ['unbound variable "nope"'],
+  },
+  {
+    expression: 'succ undefined',
+    type: '∀($1 = number).$1',
+  },
+  {
+    expression: 'true',
+    type: 'boolean',
+  },
+  {
+    expression: 'let x = true in x',
+    type: 'boolean',
+  },
+  {
+    expression: 'let x = true in let y = x in y',
+    type: 'boolean',
+  },
+  {
+    expression: 'let x = true in let y = x in x',
+    type: 'boolean',
+  },
+  {
+    expression: 'λx.true',
+    type: '∀$0.$0 → boolean',
+  },
+  {
+    expression: 'λx.x',
+    type: '∀$0.$0 → $0',
+  },
+  {
+    expression: 'λx.let y = x in y',
+    type: '∀$0.$0 → $0',
+  },
+  {
+    expression: 'λx.choose x 42',
+    type: '∀($3 = number, $0 = $3, $7 ≥ ∀($5 = number).$5).$0 → $7',
+  },
+  {
+    expression: 'λx.choose 42 x',
+    type: '∀($0 = number, $8 ≥ ∀($5 = number).$5).$0 → $8',
+  },
+  {
+    expression: 'λx.let y = choose x 42 in y',
+    type: '∀($3 = number, $0 = $3, $7 ≥ ∀($5 = number).$5).$0 → $7',
+  },
+  {
+    expression: 'λx.let y = choose x 42 in x',
+    type: '∀($3 = number, $0 = $3).$0 → $0',
+  },
+  {
+    expression: 'λx.let y = choose 42 x in x',
+    type: '∀($0 = number).$0 → $0',
+  },
+  {
+    expression: 'λx.choose x id',
+    type: '∀($5 ≥ ∀x.x → x, $3 = $5, $0 = $3, $8 ≥ ∀($6 = $5).$6).$0 → $8',
+  },
+  {
+    expression: 'λx.choose id x',
+    type: '∀($7, $0 = $7 → $7, $11 ≥ ∀($6 = $7 → $7).$6).$0 → $11',
+  },
+  {
+    expression: 'λx.let _ = choose x id in x',
+    type: '∀($5 ≥ ∀x.x → x, $3 = $5, $0 = $3).$0 → $0',
+  },
+  {
+    expression: 'λx.let _ = choose id x in x',
+    type: '∀($7, $0 = $7 → $7).$0 → $0',
+  },
+  {
+    expression: '(λx.choose x true) 42',
+    type: '∀($9 = boolean).$9',
+    errors: ['boolean ≢ number'],
+  },
+  {
+    expression: '(λx.choose true x) 42',
+    type: '∀($10 = boolean).$10',
+    errors: ['boolean ≢ number'],
+  },
+  {
+    expression: '(λx.let _ = choose x true in x) 42',
+    type: '∀($8 = boolean).$8',
+    errors: ['boolean ≢ number'],
+  },
+  {
+    expression: '(λx.let _ = choose true x in x) 42',
+    type: '∀($9 = boolean).$9',
+    errors: ['boolean ≢ number'],
+  },
+  {
+    expression: 'true 42',
+    type: '∀$0.$0',
+    errors: ['number → $0 ≢ boolean'],
+  },
+  {
+    expression: 'λ(f, x).choose (f x) x',
+    type: '∀($7, $5 = $7, $1 = $5, $2 = $5, $0 = $1 → $2).$0 → $1 → $7',
+  },
+  {
+    expression: '(λ(f, x).choose (f x) x) (λx.x)',
+    type: '∀($18, $13 = $18, $14 = $13, $15 = $14, $12 = $15 → $13).$12',
+  },
+  {
+    expression: '(λ(f, x).choose (f x) x) (λx.undefined)',
+    type: '∀($19, $14 = $19, $15 = $14, $16 = $15, $13 = $16 → $14).$13',
+  },
+  {
+    expression: 'λ(f, x).choose (f x) undefined',
+    type:
+      '∀($1, $7 ≥ ∀x.x, $5 = $7, $2 = $5, $0 = $1 → $2, $11 ≥ ∀($10 ≥ ∀($8 = $7).$8).$1 → $10).$0 → $11',
+  },
+  {
+    expression: '(42: boolean)',
+    type: 'boolean',
+    errors: ['boolean ≢ number'],
+  },
+  {
+    expression:
+      'let f = (undefined: boolean → number) in (f: number → boolean)',
+    type: 'number → boolean',
+    errors: ['boolean ≢ number', 'boolean ≢ number'],
+  },
+  {
+    expression: 'let f = (undefined: boolean → number) in (f: string → string)',
+    type: 'string → string',
+    errors: ['boolean ≢ string', 'string ≢ number'],
   },
   {
     expression: 'λ(f, x).f x',
     type: '∀($1, $2, $0 = $1 → $2).$0 → $1 → $2',
   },
   {
-    expression: 'app neg',
+    expression: 'app succ',
     type: '∀($2 = number, $3 = number, $1 = $2 → $3).$1',
   },
   {
-    expression: 'app neg 42',
+    expression: 'app succ 42',
     type: '∀($5 = number).$5',
   },
   {
@@ -133,6 +269,37 @@ const cases: ReadonlyArray<{
     expression: '(λf.λx.f x) (λx.let x = (x: ∀a.a → a) in x x) (λx.x)',
     type: '∀($29, $26 = $29 → $29).$26',
   },
+  {
+    expression: 'λ_.undefined',
+    type: '∀($0, $1 ≥ ∀x.x).$0 → $1',
+  },
+  {
+    expression: '(λ_.undefined: ∀(a, b).a → b)',
+    type: '∀(a, b).a → b',
+  },
+  {
+    expression: 'let magic = λ_.undefined in magic 42',
+    type: '∀$3.$3',
+  },
+  {
+    expression: 'let magic = (λ_.undefined: ∀(a, b).a → b) in magic 42',
+    type: '∀$10.$10',
+  },
+  {
+    // TODO: UH OH
+    expression: 'let id = λx.x in (id: ∀x.x → number)',
+    type: '∀x.x → number',
+  },
+  {
+    expression:
+      'let id = λx.x in let id = (id: ∀x.x → number) in (id: ∀x.x → x)',
+    type: '∀x.x → x',
+  },
+  {
+    expression: 'let f = λx.42 in (f: ∀x.x → string)',
+    type: '∀x.x → string',
+    errors: ['string ≢ number'],
+  },
 ];
 
 for (const {
@@ -145,6 +312,7 @@ for (const {
     const diagnostics = new Diagnostics<InferError<never>>();
     const expression = infer(diagnostics, prelude, expressionUntyped);
     expect(Type.toDisplayString(expression.type)).toEqual(typeSource);
+    expect([...Type.getFreeVariables(expression.type)]).toEqual([]);
     expect([...diagnostics].map(toTestString)).toEqual(expectedErrors);
   });
 }

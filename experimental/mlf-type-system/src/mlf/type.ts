@@ -246,4 +246,9 @@ export namespace Type {
   }
 
   export const unbounded: Bound = {kind: 'flexible', type: undefined};
+
+  export const bottom: Polytype = Type.quantifyUnbounded(
+    'x',
+    Type.variable('x')
+  );
 }

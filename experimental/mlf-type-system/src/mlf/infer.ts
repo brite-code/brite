@@ -46,12 +46,18 @@ function inferExpression<Diagnostic>(
       if (type !== undefined) {
         return Expression.Typed.variable(type, identifier);
       } else {
-        return Expression.Typed.error(
-          state.newType(),
-          diagnostics.report({
-            kind: 'UnboundVariable',
-            identifier,
-          })
+        // Handle the error case by calling `inferExpression()` again so we
+        // don’t duplicate logic.
+        return inferExpression(
+          diagnostics,
+          scope,
+          state,
+          Expression.error(
+            diagnostics.report({
+              kind: 'UnboundVariable',
+              identifier,
+            })
+          )
         );
       }
     }
@@ -232,10 +238,7 @@ function inferExpression<Diagnostic>(
 
     // Runtime errors have the bottom type since they will crash at runtime.
     case 'Error':
-      return Expression.Typed.error(
-        state.newType(),
-        expression.description.error
-      );
+      return Expression.Typed.error(Type.bottom, expression.description.error);
 
     default:
       const never: never = expression.description;

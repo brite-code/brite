@@ -2,5 +2,8 @@
 node_modules/
 yarn-error.log
 
+# Testing Artifacts
+coverage/
+
 # Operating Systems
 .DS_Store
