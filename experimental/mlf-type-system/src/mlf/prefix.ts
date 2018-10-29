@@ -51,6 +51,13 @@ export class Prefix {
   }
 
   /**
+   * Are there no type variables in our prefix?
+   */
+  isEmpty(): boolean {
+    return this.typeVariables.size === 0;
+  }
+
+  /**
    * Allocates a fresh type variable in our prefix with no bound. When
    * `Prefix.decrementLevel()` is called this type will be deallocated.
    *
@@ -201,11 +208,29 @@ export class Prefix {
    * [1]: http://pauillac.inria.fr/~remy/work/mlf/icfp.pdf
    */
   toDisplayString() {
-    if (this.typeVariables.size === 0) {
-      return '(∅)';
-    }
+    if (this.typeVariables.size === 0) return '(∅)';
+    // All the type variables in our prefix in dependency order.
+    const seen = new Set<string>();
+    // Visits a type variable with the provided name. Adds the dependencies of
+    // the visited type variable before adding the type variable name itself.
+    const visit = (name: string) => {
+      if (seen.has(name)) return;
+      const entry = this.typeVariables.get(name);
+      if (entry === undefined) return;
+      for (const name of Type.getFreeVariables(entry.bound.type)) visit(name);
+      seen.add(name);
+    };
+    // Visit all the type variables in our prefix. This will populate the `seen`
+    // set in dependency order. That is dependencies will appear before their
+    // dependents in the set.
+    for (const name of this.typeVariables.keys()) visit(name);
+    // Iterate through the type variables in dependency order and produce the
+    // display string.
     const bounds: Array<string> = [];
-    for (const [name, {bound}] of this.typeVariables) {
+    for (const name of seen) {
+      const entry = this.typeVariables.get(name);
+      if (entry === undefined) continue;
+      const bound = entry.bound;
       if (bound.kind === 'flexible' && bound.type === undefined) {
         bounds.push(name);
       } else {
@@ -215,13 +240,7 @@ export class Prefix {
         bounds.push(`${name} ${kind} ${type}`);
       }
     }
+    // Return the prefix in parentheses.
     return `(${bounds.join(', ')})`;
-  }
-
-  /**
-   * Are there no type variables in our prefix?
-   */
-  isEmpty(): boolean {
-    return this.typeVariables.size === 0;
   }
 }
