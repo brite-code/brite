@@ -457,7 +457,7 @@ export class UnifyState {
   newTypeWithBound(bound: Bound): Monotype {
     const name = `$${this.nextType++}`;
     this.typeVariables.set(name, {level: this.levels.length, bound});
-    if (this.levels.length > 1) this.levels[this.levels.length - 1].add(name);
+    if (this.levels.length > 0) this.levels[this.levels.length - 1].add(name);
     return Type.variable(name);
   }
 
@@ -606,5 +606,12 @@ export class UnifyState {
       }
     }
     return `(${bounds.join(', ')})`;
+  }
+
+  /**
+   * Are there no type variables in our unification state?
+   */
+  isEmpty(): boolean {
+    return this.typeVariables.size === 0;
   }
 }

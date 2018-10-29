@@ -18,15 +18,16 @@ export type InferError<T> =
  */
 export function infer<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
-  scope: Iterable<[string, Type]>,
+  variables: Iterable<[string, Type]>,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
-  return inferExpression(
-    diagnostics,
-    new BindingMap(scope),
-    new UnifyState(),
-    expression
-  );
+  const scope = new BindingMap(variables);
+  const state = new UnifyState();
+  const result = inferExpression(diagnostics, scope, state, expression);
+  if (!state.isEmpty()) {
+    throw new Error('Not all type variables were cleaned up from state.');
+  }
+  return result;
 }
 
 function inferExpression<Diagnostic>(
@@ -208,6 +209,9 @@ function inferExpression<Diagnostic>(
     case 'Annotation': {
       const annotation = expression.description;
 
+      // Increment the level before creating new type variables.
+      state.incrementLevel();
+
       // Infer the annotation expression.
       const value = inferExpression(
         diagnostics,
@@ -228,6 +232,9 @@ function inferExpression<Diagnostic>(
 
       // Unify the value and annotation types.
       const error = unify(diagnostics, state, valueType, annotationType);
+
+      // Decrement the level and destroy the type variables we created.
+      state.decrementLevel();
 
       // If unification was not a success then we return an error expression.
       // The error expression is still of the annotation type, however.
