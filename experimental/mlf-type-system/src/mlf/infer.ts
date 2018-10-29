@@ -2,7 +2,7 @@ import {BindingMap} from './bindings';
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
 import {Polytype, Type} from './type';
-import {UnifyError, UnifyState, unify} from './unify';
+import {UnifyError, UnifyState, unify} from './type/unify';
 
 export type InferError<T> =
   | UnifyError<T>

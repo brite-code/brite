@@ -1,9 +1,9 @@
 import * as Immutable from 'immutable';
 
-import {Ok, Result} from '../utils/result';
+import {Ok, Result} from '../../utils/result';
+import {BindingMap} from '../bindings';
+import {Diagnostics, Reported} from '../diagnostics';
 
-import {BindingMap} from './bindings';
-import {Diagnostics, Reported} from './diagnostics';
 import {Bound, Monotype, Polytype, Type} from './type';
 
 /**
