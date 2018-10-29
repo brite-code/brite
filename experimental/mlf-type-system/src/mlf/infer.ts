@@ -290,7 +290,7 @@ function generalize(state: UnifyState, type: Polytype): Polytype {
         // need to add it again.
         if (!quantify.has(name)) {
           // Generalize the dead type variables in our bound as well.
-          if (bound.type !== undefined) generalize(quantify, state, bound.type);
+          generalize(quantify, state, bound.type);
           // It is important that we add the name to `quantify` _after_ we
           // generalize the bound type. The order of variables in `quantify`
           // does matter.

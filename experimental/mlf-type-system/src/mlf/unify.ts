@@ -159,7 +159,7 @@ function unifyVariableWithType<Diagnostic>(
   // If our type variable is the bottom type then update our variable to the
   // type we are unifying to. Remember to take our quantifications out of
   // scope as well!
-  if (bound.type === undefined) {
+  if (bound.type.description.kind === 'Bottom') {
     // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
     return updateVariable(diagnostics, state, variable, type);
   }
@@ -217,26 +217,26 @@ function unifyVariable<Diagnostic>(
   const {bound: expectedBound} = state.lookupType(expectedVariable);
 
   // If the actual bound is a monotype then let’s try unification again.
-  if (actualBound.type !== undefined && Type.isMonotype(actualBound.type)) {
+  if (Type.isMonotype(actualBound.type)) {
     const expectedType = Type.variable(expectedVariable);
     return unifyType(diagnostics, state, actualBound.type, expectedType);
   }
 
   // If the expected bound is a monotype then let’s try unification again.
-  if (expectedBound.type !== undefined && Type.isMonotype(expectedBound.type)) {
+  if (Type.isMonotype(expectedBound.type)) {
     const actualType = Type.variable(actualVariable);
     return unifyType(diagnostics, state, actualType, expectedBound.type);
   }
 
   // If actual is the bottom type then unify to expected.
-  if (actualBound.type === undefined) {
+  if (actualBound.type.description.kind === 'Bottom') {
     const expectedType = Type.variable(expectedVariable);
     // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
     return updateVariable(diagnostics, state, actualVariable, expectedType);
   }
 
   // If expected is the bottom type then unify to actual.
-  if (expectedBound.type === undefined) {
+  if (expectedBound.type.description.kind === 'Bottom') {
     const actualType = Type.variable(actualVariable);
     // Maintains `Q ⊑ Q'` because every type is an instance of bottom.
     return updateVariable(diagnostics, state, expectedVariable, actualType);
@@ -313,10 +313,7 @@ function instantiate(state: UnifyState, type: Polytype): Monotype {
       const {name, bound} = type.description;
       const newType = state.newTypeWithBound({
         kind: bound.kind,
-        type:
-          bound.type !== undefined
-            ? instantiatePolytype(bound.type)
-            : undefined,
+        type: instantiatePolytype(bound.type),
       });
       substitutions.push(name, newType);
       pops++;
@@ -518,9 +515,7 @@ export class UnifyState {
     // Update the entry’s bound to the new bound.
     entry.bound = bound;
     // Level up all the free type variables in our bound’s type.
-    if (bound.type !== undefined) {
-      this.levelUp(entry.level, bound.type);
-    }
+    this.levelUp(entry.level, bound.type);
     return true;
   }
 
@@ -552,9 +547,7 @@ export class UnifyState {
         if (newLevel > 0) this.levels[newLevel - 1].add(name);
         // Recursively update the free type variables in our bound since they
         // too might be deallocated too soon if we don’t.
-        if (entry.bound.type !== undefined) {
-          this.levelUp(newLevel, entry.bound.type);
-        }
+        this.levelUp(newLevel, entry.bound.type);
       }
     }
   }
@@ -573,7 +566,6 @@ export class UnifyState {
       // Get the bound for this type variable.
       const entry = this.typeVariables.get(name);
       if (entry === undefined) continue;
-      if (entry.bound.type === undefined) continue;
       // Recursively check to see if our name occurs in the type bound.
       if (this.occurs(testName, entry.bound.type)) return true;
     }
