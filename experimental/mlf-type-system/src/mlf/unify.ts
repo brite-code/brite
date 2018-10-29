@@ -1,5 +1,7 @@
 import * as Immutable from 'immutable';
 
+import {Ok, Result} from '../utils/result';
+
 import {BindingMap} from './bindings';
 import {Diagnostics, Reported} from './diagnostics';
 import {Bound, Monotype, Polytype, Type} from './type';
@@ -64,7 +66,7 @@ export function unify<Diagnostic>(
   actual: Monotype,
   expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
-  return unifyType(diagnostics, state, actual, expected);
+  return unifyMonotype(diagnostics, state, actual, expected);
 }
 
 export type UnifyError<T> =
@@ -79,32 +81,69 @@ export type UnifyError<T> =
     };
 
 /**
- * Unifies two monomorphic types.
+ * Unifies two monotypes.
  */
-function unifyType<Diagnostic>(
+function unifyMonotype<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
   state: UnifyState,
   actual: Monotype,
   expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
+  // If the actual and expected type variable names match then we know the two
+  // types are identical and we don’t need to recursively unify. This only
+  // works because we rename variables during instantiation so names
+  // don’t conflict!
   if (
     actual.description.kind === 'Variable' &&
-    expected.description.kind === 'Variable'
+    expected.description.kind === 'Variable' &&
+    actual.description.name === expected.description.name
   ) {
-    return unifyVariable(
-      diagnostics,
-      state,
-      actual.description.name,
-      expected.description.name
-    );
-  } else if (actual.description.kind === 'Variable') {
-    const variable = actual.description.name;
-    return unifyVariableWithType(diagnostics, state, expected, variable, true);
-  } else if (expected.description.kind === 'Variable') {
-    const variable = expected.description.name;
-    return unifyVariableWithType(diagnostics, state, actual, variable, false);
-  } else if (
-    // Matching constants unify.
+    return undefined;
+  }
+
+  // If the bound of actual is a monomorphic then let us recursively call
+  // unify with that type.
+  let actualBound: Bound | undefined;
+  if (actual.description.kind === 'Variable') {
+    actualBound = state.lookupType(actual.description.name).bound;
+    if (actualBound.type.description.kind === 'Variable') {
+      return unify(diagnostics, state, actualBound.type as Monotype, expected);
+    }
+  }
+
+  // If the bound of expected is a monomorphic then let us recursively call
+  // unify with that type.
+  let expectedBound: Bound | undefined;
+  if (expected.description.kind === 'Variable') {
+    expectedBound = state.lookupType(expected.description.name).bound;
+    if (expectedBound.type.description.kind === 'Variable') {
+      return unify(diagnostics, state, actual, expectedBound.type as Monotype);
+    }
+  }
+
+  if (actualBound !== undefined && expectedBound !== undefined) {
+  }
+
+  // if (
+  //   actual.description.kind === 'Variable' &&
+  //   expected.description.kind === 'Variable'
+  // ) {
+  //   return unifyVariable(
+  //     diagnostics,
+  //     state,
+  //     actual.description.name,
+  //     expected.description.name
+  //   );
+  // } else if (actual.description.kind === 'Variable') {
+  //   const variable = actual.description.name;
+  //   return unifyVariableWithType(diagnostics, state, expected, variable, true);
+  // } else if (expected.description.kind === 'Variable') {
+  //   const variable = expected.description.name;
+  //   return unifyVariableWithType(diagnostics, state, actual, variable, false);
+  // }
+
+  // Matching constants unify.
+  if (
     (actual.description.kind === 'Boolean' &&
       expected.description.kind === 'Boolean') ||
     (actual.description.kind === 'Number' &&
@@ -113,34 +152,71 @@ function unifyType<Diagnostic>(
       expected.description.kind === 'String')
   ) {
     return undefined;
-  } else if (
-    // Functions unify their parameter and body types.
+  }
+
+  // Functions unify their parameter and body types.
+  if (
     actual.description.kind === 'Function' &&
     expected.description.kind === 'Function'
   ) {
     // NOTE: We switch `expected` and `actual` when we unify the function
     // parameter since the function parameter is contravariant.
-    const diagnostic1 = unifyType(
+    const diagnostic1 = unifyMonotype(
       diagnostics,
       state,
       expected.description.parameter,
       actual.description.parameter
     );
-    const diagnostic2 = unifyType(
+    const diagnostic2 = unifyMonotype(
       diagnostics,
       state,
       actual.description.body,
       expected.description.body
     );
     return diagnostic1 || diagnostic2;
-  } else {
-    // If two types are not compatible then report a diagnostic and return.
-    return diagnostics.report({
-      kind: 'IncompatibleTypes',
-      actual,
-      expected,
-    });
   }
+
+  // If two types are not compatible then report a diagnostic and return.
+  return diagnostics.report({
+    kind: 'IncompatibleTypes',
+    actual,
+    expected,
+  });
+}
+
+/**
+ * Unifies two polytypes. Returns a type which both should be made equivalent to
+ * if not already.
+ */
+function unifyPolytype<Diagnostic>(
+  diagnostics: Diagnostics<UnifyError<Diagnostic>>,
+  state: UnifyState,
+  actual: Polytype,
+  expected: Polytype
+): Result<Polytype, Reported<UnifyError<Diagnostic>>> {
+  // If either is bottom then return the other.
+  if (actual.description.kind === 'Bottom') return Ok(expected);
+  if (expected.description.kind === 'Bottom') return Ok(actual);
+
+  // Increment the level. We are about to create some type variables which will
+  // need to be generalized.
+  state.incrementLevel();
+
+  // Decrement the level. We are done creating type variables.
+  state.decrementLevel();
+}
+
+/**
+ * Merges the prefix of a polytype into state. Returns the unwrapped monotype or
+ * bottom if the provided polytype was the bottom type.
+ */
+function mergePrefix(state: UnifyState, type: Polytype): Monotype | undefined {
+  while (type.description.kind === 'Quantify') {
+    type = type.description.body;
+  }
+
+  if (type.description.kind === 'Bottom') return undefined;
+  return type as Monotype;
 }
 
 /**
@@ -167,7 +243,7 @@ function unifyVariableWithType<Diagnostic>(
   // If our type variable has a monomorphic bound then we unify the variable
   // bound and the type without updating our variable.
   if (Type.isMonotype(bound.type)) {
-    return unifyType(
+    return unifyMonotype(
       diagnostics,
       state,
       isVariableActual ? bound.type : type,
@@ -178,7 +254,7 @@ function unifyVariableWithType<Diagnostic>(
     const variableType = instantiate(state, bound.type);
 
     // Unify the variable’s monomorphic bound with our type.
-    const error = unifyType(
+    const error = unifyMonotype(
       diagnostics,
       state,
       isVariableActual ? variableType : type,
@@ -219,13 +295,13 @@ function unifyVariable<Diagnostic>(
   // If the actual bound is a monotype then let’s try unification again.
   if (Type.isMonotype(actualBound.type)) {
     const expectedType = Type.variable(expectedVariable);
-    return unifyType(diagnostics, state, actualBound.type, expectedType);
+    return unifyMonotype(diagnostics, state, actualBound.type, expectedType);
   }
 
   // If the expected bound is a monotype then let’s try unification again.
   if (Type.isMonotype(expectedBound.type)) {
     const actualType = Type.variable(actualVariable);
-    return unifyType(diagnostics, state, actualType, expectedBound.type);
+    return unifyMonotype(diagnostics, state, actualType, expectedBound.type);
   }
 
   // If actual is the bottom type then unify to expected.
@@ -247,7 +323,7 @@ function unifyVariable<Diagnostic>(
   const expectedType = instantiate(state, expectedBound.type);
 
   // Unify the actual and expected types.
-  const error = unifyType(diagnostics, state, actualType, expectedType);
+  const error = unifyMonotype(diagnostics, state, actualType, expectedType);
 
   // If unification was successful then unify both actual and expected to the
   // actual type. Since unification shows that the actual and expected types
@@ -297,37 +373,46 @@ function updateVariable<Diagnostic>(
  *
  * This function will never return a quantified polytype.
  */
-function instantiate(state: UnifyState, type: Polytype): Monotype {
-  if (type.description.kind !== 'Quantify') return type as Monotype; // Shortcut
+function instantiate(state: UnifyState, type: Polytype): Polytype {
+  if (Type.isMonotype(type)) return type;
   const substitutions = new BindingMap<string, Monotype>();
   return instantiatePolytype(type);
 
   // Decompose any quantified polytypes and add their bounds to our
   // `substitutions` map. Then recurse into the  resulting monotype to apply
   // the substitutions.
-  function instantiatePolytype(type: Polytype): Monotype {
-    // Decompose the quantified type by instantiating the bounds and creating
-    // fresh types for the instantiated bounds.
-    let pops = 0;
-    while (type.description.kind === 'Quantify') {
-      const {name, bound} = type.description;
-      const newType = state.newTypeWithBound({
-        kind: bound.kind,
-        type: instantiatePolytype(bound.type),
-      });
-      substitutions.push(name, newType);
-      pops++;
-      type = type.description.body;
+  function instantiatePolytype(type: Polytype): Polytype {
+    // If the type is a monotype then we instantiate and return.
+    if (Type.isMonotype(type)) {
+      return instantiateMonotype(type);
     }
 
-    // If we have some substitutions then instantiate the monotype before
-    // returning it.
-    const instantiatedType = instantiateMonotype(type as Monotype);
+    // Decompose the quantified type by instantiating the bounds and creating
+    // fresh types for the instantiated bounds.
+    if (type.description.kind === 'Quantify') {
+      let pops = 0;
+      while (type.description.kind === 'Quantify') {
+        const {name, bound} = type.description;
+        const newType = state.newTypeWithBound({
+          kind: bound.kind,
+          type: instantiatePolytype(bound.type),
+        });
+        substitutions.push(name, newType);
+        pops++;
+        type = type.description.body;
+      }
 
-    // Take all our quantified types out of the substitutions map.
-    for (let i = 0; i < pops; i++) substitutions.pop();
+      // If we have some substitutions then instantiate the monotype before
+      // returning it.
+      const instantiatedType = instantiateMonotype(type.description.body);
 
-    return instantiatedType;
+      // Take all our quantified types out of the substitutions map.
+      for (let i = 0; i < pops; i++) substitutions.pop();
+
+      return instantiatedType;
+    }
+
+    return type;
   }
 
   // Apply our `substitutions` map to a monotype. We aid our search with

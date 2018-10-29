@@ -235,10 +235,7 @@ export namespace Type {
   }
 
   export function quantifyUnbounded(name: string, body: Polytype): Polytype {
-    return {
-      _freeVariables: undefined,
-      description: {kind: 'Quantify', name, bound: unbounded, body},
-    };
+    return quantify(name, unbounded, body);
   }
 
   export const bottom: Polytype = {
