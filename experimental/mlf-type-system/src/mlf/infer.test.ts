@@ -17,13 +17,14 @@ const prelude = new Map<string, Type>(
 );
 
 const cases: ReadonlyArray<{
+  readonly only?: true;
   readonly expression: string;
   readonly type: string;
   readonly errors?: ReadonlyArray<string>;
 }> = [
   {
     expression: 'nope',
-    type: '∀x.x',
+    type: '⊥',
     errors: ['unbound variable "nope"'],
   },
   {
@@ -286,7 +287,6 @@ const cases: ReadonlyArray<{
     type: '∀$10.$10',
   },
   {
-    // TODO: UH OH
     expression: 'let id = λx.x in (id: ∀x.x → number)',
     type: '∀x.x → number',
   },
@@ -300,14 +300,69 @@ const cases: ReadonlyArray<{
     type: '∀x.x → string',
     errors: ['string ≢ number'],
   },
+  {
+    // only: true,
+    expression: 'auto succ',
+    type: '∀($2 = number, $1 = $2 → $2).$1',
+    errors: [''],
+  },
+  {
+    // only: true,
+    expression:
+      'let annotate = (undefined: ∀(a = ∀x.x → number, b ≥ ∀x.x → number).a → b) in annotate id',
+    type: '∀($12, $9 = $12 → number).$9',
+    errors: [''],
+  },
+  {
+    // only: true,
+    expression:
+      'let annotate = (undefined: ∀(a = ∀x.x → number, b ≥ ∀x.x → number).a → b) in let id = annotate id in succ (id true)',
+    type: '∀($22 = number).$22',
+    errors: [''],
+  },
+  {
+    expression: 'let id = λx.x in let _ = (id: ∀x.x → number) in id',
+    type: '∀$0.$0 → $0',
+    errors: [''],
+  },
+  {
+    // only: true,
+    expression: '(λx.x: ∀x.x → number)',
+    type: '∀x.x → number',
+    errors: [''],
+  },
+  {
+    // only: true,
+    expression: 'let id = (λx.x: ∀x.x → number) in succ (id true)',
+    type: '∀($9 = number).$9',
+    errors: [''],
+  },
+  {
+    // only: true,
+    expression: 'let id = (λx.true: ∀x.x → x) in succ (id 42)',
+    type: '∀($9 = number).$9',
+    errors: [''],
+  },
+  {
+    expression: 'let id = λx.x in succ (id true)',
+    type: '∀($5 = number).$5',
+    errors: ['number ≢ boolean'],
+  },
+  {
+    expression: 'let id = λx.x in let succ = λx.succ (id x) in succ true',
+    type: '∀($8 = number).$8',
+    errors: ['number ≢ boolean'],
+  },
 ];
 
 for (const {
+  only,
   expression: expressionSource,
   type: typeSource,
   errors: expectedErrors = [],
 } of cases) {
-  test(expressionSource, () => {
+  const defineTest = only ? test.only : test;
+  defineTest(expressionSource, () => {
     const expressionUntyped = parseExpression(expressionSource);
     const diagnostics = new Diagnostics<InferError<never>>();
     const expression = infer(diagnostics, prelude, expressionUntyped);
