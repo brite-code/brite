@@ -4,7 +4,7 @@ import {BindingMap} from '../utils/bindings';
 import {Ok, Result} from '../utils/result';
 
 import {Diagnostics, Reported} from './diagnostics';
-import {State} from './state';
+import {Prefix} from './prefix';
 import {Bound, Monotype, Polytype, Type} from './type';
 
 /**
@@ -15,14 +15,12 @@ import {Bound, Monotype, Polytype, Type} from './type';
  * > Definition 4.1.1 (Unification): A prefix `Q'` unifies `t1` and `t2` under
  * > `Q` if and only if `Q ⊑ Q'` and `(Q') t1 ≡ t2` hold.
  *
- * In our implementation, one can think of “state” as the prefix. So every
- * mutation to type variable state must maintain the invariant `Q ⊑ Q'`. In
- * practice, we mostly only mutate unbounded type variables in state. In our
+ * So every mutation to the prefix must maintain the invariant `Q ⊑ Q'`. In our
  * implementation an unbounded `a` type variable represent the theory for the
  * prefix entry `a ≥ ⊥`. According to the instance relation every polymorphic
  * type is an instance of bottom (`⊥`).
  *
- * As an optimization we also mutate type variables in state to an equivalent
+ * As an optimization we also mutate type variables in prefix to an equivalent
  * type when unification proves it is safe.
  *
  * So `Q ⊑ Q'` holds, but what about `(Q') t1 ≡ t2`? This one is interesting
@@ -63,11 +61,11 @@ import {Bound, Monotype, Polytype, Type} from './type';
  */
 export function unify<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  prefix: Prefix,
   actual: Monotype,
   expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
-  return unifyMonotype(diagnostics, state, actual, expected);
+  return unifyMonotype(diagnostics, prefix, actual, expected);
 }
 
 export type UnifyError<T> =
@@ -86,7 +84,7 @@ export type UnifyError<T> =
  */
 function unifyMonotype<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  prefix: Prefix,
   actual: Monotype,
   expected: Monotype
 ): Reported<UnifyError<Diagnostic>> | undefined {
@@ -106,9 +104,9 @@ function unifyMonotype<Diagnostic>(
   // unify with that type.
   let actualBound: Bound | undefined;
   if (actual.description.kind === 'Variable') {
-    actualBound = state.lookupType(actual.description.name).bound;
+    actualBound = prefix.lookup(actual.description.name).bound;
     if (actualBound.type.description.kind === 'Variable') {
-      return unify(diagnostics, state, actualBound.type as Monotype, expected);
+      return unify(diagnostics, prefix, actualBound.type as Monotype, expected);
     }
   }
 
@@ -116,32 +114,14 @@ function unifyMonotype<Diagnostic>(
   // unify with that type.
   let expectedBound: Bound | undefined;
   if (expected.description.kind === 'Variable') {
-    expectedBound = state.lookupType(expected.description.name).bound;
+    expectedBound = prefix.lookup(expected.description.name).bound;
     if (expectedBound.type.description.kind === 'Variable') {
-      return unify(diagnostics, state, actual, expectedBound.type as Monotype);
+      return unify(diagnostics, prefix, actual, expectedBound.type as Monotype);
     }
   }
 
   if (actualBound !== undefined && expectedBound !== undefined) {
   }
-
-  // if (
-  //   actual.description.kind === 'Variable' &&
-  //   expected.description.kind === 'Variable'
-  // ) {
-  //   return unifyVariable(
-  //     diagnostics,
-  //     state,
-  //     actual.description.name,
-  //     expected.description.name
-  //   );
-  // } else if (actual.description.kind === 'Variable') {
-  //   const variable = actual.description.name;
-  //   return unifyVariableWithType(diagnostics, state, expected, variable, true);
-  // } else if (expected.description.kind === 'Variable') {
-  //   const variable = expected.description.name;
-  //   return unifyVariableWithType(diagnostics, state, actual, variable, false);
-  // }
 
   // Matching constants unify.
   if (
@@ -164,13 +144,13 @@ function unifyMonotype<Diagnostic>(
     // parameter since the function parameter is contravariant.
     const diagnostic1 = unifyMonotype(
       diagnostics,
-      state,
+      prefix,
       expected.description.parameter,
       actual.description.parameter
     );
     const diagnostic2 = unifyMonotype(
       diagnostics,
-      state,
+      prefix,
       actual.description.body,
       expected.description.body
     );
@@ -191,7 +171,7 @@ function unifyMonotype<Diagnostic>(
  */
 function unifyPolytype<Diagnostic>(
   diagnostics: Diagnostics<UnifyError<Diagnostic>>,
-  state: State,
+  prefix: Prefix,
   actual: Polytype,
   expected: Polytype
 ): Result<Polytype, Reported<UnifyError<Diagnostic>>> {
@@ -201,17 +181,17 @@ function unifyPolytype<Diagnostic>(
 
   // Increment the level. We are about to create some type variables which will
   // need to be generalized.
-  state.incrementLevel();
+  prefix.incrementLevel();
 
   // Decrement the level. We are done creating type variables.
-  state.decrementLevel();
+  prefix.decrementLevel();
 }
 
 /**
- * Merges the prefix of a polytype into state. Returns the unwrapped monotype or
- * bottom if the provided polytype was the bottom type.
+ * Merges the prefix of a polytype into the global prefix. Returns the unwrapped
+ * monotype or bottom if the provided polytype was the bottom type.
  */
-function mergePrefix(state: State, type: Polytype): Monotype | undefined {
+function mergePrefix(prefix: Prefix, type: Polytype): Monotype | undefined {
   while (type.description.kind === 'Quantify') {
     type = type.description.body;
   }

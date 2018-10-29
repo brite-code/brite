@@ -4,7 +4,7 @@ import {Bound, Monotype, Polytype, Type} from './type';
  * State required to type-check a Brite application. Holds things like allocated
  * type variables.
  */
-export class State {
+export class Prefix {
   // The id for the type variable in our program.
   private nextType = 0;
 
@@ -38,7 +38,7 @@ export class State {
 
   /**
    * Decrements the level. Removes all variables allocated in this level from
-   * our state. Make sure you don’t need any of the variables before they
+   * our prefix. Make sure you don’t need any of the variables before they
    * are removed!
    */
   decrementLevel() {
@@ -51,26 +51,26 @@ export class State {
   }
 
   /**
-   * Allocates a fresh type variable in our state with no bound. When
-   * `State.decrementLevel()` is called this type will be deallocated.
+   * Allocates a fresh type variable in our prefix with no bound. When
+   * `Prefix.decrementLevel()` is called this type will be deallocated.
    *
    * The created type is guaranteed to have a unique name in our entire program
    * since the generated name starts with `$` which is not allowed in
    * user identifiers.
    */
-  newType(): Monotype {
-    return this.newTypeWithBound(Type.unbounded);
+  fresh(): Monotype {
+    return this.freshWithBound(Type.unbounded);
   }
 
   /**
-   * Allocates a type variable in our state with the provided bound. When
-   * `State.decrementLevel()` is called this type will be deallocated.
+   * Allocates a type variable in our prefix with the provided bound. When
+   * `Prefix.decrementLevel()` is called this type will be deallocated.
    *
    * The created type is guaranteed to have a unique name in our entire program
    * since the generated name starts with `$` which is not allowed in
    * user identifiers.
    */
-  newTypeWithBound(bound: Bound): Monotype {
+  freshWithBound(bound: Bound): Monotype {
     const name = `$${this.nextType++}`;
     this.typeVariables.set(name, {level: this.levels.length, bound});
     if (this.levels.length > 0) this.levels[this.levels.length - 1].add(name);
@@ -78,12 +78,12 @@ export class State {
   }
 
   /**
-   * Looks up a type variable in our state. The type variable must have come
-   * from `State.newType()` or `State.newTypeWithBound()` as to assure no
+   * Looks up a type variable in our prefix. The type variable must have come
+   * from `Prefix.fresh()` or `Prefix.freshWithBound()` as to assure no
    * scoping shenanigans are necessary since all type names are guaranteed to be
    * unique in the program.
    */
-  lookupType(name: string): {readonly level: number; readonly bound: Bound} {
+  lookup(name: string): {readonly level: number; readonly bound: Bound} {
     const entry = this.typeVariables.get(name);
     if (entry === undefined) {
       throw new Error(`Type variable not found: "${name}"`);
@@ -98,8 +98,8 @@ export class State {
    * We take care to maintain that relation in `unify()`. We don’t trust other
    * callers to take the same care.
    *
-   * Updates a type variable in our state. The type variable must have come
-   * from `State.newType()` or `State.newTypeWithBound()` as to assure no
+   * Updates a type variable in our prefix. The type variable must have come
+   * from `Prefix.fresh()` or `Prefix.freshWithBound()` as to assure no
    * scoping shenanigans are necessary since all type names are guaranteed to be
    * unique in the program.
    *
@@ -121,7 +121,7 @@ export class State {
    *
    * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
    */
-  updateTypeWithOccursCheck(name: string, bound: Bound): boolean {
+  updateWithOccursCheck(name: string, bound: Bound): boolean {
     const entry = this.typeVariables.get(name);
     if (entry === undefined) {
       throw new Error(`Type variable not found: "${name}"`);
@@ -144,7 +144,7 @@ export class State {
    * variables recursively.
    *
    * This operation saves type variables that are needed at the provided level
-   * from deallocation when `State.decrementLevel()` is called.
+   * from deallocation when `Prefix.decrementLevel()` is called.
    *
    * And yes, pun intended.
    */
@@ -173,8 +173,8 @@ export class State {
 
   /**
    * Recursively tests to see if the provided type or any of the type’s bounds
-   * in state contain the provided name. If so then it is not safe to update the
-   * provided name with the provided type.
+   * in prefix contain the provided name. If so then it is not safe to update
+   * the provided name with the provided type.
    */
   private occurs(testName: string, type: Polytype): boolean {
     // For all free type variables...
@@ -192,9 +192,8 @@ export class State {
   }
 
   /**
-   * Prints the state  type variable prefix to a display string using the
-   * standard syntax for types in academic literature. Particularly the [MLF][1]
-   * paper we implement.
+   * Prints the prefix to a display string using the standard syntax for types
+   * in academic literature. Particularly the [MLF][1] paper we implement.
    *
    * Brite programmers will not be familiar with this syntax. It is for
    * debugging purposes only.
@@ -220,7 +219,7 @@ export class State {
   }
 
   /**
-   * Are there no type variables in our unification state?
+   * Are there no type variables in our prefix?
    */
   isEmpty(): boolean {
     return this.typeVariables.size === 0;

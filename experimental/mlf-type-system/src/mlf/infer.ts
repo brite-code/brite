@@ -2,7 +2,7 @@ import {BindingMap} from '../utils/bindings';
 
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
-import {State} from './state';
+import {Prefix} from './prefix';
 import {Polytype, Type} from './type';
 import {UnifyError, unify} from './unify';
 
@@ -24,10 +24,10 @@ export function infer<Diagnostic>(
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   const scope = new BindingMap(variables);
-  const state = new State();
-  const result = inferExpression(diagnostics, scope, state, expression);
-  if (!state.isEmpty()) {
-    throw new Error('Not all type variables were cleaned up from state.');
+  const prefix = new Prefix();
+  const result = inferExpression(diagnostics, scope, prefix, expression);
+  if (!prefix.isEmpty()) {
+    throw new Error('Not all type variables were cleaned up from the prefix.');
   }
   return result;
 }
@@ -35,7 +35,7 @@ export function infer<Diagnostic>(
 function inferExpression<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
   scope: BindingMap<string, Type>,
-  state: State,
+  prefix: Prefix,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
@@ -54,7 +54,7 @@ function inferExpression<Diagnostic>(
         return inferExpression(
           diagnostics,
           scope,
-          state,
+          prefix,
           Expression.error(
             diagnostics.report({
               kind: 'UnboundVariable',
@@ -86,30 +86,30 @@ function inferExpression<Diagnostic>(
 
       // Increment the level. This is because we will generalize all dead type
       // variables at the end of type inference.
-      state.incrementLevel();
+      prefix.incrementLevel();
 
       // Introduce a new type variable for the function parameter. Through the
       // inference of our function body we should solve this to a proper type.
-      const parameterType = state.newType();
+      const parameterType = prefix.fresh();
 
       // Infer our function body type. Introducing the variable we just defined
       // into scope.
       scope.push(function_.parameter, parameterType);
-      const body = inferExpression(diagnostics, scope, state, function_.body);
+      const body = inferExpression(diagnostics, scope, prefix, function_.body);
       scope.pop();
 
       // If the type of our body is polymorphic then we need to quantify the
       // type of our function by our body type.
       const bodyType = Type.isMonotype(body.type)
         ? body.type
-        : state.newTypeWithBound(Type.flexibleBound(body.type));
+        : prefix.freshWithBound(Type.flexibleBound(body.type));
 
       // Generalize the function type. We must generalize before deallocating
       // all the type variables at this level.
-      const type = generalize(state, Type.function_(parameterType, bodyType));
+      const type = generalize(prefix, Type.function_(parameterType, bodyType));
 
       // Decrement the level after generalizing.
-      state.decrementLevel();
+      prefix.decrementLevel();
 
       return Expression.Typed.function_(type, function_.parameter, body);
     }
@@ -119,15 +119,15 @@ function inferExpression<Diagnostic>(
 
       // Increment the level. This is because we will generalize all dead type
       // variables at the end of type inference.
-      state.incrementLevel();
+      prefix.incrementLevel();
 
       // Infer the types for our callee and argument inside of our type
       // variable quantification.
-      const callee = inferExpression(diagnostics, scope, state, call.callee);
+      const callee = inferExpression(diagnostics, scope, prefix, call.callee);
       const argument = inferExpression(
         diagnostics,
         scope,
-        state,
+        prefix,
         call.argument
       );
 
@@ -135,33 +135,33 @@ function inferExpression<Diagnostic>(
       // polymorphic then we need to add a type variable to our prefix.
       const calleeType = Type.isMonotype(callee.type)
         ? callee.type
-        : state.newTypeWithBound(Type.flexibleBound(callee.type));
+        : prefix.freshWithBound(Type.flexibleBound(callee.type));
 
       // Convert the argument type to a monomorphic type. If the argument type
       // is polymorphic then we need to add a type variable to our prefix.
       const argumentType = Type.isMonotype(argument.type)
         ? argument.type
-        : state.newTypeWithBound(Type.flexibleBound(argument.type));
+        : prefix.freshWithBound(Type.flexibleBound(argument.type));
 
       // Create a fresh type variable for the body type. This type will be
       // solved during unification.
-      const bodyType = state.newType();
+      const bodyType = prefix.fresh();
 
       // Unify the type of the callee with the function type we expect. This
       // should solve any unknown type variables.
       const error = unify(
         diagnostics,
-        state,
+        prefix,
         calleeType,
         Type.function_(argumentType, bodyType)
       );
 
       // Generalize the body type and return it. We must generalize before
       // deallocating all the type variables at this level.
-      const type = generalize(state, bodyType);
+      const type = generalize(prefix, bodyType);
 
       // Decrement the level after generalizing.
-      state.decrementLevel();
+      prefix.decrementLevel();
 
       // If there was an error during unification then we need to return an
       // error expression which will fail at runtime instead of an
@@ -182,14 +182,19 @@ function inferExpression<Diagnostic>(
       const values = [];
       while (expression.description.kind === 'Binding') {
         const binding = expression.description;
-        const value = inferExpression(diagnostics, scope, state, binding.value);
+        const value = inferExpression(
+          diagnostics,
+          scope,
+          prefix,
+          binding.value
+        );
         scope.push(binding.name, value.type);
         values.push({name: binding.name, value});
         expression = binding.body;
       }
 
       // Infer the type of the body expression.
-      const body = inferExpression(diagnostics, scope, state, expression);
+      const body = inferExpression(diagnostics, scope, prefix, expression);
 
       // Remove all bindings from scope and rebuild a typed binding expression.
       // Note that our bindings will be popped in the reverse order to which
@@ -212,31 +217,31 @@ function inferExpression<Diagnostic>(
       const annotation = expression.description;
 
       // Increment the level before creating new type variables.
-      state.incrementLevel();
+      prefix.incrementLevel();
 
       // Infer the annotation expression.
       const value = inferExpression(
         diagnostics,
         scope,
-        state,
+        prefix,
         annotation.value
       );
 
       // Produce a monotype for the value type.
       const valueType = Type.isMonotype(value.type)
         ? value.type
-        : state.newTypeWithBound(Type.flexibleBound(value.type));
+        : prefix.freshWithBound(Type.flexibleBound(value.type));
 
       // Produce a monotype for the annotation type.
       const annotationType = Type.isMonotype(annotation.type)
         ? annotation.type
-        : state.newTypeWithBound(Type.rigidBound(annotation.type));
+        : prefix.freshWithBound(Type.rigidBound(annotation.type));
 
       // Unify the value and annotation types.
-      const error = unify(diagnostics, state, valueType, annotationType);
+      const error = unify(diagnostics, prefix, valueType, annotationType);
 
       // Decrement the level and destroy the type variables we created.
-      state.decrementLevel();
+      prefix.decrementLevel();
 
       // If unification was not a success then we return an error expression.
       // The error expression is still of the annotation type, however.
@@ -259,9 +264,9 @@ function inferExpression<Diagnostic>(
  * Turns type variables at a level larger then the current level into generic
  * quantified type bounds.
  */
-function generalize(state: State, type: Polytype): Polytype {
+function generalize(prefix: Prefix, type: Polytype): Polytype {
   const quantify = new Set<string>();
-  generalize(quantify, state, type);
+  generalize(quantify, prefix, type);
   // Quantify our type for every variable in the `quantify` set. The order of
   // the `quantify` set does matter! Since some type variables may have a
   // dependency on others.
@@ -271,24 +276,24 @@ function generalize(state: State, type: Polytype): Polytype {
     quantifyReverse[quantify.size - i++ - 1] = name;
   }
   for (const name of quantifyReverse) {
-    const {bound} = state.lookupType(name);
+    const {bound} = prefix.lookup(name);
     type = Type.quantify(name, bound, type);
   }
   return type;
 
   // Iterate over every free type variable and determine if we need to
   // quantify it.
-  function generalize(quantify: Set<string>, state: State, type: Polytype) {
+  function generalize(quantify: Set<string>, prefix: Prefix, type: Polytype) {
     for (const name of Type.getFreeVariables(type)) {
-      const {level, bound} = state.lookupType(name);
+      const {level, bound} = prefix.lookup(name);
       // If we have a type variable with a level greater than our current
       // level then we need to quantify that type variable.
-      if (level >= state.getLevel()) {
+      if (level >= prefix.getLevel()) {
         // If `quantify` already contains this type variable then we don’t
         // need to add it again.
         if (!quantify.has(name)) {
           // Generalize the dead type variables in our bound as well.
-          generalize(quantify, state, bound.type);
+          generalize(quantify, prefix, bound.type);
           // It is important that we add the name to `quantify` _after_ we
           // generalize the bound type. The order of variables in `quantify`
           // does matter.
