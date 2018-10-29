@@ -122,6 +122,9 @@ class Parser {
           if (this.tryParseGlyph(Glyph.Equals)) {
             const type = this.parsePolytype();
             return {name, bound: Type.rigidBound(type)};
+          } else if (this.tryParseGlyph(Glyph.LessThanOrEqual)) {
+            const type = this.parsePolytype();
+            return {name, bound: Type.flexibleBound(type)};
           } else {
             return {name, bound: Type.unbounded};
           }
@@ -247,6 +250,7 @@ const enum Glyph {
   Equals = '=',
   ForAll = '∀',
   Lambda = 'λ',
+  LessThanOrEqual = '≥',
   ParenLeft = '(',
   ParenRight = ')',
 
@@ -298,6 +302,8 @@ class Lexer {
         return {kind: 'Glyph', glyph: Glyph.ForAll};
       case 'λ':
         return {kind: 'Glyph', glyph: Glyph.Lambda};
+      case '≥':
+        return {kind: 'Glyph', glyph: Glyph.LessThanOrEqual};
       case '(':
         return {kind: 'Glyph', glyph: Glyph.ParenLeft};
       case ')':
