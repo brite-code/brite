@@ -66,6 +66,67 @@ export namespace Type {
   }
 
   /**
+   * Gets all the free type variables in the provided type. This function caches
+   * its results so that subsequent accesses are fast.
+   */
+  export function getFreeVariables(type: Polytype): Immutable.Set<string> {
+    // If the result is already cached on the type then return it. Otherwise we
+    // need to compute the free type variables.
+    if (type._freeVariables !== undefined) return type._freeVariables;
+
+    let freeVariables: Immutable.Set<string>;
+    switch (type.description.kind) {
+      case 'Quantify': {
+        const body = getFreeVariables(type.description.body);
+        if (body.has(type.description.name)) {
+          // Only add the free variables from the quantified type bound if the
+          // bound is actually used. Otherwise it doesn’t matter what’s free and
+          // what’s not in the bound.
+          const bound =
+            type.description.bound.type !== undefined
+              ? getFreeVariables(type.description.bound.type)
+              : Immutable.Set<string>();
+          freeVariables = body.delete(type.description.name).union(bound);
+        } else {
+          freeVariables = body;
+        }
+        break;
+      }
+
+      case 'Function': {
+        const parameter = getFreeVariables(type.description.parameter);
+        const body = getFreeVariables(type.description.body);
+        freeVariables = parameter.union(body);
+        break;
+      }
+
+      case 'Variable':
+        freeVariables = Immutable.Set([type.description.name]);
+        break;
+
+      case 'Boolean':
+      case 'Number':
+      case 'String':
+      case 'Bottom':
+        freeVariables = Immutable.Set();
+        break;
+
+      default:
+        const never: never = type.description;
+        freeVariables = never;
+        break;
+    }
+
+    // Cache the free variables we computed on our type so that if
+    // `getFreeVariables()` is ever called again we will have them ready.
+    //
+    // TODO: Measure if caching the result of this function actually causes a
+    // significant performance improvement.
+    type._freeVariables = freeVariables;
+    return freeVariables;
+  }
+
+  /**
    * Prints a type to a display string using the standard syntax for types in
    * academic literature. Particularly the [MLF][1] paper we implement.
    *
@@ -131,67 +192,6 @@ export namespace Type {
         const never: never = type.description;
         return never;
     }
-  }
-
-  /**
-   * Gets all the free type variables in the provided type. This function caches
-   * its results so that subsequent accesses are fast.
-   */
-  export function getFreeVariables(type: Polytype): Immutable.Set<string> {
-    // If the result is already cached on the type then return it. Otherwise we
-    // need to compute the free type variables.
-    if (type._freeVariables !== undefined) return type._freeVariables;
-
-    let freeVariables: Immutable.Set<string>;
-    switch (type.description.kind) {
-      case 'Quantify': {
-        const body = getFreeVariables(type.description.body);
-        if (body.has(type.description.name)) {
-          // Only add the free variables from the quantified type bound if the
-          // bound is actually used. Otherwise it doesn’t matter what’s free and
-          // what’s not in the bound.
-          const bound =
-            type.description.bound.type !== undefined
-              ? getFreeVariables(type.description.bound.type)
-              : Immutable.Set<string>();
-          freeVariables = body.delete(type.description.name).union(bound);
-        } else {
-          freeVariables = body;
-        }
-        break;
-      }
-
-      case 'Function': {
-        const parameter = getFreeVariables(type.description.parameter);
-        const body = getFreeVariables(type.description.body);
-        freeVariables = parameter.union(body);
-        break;
-      }
-
-      case 'Variable':
-        freeVariables = Immutable.Set([type.description.name]);
-        break;
-
-      case 'Boolean':
-      case 'Number':
-      case 'String':
-      case 'Bottom':
-        freeVariables = Immutable.Set();
-        break;
-
-      default:
-        const never: never = type.description;
-        freeVariables = never;
-        break;
-    }
-
-    // Cache the free variables we computed on our type so that if
-    // `getFreeVariables()` is ever called again we will have them ready.
-    //
-    // TODO: Measure if caching the result of this function actually causes a
-    // significant performance improvement.
-    type._freeVariables = freeVariables;
-    return freeVariables;
   }
 
   export function variable(name: string): Monotype {
