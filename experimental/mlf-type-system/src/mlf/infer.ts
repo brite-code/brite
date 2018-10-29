@@ -1,8 +1,10 @@
-import {BindingMap} from './bindings';
+import {BindingMap} from '../utils/bindings';
+
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
+import {State} from './state';
 import {Polytype, Type} from './type';
-import {UnifyError, UnifyState, unify} from './type/unify';
+import {UnifyError, unify} from './unify';
 
 export type InferError<T> =
   | UnifyError<T>
@@ -22,7 +24,7 @@ export function infer<Diagnostic>(
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   const scope = new BindingMap(variables);
-  const state = new UnifyState();
+  const state = new State();
   const result = inferExpression(diagnostics, scope, state, expression);
   if (!state.isEmpty()) {
     throw new Error('Not all type variables were cleaned up from state.');
@@ -33,7 +35,7 @@ export function infer<Diagnostic>(
 function inferExpression<Diagnostic>(
   diagnostics: Diagnostics<InferError<Diagnostic>>,
   scope: BindingMap<string, Type>,
-  state: UnifyState,
+  state: State,
   expression: Expression<Diagnostic>
 ): Expression<InferError<Diagnostic>, Type> {
   switch (expression.description.kind) {
@@ -257,7 +259,7 @@ function inferExpression<Diagnostic>(
  * Turns type variables at a level larger then the current level into generic
  * quantified type bounds.
  */
-function generalize(state: UnifyState, type: Polytype): Polytype {
+function generalize(state: State, type: Polytype): Polytype {
   const quantify = new Set<string>();
   generalize(quantify, state, type);
   // Quantify our type for every variable in the `quantify` set. The order of
@@ -276,11 +278,7 @@ function generalize(state: UnifyState, type: Polytype): Polytype {
 
   // Iterate over every free type variable and determine if we need to
   // quantify it.
-  function generalize(
-    quantify: Set<string>,
-    state: UnifyState,
-    type: Polytype
-  ) {
+  function generalize(quantify: Set<string>, state: State, type: Polytype) {
     for (const name of Type.getFreeVariables(type)) {
       const {level, bound} = state.lookupType(name);
       // If we have a type variable with a level greater than our current
