@@ -2,15 +2,17 @@ import {BindingMap} from '../utils/bindings';
 
 import {Diagnostics} from './diagnostics';
 import {Expression} from './expression';
-import {Prefix} from './prefix';
-import {Polytype, Type} from './type';
+import {generalize} from './generalize';
+import {Prefix, PrefixError} from './prefix';
+import {Type} from './type';
 import {UnifyError, unify} from './unify';
 
-export type InferError<T> =
-  | UnifyError<T>
+export type InferError =
+  | PrefixError
+  | UnifyError
   | {
       readonly kind: 'UnboundVariable';
-      readonly identifier: string;
+      readonly name: string;
     };
 
 /**
@@ -19,10 +21,10 @@ export type InferError<T> =
  * at runtime.
  */
 export function infer<Diagnostic>(
-  diagnostics: Diagnostics<InferError<Diagnostic>>,
+  diagnostics: Diagnostics<InferError | Diagnostic>,
   variables: Iterable<[string, Type]>,
   expression: Expression<Diagnostic>
-): Expression<InferError<Diagnostic>, Type> {
+): Expression<InferError | Diagnostic, Type> {
   const scope = new BindingMap(variables);
   const prefix = new Prefix();
   const result = inferExpression(diagnostics, scope, prefix, expression);
@@ -33,21 +35,21 @@ export function infer<Diagnostic>(
 }
 
 function inferExpression<Diagnostic>(
-  diagnostics: Diagnostics<InferError<Diagnostic>>,
+  diagnostics: Diagnostics<InferError | Diagnostic>,
   scope: BindingMap<string, Type>,
   prefix: Prefix,
   expression: Expression<Diagnostic>
-): Expression<InferError<Diagnostic>, Type> {
+): Expression<InferError | Diagnostic, Type> {
   switch (expression.description.kind) {
     // A variable references some value in the current context. The
     // variable’s type is that value’s type. If no such value exists then we
     // report an unbound variable.
     case 'Variable': {
       const variable = expression.description;
-      const identifier = variable.name;
-      const type = scope.get(identifier);
+      const name = variable.name;
+      const type = scope.get(name);
       if (type !== undefined) {
-        return Expression.Typed.variable(type, identifier);
+        return Expression.Typed.variable(type, name);
       } else {
         // Handle the error case by calling `inferExpression()` again so we
         // don’t duplicate logic.
@@ -55,12 +57,7 @@ function inferExpression<Diagnostic>(
           diagnostics,
           scope,
           prefix,
-          Expression.error(
-            diagnostics.report({
-              kind: 'UnboundVariable',
-              identifier,
-            })
-          )
+          Expression.error(diagnostics.report({kind: 'UnboundVariable', name}))
         );
       }
     }
@@ -90,7 +87,7 @@ function inferExpression<Diagnostic>(
 
       // Introduce a new type variable for the function parameter. Through the
       // inference of our function body we should solve this to a proper type.
-      const parameterType = prefix.fresh();
+      const parameterType = Type.variable(prefix.fresh());
 
       // Infer our function body type. Introducing the variable we just defined
       // into scope.
@@ -102,7 +99,7 @@ function inferExpression<Diagnostic>(
       // type of our function by our body type.
       const bodyType = Type.isMonotype(body.type)
         ? body.type
-        : prefix.freshWithBound(Type.flexibleBound(body.type));
+        : Type.variable(prefix.freshWithBound(Type.flexibleBound(body.type)));
 
       // Generalize the function type. We must generalize before deallocating
       // all the type variables at this level.
@@ -135,17 +132,19 @@ function inferExpression<Diagnostic>(
       // polymorphic then we need to add a type variable to our prefix.
       const calleeType = Type.isMonotype(callee.type)
         ? callee.type
-        : prefix.freshWithBound(Type.flexibleBound(callee.type));
+        : Type.variable(prefix.freshWithBound(Type.flexibleBound(callee.type)));
 
       // Convert the argument type to a monomorphic type. If the argument type
       // is polymorphic then we need to add a type variable to our prefix.
       const argumentType = Type.isMonotype(argument.type)
         ? argument.type
-        : prefix.freshWithBound(Type.flexibleBound(argument.type));
+        : Type.variable(
+            prefix.freshWithBound(Type.flexibleBound(argument.type))
+          );
 
       // Create a fresh type variable for the body type. This type will be
       // solved during unification.
-      const bodyType = prefix.fresh();
+      const bodyType = Type.variable(prefix.fresh());
 
       // Unify the type of the callee with the function type we expect. This
       // should solve any unknown type variables.
@@ -230,12 +229,14 @@ function inferExpression<Diagnostic>(
       // Produce a monotype for the value type.
       const valueType = Type.isMonotype(value.type)
         ? value.type
-        : prefix.freshWithBound(Type.flexibleBound(value.type));
+        : Type.variable(prefix.freshWithBound(Type.flexibleBound(value.type)));
 
       // Produce a monotype for the annotation type.
       const annotationType = Type.isMonotype(annotation.type)
         ? annotation.type
-        : prefix.freshWithBound(Type.rigidBound(annotation.type));
+        : Type.variable(
+            prefix.freshWithBound(Type.rigidBound(annotation.type))
+          );
 
       // Unify the value and annotation types.
       const error = unify(diagnostics, prefix, valueType, annotationType);
@@ -257,49 +258,5 @@ function inferExpression<Diagnostic>(
     default:
       const never: never = expression.description;
       return never;
-  }
-}
-
-/**
- * Turns type variables at a level larger then the current level into generic
- * quantified type bounds.
- */
-function generalize(prefix: Prefix, type: Polytype): Polytype {
-  const quantify = new Set<string>();
-  generalize(quantify, prefix, type);
-  // Quantify our type for every variable in the `quantify` set. The order of
-  // the `quantify` set does matter! Since some type variables may have a
-  // dependency on others.
-  const quantifyReverse = Array(quantify.size);
-  let i = 0;
-  for (const name of quantify) {
-    quantifyReverse[quantify.size - i++ - 1] = name;
-  }
-  for (const name of quantifyReverse) {
-    const {bound} = prefix.lookup(name);
-    type = Type.quantify(name, bound, type);
-  }
-  return type;
-
-  // Iterate over every free type variable and determine if we need to
-  // quantify it.
-  function generalize(quantify: Set<string>, prefix: Prefix, type: Polytype) {
-    for (const name of Type.getFreeVariables(type)) {
-      const {level, bound} = prefix.lookup(name);
-      // If we have a type variable with a level greater than our current
-      // level then we need to quantify that type variable.
-      if (level >= prefix.getLevel()) {
-        // If `quantify` already contains this type variable then we don’t
-        // need to add it again.
-        if (!quantify.has(name)) {
-          // Generalize the dead type variables in our bound as well.
-          generalize(quantify, prefix, bound.type);
-          // It is important that we add the name to `quantify` _after_ we
-          // generalize the bound type. The order of variables in `quantify`
-          // does matter.
-          quantify.add(name);
-        }
-      }
-    }
   }
 }

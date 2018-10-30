@@ -98,4 +98,26 @@ export class BindingMap<K, V> {
   distinctKeys(): IterableIterator<K> {
     return this.bindings.keys();
   }
+
+  /**
+   * Returns an iterator of all the distinct entries in the map. No order is
+   * guaranteed. Even if a key has multiple values we will only return the
+   * latest value in the iterator.
+   */
+  distinctEntries(): IterableIterator<[K, V]> {
+    const entries = this.bindings.entries();
+    const iterator: IterableIterator<[K, V]> = {
+      [Symbol.iterator]: () => iterator,
+      next: () => {
+        const entry = entries.next();
+        if (entry.done === true) {
+          return {done: true, value: undefined as never};
+        }
+        const value = entry.value[1][entry.value[1].length - 1];
+        const newEntry: [K, V] = [entry.value[0], value];
+        return {done: false, value: newEntry};
+      },
+    };
+    return iterator;
+  }
 }

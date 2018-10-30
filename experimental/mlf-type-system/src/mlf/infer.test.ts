@@ -28,6 +28,7 @@ const cases: ReadonlyArray<{
     errors: ['unbound variable "nope"'],
   },
   {
+    only: true,
     expression: 'succ 42',
     type: '∀($0 = number).$0',
   },
@@ -99,7 +100,20 @@ const cases: ReadonlyArray<{
   },
   {
     expression: 'λx.choose id x',
-    type: '∀($7, $0 = $7 → $7, $11 ≥ ∀($6 = $7 → $7).$6).$0 → $11',
+    type: '∀($0 = ∀x.x → x, $6 ≥ ∀($5 = $0).$5).$0 → $6',
+  },
+  {
+    expression: '(λx.choose id x) succ',
+    type: '∀($0 = ∀x.x → x, $6 = ∀($5 = $0).$5, $8 = $6).$8',
+    errors: ['invalid type update: old = ∀x.x → x, new = number → number'],
+  },
+  {
+    expression: '(λx.choose x id) succ',
+    type: '∀($0 = ⊥, $6 = ∀($5 = $0).$5, $8 = $6).$8',
+    errors: [
+      'invalid type update: old = ⊥, new = $4',
+      'invalid type update: old = ⊥, new = number → number',
+    ],
   },
   {
     expression: 'λx.let _ = choose x id in x',
@@ -235,6 +249,14 @@ const cases: ReadonlyArray<{
     type: '∀($11, $7 = $11, $6 = $7 → $7).$6',
   },
   {
+    expression: 'choose id',
+    type: '∀($6 = number, $5 = $6 → $6).$5',
+  },
+  {
+    expression: 'choose succ',
+    type: '∀($6 = number, $5 = $6 → $6).$5',
+  },
+  {
     expression: 'choose id succ',
     type: '∀($6 = number, $5 = $6 → $6).$5',
   },
@@ -353,6 +375,12 @@ const cases: ReadonlyArray<{
     type: '∀($8 = number).$8',
     errors: ['number ≢ boolean'],
   },
+  {
+    expression:
+      'choose (undefined: ∀(x ≥ ∀(a ≥ ⊥, b = ⊥).a → b).x → x) (undefined: ∀(x ≥ ∀(a = ⊥, b ≥ ⊥).a → b).x → x)',
+    type: '',
+    errors: [''],
+  },
 ];
 
 for (const {
@@ -364,7 +392,7 @@ for (const {
   const defineTest = only ? test.only : test;
   defineTest(expressionSource, () => {
     const expressionUntyped = parseExpression(expressionSource);
-    const diagnostics = new Diagnostics<InferError<never>>();
+    const diagnostics = new Diagnostics<InferError>();
     const expression = infer(diagnostics, prelude, expressionUntyped);
     expect(Type.toDisplayString(expression.type)).toEqual(typeSource);
     expect([...Type.getFreeVariables(expression.type)]).toEqual([]);
@@ -372,10 +400,13 @@ for (const {
   });
 }
 
-function toTestString(error: InferError<never>): string {
+function toTestString(error: InferError): string {
   switch (error.kind) {
     case 'UnboundVariable':
-      return `unbound variable "${error.identifier}"`;
+      return `unbound variable "${error.name}"`;
+
+    case 'UnboundTypeVariable':
+      return `unbound variable "${error.name}"`;
 
     case 'IncompatibleTypes': {
       const expected = Type.toDisplayString(error.expected);
@@ -385,6 +416,12 @@ function toTestString(error: InferError<never>): string {
 
     case 'InfiniteType':
       return 'infinite type';
+
+    case 'InvalidTypeUpdate': {
+      const old = Type.toDisplayString(error.old);
+      const new_ = Type.toDisplayString(error.new);
+      return `invalid type update: old = ${old}, new = ${new_}`;
+    }
 
     default:
       const never: never = error;
