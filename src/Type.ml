@@ -17,8 +17,8 @@ type bound = {
   bound_type: polytype;
 }
 
-(* Polytypes are always in normal form since they may only be constructed in
- * this module. *)
+(* Polytypes are always in normal form. This means you will lose some fidelity
+ * with source code when constructing polytypes. *)
 and polytype = {
   polytype_free_variables: StringSet.t Lazy.t;
   polytype_description: polytype_description;
@@ -77,11 +77,22 @@ let function_ parameter body =
   }
 
 (* Converts a monotype into a polytype. *)
-let to_polytype t =
-  {
-    polytype_free_variables = t.monotype_free_variables;
-    polytype_description = Monotype t;
-  }
+let to_polytype =
+  (* Allocate a constant boolean, number, and string so we don’t have to
+   * allocate a new one each time. *)
+  let boolean = { polytype_description = Monotype boolean; polytype_free_variables = boolean.monotype_free_variables } in
+  let number = { polytype_description = Monotype number; polytype_free_variables = number.monotype_free_variables } in
+  let string = { polytype_description = Monotype string; polytype_free_variables = string.monotype_free_variables } in
+  fun t ->
+    match t.monotype_description with
+    | Boolean -> boolean
+    | Number -> number
+    | String -> string
+    | _ ->
+      {
+        polytype_free_variables = t.monotype_free_variables;
+        polytype_description = Monotype t;
+      }
 
 (* Bottom polytype. *)
 let bottom =
@@ -95,11 +106,6 @@ let bound kind type_ = { bound_kind = kind; bound_type = type_ }
 
 (* A flexible bottom bound. *)
 let unbound = bound Flexible bottom
-
-(* Polytype versions of boolean, number, and string. *)
-let boolean_polytype = to_polytype boolean
-let number_polytype = to_polytype number
-let string_polytype = to_polytype string
 
 (* Determines if a type needs some substitutions by looking at the types free
  * variables. If a substitution exists for any free variable then the type does
@@ -190,8 +196,8 @@ let rec substitute_polytype substitutions t =
       polytype_description = Quantify { bounds; body };
     }
 
-(* Quantifies a monotype by some bounds. Also converts the types and its bounds
- * into normal form. Which involves:
+(* Quantifies a polytype with some bounds. Also converts the types and its
+ * bounds into normal form. Which involves:
  *
  * 1. Inlining immediate variable bodies. e.g. `nf(∀(a ◇ o).a) = o`.
  * 2. Inlining monotype bounds. e.g. `nf(∀(a ◇ int).a → a) = int → int`.
@@ -204,12 +210,23 @@ let quantify =
    * necessary. This function is not tail-recursive! *)
   let rec loop clear substitutions bounds body =
     match bounds with
-    (* If we have no more bounds then use our monotype substitutions map on our
-     * body. Then return our body along with its free variables. *)
-    | [] ->
-      let body = match substitute_monotype substitutions body with Some t -> t | None -> body in
-      let free = Lazy.force body.monotype_free_variables in
-      Some ([], body, free)
+    (* If we have no more new bounds then substitute our body and return the
+     * components for our new polytype. *)
+    | [] -> (
+      let body = match substitute_polytype substitutions body with Some t -> t | None -> body in
+      let free = Lazy.force body.polytype_free_variables in
+      match body.polytype_description with
+      (* If the bound is bottom then return nothing. Bottom has no bounds or
+       * free variables. *)
+      | Bottom -> None
+      (* If the bound is a monotype then inline it into the body. *)
+      | Monotype body -> Some ([], body, free)
+      (* If the bound is a quantification then we assume the quantification is
+       * already in normal form. We set our bounds list to the bounds of our
+       * quantification. We will from now on append to the beginning of
+       * this list. *)
+      | Quantify { bounds; body } -> Some (bounds, body, free)
+    )
 
     (* When we inline a monotype bound we add all of its type variables to a
      * “clear” set. This way those type variables can’t be shadowed and given a
@@ -245,24 +262,10 @@ let quantify =
       (* Propagate none which is equivalent to bottom... *)
       | None -> None
 
-      (* If this is the last bound _and_ the body is a variable which reference
-       * our bound then we want to inline the bound as the body. *)
-      | Some ([], { monotype_description = Variable { name = name' } }, _) when name = name' -> (
-        (* Lazily remember to substitute the bound... *)
-        let bound_type = bound.bound_type in
-        let bound_type = match substitute_polytype substitutions bound_type with Some t -> t | None -> bound_type in
-        match bound_type.polytype_description with
-        (* If the bound is bottom then return nothing. Bottom has no bounds or
-         * free variables. *)
-        | Bottom -> None
-        (* If the bound is a monotype then inline it into the body. *)
-        | Monotype body -> Some ([], body, Lazy.force body.monotype_free_variables)
-        (* If the bound is a quantification then we assume the quantification is
-         * already in normal form. We set our bounds list to the bounds of our
-         * quantification. We will from now on append to the beginning of
-         * this list. *)
-        | Quantify { bounds; body } -> Some (bounds, body, Lazy.force bound_type.polytype_free_variables)
-      )
+      (* If this is the last bound _and_ the body is a variable which references
+       * our bound then we want to inline the bound as our body. *)
+      | Some ([], { monotype_description = Variable { name = name' } }, _) when name = name' ->
+        loop clear substitutions [] bound.bound_type
 
       (* Otherwise we want to add our bound and its type variables to the bounds
        * list if it exists in the free type variables up to this point.
@@ -296,6 +299,7 @@ let quantify =
    * not have any bounds then return the body type alone, or otherwise construct
    * the quantified polytype. *)
   fun bounds body ->
+    if bounds = [] then body else
     match loop StringSet.empty StringMap.empty bounds body with
     | None -> bottom
     | Some ([], body, _) -> to_polytype body

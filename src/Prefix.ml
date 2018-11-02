@@ -153,7 +153,7 @@ let generalize prefix t =
   (* Visit all the free variables in this type. *)
   StringSet.iter visit (Lazy.force t.Type.monotype_free_variables);
   (* Quantify the type by the list of bounds we collected. *)
-  Type.quantify (List.rev !bounds) t
+  Type.quantify (List.rev !bounds) (Type.to_polytype t)
 
 exception Occurs
 

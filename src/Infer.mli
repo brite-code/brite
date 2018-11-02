@@ -1,1 +1,1 @@
-val infer: Prefix.t -> Type.polytype StringMap.t -> Expression.t -> Type.polytype
+val infer: Prefix.t -> Type.polytype StringMap.t -> Ast.expression -> Type.polytype

@@ -36,9 +36,6 @@ val to_polytype: monotype -> polytype
 val bottom: polytype
 val bound: bound_kind -> polytype -> bound
 val unbound: bound
-val boolean_polytype: polytype
-val number_polytype: polytype
-val string_polytype: polytype
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
-val quantify: (string * bound) list -> monotype -> polytype
+val quantify: (string * bound) list -> polytype -> polytype
