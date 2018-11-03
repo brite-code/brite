@@ -1,7 +1,13 @@
-.PHONY: clean
+.PHONY: clean test
 
 clean:
 	ocamlbuild -clean
 
-%.native:
+test: test/Test.native
+	./Test.native
+
+src/%.native:
 	ocamlbuild $@
+
+test/%.native:
+	ocamlbuild -I src $@
