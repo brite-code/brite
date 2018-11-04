@@ -12,12 +12,13 @@ let assert_equal a b =
   if a <> b then raise (Assert_equal_failure (a, b))
 
 let test name f =
+  flush stdout;
   let result = try (
     f ();
     Ok ()
   ) with
   | Failure reason -> Error (Printf.sprintf "Failure(%S)" reason)
-  | Assert_equal_failure (a, b) -> Error (Printf.sprintf "%s ≠ %s" a b)
+  | Assert_equal_failure (a, b) -> Error (Printf.sprintf "%s \027[90m≠\027[39m %s" a b)
   in
   let (mark, failure_reason) = match result with
   | Ok () -> (success_mark, "")

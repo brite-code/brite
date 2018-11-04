@@ -39,3 +39,5 @@ val unbound: bound
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
 val quantify: (string * bound) list -> polytype -> polytype
+val convert_monotype_ast: Ast.monotype -> monotype
+val convert_polytype_ast: Ast.polytype -> polytype

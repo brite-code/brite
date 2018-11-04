@@ -125,9 +125,11 @@ let parse_identifier tokens =
 let parse_non_empty_comma_list tokens parse_item =
   let rec loop () =
     let item = parse_item tokens in
-    match Stream.peek tokens with
-    | Some (Glyph Comma) -> Stream.junk tokens; item :: loop ()
+    let list = match Stream.peek tokens with
+    | Some (Glyph Comma) -> Stream.junk tokens; loop ()
     | _ -> []
+    in
+    item :: list
   in
   loop ()
 

@@ -308,3 +308,32 @@ let quantify =
         polytype_free_variables = lazy free;
         polytype_description = Quantify { bounds; body };
       }
+
+(* Converts the monotype AST into a proper monotype. The resulting type is also
+ * in normal form. *)
+let rec convert_monotype_ast t =
+  match t.Ast.monotype_description with
+  | Variable { name } -> variable name
+  | Boolean -> boolean
+  | Number -> number
+  | String -> string
+  | Function { parameter; body } ->
+    function_ (convert_monotype_ast parameter) (convert_monotype_ast body)
+
+(* Converts the polytype AST into a proper polytype. The resulting type is also
+ * in normal form. *)
+let rec convert_polytype_ast t =
+  match t.Ast.polytype_description with
+  | Monotype t -> to_polytype (convert_monotype_ast t)
+  | Bottom -> bottom
+  | Quantify { bounds; body } ->
+    let bounds = List.map (fun (name, bound) -> (
+      let bound_kind = match bound.Ast.bound_kind with
+      | Flexible -> Flexible
+      | Rigid -> Rigid
+      in
+      let bound_type = convert_polytype_ast bound.bound_type in
+      (name, { bound_kind; bound_type })
+    )) bounds in
+    let body = to_polytype (convert_monotype_ast body) in
+    quantify bounds body

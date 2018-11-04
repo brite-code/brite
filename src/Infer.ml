@@ -1,32 +1,7 @@
-(* Converts the monotype AST into a proper monotype. Emits diagnostics while
- * doing so. For example when a variable name is not found. The resulting type
- * is also converted to normal form. *)
-let rec convert_monotype t =
-  match t.Ast.monotype_description with
-  | Variable { name } -> Type.variable name
-  | Boolean -> Type.boolean
-  | Number -> Type.number
-  | String -> Type.string
-  | Function { parameter; body } ->
-    Type.function_ (convert_monotype parameter) (convert_monotype body)
-
-(* Converts the polytype AST into a proper polytype. Emits diagnostics while
- * doing so. For example when a variable name is not found. The resulting type
- * is also converted to normal form. *)
-let rec convert_polytype t =
-  let t = match t.Ast.polytype_description with
-  | Monotype t -> Type.to_polytype (convert_monotype t)
-  | Bottom -> Type.bottom
-  | Quantify { bounds; body } ->
-    let bounds = List.map (fun (name, bound) -> (
-      let bound_kind = match bound.Ast.bound_kind with
-      | Flexible -> Type.Flexible
-      | Rigid -> Type.Rigid
-      in
-      (name, Type.bound bound_kind (convert_polytype bound.bound_type))
-    )) bounds in
-    Type.quantify bounds (Type.to_polytype (convert_monotype body))
-  in
+(* Converts the polytype AST into a proper polytype. Emits diagnostics for
+ * things like unbound type variables. *)
+let rec convert t =
+  let t = Type.convert_polytype_ast t in
   (* We need to report an error for missing bounds! To proceed with type
    * checking we quantify our type locally with bounds for the missing
    * type variables.
@@ -120,7 +95,7 @@ let rec infer prefix context expression =
    * would be bad. We need to error. *)
   | Annotation { value; type_ } ->
     let value_type = infer prefix context value in
-    let type_ = convert_polytype type_ in
+    let type_ = convert type_ in
     Prefix.level prefix (fun () -> (
       let value_type = Prefix.fresh_with_bound prefix (Type.bound Flexible value_type) in
       let type_' = Prefix.fresh_with_bound prefix (Type.bound Rigid type_) in
