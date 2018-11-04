@@ -18,7 +18,10 @@ let test name f =
     Ok ()
   ) with
   | Failure reason -> Error (Printf.sprintf "Failure(%S)" reason)
+  | Invalid_argument reason -> Error (Printf.sprintf "Invalid_argument(%S)" reason)
+  | Assert_failure (file, line, col) -> Error (Printf.sprintf "Assert_failure(%S, %i, %i)" file line col)
   | Assert_equal_failure (a, b) -> Error (Printf.sprintf "%s \027[90m≠\027[39m %s" a b)
+  | Stream.Error reason -> Error (Printf.sprintf "Stream.Error(%S)" reason)
   in
   let (mark, failure_reason) = match result with
   | Ok () -> (success_mark, "")

@@ -22,12 +22,35 @@ let rec print_polytype t =
 
   | Quantify { bounds; body } ->
     let body = print_monotype body in
-    let bounds = List.map (fun ((name, bound): (string * Type.bound)) ->
-      match bound with
-      | { bound_kind = Flexible; bound_type = { polytype_description = Bottom; _ } } -> name
-      | { bound_kind; bound_type } ->
-        let bound_kind = match bound_kind with Flexible -> "≥" | Rigid -> "=" in
-        let bound_type = print_polytype bound_type in
-        Printf.sprintf "%s %s %s" name bound_kind bound_type
-    ) bounds in
+    let bounds = List.map print_bound bounds in
     Printf.sprintf "∀(%s).%s" (String.concat ", " bounds) body
+
+and print_bound (name, bound) =
+  match bound with
+  | { Type.bound_kind = Flexible; bound_type = { polytype_description = Bottom; _ } } -> name
+  | { bound_kind; bound_type } ->
+    let bound_kind = match bound_kind with Flexible -> "≥" | Rigid -> "=" in
+    let bound_type = print_polytype bound_type in
+    Printf.sprintf "%s %s %s" name bound_kind bound_type
+
+let print_prefix prefix =
+  match List.map print_bound (Prefix.bounds prefix) with
+  | [] -> "(∅)"
+  | bounds -> Printf.sprintf "(%s)" (String.concat ", " bounds)
+
+let print_diagnostic diagnostic =
+  match diagnostic with
+  | Diagnostic.Error error -> (
+    match error with
+    | UnboundVariable { name } ->
+      Printf.sprintf "Unbound variable `%s`." name
+
+    | UnboundTypeVariable { name } ->
+      Printf.sprintf "Unbound variable `%s`." name
+
+    | IncompatibleTypes { actual; expected } ->
+      Printf.sprintf "%s ≢ %s" (print_polytype actual) (print_polytype expected)
+
+    | InfiniteType { name; type_ } ->
+      Printf.sprintf "Infinite type since `%s` occurs in `%s`." name (print_polytype type_)
+  )

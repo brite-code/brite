@@ -10,3 +10,4 @@ val instantiate: t -> (string * Type.bound) list -> Type.monotype -> Type.monoty
 val generalize: t -> Type.monotype -> Type.polytype
 val update: t -> string -> Type.bound -> (unit, Diagnostic.t) result
 val update2: t -> string -> string -> Type.bound -> (unit, Diagnostic.t) result
+val bounds: t -> (string * Type.bound) list

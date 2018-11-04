@@ -31,7 +31,7 @@ let level prefix f =
   let index = match prefix.levels with [] -> 0 | level :: _ -> level.index + 1 in
   prefix.levels <- { index; names = Hashtbl.create 50 } :: prefix.levels;
   (* Execute our function with the new level. *)
-  let result = f () in
+  let result = try Ok (f ()) with e -> Error e in
   (* Remove the new level from the prefix. *)
   let level = List.hd prefix.levels in
   prefix.levels <- List.tl prefix.levels;
@@ -43,14 +43,26 @@ let level prefix f =
     failwith "Expected all type variables to be cleaned up."
   );
   (* Return the result from executing our function. *)
-  result
+  match result with
+  | Ok result -> result
+  | Error error -> raise error
 
 (* Private function for adding a type variable to the current level. If there is
  * no current level then we panic. *)
 let add_to_level prefix name bound =
+  (* Panic if we are not in a level or if a type variable with the same name
+   * already exists in the prefix. *)
   if prefix.levels = [] then failwith "Type variable must be added to the prefix in a level.";
+  if Hashtbl.mem prefix.entries name then failwith "Type variable with the same name already exists in the prefix.";
+  (* Check to make sure that every free type variable has a corresponding entry
+   * in the prefix. *)
+  StringSet.iter
+    (fun name -> ignore (Hashtbl.find prefix.entries name))
+    (Lazy.force bound.Type.bound_type.polytype_free_variables);
+  (* Add the type variable to the current level. *)
   let level = List.hd prefix.levels in
   Hashtbl.add level.names name ();
+  (* Add the type variable to the prefix. *)
   Hashtbl.add prefix.entries name { level; bound }
 
 (* IMPORTANT: It is expected that all free type variables are bound in the
@@ -59,13 +71,16 @@ let add_to_level prefix name bound =
  * Creates a type variable with a unique name in the prefix and the provided
  * bound. Returns the new unique name. *)
 let fresh_with_bound prefix bound =
-  (* Directly return monotypes since they will end up being inlined in normal
-   * form anyway. *)
+  (* Directly return monotypes since they are always inlined in normal form. *)
   match bound.Type.bound_type.polytype_description with
   | Monotype bound_type -> bound_type
   | _ ->
-    let name = "$" ^ string_of_int prefix.counter in
-    prefix.counter <- prefix.counter + 1;
+    let rec new_name () =
+      let name = "$" ^ string_of_int prefix.counter in
+      prefix.counter <- prefix.counter + 1;
+      if Hashtbl.mem prefix.entries name then new_name () else name
+    in
+    let name = new_name () in
     add_to_level prefix name bound;
     Type.variable name
 
@@ -306,3 +321,26 @@ let update2 prefix name1 name2 bound =
     (* Level up our bound’s dependencies. *)
     level_up prefix entry1.level bound.bound_type;
     Ok ()
+
+(* Collects all the current bounds of the prefix into the list. The bounds are
+ * sorted in dependency order. That is, dependents are listed after
+ * their dependencies. *)
+let bounds prefix =
+  let visited: (string, unit) Hashtbl.t = Hashtbl.create (Hashtbl.length prefix.entries) in
+  let rec visit (bounds: (string * Type.bound) list) name =
+    if Hashtbl.mem visited name then (
+      bounds
+    ) else (
+      Hashtbl.add visited name ();
+      let { bound; _ } = Hashtbl.find prefix.entries name in
+      let bounds = StringSet.fold
+        (fun name bounds -> visit bounds name)
+        (Lazy.force bound.bound_type.polytype_free_variables)
+        bounds
+      in
+      let bounds = (name, bound) :: bounds in
+      bounds
+    )
+  in
+  let bounds = Hashtbl.fold (fun name _ bounds -> visit bounds name) prefix.entries [] in
+  List.rev bounds

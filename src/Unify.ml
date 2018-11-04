@@ -36,9 +36,8 @@ let rec unify prefix actual expected =
   (* Unify actual with some other monotype. If the monotype is a variable then
    * we will perform some special handling. *)
   | Variable { name }, expected_description -> (
-    let bound = Prefix.lookup prefix name in
-    let actual = bound.Type.bound_type in
-    match actual.Type.polytype_description, expected_description with
+    let actual_bound = Prefix.lookup prefix name in
+    match actual_bound.bound_type.polytype_description, expected_description with
     (* If the bound for our variable is a monotype then recursively call `unify`
      * with that monotype. As per the normal-form monotype bound
      * rewrite rule. *)
@@ -47,17 +46,26 @@ let rec unify prefix actual expected =
     (* Two variables with different names were unified with one another. This
      * case is different because we need to merge the two variables together. *)
     | _, Variable { name = expected_name } -> (
-      let actual_name = name in
-      let actual_bound = Prefix.lookup prefix actual_name in
       let expected_bound = Prefix.lookup prefix expected_name in
-      match unify_polytype prefix actual_bound.bound_type expected_bound.bound_type with
-      | Error error -> Error error
-      | Ok t ->
-        let bound_kind = if (
-          actual_bound.bound_kind = Flexible &&
-          expected_bound.bound_kind = Flexible
-        ) then Type.Flexible else Type.Rigid in
-        Prefix.update2 prefix actual_name expected_name (Type.bound bound_kind t)
+      match expected_bound.bound_type.polytype_description with
+      (* If the bound for our variable is a monotype then recursively call
+       * `unify` with that monotype. As per the normal-form monotype bound
+       * rewrite rule. Make sure we don’t fall into the next case where we try
+       * to update the types to each other! *)
+      | Monotype expected -> unify prefix actual expected
+
+      (* Actually merge the two type variables together. *)
+      | _ -> (
+        let actual_name = name in
+        match unify_polytype prefix actual_bound.bound_type expected_bound.bound_type with
+        | Error error -> Error error
+        | Ok t ->
+          let bound_kind = if (
+            actual_bound.bound_kind = Flexible &&
+            expected_bound.bound_kind = Flexible
+          ) then Type.Flexible else Type.Rigid in
+          Prefix.update2 prefix actual_name expected_name (Type.bound bound_kind t)
+      )
     )
 
     (* Unify the polymorphic bound type with our other monotype. If the
@@ -65,7 +73,7 @@ let rec unify prefix actual expected =
      * our monotype. *)
     | _, _ -> (
       let expected = Type.to_polytype expected in
-      match unify_polytype prefix actual expected with
+      match unify_polytype prefix actual_bound.bound_type expected with
       | Error error -> Error error
       | Ok _ -> Prefix.update prefix name (Type.bound Rigid expected)
     )
@@ -75,9 +83,8 @@ let rec unify prefix actual expected =
    * to not be a variable since that case would be caught by the match
    * case above. *)
   | _, Variable { name } -> (
-    let bound = Prefix.lookup prefix name in
-    let expected = bound.Type.bound_type in
-    match expected.Type.polytype_description with
+    let expected_bound = Prefix.lookup prefix name in
+    match expected_bound.bound_type.polytype_description with
     (* If the bound for our variable is a monotype then recursively call `unify`
      * with that monotype. As per the normal-form monotype bound rewrite rule. *)
     | Monotype expected -> unify prefix actual expected
@@ -87,7 +94,7 @@ let rec unify prefix actual expected =
      * our monotype. *)
     | _ -> (
       let actual = Type.to_polytype actual in
-      match unify_polytype prefix actual expected with
+      match unify_polytype prefix actual expected_bound.bound_type with
       | Error error -> Error error
       | Ok _ -> Prefix.update prefix name (Type.bound Rigid actual)
     )

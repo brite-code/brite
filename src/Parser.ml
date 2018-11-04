@@ -9,6 +9,7 @@ type glyph =
   | Colon
   | Comma
   | Dot
+  | EmptySet
   | Equals
   | ForAll
   | Lambda
@@ -50,6 +51,7 @@ let tokenize cs =
           match Stream.next cs, Stream.next cs with
           | '\134', '\146' -> Some (Glyph Arrow)
           | '\136', '\128' -> Some (Glyph ForAll)
+          | '\136', '\133' -> Some (Glyph EmptySet)
           | '\137', '\165' -> Some (Glyph LessThanOrEqual)
           | '\138', '\165' -> Some (Glyph Bottom)
           | _, _ -> raise (Stream.Error "Unexpected byte.")
@@ -166,20 +168,7 @@ let rec parse_polytype tokens =
       let bounds = match Stream.next tokens with
       | Identifier name -> [(name, Type.unbounded)]
       | Glyph ParenthesesLeft -> (
-        let bounds = parse_non_empty_comma_list tokens (fun tokens ->
-          let name = parse_identifier tokens in
-          match Stream.peek tokens with
-          | Some (Glyph Equals) ->
-            Stream.junk tokens;
-            let bound_type = parse_polytype tokens in
-            (name, Type.bound Rigid bound_type)
-          | Some (Glyph LessThanOrEqual) ->
-            Stream.junk tokens;
-            let bound_type = parse_polytype tokens in
-            (name, Type.bound Flexible bound_type)
-          | _ ->
-            (name, Type.unbounded)
-        ) in
+        let bounds = parse_non_empty_comma_list tokens parse_bound in
         parse_glyph tokens ParenthesesRight;
         bounds
       )
@@ -198,3 +187,30 @@ let rec parse_polytype tokens =
   | Some (Glyph Bottom) -> Stream.junk tokens; Type.bottom
 
   | _ -> Type.to_polytype (parse_monotype tokens)
+
+and parse_bound tokens =
+  let name = parse_identifier tokens in
+  match Stream.peek tokens with
+  | Some (Glyph Equals) ->
+    Stream.junk tokens;
+    let bound_type = parse_polytype tokens in
+    (name, Type.bound Rigid bound_type)
+  | Some (Glyph LessThanOrEqual) ->
+    Stream.junk tokens;
+    let bound_type = parse_polytype tokens in
+    (name, Type.bound Flexible bound_type)
+  | _ ->
+    (name, Type.unbounded)
+
+let parse_prefix tokens f =
+  parse_glyph tokens ParenthesesLeft;
+  match Stream.peek tokens with
+  | Some (Glyph EmptySet) ->
+    Stream.junk tokens;
+    parse_glyph tokens ParenthesesRight;
+    []
+  | _ ->
+    let bounds = parse_non_empty_comma_list tokens parse_bound in
+    let bounds = List.map f bounds in
+    parse_glyph tokens ParenthesesRight;
+    bounds
