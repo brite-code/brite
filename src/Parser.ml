@@ -139,7 +139,7 @@ let rec parse_monotype tokens =
   | Some (Glyph Arrow) ->
     Stream.junk tokens;
     let body = parse_monotype tokens in
-    Ast.({ monotype_description = Function { parameter = type_; body } })
+    Type.function_ type_ body
 
   | _ -> type_
 
@@ -150,16 +150,13 @@ and parse_unwrapped_monotype tokens =
     parse_glyph tokens ParenthesesRight;
     type_
 
-  | Glyph Boolean -> Ast.({ monotype_description = Boolean })
-  | Glyph Number -> Ast.({ monotype_description = Number })
-  | Glyph String -> Ast.({ monotype_description = String })
+  | Glyph Boolean -> Type.boolean
+  | Glyph Number -> Type.number
+  | Glyph String -> Type.string
 
-  | Identifier name -> Ast.({ monotype_description = Variable { name } })
+  | Identifier name -> Type.variable name
 
   | _ -> raise (Stream.Error "Expected monotype.")
-
-let bottom = Ast.({ polytype_description = Bottom })
-let unbounded = Ast.({ bound_kind = Flexible; bound_type = bottom })
 
 let rec parse_polytype tokens =
   match Stream.peek tokens with
@@ -167,7 +164,7 @@ let rec parse_polytype tokens =
     Stream.junk tokens;
     let rec loop () =
       let bounds = match Stream.next tokens with
-      | Identifier name -> [(name, unbounded)]
+      | Identifier name -> [(name, Type.unbounded)]
       | Glyph ParenthesesLeft -> (
         let bounds = parse_non_empty_comma_list tokens (fun tokens ->
           let name = parse_identifier tokens in
@@ -175,13 +172,13 @@ let rec parse_polytype tokens =
           | Some (Glyph Equals) ->
             Stream.junk tokens;
             let bound_type = parse_polytype tokens in
-            (name, Ast.({ bound_kind = Rigid; bound_type }))
+            (name, Type.bound Rigid bound_type)
           | Some (Glyph LessThanOrEqual) ->
             Stream.junk tokens;
             let bound_type = parse_polytype tokens in
-            (name, Ast.({ bound_kind = Flexible; bound_type }))
+            (name, Type.bound Flexible bound_type)
           | _ ->
-            (name, unbounded)
+            (name, Type.unbounded)
         ) in
         parse_glyph tokens ParenthesesRight;
         bounds
@@ -195,9 +192,9 @@ let rec parse_polytype tokens =
     in
     let bounds = List.concat (loop ()) in
     let body = parse_monotype tokens in
-    Ast.({ polytype_description = Quantify { bounds; body } })
+    Type.quantify bounds body
   )
 
-  | Some (Glyph Bottom) -> Stream.junk tokens; bottom
+  | Some (Glyph Bottom) -> Stream.junk tokens; Type.bottom
 
-  | _ -> Ast.({ polytype_description = Monotype (parse_monotype tokens) })
+  | _ -> Type.to_polytype (parse_monotype tokens)

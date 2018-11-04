@@ -1,19 +1,3 @@
-(* Converts the polytype AST into a proper polytype. Emits diagnostics for
- * things like unbound type variables. *)
-let rec convert t =
-  let t = Type.convert_polytype_ast t in
-  (* We need to report an error for missing bounds! To proceed with type
-   * checking we quantify our type locally with bounds for the missing
-   * type variables.
-   *
-   * TODO: It is unsound to do this. Consider: `add1 ("foo": nope)`. Here `nope`
-   * has the bottom type. We need to make sure we crash at runtime! *)
-  let missing_bounds = List.map (fun name ->
-    let _ = Diagnostic.report_error (UnboundTypeVariable { name }) in
-    (name, Type.unbound)
-  ) (StringSet.elements (Lazy.force t.polytype_free_variables)) in
-  Type.quantify missing_bounds t
-
 (* IMPORTANT: It is expected that all free types in context are bound in the
  * prefix! If this is not true then we may panic.
  *
@@ -29,7 +13,7 @@ let rec convert t =
  *
  * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
 let rec infer prefix context expression =
-  match expression.Ast.expression_description with
+  match expression.Expression.description with
   (* If the variable exists in context then return its type. Otherwise report an
    * unbound variable error and return the bottom type since the code will panic
    * at runtime. *)
@@ -94,8 +78,8 @@ let rec infer prefix context expression =
    * value_ to the `add1` function whose signature is `number → number`. This
    * would be bad. We need to error. *)
   | Annotation { value; type_ } ->
+    (* TODO: Make sure that `type_` does not have unbound type variables! *)
     let value_type = infer prefix context value in
-    let type_ = convert type_ in
     Prefix.level prefix (fun () -> (
       let value_type = Prefix.fresh_with_bound prefix (Type.bound Flexible value_type) in
       let type_' = Prefix.fresh_with_bound prefix (Type.bound Rigid type_) in

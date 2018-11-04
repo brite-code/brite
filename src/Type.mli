@@ -35,9 +35,7 @@ val function_: monotype -> monotype -> monotype
 val to_polytype: monotype -> polytype
 val bottom: polytype
 val bound: bound_kind -> polytype -> bound
-val unbound: bound
+val unbounded: bound
+val quantify: (string * bound) list -> monotype -> polytype
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
-val quantify: (string * bound) list -> polytype -> polytype
-val convert_monotype_ast: Ast.monotype -> monotype
-val convert_polytype_ast: Ast.polytype -> polytype

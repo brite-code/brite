@@ -71,7 +71,7 @@ let fresh_with_bound prefix bound =
 
 (* Creates a type variable with a unique name in the prefix with a bottom bound.
  * Returns the new unique name. *)
-let fresh prefix = fresh_with_bound prefix Type.unbound
+let fresh prefix = fresh_with_bound prefix Type.unbounded
 
 (* Adds a bound to the prefix with the provided name. If the name already exists
  * in the prefix then generate a new name so that all type variables in the
@@ -153,7 +153,7 @@ let generalize prefix t =
   (* Visit all the free variables in this type. *)
   StringSet.iter visit (Lazy.force t.Type.monotype_free_variables);
   (* Quantify the type by the list of bounds we collected. *)
-  Type.quantify (List.rev !bounds) (Type.to_polytype t)
+  Type.quantify (List.rev !bounds) t
 
 exception Occurs
 
