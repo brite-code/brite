@@ -1,4 +1,5 @@
 let depth = ref 0
+let successes = ref 0
 let failures = ref 0
 
 let success_mark = "\027[32m✔\027[39m"
@@ -17,6 +18,7 @@ let test name f =
     f ();
     Ok ()
   ) with
+  | Not_found -> Error "Not_found"
   | Failure reason -> Error (Printf.sprintf "Failure(%S)" reason)
   | Invalid_argument reason -> Error (Printf.sprintf "Invalid_argument(%S)" reason)
   | Assert_failure (file, line, col) -> Error (Printf.sprintf "Assert_failure(%S, %i, %i)" file line col)
@@ -24,7 +26,9 @@ let test name f =
   | Stream.Error reason -> Error (Printf.sprintf "Stream.Error(%S)" reason)
   in
   let (mark, failure_reason) = match result with
-  | Ok () -> (success_mark, "")
+  | Ok () ->
+    successes := !successes + 1;
+    (success_mark, "")
   | Error reason ->
     failures := !failures + 1;
     (failure_mark, Printf.sprintf " \027[31m── error:\027[39m %s" reason)
@@ -44,7 +48,9 @@ let suite name f =
 
 let exit_tests () =
   Printf.printf
-    "\nTests finished with %i failure%s.\n\n"
+    "\nTests finished with %i success%s and %i failure%s.\n\n"
+    !successes
+    (if !successes = 1 then "" else "es")
     !failures
     (if !failures = 1 then "" else "s");
   exit !failures

@@ -308,19 +308,21 @@ let update2 prefix name1 name2 bound =
   (* If the update is safe then update our entry and update the levels of our
    * new type’s dependencies. *)
   | Ok (), Ok () ->
-    (* Update the first entry’s bound to the bound we were given and link the
-     * second entry’s bound to our first entry. *)
-    entry1.bound <- bound;
-    entry2.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name1));
-    (* Update the levels of both entries to the smaller of the two. *)
-    if entry2.level.index < entry1.level.index then (
-      entry1.level <- entry2.level
-    ) else if entry1.level.index < entry2.level.index then (
-      entry2.level <- entry1.level
-    );
-    (* Level up our bound’s dependencies. *)
-    level_up prefix entry1.level bound.bound_type;
-    Ok ()
+    (* Update one of the entries to equal the provided bound. Then, link the
+     * other entry to updated entry. We let the entry which will live longer
+     * be the one to hold our bound. We let the entry which will live shorter
+     * be our link. *)
+    if entry1.level.index <= entry2.level.index then (
+      entry1.bound <- bound;
+      entry2.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name1));
+      level_up prefix entry1.level bound.bound_type;
+      Ok ()
+    ) else (
+      entry2.bound <- bound;
+      entry1.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name2));
+      level_up prefix entry2.level bound.bound_type;
+      Ok ()
+    )
 
 (* Collects all the current bounds of the prefix into the list. The bounds are
  * sorted in dependency order. That is, dependents are listed after

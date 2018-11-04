@@ -14,16 +14,8 @@ let () = suite "Unify" (fun () -> (
     ("unify((∅), number → number, number → string)", "(∅)", ["number ≢ string"]);
     ("unify((∅), number → number, string → number)", "(∅)", ["string ≢ number"]);
     ("unify((∅), number → number, string → string)", "(∅)", ["string ≢ number"; "number ≢ string"]);
-    ("unify((∅), number → number → number, string → string → string)", "(∅)", [
-      "string ≢ number";
-      "string ≢ number";
-      "number ≢ string";
-    ]);
-    ("unify((∅), (number → number) → number, (string → string) → string)", "(∅)", [
-      "number ≢ string";
-      "string ≢ number";
-      "number ≢ string";
-    ]);
+    ("unify((∅), number → number → number, string → string → string)", "(∅)", ["string ≢ number"; "string ≢ number"; "number ≢ string"]);
+    ("unify((∅), (number → number) → number, (string → string) → string)", "(∅)", ["number ≢ string"; "string ≢ number"; "number ≢ string"]);
     ("unify((∅), number, number → number)", "(∅)", ["number ≢ number → number"]);
     ("unify((∅), number → number, number)", "(∅)", ["number → number ≢ number"]);
     ("unify((a = number), a, number)", "(a = number)", []);
@@ -113,18 +105,10 @@ let () = suite "Unify" (fun () -> (
     ("unify((a ≥ ∀x.x → x, b ≥ ∀(y, z).y → z), b, a)", "(b ≥ ∀(z, x = z, y = x).y → z, a = b)", []);
     ("unify((a = ∀x.x → x, b ≥ ∀(y, z).y → z), a, b)", "(a = ∀(y, x = y).x → x, b = a)", []);
     ("unify((a = ∀x.x → x, b ≥ ∀(y, z).y → z), b, a)", "(b = ∀(z, x = z, y = x).y → z, a = b)", []);
-    ("unify((a ≥ ∀x.x → x, b = ∀(y, z).y → z), a, b)", "(a ≥ ∀x.x → x, b = ∀(y, z).y → z)", [
-      "∀(y, x = y).x → x ≢ ∀(y, z).y → z";
-    ]);
-    ("unify((a ≥ ∀x.x → x, b = ∀(y, z).y → z), b, a)", "(a ≥ ∀x.x → x, b = ∀(y, z).y → z)", [
-      "∀(z, x = z, y = x).y → z ≢ ∀(y, z).y → z";
-    ]);
-    ("unify((a = ∀x.x → x, b = ∀(y, z).y → z), a, b)", "(a = ∀x.x → x, b = ∀(y, z).y → z)", [
-      "∀(y, x = y).x → x ≢ ∀(y, z).y → z";
-    ]);
-    ("unify((a = ∀x.x → x, b = ∀(y, z).y → z), b, a)", "(a = ∀x.x → x, b = ∀(y, z).y → z)", [
-      "∀(z, x = z, y = x).y → z ≢ ∀(y, z).y → z";
-    ]);
+    ("unify((a ≥ ∀x.x → x, b = ∀(y, z).y → z), a, b)", "(a ≥ ∀x.x → x, b = ∀(y, z).y → z)", ["∀(y, x = y).x → x ≢ ∀(y, z).y → z"]);
+    ("unify((a ≥ ∀x.x → x, b = ∀(y, z).y → z), b, a)", "(a ≥ ∀x.x → x, b = ∀(y, z).y → z)", ["∀(z, x = z, y = x).y → z ≢ ∀(y, z).y → z"]);
+    ("unify((a = ∀x.x → x, b = ∀(y, z).y → z), a, b)", "(a = ∀x.x → x, b = ∀(y, z).y → z)", ["∀(y, x = y).x → x ≢ ∀(y, z).y → z"]);
+    ("unify((a = ∀x.x → x, b = ∀(y, z).y → z), b, a)", "(a = ∀x.x → x, b = ∀(y, z).y → z)", ["∀(z, x = z, y = x).y → z ≢ ∀(y, z).y → z"]);
     ("unify((a ≥ ∀x.x → x, b = number → number), a, b)", "(a = number → number, b = number → number)", []);
     ("unify((a ≥ ∀x.x → x, b = number → number), b, a)", "(a = number → number, b = number → number)", []);
     ("unify((a, b = a → a), a, b)", "(a, b = a → a)", ["Infinite type since `a` occurs in `a → a`."]);
@@ -161,6 +145,103 @@ let () = suite "Unify" (fun () -> (
     (* TODO: ("unify((a ≥ ∀x.x → x, b = ∀x.x → x), b, a)", "(b = ∀(x, y = x).y → y, a = b)", []); *)
     (* TODO: ("unify((a = ∀x.x → x, b = ∀x.x → x), a, b)", "(a = ∀(y, x = y).x → x, b = a)", []); *)
     (* TODO: ("unify((a = ∀x.x → x, b = ∀x.x → x), b, a)", "(b = ∀(x, y = x).y → y, a = b)", []); *)
+    ("unify((x), x, x)", "(x)", []);
+    ("unify((a ≥ number), a, number)", "(a ≥ number)", []);
+    ("unify((a = number), a, number)", "(a = number)", []);
+    ("unify((a ≥ number), a, string)", "(a ≥ number)", ["number ≢ string"]);
+    ("unify((a = number), a, string)", "(a = number)", ["number ≢ string"]);
+    ("unify((a ≥ number), number, a)", "(a ≥ number)", []);
+    ("unify((a = number), number, a)", "(a = number)", []);
+    ("unify((a ≥ number), string, a)", "(a ≥ number)", ["string ≢ number"]);
+    ("unify((a = number), string, a)", "(a = number)", ["string ≢ number"]);
+    ("unify((a, b = a), a, b)", "(a, b = a)", []);
+    ("unify((a, b = a), b, a)", "(a, b = a)", []);
+    ("unify((a, b ≥ a), a, b)", "(a, b ≥ a)", []);
+    ("unify((a, b ≥ a), b, a)", "(a, b ≥ a)", []);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → string), a, b)", "(a ≥ ∀x.x → number, b ≥ ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → string), b, a)", "(a ≥ ∀x.x → number, b ≥ ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → string), a, b)", "(a = ∀x.x → number, b ≥ ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → string), b, a)", "(a = ∀x.x → number, b ≥ ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → string), a, b)", "(a ≥ ∀x.x → number, b = ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → string), b, a)", "(a ≥ ∀x.x → number, b = ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a = ∀x.x → number, b = ∀y.y → string), a, b)", "(a = ∀x.x → number, b = ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a = ∀x.x → number, b = ∀y.y → string), b, a)", "(a = ∀x.x → number, b = ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → number), a, b)", "(a ≥ ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → number), b, a)", "(b ≥ ∀(x, y = x).y → number, a = b)", []);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → number), a, b)", "(a = ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → number), b, a)", "(b = ∀(x, y = x).y → number, a = b)", []);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → number), a, b)", "(a = ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → number), b, a)", "(b = ∀(x, y = x).y → number, a = b)", []);
+    ("unify((a = ∀x.x → number, b = ∀y.y → number), a, b)", "(a = ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a = ∀x.x → number, b = ∀y.y → number), b, a)", "(b = ∀(x, y = x).y → number, a = b)", []);
+    ("unify((c, a ≥ ∀x.x → c, b ≥ ∀y.y → a), a, b)", "(c, a ≥ ∀x.x → c, b ≥ ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((c, a ≥ ∀x.x → c, b ≥ ∀y.y → a), b, a)", "(c, a ≥ ∀x.x → c, b ≥ ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((c, a = ∀x.x → c, b ≥ ∀y.y → a), a, b)", "(c, a = ∀x.x → c, b ≥ ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((c, a = ∀x.x → c, b ≥ ∀y.y → a), b, a)", "(c, a = ∀x.x → c, b ≥ ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((c, a ≥ ∀x.x → c, b = ∀y.y → a), a, b)", "(c, a ≥ ∀x.x → c, b = ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((c, a ≥ ∀x.x → c, b = ∀y.y → a), b, a)", "(c, a ≥ ∀x.x → c, b = ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((c, a = ∀x.x → c, b = ∀y.y → a), a, b)", "(c, a = ∀x.x → c, b = ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((c, a = ∀x.x → c, b = ∀y.y → a), b, a)", "(c, a = ∀x.x → c, b = ∀y.y → a)", ["Infinite type since `c` occurs in `∀x.x → c`."]);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → y), a, b)", "(a ≥ ∀(y = number, x = y).x → number, b = a)", []);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → y), b, a)", "(b ≥ ∀(x = number, y = x).y → y, a = b)", []);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → y), a, b)", "(a = ∀x.x → number, b ≥ ∀y.y → y)", ["∀(y = number, x = y).x → number ≢ ∀x.x → number"]);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → y), b, a)", "(a = ∀x.x → number, b ≥ ∀y.y → y)", ["∀(x = number, y = x).y → y ≢ ∀x.x → number"]);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → y), a, b)", "(a ≥ ∀x.x → number, b = ∀y.y → y)", ["∀(y = number, x = y).x → number ≢ ∀y.y → y"]);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → y), b, a)", "(a ≥ ∀x.x → number, b = ∀y.y → y)", ["∀(x = number, y = x).y → y ≢ ∀y.y → y"]);
+    ("unify((a = ∀x.x → number, b = ∀y.y → y), a, b)", "(a = ∀x.x → number, b = ∀y.y → y)", ["∀(y = number, x = y).x → number ≢ ∀x.x → number"; "∀(y = number, x = y).x → number ≢ ∀y.y → y"]);
+    ("unify((a = ∀x.x → number, b = ∀y.y → y), b, a)", "(a = ∀x.x → number, b = ∀y.y → y)", ["∀(x = number, y = x).y → y ≢ ∀y.y → y"; "∀(x = number, y = x).y → y ≢ ∀x.x → number"]);
+    ("unify((a ≥ ∀x.x → number, b), a, b → string)", "(a ≥ ∀x.x → number, b)", ["number ≢ string"]);
+    ("unify((a ≥ ∀x.x → number, b), a, b → number)", "(b, a = b → number)", []);
+    ("unify((a = ∀x.x → number, b), a, b → string)", "(a = ∀x.x → number, b)", ["number ≢ string"]);
+    ("unify((a = ∀x.x → number, b), a, b → number)", "(a = ∀x.x → number, b)", ["b → number ≢ ∀x.x → number"]);
+    ("unify((a ≥ ∀x.x → number), a, boolean → string)", "(a ≥ ∀x.x → number)", ["number ≢ string"]);
+    ("unify((a ≥ ∀x.x → number), a, boolean → number)", "(a = boolean → number)", []);
+    ("unify((a = ∀x.x → number), a, boolean → string)", "(a = ∀x.x → number)", ["number ≢ string"]);
+    ("unify((a = ∀x.x → number), a, boolean → number)", "(a = ∀x.x → number)", ["boolean → number ≢ ∀x.x → number"]);
+    ("unify((a ≥ ∀x.x → number), a, a → string)", "(a ≥ ∀x.x → number)", ["number ≢ string"]);
+    ("unify((a ≥ ∀x.x → number), a, a → number)", "(a ≥ ∀x.x → number)", ["Infinite type since `a` occurs in `a → number`."]);
+    ("unify((a = ∀x.x → number), a, a → string)", "(a = ∀x.x → number)", ["number ≢ string"]);
+    ("unify((a = ∀x.x → number), a, a → number)", "(a = ∀x.x → number)", ["Infinite type since `a` occurs in `a → number`."]);
+    ("unify((a ≥ ∀x.x → number, b), b → string, a)", "(a ≥ ∀x.x → number, b)", ["string ≢ number"]);
+    ("unify((a ≥ ∀x.x → number, b), b → number, a)", "(b, a = b → number)", []);
+    ("unify((a = ∀x.x → number, b), b → string, a)", "(a = ∀x.x → number, b)", ["string ≢ number"]);
+    ("unify((a = ∀x.x → number, b), b → number, a)", "(a = ∀x.x → number, b)", ["b → number ≢ ∀x.x → number"]);
+    ("unify((a ≥ ∀x.x → number), boolean → string, a)", "(a ≥ ∀x.x → number)", ["string ≢ number"]);
+    ("unify((a ≥ ∀x.x → number), boolean → number, a)", "(a = boolean → number)", []);
+    ("unify((a = ∀x.x → number), boolean → string, a)", "(a = ∀x.x → number)", ["string ≢ number"]);
+    ("unify((a = ∀x.x → number), boolean → number, a)", "(a = ∀x.x → number)", ["boolean → number ≢ ∀x.x → number"]);
+    ("unify((a ≥ ∀x.x → number), a → string, a)", "(a ≥ ∀x.x → number)", ["string ≢ number"]);
+    ("unify((a ≥ ∀x.x → number), a → number, a)", "(a ≥ ∀x.x → number)", ["Infinite type since `a` occurs in `a → number`."]);
+    ("unify((a = ∀x.x → number), a → string, a)", "(a = ∀x.x → number)", ["string ≢ number"]);
+    ("unify((a = ∀x.x → number), a → number, a)", "(a = ∀x.x → number)", ["Infinite type since `a` occurs in `a → number`."]);
+    ("unify((a, b = ∀x.x → x), a, b)", "(a = ∀x.x → x, b = a)", []);
+    ("unify((a, b = ∀x.x → x), b, a)", "(b = ∀x.x → x, a = b)", []);
+    ("unify((a, b ≥ ∀x.x → x), a, b)", "(a ≥ ∀x.x → x, b = a)", []);
+    ("unify((a, b ≥ ∀x.x → x), b, a)", "(b ≥ ∀x.x → x, a = b)", []);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → string), a, b)", "(a ≥ ∀x.x → number, b ≥ ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → string), b, a)", "(a ≥ ∀x.x → number, b ≥ ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → number), a, b)", "(a ≥ ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a ≥ ∀x.x → number, b ≥ ∀y.y → number), b, a)", "(b ≥ ∀(x, y = x).y → number, a = b)", []);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → string), a, b)", "(a = ∀x.x → number, b ≥ ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → string), b, a)", "(a = ∀x.x → number, b ≥ ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → number), a, b)", "(a = ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a = ∀x.x → number, b ≥ ∀y.y → number), b, a)", "(b = ∀(x, y = x).y → number, a = b)", []);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → string), a, b)", "(a ≥ ∀x.x → number, b = ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → string), b, a)", "(a ≥ ∀x.x → number, b = ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → number), a, b)", "(a = ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a ≥ ∀x.x → number, b = ∀y.y → number), b, a)", "(b = ∀(x, y = x).y → number, a = b)", []);
+    ("unify((a = ∀x.x → number, b = ∀y.y → string), a, b)", "(a = ∀x.x → number, b = ∀y.y → string)", ["number ≢ string"]);
+    ("unify((a = ∀x.x → number, b = ∀y.y → string), b, a)", "(a = ∀x.x → number, b = ∀y.y → string)", ["string ≢ number"]);
+    ("unify((a = ∀x.x → number, b = ∀y.y → number), a, b)", "(a = ∀(y, x = y).x → number, b = a)", []);
+    ("unify((a = ∀x.x → number, b = ∀y.y → number), b, a)", "(b = ∀(x, y = x).y → number, a = b)", []);
+    (* TODO: ("unify((a = ∀x.x → x, b = ∀x.x → x), a, b)", "(a = ∀x.x → x, b = a)", []); *)
+    (* TODO: ("unify((a = ∀x.x → x, b = ∀x.x → x), b, a)", "(a = ∀x.x → x, b = a)", []); *)
+    ("unify((a, b = a, c = b, d = c, e = d, f = e → e), a, f)", "(a, b = a, c = b, d = c, e = d, f = e → e)", ["Infinite type since `a` occurs in `e → e`."]);
+    ("unify((a, b = a, c = b, d = c, e = d, f = e → e), f, a)", "(a, b = a, c = b, d = c, e = d, f = e → e)", ["Infinite type since `a` occurs in `e → e`."]);
+    ("unify((a = ∀x.x → x, b = ∀y.y → y), a → a, a → b)", "(a = ∀(y, x = y).x → x, b = a)", []);
+    ("unify((a = ∀x.x → x, b = ∀y.y → y), a → b, a → a)", "(b = ∀(x, y = x).y → y, a = b)", []);
+    ("unify((t = ∀(a = ∀x.x → x).a → a, u = ∀(b = ∀y.y → y, c = ∀z.z → z).b → c), t, u)", "(t = ∀(b = ∀(z, x = z, y = x).y → y, a = b).a → a, u = t)", []);
+    ("unify((t = ∀(a = ∀x.x → x).a → a, u = ∀(b = ∀y.y → y, c = ∀z.z → z).b → c), u, t)", "(u = ∀(c = ∀(y, z = y).z → z, a = c, b = a).b → c, t = u)", []);
   ] in
 
   let prefix = Prefix.create () in
