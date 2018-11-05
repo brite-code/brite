@@ -258,6 +258,8 @@ let () = suite "Unify" (fun () -> (
     ("unify((a = ∀(x1, x1 = ∀z.z → x1).x1 → x1, b = ∀(x1, x1 = ∀z.z → x1).x1 → x1), b, a)", "(b = ∀(x1, x2 = ∀z.z → x1).x2 → x2, a = b)", []);
     ("unify((a = ∀(x1, x2, x1 = ∀z.z → x2 → x1).x1 → x1, b = ∀(x1, x2, x1 = ∀z.z → x2 → x1).x1 → x1), b, a)", "(b = ∀(x1, x2, x3 = ∀z.z → x2 → x1).x3 → x3, a = b)", []);
     ("unify((a = ∀(x5, x5 = ∀z.z → x5).x5 → x5, b = ∀(x5, x5 = ∀z.z → x5).x5 → x5), b, a)", "(b = ∀(x5, x6 = ∀z.z → x5).x6 → x6, a = b)", []);
+    ("unify((a ≥ ∀x.x → x), a, number → number)", "(a = number → number)", []);
+    ("unify((a ≥ ∀x.x → x, b), a, number → b)", "(b = number, a = number → b)", []);
   ] in
 
   let prefix = Prefix.create () in
