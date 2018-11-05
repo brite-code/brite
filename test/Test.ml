@@ -1,5 +1,6 @@
 open TestFramework
 
-include UnifyTest
-
-let () = exit_tests ()
+let () =
+  UnifyTest.run ();
+  InferTest.run ();
+  exit_tests ()

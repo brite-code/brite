@@ -27,4 +27,6 @@ type token =
 val tokenize: char Stream.t -> token Stream.t
 val parse_monotype: token Stream.t -> Type.monotype
 val parse_polytype: token Stream.t -> Type.polytype
-val parse_prefix: token Stream.t -> ((string * Type.bound) -> 'a) -> 'a list
+val parse_prefix: token Stream.t -> (string * Type.bound) list
+val parse_expression: token Stream.t -> Expression.t
+val parse_context: token Stream.t -> (string * Type.polytype) list

@@ -202,7 +202,7 @@ and parse_bound tokens =
   | _ ->
     (name, Type.unbounded)
 
-let parse_prefix tokens f =
+let parse_prefix tokens =
   parse_glyph tokens ParenthesesLeft;
   match Stream.peek tokens with
   | Some (Glyph EmptySet) ->
@@ -211,6 +211,86 @@ let parse_prefix tokens f =
     []
   | _ ->
     let bounds = parse_non_empty_comma_list tokens parse_bound in
-    let bounds = List.map f bounds in
     parse_glyph tokens ParenthesesRight;
     bounds
+
+let rec parse_expression tokens =
+  match Stream.peek tokens with
+  | Some (Glyph Lambda) ->
+    Stream.junk tokens;
+    let parameter = parse_identifier tokens in
+    parse_glyph tokens Dot;
+    let body = parse_expression tokens in
+    Expression.function_ parameter body
+
+  | Some (Glyph Let) ->
+    Stream.junk tokens;
+    let name = parse_identifier tokens in
+    parse_glyph tokens Equals;
+    let value = parse_expression tokens in
+    parse_glyph tokens In;
+    let body = parse_expression tokens in
+    Expression.binding name value body
+
+  | _ -> (
+    let e = match try_parse_unwrapped_expression tokens with
+    | Some e -> e
+    | None -> raise (Stream.Error "Expected expression.")
+    in
+    let rec loop e1 =
+      match try_parse_unwrapped_expression tokens with
+      | Some e2 -> loop (Expression.call e1 e2)
+      | None -> e1
+    in
+    loop e
+  )
+
+and try_parse_unwrapped_expression tokens =
+  match Stream.peek tokens with
+  | Some (Glyph ParenthesesLeft) ->
+    Stream.junk tokens;
+    let expression = parse_expression tokens in
+    if Stream.peek tokens = Some (Glyph Colon) then (
+      Stream.junk tokens;
+      let type_ = parse_polytype tokens in
+      parse_glyph tokens ParenthesesRight;
+      Some (Expression.annotation expression type_)
+    ) else (
+      parse_glyph tokens ParenthesesRight;
+      Some expression
+    )
+
+  | Some (Identifier name) ->
+    Stream.junk tokens;
+    Some (Expression.variable name)
+
+  | Some (Number number) ->
+    Stream.junk tokens;
+    Some (Expression.number number)
+
+  | Some (Glyph True) ->
+    Stream.junk tokens;
+    Some (Expression.boolean true)
+
+  | Some (Glyph False) ->
+    Stream.junk tokens;
+    Some (Expression.boolean false)
+
+  | _ -> None
+
+let parse_context tokens =
+  parse_glyph tokens ParenthesesLeft;
+  match Stream.peek tokens with
+  | Some (Glyph EmptySet) ->
+    Stream.junk tokens;
+    parse_glyph tokens ParenthesesRight;
+    []
+  | _ ->
+    let entries = parse_non_empty_comma_list tokens (fun tokens -> (
+      let name = parse_identifier tokens in
+      parse_glyph tokens Colon;
+      let type_ = parse_polytype tokens in
+      (name, type_)
+    )) in
+    parse_glyph tokens ParenthesesRight;
+    entries

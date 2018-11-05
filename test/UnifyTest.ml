@@ -1,6 +1,6 @@
 open TestFramework
 
-let () = suite "Unify" (fun () -> (
+let run () = suite "Unify" (fun () -> (
   let cases = [
     ("unify((∅), boolean, boolean)", "(∅)", []);
     ("unify((∅), number, number)", "(∅)", []);
@@ -304,7 +304,8 @@ let () = suite "Unify" (fun () -> (
         let tokens = Parser.tokenize (Stream.of_string input) in
         assert (Stream.next tokens = Identifier "unify");
         assert (Stream.next tokens = Glyph ParenthesesLeft);
-        let _ = Parser.parse_prefix tokens (fun (name, bound) -> assert (Prefix.add prefix name bound = None)) in
+        let bounds = Parser.parse_prefix tokens in
+        List.iter (fun (name, bound) -> assert (Prefix.add prefix name bound = None)) bounds;
         assert (Stream.next tokens = Glyph Comma);
         let type1 = Parser.parse_monotype tokens in
         assert (Stream.next tokens = Glyph Comma);

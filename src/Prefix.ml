@@ -18,7 +18,7 @@ type t = {
 (* Creates a new prefix. *)
 let create () =
   {
-    counter = 0;
+    counter = 1;
     levels = [];
     entries = Hashtbl.create 1000;
   }
