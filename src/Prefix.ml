@@ -30,11 +30,13 @@ let level prefix f =
   (* Add a new level to the prefix. *)
   let index = match prefix.levels with [] -> 0 | level :: _ -> level.index + 1 in
   prefix.levels <- { index; names = Hashtbl.create 50 } :: prefix.levels;
+  let counter = prefix.counter in
   (* Execute our function with the new level. *)
   let result = try Ok (f ()) with e -> Error e in
   (* Remove the new level from the prefix. *)
   let level = List.hd prefix.levels in
   prefix.levels <- List.tl prefix.levels;
+  prefix.counter <- counter;
   (* Delete all type variables at this level from the prefix. *)
   Hashtbl.iter (fun name () -> Hashtbl.remove prefix.entries name) level.names;
   (* If this was the last level then make sure there are no more entries in
@@ -75,12 +77,12 @@ let fresh_with_bound prefix bound =
   match bound.Type.bound_type.polytype_description with
   | Monotype bound_type -> bound_type
   | _ ->
-    let rec new_name () =
-      let name = "$" ^ string_of_int prefix.counter in
+    let rec unique () =
+      let name = "t" ^ string_of_int prefix.counter in
       prefix.counter <- prefix.counter + 1;
-      if Hashtbl.mem prefix.entries name then new_name () else name
+      if Hashtbl.mem prefix.entries name then unique () else name
     in
-    let name = new_name () in
+    let name = unique () in
     add_to_level prefix name bound;
     Type.variable name
 
@@ -92,12 +94,9 @@ let fresh prefix = fresh_with_bound prefix Type.unbounded
  * in the prefix then generate a new name so that all type variables in the
  * prefix are unique. Return the new name if we had to generate it. *)
 let add prefix name bound =
-  if Hashtbl.mem prefix.entries name then (
-    Some (fresh_with_bound prefix bound)
-  ) else (
-    add_to_level prefix name bound;
-    None
-  )
+  let name' = Namer.unique (Hashtbl.mem prefix.entries) name in
+  add_to_level prefix name' bound;
+  if name = name' then None else Some (Type.variable name')
 
 (* Finds the bound for the provided name  in the prefix. If no type variable
  * could be found then we panic. *)
