@@ -247,8 +247,8 @@ let update_check prefix name old_bound new_bound =
     old_bound.Type.bound_kind == Rigid &&
     not (Abstraction.check (lookup prefix) old_bound.bound_type new_bound.bound_type)
   ) then (
-    let type1 = new_bound.bound_type in
-    let type2 = old_bound.bound_type in
+    let type1 = old_bound.bound_type in
+    let type2 = new_bound.bound_type in
     Error (Diagnostic.report_error (IncompatibleTypes { type1; type2 }))
   ) else (
     (* The update is ok. You may proceed to commit changes... *)
