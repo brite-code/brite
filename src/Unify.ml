@@ -24,47 +24,46 @@
  * soundness must handle the error locally.
  *
  * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
-let rec unify prefix actual expected =
-  match actual.Type.monotype_description, expected.Type.monotype_description with
+let rec unify prefix type1 type2 =
+  match type1.Type.monotype_description, type2.Type.monotype_description with
   (* Variables with the same name unify without any further analysis. We rename
-   * variables in actual and expected so that the same variable name does not
+   * variables in type1 and type2 so that the same variable name does not
    * represent different bounds. *)
-  | Variable { name = actual_name }, Variable { name = expected_name }
-      when String.equal actual_name expected_name ->
+  | Variable { name = name1 }, Variable { name = name2 } when String.equal name1 name2 ->
     Ok ()
 
-  (* Unify actual with some other monotype. If the monotype is a variable then
+  (* Unify type1 with some other monotype. If the monotype is a variable then
    * we will perform some special handling. *)
-  | Variable { name }, expected_description -> (
-    let actual_bound = Prefix.lookup prefix name in
-    match actual_bound.bound_type.polytype_description, expected_description with
+  | Variable { name }, description2 -> (
+    let bound1 = Prefix.lookup prefix name in
+    match bound1.bound_type.polytype_description, description2 with
     (* If the bound for our variable is a monotype then recursively call `unify`
      * with that monotype. As per the normal-form monotype bound
      * rewrite rule. *)
-    | Monotype actual, _ -> unify prefix actual expected
+    | Monotype type1, _ -> unify prefix type1 type2
 
     (* Two variables with different names were unified with one another. This
      * case is different because we need to merge the two variables together. *)
-    | _, Variable { name = expected_name } -> (
-      let expected_bound = Prefix.lookup prefix expected_name in
-      match expected_bound.bound_type.polytype_description with
+    | _, Variable { name = name2 } -> (
+      let bound2 = Prefix.lookup prefix name2 in
+      match bound2.bound_type.polytype_description with
       (* If the bound for our variable is a monotype then recursively call
        * `unify` with that monotype. As per the normal-form monotype bound
        * rewrite rule. Make sure we don’t fall into the next case where we try
        * to update the types to each other! *)
-      | Monotype expected -> unify prefix actual expected
+      | Monotype type2 -> unify prefix type1 type2
 
       (* Actually merge the two type variables together. *)
       | _ -> (
-        let actual_name = name in
-        match unify_polytype prefix actual_bound.bound_type expected_bound.bound_type with
+        let name1 = name in
+        match unify_polytype prefix bound1.bound_type bound2.bound_type with
         | Error error -> Error error
         | Ok t ->
           let bound_kind = if (
-            actual_bound.bound_kind = Flexible &&
-            expected_bound.bound_kind = Flexible
+            bound1.bound_kind = Flexible &&
+            bound2.bound_kind = Flexible
           ) then Type.Flexible else Type.Rigid in
-          Prefix.update2 prefix actual_name expected_name (Type.bound bound_kind t)
+          Prefix.update2 prefix name1 name2 (Type.bound bound_kind t)
       )
     )
 
@@ -72,31 +71,31 @@ let rec unify prefix actual expected =
      * unification is successful then update the type variable in our prefix to
      * our monotype. *)
     | _, _ -> (
-      let expected = Type.to_polytype expected in
-      match unify_polytype prefix actual_bound.bound_type expected with
+      let type2 = Type.to_polytype type2 in
+      match unify_polytype prefix bound1.bound_type type2 with
       | Error error -> Error error
-      | Ok _ -> Prefix.update prefix name (Type.bound Rigid expected)
+      | Ok _ -> Prefix.update prefix name (Type.bound Rigid type2)
     )
   )
 
-  (* Unify expected with some other monotype. The other monotype is guaranteed
+  (* Unify type2 with some other monotype. The other monotype is guaranteed
    * to not be a variable since that case would be caught by the match
    * case above. *)
   | _, Variable { name } -> (
-    let expected_bound = Prefix.lookup prefix name in
-    match expected_bound.bound_type.polytype_description with
+    let bound2 = Prefix.lookup prefix name in
+    match bound2.bound_type.polytype_description with
     (* If the bound for our variable is a monotype then recursively call `unify`
      * with that monotype. As per the normal-form monotype bound rewrite rule. *)
-    | Monotype expected -> unify prefix actual expected
+    | Monotype type2 -> unify prefix type1 type2
 
     (* Unify the polymorphic bound type with our other monotype. If the
      * unification is successful then update the type variable in our prefix to
      * our monotype. *)
     | _ -> (
-      let actual = Type.to_polytype actual in
-      match unify_polytype prefix actual expected_bound.bound_type with
+      let type1 = Type.to_polytype type1 in
+      match unify_polytype prefix type1 bound2.bound_type with
       | Error error -> Error error
-      | Ok _ -> Prefix.update prefix name (Type.bound Rigid actual)
+      | Ok _ -> Prefix.update prefix name (Type.bound Rigid type1)
     )
   )
 
@@ -109,15 +108,11 @@ let rec unify prefix actual expected =
    *
    * If both the unification of the parameters and bodies fail then we will
    * report two error diagnostics. However, we will only return the first error
-   * from unify.
-   *
-   * We intentionally flip the unification order of actual and expected for our
-   * function parameter _only_. This is because the function parameter is in an
-   * input position (or is _contravariant_). *)
-  | Function { parameter = actual_parameter; body = actual_body },
-    Function { parameter = expected_parameter; body = expected_body } -> (
-    let result1 = unify prefix expected_parameter actual_parameter in
-    let result2 = unify prefix actual_body expected_body in
+   * from unify. *)
+  | Function { parameter = parameter1; body = body1 },
+    Function { parameter = parameter2; body = body2 } -> (
+    let result1 = unify prefix parameter1 parameter2 in
+    let result2 = unify prefix body1 body2 in
     match result1, result2 with
     | Error error, _ -> Error error
     | Ok (), Error error -> Error error
@@ -130,25 +125,25 @@ let rec unify prefix actual expected =
   | Number, _
   | String, _
   | Function _, _ ->
-    let actual = Type.to_polytype actual in
-    let expected = Type.to_polytype expected in
-    Error (Diagnostic.report_error (IncompatibleTypes { actual; expected }))
+    let type1 = Type.to_polytype type1 in
+    let type2 = Type.to_polytype type2 in
+    Error (Diagnostic.report_error (IncompatibleTypes { type1; type2 }))
 
 (* Unifies two polytypes. When the two types are equivalent we return an ok
  * result with a type. This type is an instance of both our input types. That is
  * if `t1` and `t2` are our inputs and `t1 ≡ t2` holds then we return `t3` where
  * both `t1 ⊑ t3` and `t2 ⊑ t3` hold. *)
-and unify_polytype prefix actual expected =
-  match actual.Type.polytype_description, expected.Type.polytype_description with
+and unify_polytype prefix type1 type2 =
+  match type1.Type.polytype_description, type2.Type.polytype_description with
   (* If either is bottom then return the other one. *)
-  | Bottom, _ -> Ok expected
-  | _, Bottom -> Ok actual
+  | Bottom, _ -> Ok type2
+  | _, Bottom -> Ok type1
 
   (* If we have two monotypes then unify them. Don’t bother with creating a new
    * level or generalizing. *)
-  | Monotype actual, Monotype expected -> (
-    match unify prefix actual expected with
-    | Ok () -> Ok (Type.to_polytype actual)
+  | Monotype type1, Monotype type2 -> (
+    match unify prefix type1 type2 with
+    | Ok () -> Ok (Type.to_polytype type1)
     | Error error -> Error error
   )
 
@@ -156,33 +151,33 @@ and unify_polytype prefix actual expected =
    * prefix. We consider a monotype to be a quantified type with an empty bounds
    * list. We then unify the body of the two quantified types in the new prefix.
    * If unification is successful then we know that the two types we unified
-   * must be equivalent. We then generalize the “actual” type and return it.
-   * Since we know our types to be equivalent it does not matter which one we
-   * return. If unification returned an error then we also return that error. We
-   * do all this in an isolated level so that we don’t quantify type variables
-   * that are needed at an earlier level. *)
+   * must be equivalent. We then generalize type1 and return it. Since we know
+   * our types to be equivalent it does not matter which one we return. If
+   * unification returned an error then we also return that error. We do all
+   * this in an isolated level so that we don’t quantify type variables that are
+   * needed at an earlier level. *)
 
-  | Quantify { bounds = actual_bounds; body = actual }, Monotype expected ->
+  | Quantify { bounds = bounds1; body = body1 }, Monotype type2 ->
     Prefix.level prefix (fun () -> (
-      let actual = Prefix.instantiate prefix actual_bounds actual in
-      match unify prefix actual expected with
-      | Ok () -> Ok (Prefix.generalize prefix actual)
+      let type1 = Prefix.instantiate prefix bounds1 body1 in
+      match unify prefix type1 type2 with
+      | Ok () -> Ok (Prefix.generalize prefix type1)
       | Error error -> Error error
     ))
 
-  | Monotype actual, Quantify { bounds = expected_bounds; body = expected } ->
+  | Monotype type1, Quantify { bounds = bounds2; body = body2 } ->
     Prefix.level prefix (fun () -> (
-      let expected = Prefix.instantiate prefix expected_bounds expected in
-      match unify prefix actual expected with
-      | Ok () -> Ok (Prefix.generalize prefix actual)
+      let type2 = Prefix.instantiate prefix bounds2 body2 in
+      match unify prefix type1 type2 with
+      | Ok () -> Ok (Prefix.generalize prefix type1)
       | Error error -> Error error
     ))
 
-  | Quantify { bounds = actual_bounds; body = actual }, Quantify { bounds = expected_bounds; body = expected } ->
+  | Quantify { bounds = bounds1; body = body1 }, Quantify { bounds = bounds2; body = body2 } ->
     Prefix.level prefix (fun () -> (
-      let actual = Prefix.instantiate prefix actual_bounds actual in
-      let expected = Prefix.instantiate prefix expected_bounds expected in
-      match unify prefix actual expected with
-      | Ok () -> Ok (Prefix.generalize prefix actual)
+      let type1 = Prefix.instantiate prefix bounds1 body1 in
+      let type2 = Prefix.instantiate prefix bounds2 body2 in
+      match unify prefix type1 type2 with
+      | Ok () -> Ok (Prefix.generalize prefix type1)
       | Error error -> Error error
     ))

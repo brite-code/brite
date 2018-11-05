@@ -48,8 +48,8 @@ let print_diagnostic diagnostic =
     | UnboundTypeVariable { name } ->
       Printf.sprintf "Unbound variable `%s`." name
 
-    | IncompatibleTypes { actual; expected } ->
-      Printf.sprintf "%s ≢ %s" (print_polytype actual) (print_polytype expected)
+    | IncompatibleTypes { type1; type2 } ->
+      Printf.sprintf "%s ≢ %s" (print_polytype type1) (print_polytype type2)
 
     | InfiniteType { name; type_ } ->
       Printf.sprintf "Infinite type since `%s` occurs in `%s`." name (print_polytype type_)

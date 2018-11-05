@@ -5,9 +5,8 @@ type error =
   (* A type variable referenced some non-existent type bound. *)
   | UnboundTypeVariable of { name: string }
 
-  (* We tried to unify two incompatible types. In other words the user
-   * “expected” some type but “actually” provided an incompatible type. *)
-  | IncompatibleTypes of { actual: Type.polytype; expected: Type.polytype }
+  (* We tried to unify two incompatible types. *)
+  | IncompatibleTypes of { type1: Type.polytype; type2: Type.polytype }
 
   (* When trying to update type variable `name` with the polytype `type_` we
    * discovered that `type_` includes `name` somewhere within itself. Performing
