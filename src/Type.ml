@@ -195,3 +195,80 @@ let rec substitute_polytype substitutions t =
     )) (substitutions, []) bounds in
     let body = match substitute_monotype substitutions body with Some t -> t | None -> body in
     Some (quantify (List.rev bounds) body)
+
+exception NormalishEarlyReturn of polytype
+
+(* Converts a polytype to normal form. Well, normalish form. We perform _some_
+ * normal form transformations. Just enough to satisfy common pattern matches
+ * such as those used in the unification algorithm. Specifically that means:
+ *
+ * - Rewriting `∀(a ◇ o).a` as `o`.
+ * - Dropping unused type variables in all-or-nothing style. That is
+ *   `∀(x, y).number → number` becomes `number → number`, but `∀(x, y).y → y`
+ *   stays the same. Not dropping the unused type variable `x`. Doing this
+ *   transformation in an all-or-nothing style is more efficient. It is also all
+ *   that we need for pattern matching correctness.
+ *
+ * We don’t inline monotype bounds. That would be a lot of work. Especially to
+ * avoid naming collisions in a type like: `∀(a, b = a → a, a = number).b → a`.
+ *
+ * Returns nothing if the type is already in normalish form.
+ *
+ * NOTE: It is still a bit of a mystery to me as to why it is correct in the
+ * [MLF thesis][1] to rewrite `∀(a ◇ o).a` as `o` since we lose
+ * bound information.
+ *
+ * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
+let normalish t =
+  (* This loop is only responsible for rewriting `∀(a ◇ o).a` as `o`. *)
+  let rec loop t =
+    match t.polytype_description with
+    (* We only need to rewrite if we have a quantified type with a variable type
+     * as the body. *)
+    | Quantify { bounds; body = { monotype_description = Variable { name } } as body } ->
+      (* Iterate through the list in reverse looking for the first bound
+       * referenced by our variable. *)
+      let (_, bounds, body) = List.fold_right (fun (name', bound) (found, bounds, body) ->
+        (* If this is the bound our variable references then make it our new
+         * body after normalizing the bound type itself. *)
+        if name' = name then (
+          let body = match loop bound.bound_type with Some t -> t | None -> bound.bound_type in
+          match body.polytype_description with
+          | Bottom -> raise (NormalishEarlyReturn body)
+          | Monotype body -> (true, [], body)
+          | Quantify { bounds; body } -> (true, bounds, body)
+        ) else (
+          (* Otherwise, only add the bound if we have found the referenced type
+           * variable. All type variables after the referenced type variable
+           * are unused. *)
+          if found then (
+            (true, (name', bound) :: bounds, body)
+          ) else (
+            (false, [], body)
+          )
+        )
+      ) bounds (false, [], body) in
+      (* If we have no bounds, then return the body directly. Otherwise return
+       * the rewritten quantified type. *)
+      if bounds = [] then (
+        Some (to_polytype body)
+      ) else (
+        Some (quantify bounds body)
+      )
+    | _ -> None
+  in
+  (* Run the loop to rewrite direct variable references. *)
+  let t' = try loop t with NormalishEarlyReturn t' -> Some t' in
+  (* Next we want to drop unused bounds in an all-or-nothing style. It only
+   * matters to us if _all_ bounds are unused. *)
+  match (match t' with Some t' -> t' | None -> t).polytype_description with
+  | Quantify { bounds; body } ->
+    (* Only look at the free type variables in our body type. At least one of
+     * these free type variables should be addressed by our bounds. *)
+    let free = Lazy.force body.monotype_free_variables in
+    if List.for_all (fun (name, _) -> not (StringSet.mem name free)) bounds then (
+      Some (to_polytype body)
+    ) else (
+      t'
+    )
+  | _ -> t'

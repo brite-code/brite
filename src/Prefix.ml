@@ -6,6 +6,7 @@ type level = {
 type entry = {
   mutable level: level;
   mutable bound: Type.bound;
+  mutable normalish: bool;
 }
 
 type t = {
@@ -65,7 +66,7 @@ let add_to_level prefix name bound =
   let level = List.hd prefix.levels in
   Hashtbl.add level.names name ();
   (* Add the type variable to the prefix. *)
-  Hashtbl.add prefix.entries name { level; bound }
+  Hashtbl.add prefix.entries name { level; bound; normalish = false }
 
 (* IMPORTANT: It is expected that all free type variables are bound in the
  * prefix! If this is not true then we will panic.
@@ -98,10 +99,18 @@ let add prefix name bound =
   add_to_level prefix name' bound;
   if name = name' then None else Some (Type.variable name')
 
-(* Finds the bound for the provided name  in the prefix. If no type variable
- * could be found then we panic. *)
+(* Finds the bound for the provided name in the prefix. If no type variable
+ * could be found then we panic. The bound returned will always be in
+ * normalish form. *)
 let lookup prefix name =
-  (Hashtbl.find prefix.entries name).bound
+  let entry = Hashtbl.find prefix.entries name in
+  if not entry.normalish then (
+    (match Type.normalish entry.bound.bound_type with
+    | Some t -> entry.bound <- Type.bound entry.bound.bound_kind t
+    | _ -> ());
+    entry.normalish <- true
+  );
+  entry.bound
 
 (* Merges the bounds of a quantified type into the prefix. If any of the bound
  * names already exist in the prefix then we need to generate new names. Those
@@ -282,6 +291,7 @@ let update prefix name bound =
    * new type’s dependencies. *)
   | Ok () ->
     entry.bound <- bound;
+    entry.normalish <- false;
     level_up prefix entry.level bound.bound_type;
     Ok ()
 
@@ -314,11 +324,15 @@ let update2 prefix name1 name2 bound =
     if entry1.level.index <= entry2.level.index then (
       entry1.bound <- bound;
       entry2.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name1));
+      entry1.normalish <- false;
+      entry2.normalish <- true;
       level_up prefix entry1.level bound.bound_type;
       Ok ()
     ) else (
       entry2.bound <- bound;
       entry1.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name2));
+      entry2.normalish <- false;
+      entry1.normalish <- true;
       level_up prefix entry2.level bound.bound_type;
       Ok ()
     )

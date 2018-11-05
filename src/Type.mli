@@ -39,3 +39,4 @@ val unbounded: bound
 val quantify: (string * bound) list -> monotype -> polytype
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
+val normalish: polytype -> polytype option
