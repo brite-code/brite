@@ -77,14 +77,12 @@ let projections_equal prefix t1 t2 =
     (* Scalars are only equivalent with each other. *)
     | Boolean, Boolean
     | Number, Number
-    | String, String
       -> true
 
     (* Exhaustive failure cases. *)
     | Function _, _
     | Boolean, _
     | Number, _
-    | String, _
       -> false
 
   and polytype_projections_equal locals1 locals2 t1 t2 =

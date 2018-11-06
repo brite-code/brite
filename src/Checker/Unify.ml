@@ -102,7 +102,6 @@ let rec unify prefix type1 type2 =
   (* Constant intrinsic types unify with each other no problem. *)
   | Boolean, Boolean -> Ok ()
   | Number, Number -> Ok ()
-  | String, String -> Ok ()
 
   (* Functions unify if the parameters and bodies unify.
    *
@@ -123,7 +122,6 @@ let rec unify prefix type1 type2 =
    * we want an error telling us to add a case for that type to unification. *)
   | Boolean, _
   | Number, _
-  | String, _
   | Function _, _ ->
     let type1 = Type.to_polytype type1 in
     let type2 = Type.to_polytype type2 in

@@ -1,6 +1,8 @@
-SRC=src/Ast src/Checker src/Diagnostics src/Parser src/Utils
+SRC=src/Ast src/Checker src/Compiler/Js src/Diagnostics src/Parser src/Utils
 
-.PHONY: clean test
+.PHONY: all clean test
+
+all: src/Main.native
 
 clean:
 	ocamlbuild -clean

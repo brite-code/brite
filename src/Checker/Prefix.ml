@@ -29,7 +29,7 @@ let create () =
 let level prefix f =
   (* Add a new level to the prefix. *)
   let index = match prefix.levels with [] -> 0 | level :: _ -> level.index + 1 in
-  prefix.levels <- { index; names = Hashtbl.create 50 } :: prefix.levels;
+  prefix.levels <- { index; names = Hashtbl.create 16 } :: prefix.levels;
   let counter = prefix.counter in
   (* Execute our function with the new level. *)
   let result = try Ok (f ()) with e -> Error e in

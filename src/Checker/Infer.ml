@@ -28,7 +28,6 @@ let rec infer prefix context expression =
   (* Return the constant types for constants. *)
   | Boolean _ -> Type.to_polytype Type.boolean
   | Number _ -> Type.to_polytype Type.number
-  | String _ -> Type.to_polytype Type.string
 
   (* Functions create a fresh type variable for their parameters and then infer
    * the body type with that type variable. It is expected that through

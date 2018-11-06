@@ -12,9 +12,6 @@ and expression_description =
   (* `0`, `42`, `3.1415`, `-1` *)
   | Number of float
 
-  (* `""`, `"foo"` *)
-  | String of string
-
   (* `λx.E` *)
   | Function of { parameter: string; body: expression }
 
@@ -37,9 +34,6 @@ let boolean value =
 
 let number value =
   { description = Number value }
-
-let string value =
-  { description = String value }
 
 let function_ parameter body =
   { description = Function { parameter; body } }

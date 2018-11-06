@@ -3,7 +3,6 @@ let rec print_monotype t =
   | Variable { name } -> name
   | Boolean -> "boolean"
   | Number -> "number"
-  | String -> "string"
 
   | Function { parameter = { monotype_description = Function _ } as parameter; body } ->
     Printf.sprintf "(%s) → %s" (print_monotype parameter) (print_monotype body)

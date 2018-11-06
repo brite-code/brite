@@ -7,7 +7,6 @@ and monotype_description = private
   | Variable of { name: string }
   | Boolean
   | Number
-  | String
   | Function of { parameter: monotype; body: monotype }
 
 type bound_kind = Flexible | Rigid
@@ -31,7 +30,6 @@ and polytype_description = private
 val variable: string -> monotype
 val boolean: monotype
 val number: monotype
-val string: monotype
 val function_: monotype -> monotype -> monotype
 val to_polytype: monotype -> polytype
 val bottom: polytype

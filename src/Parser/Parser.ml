@@ -24,7 +24,6 @@ type glyph =
   | False
   | Boolean
   | Number
-  | String
 
 type token =
   | Identifier of string
@@ -86,7 +85,6 @@ let tokenize cs =
           | "false" -> Some (Glyph False)
           | "boolean" -> Some (Glyph Boolean)
           | "number" -> Some (Glyph Number)
-          | "string" -> Some (Glyph String)
           | name -> Some (Identifier name)
         )
 
@@ -154,7 +152,6 @@ and parse_unwrapped_monotype tokens =
 
   | Glyph Boolean -> Type.boolean
   | Glyph Number -> Type.number
-  | Glyph String -> Type.string
 
   | Identifier name -> Type.variable name
 

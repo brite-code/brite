@@ -17,7 +17,6 @@ type glyph =
   | False
   | Boolean
   | Number
-  | String
 
 type token =
   | Identifier of string

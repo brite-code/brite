@@ -4,7 +4,6 @@ let run () = suite "Infer" (fun () -> (
   let cases = [
     ("infer((∅), (x: boolean), x)", "((∅), boolean)", []);
     ("infer((∅), (x: number), x)", "((∅), number)", []);
-    ("infer((∅), (x: string), x)", "((∅), string)", []);
     ("infer((∅), (x: ∀a.a → a), x)", "((∅), ∀a.a → a)", []);
     ("infer((∅), (x: ∀a.a), x)", "((∅), ∀a.a)", []);
     ("infer((∅), (x: ∀a.number), x)", "((∅), ∀a.number)", []);
@@ -103,7 +102,7 @@ let run () = suite "Infer" (fun () -> (
     ("infer((∅), (undefined: ⊥), λx.undefined)", "((∅), ∀(t1, t2).t1 → t2)", []);
     ("infer((∅), (∅), let id = λx.x in (id: ∀x.x → number))", "((∅), ∀x.x → number)", ["∀x.x → number ≢ number → number"]);
     ("infer((∅), (∅), let id = λx.x in let id = (id: ∀x.x → number) in (id: ∀x.x → x))", "((∅), ∀x.x → x)", ["∀x.x → number ≢ number → number"; "∀x.x → x ≢ number → number"]);
-    ("infer((∅), (∅), let f = λx.42 in (f: ∀x.x → string))", "((∅), ∀x.x → string)", ["number ≢ string"]);
+    ("infer((∅), (∅), let f = λx.42 in (f: ∀x.x → boolean))", "((∅), ∀x.x → boolean)", ["number ≢ boolean"]);
     ("infer((∅), (auto: ∀(a = ∀a.a → a).a → a, add1: number → number), auto add1)", "((∅), ∀a.a → a)", ["∀a.a → a ≢ number → number"]);
     ("infer((∅), (add1: number → number), let id = (λx.x: ∀x.x → number) in add1 (id true))", "((∅), number)", ["∀x.x → number ≢ number → number"]);
     ("infer((∅), (add1: number → number), let id = (λx.true: ∀x.x → x) in add1 (id 42))", "((∅), number)", ["∀x.x → x ≢ boolean → boolean"]);

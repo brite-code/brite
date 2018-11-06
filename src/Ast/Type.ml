@@ -13,9 +13,6 @@ and monotype_description =
   (* `number` *)
   | Number
 
-  (* `string` *)
-  | String
-
   (* `T1 → T2` *)
   | Function of { parameter: monotype; body: monotype }
 
@@ -72,13 +69,6 @@ let number =
   {
     monotype_free_variables = lazy StringSet.empty;
     monotype_description = Number;
-  }
-
-(* String monotype. *)
-let string =
-  {
-    monotype_free_variables = lazy StringSet.empty;
-    monotype_description = String;
   }
 
 (* Creates a new function monotype. *)
@@ -146,7 +136,6 @@ let rec substitute_monotype substitutions t =
   (* Types with no type variables will never be substituted. *)
   | Boolean
   | Number
-  | String
     -> None
   (* Look at the free variables for our type. If we don’t need a substitution
    * then just return the type. We put this here before
