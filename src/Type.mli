@@ -18,6 +18,7 @@ type bound = private {
 }
 
 and polytype = private {
+  polytype_normal: bool;
   polytype_free_variables: StringSet.t Lazy.t;
   polytype_description: polytype_description;
 }
@@ -40,3 +41,4 @@ val quantify: (string * bound) list -> monotype -> polytype
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
 val normalish: polytype -> polytype option
+val normal: polytype -> polytype option
