@@ -6,7 +6,6 @@ type level = {
 type entry = {
   mutable level: level;
   mutable bound: Type.bound;
-  mutable normalish: bool;
 }
 
 type t = {
@@ -66,7 +65,7 @@ let add_to_level prefix name bound =
   let level = List.hd prefix.levels in
   Hashtbl.add level.names name ();
   (* Add the type variable to the prefix. *)
-  Hashtbl.add prefix.entries name { level; bound; normalish = false }
+  Hashtbl.add prefix.entries name { level; bound }
 
 (* IMPORTANT: It is expected that all free type variables are bound in the
  * prefix! If this is not true then we will panic.
@@ -101,14 +100,13 @@ let add prefix name bound =
 
 (* Finds the bound for the provided name in the prefix. If no type variable
  * could be found then we panic. The bound returned will always be in
- * normalish form. *)
+ * normal form. *)
 let lookup prefix name =
   let entry = Hashtbl.find prefix.entries name in
-  if not entry.normalish then (
-    (match Type.normalish entry.bound.bound_type with
+  if not entry.bound.bound_type.polytype_normal then (
+    match Type.normal entry.bound.bound_type with
+    | None -> ()
     | Some t -> entry.bound <- Type.bound entry.bound.bound_kind t
-    | _ -> ());
-    entry.normalish <- true
   );
   entry.bound
 
@@ -145,7 +143,8 @@ let instantiate prefix bounds body =
 (* Generalizes a type at the current level of the prefix. If the type references
  * variables in the prefix at the current level then we will quantify the
  * provided monotype with those type variables. If the type references variables
- * at another level then we will not quantify those. *)
+ * at another level then we will not quantify those. The returned type will
+ * be in normal form. *)
 let generalize prefix t =
   (* Get the current prefix level. Panic if we are not in a level. *)
   if prefix.levels = [] then failwith "May only generalize in a level.";
@@ -175,8 +174,11 @@ let generalize prefix t =
   in
   (* Visit all the free variables in this type. *)
   StringSet.iter visit (Lazy.force t.Type.monotype_free_variables);
-  (* Quantify the type by the list of bounds we collected. *)
-  Type.quantify (List.rev !bounds) t
+  (* Quantify the type by the list of bounds we collected. Also convert the type
+   * to normal form. *)
+  let t = Type.quantify (List.rev !bounds) t in
+  let t = match Type.normal t with Some t -> t | None -> t in
+  t
 
 exception Occurs
 
@@ -291,7 +293,6 @@ let update prefix name bound =
    * new type’s dependencies. *)
   | Ok () ->
     entry.bound <- bound;
-    entry.normalish <- false;
     level_up prefix entry.level bound.bound_type;
     Ok ()
 
@@ -324,15 +325,11 @@ let update2 prefix name1 name2 bound =
     if entry1.level.index <= entry2.level.index then (
       entry1.bound <- bound;
       entry2.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name1));
-      entry1.normalish <- false;
-      entry2.normalish <- true;
       level_up prefix entry1.level bound.bound_type;
       Ok ()
     ) else (
       entry2.bound <- bound;
       entry1.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name2));
-      entry2.normalish <- false;
-      entry1.normalish <- true;
       level_up prefix entry2.level bound.bound_type;
       Ok ()
     )

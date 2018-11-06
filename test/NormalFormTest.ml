@@ -88,7 +88,8 @@ let run () = suite "NormalForm" (fun () -> (
       Stream.empty tokens;
       let t' = Type.normal t in
       let t' = match t' with Some t' -> t' | None -> t in
-      assert_equal (Printer.print_polytype t') output
+      assert_equal (Printer.print_polytype t') output;
+      assert t'.polytype_normal
     ))
   ))
 ))

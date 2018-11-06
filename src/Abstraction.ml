@@ -276,6 +276,9 @@ let flexible_binders_unchanged =
       )) acc bounds
   in
   fun t1 t2 ->
+    (* Assert that both types are in normal form. This is so that unused type
+     * variables have been thrown away. *)
+    assert (t1.Type.polytype_normal && t2.Type.polytype_normal);
     (* Create the polynomials for both of our types and check to make sure they
      * are equal. Remember that these polynomials exclude entries which do not
      * have an `X`. *)
