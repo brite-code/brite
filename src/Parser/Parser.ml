@@ -18,12 +18,15 @@ type glyph =
   | ParenthesesRight
 
   (* Keywords *)
+  | Boolean
+  | Number
   | Let
   | In
   | True
   | False
-  | Boolean
-  | Number
+  | If
+  | Then
+  | Else
 
 type token =
   | Identifier of string
@@ -79,12 +82,15 @@ let tokenize cs =
           let name = ref (List.rev name) in
           let name = String.init length (fun _ -> let c = List.hd !name in name := List.tl !name; c) in
           match name with
+          | "boolean" -> Some (Glyph Boolean)
+          | "number" -> Some (Glyph Number)
           | "let" -> Some (Glyph Let)
           | "in" -> Some (Glyph In)
           | "true" -> Some (Glyph True)
           | "false" -> Some (Glyph False)
-          | "boolean" -> Some (Glyph Boolean)
-          | "number" -> Some (Glyph Number)
+          | "if" -> Some (Glyph If)
+          | "then" -> Some (Glyph Then)
+          | "else" -> Some (Glyph Else)
           | name -> Some (Identifier name)
         )
 
@@ -228,6 +234,15 @@ let rec parse_expression tokens =
     parse_glyph tokens In;
     let body = parse_expression tokens in
     Expression.binding name value body
+
+  | Some (Glyph If) ->
+    Stream.junk tokens;
+    let test = parse_expression tokens in
+    parse_glyph tokens Then;
+    let consequent = parse_expression tokens in
+    parse_glyph tokens Else;
+    let alternate = parse_expression tokens in
+    Expression.conditional test consequent alternate
 
   | _ -> (
     let e = match try_parse_unwrapped_expression tokens with

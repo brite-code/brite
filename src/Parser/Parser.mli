@@ -11,12 +11,17 @@ type glyph =
   | LessThanOrEqual
   | ParenthesesLeft
   | ParenthesesRight
+
+  (* Keywords *)
+  | Boolean
+  | Number
   | Let
   | In
   | True
   | False
-  | Boolean
-  | Number
+  | If
+  | Then
+  | Else
 
 type token =
   | Identifier of string

@@ -118,6 +118,15 @@ let run () = suite "Infer" (fun () -> (
     ("infer((∅), (add1: number → number), (add1: ∀a.a → a))", "((∅), ∀a.a → a)", ["∀a.a → a ≢ number → number"]);
     ("infer((∅), (∅), (λx.x: number → number))", "((∅), number → number)", []);
     ("infer((∅), (∅), (λx.x: ∀a.a → a) 42)", "((∅), number)", []);
+    ("infer((a, b, c), (a: a, b: b, c: c), if a then b else c)", "((a = boolean, b, c = b), b)", []);
+    ("infer((∅), (∅), λx.λy.if true then x else y)", "((∅), ∀t1.t1 → t1 → t1)", []);
+    ("infer((∅), (∅), if 42 then true else false)", "((∅), boolean)", ["number ≢ boolean"]);
+    ("infer((∅), (∅), if true then true else false)", "((∅), boolean)", []);
+    ("infer((∅), (∅), if true then 1 else 0)", "((∅), number)", []);
+    ("infer((∅), (∅), if true then 1 else false)", "((∅), ⊥)", ["number ≢ boolean"]);
+    ("infer((∅), (∅), if true then true else 0)", "((∅), ⊥)", ["boolean ≢ number"]);
+    ("infer((∅), (id: ∀a.a → a, add1: number → number), if true then id else add1)", "((∅), number → number)", []);
+    ("infer((∅), (id: ∀a.a → a, add1: number → number), if true then add1 else id)", "((∅), number → number)", []);
   ] in
 
   let prefix = Prefix.create () in

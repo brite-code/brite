@@ -85,3 +85,20 @@ let rec infer prefix context expression =
       let _ = Unify.unify prefix value_type type_' in
       type_
     ))
+
+  (* Conditionally executes some code depending on the value under test. The
+   * value being tested must be a boolean. The two branches must have types
+   * equivalent to one another. *)
+  | Conditional { test; consequent; alternate } ->
+    let test_type = infer prefix context test in
+    let consequent_type = infer prefix context consequent in
+    let alternate_type = infer prefix context alternate in
+    Prefix.level prefix (fun () -> (
+      let test_type = Prefix.fresh_with_bound prefix (Type.bound Flexible test_type) in
+      let consequent_type = Prefix.fresh_with_bound prefix (Type.bound Flexible consequent_type) in
+      let alternate_type = Prefix.fresh_with_bound prefix (Type.bound Flexible alternate_type) in
+      let _ = Unify.unify prefix test_type Type.boolean in
+      match Unify.unify prefix consequent_type alternate_type with
+      | Ok () -> Prefix.generalize prefix consequent_type
+      | Error _ -> Type.bottom
+    ))

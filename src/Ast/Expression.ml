@@ -24,6 +24,9 @@ and expression_description =
   (* `(E: T)` *)
   | Annotation of { value: expression; type_: Type.polytype }
 
+  (* `if E1 then E2 else E3` *)
+  | Conditional of { test: expression; consequent: expression; alternate: expression }
+
 type t = expression
 
 let variable name =
@@ -46,3 +49,6 @@ let binding name value body =
 
 let annotation value type_ =
   { description = Annotation { value; type_ } }
+
+let conditional test consequent alternate =
+  { description = Conditional { test; consequent; alternate } }
