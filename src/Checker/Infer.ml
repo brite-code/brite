@@ -21,7 +21,7 @@ let rec infer prefix context expression =
     match StringMap.find_opt name context with
     | Some t -> t
     | None ->
-      let _ = Diagnostic.report_error (UnboundVariable { name }) in
+      let _ = Diagnostics.report_error (UnboundVariable { name }) in
       Type.bottom
   )
 

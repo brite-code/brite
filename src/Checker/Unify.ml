@@ -127,7 +127,7 @@ let rec unify prefix type1 type2 =
   | Function _, _ ->
     let type1 = Type.to_polytype type1 in
     let type2 = Type.to_polytype type2 in
-    Error (Diagnostic.report_error (IncompatibleTypes { type1; type2 }))
+    Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 }))
 
 (* Unifies two polytypes. When the two types are equivalent we return an ok
  * result with a type. This type is an instance of both our input types. That is

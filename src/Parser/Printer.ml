@@ -40,7 +40,7 @@ let print_prefix prefix =
 
 let print_diagnostic diagnostic =
   match diagnostic with
-  | Diagnostic.Error error -> (
+  | Diagnostics.Error error -> (
     match error with
     | UnboundVariable { name } ->
       Printf.sprintf "Unbound variable `%s`." name

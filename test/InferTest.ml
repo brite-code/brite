@@ -130,7 +130,7 @@ let run () = suite "Infer" (fun () -> (
     | n -> Printf.sprintf "%s = %s with %n errors" input output n
     in
     test name (fun () -> (
-      let ((), actual_errors) = Diagnostic.collect (fun () -> Prefix.level prefix (fun () -> (
+      let ((), actual_errors) = Diagnostics.collect (fun () -> Prefix.level prefix (fun () -> (
         let tokens = Parser.tokenize (Stream.of_string input) in
         assert (Stream.next tokens = Identifier "infer");
         assert (Stream.next tokens = Glyph ParenthesesLeft);

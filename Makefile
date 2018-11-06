@@ -1,3 +1,5 @@
+SRC=src/Ast src/Checker src/Diagnostics src/Parser src/Utils
+
 .PHONY: clean test
 
 clean:
@@ -7,7 +9,7 @@ test: test/Test.native
 	./Test.native
 
 src/%.native:
-	ocamlbuild $@
+	ocamlbuild -Is "$(SRC)" $@
 
 test/%.native:
-	ocamlbuild -I src $@
+	ocamlbuild -Is "$(SRC)" $@
