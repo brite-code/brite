@@ -75,6 +75,7 @@ let run () = suite "NormalForm" (fun () -> (
     ("nf(∀(a, b, x = ∀(c, d).a → b → c → d).x)", "∀(a, b, c, d).a → b → c → d");
     ("nf(∀(a, b = a → a, a = ∀z.z → b).a → a)", "∀(a, a2 = ∀z.z → a → a).a2 → a2");
     ("nf(∀(a, b = a → a, a = ∀z.z → b).a → a → b)", "∀(a, a2 = ∀z.z → a → a).a2 → a2 → a → a");
+    ("nf(∀(x, x = x).x)", "⊥");
   ] in
 
   cases |> List.iter (fun (input, output) -> (

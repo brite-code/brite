@@ -24,6 +24,7 @@ let test name f =
   | Assert_failure (file, line, col) -> Error (Printf.sprintf "Assert_failure(%S, %i, %i)" file line col)
   | Assert_equal_failure (a, b) -> Error (Printf.sprintf "%s \027[90m≠\027[39m %s" a b)
   | Stream.Error reason -> Error (Printf.sprintf "Stream.Error(%S)" reason)
+  | Stream.Failure -> Error "Stream.Failure"
   in
   let (mark, failure_reason) = match result with
   | Ok () ->

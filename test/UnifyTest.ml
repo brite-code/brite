@@ -286,6 +286,14 @@ let run () = suite "Unify" (fun () -> (
     ("unify((a = ∀(y, x).y → number, b = ∀(y, x).y → number), a, b)", "(a = ∀y.y → number, b = a)", []);
     ("unify((a = ∀(y, x).y → number, b = ∀y.y → number), a, b)", "(a = ∀y.y → number, b = a)", []);
     ("unify((a = ∀(y, x).y → number, b = ∀y.y → number), b, a)", "(b = ∀y.y → number, a = b)", []);
+    ("unify((x = ∀(a ≥ ∀b.b → b).a → a, y = ∀c.(c → c) → (c → c)), x, y)", "(y = ∀c.(c → c) → c → c, x = ∀(a ≥ ∀b.b → b).a → a)", ["∀(a ≥ ∀b.b → b).a → a ≢ ∀c.(c → c) → c → c"]);
+    ("unify((x ≥ ∀(a ≥ ∀b.b → b).a → a, y = ∀c.(c → c) → (c → c)), x, y)", "(x = ∀c.(c → c) → c → c, y = x)", []);
+    ("unify((x = ∀(a ≥ ∀b.b → b).a → a, y ≥ ∀c.(c → c) → (c → c)), x, y)", "(y ≥ ∀c.(c → c) → c → c, x = ∀(a ≥ ∀b.b → b).a → a)", ["∀(a ≥ ∀b.b → b).a → a ≢ ∀c.(c → c) → c → c"]);
+    ("unify((x ≥ ∀(a ≥ ∀b.b → b).a → a, y ≥ ∀c.(c → c) → (c → c)), x, y)", "(x ≥ ∀c.(c → c) → c → c, y = x)", []);
+    ("unify((x = ∀(a ≥ ∀b.b → b).a → a, y = ∀c.(c → c) → (c → c)), y, x)", "(y = ∀c.(c → c) → c → c, x = ∀(a ≥ ∀b.b → b).a → a)", ["∀(a ≥ ∀b.b → b).a → a ≢ ∀c.(c → c) → c → c"]);
+    ("unify((x ≥ ∀(a ≥ ∀b.b → b).a → a, y = ∀c.(c → c) → (c → c)), y, x)", "(y = ∀c.(c → c) → c → c, x = y)", []);
+    ("unify((x = ∀(a ≥ ∀b.b → b).a → a, y ≥ ∀c.(c → c) → (c → c)), y, x)", "(y ≥ ∀c.(c → c) → c → c, x = ∀(a ≥ ∀b.b → b).a → a)", ["∀(a ≥ ∀b.b → b).a → a ≢ ∀c.(c → c) → c → c"]);
+    ("unify((x ≥ ∀(a ≥ ∀b.b → b).a → a, y ≥ ∀c.(c → c) → (c → c)), y, x)", "(y ≥ ∀c.(c → c) → c → c, x = y)", []);
   ] in
 
   let prefix = Prefix.create () in
