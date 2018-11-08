@@ -1,17 +1,18 @@
 SRC=src/Ast src/Checker src/Compiler/Js src/Diagnostics src/Parser src/Utils
+OCB=ocamlbuild -Is "$(SRC)"
 
-.PHONY: all clean test
+.PHONY: all test clean
 
 all: src/Main.native
-
-clean:
-	ocamlbuild -clean
 
 test: test/Test.native
 	./Test.native
 
+clean:
+	$(OCB) -clean
+
 src/%.native:
-	ocamlbuild -Is "$(SRC)" $@
+	$(OCB) $@
 
 test/%.native:
-	ocamlbuild -Is "$(SRC)" $@
+	$(OCB) $@

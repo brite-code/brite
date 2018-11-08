@@ -1,11 +1,14 @@
+type constant = private
+  | Boolean of bool
+  | Number of float
+
 type expression = private {
   description: expression_description;
 }
 
 and expression_description = private
   | Variable of { name: string }
-  | Boolean of bool
-  | Number of float
+  | Constant of constant
   | Function of { parameter: string; body: expression }
   | Call of { callee: expression; argument: expression }
   | Binding of { name: string; value: expression; body: expression }
