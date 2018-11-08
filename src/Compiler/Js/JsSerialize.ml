@@ -114,11 +114,10 @@ and serialize_call scope callee argument =
   )
 
 and serialize_binding scope name value =
-  let (scope, name') = JsScope.new_name scope name in
+  let (scope', name') = JsScope.add scope name in
   let output e = JsAst.expression_statement (JsAst.assignment_expression (JsAst.identifier_pattern name') e) in
   let statements = serialize_to_js_statements scope value output in
-  let scope = JsScope.set_variable scope name name' in
-  let name = name' in
+  let (scope, name) = (scope', name') in
   let value = match statements with
   | Cons (statement, Empty) | ConsEnd (Empty, statement) -> JsAst.assignment_to statement name
   | _ -> None
@@ -130,3 +129,9 @@ and serialize_binding scope name value =
   | None ->
     let statement = JsAst.variable_declaration Let (JsAst.identifier_pattern name) None in
     (scope, Cons (statement, statements))
+
+(* Serializes a Brite expression to a JavaScript program. *)
+let serialize expression =
+  let (statements, { expression; _ }) = serialize_to_js_expression JsScope.empty expression in
+  let statements = Del.to_list (ConsEnd (statements, JsAst.expression_statement expression)) in
+  JsAst.program statements

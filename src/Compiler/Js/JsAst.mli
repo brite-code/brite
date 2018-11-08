@@ -9,6 +9,7 @@ type statement
 type expression
 type arrow_function_body
 type pattern
+type program
 
 val identifier: string -> identifier
 val expression_statement: expression -> statement
@@ -23,5 +24,7 @@ val assignment_expression: pattern -> expression -> expression
 val conditional_expression: expression -> expression -> expression -> expression
 val call_expression: expression -> expression list -> expression
 val identifier_pattern: identifier -> pattern
+val program: statement list -> program
 val statements_to_arrow_function_body: statement list -> arrow_function_body
 val assignment_to: statement -> identifier -> expression option
+val print_program: program -> string
