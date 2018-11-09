@@ -546,6 +546,265 @@ a => {
 };
 "
     );
+    (
+"let x = true in let y = if x then x else x in y",
+"\
+let x = true;
+let y = x ? x : x;
+y;
+"
+    );
+    (
+"let a = true in let x = if let b = a in b then a else a in x",
+"\
+let a = true;
+let b = a;
+let x = b ? a : a;
+x;
+"
+    );
+    (
+"let a = true in let x = if a then let b = a in b else a in x",
+"\
+let a = true;
+let x;
+
+if (a) {
+  let b = a;
+  x = b;
+} else {
+  x = a;
+}
+
+x;
+"
+    );
+    (
+"let a = true in let x = if a then a else let b = a in b in x",
+"\
+let a = true;
+let x;
+
+if (a) {
+  x = a;
+} else {
+  let b = a;
+  x = b;
+}
+
+x;
+"
+    );
+    (
+"let a = true in let x = if a then let b = a in b else let b = a in b in x",
+"\
+let a = true;
+let x;
+
+if (a) {
+  let b = a;
+  x = b;
+} else {
+  let b = a;
+  x = b;
+}
+
+x;
+"
+    );
+    (
+"let a = true in let x = if let b = a in b then let b = a in b else let b = a in b in x",
+"\
+let a = true;
+let b = a;
+let x;
+
+if (b) {
+  let b = a;
+  x = b;
+} else {
+  let b = a;
+  x = b;
+}
+
+x;
+"
+    );
+    (
+"let a = true in let x = if a then if a then a else a else if a then a else a in x",
+"\
+let a = true;
+let x = a ? a ? a : a : a ? a : a;
+x;
+"
+    );
+    (
+"let a = true in let x = if a then if a then let b = a in b else a else if a then a else a in x",
+"\
+let a = true;
+let x;
+
+if (a) {
+  if (a) {
+    let b = a;
+    x = b;
+  } else {
+    x = a;
+  }
+} else {
+  x = a ? a : a;
+}
+
+x;
+"
+    );
+    (
+"let a = true in let x = if a then if a then a else let b = a in b else if a then a else a in x",
+"\
+let a = true;
+let x;
+
+if (a) {
+  if (a) {
+    x = a;
+  } else {
+    let b = a;
+    x = b;
+  }
+} else {
+  x = a ? a : a;
+}
+
+x;
+"
+    );
+    (
+"let a = true in let x = if a then if a then a else a else if a then let b = a in b else a in x",
+"\
+let a = true;
+let x;
+
+if (a) {
+  x = a ? a : a;
+} else {
+  if (a) {
+    let b = a;
+    x = b;
+  } else {
+    x = a;
+  }
+}
+
+x;
+"
+    );
+    (
+"let a = true in let x = if a then if a then a else a else if a then a else let b = a in b in x",
+"\
+let a = true;
+let x;
+
+if (a) {
+  x = a ? a : a;
+} else {
+  if (a) {
+    x = a;
+  } else {
+    let b = a;
+    x = b;
+  }
+}
+
+x;
+"
+    );
+    (
+"let f = λx.x in let x = true in (if x then f else f) (f f)",
+"\
+let f = x => x;
+let x = true;
+(x ? f : f)(f(f));
+"
+    );
+    (
+"let f = λx.x in let x = true in (if x then f else f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let y = f(f);
+(x ? f : f)(y);
+"
+    );
+    (
+"let f = λx.x in let x = true in (if f x then f else f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let $tmp = f(x) ? f : f;
+let y = f(f);
+$tmp(y);
+"
+    );
+    (
+"let f = λx.x in let x = true in (if x then f f else f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let $tmp = x ? f(f) : f;
+let y = f(f);
+$tmp(y);
+"
+    );
+    (
+"let f = λx.x in let x = true in (if x then f else f f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let $tmp = x ? f : f(f);
+let y = f(f);
+$tmp(y);
+"
+    );
+    (
+"let f = λx.x in let x = true in (if f x then f f else f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let $tmp = f(x) ? f(f) : f;
+let y = f(f);
+$tmp(y);
+"
+    );
+    (
+"let f = λx.x in let x = true in (if f x then f else f f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let $tmp = f(x) ? f : f(f);
+let y = f(f);
+$tmp(y);
+"
+    );
+    (
+"let f = λx.x in let x = true in (if x then f f else f f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let $tmp = x ? f(f) : f(f);
+let y = f(f);
+$tmp(y);
+"
+    );
+    (
+"let f = λx.x in let x = true in (if f x then f f else f f) (let y = f f in y)",
+"\
+let f = x => x;
+let x = true;
+let $tmp = f(x) ? f(f) : f(f);
+let y = f(f);
+$tmp(y);
+"
+    );
   ] in
 
   cases |> List.iter (fun (input, output) -> (
