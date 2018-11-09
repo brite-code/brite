@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "name": "@brite/monorepo",
+  "workspaces": [
+    "code/*"
+  ]
+}

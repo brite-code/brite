@@ -1,0 +1,43 @@
+{
+  "private": true,
+  "name": "@brite/ide-vscode",
+  "version": "0.0.0",
+  "displayName": "Brite",
+  "publisher": "TODO",
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Debuggers",
+    "Formatters"
+  ],
+  "keywords": [
+    "brite",
+    "language",
+    "code",
+    "ide"
+  ],
+  "engines": {
+    "vscode": "^1.28.2"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "brite-lite",
+        "aliases": [
+          "Brite Lite"
+        ],
+        "extensions": [
+          ".lite"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "brite-lite",
+        "scopeName": "source.brite-lite",
+        "path": "./syntaxes/brite-lite.tmLanguage.json"
+      }
+    ]
+  }
+}

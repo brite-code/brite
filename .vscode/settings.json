@@ -9,11 +9,19 @@
   "files.exclude": {
     "**/.git": true,
     "**/.DS_Store": true,
+    "**/node_modules": true,
     "**/_build": true
   },
   "html.format.endWithNewline": true,
   "[markdown]": {
     "editor.wordWrap": "wordWrapColumn",
     "editor.wordWrapColumn": 80
-  }
+  },
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "es5",
+  "prettier.proseWrap": "always",
+  "prettier.bracketSpacing": false,
+  "tslint.jsEnable": true,
+  "tslint.alwaysShowRuleFailuresAsWarnings": true,
+  "tslint.autoFixOnSave": true
 }
