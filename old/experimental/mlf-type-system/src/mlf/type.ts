@@ -1,7 +1,5 @@
 import * as Immutable from 'immutable';
 
-import {BindingMap} from '../utils/bindings';
-
 /**
  * A type in our type system. Actually an alias for `Polytype`.
  */
