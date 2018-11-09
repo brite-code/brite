@@ -9,10 +9,10 @@ and monotype_description = private
   | Number
   | Function of { parameter: monotype; body: monotype }
 
-type bound_kind = Flexible | Rigid
+type bound_flexibility = Flexible | Rigid
 
 type bound = private {
-  bound_kind: bound_kind;
+  bound_flexibility: bound_flexibility;
   bound_type: polytype;
 }
 
@@ -33,7 +33,7 @@ val number: monotype
 val function_: monotype -> monotype -> monotype
 val to_polytype: monotype -> polytype
 val bottom: polytype
-val bound: bound_kind -> polytype -> bound
+val bound: bound_flexibility -> polytype -> bound
 val unbounded: bound
 val quantify: (string * bound) list -> monotype -> polytype
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option

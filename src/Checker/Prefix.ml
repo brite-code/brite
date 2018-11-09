@@ -106,7 +106,7 @@ let lookup prefix name =
   if not entry.bound.bound_type.polytype_normal then (
     match Type.normal entry.bound.bound_type with
     | None -> ()
-    | Some t -> entry.bound <- Type.bound entry.bound.bound_kind t
+    | Some t -> entry.bound <- Type.bound entry.bound.bound_flexibility t
   );
   entry.bound
 
@@ -119,7 +119,7 @@ let instantiate prefix bounds body =
     (* If we have some substitutions then apply them to our bound. *)
     let bound = match Type.substitute_polytype substitutions bound.Type.bound_type with
     | None -> bound
-    | Some bound_type -> Type.bound bound.bound_kind bound_type
+    | Some bound_type -> Type.bound bound.bound_flexibility bound_type
     in
     (* Add the bound to our prefix. If we had to generate a new name then add a
      * substitution to our map.
@@ -255,7 +255,7 @@ let update_check prefix name old_bound new_bound =
      *
      * NOTE: We re-use the `IncompatibleTypes` error here, but maybe we want a
      * more descriptive error? *)
-    old_bound.Type.bound_kind == Rigid &&
+    old_bound.Type.bound_flexibility == Rigid &&
     not (Abstraction.check (lookup prefix) old_bound.bound_type new_bound.bound_type)
   ) then (
     let type1 = old_bound.bound_type in

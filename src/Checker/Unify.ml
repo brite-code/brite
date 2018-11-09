@@ -59,11 +59,11 @@ let rec unify prefix type1 type2 =
         match unify_polytype prefix bound1.bound_type bound2.bound_type with
         | Error error -> Error error
         | Ok t ->
-          let bound_kind = if (
-            bound1.bound_kind = Flexible &&
-            bound2.bound_kind = Flexible
+          let bound_flexibility = if (
+            bound1.bound_flexibility = Flexible &&
+            bound2.bound_flexibility = Flexible
           ) then Type.Flexible else Type.Rigid in
-          Prefix.update2 prefix name1 name2 (Type.bound bound_kind t)
+          Prefix.update2 prefix name1 name2 (Type.bound bound_flexibility t)
       )
     )
 

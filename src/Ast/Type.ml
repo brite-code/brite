@@ -16,10 +16,10 @@ and monotype_description =
   (* `T1 → T2` *)
   | Function of { parameter: monotype; body: monotype }
 
-type bound_kind = Flexible | Rigid
+type bound_flexibility = Flexible | Rigid
 
 type bound = {
-  bound_kind: bound_kind;
+  bound_flexibility: bound_flexibility;
   bound_type: polytype;
 }
 
@@ -96,7 +96,7 @@ let bottom =
   }
 
 (* Creates a type bound. *)
-let bound kind type_ = { bound_kind = kind; bound_type = type_ }
+let bound flexibility type_ = { bound_flexibility = flexibility; bound_type = type_ }
 
 (* A flexible bottom bound. *)
 let unbounded = bound Flexible bottom
@@ -283,8 +283,8 @@ let rec normal t =
         in
         match (snd entry).bound_type.polytype_description with
         (* If our bound is a monotype then we want to inline that monotype
-         * wherever a reference appears. Ignoring the bound kind. We also want
-         * to rename any free variables that this bound captures in
+         * wherever a reference appears. Ignoring the bound flexibility. We also
+         * want to rename any free variables that this bound captures in
          * subsequent bounds. *)
         | Monotype t ->
           let (name, _) = entry in

@@ -2,7 +2,7 @@
 type locals = Locals of (locals * Type.bound) StringMap.t [@@unboxed]
 
 (* Checks if the projections of two types are equal. The projection of a type is
- * the type with all quantifications inlined no matter the kind of the
+ * the type with all quantifications inlined no matter the flexibility of the
  * quantification bound. The projection function is written in Definition 1.3.2
  * of the [MLF thesis][1]. This function efficiently compares the projection of
  * two types under a prefix and returns true if the projections are equal to
@@ -265,7 +265,7 @@ let flexible_binders_unchanged =
      * state correctly. *)
     | Quantify { bounds; body = _ } ->
       List.fold_left (fun acc (_, bound) -> (
-        match state, bound.Type.bound_kind with
+        match state, bound.Type.bound_flexibility with
         | X, Flexible -> loop X acc (xs + 1) ys zs bound.Type.bound_type
         | X, Rigid -> loop Y acc xs (ys + 1) zs bound.Type.bound_type
         | Y, Flexible -> loop Z acc xs ys (zs + 1) bound.Type.bound_type
@@ -310,7 +310,7 @@ let check prefix t1 t2 =
      * check again. *)
     | _, Monotype { monotype_description = Variable { name }; _ } ->
       let bound = prefix name in
-      if bound.Type.bound_kind = Type.Rigid then loop t1 bound.Type.bound_type else false
+      if bound.Type.bound_flexibility = Type.Rigid then loop t1 bound.Type.bound_type else false
 
     (* Finally, we expect the flexible binders to not have changed between the
      * two types. *)

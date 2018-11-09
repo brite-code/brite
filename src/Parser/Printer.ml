@@ -15,7 +15,7 @@ let rec print_polytype t =
   | Monotype t -> print_monotype t
   | Bottom -> "⊥"
 
-  | Quantify { bounds = [(name, { bound_kind = Flexible; bound_type = { polytype_description = Bottom; _ } })]; body } ->
+  | Quantify { bounds = [(name, { bound_flexibility = Flexible; bound_type = { polytype_description = Bottom; _ } })]; body } ->
     let body = print_monotype body in
     Printf.sprintf "∀%s.%s" name body
 
@@ -26,11 +26,11 @@ let rec print_polytype t =
 
 and print_bound (name, bound) =
   match bound with
-  | { Type.bound_kind = Flexible; bound_type = { polytype_description = Bottom; _ } } -> name
-  | { bound_kind; bound_type } ->
-    let bound_kind = match bound_kind with Flexible -> "≥" | Rigid -> "=" in
+  | { Type.bound_flexibility = Flexible; bound_type = { polytype_description = Bottom; _ } } -> name
+  | { bound_flexibility; bound_type } ->
+    let bound_flexibility = match bound_flexibility with Flexible -> "≥" | Rigid -> "=" in
     let bound_type = print_polytype bound_type in
-    Printf.sprintf "%s %s %s" name bound_kind bound_type
+    Printf.sprintf "%s %s %s" name bound_flexibility bound_type
 
 let print_prefix prefix =
   match List.map print_bound (Prefix.bounds prefix) with
