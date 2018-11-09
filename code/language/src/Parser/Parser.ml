@@ -17,10 +17,7 @@ type glyph =
   | ParenthesesLeft
   | ParenthesesRight
 
-  (* Keywords.
-   *
-   * NOTE: When updating this type also update the grammar patterns
-   * for keywords. *)
+  (* Keywords *)
   | Boolean
   | Number
   | Let

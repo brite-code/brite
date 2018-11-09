@@ -2,8 +2,5 @@
 _build
 *.native
 
-# Node Package Managers
-node_modules
-
 # Local Environment
 local
