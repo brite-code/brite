@@ -1,10 +1,3 @@
-type constant =
-  (* `true`, `false` *)
-  | Boolean of bool
-
-  (* `0`, `42`, `3.1415`, `-1` *)
-  | Number of float
-
 type expression = {
   description: expression_description;
 }
@@ -13,8 +6,11 @@ and expression_description =
   (* `x` *)
   | Variable of { name: string }
 
-  (* `true`, `42`, `"foo"` *)
-  | Constant of constant
+  (* `true`, `false` *)
+  | Boolean of bool
+
+  (* `0`, `42`, `3.1415`, `-1` *)
+  | Number of float
 
   (* `λx.E` *)
   | Function of { parameter: string; body: expression }
@@ -37,10 +33,10 @@ let variable name =
   { description = Variable { name } }
 
 let boolean value =
-  { description = Constant (Boolean value) }
+  { description = Boolean value }
 
 let number value =
-  { description = Constant (Number value) }
+  { description = Number value }
 
 let function_ parameter body =
   { description = Function { parameter; body } }

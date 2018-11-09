@@ -20,11 +20,11 @@ val identifier_expression: identifier -> expression
 val boolean_literal: bool -> expression
 val numeric_literal: float -> expression
 val arrow_function_expression: pattern list -> arrow_function_body -> expression
+val expression_arrow_function_body: expression -> arrow_function_body
+val block_statement_arrow_function_body: statement list -> arrow_function_body
 val assignment_expression: pattern -> expression -> expression
 val conditional_expression: expression -> expression -> expression -> expression
 val call_expression: expression -> expression list -> expression
 val identifier_pattern: identifier -> pattern
 val program: statement list -> program
-val statements_to_arrow_function_body: statement list -> arrow_function_body
-val assignment_to: statement -> identifier -> expression option
 val print_program: program -> string

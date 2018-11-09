@@ -48,28 +48,13 @@ let identifier_expression identifier = IdentifierExpression identifier
 let boolean_literal value = BooleanLiteral { value }
 let numeric_literal value = NumericLiteral { value }
 let arrow_function_expression params body = ArrowFunctionExpression { params; body }
+let expression_arrow_function_body expression = ExpressionArrowFunctionBody expression
+let block_statement_arrow_function_body statements = BlockStatementArrowFunctionBody { statements }
 let assignment_expression left right = AssignmentExpression { left; right }
 let conditional_expression test consequent alternate = ConditionalExpression { test; consequent; alternate }
 let call_expression callee arguments = CallExpression { callee; arguments }
 let identifier_pattern identifier = IdentifierPattern identifier
 let program statements = { program_statements = statements }
-
-(* Converts a list of statements to an arrow function body. If there is only a
- * single return statement then that becomes an expression body. *)
-let statements_to_arrow_function_body statements =
-  match statements with
-  | [ReturnStatement { argument }] -> ExpressionArrowFunctionBody argument
-  | _ -> BlockStatementArrowFunctionBody { statements }
-
-(* If the statement is an assignment expression statement assigning to the
- * provided name then we return the value being assigned. Otherwise we
- * return nothing. *)
-let assignment_to statement name =
-  match statement with
-  | ExpressionStatement { expression = AssignmentExpression { left; right } }
-      when left = IdentifierPattern name ->
-    Some right
-  | _ -> None
 
 (* The expression precedence levels as defined by the ECMAScript specification’s
  * expression grammar. This helps us determine when we need to
@@ -157,11 +142,33 @@ and print_block_statement indentation { statements } =
   | [] -> "{}"
   | statements ->
     let indentation' = indentation ^ "  " in
-    let statements = List.map (fun statement ->
-      indentation' ^ print_statement indentation statement ^ "\n"
-    ) statements in
-    let statements = String.concat "" statements in
-    "{\n" ^ statements ^ indentation ^ "}"
+    "{\n" ^ print_statements indentation' statements ^ indentation ^ "}"
+
+and print_statements indentation statements =
+  let line_between statement1 statement2 =
+    match statement1, statement2 with
+    | IfStatement _, _
+    | _, IfStatement _
+      -> true
+
+    | ExpressionStatement _, _
+    | ReturnStatement _, _
+    | VariableDeclaration _, _
+      -> false
+  in
+  let rec loop acc statements =
+    match statements with
+    | [] -> acc
+
+    | statement :: [] ->
+      acc ^ indentation ^ print_statement indentation statement ^ "\n"
+
+    | statement1 :: statement2 :: statements ->
+      let acc = acc ^ indentation ^ print_statement indentation statement1 ^ "\n" in
+      let acc = if line_between statement1 statement2 then acc ^ "\n" else acc in
+      loop acc (statement2 :: statements)
+  in
+  loop "" statements
 
 (* Prints the AST of a JavaScript expression to a string. *)
 and print_expression indentation precedence expression =
@@ -210,5 +217,4 @@ and print_pattern pattern =
 
 (* Prints the AST of a JavaScript program to a string. *)
 let print_program { program_statements } =
-  let statements = List.map (fun statement -> print_statement "" statement ^ "\n") program_statements in
-  String.concat "" statements
+  print_statements "" program_statements
