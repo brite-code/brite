@@ -1,18 +1,18 @@
-SRC=code/language/src/{Ast,Checker,Compiler/Js,Diagnostics,Parser,Utils}
-OCB=ocamlbuild -Is "$(shell echo $(SRC))"
+SRC=src/Ast src/Checker src/Compiler/Js src/Diagnostics src/Parser src/Utils
+OCB=ocamlbuild -Is "$(SRC)"
 
 .PHONY: all test clean
 
-all: code/language/src/Main.native
+all: src/Main.native
 
-test: code/language/test/Test.native
+test: test/Test.native
 	./Test.native
 
 clean:
 	$(OCB) -clean
 
-code/language/src/%.native:
+src/%.native:
 	$(OCB) $@
 
-code/language/test/%.native:
+test/%.native:
 	$(OCB) $@
