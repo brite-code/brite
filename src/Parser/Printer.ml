@@ -10,6 +10,8 @@ let rec print_monotype t =
   | Function { parameter; body } ->
     Printf.sprintf "%s → %s" (print_monotype parameter) (print_monotype body)
 
+  | Row _ -> failwith "TODO"
+
 let rec print_polytype t =
   match t.Type.polytype_description with
   | Monotype t -> print_monotype t

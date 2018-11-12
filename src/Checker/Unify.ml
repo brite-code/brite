@@ -118,11 +118,17 @@ let rec unify prefix type1 type2 =
     | Ok (), Ok () -> Ok ()
   )
 
+  (* TODO *)
+  | Row { entries = entries1; extension = extension1 },
+    Row { entries = entries2; extension = extension2 } ->
+    failwith "TODO"
+
   (* Exhaustive match for failure case. Don’t use `_` since if we add a new type
    * we want an error telling us to add a case for that type to unification. *)
   | Boolean, _
   | Number, _
-  | Function _, _ ->
+  | Function _, _
+  | Row _, _ ->
     let type1 = Type.to_polytype type1 in
     let type2 = Type.to_polytype type2 in
     Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 }))

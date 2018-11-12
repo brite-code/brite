@@ -8,6 +8,9 @@ and monotype_description = private
   | Boolean
   | Number
   | Function of { parameter: monotype; body: monotype }
+  | Row of { entries: row_entry list; extension: monotype option }
+
+and row_entry = string * monotype
 
 type bound_flexibility = Flexible | Rigid
 
@@ -31,6 +34,7 @@ val variable: string -> monotype
 val boolean: monotype
 val number: monotype
 val function_: monotype -> monotype -> monotype
+val row: row_entry list -> monotype option -> monotype
 val to_polytype: monotype -> polytype
 val bottom: polytype
 val bound: bound_flexibility -> polytype -> bound
@@ -39,3 +43,4 @@ val quantify: (string * bound) list -> monotype -> polytype
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
 val normal: polytype -> polytype option
+val merge_rows: row_entry list -> row_entry list -> ((string * monotype * monotype) list * row_entry list * row_entry list)

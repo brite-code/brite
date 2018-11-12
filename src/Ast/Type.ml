@@ -16,6 +16,11 @@ and monotype_description =
   (* `T1 → T2` *)
   | Function of { parameter: monotype; body: monotype }
 
+  (* `(|l: T1 | T2|)` *)
+  | Row of { entries: row_entry list; extension: monotype option }
+
+and row_entry = string * monotype
+
 type bound_flexibility = Flexible | Rigid
 
 type bound = {
@@ -77,6 +82,18 @@ let function_ parameter body =
     monotype_free_variables = lazy (StringSet.union
       (Lazy.force parameter.monotype_free_variables) (Lazy.force body.monotype_free_variables));
     monotype_description = Function { parameter; body }
+  }
+
+(* Creates a new row monotype. *)
+let row entries extension =
+  {
+    monotype_free_variables = lazy (
+      let free = match extension with Some t -> Lazy.force t.monotype_free_variables | None -> StringSet.empty in
+      List.fold_left (fun free (_, type_) -> (
+        StringSet.union free (Lazy.force type_.monotype_free_variables)
+      )) free entries
+    );
+    monotype_description = Row { entries; extension };
   }
 
 (* Converts a monotype into a polytype. *)
@@ -141,13 +158,26 @@ let rec substitute_monotype substitutions t =
    * then just return the type. We put this here before
    * unconditionally recursing. *)
   | _ when not (needs_substitution substitutions (Lazy.force t.monotype_free_variables)) -> None
-  (* Composite types are unconditionally substituted since according to the
-   * check above their free type variables overlap with the type variables which
-   * need to be substituted. *)
+  (* Unconditionally substitute function types since we know in some child there
+   * is a type variable which should be substituted. *)
   | Function { parameter; body } ->
     let parameter = match substitute_monotype substitutions parameter with Some t -> t | None -> parameter in
     let body = match substitute_monotype substitutions body with Some t -> t | None -> body in
     Some (function_ parameter body)
+  (* Unconditionally substitute row types since we know in some child there is a
+   * type variable which should be substituted. *)
+  | Row { entries; extension } ->
+    let entries = List.map (fun entry -> (
+      let (label, type_) = entry in
+      match substitute_monotype substitutions type_ with
+      | Some type_ -> (label, type_)
+      | None -> entry
+    )) entries in
+    let extension = match extension with
+    | Some t -> Some (match substitute_monotype substitutions t with Some t -> t | None -> t)
+    | None -> None
+    in
+    Some (row entries extension)
 
 (* Substitutes the free variables of the provided type with a substitution if
  * one was made available in the substitutions map. Does not substitute
@@ -327,3 +357,28 @@ let rec normal t =
     in
     let t = loop StringSet.empty StringSet.empty StringMap.empty bounds [] in
     Some t
+
+(* Merges two row list entries. Returns three lists.
+ *
+ * 1. A list of all the row entries which appear in both lists. (In reverse
+ *    alphabetical order.)
+ * 2. A list of the remaining entries of `entries1`. (In alphabetical order.)
+ * 3. A list of the remaining entries of `entries2`. (In alphabetical order.) *)
+let merge_rows entries1 entries2 =
+  if entries1 = [] || entries2 = [] then ([], entries1, entries2) else
+  let entries1 = List.stable_sort (fun (a, _) (b, _) -> String.compare a b) entries1 in
+  let entries2 = List.stable_sort (fun (a, _) (b, _) -> String.compare a b) entries2 in
+  let rec loop pairs rev_entries1 rev_entries2 entries1 entries2 =
+    match entries1, entries2 with
+    | [], _ -> (pairs, List.rev rev_entries1, List.rev_append rev_entries2 entries2)
+    | _, [] -> (pairs, List.rev_append rev_entries1 entries1, List.rev rev_entries2)
+    | ((label1, type1) as entry1) :: entries1', ((label2, type2) as entry2) :: entries2' ->
+      if label1 = label2 then (
+        loop ((label1, type1, type2) :: pairs) rev_entries1 rev_entries2 entries1' entries2'
+      ) else if label1 < label2 then (
+        loop pairs (entry1 :: rev_entries1) rev_entries2 entries1' entries2
+      ) else (
+        loop pairs rev_entries1 (entry2 :: rev_entries2) entries1 entries2'
+      )
+  in
+  loop [] [] [] entries1 entries2
