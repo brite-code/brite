@@ -99,8 +99,19 @@ let rec unify prefix type1 type2 =
     )
   )
 
-  (* TODO *)
-  | Error _, _ | _, Error _ -> failwith "TODO"
+  (* Two errors must have _referentially_ equal diagnostics to be considered
+   * equivalent. Instead of reporting an incompatible types error and returning
+   * that, we return the error payload of our first error type. *)
+  | Error { error = error1; }, Error { error = error2 } ->
+    if Diagnostics.equal error1 error2 then (
+      Ok ()
+    ) else (
+      Error error1
+    )
+
+  (* Instead of reporting an incompatible types error we return the payload of
+   * our error type. This way runtime panics will mention the correct error. *)
+  | Error { error; _ }, _ | _, Error { error; _ } -> Error error
 
   (* Constant intrinsic types unify with each other no problem. *)
   | Boolean, Boolean -> Ok ()

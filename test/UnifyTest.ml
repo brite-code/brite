@@ -293,6 +293,27 @@ let run () = suite "Unify" (fun () -> (
     ("unify((x ≥ ∀(a ≥ ∀b.b → b).a → a, y = ∀c.(c → c) → (c → c)), y, x)", "(y = ∀c.(c → c) → c → c, x = y)", []);
     ("unify((x = ∀(a ≥ ∀b.b → b).a → a, y ≥ ∀c.(c → c) → (c → c)), y, x)", "(y ≥ ∀c.(c → c) → c → c, x = ∀(a ≥ ∀b.b → b).a → a)", ["∀(a ≥ ∀b.b → b).a → a ≢ ∀c.(c → c) → c → c"]);
     ("unify((x ≥ ∀(a ≥ ∀b.b → b).a → a, y ≥ ∀c.(c → c) → (c → c)), y, x)", "(y ≥ ∀c.(c → c) → c → c, x = y)", []);
+    ("unify((t = nope), t, t)", "(t = %error)", ["Unbound variable `nope`."]);
+    ("unify((t1 = nope, t2 = nope), t1, t2)", "(t1 = %error, t2 = %error)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((x, y = number), x, y)", "(y = number, x = number)", []);
+    ("unify((x, y = number), y, x)", "(y = number, x = number)", []);
+    ("unify((x, y = nope), x, y)", "(y = %error, x = %error)", ["Unbound variable `nope`."]);
+    ("unify((x, y = nope), y, x)", "(y = %error, x = %error)", ["Unbound variable `nope`."]);
+    ("unify((a = ∀z.z → nope, b = ∀z.z → nope), a, b)", "(a = ∀z.z → %error, b = ∀z.z → %error)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((a = ∀z.z → nope, b = ∀z.z → nope), b, a)", "(a = ∀z.z → %error, b = ∀z.z → %error)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((c = nope, a = ∀z.z → c, b = ∀z.z → c), a, b)", "(c = %error, a = ∀z.z → c, b = a)", ["Unbound variable `nope`."]);
+    ("unify((c = nope, a = ∀z.z → c, b = ∀z.z → c), b, a)", "(c = %error, b = ∀z.z → c, a = b)", ["Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(e = number, a = ∀z.z → e, b = ∀z.z → e).a → b), t, x → y)", "(y = ∀z.z → number, x = ∀z.z → number, t = x → y)", []);
+    ("unify((x, y, t = ∀(e = number, a = ∀z.z → e, b = ∀z.z → e).a → b), x → y, t)", "(y = ∀z.z → number, x = ∀z.z → number, t = x → y)", []);
+    ("unify((x, y, t = ∀(e = nope, a = ∀z.z → e, b = ∀z.z → e).a → b), t, x → y)", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(e = nope, a = ∀z.z → e, b = ∀z.z → e).a → b), x → y, t)", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(e1 = nope, e2 = nope, a = ∀z.z → e1, b = ∀z.z → e2).a → b), t, x → y)", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(e1 = nope, e2 = nope, a = ∀z.z → e1, b = ∀z.z → e2).a → b), x → y, t)", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(a = ∀z.z → nope, b = ∀z.z → nope).a → b), t, x → y)", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(a = ∀z.z → nope, b = ∀z.z → nope).a → b), x → y, t)", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(e = nope, a = ∀z.z → e, b = ∀z.z → e).a → b), t → (y → x), (x → y) → (x → y))", "(y = ∀z.z → %error, x = y, t = x → y)", ["Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(e1 = nope, e2 = nope, a = ∀z.z → e1, b = ∀z.z → e2).a → b), t → (y → x), (x → y) → (x → y))", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((x, y, t = ∀(a = ∀z.z → nope, b = ∀z.z → nope).a → b), t → (y → x), (x → y) → (x → y))", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
   ] in
 
   let prefix = Prefix.create () in
@@ -327,7 +348,7 @@ let run () = suite "Unify" (fun () -> (
         assert_equal (Printer.print_prefix (Prefix.bounds prefix)) output;
         result
       ))) in
-      assert (match result with Ok () -> actual_errors = [] | Error _ -> actual_errors <> []);
+      (match result with Error _ -> assert (actual_errors <> []) | Ok () -> ());
       List.iter2 assert_equal (List.map Printer.print_diagnostic actual_errors) expected_errors
     ))
   ))

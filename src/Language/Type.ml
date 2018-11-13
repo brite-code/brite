@@ -20,11 +20,41 @@ and 'k monotype_description =
   | RowEmpty
 
   (* `(| l: T1 | T2 |)` *)
-  (* TODO: Kind analysis of parsed types. *)
   | RowExtension of { entries: (string * 'k base_monotype) Nel.t; extension: 'k base_monotype }
 
-  (* The programmer might write a type annotation incorrectly. In that case we
-   * insert an error node into the type tree. *)
+  (* When the programmer writes a syntactically correct type, but the type is
+   * semantically incorrect (for example, it references a type that does not
+   * exist) we replace that type in our tree with an error type. This way we can
+   * continue type-checking with the information that is semantically correct.
+   *
+   * Further, in Brite we compile code even if it has type errors. When code
+   * with a type error is executed we panic at runtime. We want to panic when
+   * types are _used_ and not when types are _defined_. Consider the
+   * following program:
+   *
+   * ```
+   * type T = Nope
+   *
+   * λx.(x: T)
+   * ```
+   *
+   * Type `T` is an error type since type `Nope` does not exist. It is defined
+   * globally but is only used in the lambda function. We’d rather panic where
+   * `T` is _used_ as an annotation instead of globally.
+   *
+   * So how do error types fit into the [MLF][1] theoretical framework? And how
+   * can we ensure runtime panics when a type is used instead of defined?
+   *
+   * The answer is that we treat error types as uninhabited constant types. The
+   * grammar for monotypes in [MLF][1] includes a set of arbitrary “symbols”
+   * (named `g`). Every error node is its own _distinct_ symbol. There is no way
+   * to soundly create a value of an error type. This is what makes error
+   * types uninhabited.
+   *
+   * We panic at runtime by returning the error type’s diagnostic in our
+   * unification algorithm instead of an incompatible types error.
+   *
+   * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
   | Error of { kind: 'k; error: Diagnostics.t }
 
 type bound_flexibility = Flexible | Rigid
@@ -206,9 +236,8 @@ let rec substitute_monotype substitutions t =
   | Boolean
   | Number
   | RowEmpty
+  | Error _
     -> None
-  (* TODO *)
-  | Error _ -> failwith "TODO"
   (* Look at the free variables for our type. If we don’t need a substitution
    * then just return the type. We put this here before
    * unconditionally recursing. *)

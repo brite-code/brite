@@ -62,8 +62,6 @@ let report diagnostic =
  * established. *)
 let report_error error = report (Error error)
 
-(* Unwraps an error from a diagnostic. Panics if the diagnostic is not
- * an error. *)
-let unwrap_error diagnostic =
-  match diagnostic with
-  | Error error -> error
+(* Returns true if two diagnostics are equal to each other. This is a
+ * referential equality check and not a structural equality check. *)
+let equal a b = a == b

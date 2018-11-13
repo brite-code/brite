@@ -127,6 +127,11 @@ let run () = suite "Infer" (fun () -> (
     ("infer((∅), (∅), if true then true else 0)", "((∅), ⊥)", ["boolean ≢ number"]);
     ("infer((∅), (id: ∀a.a → a, add1: number → number), if true then id else add1)", "((∅), number → number)", []);
     ("infer((∅), (id: ∀a.a → a, add1: number → number), if true then add1 else id)", "((∅), number → number)", []);
+    ("infer((∅), (∅), (42: (||)))", "((∅), %error)", ["Incompatible kinds row and value."]);
+    ("infer((∅), (∅), (42: nope))", "((∅), %error)", ["Unbound variable `nope`."]);
+    ("infer((∅), (x: nope), x)", "((∅), %error)", ["Unbound variable `nope`."]);
+    ("infer((t = nope), (x: t, y: t, choose: ∀a.a → a → a), choose x y)", "((t = %error), %error)", ["Unbound variable `nope`."]);
+    ("infer((t1 = nope, t2 = nope), (x: t1, y: t2, choose: ∀a.a → a → a), choose x y)", "((t1 = %error, t2 = %error), %error)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
   ] in
 
   let prefix = Prefix.create () in

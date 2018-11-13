@@ -83,8 +83,9 @@ let projections_equal prefix t1 t2 =
     | RowEmpty, RowEmpty -> failwith "TODO"
     | RowExtension _, RowExtension _ -> failwith "TODO"
 
-    (* TODO *)
-    | Error _, _ | _, Error _ -> failwith "TODO"
+    (* Errors must be _referentially_ identical to be considered equal. *)
+    | Error { error = error1; _ }, Error { error = error2; _ } ->
+      Diagnostics.equal error1 error2
 
     (* Exhaustive failure cases. *)
     | Function _, _
@@ -92,6 +93,7 @@ let projections_equal prefix t1 t2 =
     | Number, _
     | RowEmpty, _
     | RowExtension _, _
+    | Error _, _
       -> false
 
   and polytype_projections_equal locals1 locals2 t1 t2 =

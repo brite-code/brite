@@ -11,3 +11,4 @@ type t = private
 
 val collect: (unit -> 'a) -> ('a * t list)
 val report_error: error -> t
+val equal: t -> t -> bool
