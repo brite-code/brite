@@ -22,7 +22,7 @@ and expression_description =
   | Binding of { name: string; value: expression; body: expression }
 
   (* `(E: T)` *)
-  | Annotation of { value: expression; type_: Type.polytype }
+  | Annotation of { value: expression; type_: Type.parse_polytype }
 
   (* `if E1 then E2 else E3` *)
   | Conditional of { test: expression; consequent: expression; alternate: expression }

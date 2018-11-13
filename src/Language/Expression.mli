@@ -9,7 +9,7 @@ and expression_description = private
   | Function of { parameter: string; body: expression }
   | Call of { callee: expression; argument: expression }
   | Binding of { name: string; value: expression; body: expression }
-  | Annotation of { value: expression; type_: Type.polytype }
+  | Annotation of { value: expression; type_: Type.parse_polytype }
   | Conditional of { test: expression; consequent: expression; alternate: expression }
 
 type t = expression
@@ -20,5 +20,5 @@ val number: float -> expression
 val function_: string -> expression -> expression
 val call: expression -> expression -> expression
 val binding: string -> expression -> expression -> expression
-val annotation: expression -> Type.polytype -> expression
+val annotation: expression -> Type.parse_polytype -> expression
 val conditional: expression -> expression -> expression -> expression

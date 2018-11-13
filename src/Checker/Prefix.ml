@@ -84,7 +84,7 @@ let fresh_with_bound prefix bound =
     in
     let name = unique () in
     add_to_level prefix name bound;
-    Type.variable name
+    Type.variable_with_kind name (Type.kind bound.bound_type)
 
 (* Creates a type variable with a unique name in the prefix with a bottom bound.
  * Returns the new unique name. *)
@@ -96,7 +96,7 @@ let fresh prefix = fresh_with_bound prefix Type.unbounded
 let add prefix name bound =
   let name' = Namer.unique (Hashtbl.mem prefix.entries) name in
   add_to_level prefix name' bound;
-  if name = name' then None else Some (Type.variable name')
+  if name = name' then None else Some (Type.variable_with_kind name' (Type.kind bound.bound_type))
 
 (* Finds the bound for the provided name in the prefix. If no type variable
  * could be found then we panic. The bound returned will always be in
@@ -324,12 +324,12 @@ let update2 prefix name1 name2 bound =
      * be our link. *)
     if entry1.level.index <= entry2.level.index then (
       entry1.bound <- bound;
-      entry2.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name1));
+      entry2.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable_with_kind name1 (Type.kind bound.bound_type)));
       level_up prefix entry1.level bound.bound_type;
       Ok ()
     ) else (
       entry2.bound <- bound;
-      entry1.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable name2));
+      entry1.bound <- Type.bound Type.Rigid (Type.to_polytype (Type.variable_with_kind name2 (Type.kind bound.bound_type)));
       level_up prefix entry2.level bound.bound_type;
       Ok ()
     )

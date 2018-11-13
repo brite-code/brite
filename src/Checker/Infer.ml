@@ -78,6 +78,7 @@ let rec infer prefix context expression =
    * would be bad. We need to error. *)
   | Annotation { value; type_ } ->
     (* TODO: Make sure that `type_` does not have unbound type variables! *)
+    let type_ = failwith "TODO" in
     let value_type = infer prefix context value in
     Prefix.level prefix (fun () -> (
       let value_type = Prefix.fresh_with_bound prefix (Type.bound Flexible value_type) in

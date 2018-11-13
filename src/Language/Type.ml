@@ -1,11 +1,11 @@
-type monotype = {
+type 'k base_monotype = {
   monotype_free_variables: StringSet.t Lazy.t;
-  monotype_description: monotype_description;
+  monotype_description: 'k monotype_description;
 }
 
-and monotype_description =
+and 'k monotype_description =
   (* `x` *)
-  | Variable of { name: string }
+  | Variable of { name: string; kind: 'k }
 
   (* `boolean` *)
   | Boolean
@@ -14,56 +14,57 @@ and monotype_description =
   | Number
 
   (* `T1 → T2` *)
-  | Function of { parameter: monotype; body: monotype }
+  | Function of { parameter: 'k base_monotype; body: 'k base_monotype }
 
   (* `(||)` *)
   | RowEmpty
 
   (* `(| l: T1 | T2 |)` *)
   (* TODO: Kind analysis of parsed types. *)
-  | RowExtension of { entries: row_entry Nel.t; extension: monotype }
-
-and row_entry = string * monotype
+  | RowExtension of { entries: (string * 'k base_monotype) Nel.t; extension: 'k base_monotype }
 
 type bound_flexibility = Flexible | Rigid
 
-type bound = {
-  bound_flexibility: bound_flexibility;
-  bound_type: polytype;
-}
-
-and polytype = {
+type 'k base_polytype = {
   polytype_normal: bool;
   polytype_free_variables: StringSet.t Lazy.t;
-  polytype_description: polytype_description;
+  polytype_description: 'k polytype_description;
 }
 
-and polytype_description =
+and 'k polytype_description =
   (* Inherits from monotype. *)
-  | Monotype of monotype
+  | Monotype of 'k base_monotype
 
   (* `⊥` *)
   | Bottom
 
   (* `∀x.T`, `∀(x = T1).T2`, `∀(x ≥ T1).T2` *)
-  | Quantify of { bounds: (string * bound) Nel.t; body: monotype }
+  | Quantify of { bounds: (string * ('k base_bound)) Nel.t; body: 'k base_monotype }
 
-(* Our type constructors always create types in normal form according to
- * Definition 1.5.5 of the [MLF thesis][1]. Practically this means only
- * quantified types need to be transformed into their normal form variants.
- *
- * These constructors are not suitable for representing parsed types. As we will
- * perform structural transformations on the types which changes the AST. For
- * example, monotype bounds are inlined. However, the user may be interested in
- * sharing a monotype in a bound since the type is long to write out by hand.
- *
- * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
+and 'k base_bound = {
+  bound_flexibility: bound_flexibility;
+  bound_type: 'k base_polytype;
+}
+
+type parse_monotype = unit base_monotype
+type parse_polytype = unit base_polytype
+type parse_bound = unit base_bound
+type monotype = Kind.t base_monotype
+type polytype = Kind.t base_polytype
+type bound = Kind.t base_bound
 
 (* Creates a new variable monotype. *)
 let variable name =
   {
     monotype_free_variables = lazy (StringSet.singleton name);
-    monotype_description = Variable { name };
+    monotype_description = Variable { name; kind = () };
+  }
+
+(* Creates a new variable monotype with a kind. *)
+let variable_with_kind name kind =
+  {
+    monotype_free_variables = lazy (StringSet.singleton name);
+    monotype_description = Variable { name; kind };
   }
 
 (* Boolean monotype. *)
@@ -141,6 +142,23 @@ let quantify bounds body =
     )) bounds (Lazy.force body.monotype_free_variables));
     polytype_description = Quantify { bounds; body };
   }
+
+(* Returns the kind of the provided monotype. *)
+let kind_monotype t =
+  match t.monotype_description with
+  | Variable { name = _; kind } -> kind
+  | Boolean -> Kind.value
+  | Number -> Kind.value
+  | Function _ -> Kind.value
+  | RowEmpty -> Kind.row
+  | RowExtension _ -> Kind.row
+
+(* Returns the kind of the provided polytype. *)
+let kind t =
+  match t.polytype_description with
+  | Monotype t -> kind_monotype t
+  | Bottom -> Kind.bottom
+  | Quantify { bounds = _; body } -> kind_monotype body
 
 (* Determines if a type needs some substitutions by looking at the types free
  * variables. If a substitution exists for any free variable then the type does
@@ -224,7 +242,7 @@ let rec substitute_polytype substitutions t =
  * thesis][1]. Returns nothing if the type is already in normal form.
  *
  * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
-let rec normal t =
+let rec normal (t: polytype) =
   if t.polytype_normal then None else
   match t.polytype_description with
   (* These polytypes should always have `polytype_normal = true`. *)
@@ -345,7 +363,7 @@ let rec normal t =
             let (name, bound) = entry in
             let name' = Namer.unique (fun name -> StringSet.mem name seen || StringSet.mem name captured) name in
             let entry = (name', bound) in
-            let substitutions = StringMap.add name (variable name') substitutions in
+            let substitutions = StringMap.add name (variable_with_kind name' (kind bound.bound_type)) substitutions in
             let captured = StringSet.add name' captured in
             (seen, captured, substitutions, entry)
           ) else (
