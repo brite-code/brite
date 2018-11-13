@@ -36,7 +36,7 @@ and 'k polytype_description =
   | Monotype of 'k base_monotype
 
   (* `⊥` *)
-  | Bottom
+  | Bottom of { kind: 'k }
 
   (* `∀x.T`, `∀(x = T1).T2`, `∀(x ≥ T1).T2` *)
   | Quantify of { bounds: (string * ('k base_bound)) Nel.t; body: 'k base_monotype }
@@ -121,7 +121,15 @@ let bottom =
   {
     polytype_normal = true;
     polytype_free_variables = lazy StringSet.empty;
-    polytype_description = Bottom;
+    polytype_description = Bottom { kind = () };
+  }
+
+(* Bottom polytype with the provided kind. *)
+let bottom_with_kind kind =
+  {
+    polytype_normal = true;
+    polytype_free_variables = lazy StringSet.empty;
+    polytype_description = Bottom { kind };
   }
 
 (* Creates a type bound. *)
@@ -129,6 +137,9 @@ let bound flexibility type_ = { bound_flexibility = flexibility; bound_type = ty
 
 (* A flexible bottom bound. *)
 let unbounded = bound Flexible bottom
+
+(* A flexible bottom bound with a value kind. *)
+let unbounded_value = bound Flexible (bottom_with_kind Kind.value)
 
 (* Quantifies a monotype by some bounds. The free type variables of quantified
  * types will not include the free type variables of unused bounds. This is to
@@ -157,7 +168,7 @@ let kind_monotype t =
 let kind t =
   match t.polytype_description with
   | Monotype t -> kind_monotype t
-  | Bottom -> Kind.bottom
+  | Bottom { kind } -> kind
   | Quantify { bounds = _; body } -> kind_monotype body
 
 (* Determines if a type needs some substitutions by looking at the types free
@@ -214,7 +225,7 @@ let rec substitute_polytype substitutions t =
   (* Monotypes are substituted with a different function. *)
   | Monotype t -> (match substitute_monotype substitutions t with Some t -> Some (to_polytype t) | None -> None)
   (* No free type variables in the bottom type! *)
-  | Bottom -> None
+  | Bottom _ -> None
   (* Look at the free variables for our type. If we don’t need a substitution
    * then just return the type. We put this here before
    * unconditionally recursing. *)
@@ -246,7 +257,7 @@ let rec normal (t: polytype) =
   if t.polytype_normal then None else
   match t.polytype_description with
   (* These polytypes should always have `polytype_normal = true`. *)
-  | Bottom -> assert false
+  | Bottom _ -> assert false
   | Monotype _ -> assert false
 
   | Quantify { bounds; body } ->
@@ -285,7 +296,7 @@ let rec normal (t: polytype) =
         let body = bound.bound_type in
         let free = Lazy.force body.polytype_free_variables in
         match body.polytype_description with
-        | Bottom -> body
+        | Bottom _ -> body
         | Monotype body -> loop_rev free [] bounds_rev body
         | Quantify { bounds; body } -> loop_rev free (Nel.to_list bounds) bounds_rev body
       )

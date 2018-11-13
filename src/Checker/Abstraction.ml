@@ -134,8 +134,8 @@ let projections_equal prefix t1 t2 =
       polytype_projections_equal locals1 (Locals StringMap.empty) t1 bound2.Type.bound_type
 
     (* Bottom is only equivalent with itself. *)
-    | Bottom, Bottom -> true
-    | Bottom, _ | _, Bottom -> false
+    | Bottom _, Bottom _ -> true
+    | Bottom _, _ | _, Bottom _ -> false
 
     (* Perform a monotype equivalence check when we have two monotypes. *)
     | Monotype t1, Monotype t2 -> monotype_projections_equal locals1 locals2 t1 t2
@@ -259,7 +259,7 @@ let flexible_binders_unchanged =
     (* If we find a bottom type and we have some `xs` then add this path to our
      * polynomial. The short-circuit above depends on our `xs = 0` check here
      * for correctness. *)
-    | Bottom ->
+    | Bottom _ ->
       if xs = 0 then (
         acc
       ) else (

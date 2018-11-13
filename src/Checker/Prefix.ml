@@ -88,7 +88,7 @@ let fresh_with_bound prefix bound =
 
 (* Creates a type variable with a unique name in the prefix with a bottom bound.
  * Returns the new unique name. *)
-let fresh prefix = fresh_with_bound prefix Type.unbounded
+let fresh prefix = fresh_with_bound prefix Type.unbounded_value
 
 (* Adds a bound to the prefix with the provided name. If the name already exists
  * in the prefix then generate a new name so that all type variables in the

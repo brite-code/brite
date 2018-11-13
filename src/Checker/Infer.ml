@@ -12,7 +12,7 @@
  * > problem if `Q ⊑ Q'` and `(Q') Γ ⊦ a : o` holds.
  *
  * [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
-let rec infer prefix context expression =
+let rec infer prefix (context: Type.polytype StringMap.t) expression =
   match expression.Expression.description with
   (* If the variable exists in context then return its type. Otherwise report an
    * unbound variable error and return the bottom type since the code will panic
@@ -22,7 +22,7 @@ let rec infer prefix context expression =
     | Some t -> t
     | None ->
       let _ = Diagnostics.report_error (UnboundVariable { name }) in
-      Type.bottom
+      Type.bottom_with_kind Kind.value
   )
 
   (* Return the constant types for constants. *)
@@ -101,5 +101,5 @@ let rec infer prefix context expression =
       let _ = Unify.unify prefix test_type Type.boolean in
       match Unify.unify prefix consequent_type alternate_type with
       | Ok () -> Prefix.generalize prefix consequent_type
-      | Error _ -> Type.bottom
+      | Error _ -> Type.bottom_with_kind Kind.value
     ))

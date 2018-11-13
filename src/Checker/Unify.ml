@@ -142,8 +142,8 @@ let rec unify prefix type1 type2 =
 and unify_polytype prefix type1 type2 =
   match type1.Type.polytype_description, type2.Type.polytype_description with
   (* If either is bottom then return the other one. *)
-  | Bottom, _ -> Ok type2
-  | _, Bottom -> Ok type1
+  | Bottom _, _ -> Ok type2
+  | _, Bottom _ -> Ok type1
 
   (* If we have two monotypes then unify them. Don’t bother with creating a new
    * level or generalizing. *)

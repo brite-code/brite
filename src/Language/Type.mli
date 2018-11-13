@@ -21,7 +21,7 @@ type 'k base_polytype = private {
 
 and 'k polytype_description = private
   | Monotype of 'k base_monotype
-  | Bottom
+  | Bottom of { kind: 'k }
   | Quantify of { bounds: (string * ('k base_bound)) Nel.t; body: 'k base_monotype }
 
 and 'k base_bound = private {
@@ -44,9 +44,11 @@ val function_: 'k base_monotype -> 'k base_monotype -> 'k base_monotype
 val row_empty: 'k base_monotype
 val row_extension: (string * ('k base_monotype)) Nel.t -> 'k base_monotype -> 'k base_monotype
 val to_polytype: 'k base_monotype -> 'k base_polytype
-val bottom: 'k base_polytype
+val bottom: parse_polytype
+val bottom_with_kind: Kind.t -> polytype
 val bound: bound_flexibility -> 'k base_polytype -> 'k base_bound
-val unbounded: 'k base_bound
+val unbounded: parse_bound
+val unbounded_value: bound
 val quantify: (string * ('k base_bound)) Nel.t -> 'k base_monotype -> 'k base_polytype
 val kind_monotype: monotype -> Kind.t
 val kind: polytype -> Kind.t
