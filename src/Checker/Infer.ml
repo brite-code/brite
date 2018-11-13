@@ -77,9 +77,8 @@ let rec infer prefix (context: Type.polytype StringMap.t) expression =
    * value_ to the `add1` function whose signature is `number → number`. This
    * would be bad. We need to error. *)
   | Annotation { value; type_ } ->
-    (* TODO: Make sure that `type_` does not have unbound type variables! *)
-    let type_ = failwith "TODO" in
     let value_type = infer prefix context value in
+    let type_ = Annotation.check StringMap.empty Kind.value type_ in
     Prefix.level prefix (fun () -> (
       let value_type = Prefix.fresh_with_bound prefix (Type.bound Flexible value_type) in
       let type_' = Prefix.fresh_with_bound prefix (Type.bound Rigid type_) in

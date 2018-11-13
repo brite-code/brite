@@ -27,8 +27,8 @@ let rec print_monotype t =
     let extension = print_monotype extension in
     Printf.sprintf "(| %s | %s |)" entries extension
 
-  (* TODO *)
-  | Error _ -> failwith "TODO"
+  (* This is not great... *)
+  | Error _ -> "%error"
 
 and print_row_entry (label, type_) =
   Printf.sprintf "%s: %s" label (print_monotype type_)
@@ -76,4 +76,9 @@ let print_diagnostic diagnostic =
 
     | InfiniteType { name; type_ } ->
       Printf.sprintf "Infinite type since `%s` occurs in `%s`." name type_
+
+    | IncompatibleKinds { kind1; kind2 } ->
+      Printf.sprintf "Incompatible kinds %s and %s." kind1 kind2
+
+    | InfiniteKind -> "Infinite kind."
   )

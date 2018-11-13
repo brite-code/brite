@@ -167,7 +167,7 @@ let error kind error =
   }
 
 (* Returns the kind of the provided monotype. *)
-let kind_monotype t =
+let monotype_kind t =
   match t.monotype_description with
   | Variable { kind; _ } -> kind
   | Boolean -> Kind.value
@@ -180,9 +180,9 @@ let kind_monotype t =
 (* Returns the kind of the provided polytype. *)
 let kind t =
   match t.polytype_description with
-  | Monotype t -> kind_monotype t
+  | Monotype t -> monotype_kind t
   | Bottom { kind } -> kind
-  | Quantify { bounds = _; body } -> kind_monotype body
+  | Quantify { bounds = _; body } -> monotype_kind body
 
 (* Determines if a type needs some substitutions by looking at the types free
  * variables. If a substitution exists for any free variable then the type does

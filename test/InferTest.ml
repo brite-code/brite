@@ -143,10 +143,16 @@ let run () = suite "Infer" (fun () -> (
         assert (Stream.next tokens = Identifier "infer");
         assert (Stream.next tokens = Glyph ParenthesesLeft);
         let bounds = Parser.parse_prefix tokens in
-        List.iter (fun (name, bound) -> assert (Prefix.add prefix name bound = None)) bounds;
+        let type_context = List.fold_left (fun type_context (name, bound) -> (
+          let bound_type = Annotation.check type_context (Kind.unknown ()) bound.Type.bound_type in
+          let bound = Type.bound bound.bound_flexibility bound_type in
+          assert (Prefix.add prefix name bound = None);
+          StringMap.add name (Type.kind bound_type) type_context
+        )) StringMap.empty bounds in
         assert (Stream.next tokens = Glyph Comma);
         let entries = Parser.parse_context tokens in
         let context = List.fold_left (fun context (name, type_) ->
+          let type_ = Annotation.check type_context Kind.value type_ in
           StringMap.add name type_ context
         ) StringMap.empty entries in
         assert (Stream.next tokens = Glyph Comma);
@@ -154,7 +160,8 @@ let run () = suite "Infer" (fun () -> (
         assert (Stream.next tokens = Glyph ParenthesesRight);
         Stream.empty tokens;
         let type_ = Infer.infer prefix context expression in
-        let actual_output = Printf.sprintf "(%s, %s)" (Printer.print_prefix prefix) (Printer.print_polytype type_) in
+        let prefix_bounds = Prefix.bounds prefix in
+        let actual_output = Printf.sprintf "(%s, %s)" (Printer.print_prefix prefix_bounds) (Printer.print_polytype type_) in
         assert_equal actual_output output
       ))) in
       List.iter2 assert_equal (List.map Printer.print_diagnostic actual_errors) expected_errors

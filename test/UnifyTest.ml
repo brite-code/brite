@@ -309,15 +309,22 @@ let run () = suite "Unify" (fun () -> (
         assert (Stream.next tokens = Identifier "unify");
         assert (Stream.next tokens = Glyph ParenthesesLeft);
         let bounds = Parser.parse_prefix tokens in
-        List.iter (fun (name, bound) -> assert (Prefix.add prefix name bound = None)) bounds;
+        let type_context = List.fold_left (fun type_context (name, bound) -> (
+          let bound_type = Annotation.check type_context (Kind.unknown ()) bound.Type.bound_type in
+          let bound = Type.bound bound.bound_flexibility bound_type in
+          assert (Prefix.add prefix name bound = None);
+          StringMap.add name (Type.kind bound_type) type_context
+        )) StringMap.empty bounds in
         assert (Stream.next tokens = Glyph Comma);
         let type1 = Parser.parse_monotype tokens in
+        let type1 = Annotation.check_monotype type_context (Kind.unknown ()) type1 in
         assert (Stream.next tokens = Glyph Comma);
         let type2 = Parser.parse_monotype tokens in
+        let type2 = Annotation.check_monotype type_context (Kind.unknown ()) type2 in
         assert (Stream.next tokens = Glyph ParenthesesRight);
         Stream.empty tokens;
         let result = Unify.unify prefix type1 type2 in
-        assert_equal (Printer.print_prefix prefix) output;
+        assert_equal (Printer.print_prefix (Prefix.bounds prefix)) output;
         result
       ))) in
       assert (match result with Ok () -> actual_errors = [] | Error _ -> actual_errors <> []);

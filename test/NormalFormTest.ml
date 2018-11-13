@@ -42,9 +42,9 @@ let run () = suite "NormalForm" (fun () -> (
     ("nf(∀(b, a = ∀z.z → b, c).a → number)", "∀(b, a = ∀z.z → b).a → number");
     ("nf(∀(b, a = ∀z.z → z).a → number)", "∀(a = ∀z.z → z).a → number");
     ("nf(∀(b, a = ∀z.z → b, b).a → number)", "∀(b, a = ∀z.z → b).a → number");
-    ("nf(∀(a = ∀z.z → b).a → number)", "∀(a = ∀z.z → b).a → number");
-    ("nf(∀(a = ∀z.z → b, b).a → number)", "∀(a = ∀z.z → b).a → number");
-    ("nf(∀(a = ∀z.b).a → a)", "b → b");
+    ("nf(∀(a = ∀z.z → x).a → number)", "∀(a = ∀z.z → x).a → number");
+    ("nf(∀(a = ∀z.z → x, x).a → number)", "∀(a = ∀z.z → x).a → number");
+    ("nf(∀(a = ∀z.x).a → a)", "x → x");
     ("nf(∀(a = ∀(x, z).x → x).a → a)", "∀(a = ∀x.x → x).a → a");
     ("nf(∀(a = ∀(z, x).x → x).a → a)", "∀(a = ∀x.x → x).a → a");
     ("nf(∀a.a)", "⊥");
@@ -69,7 +69,7 @@ let run () = suite "NormalForm" (fun () -> (
     ("nf(∀(a = ∀a.a → a, b, c = ∀z.z → b).a → a)", "∀(a = ∀a.a → a).a → a");
     ("nf(∀(a = ∀z.number).a → a)", "number → number");
     ("nf(∀(b = ∀a.a → a, c = ∀z.b).c)", "∀a.a → a");
-    ("nf(∀z.a)", "a");
+    ("nf(∀z.x)", "x");
     ("nf(∀(a, a = ∀a.a → a).a)", "∀a.a → a");
     ("nf(∀(b, a = ∀a.a → b).a)", "∀(b, a).a → b");
     ("nf(∀(a, b, x = ∀(c, d).a → b → c → d).x)", "∀(a, b, c, d).a → b → c → d");
@@ -78,6 +78,10 @@ let run () = suite "NormalForm" (fun () -> (
     ("nf(∀(x, x = x).x)", "⊥");
   ] in
 
+  let type_context = StringMap.empty
+    |> StringMap.add "x" Kind.value
+  in
+
   cases |> List.iter (fun (input, output) -> (
     let name = Printf.sprintf "%s = %s" input output in
     test name (fun () -> (
@@ -85,6 +89,8 @@ let run () = suite "NormalForm" (fun () -> (
       assert (Stream.next tokens = Identifier "nf");
       assert (Stream.next tokens = Glyph ParenthesesLeft);
       let t = Parser.parse_polytype tokens in
+      let (t, diagnostics) = Diagnostics.collect (fun () -> Annotation.check type_context (Kind.unknown ()) t) in
+      assert (diagnostics = []);
       assert (Stream.next tokens = Glyph ParenthesesRight);
       Stream.empty tokens;
       let t' = Type.normal t in

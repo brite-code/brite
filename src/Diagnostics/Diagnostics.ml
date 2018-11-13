@@ -15,6 +15,18 @@ type error =
    * auto-application lambda `λx.x x`. *)
   | InfiniteType of { name: string; type_: string }
 
+  (* We tried to unify two incompatible kinds. *)
+  | IncompatibleKinds of { kind1: string; kind2: string }
+
+  (* When trying to update an unknown kind we discovered that doing so would
+   * create an infinite kind which is not allowed! Instead we produce
+   * this error.
+   *
+   * NOTE: It is currently believed to be impossible that this error could be
+   * fired. We don’t have type application which is an easy way to produce an
+   * infinite type error. This is why the error is mostly a stub. *)
+  | InfiniteKind
+
 (* Some diagnostic in our system. *)
 type t =
   | Error of error

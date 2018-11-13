@@ -52,7 +52,7 @@ val unbounded: parse_bound
 val unbounded_value: bound
 val quantify: (string * ('k base_bound)) Nel.t -> 'k base_monotype -> 'k base_polytype
 val error: Kind.t -> Diagnostics.t -> monotype
-val kind_monotype: monotype -> Kind.t
+val monotype_kind: monotype -> Kind.t
 val kind: polytype -> Kind.t
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
