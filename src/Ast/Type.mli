@@ -29,7 +29,7 @@ and polytype = private {
 and polytype_description = private
   | Monotype of monotype
   | Bottom
-  | Quantify of { bounds: (string * bound) list; body: monotype }
+  | Quantify of { bounds: (string * bound) Nel.t; body: monotype }
 
 val variable: string -> monotype
 val boolean: monotype
@@ -41,7 +41,7 @@ val to_polytype: monotype -> polytype
 val bottom: polytype
 val bound: bound_flexibility -> polytype -> bound
 val unbounded: bound
-val quantify: (string * bound) list -> monotype -> polytype
+val quantify: (string * bound) Nel.t -> monotype -> polytype
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option
 val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
 val normal: polytype -> polytype option

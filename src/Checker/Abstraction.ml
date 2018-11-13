@@ -26,7 +26,7 @@ let projections_equal prefix t1 t2 =
    * check equivalence with a bound then the bound will have a different set of
    * locals in scope then the point the bound was referenced at. *)
   let add_bounds_to_locals locals bounds =
-    List.fold_left (fun locals (name, bound) -> (
+    Nel.fold_left (fun locals (name, bound) -> (
       Locals (StringMap.add name (locals, bound) (let Locals locals = locals in locals))
     )) locals bounds
   in
@@ -270,7 +270,7 @@ let flexible_binders_unchanged =
      * the polynomial’s bound. Also make sure to proceed to the next
      * state correctly. *)
     | Quantify { bounds; body = _ } ->
-      List.fold_left (fun acc (_, bound) -> (
+      Nel.fold_left (fun acc (_, bound) -> (
         match state, bound.Type.bound_flexibility with
         | X, Flexible -> loop X acc (xs + 1) ys zs bound.Type.bound_type
         | X, Rigid -> loop Y acc xs (ys + 1) zs bound.Type.bound_type

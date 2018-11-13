@@ -46,7 +46,7 @@ and polytype_description =
   | Bottom
 
   (* `∀x.T`, `∀(x = T1).T2`, `∀(x ≥ T1).T2` *)
-  | Quantify of { bounds: (string * bound) list; body: monotype }
+  | Quantify of { bounds: (string * bound) Nel.t; body: monotype }
 
 (* Our type constructors always create types in normal form according to
  * Definition 1.5.5 of the [MLF thesis][1]. Practically this means only
@@ -133,10 +133,9 @@ let unbounded = bound Flexible bottom
  * types will not include the free type variables of unused bounds. This is to
  * be consistent with the normal form of the quantified type. *)
 let quantify bounds body =
-  if bounds = [] then to_polytype body else
   {
     polytype_normal = false;
-    polytype_free_variables = lazy (List.fold_right (fun (name, bound) free -> (
+    polytype_free_variables = lazy (Nel.fold_right (fun (name, bound) free -> (
       if not (StringSet.mem name free) then free else
       free |> StringSet.remove name |> StringSet.union (Lazy.force bound.bound_type.polytype_free_variables)
     )) bounds (Lazy.force body.monotype_free_variables));
@@ -211,13 +210,13 @@ let rec substitute_polytype substitutions t =
       match bound_type with
       | None -> (substitutions, entry :: bounds)
       | Some bound_type -> (substitutions, (name, { bound with bound_type }) :: bounds)
-    )) (substitutions, []) bounds in
+    )) (substitutions, []) (Nel.to_list bounds) in
     let body = match substitute_monotype substitutions body with Some t -> t | None -> body in
     (* Create the final quantified type. It is in normal form if the type we
      * originally substituted was in normal form. Substitution only expands
      * variables to other monotypes so a substitution will never affect whether
      * or not we are in normal form. *)
-    let t' = quantify (List.rev bounds) body in
+    let t' = quantify (Nel.from_list (List.rev bounds)) body in
     let t' = { t' with polytype_normal = t.polytype_normal } in
     Some t'
 
@@ -253,6 +252,7 @@ let rec normal t =
         if bounds = [] then (
           to_polytype body
         ) else (
+          let bounds = Nel.from_list bounds in
           {
             polytype_normal = true;
             polytype_free_variables = lazy free;
@@ -269,7 +269,7 @@ let rec normal t =
         match body.polytype_description with
         | Bottom -> body
         | Monotype body -> loop_rev free [] bounds_rev body
-        | Quantify { bounds; body } -> loop_rev free bounds bounds_rev body
+        | Quantify { bounds; body } -> loop_rev free (Nel.to_list bounds) bounds_rev body
       )
 
       (* If our bound is unused then don’t add it to our final bounds list.
@@ -364,7 +364,7 @@ let rec normal t =
           loop seen captured substitutions bounds bounds_rev
       )
     in
-    let t = loop StringSet.empty StringSet.empty StringMap.empty bounds [] in
+    let t = loop StringSet.empty StringSet.empty StringMap.empty (Nel.to_list bounds) [] in
     Some t
 
 (* Merges two row list entries. Returns three lists.

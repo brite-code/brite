@@ -8,6 +8,8 @@ let map f (x, xs) = (f x, List.map f xs)
 
 let fold_left f acc (x, xs) = List.fold_left f (f acc x) xs
 
+let fold_right f (x, xs) acc = f x (List.fold_right f xs acc)
+
 let to_list (x, xs) = x :: xs
 
 let from_list xs =

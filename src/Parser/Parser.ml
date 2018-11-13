@@ -225,7 +225,7 @@ let rec parse_polytype tokens =
       | Some (Glyph ForAll) -> Stream.junk tokens; bounds :: loop ()
       | _ -> [bounds]
     in
-    let bounds = List.concat (loop ()) in
+    let bounds = Nel.from_list (List.concat (loop ())) in
     let body = parse_monotype tokens in
     Type.quantify bounds body
   )

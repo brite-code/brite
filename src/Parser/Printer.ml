@@ -31,14 +31,15 @@ let rec print_polytype t =
   | Monotype t -> print_monotype t
   | Bottom -> "⊥"
 
-  | Quantify { bounds = [(name, { bound_flexibility = Flexible; bound_type = { polytype_description = Bottom; _ } })]; body } ->
+  | Quantify { body; bounds =
+      ((name, { bound_flexibility = Flexible; bound_type = { polytype_description = Bottom; _ } }), []) } ->
     let body = print_monotype body in
     Printf.sprintf "∀%s.%s" name body
 
   | Quantify { bounds; body } ->
     let body = print_monotype body in
-    let bounds = List.map print_bound bounds in
-    Printf.sprintf "∀(%s).%s" (String.concat ", " bounds) body
+    let bounds = Nel.map print_bound bounds in
+    Printf.sprintf "∀(%s).%s" (String.concat ", " (Nel.to_list bounds)) body
 
 and print_bound (name, bound) =
   match bound with

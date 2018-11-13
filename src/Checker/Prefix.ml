@@ -115,7 +115,7 @@ let lookup prefix name =
  * names will be substituted in the bounds and the provided body type. The new
  * body type with substituted names will be returned. *)
 let instantiate prefix bounds body =
-  let substitutions = List.fold_left (fun substitutions (name, bound) -> (
+  let substitutions = Nel.fold_left (fun substitutions (name, bound) -> (
     (* If we have some substitutions then apply them to our bound. *)
     let bound = match Type.substitute_polytype substitutions bound.Type.bound_type with
     | None -> bound
@@ -176,7 +176,7 @@ let generalize prefix t =
   StringSet.iter visit (Lazy.force t.Type.monotype_free_variables);
   (* Quantify the type by the list of bounds we collected. Also convert the type
    * to normal form. *)
-  let t = Type.quantify (List.rev !bounds) t in
+  let t = if !bounds = [] then Type.to_polytype t else Type.quantify (Nel.from_list (List.rev !bounds)) t in
   let t = match Type.normal t with Some t -> t | None -> t in
   t
 
