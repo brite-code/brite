@@ -8,7 +8,8 @@ and monotype_description = private
   | Boolean
   | Number
   | Function of { parameter: monotype; body: monotype }
-  | Row of { entries: row_entry list; extension: monotype option }
+  | RowEmpty
+  | RowExtension of { entries: row_entry Nel.t; extension: monotype }
 
 and row_entry = string * monotype
 
@@ -34,7 +35,8 @@ val variable: string -> monotype
 val boolean: monotype
 val number: monotype
 val function_: monotype -> monotype -> monotype
-val row: row_entry list -> monotype option -> monotype
+val row_empty: monotype
+val row_extension: row_entry Nel.t -> monotype -> monotype
 val to_polytype: monotype -> polytype
 val bottom: polytype
 val bound: bound_flexibility -> polytype -> bound

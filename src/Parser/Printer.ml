@@ -10,7 +10,21 @@ let rec print_monotype t =
   | Function { parameter; body } ->
     Printf.sprintf "%s → %s" (print_monotype parameter) (print_monotype body)
 
-  | Row _ -> failwith "TODO"
+  | RowEmpty -> "(||)"
+
+  | RowExtension { entries; extension = { monotype_description = RowEmpty; _ } } ->
+    let entries = Nel.map print_row_entry entries in
+    let entries = String.concat ", " (Nel.to_list entries) in
+    Printf.sprintf "(| %s |)" entries
+
+  | RowExtension { entries; extension } ->
+    let entries = Nel.map print_row_entry entries in
+    let entries = String.concat ", " (Nel.to_list entries) in
+    let extension = print_monotype extension in
+    Printf.sprintf "(| %s | %s |)" entries extension
+
+and print_row_entry (label, type_) =
+  Printf.sprintf "%s: %s" label (print_monotype type_)
 
 let rec print_polytype t =
   match t.Type.polytype_description with

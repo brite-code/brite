@@ -1,5 +1,6 @@
 type glyph =
   | Arrow
+  | Bar
   | Bottom
   | Colon
   | Comma
@@ -11,6 +12,8 @@ type glyph =
   | LessThanOrEqual
   | ParenthesesLeft
   | ParenthesesRight
+  | ParenthesesBarLeft
+  | ParenthesesBarRight
 
   (* Keywords *)
   | Boolean

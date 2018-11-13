@@ -119,8 +119,9 @@ let rec unify prefix type1 type2 =
   )
 
   (* TODO *)
-  | Row { entries = entries1; extension = extension1 },
-    Row { entries = entries2; extension = extension2 } ->
+  | RowEmpty, RowEmpty -> failwith "TODO"
+  | RowExtension { entries = entries1; extension = extension1 },
+    RowExtension { entries = entries2; extension = extension2 } ->
     failwith "TODO"
 
   (* Exhaustive match for failure case. Don’t use `_` since if we add a new type
@@ -128,7 +129,8 @@ let rec unify prefix type1 type2 =
   | Boolean, _
   | Number, _
   | Function _, _
-  | Row _, _ ->
+  | RowEmpty, _
+  | RowExtension _, _ ->
     let type1 = Type.to_polytype type1 in
     let type2 = Type.to_polytype type2 in
     Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 }))

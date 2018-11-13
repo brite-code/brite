@@ -80,13 +80,15 @@ let projections_equal prefix t1 t2 =
       -> true
 
     (* TODO *)
-    | Row _, Row _ -> failwith "TODO"
+    | RowEmpty, RowEmpty -> failwith "TODO"
+    | RowExtension _, RowExtension _ -> failwith "TODO"
 
     (* Exhaustive failure cases. *)
     | Function _, _
     | Boolean, _
     | Number, _
-    | Row _, _
+    | RowEmpty, _
+    | RowExtension _, _
       -> false
 
   and polytype_projections_equal locals1 locals2 t1 t2 =

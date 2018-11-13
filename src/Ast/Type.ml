@@ -16,8 +16,12 @@ and monotype_description =
   (* `T1 → T2` *)
   | Function of { parameter: monotype; body: monotype }
 
-  (* `(|l: T1 | T2|)` *)
-  | Row of { entries: row_entry list; extension: monotype option }
+  (* `(||)` *)
+  | RowEmpty
+
+  (* `(| l: T1 | T2 |)` *)
+  (* TODO: Kind analysis of parsed types. *)
+  | RowExtension of { entries: row_entry Nel.t; extension: monotype }
 
 and row_entry = string * monotype
 
@@ -84,16 +88,23 @@ let function_ parameter body =
     monotype_description = Function { parameter; body }
   }
 
-(* Creates a new row monotype. *)
-let row entries extension =
+(* Empty row monotype. *)
+let row_empty =
+  {
+    monotype_free_variables = lazy StringSet.empty;
+    monotype_description = RowEmpty;
+  }
+
+(* Creates a new row extension monotype. *)
+let row_extension entries extension =
   {
     monotype_free_variables = lazy (
-      let free = match extension with Some t -> Lazy.force t.monotype_free_variables | None -> StringSet.empty in
-      List.fold_left (fun free (_, type_) -> (
+      let free = Lazy.force extension.monotype_free_variables in
+      Nel.fold_left (fun free (_, type_) -> (
         StringSet.union free (Lazy.force type_.monotype_free_variables)
       )) free entries
     );
-    monotype_description = Row { entries; extension };
+    monotype_description = RowExtension { entries; extension };
   }
 
 (* Converts a monotype into a polytype. *)
@@ -153,6 +164,7 @@ let rec substitute_monotype substitutions t =
   (* Types with no type variables will never be substituted. *)
   | Boolean
   | Number
+  | RowEmpty
     -> None
   (* Look at the free variables for our type. If we don’t need a substitution
    * then just return the type. We put this here before
@@ -166,18 +178,15 @@ let rec substitute_monotype substitutions t =
     Some (function_ parameter body)
   (* Unconditionally substitute row types since we know in some child there is a
    * type variable which should be substituted. *)
-  | Row { entries; extension } ->
-    let entries = List.map (fun entry -> (
+  | RowExtension { entries; extension } ->
+    let entries = Nel.map (fun entry -> (
       let (label, type_) = entry in
       match substitute_monotype substitutions type_ with
       | Some type_ -> (label, type_)
       | None -> entry
     )) entries in
-    let extension = match extension with
-    | Some t -> Some (match substitute_monotype substitutions t with Some t -> t | None -> t)
-    | None -> None
-    in
-    Some (row entries extension)
+    let extension = match substitute_monotype substitutions extension with Some t -> t | None -> t in
+    Some (row_extension entries extension)
 
 (* Substitutes the free variables of the provided type with a substitution if
  * one was made available in the substitutions map. Does not substitute

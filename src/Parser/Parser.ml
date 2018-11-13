@@ -4,18 +4,36 @@
  * a more complete parser later. *)
 
 type glyph =
+  (* `→` *)
   | Arrow
+  (* `|` *)
+  | Bar
+  (* `⊥` *)
   | Bottom
+  (* `:` *)
   | Colon
+  (* `,` *)
   | Comma
+  (* `.` *)
   | Dot
+  (* `∅` *)
   | EmptySet
+  (* `=` *)
   | Equals
+  (* `∀` *)
   | ForAll
+  (* `λ` *)
   | Lambda
+  (* `≥` *)
   | LessThanOrEqual
+  (* `(` *)
   | ParenthesesLeft
+  (* `)` *)
   | ParenthesesRight
+  (* `(|` *)
+  | ParenthesesBarLeft
+  (* `|)` *)
+  | ParenthesesBarRight
 
   (* Keywords *)
   | Boolean
@@ -46,8 +64,13 @@ let tokenize cs =
         | ',' -> Some (Glyph Comma)
         | '.' -> Some (Glyph Dot)
         | '=' -> Some (Glyph Equals)
-        | '(' -> Some (Glyph ParenthesesLeft)
         | ')' -> Some (Glyph ParenthesesRight)
+
+        | '(' when Stream.peek cs = Some '|' -> Stream.junk cs; Some (Glyph ParenthesesBarLeft)
+        | '(' -> Some (Glyph ParenthesesLeft)
+
+        | '|' when Stream.peek cs = Some ')' -> Stream.junk cs; Some (Glyph ParenthesesBarRight)
+        | '|' -> Some (Glyph Bar)
 
         | '\226' -> (
           match Stream.next cs, Stream.next cs with
@@ -128,7 +151,7 @@ let parse_identifier tokens =
   | Identifier name -> name
   | _ -> raise (Stream.Error "Unexpected token.")
 
-let parse_non_empty_comma_list tokens parse_item =
+let parse_comma_nel tokens parse_item =
   let rec loop () =
     let item = parse_item tokens in
     let list = match Stream.peek tokens with
@@ -137,7 +160,7 @@ let parse_non_empty_comma_list tokens parse_item =
     in
     item :: list
   in
-  loop ()
+  Nel.from_list (loop ())
 
 let rec parse_monotype tokens =
   let type_ = parse_unwrapped_monotype tokens in
@@ -156,12 +179,32 @@ and parse_unwrapped_monotype tokens =
     parse_glyph tokens ParenthesesRight;
     type_
 
+  | Glyph ParenthesesBarLeft ->
+    if Stream.peek tokens = Some (Glyph ParenthesesBarRight) then (
+      Stream.junk tokens;
+      Type.row_empty
+    ) else (
+      let entries = parse_comma_nel tokens parse_row_entry in
+      let extension = match Stream.peek tokens with
+      | Some (Glyph Bar) -> Stream.junk tokens; parse_monotype tokens
+      | _ -> Type.row_empty
+      in
+      parse_glyph tokens ParenthesesBarRight;
+      Type.row_extension entries extension
+    )
+
   | Glyph Boolean -> Type.boolean
   | Glyph Number -> Type.number
 
   | Identifier name -> Type.variable name
 
   | _ -> raise (Stream.Error "Expected monotype.")
+
+and parse_row_entry tokens =
+  let label = parse_identifier tokens in
+  parse_glyph tokens Colon;
+  let type_ = parse_monotype tokens in
+  (label, type_)
 
 let rec parse_polytype tokens =
   match Stream.peek tokens with
@@ -171,9 +214,9 @@ let rec parse_polytype tokens =
       let bounds = match Stream.next tokens with
       | Identifier name -> [(name, Type.unbounded)]
       | Glyph ParenthesesLeft -> (
-        let bounds = parse_non_empty_comma_list tokens parse_bound in
+        let bounds = parse_comma_nel tokens parse_bound in
         parse_glyph tokens ParenthesesRight;
-        bounds
+        Nel.to_list bounds
       )
       | _ -> raise (Stream.Error "Unexpected token.")
       in
@@ -213,9 +256,9 @@ let parse_prefix tokens =
     parse_glyph tokens ParenthesesRight;
     []
   | _ ->
-    let bounds = parse_non_empty_comma_list tokens parse_bound in
+    let bounds = parse_comma_nel tokens parse_bound in
     parse_glyph tokens ParenthesesRight;
-    bounds
+    Nel.to_list bounds
 
 let rec parse_expression tokens =
   match Stream.peek tokens with
@@ -298,11 +341,11 @@ let parse_context tokens =
     parse_glyph tokens ParenthesesRight;
     []
   | _ ->
-    let entries = parse_non_empty_comma_list tokens (fun tokens -> (
+    let entries = parse_comma_nel tokens (fun tokens -> (
       let name = parse_identifier tokens in
       parse_glyph tokens Colon;
       let type_ = parse_polytype tokens in
       (name, type_)
     )) in
     parse_glyph tokens ParenthesesRight;
-    entries
+    Nel.to_list entries
