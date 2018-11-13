@@ -38,7 +38,7 @@ type polytype = Kind.t base_polytype
 type bound = Kind.t base_bound
 
 val variable: string -> parse_monotype
-val variable_with_kind: string -> Kind.t -> monotype
+val variable_with_kind: Kind.t -> string -> monotype
 val boolean: 'k base_monotype
 val number: 'k base_monotype
 val function_: 'k base_monotype -> 'k base_monotype -> 'k base_monotype

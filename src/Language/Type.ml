@@ -65,7 +65,7 @@ let variable name =
   }
 
 (* Creates a new variable monotype with a kind. *)
-let variable_with_kind name kind =
+let variable_with_kind kind name =
   {
     monotype_free_variables = lazy (StringSet.singleton name);
     monotype_description = Variable { name; kind };
@@ -389,7 +389,7 @@ let rec normal (t: polytype) =
             let (name, bound) = entry in
             let name' = Namer.unique (fun name -> StringSet.mem name seen || StringSet.mem name captured) name in
             let entry = (name', bound) in
-            let substitutions = StringMap.add name (variable_with_kind name' (kind bound.bound_type)) substitutions in
+            let substitutions = StringMap.add name (variable_with_kind (kind bound.bound_type) name') substitutions in
             let captured = StringSet.add name' captured in
             (seen, captured, substitutions, entry)
           ) else (
