@@ -1,4 +1,4 @@
-SRC=src/Ast src/Checker src/Compiler/Js src/Diagnostics src/Parser src/Utils
+SRC=src/Checker src/Compiler/Js src/Diagnostics src/Language src/Parser src/Utils
 OCB=ocamlbuild -Is "$(SRC)"
 
 .PHONY: all test clean
