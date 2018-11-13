@@ -27,6 +27,9 @@ let rec print_monotype t =
     let extension = print_monotype extension in
     Printf.sprintf "(| %s | %s |)" entries extension
 
+  (* TODO *)
+  | Error _ -> failwith "TODO"
+
 and print_row_entry (label, type_) =
   Printf.sprintf "%s: %s" label (print_monotype type_)
 
@@ -54,7 +57,7 @@ and print_bound (name, bound) =
     Printf.sprintf "%s %s %s" name bound_flexibility bound_type
 
 let print_prefix prefix =
-  match List.map print_bound (Prefix.bounds prefix) with
+  match List.map print_bound prefix with
   | [] -> "(∅)"
   | bounds -> Printf.sprintf "(%s)" (String.concat ", " bounds)
 
@@ -69,8 +72,8 @@ let print_diagnostic diagnostic =
       Printf.sprintf "Unbound variable `%s`." name
 
     | IncompatibleTypes { type1; type2 } ->
-      Printf.sprintf "%s ≢ %s" (print_polytype type1) (print_polytype type2)
+      Printf.sprintf "%s ≢ %s" type1 type2
 
     | InfiniteType { name; type_ } ->
-      Printf.sprintf "Infinite type since `%s` occurs in `%s`." name (print_polytype type_)
+      Printf.sprintf "Infinite type since `%s` occurs in `%s`." name type_
   )

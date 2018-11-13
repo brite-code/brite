@@ -23,6 +23,10 @@ and 'k monotype_description =
   (* TODO: Kind analysis of parsed types. *)
   | RowExtension of { entries: (string * 'k base_monotype) Nel.t; extension: 'k base_monotype }
 
+  (* The programmer might write a type annotation incorrectly. In that case we
+   * insert an error node into the type tree. *)
+  | Error of { kind: 'k; error: Diagnostics.t }
+
 type bound_flexibility = Flexible | Rigid
 
 type 'k base_polytype = {
@@ -154,15 +158,24 @@ let quantify bounds body =
     polytype_description = Quantify { bounds; body };
   }
 
+(* An error type which we insert when the form of a type is incorrect, but we
+ * want to continue type checking. *)
+let error kind error =
+  {
+    monotype_free_variables = lazy StringSet.empty;
+    monotype_description = Error { kind; error };
+  }
+
 (* Returns the kind of the provided monotype. *)
 let kind_monotype t =
   match t.monotype_description with
-  | Variable { name = _; kind } -> kind
+  | Variable { kind; _ } -> kind
   | Boolean -> Kind.value
   | Number -> Kind.value
   | Function _ -> Kind.value
   | RowEmpty -> Kind.row
   | RowExtension _ -> Kind.row
+  | Error { kind; _ } -> kind
 
 (* Returns the kind of the provided polytype. *)
 let kind t =
@@ -194,6 +207,8 @@ let rec substitute_monotype substitutions t =
   | Number
   | RowEmpty
     -> None
+  (* TODO *)
+  | Error _ -> failwith "TODO"
   (* Look at the free variables for our type. If we don’t need a substitution
    * then just return the type. We put this here before
    * unconditionally recursing. *)

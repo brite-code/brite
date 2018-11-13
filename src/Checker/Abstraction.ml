@@ -83,6 +83,9 @@ let projections_equal prefix t1 t2 =
     | RowEmpty, RowEmpty -> failwith "TODO"
     | RowExtension _, RowExtension _ -> failwith "TODO"
 
+    (* TODO *)
+    | Error _, _ | _, Error _ -> failwith "TODO"
+
     (* Exhaustive failure cases. *)
     | Function _, _
     | Boolean, _

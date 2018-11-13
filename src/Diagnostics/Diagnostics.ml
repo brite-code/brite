@@ -6,14 +6,14 @@ type error =
   | UnboundTypeVariable of { name: string }
 
   (* We tried to unify two incompatible types. *)
-  | IncompatibleTypes of { type1: Type.polytype; type2: Type.polytype }
+  | IncompatibleTypes of { type1: string; type2: string }
 
   (* When trying to update type variable `name` with the polytype `type_` we
    * discovered that `type_` includes `name` somewhere within itself. Performing
    * the update would result in an infinite type which is not allowed! Instead
    * we produce this error. An example of this error firing is for the
    * auto-application lambda `λx.x x`. *)
-  | InfiniteType of { name: string; type_: Type.polytype }
+  | InfiniteType of { name: string; type_: string }
 
 (* Some diagnostic in our system. *)
 type t =

@@ -10,6 +10,7 @@ and 'k monotype_description = private
   | Function of { parameter: 'k base_monotype; body: 'k base_monotype }
   | RowEmpty
   | RowExtension of { entries: (string * ('k base_monotype)) Nel.t; extension: 'k base_monotype }
+  | Error of { kind: 'k; error: Diagnostics.t }
 
 type bound_flexibility = Flexible | Rigid
 
@@ -50,6 +51,7 @@ val bound: bound_flexibility -> 'k base_polytype -> 'k base_bound
 val unbounded: parse_bound
 val unbounded_value: bound
 val quantify: (string * ('k base_bound)) Nel.t -> 'k base_monotype -> 'k base_polytype
+val error: Kind.t -> Diagnostics.t -> monotype
 val kind_monotype: monotype -> Kind.t
 val kind: polytype -> Kind.t
 val substitute_monotype: monotype StringMap.t -> monotype -> monotype option

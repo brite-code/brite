@@ -247,7 +247,8 @@ let update_check prefix name old_bound new_bound =
      * an error. *)
     occurs prefix name new_bound.Type.bound_type
   ) then (
-    Error (Diagnostics.report_error (InfiniteType { name; type_ = new_bound.bound_type }))
+    let type_ = Printer.print_polytype new_bound.bound_type in
+    Error (Diagnostics.report_error (InfiniteType { name; type_ }))
   ) else if (
     (* If the old bound is rigid then we check to make sure that the new type
      * is an abstraction of the old type. If it is not then we have an
@@ -258,8 +259,8 @@ let update_check prefix name old_bound new_bound =
     old_bound.Type.bound_flexibility == Rigid &&
     not (Abstraction.check (lookup prefix) old_bound.bound_type new_bound.bound_type)
   ) then (
-    let type1 = old_bound.bound_type in
-    let type2 = new_bound.bound_type in
+    let type1 = Printer.print_polytype old_bound.bound_type in
+    let type2 = Printer.print_polytype new_bound.bound_type in
     Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 }))
   ) else (
     (* The update is ok. You may proceed to commit changes... *)

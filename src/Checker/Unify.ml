@@ -99,6 +99,9 @@ let rec unify prefix type1 type2 =
     )
   )
 
+  (* TODO *)
+  | Error _, _ | _, Error _ -> failwith "TODO"
+
   (* Constant intrinsic types unify with each other no problem. *)
   | Boolean, Boolean -> Ok ()
   | Number, Number -> Ok ()
@@ -131,8 +134,8 @@ let rec unify prefix type1 type2 =
   | Function _, _
   | RowEmpty, _
   | RowExtension _, _ ->
-    let type1 = Type.to_polytype type1 in
-    let type2 = Type.to_polytype type2 in
+    let type1 = Printer.print_monotype type1 in
+    let type2 = Printer.print_monotype type2 in
     Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 }))
 
 (* Unifies two polytypes. When the two types are equivalent we return an ok

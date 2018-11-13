@@ -1,8 +1,8 @@
 type error =
   | UnboundVariable of { name: string }
   | UnboundTypeVariable of { name: string }
-  | IncompatibleTypes of { type1: Type.polytype; type2: Type.polytype }
-  | InfiniteType of { name: string; type_: Type.polytype }
+  | IncompatibleTypes of { type1: string; type2: string }
+  | InfiniteType of { name: string; type_: string }
 
 type t = private
   | Error of error
