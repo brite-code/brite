@@ -4,6 +4,8 @@ type 'a t = ('a * 'a list)
 
 let create x xs = (x, xs)
 
+let append (x1, xs1) (x2, xs2) = (x1, xs1 @ (x2 :: xs2))
+
 let map f (x, xs) = (f x, List.map f xs)
 
 let fold_left f acc (x, xs) = List.fold_left f (f acc x) xs

@@ -17,6 +17,10 @@ let rec print_monotype t =
     let entries = String.concat ", " (Nel.to_list entries) in
     Printf.sprintf "(| %s |)" entries
 
+  | RowExtension { entries = entries1; extension =
+      { monotype_description = RowExtension { entries = entries2; extension }; _ } } ->
+    print_monotype (Type.row_extension (Nel.append entries1 entries2) extension)
+
   | RowExtension { entries; extension } ->
     let entries = Nel.map print_row_entry entries in
     let entries = String.concat ", " (Nel.to_list entries) in
