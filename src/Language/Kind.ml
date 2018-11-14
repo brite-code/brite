@@ -30,10 +30,37 @@ let unknown () = Unknown { seen = false; kind = None }
  * If one of the kinds is unknown then we solve for that kind. *)
 let rec unify kind1 kind2 =
   match kind1, kind2 with
-  (* Two referentially equal unknowns always unify together. *)
-  | Unknown unknown1, Unknown unknown2
-      when unknown1 == unknown2 ->
-    Ok ()
+  (* Handle the unification of two unknowns. If they are referentially equal
+   * then the unification is always ok. Otherwise try our other cases. *)
+  | Unknown unknown1, Unknown unknown2 -> (
+    if unknown1 == unknown2 then (
+      Ok ()
+    ) else (
+      if unknown1.seen then Error (Diagnostics.report_error InfiniteKind) else
+      if unknown2.seen then Error (Diagnostics.report_error InfiniteKind) else
+      match unknown1.kind, unknown2.kind with
+      | Some kind1, Some kind2 ->
+        unknown1.seen <- true;
+        unknown2.seen <- true;
+        let result = unify kind1 kind2 in
+        unknown2.seen <- false;
+        unknown1.seen <- false;
+        result
+      | Some kind1, None ->
+        unknown1.seen <- true;
+        let result = unify kind1 kind2 in
+        unknown1.seen <- false;
+        result
+      | None, Some kind2 ->
+        unknown2.seen <- true;
+        let result = unify kind1 kind2 in
+        unknown2.seen <- false;
+        result
+      | None, None ->
+        unknown1.kind <- Some kind2;
+        Ok ()
+    )
+  )
 
   (* Unify an unknown kind. Check for cycles and resolved kinds. *)
   | Unknown unknown1, _ -> (

@@ -132,6 +132,7 @@ let run () = suite "Infer" (fun () -> (
     ("infer((∅), (x: nope), x)", "((∅), %error)", ["Unbound variable `nope`."]);
     ("infer((t = nope), (x: t, y: t, choose: ∀a.a → a → a), choose x y)", "((t = %error), %error)", ["Unbound variable `nope`."]);
     ("infer((t1 = nope, t2 = nope), (x: t1, y: t2, choose: ∀a.a → a → a), choose x y)", "((t1 = %error, t2 = %error), %error)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("infer((∅), (∅), (42: ⊥))", "((∅), ⊥)", ["⊥ ≢ number"]);
   ] in
 
   let prefix = Prefix.create () in

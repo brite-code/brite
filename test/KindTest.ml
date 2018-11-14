@@ -295,5 +295,131 @@ let run () = suite "Kind" (fun () -> (
     )
   ));
 
+  test "unknowns unified with each other will not create infinite kinds 1" (fun () -> (
+    (
+      let ((), diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 unknown1 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 Kind.value in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 Kind.value in
+        assert (result = Ok ())
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = [])
+    );
+    (
+      let ((), diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 Kind.value in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 Kind.value in
+        assert (result = Ok ())
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = [])
+    );
+    (
+      let ((), diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 unknown1 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 Kind.value in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 Kind.value in
+        assert (result = Ok ())
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = [])
+    );
+    (
+      let ((), diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 Kind.value in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 Kind.value in
+        assert (result = Ok ())
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = [])
+    )
+  ));
+
+  test "unknowns unified with each other will not create infinite kinds 2" (fun () -> (
+    (
+      let (result, diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 unknown1 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 Kind.value in
+        assert (result = Ok ());
+        Kind.unify unknown1 Kind.row
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = ["Incompatible kinds value and row."]);
+      assert (result = Error (List.nth diagnostics 0))
+    );
+    (
+      let (result, diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 Kind.value in
+        assert (result = Ok ());
+        Kind.unify unknown1 Kind.row
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = ["Incompatible kinds value and row."]);
+      assert (result = Error (List.nth diagnostics 0))
+    );
+    (
+      let (result, diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 unknown1 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 Kind.value in
+        assert (result = Ok ());
+        Kind.unify unknown2 Kind.row
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = ["Incompatible kinds value and row."]);
+      assert (result = Error (List.nth diagnostics 0))
+    );
+    (
+      let (result, diagnostics) = Diagnostics.collect (fun () -> (
+        let unknown1 = Kind.unknown () in
+        let unknown2 = Kind.unknown () in
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown1 unknown2 in
+        assert (result = Ok ());
+        let result = Kind.unify unknown2 Kind.value in
+        assert (result = Ok ());
+        Kind.unify unknown2 Kind.row
+      )) in
+      assert (List.map Printer.print_diagnostic diagnostics = ["Incompatible kinds value and row."]);
+      assert (result = Error (List.nth diagnostics 0))
+    )
+  ));
+
   ()
 ))

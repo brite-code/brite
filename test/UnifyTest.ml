@@ -314,6 +314,14 @@ let run () = suite "Unify" (fun () -> (
     ("unify((x, y, t = ∀(e = nope, a = ∀z.z → e, b = ∀z.z → e).a → b), t → (y → x), (x → y) → (x → y))", "(y = ∀z.z → %error, x = y, t = x → y)", ["Unbound variable `nope`."]);
     ("unify((x, y, t = ∀(e1 = nope, e2 = nope, a = ∀z.z → e1, b = ∀z.z → e2).a → b), t → (y → x), (x → y) → (x → y))", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
     ("unify((x, y, t = ∀(a = ∀z.z → nope, b = ∀z.z → nope).a → b), t → (y → x), (x → y) → (x → y))", "(y = ∀z.z → %error, x = ∀z.z → %error, t = x → y)", ["Unbound variable `nope`."; "Unbound variable `nope`."]);
+    ("unify((a, b), a, b)", "(a, b = a)", []);
+    ("unify((a, b), b, a)", "(b, a = b)", []);
+    ("unify((a, b, c = (| l1: a, l2: b |)), a, b)", "(a, b = a, c = (| l1: a, l2: b |))", []);
+    ("unify((a, b, c = (| l1: a, l2: b |)), b, a)", "(b, a = b, c = (| l1: a, l2: b |))", []);
+    ("unify((a, b, c = (| l: number | a |), d = (| l: number | b |)), a, b)", "(a, b = a, d = (| l: number | b |), c = (| l: number | a |))", []);
+    ("unify((a, b, c = (| l: number | a |), d = (| l: number | b |)), b, a)", "(b, a = b, d = (| l: number | b |), c = (| l: number | a |))", []);
+    ("unify((a, b, c = (| l: a | b |)), a, b)", "(a, b, c = (| l: a | b |))", ["Incompatible kinds value and row."]);
+    ("unify((a, b, c = (| l: a | b |)), b, a)", "(a, b, c = (| l: a | b |))", ["Incompatible kinds row and value."]);
   ] in
 
   let prefix = Prefix.create () in

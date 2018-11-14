@@ -241,31 +241,39 @@ let rec level_up prefix new_level t =
 
 (* Performs the checks which must pass for an update to be safe. *)
 let update_check prefix name old_bound new_bound =
-  if (
-    (* Run an “occurs” check to make sure that we aren’t creating an infinite
-     * type with this update. If we would create an infinite type then return
-     * an error. *)
-    occurs prefix name new_bound.Type.bound_type
-  ) then (
-    let type_ = Printer.print_polytype new_bound.bound_type in
-    Error (Diagnostics.report_error (InfiniteType { name; type_ }))
-  ) else if (
-    (* If the old bound is rigid then we check to make sure that the new type
-     * is an abstraction of the old type. If it is not then we have an
-     * invalid update!
-     *
-     * NOTE: We re-use the `IncompatibleTypes` error here, but maybe we want a
-     * more descriptive error? *)
-    old_bound.Type.bound_flexibility == Rigid &&
-    not (Abstraction.check (lookup prefix) old_bound.bound_type new_bound.bound_type)
-  ) then (
-    let type1 = Printer.print_polytype old_bound.bound_type in
-    let type2 = Printer.print_polytype new_bound.bound_type in
-    Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 }))
-  ) else (
-    (* The update is ok. You may proceed to commit changes... *)
-    Ok ()
-  )
+  (* First we unify the kinds for our old and new bounds. This call may mutate
+   * the kinds! We believe that this is ok. If we mutate the kinds but then the
+   * update fails because of a check below we’re left in a state where the kinds
+   * are a bit stricter then they need to be. Since this is only for the error
+   * case we’re ok with it. *)
+  match Kind.unify (Type.kind old_bound.Type.bound_type) (Type.kind new_bound.Type.bound_type) with
+  | Error error -> Error error
+  | Ok () ->
+    if (
+      (* Run an “occurs” check to make sure that we aren’t creating an infinite
+       * type with this update. If we would create an infinite type then return
+       * an error. *)
+      occurs prefix name new_bound.bound_type
+    ) then (
+      let type_ = Printer.print_polytype new_bound.bound_type in
+      Error (Diagnostics.report_error (InfiniteType { name; type_ }))
+    ) else if (
+      (* If the old bound is rigid then we check to make sure that the new type
+       * is an abstraction of the old type. If it is not then we have an
+       * invalid update!
+       *
+       * NOTE: We re-use the `IncompatibleTypes` error here, but maybe we want a
+       * more descriptive error? *)
+      old_bound.Type.bound_flexibility == Rigid &&
+      not (Abstraction.check (lookup prefix) old_bound.bound_type new_bound.bound_type)
+    ) then (
+      let type1 = Printer.print_polytype old_bound.bound_type in
+      let type2 = Printer.print_polytype new_bound.bound_type in
+      Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 }))
+    ) else (
+      (* The update is ok. You may proceed to commit changes... *)
+      Ok ()
+    )
 
 (* IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Do not call this function with
  * two types which do not uphold this relation!
