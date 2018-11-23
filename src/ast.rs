@@ -7,7 +7,7 @@
 //! - Type checking.
 //! - Pretty printing.
 
-use crate::source::{Identifier, Name, Range};
+use crate::source::{Identifier, Name, Number, Range};
 
 pub struct Module {
     pub items: Vec<Item>,
@@ -93,29 +93,11 @@ pub struct BreakStatement {
     pub argument: Option<Expression>,
 }
 
-/// ```ite
-/// throw E;
-/// ```
-pub struct ThrowStatement {
-    pub argument: Expression,
-}
-
 pub enum Constant {
     /// `true`, `false`
     Boolean(bool),
     /// `0`, `1`, `-42`, `3.1415`
-    Number(NumberConstant),
-}
-
-/// ```ite
-/// 0
-/// 1
-/// -42
-/// 3.1415
-/// ```
-pub struct NumberConstant {
-    raw: String,
-    value: f64,
+    Number(Number),
 }
 
 pub struct Expression {
@@ -298,6 +280,8 @@ pub enum UnaryOperation {
     Not,
     /// `-`
     Negative,
+    /// `+`
+    Positive,
 }
 
 /// ```ite

@@ -139,8 +139,58 @@ where
 /// [1]: http://www.unicode.org/reports/tr31
 pub struct Identifier(String);
 
+/// A keyword reserved in the identifier syntax.
+pub enum Keyword {
+    /// `_`
+    Hole,
+    /// `true`
+    True,
+    /// `false`
+    False,
+}
+
 /// An `Identifier` which comes with a `Range`.
 pub struct Name {
     pub range: Range,
     pub identifier: Identifier,
+}
+
+/// Some number that we parsed from a source document. We only parse positive numbers. Negative
+/// numbers may be created with the negative unary operator. All numbers are represented as 64-bit
+/// floats. The syntax we accept for numbers includes:
+///
+/// - Integers: 0, 1, 42
+/// - Decimals: 3.1415
+/// - Exponential: 1e2, 3.14e2, 1e-2
+/// - Hexadecimal: 0xFFF
+/// - Binary: 0b101
+pub struct Number {
+    raw: String,
+    value: f64,
+}
+
+/// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
+/// a source document we produce a list of tokens whose positions when added together should be the
+/// full range of the document.
+pub struct Token {
+    /// The token’s full starting position. Including whitespace and comments.
+    pub full_start: Position,
+    /// The token’s start position.
+    pub start: Position,
+    /// The token’s end position.
+    pub end: Position,
+    /// The description of the token.
+    pub description: TokenDescription,
+}
+
+pub enum TokenDescription {
+    Glyph(Glyph),
+    Identifier(Identifier),
+    Number(Number),
+    UnexpectedChar(char),
+}
+
+/// A glyph is some symbol which is a part of Brite source code.
+pub enum Glyph {
+    Keyword(Keyword),
 }
