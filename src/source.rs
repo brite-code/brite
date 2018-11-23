@@ -1,4 +1,5 @@
 use std::iter::Peekable;
+use unicode_xid::UnicodeXID;
 
 /// A range in a text document expressed as (zero-based) start and end positions. A range is
 /// comparable to a selection in an editor. Therefore the end position is exclusive.
@@ -125,6 +126,29 @@ where
     }
 }
 
+/// A trait for iterators which can peek the next item.
+pub trait PeekableIterator: Iterator {
+    fn peek(&mut self) -> Option<&Self::Item>;
+}
+
+impl<I> PeekableIterator for Peekable<I>
+where
+    I: Iterator,
+{
+    fn peek(&mut self) -> Option<&Self::Item> {
+        Peekable::peek(self)
+    }
+}
+
+impl<I> PeekableIterator for Chars<I>
+where
+    I: Iterator<Item = char>,
+{
+    fn peek(&mut self) -> Option<&Self::Item> {
+        Peekable::peek(&mut self.iter)
+    }
+}
+
 /// A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
 /// Specification][1] including the optional underscore (`_`) character.
 ///
@@ -147,6 +171,83 @@ pub enum Keyword {
     True,
     /// `false`
     False,
+}
+
+impl Identifier {
+    /// Parses an identifier from the source characters iterator.
+    ///
+    /// - `Some(Ok())` if we parsed a valid identifier.
+    /// - `Some(Err())` if we parsed a keyword.
+    /// - `None` if we could not parse an identifier. We consumed no characters from the iterator
+    ///   in this case.
+    pub fn parse<I>(iter: &mut I) -> Option<Result<Identifier, Keyword>>
+    where
+        I: PeekableIterator<Item = char>,
+    {
+        let mut s = String::new();
+
+        match iter.peek() {
+            None => return None,
+            Some(c) => {
+                let c = *c;
+                if Identifier::is_start(c) {
+                    iter.next();
+                    s.push(c);
+                } else {
+                    return None;
+                }
+            }
+        };
+
+        loop {
+            match iter.peek() {
+                None => break,
+                Some(c) => {
+                    let c = *c;
+                    if Identifier::is_continue(c) {
+                        iter.next();
+                        s.push(c);
+                    } else {
+                        break;
+                    }
+                }
+            };
+        }
+
+        s.shrink_to_fit();
+
+        match s.as_ref() {
+            "_" => Some(Err(Keyword::Hole)),
+            "true" => Some(Err(Keyword::True)),
+            "false" => Some(Err(Keyword::False)),
+            _ => Some(Ok(Identifier(s))),
+        }
+    }
+
+    fn is_start(c: char) -> bool {
+        match c {
+            // Optimization: Quickly detect ASCII Latin characters.
+            'a'...'z' => true,
+            'A'...'Z' => true,
+            // Include the optional underscore character.
+            '_' => true,
+            // Delegate to `UnicodeXID::is_xid_start` for everything else.
+            c => UnicodeXID::is_xid_start(c),
+        }
+    }
+
+    fn is_continue(c: char) -> bool {
+        match c {
+            // Optimization: Quickly detect ASCII Latin characters and numbers.
+            'a'...'z' => true,
+            'A'...'Z' => true,
+            '0'...'9' => true,
+            // Include the optional underscore character.
+            '_' => true,
+            // Delegate to `UnicodeXID::is_xid_continue` for everything else.
+            c => UnicodeXID::is_xid_continue(c),
+        }
+    }
 }
 
 /// An `Identifier` which comes with a `Range`.
