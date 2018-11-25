@@ -1,4 +1,6 @@
 use std::iter::Peekable;
+use std::str::FromStr;
+use std::{f64, u32};
 use unicode_xid::UnicodeXID;
 
 /// A range in a text document expressed as (zero-based) start and end positions. A range is
@@ -126,29 +128,6 @@ where
     }
 }
 
-/// A trait for iterators which can peek the next item.
-pub trait PeekableIterator: Iterator {
-    fn peek(&mut self) -> Option<&Self::Item>;
-}
-
-impl<I> PeekableIterator for Peekable<I>
-where
-    I: Iterator,
-{
-    fn peek(&mut self) -> Option<&Self::Item> {
-        Peekable::peek(self)
-    }
-}
-
-impl<I> PeekableIterator for Chars<I>
-where
-    I: Iterator<Item = char>,
-{
-    fn peek(&mut self) -> Option<&Self::Item> {
-        Peekable::peek(&mut self.iter)
-    }
-}
-
 /// A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
 /// Specification][1] including the optional underscore (`_`) character.
 ///
@@ -180,37 +159,31 @@ impl Identifier {
     /// - `Some(Err())` if we parsed a keyword.
     /// - `None` if we could not parse an identifier. We consumed no characters from the iterator
     ///   in this case.
-    pub fn parse<I>(iter: &mut I) -> Option<Result<Identifier, Keyword>>
+    pub fn parse<I>(iter: &mut Chars<I>) -> Option<Result<Identifier, Keyword>>
     where
-        I: PeekableIterator<Item = char>,
+        I: Iterator<Item = char>,
     {
         let mut s = String::new();
 
         match iter.peek() {
             None => return None,
-            Some(c) => {
-                let c = *c;
-                if Identifier::is_start(c) {
-                    iter.next();
-                    s.push(c);
-                } else {
-                    return None;
-                }
-            }
+            Some(c) => if Identifier::is_start(c) {
+                s.push(c);
+                iter.next();
+            } else {
+                return None;
+            },
         };
 
         loop {
             match iter.peek() {
                 None => break,
-                Some(c) => {
-                    let c = *c;
-                    if Identifier::is_continue(c) {
-                        iter.next();
-                        s.push(c);
-                    } else {
-                        break;
-                    }
-                }
+                Some(c) => if Identifier::is_continue(c) {
+                    s.push(c);
+                    iter.next();
+                } else {
+                    break;
+                },
             };
         }
 
@@ -258,16 +231,141 @@ pub struct Name {
 
 /// Some number that we parsed from a source document. We only parse positive numbers. Negative
 /// numbers may be created with the negative unary operator. All numbers are represented as 64-bit
-/// floats. The syntax we accept for numbers includes:
+/// floats according to the [IEEE 754-2008][1] standard. This means the largest integer we can
+/// support is 32 bits. The syntax we accept for numbers includes:
 ///
 /// - Integers: 0, 1, 42
 /// - Decimals: 3.1415
 /// - Exponential: 1e2, 3.14e2, 1e-2
 /// - Hexadecimal: 0xFFF
 /// - Binary: 0b101
+///
+/// [1]: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
 pub struct Number {
-    raw: String,
+    raw: Option<String>,
     value: f64,
+}
+
+impl Number {
+    /// Parses a number from a character iterator.
+    ///
+    /// - `Some(Ok())` if we parsed a valid number.
+    /// - `Some(Err())` if we failed to parse a number. The string is the raw number we tried
+    ///   parsing. We consumed characters from the iterator in this case.
+    /// - `None` if we could not parse a number. We consumed no characters from the iterator
+    ///   in this case.
+    ///
+    /// NOTE: The caller of this function should probably check to see if there is an identifier
+    /// immediately following the number. Since numbers include letter characters like `x`, `b`, and
+    /// `e` we don’t want arbitrary identifiers following numbers as that might be confusing.
+    pub fn parse<I>(iter: &mut Chars<I>) -> Option<Result<Number, String>>
+    where
+        I: Iterator<Item = char>,
+    {
+        let mut raw = String::new();
+
+        // If the first number we parse is 0 then we may have a binary or hexadecimal number on
+        // our hands.
+        match iter.peek() {
+            Some('0') => {
+                raw.push(iter.next().unwrap());
+                match iter.peek() {
+                    // Parse a binary number.
+                    Some('b') | Some('B') => {
+                        raw.push(iter.next().unwrap());
+                        loop {
+                            match iter.peek() {
+                                Some('0') | Some('1') => raw.push(iter.next().unwrap()),
+                                _ => break,
+                            }
+                        }
+                        let (_, binary) = raw.split_at(2);
+                        return match u32::from_str_radix(binary, 2) {
+                            Ok(value) => {
+                                let raw = Some(raw);
+                                let value = f64::from(value);
+                                Some(Ok(Number { raw, value }))
+                            }
+                            Err(_) => Some(Err(raw)),
+                        };
+                    }
+                    // Parse a hexadecimal number.
+                    Some('x') | Some('X') => {
+                        raw.push(iter.next().unwrap());
+                        loop {
+                            match iter.peek() {
+                                Some('0'...'9') | Some('a'...'f') | Some('A'...'F') => {
+                                    raw.push(iter.next().unwrap())
+                                }
+                                _ => break,
+                            }
+                        }
+                        let (_, hexadecimal) = raw.split_at(2);
+                        return match u32::from_str_radix(hexadecimal, 16) {
+                            Ok(value) => {
+                                let raw = Some(raw);
+                                let value = f64::from(value);
+                                Some(Ok(Number { raw, value }))
+                            }
+                            Err(_) => Some(Err(raw)),
+                        };
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+
+        // Get all the digits in the whole part of the number.
+        loop {
+            match iter.peek() {
+                Some('0'...'9') => raw.push(iter.next().unwrap()),
+                _ => break,
+            }
+        }
+
+        // Get all the digits in the fractional part of the number.
+        if let Some('.') = iter.peek() {
+            raw.push(iter.next().unwrap());
+            loop {
+                match iter.peek() {
+                    Some('0'...'9') => raw.push(iter.next().unwrap()),
+                    _ => break,
+                }
+            }
+        }
+
+        // If we parsed no characters then we don’t have a number to parse.
+        if raw.is_empty() {
+            None
+        } else {
+            // Get all the digits in the exponential part of the number.
+            match iter.peek() {
+                Some('e') | Some('E') => {
+                    raw.push(iter.next().unwrap());
+                    match iter.peek() {
+                        Some('+') | Some('-') => raw.push(iter.next().unwrap()),
+                        _ => {}
+                    }
+                    loop {
+                        match iter.peek() {
+                            Some('0'...'9') => raw.push(iter.next().unwrap()),
+                            _ => break,
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            match f64::from_str(&raw) {
+                Ok(value) => {
+                    let raw = Some(raw);
+                    Some(Ok(Number { raw, value }))
+                }
+                Err(_) => Some(Err(raw)),
+            }
+        }
+    }
 }
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
