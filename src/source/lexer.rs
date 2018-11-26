@@ -69,11 +69,20 @@ pub enum ErrorToken {
 }
 
 /// Turns an iterator of source characters into an iterator of source tokens.
-pub fn tokenize<I>(chars: Chars<I>) -> impl Iterator<Item = Token>
-where
-    I: Iterator<Item = char>,
-{
+#[cfg(not(debug_assertions))]
+pub fn tokenize(chars: Chars<impl Iterator<Item = char>>) -> impl Iterator<Item = Token> {
     Lexer { chars }
+}
+
+/// Turns an iterator of source characters into an iterator of source tokens.
+#[cfg(debug_assertions)]
+pub fn tokenize(chars: Chars<impl Iterator<Item = char>>) -> impl Iterator<Item = Token> {
+    let prev_position = chars.position();
+    let lexer = Lexer { chars };
+    DebugLexer {
+        lexer,
+        prev_position,
+    }
 }
 
 struct Lexer<I>
@@ -225,5 +234,33 @@ where
                 },
             };
         }
+    }
+}
+
+/// A wrapper around `Lexer` which performs some assertions for debugging purposes.
+struct DebugLexer<I>
+where
+    I: Iterator<Item = char>,
+{
+    lexer: Lexer<I>,
+    prev_position: Position,
+}
+
+impl<I> Iterator for DebugLexer<I>
+where
+    I: Iterator<Item = char>,
+{
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        let next_token = self.lexer.next();
+        if let Some(token) = &next_token {
+            assert!(
+                self.prev_position == token.full_start,
+                "End of the previous token should be equal to the start of the next token."
+            );
+            self.prev_position = token.range.end();
+        }
+        next_token
     }
 }
