@@ -1,0 +1,144 @@
+use std::iter::Peekable;
+
+/// Position in a text document expressed as zero-based line and zero-based character offset.
+///
+/// The offsets are based on a UTF-16 string representation. The sequences which represent a newline
+/// are `\n`, `\r\n`, and `\r`.
+///
+/// We use 32 bit unsigned integers for the line and character properties. Together that gives the
+/// position struct a size of 64 bits.
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Position {
+    /// Line position in a document (zero-based).
+    line: u32,
+    /// Character offset on a line in a document (zero-based).
+    character: u32,
+}
+
+impl Position {
+    /// Create a new position.
+    pub fn new(line: u32, character: u32) -> Self {
+        Position { line, character }
+    }
+
+    /// The initial position.
+    pub fn initial() -> Self {
+        INITIAL_POSITION
+    }
+}
+
+/// A range in a text document expressed as (zero-based) start and end positions. A range is
+/// comparable to a selection in an editor. Therefore the end position is exclusive.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct Range {
+    /// The range’s start position.
+    start: Position,
+    /// The range’s end position.
+    end: Position,
+}
+
+impl Range {
+    /// Creates a new range. The end position must be greater than or equal to the end position.
+    pub fn new(start: Position, end: Position) -> Self {
+        debug_assert!(end >= start);
+        Range { start, end }
+    }
+
+    /// Creates a new range where both start and end are the provided position.
+    pub fn position(position: Position) -> Self {
+        Range {
+            start: position,
+            end: position,
+        }
+    }
+
+    /// The initial range. The same as `Range::new(Position::initial(), Position::initial())`.
+    pub fn initial() -> Self {
+        INITIAL_RANGE
+    }
+
+    /// The range’s start position.
+    pub fn start(&self) -> Position {
+        self.start
+    }
+
+    /// The range’s end position.
+    pub fn end(&self) -> Position {
+        self.end
+    }
+}
+
+const INITIAL_POSITION: Position = Position {
+    line: 0,
+    character: 0,
+};
+
+const INITIAL_RANGE: Range = Range {
+    start: INITIAL_POSITION,
+    end: INITIAL_POSITION,
+};
+
+/// Peekable iterator of source characters which keeps track of the current `Position`.
+pub struct Chars<I>
+where
+    I: Iterator<Item = char>,
+{
+    position: Position,
+    iter: Peekable<I>,
+}
+
+impl<I> Chars<I>
+where
+    I: Iterator<Item = char>,
+{
+    /// Create a new iterator starting at the provided position.
+    pub fn new(position: Position, iter: I) -> Self {
+        Chars {
+            position,
+            iter: iter.peekable(),
+        }
+    }
+
+    /// Take a peek at the next character without advancing the iterator.
+    pub fn peek(&mut self) -> Option<char> {
+        self.iter.peek().cloned()
+    }
+
+    /// Get the current character position. Remember that the position is based on the UTF-16
+    /// string representation.
+    pub fn position(&self) -> Position {
+        self.position
+    }
+}
+
+impl<I> Iterator for Chars<I>
+where
+    I: Iterator<Item = char>,
+{
+    type Item = char;
+
+    /// Advances the iterator updating the current position in the process.
+    fn next(&mut self) -> Option<char> {
+        let c = self.iter.next();
+        if let Some(c) = c {
+            // Newline sequences `\n`, `\r\n`, and `\r` move the position to the next line and reset
+            // the character. If our sequence is `\r\n` then we skip the `\r` not counting it
+            // against the position and then increment the line after `\n`.
+            if c == '\n' {
+                self.position.line += 1;
+                self.position.character = 0;
+            } else if c == '\r' {
+                if self.peek() == Some('\n') {
+                    // noop...
+                } else {
+                    self.position.line += 1;
+                    self.position.character = 0;
+                }
+            } else {
+                // Increment the character based on the UTF-16 length.
+                self.position.character += c.len_utf16() as u32;
+            }
+        }
+        c
+    }
+}

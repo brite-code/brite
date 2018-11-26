@@ -1,4 +1,6 @@
-use super::source::{Chars, Identifier, Keyword, Number, Position, Range};
+use super::identifier::{Identifier, Keyword};
+use super::number::Number;
+use super::position::{Chars, Position, Range};
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the

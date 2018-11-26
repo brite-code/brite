@@ -7,7 +7,9 @@
 //! - Type checking.
 //! - Pretty printing.
 
-use crate::source::{Identifier, Name, Number, Range};
+use super::identifier::{Identifier, Name};
+use super::number::Number;
+use super::position::Range;
 
 pub struct Module {
     pub items: Vec<Item>,
