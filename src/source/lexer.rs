@@ -6,72 +6,6 @@ use super::identifier::{Identifier, Keyword};
 use super::number::Number;
 use super::position::{Chars, Position, Range};
 
-/// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
-/// a source document we produce a list of tokens whose positions when added together should be the
-/// full range of the document.
-pub struct Token {
-    /// The token’s full starting position. Including whitespace and comments.
-    pub full_start: Position,
-    /// The token’s actual range.
-    pub range: Range,
-    /// The description of the token.
-    pub description: TokenDescription,
-    /// Tokens may only be constructed from this module.
-    _private: (),
-}
-
-/// The description of the token.
-pub enum TokenDescription {
-    /// Some sequence of characters that helps define a construct in our programming language.
-    Glyph(Glyph),
-    /// Any `Identifier`.
-    Identifier(Identifier),
-    /// Any `Number`.
-    Number(Number),
-    /// An error we encountered while tokenizing the program. Errors are not fatal so an error is
-    /// represented as a token.
-    Error(ErrorToken),
-}
-
-impl Token {
-    /// Creates a new token.
-    fn new(full_start: Position, range: Range, description: TokenDescription) -> Self {
-        debug_assert!(full_start <= range.start());
-        Token {
-            full_start,
-            range,
-            description,
-            _private: (),
-        }
-    }
-
-    /// Creates a new glyph token.
-    fn glyph(full_start: Position, range: Range, glyph: Glyph) -> Self {
-        Self::new(full_start, range, TokenDescription::Glyph(glyph))
-    }
-
-    /// Creates a new error token.
-    fn error(full_start: Position, range: Range, error: ErrorToken) -> Self {
-        Self::new(full_start, range, TokenDescription::Error(error))
-    }
-}
-
-/// A glyph is some symbol which is a part of Brite source code.
-pub enum Glyph {
-    /// Any `Keyword`.
-    Keyword(Keyword),
-    /// `/`
-    Slash,
-}
-
-/// A token representing an error that occurred while tokenizing.
-pub enum ErrorToken {
-    /// We encountered an unexpected character while tokenizing.
-    UnexpectedChar(char),
-    /// We tried to parse a number, but the number’s format was invalid.
-    InvalidNumber(String),
-}
-
 /// Turns an iterator of source characters into an iterator of source tokens.
 #[cfg(not(debug_assertions))]
 pub fn tokenize(chars: Chars<impl Iterator<Item = char>>) -> impl Iterator<Item = Token> {
@@ -86,6 +20,118 @@ pub fn tokenize(chars: Chars<impl Iterator<Item = char>>) -> impl Iterator<Item 
     DebugLexer {
         lexer,
         prev_position,
+    }
+}
+
+/// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
+/// a source document we produce a list of tokens whose positions when added together should be the
+/// full range of the document.
+pub enum Token {
+    Glyph(GlyphToken),
+    Identifier(IdentifierToken),
+    Number(NumberToken),
+    Error(ErrorToken),
+}
+
+/// An owned enum for switching to a `Token` reference.
+#[derive(Clone, Copy)]
+pub enum TokenRef<'a> {
+    Glyph(&'a GlyphToken),
+    Identifier(&'a IdentifierToken),
+    Number(&'a NumberToken),
+    Error(&'a ErrorToken),
+}
+
+/// The range covered by a token. Every token has two start positions. The “full start” position
+/// and the actual start position.
+///
+/// The actual start position is the true start of the token. This is where the significant
+/// characters in the token begin. The “full start” position includes whitespace and comments.
+pub struct TokenRange {
+    /// The token’s full starting position. Including whitespace and comments.
+    full_start: Position,
+    /// The token’s actual range.
+    range: Range,
+}
+
+impl TokenRange {
+    /// Creates a new token range.
+    fn new(full_start: Position, range: Range) -> Self {
+        debug_assert!(full_start <= range.start());
+        TokenRange { full_start, range }
+    }
+}
+
+/// Some sequence of characters that helps define a construct in our programming language.
+pub struct GlyphToken {
+    range: TokenRange,
+    glyph: Glyph,
+}
+
+/// A glyph is some symbol which is a part of Brite source code.
+pub enum Glyph {
+    /// Any `Keyword`.
+    Keyword(Keyword),
+    /// `/`
+    Slash,
+}
+
+impl GlyphToken {
+    fn new(range: TokenRange, glyph: Glyph) -> Self {
+        GlyphToken { range, glyph }
+    }
+}
+
+/// Any `Identifier`.
+pub struct IdentifierToken {
+    range: TokenRange,
+    identifier: Identifier,
+}
+
+impl IdentifierToken {
+    fn new(range: TokenRange, identifier: Identifier) -> Self {
+        IdentifierToken { range, identifier }
+    }
+}
+
+/// Any `Number`.
+pub struct NumberToken {
+    range: TokenRange,
+    number: Number,
+}
+
+impl NumberToken {
+    fn new(range: TokenRange, number: Number) -> Self {
+        NumberToken { range, number }
+    }
+}
+
+/// An error we encountered while tokenizing the program. Errors are not fatal so an error is
+/// represented as a token.
+pub struct ErrorToken {
+    range: TokenRange,
+    description: ErrorTokenDescription,
+}
+
+/// A token representing an error that occurred while tokenizing.
+enum ErrorTokenDescription {
+    /// We encountered an unexpected character while tokenizing.
+    UnexpectedChar { c: char },
+    /// We tried to parse a number, but the number’s format was invalid.
+    InvalidNumber { raw: String },
+}
+
+impl ErrorToken {
+    fn new(range: TokenRange, description: ErrorTokenDescription) -> Self {
+        ErrorToken { range, description }
+    }
+
+    fn unexpected_char(range: TokenRange, c: char) -> Self {
+        Self::new(range, ErrorTokenDescription::UnexpectedChar { c })
+    }
+
+    fn invalid_number(range: TokenRange, raw: String) -> Self {
+        Self::new(range, ErrorTokenDescription::InvalidNumber { raw })
     }
 }
 
@@ -154,8 +200,8 @@ where
 
                             // Otherwise, we have a slash glyph.
                             _ => {
-                                let range = Range::position(start);
-                                Some(Token::glyph(full_start, range, Glyph::Slash))
+                                let range = TokenRange::new(full_start, Range::position(start));
+                                Some(GlyphToken::new(range, Glyph::Slash).into())
                             }
                         }
                     }
@@ -173,12 +219,15 @@ where
                         // If we could parse an identifier...
                         if let Some(identifier) = Identifier::parse(&mut self.chars) {
                             let end = self.chars.position();
-                            let range = Range::new(start, end);
-                            let description = match identifier {
-                                Ok(identifier) => TokenDescription::Identifier(identifier),
-                                Err(keyword) => TokenDescription::Glyph(Glyph::Keyword(keyword)),
+                            let range = TokenRange::new(full_start, Range::new(start, end));
+                            return match identifier {
+                                Ok(identifier) => {
+                                    Some(IdentifierToken::new(range, identifier).into())
+                                }
+                                Err(keyword) => {
+                                    Some(GlyphToken::new(range, Glyph::Keyword(keyword)).into())
+                                }
                             };
-                            return Some(Token::new(full_start, range, description));
                         }
 
                         // If we could parse a number...
@@ -211,29 +260,23 @@ where
                                     raw.push(self.chars.next().unwrap());
                                 }
                                 let end = self.chars.position();
-                                let range = Range::new(start, end);
-                                let error = ErrorToken::InvalidNumber(raw);
-                                return Some(Token::error(full_start, range, error));
+                                let range = TokenRange::new(full_start, Range::new(start, end));
+                                return Some(ErrorToken::invalid_number(range, raw).into());
                             }
 
                             // Return the parsed number.
                             let end = self.chars.position();
-                            let range = Range::new(start, end);
-                            let description = match number {
-                                Ok(number) => TokenDescription::Number(number),
-                                Err(raw) => TokenDescription::Error(ErrorToken::InvalidNumber(raw)),
+                            let range = TokenRange::new(full_start, Range::new(start, end));
+                            return match number {
+                                Ok(number) => Some(NumberToken::new(range, number).into()),
+                                Err(raw) => Some(ErrorToken::invalid_number(range, raw).into()),
                             };
-                            return Some(Token::new(full_start, range, description));
                         }
 
                         // Otherwise we have an unexpected character!
                         self.chars.next();
-                        let range = Range::position(start);
-                        Some(Token::error(
-                            full_start,
-                            range,
-                            ErrorToken::UnexpectedChar(c),
-                        ))
+                        let range = TokenRange::new(full_start, Range::position(start));
+                        Some(ErrorToken::unexpected_char(range, c).into())
                     }
                 },
             };
@@ -260,11 +303,81 @@ where
         let next_token = self.lexer.next();
         if let Some(token) = &next_token {
             assert!(
-                self.prev_position == token.full_start,
+                self.prev_position == token.range().full_start,
                 "End of the previous token should be equal to the start of the next token."
             );
-            self.prev_position = token.range.end();
+            self.prev_position = token.range().range.end();
         }
         next_token
+    }
+}
+
+impl Token {
+    fn range(&self) -> &TokenRange {
+        match self {
+            Token::Glyph(t) => &t.range,
+            Token::Identifier(t) => &t.range,
+            Token::Number(t) => &t.range,
+            Token::Error(t) => &t.range,
+        }
+    }
+}
+
+impl<'a> TokenRef<'a> {
+    fn range(self) -> &'a TokenRange {
+        match self {
+            TokenRef::Glyph(t) => &t.range,
+            TokenRef::Identifier(t) => &t.range,
+            TokenRef::Number(t) => &t.range,
+            TokenRef::Error(t) => &t.range,
+        }
+    }
+}
+
+impl Into<Token> for GlyphToken {
+    fn into(self) -> Token {
+        Token::Glyph(self)
+    }
+}
+
+impl Into<Token> for IdentifierToken {
+    fn into(self) -> Token {
+        Token::Identifier(self)
+    }
+}
+
+impl Into<Token> for NumberToken {
+    fn into(self) -> Token {
+        Token::Number(self)
+    }
+}
+
+impl Into<Token> for ErrorToken {
+    fn into(self) -> Token {
+        Token::Error(self)
+    }
+}
+
+impl<'a> Into<TokenRef<'a>> for &'a GlyphToken {
+    fn into(self) -> TokenRef<'a> {
+        TokenRef::Glyph(self)
+    }
+}
+
+impl<'a> Into<TokenRef<'a>> for &'a IdentifierToken {
+    fn into(self) -> TokenRef<'a> {
+        TokenRef::Identifier(self)
+    }
+}
+
+impl<'a> Into<TokenRef<'a>> for &'a NumberToken {
+    fn into(self) -> TokenRef<'a> {
+        TokenRef::Number(self)
+    }
+}
+
+impl<'a> Into<TokenRef<'a>> for &'a ErrorToken {
+    fn into(self) -> TokenRef<'a> {
+        TokenRef::Error(self)
     }
 }
