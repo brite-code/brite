@@ -12,15 +12,6 @@ pub enum Token {
     Error(ErrorToken),
 }
 
-/// An owned enum for switching to a `Token` reference.
-#[derive(Clone, Copy)]
-pub enum TokenRef<'a> {
-    Glyph(&'a GlyphToken),
-    Identifier(&'a IdentifierToken),
-    Number(&'a NumberToken),
-    Error(&'a ErrorToken),
-}
-
 /// The range covered by a token. Every token has two start positions. The “full start” position
 /// and the actual start position.
 ///
@@ -142,17 +133,6 @@ impl Token {
     }
 }
 
-impl<'a> TokenRef<'a> {
-    pub fn range(self) -> &'a TokenRange {
-        match self {
-            TokenRef::Glyph(t) => &t.range,
-            TokenRef::Identifier(t) => &t.range,
-            TokenRef::Number(t) => &t.range,
-            TokenRef::Error(t) => &t.range,
-        }
-    }
-}
-
 impl Into<Token> for GlyphToken {
     fn into(self) -> Token {
         Token::Glyph(self)
@@ -174,29 +154,5 @@ impl Into<Token> for NumberToken {
 impl Into<Token> for ErrorToken {
     fn into(self) -> Token {
         Token::Error(self)
-    }
-}
-
-impl<'a> Into<TokenRef<'a>> for &'a GlyphToken {
-    fn into(self) -> TokenRef<'a> {
-        TokenRef::Glyph(self)
-    }
-}
-
-impl<'a> Into<TokenRef<'a>> for &'a IdentifierToken {
-    fn into(self) -> TokenRef<'a> {
-        TokenRef::Identifier(self)
-    }
-}
-
-impl<'a> Into<TokenRef<'a>> for &'a NumberToken {
-    fn into(self) -> TokenRef<'a> {
-        TokenRef::Number(self)
-    }
-}
-
-impl<'a> Into<TokenRef<'a>> for &'a ErrorToken {
-    fn into(self) -> TokenRef<'a> {
-        TokenRef::Error(self)
     }
 }
