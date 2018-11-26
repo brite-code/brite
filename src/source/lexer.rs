@@ -1,3 +1,7 @@
+//! Turns a stream of source characters into a stream of `Token`s. Tokens are a more useful unit for
+//! parsing than characters since tokens will parse numbers, identifiers, glyphs, and will skip
+//! comments and whitespace.
+
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
 use super::position::{Chars, Position, Range};
