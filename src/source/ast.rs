@@ -7,45 +7,113 @@
 //! - Type checking.
 //! - Pretty printing.
 
-use super::identifier::{Identifier, Name};
+use super::identifier::Identifier;
 use super::number::Number;
 use super::position::Range;
+use super::token::*;
 
+/// A module represents a single Brite file. A module is made up of any number of declarations
+/// or statements.
 pub struct Module {
-    pub items: Vec<Item>,
+    items: Vec<Item>,
 }
 
+impl Module {
+    /// Converts a Brite module back into the list of tokens it was parsed from.
+    #[cfg(test)]
+    pub fn into_tokens(self) -> Vec<Token> {
+        let mut tokens = Vec::new();
+        for item in self.items {
+            item.push_tokens(&mut tokens);
+        }
+        tokens.shrink_to_fit();
+        tokens
+    }
+}
+
+/// An item in a comma list. Every item except the last must have a comma. The last item may
+/// optionally have a trailing comma.
+pub struct CommaListItem<T> {
+    item: T,
+    comma: Option<GlyphToken>,
+}
+
+/// A block holds some private lexically scoped `Item`s.
+pub struct Block {
+    brace_open: GlyphToken,
+    items: Vec<Item>,
+    brace_close: GlyphToken,
+}
+
+/// A Brite source code item is either a declarative `Declaration` whose order does not matter or an
+/// imperative `Statement` whose order does matter.
 pub enum Item {
     Declaration(Declaration),
     Statement(Statement),
 }
 
-pub struct Block {
-    pub items: Vec<Item>,
+impl Item {
+    #[cfg(test)]
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        match self {
+            Item::Declaration(declaration) => declaration.push_tokens(tokens),
+            Item::Statement(statement) => statement.push_tokens(tokens),
+        }
+    }
 }
 
-pub struct Declaration {
-    pub name: Name,
-    pub description: DeclarationDescription,
-}
-
-pub enum DeclarationDescription {
+/// A language construct that specifies properties of an identifier. Declarations are declarative.
+/// Their order in source code does not matter.
+pub enum Declaration {
     /// `fun f(...) { ... }`
-    Function(Function),
+    Function(FunctionDeclaration),
 }
 
-pub struct Function {
-    pub parameters: Vec<FunctionParameter>,
-    pub type_: Option<Type>,
-    pub body: Block,
+impl Declaration {
+    #[cfg(test)]
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        match self {
+            Declaration::Function(declaration) => declaration.push_tokens(tokens),
+        }
+    }
+}
+
+/// ```ite
+/// fun f(...) { ... }
+/// fun f(...) -> T { ... }
+/// ```
+pub struct FunctionDeclaration {
+    fun: GlyphToken,
+    name: IdentifierToken,
+    paren_open: GlyphToken,
+    parameters: Vec<CommaListItem<FunctionParameter>>,
+    paren_close: GlyphToken,
+    return_: Option<FunctionReturn>,
+    body: Block,
 }
 
 pub struct FunctionParameter {
-    pub pattern: Pattern,
-    pub type_: Option<Type>,
+    pattern: Pattern,
+    type_: Option<TypeAnnotation>,
 }
 
-pub enum Statement {
+pub struct FunctionReturn {
+    arrow: GlyphToken,
+    type_: Type,
+}
+
+impl FunctionDeclaration {
+    #[cfg(test)]
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        tokens.push(self.fun.into());
+        tokens.push(self.name.into());
+        tokens.push(self.paren_open.into());
+
+        tokens.push(self.paren_close.into());
+    }
+}
+
+enum Statement {
     /// Any `Expression`.
     Expression(Expression),
     /// `let x = E;`
@@ -62,9 +130,9 @@ pub enum Statement {
 /// let x = E;
 /// ```
 pub struct BindingStatement {
-    pub pattern: Pattern,
-    pub type_: Option<Type>,
-    pub value: Expression,
+    pattern: Pattern,
+    type_: Option<Type>,
+    value: Expression,
 }
 
 /// ```ite
@@ -74,9 +142,9 @@ pub struct BindingStatement {
 /// An update statement performs a local mutation effect. Update statements may only be executed
 /// synchronously in the scope which the variable was defined after it was defined.
 pub struct UpdateStatement {
-    pub name: Name,
-    pub properties: Vec<Name>,
-    pub value: Expression,
+    name: Name,
+    properties: Vec<Name>,
+    value: Expression,
 }
 
 /// ```ite
@@ -84,7 +152,7 @@ pub struct UpdateStatement {
 /// return E;
 /// ```
 pub struct ReturnStatement {
-    pub argument: Option<Expression>,
+    argument: Option<Expression>,
 }
 
 /// ```ite
@@ -92,7 +160,7 @@ pub struct ReturnStatement {
 /// break E;
 /// ```
 pub struct BreakStatement {
-    pub argument: Option<Expression>,
+    argument: Option<Expression>,
 }
 
 pub enum Constant {
@@ -103,11 +171,11 @@ pub enum Constant {
 }
 
 pub struct Expression {
-    pub range: Range,
-    pub description: ExpressionDescription,
+    range: Range,
+    description: ExpressionDescription,
 }
 
-pub enum ExpressionDescription {
+enum ExpressionDescription {
     /// `x`
     Variable(Identifier),
     /// `fun(...) { ... }`
@@ -144,8 +212,8 @@ pub enum ExpressionDescription {
 /// f(...)
 /// ```
 pub struct CallExpression {
-    pub callee: Box<Expression>,
-    pub arguments: Vec<Expression>,
+    callee: Box<Expression>,
+    arguments: Vec<Expression>,
 }
 
 /// ```ite
@@ -212,16 +280,16 @@ pub struct CallExpression {
 ///
 /// [1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf
 pub struct ObjectExpression {
-    pub properties: Vec<ObjectExpressionProperty>,
-    pub extension: Option<Box<Expression>>,
+    properties: Vec<ObjectExpressionProperty>,
+    extension: Option<Box<Expression>>,
 }
 
 /// ```ite
 /// p: E
 /// ```
 pub struct ObjectExpressionProperty {
-    pub label: Name,
-    pub value: Expression,
+    label: Name,
+    value: Expression,
 }
 
 /// ```ite
@@ -254,16 +322,16 @@ pub struct ObjectExpressionProperty {
 ///
 /// [1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf
 pub struct VariantExpression {
-    pub label: Name,
-    pub items: Vec<Expression>,
+    label: Name,
+    items: Vec<Expression>,
 }
 
 /// ```ite
 /// E.p
 /// ```
 pub struct PropertyExpression {
-    pub object: Expression,
-    pub property: Name,
+    object: Expression,
+    property: Name,
 }
 
 /// ```ite
@@ -273,8 +341,8 @@ pub struct PropertyExpression {
 ///
 /// An operation on a single expression.
 pub struct UnaryExpression {
-    pub operation: UnaryOperation,
-    pub operand: Expression,
+    operation: UnaryOperation,
+    operand: Expression,
 }
 
 pub enum UnaryOperation {
@@ -296,9 +364,9 @@ pub enum UnaryOperation {
 /// An operation on two expressions where both operands must be evaluated. For `LogicalExpression`
 /// one of the operands may not be evaluated depending on the value of another operand.
 pub struct BinaryExpression {
-    pub operation: BinaryOperation,
-    pub left: Expression,
-    pub right: Expression,
+    operation: BinaryOperation,
+    left: Expression,
+    right: Expression,
 }
 
 pub enum BinaryOperation {
@@ -340,9 +408,9 @@ pub enum BinaryOperation {
 /// We split up `BinaryExpression` and `LogicalExpression` to make it very obvious that the
 /// evaluation semantics are different.
 pub struct LogicalExpression {
-    pub operation: LogicalOperation,
-    pub left: Expression,
-    pub right: Expression,
+    operation: LogicalOperation,
+    left: Expression,
+    right: Expression,
 }
 
 pub enum LogicalOperation {
@@ -356,17 +424,17 @@ pub enum LogicalOperation {
 /// if E { ... } else { ... }
 /// ```
 pub struct ConditionalExpression {
-    pub test: Expression,
-    pub consequent: Expression,
-    pub alternate: Expression,
+    test: Expression,
+    consequent: Expression,
+    alternate: Expression,
 }
 
 /// ```ite
 /// match E { P -> { ... } }
 /// ```
 pub struct MatchExpression {
-    pub test: Box<Expression>,
-    pub cases: Vec<MatchExpressionCase>,
+    test: Box<Expression>,
+    cases: Vec<MatchExpressionCase>,
 }
 
 /// ```ite
@@ -374,29 +442,29 @@ pub struct MatchExpression {
 /// P -> if E { ... }
 /// ```
 pub struct MatchExpressionCase {
-    pub match_: Pattern,
-    pub test: Option<Expression>,
-    pub block: Block,
+    match_: Pattern,
+    test: Option<Expression>,
+    block: Block,
 }
 
 /// ```ite
 /// loop { ... }
 /// ```
 pub struct LoopExpression {
-    pub block: Block,
+    block: Block,
 }
 
 /// ```ite
 /// (X: T)
 /// ```
 pub struct AnnotationExpression {
-    pub expression: Expression,
-    pub type_: Type,
+    expression: Expression,
+    type_: Type,
 }
 
 pub struct Pattern {
-    pub range: Range,
-    pub description: PatternDescription,
+    range: Range,
+    description: PatternDescription,
 }
 
 pub enum PatternDescription {
@@ -416,26 +484,26 @@ pub enum PatternDescription {
 /// {p: P, ...}
 /// ```
 pub struct ObjectPattern {
-    pub properties: Vec<ObjectPatternProperty>,
-    pub extension: Option<Box<Pattern>>,
+    properties: Vec<ObjectPatternProperty>,
+    extension: Option<Box<Pattern>>,
 }
 
 pub struct ObjectPatternProperty {
-    pub label: Name,
-    pub value: Pattern,
+    label: Name,
+    value: Pattern,
 }
 
 /// ```ite
 /// V[P, ...]
 /// ```
 pub struct VariantPattern {
-    pub label: Name,
-    pub items: Vec<Pattern>,
+    label: Name,
+    items: Vec<Pattern>,
 }
 
 pub struct Type {
-    pub range: Range,
-    pub description: TypeDescription,
+    range: Range,
+    description: TypeDescription,
 }
 
 pub enum TypeDescription {
@@ -451,6 +519,14 @@ pub enum TypeDescription {
     Object(ObjectType),
     /// `V[T, ...] | ...`
     Variant(VariantType),
+}
+
+/// ```ite
+/// : T
+/// ```
+pub struct TypeAnnotation {
+    colon: GlyphToken,
+    type_: Type,
 }
 
 /// ```ite
@@ -510,18 +586,18 @@ pub enum TypeDescription {
 /// [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 /// [2]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/qmlf.pdf
 pub struct QuantifiedType {
-    pub bounds: Vec<NamedBound>,
-    pub type_: Box<Type>,
+    bounds: Vec<BoundEntry>,
+    type_: Box<Type>,
 }
 
-pub struct NamedBound {
-    pub name: Name,
-    pub bound: Bound,
+pub struct BoundEntry {
+    name: Name,
+    bound: Bound,
 }
 
 pub struct Bound {
-    pub flexibility: BoundFlexibility,
-    pub type_: Type,
+    flexibility: BoundFlexibility,
+    type_: Type,
 }
 
 pub enum BoundFlexibility {
@@ -535,33 +611,33 @@ pub enum BoundFlexibility {
 /// fun(...) -> T
 /// ```
 pub struct FunctionType {
-    pub bounds: Option<Vec<NamedBound>>,
-    pub parameters: Vec<Type>,
-    pub body: Box<Type>,
+    bounds: Option<Vec<BoundEntry>>,
+    parameters: Vec<Type>,
+    body: Box<Type>,
 }
 
 /// ```ite
 /// {p: T, ...}
 /// ```
 pub struct ObjectType {
-    pub properties: Vec<ObjectTypeProperty>,
-    pub extension: Option<Box<Type>>,
+    properties: Vec<ObjectTypeProperty>,
+    extension: Option<Box<Type>>,
 }
 
 pub struct ObjectTypeProperty {
-    pub label: Name,
-    pub value: Type,
+    label: Name,
+    value: Type,
 }
 
 /// ```ite
 /// V[T, ...] | ...
 /// ```
 pub struct VariantType {
-    pub items: Vec<VariantTypeItem>,
-    pub extension: Option<Box<Type>>,
+    items: Vec<VariantTypeItem>,
+    extension: Option<Box<Type>>,
 }
 
 pub struct VariantTypeItem {
-    pub label: Name,
-    pub items: Vec<Type>,
+    label: Name,
+    items: Vec<Type>,
 }

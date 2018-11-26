@@ -100,12 +100,6 @@ impl Identifier {
     }
 }
 
-/// An `Identifier` which comes with a `Range`.
-pub struct Name {
-    pub range: Range,
-    pub identifier: Identifier,
-}
-
 #[cfg(test)]
 mod tests {
     use super::super::position::Position;
