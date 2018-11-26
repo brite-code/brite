@@ -20,9 +20,27 @@ impl Range {
         Range { start, end }
     }
 
+    /// Creates a new range where both start and end are the provided position.
+    pub fn position(position: Position) -> Self {
+        Range {
+            start: position,
+            end: position,
+        }
+    }
+
     /// The initial range. The same as `Range::new(Position::initial(), Position::initial())`.
     pub fn initial() -> Self {
         INITIAL_RANGE
+    }
+
+    /// The range’s start position.
+    pub fn start(&self) -> Position {
+        self.start
+    }
+
+    /// The range’s end position.
+    pub fn end(&self) -> Position {
+        self.end
     }
 }
 
@@ -373,32 +391,6 @@ impl Number {
             }
         }
     }
-}
-
-/// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
-/// a source document we produce a list of tokens whose positions when added together should be the
-/// full range of the document.
-pub struct Token {
-    /// The token’s full starting position. Including whitespace and comments.
-    pub full_start: Position,
-    /// The token’s start position.
-    pub start: Position,
-    /// The token’s end position.
-    pub end: Position,
-    /// The description of the token.
-    pub description: TokenDescription,
-}
-
-pub enum TokenDescription {
-    Glyph(Glyph),
-    Identifier(Identifier),
-    Number(Number),
-    UnexpectedChar(char),
-}
-
-/// A glyph is some symbol which is a part of Brite source code.
-pub enum Glyph {
-    Keyword(Keyword),
 }
 
 #[cfg(test)]
