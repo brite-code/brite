@@ -5,3 +5,4 @@ mod identifier;
 mod lexer;
 mod number;
 mod position;
+mod token;
