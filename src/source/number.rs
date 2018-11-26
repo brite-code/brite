@@ -16,11 +16,16 @@ use std::{f64, u32};
 /// [1]: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
 #[derive(Debug, PartialEq)]
 pub struct Number {
-    raw: Option<String>,
+    raw: String,
     value: f64,
 }
 
 impl Number {
+    /// Converts the number into its raw representation.
+    pub fn into_raw(self) -> String {
+        self.raw
+    }
+
     /// Parses a number from a character iterator.
     ///
     /// - `Some(Ok())` if we parsed a valid number.
@@ -33,7 +38,7 @@ impl Number {
     /// number immediately following the number. Since numbers include letter characters like `x`,
     /// `b`, and `e` we don’t want arbitrary identifiers following numbers as that might
     /// be confusing.
-    pub fn parse<I>(iter: &mut Chars<I>) -> Option<Result<Number, String>>
+    pub fn parse<I>(chars: &mut Chars<I>) -> Option<Result<Number, String>>
     where
         I: Iterator<Item = char>,
     {
@@ -41,16 +46,16 @@ impl Number {
 
         // If the first number we parse is 0 then we may have a binary or hexadecimal number on
         // our hands.
-        match iter.peek() {
+        match chars.peek() {
             Some('0') => {
-                raw.push(iter.next().unwrap());
-                match iter.peek() {
+                raw.push(chars.next().unwrap());
+                match chars.peek() {
                     // Parse a binary number.
                     Some('b') | Some('B') => {
-                        raw.push(iter.next().unwrap());
+                        raw.push(chars.next().unwrap());
                         loop {
-                            match iter.peek() {
-                                Some('0') | Some('1') => raw.push(iter.next().unwrap()),
+                            match chars.peek() {
+                                Some('0') | Some('1') => raw.push(chars.next().unwrap()),
                                 _ => break,
                             }
                         }
@@ -58,7 +63,6 @@ impl Number {
                         return match u32::from_str_radix(binary, 2) {
                             Ok(value) => {
                                 raw.shrink_to_fit();
-                                let raw = Some(raw);
                                 let value = f64::from(value);
                                 Some(Ok(Number { raw, value }))
                             }
@@ -67,11 +71,11 @@ impl Number {
                     }
                     // Parse a hexadecimal number.
                     Some('x') | Some('X') => {
-                        raw.push(iter.next().unwrap());
+                        raw.push(chars.next().unwrap());
                         loop {
-                            match iter.peek() {
+                            match chars.peek() {
                                 Some('0'...'9') | Some('a'...'f') | Some('A'...'F') => {
-                                    raw.push(iter.next().unwrap())
+                                    raw.push(chars.next().unwrap())
                                 }
                                 _ => break,
                             }
@@ -80,7 +84,6 @@ impl Number {
                         return match u32::from_str_radix(hexadecimal, 16) {
                             Ok(value) => {
                                 raw.shrink_to_fit();
-                                let raw = Some(raw);
                                 let value = f64::from(value);
                                 Some(Ok(Number { raw, value }))
                             }
@@ -95,18 +98,18 @@ impl Number {
 
         // Get all the digits in the whole part of the number.
         loop {
-            match iter.peek() {
-                Some('0'...'9') => raw.push(iter.next().unwrap()),
+            match chars.peek() {
+                Some('0'...'9') => raw.push(chars.next().unwrap()),
                 _ => break,
             }
         }
 
         // Get all the digits in the fractional part of the number.
-        if let Some('.') = iter.peek() {
-            raw.push(iter.next().unwrap());
+        if let Some('.') = chars.peek() {
+            raw.push(chars.next().unwrap());
             loop {
-                match iter.peek() {
-                    Some('0'...'9') => raw.push(iter.next().unwrap()),
+                match chars.peek() {
+                    Some('0'...'9') => raw.push(chars.next().unwrap()),
                     _ => break,
                 }
             }
@@ -117,16 +120,16 @@ impl Number {
             None
         } else {
             // Get all the digits in the exponential part of the number.
-            match iter.peek() {
+            match chars.peek() {
                 Some('e') | Some('E') => {
-                    raw.push(iter.next().unwrap());
-                    match iter.peek() {
-                        Some('+') | Some('-') => raw.push(iter.next().unwrap()),
+                    raw.push(chars.next().unwrap());
+                    match chars.peek() {
+                        Some('+') | Some('-') => raw.push(chars.next().unwrap()),
                         _ => {}
                     }
                     loop {
-                        match iter.peek() {
-                            Some('0'...'9') => raw.push(iter.next().unwrap()),
+                        match chars.peek() {
+                            Some('0'...'9') => raw.push(chars.next().unwrap()),
                             _ => break,
                         }
                     }
@@ -137,7 +140,6 @@ impl Number {
             match f64::from_str(&raw) {
                 Ok(value) => {
                     raw.shrink_to_fit();
-                    let raw = Some(raw);
                     Some(Ok(Number { raw, value }))
                 }
                 Err(_) => Some(Err(raw)),
@@ -273,7 +275,7 @@ mod tests {
             let expected = expected.map(|expected| {
                 expected
                     .map(|value| {
-                        let raw = Some(String::from(source));
+                        let raw = String::from(source);
                         Number { raw, value }
                     }).map_err(|()| String::from(source))
             });

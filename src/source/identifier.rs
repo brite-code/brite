@@ -34,44 +34,45 @@ impl Identifier {
     /// - `Some(Err())` if we parsed a keyword.
     /// - `None` if we could not parse an identifier. We consumed no characters from the iterator
     ///   in this case.
-    pub fn parse<I>(iter: &mut Chars<I>) -> Option<Result<Identifier, Keyword>>
+    pub fn parse<I>(chars: &mut Chars<I>) -> Option<Result<Identifier, Keyword>>
     where
         I: Iterator<Item = char>,
     {
-        let mut s = String::new();
+        let mut identifier = String::new();
 
-        match iter.peek() {
+        match chars.peek() {
             None => return None,
             Some(c) => if Identifier::is_start(c) {
-                s.push(c);
-                iter.next();
+                identifier.push(c);
+                chars.next();
             } else {
                 return None;
             },
         };
 
         loop {
-            match iter.peek() {
+            match chars.peek() {
                 None => break,
                 Some(c) => if Identifier::is_continue(c) {
-                    s.push(c);
-                    iter.next();
+                    identifier.push(c);
+                    chars.next();
                 } else {
                     break;
                 },
             };
         }
 
-        s.shrink_to_fit();
+        identifier.shrink_to_fit();
 
-        match s.as_ref() {
+        match identifier.as_ref() {
             "_" => Some(Err(Keyword::Hole)),
             "true" => Some(Err(Keyword::True)),
             "false" => Some(Err(Keyword::False)),
-            _ => Some(Ok(Identifier(s))),
+            _ => Some(Ok(Identifier(identifier))),
         }
     }
 
+    /// Does this start an identifier?
     fn is_start(c: char) -> bool {
         match c {
             // Optimization: Quickly detect ASCII Latin characters.
@@ -84,7 +85,8 @@ impl Identifier {
         }
     }
 
-    fn is_continue(c: char) -> bool {
+    /// Is this a continuation of an identifier?
+    pub fn is_continue(c: char) -> bool {
         match c {
             // Optimization: Quickly detect ASCII Latin characters and numbers.
             'a'...'z' => true,

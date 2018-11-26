@@ -7,11 +7,26 @@ use super::position::{Chars, Position, Range};
 /// full range of the document.
 pub struct Token {
     /// The token’s full starting position. Including whitespace and comments.
-    full_start: Position,
+    pub full_start: Position,
     /// The token’s actual range.
-    range: Range,
+    pub range: Range,
     /// The description of the token.
-    description: TokenDescription,
+    pub description: TokenDescription,
+    /// Tokens may only be constructed from this module.
+    _private: (),
+}
+
+/// The description of the token.
+pub enum TokenDescription {
+    /// Some sequence of characters that helps define a construct in our programming language.
+    Glyph(Glyph),
+    /// Any `Identifier`.
+    Identifier(Identifier),
+    /// Any `Number`.
+    Number(Number),
+    /// An error we encountered while tokenizing the program. Errors are not fatal so an error is
+    /// represented as a token.
+    Error(ErrorToken),
 }
 
 impl Token {
@@ -22,15 +37,19 @@ impl Token {
             full_start,
             range,
             description,
+            _private: (),
         }
     }
-}
 
-enum TokenDescription {
-    Glyph(Glyph),
-    Identifier(Identifier),
-    Number(Number),
-    UnexpectedChar(char),
+    /// Creates a new glyph token.
+    fn glyph(full_start: Position, range: Range, glyph: Glyph) -> Self {
+        Self::new(full_start, range, TokenDescription::Glyph(glyph))
+    }
+
+    /// Creates a new error token.
+    fn error(full_start: Position, range: Range, error: ErrorToken) -> Self {
+        Self::new(full_start, range, TokenDescription::Error(error))
+    }
 }
 
 /// A glyph is some symbol which is a part of Brite source code.
@@ -41,19 +60,27 @@ pub enum Glyph {
     Slash,
 }
 
+/// A token representing an error that occurred while tokenizing.
+pub enum ErrorToken {
+    /// We encountered an unexpected character while tokenizing.
+    UnexpectedChar(char),
+    /// We tried to parse a number, but the number’s format was invalid.
+    InvalidNumber(String),
+}
+
 /// Turns an iterator of source characters into an iterator of source tokens.
-pub fn lex<I>(iter: Chars<I>) -> impl Iterator<Item = Token>
+pub fn tokenize<I>(chars: Chars<I>) -> impl Iterator<Item = Token>
 where
     I: Iterator<Item = char>,
 {
-    Lexer { iter }
+    Lexer { chars }
 }
 
 struct Lexer<I>
 where
     I: Iterator<Item = char>,
 {
-    iter: Chars<I>,
+    chars: Chars<I>,
 }
 
 impl<I> Iterator for Lexer<I>
@@ -63,32 +90,33 @@ where
     type Item = Token;
 
     fn next(&mut self) -> Option<Token> {
-        let full_start = self.iter.position();
+        let full_start = self.chars.position();
 
         // Loop since we want to ignore whitespace and comments while still remembering our full
         // start position.
         loop {
-            return match self.iter.peek() {
+            return match self.chars.peek() {
                 None => return None,
                 Some(c) => match c {
                     // Parse tokens that start with a slash.
                     '/' => {
-                        let start = self.next_position();
-                        match self.iter.peek() {
+                        let start = self.chars.position();
+                        self.chars.next();
+                        match self.chars.peek() {
                             // If we see a slash immediately following our last slash then we have
                             // a line comment! Ignore all characters until the end of the line.
                             Some('/') => {
-                                self.iter.next();
+                                self.chars.next();
                                 // Ignore all characters until we find a newline.
                                 loop {
-                                    match self.iter.peek() {
+                                    match self.chars.peek() {
                                         Some('\n') | Some('\r') => {
-                                            self.iter.next();
+                                            self.chars.next();
                                             break;
                                         }
                                         _ => {}
                                     }
-                                    self.iter.next();
+                                    self.chars.next();
                                 }
                                 // We’re done with the line comment so continue...
                                 continue;
@@ -97,12 +125,12 @@ where
                             // If we see a star immediately following our last slash then we have a
                             // block comment! Ignore all characters until the block comment closes.
                             Some('*') => {
-                                self.iter.next();
+                                self.chars.next();
                                 // Ignore all characters until we find a block comment end.
                                 loop {
-                                    if let Some('*') = self.iter.next() {
-                                        if let Some('/') = self.iter.peek() {
-                                            self.iter.next();
+                                    if let Some('*') = self.chars.next() {
+                                        if let Some('/') = self.chars.peek() {
+                                            self.chars.next();
                                             break;
                                         }
                                     }
@@ -119,52 +147,83 @@ where
                         }
                     }
 
-                    // Ignore whitespace...
-                    c if c.is_whitespace() => {
-                        self.iter.next();
-                        continue;
-                    }
-
-                    // Unexpected character!
                     c => {
-                        let start = self.iter.position();
-                        if let Some(identifier) = Identifier::parse(&mut self.iter) {
-                            // If we could parse an identifier...
-                            let end = self.iter.position();
-                            let range = Range::new(start, end);
-                            match identifier {
-                                Ok(identifier) => {
-                                    Some(Token::identifier(full_start, range, identifier))
-                                }
-                                Err(keyword) => {
-                                    Some(Token::glyph(full_start, range, Glyph::Keyword(keyword)))
-                                }
-                            }
-                        } else if let Some(number) = Number::parse(&mut self.iter) {
-                            // If we could parse a number...
-                            let end = self.iter.position();
-                            let range = Range::new(start, end);
-                            unimplemented!()
-                        } else {
-                            // Otherwise we have an unexpected character!
-                            let range = Range::position(self.next_position());
-                            Some(Token::unexpected_char(full_start, range, c))
+                        // Ignore whitespace...
+                        if c.is_whitespace() {
+                            self.chars.next();
+                            continue;
                         }
+
+                        // Record the current position.
+                        let start = self.chars.position();
+
+                        // If we could parse an identifier...
+                        if let Some(identifier) = Identifier::parse(&mut self.chars) {
+                            let end = self.chars.position();
+                            let range = Range::new(start, end);
+                            let description = match identifier {
+                                Ok(identifier) => TokenDescription::Identifier(identifier),
+                                Err(keyword) => TokenDescription::Glyph(Glyph::Keyword(keyword)),
+                            };
+                            return Some(Token::new(full_start, range, description));
+                        }
+
+                        // If we could parse a number...
+                        //
+                        // We also want to error if numbers are followed immediately by an
+                        // identifier without a space. For example, we want `4px` to be a
+                        // syntax error.
+                        if let Some(number) = Number::parse(&mut self.chars) {
+                            /// Is the current character an identifier continuation? Lifted into a
+                            /// function since it’s a bit long when written inline.
+                            fn peek_identifier_continue(
+                                lexer: &mut Lexer<impl Iterator<Item = char>>,
+                            ) -> bool {
+                                lexer
+                                    .chars
+                                    .peek()
+                                    .map(Identifier::is_continue)
+                                    .unwrap_or(false)
+                            }
+
+                            // If our number is immediately followed by an identifier or a number
+                            // then we have an invalid number token. Collect all the identifier or
+                            // number tokens before returning the error token.
+                            if peek_identifier_continue(self) {
+                                let mut raw = match number {
+                                    Ok(number) => number.into_raw(),
+                                    Err(raw) => raw,
+                                };
+                                while peek_identifier_continue(self) {
+                                    raw.push(self.chars.next().unwrap());
+                                }
+                                let end = self.chars.position();
+                                let range = Range::new(start, end);
+                                let error = ErrorToken::InvalidNumber(raw);
+                                return Some(Token::error(full_start, range, error));
+                            }
+
+                            // Return the parsed number.
+                            let end = self.chars.position();
+                            let range = Range::new(start, end);
+                            let description = match number {
+                                Ok(number) => TokenDescription::Number(number),
+                                Err(raw) => TokenDescription::Error(ErrorToken::InvalidNumber(raw)),
+                            };
+                            return Some(Token::new(full_start, range, description));
+                        }
+
+                        // Otherwise we have an unexpected character!
+                        self.chars.next();
+                        let range = Range::position(start);
+                        Some(Token::error(
+                            full_start,
+                            range,
+                            ErrorToken::UnexpectedChar(c),
+                        ))
                     }
                 },
             };
         }
-    }
-}
-
-impl<I> Lexer<I>
-where
-    I: Iterator<Item = char>,
-{
-    /// Advances the iterator and returns the position before advancing.
-    fn next_position(&mut self) -> Position {
-        let position = self.iter.position();
-        self.iter.next();
-        position
     }
 }
