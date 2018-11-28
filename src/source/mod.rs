@@ -6,3 +6,5 @@ mod lexer;
 mod number;
 mod position;
 mod token;
+
+pub use self::position::{Position, Range};

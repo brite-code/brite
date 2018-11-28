@@ -1,6 +1,7 @@
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
 use super::position::{Position, Range};
+use crate::diagnostics::{DiagnosticID, Diagnostics};
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the
@@ -93,6 +94,10 @@ impl NumberToken {
 
 /// An error we encountered while tokenizing the program. Errors are not fatal so an error is
 /// represented as a token.
+///
+/// Instead of holding a diagnostic identifier, we hold information needed to convert this error
+/// token into a diagnostic. It is difficult to perform a side-effect in our lexer as it returns
+/// an iterator. So our parser converts error tokens into diagnostics.
 pub struct ErrorToken {
     range: TokenRange,
     description: ErrorTokenDescription,
@@ -101,9 +106,9 @@ pub struct ErrorToken {
 /// A token representing an error that occurred while tokenizing.
 enum ErrorTokenDescription {
     /// We encountered an unexpected character while tokenizing.
-    UnexpectedChar { c: char },
+    UnexpectedChar { unexpected: char },
     /// We tried to parse a number, but the number’s format was invalid.
-    InvalidNumber { raw: String },
+    InvalidNumber { invalid: String },
 }
 
 impl ErrorToken {
@@ -111,14 +116,22 @@ impl ErrorToken {
         ErrorToken { range, description }
     }
 
-    /// We encountered an unexpected character while tokenizing.
-    pub fn unexpected_char(range: TokenRange, c: char) -> Self {
-        Self::new(range, ErrorTokenDescription::UnexpectedChar { c })
+    pub fn unexpected_char(range: TokenRange, unexpected: char) -> Self {
+        Self::new(range, ErrorTokenDescription::UnexpectedChar { unexpected })
     }
 
-    /// We tried to parse a number, but the number’s format was invalid.
-    pub fn invalid_number(range: TokenRange, raw: String) -> Self {
-        Self::new(range, ErrorTokenDescription::InvalidNumber { raw })
+    pub fn invalid_number(range: TokenRange, invalid: String) -> Self {
+        Self::new(range, ErrorTokenDescription::InvalidNumber { invalid })
+    }
+
+    /// Converts our error token into a diagnostic and returns the new diagnostic ID.
+    pub fn into_diagnostic(self, diagnostics: &mut Diagnostics) -> DiagnosticID {
+        use self::ErrorTokenDescription::*;
+        let range = self.range.range;
+        match self.description {
+            UnexpectedChar { unexpected } => diagnostics.lexer_unexpected_char(range, unexpected),
+            InvalidNumber { invalid } => diagnostics.lexer_invalid_number(range, invalid),
+        }
     }
 }
 
