@@ -1,10 +1,13 @@
 use crate::source::Range;
 
-/// A diagnostic is some message presented to the user about their program. Our diagnostic format is
-/// based on the [Language Server Protocol][1].
+/// A diagnostic is some message presented to the user about their program. Diagnostics contain a
+/// range of characters which the diagnostic points to. However, a diagnostic does not contain the
+/// resource name being pointed to.
+///
+/// Our diagnostic format is based on the [Language Server Protocol][1].
 ///
 /// [1]: https://microsoft.github.io/language-server-protocol/specification
-struct Diagnostic {
+pub struct Diagnostic {
     range: Range,
     message: DiagnosticMessage,
 }
@@ -36,35 +39,22 @@ enum WarningDiagnosticMessage {}
 
 enum InfoDiagnosticMessage {}
 
-/// A list of diagnostics for some resource.
-pub struct Diagnostics {
-    diagnostics: Vec<Diagnostic>,
-}
-
-/// An identifier for a diagnostic. Used to locate a diagnostic in a `Diagnostics` list.
-pub struct DiagnosticID {
-    index: usize,
-}
-
-impl Diagnostics {
-    fn add(&mut self, range: Range, message: DiagnosticMessage) -> DiagnosticID {
-        let diagnostic = Diagnostic { range, message };
-        let index = self.diagnostics.len();
-        self.diagnostics.push(diagnostic);
-        DiagnosticID { index }
+impl Diagnostic {
+    fn new(range: Range, message: DiagnosticMessage) -> Self {
+        Diagnostic { range, message }
     }
 
-    fn error(&mut self, range: Range, message: ErrorDiagnosticMessage) -> DiagnosticID {
-        self.add(range, DiagnosticMessage::Error(message))
+    fn error(range: Range, message: ErrorDiagnosticMessage) -> Self {
+        Self::new(range, DiagnosticMessage::Error(message))
     }
 
-    pub fn lexer_unexpected_char(&mut self, range: Range, unexpected: char) -> DiagnosticID {
+    pub fn lexer_unexpected_char(range: Range, unexpected: char) -> Self {
         let message = ErrorDiagnosticMessage::LexerUnexpectedChar { unexpected };
-        self.error(range, message)
+        Self::error(range, message)
     }
 
-    pub fn lexer_invalid_number(&mut self, range: Range, invalid: String) -> DiagnosticID {
+    pub fn lexer_invalid_number(range: Range, invalid: String) -> Self {
         let message = ErrorDiagnosticMessage::LexerInvalidNumber { invalid };
-        self.error(range, message)
+        Self::error(range, message)
     }
 }

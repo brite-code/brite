@@ -6,27 +6,24 @@
 
 use super::ast::*;
 use super::token::*;
-use crate::diagnostics::Diagnostics;
 use std::iter::Peekable;
 
 /// Parses a stream of tokens into an Abstract Syntax Tree (AST).
-pub fn parse(diagnostics: &mut Diagnostics, tokens: impl Iterator<Item = Token>) -> Module {
+pub fn parse(tokens: impl Iterator<Item = Token>) -> Module {
     let parser = Parser {
-        diagnostics,
         tokens: tokens.peekable(),
     };
     unimplemented!()
 }
 
-struct Parser<'a, I>
+struct Parser<I>
 where
     I: Iterator<Item = Token>,
 {
-    diagnostics: &'a mut Diagnostics,
     tokens: Peekable<I>,
 }
 
-impl<'a, I> Parser<'a, I>
+impl<I> Parser<I>
 where
     I: Iterator<Item = Token>,
 {

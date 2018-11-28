@@ -1,7 +1,6 @@
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
 use super::position::{Position, Range};
-use crate::diagnostics::{DiagnosticID, Diagnostics};
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the
@@ -122,16 +121,6 @@ impl ErrorToken {
 
     pub fn invalid_number(range: TokenRange, invalid: String) -> Self {
         Self::new(range, ErrorTokenDescription::InvalidNumber { invalid })
-    }
-
-    /// Converts our error token into a diagnostic and returns the new diagnostic ID.
-    pub fn into_diagnostic(self, diagnostics: &mut Diagnostics) -> DiagnosticID {
-        use self::ErrorTokenDescription::*;
-        let range = self.range.range;
-        match self.description {
-            UnexpectedChar { unexpected } => diagnostics.lexer_unexpected_char(range, unexpected),
-            InvalidNumber { invalid } => diagnostics.lexer_invalid_number(range, invalid),
-        }
     }
 }
 
