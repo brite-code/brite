@@ -2,7 +2,7 @@
 //! parsing than characters since tokens will parse numbers, identifiers, glyphs, and will skip
 //! comments and whitespace.
 
-use super::document::{DocumentChars, Range};
+use super::document::{Document, DocumentChars, Range};
 use super::identifier::Identifier;
 use super::number::Number;
 use super::token::*;
@@ -18,12 +18,35 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     /// Create a new lexer.
-    pub fn new(diagnostics: &'a RefCell<DiagnosticSet>, chars: DocumentChars<'a>) -> Self {
+    pub fn new(diagnostics: &'a RefCell<DiagnosticSet>, document: &'a Document) -> Self {
         Lexer {
             diagnostics,
-            chars,
+            chars: document.chars(),
             lookahead: None,
         }
+    }
+
+    /// Gets a list of all the tokens in a document along with the diagnostics reported while
+    /// tokenizing the document.
+    pub fn tokens(document: &'a Document) -> (DiagnosticSet, Vec<Token>) {
+        // Construct everything we’ll need for tokenization.
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, document);
+        let mut tokens = Vec::new();
+        // Advance through the lexer pushing every token. Once we reach the `EndToken` we push that
+        // to our list and break out of the loop.
+        loop {
+            match lexer.advance() {
+                token @ Token::End(_) => {
+                    tokens.push(token);
+                    break;
+                }
+                token => tokens.push(token),
+            }
+        }
+        // Return our diagnostics and tokens.
+        let diagnostics = diagnostics.into_inner();
+        (diagnostics, tokens)
     }
 
     /// Consume the next token in the lexer. Calling `Lexer::advance()` again will return a
@@ -233,7 +256,7 @@ mod tests {
     fn document_chars_end_panic() {
         let document = Document::new("/path/to/document.txt".into(), "abc".into());
         let diagnostics = RefCell::new(DiagnosticSet::new());
-        let mut lexer = Lexer::new(&diagnostics, document.chars());
+        let mut lexer = Lexer::new(&diagnostics, &document);
         assert!(lexer.advance().is_identifier());
         assert!(lexer.advance().is_end());
         lexer.advance();
@@ -246,7 +269,7 @@ mod tests {
     fn document_chars_end_panic_lookahead() {
         let document = Document::new("/path/to/document.txt".into(), "abc".into());
         let diagnostics = RefCell::new(DiagnosticSet::new());
-        let mut lexer = Lexer::new(&diagnostics, document.chars());
+        let mut lexer = Lexer::new(&diagnostics, &document);
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.advance().is_identifier());

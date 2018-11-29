@@ -25,9 +25,12 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
     // a `RefCell`.
     let diagnostics = RefCell::new(DiagnosticSet::new());
     // Create the lexer out of document characters.
-    let lexer = Lexer::new(&diagnostics, document.chars());
+    let lexer = Lexer::new(&diagnostics, &document);
     // Parse our module using the lexer.
     let module = Parser::parse(&diagnostics, lexer);
+    // Make sure that we can recreate our tokens list from the parsed AST. This ensures that our AST
+    // contains _all_ the information in our source document.
+    debug_assert_eq!(Lexer::tokens(&document).1, module.clone().into_tokens());
     // Return the parsed module and the reported diagnostics.
     let diagnostics = diagnostics.into_inner();
     (diagnostics, module)
