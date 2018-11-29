@@ -1,4 +1,4 @@
-use crate::source::Range;
+use crate::source::{Range, Token};
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -38,6 +38,8 @@ enum ErrorDiagnosticMessage {
     UnexpectedChar { unexpected: char },
     /// The lexer tried to parse a number, but that number was in an invalid format.
     InvalidNumber { invalid: String },
+    /// The parser ran into a token it did not recognize.
+    UnexpectedToken { token: Token },
 }
 
 #[derive(Debug, PartialEq)]
@@ -62,6 +64,11 @@ impl Diagnostic {
 
     pub fn invalid_number(range: Range, invalid: String) -> Self {
         let message = ErrorDiagnosticMessage::InvalidNumber { invalid };
+        Self::error(range, message)
+    }
+
+    pub fn unexpected_token(range: Range, token: Token) -> Self {
+        let message = ErrorDiagnosticMessage::UnexpectedToken { token };
         Self::error(range, message)
     }
 }

@@ -50,6 +50,14 @@ impl Document {
         Document { path, text, lines }
     }
 
+    /// The range of our document encompassing every single character in its source text.
+    pub fn range(&self) -> Range {
+        Range {
+            start: Position(0),
+            length: self.text.len() as u32,
+        }
+    }
+
     /// Gets an iterator of characters in the source document along with the position of
     /// that character.
     pub fn chars<'a>(&'a self) -> impl Iterator<Item = (Position, char)> + 'a {
@@ -78,11 +86,6 @@ impl Document {
 pub struct Position(u32);
 
 impl Position {
-    /// The initial position.
-    pub fn initial() -> Self {
-        Position(0)
-    }
-
     /// Gets the zero-based line number of this position in the provided document. A new line is
     /// created by `\n`, `\r\n`, or `\r`.
     pub fn line(&self, document: &Document) -> usize {

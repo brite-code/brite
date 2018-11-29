@@ -30,14 +30,14 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
     // the lexer.
     let module = if cfg!(debug_assertions) {
         let mut tokens = Vec::new();
-        let mut prev_position = Position::initial();
+        let mut prev_position = document.range().start();
         // Our parser drives our lexer to tokenize the document characters. While this happens we
         // inspect each new token and perform some assertions to ensure our lexer is well formed.
         let lexer = lexer.inspect(|token| {
             // Clone our token and add it to a local list.
             tokens.push(token.clone());
             // Make sure the previous end position is equal to the current start position.
-            let range = token.range();
+            let range = token.full_range();
             assert_eq!(
                 prev_position,
                 range.full_start(),
@@ -46,7 +46,7 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
             prev_position = range.end();
         });
         // Now parse our module. This will consume all the tokens in the lexer.
-        let module = Parser::parse(&diagnostics, lexer);
+        let module = Parser::parse(document, &diagnostics, lexer);
         // Assert that we can convert our module AST back into our tokens list. This assertion
         // ensures we don’t lose _any_ information while parsing.
         assert_eq!(
@@ -57,7 +57,7 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
         // Return the module.
         module
     } else {
-        Parser::parse(&diagnostics, lexer)
+        Parser::parse(document, &diagnostics, lexer)
     };
     // Return the parsed module and the reported diagnostics.
     let diagnostics = diagnostics.into_inner();

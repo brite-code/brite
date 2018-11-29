@@ -48,6 +48,11 @@ impl TokenRange {
     pub fn end(&self) -> Position {
         self.range.end()
     }
+
+    /// Gets the actual range of our token. Excluding the full start.
+    pub fn range(&self) -> Range {
+        self.range()
+    }
 }
 
 /// Some sequence of characters that helps define a construct in our programming language.
@@ -117,7 +122,7 @@ impl ErrorToken {
 }
 
 impl Token {
-    pub fn range(&self) -> &TokenRange {
+    pub fn full_range(&self) -> &TokenRange {
         match self {
             Token::Glyph(t) => &t.range,
             Token::Identifier(t) => &t.range,
