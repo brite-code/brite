@@ -9,6 +9,7 @@ use std::rc::Rc;
 /// Our diagnostic format is based on the [Language Server Protocol][1].
 ///
 /// [1]: https://microsoft.github.io/language-server-protocol/specification
+#[derive(Debug, PartialEq)]
 pub struct Diagnostic {
     range: Range,
     message: DiagnosticMessage,
@@ -16,6 +17,7 @@ pub struct Diagnostic {
 
 /// The diagnostic message. Includes the severity of the message. Each diagnostic may have some
 /// related information.
+#[derive(Debug, PartialEq)]
 enum DiagnosticMessage {
     /// Error diagnostics must be resolved by the programmer. Error diagnostics will prevent the
     /// program from being deployed. However, the program may still run in development, but
@@ -30,6 +32,7 @@ enum DiagnosticMessage {
     Info(InfoDiagnosticMessage),
 }
 
+#[derive(Debug, PartialEq)]
 enum ErrorDiagnosticMessage {
     /// The lexer ran into a string of characters it did not recognize.
     LexerUnexpectedChar { unexpected: char },
@@ -37,8 +40,10 @@ enum ErrorDiagnosticMessage {
     LexerInvalidNumber { invalid: String },
 }
 
+#[derive(Debug, PartialEq)]
 enum WarningDiagnosticMessage {}
 
+#[derive(Debug, PartialEq)]
 enum InfoDiagnosticMessage {}
 
 impl Diagnostic {
@@ -81,11 +86,9 @@ impl DiagnosticSet {
     }
 }
 
-/// A reference to a diagnostic. May only be created by `DiagnosticSet`.
-///
-/// Internally we represent a diagnostic as some reference counted message. That means cloning a
-/// diagnostic reference is cheap no matter how heavy the underlying diagnostic is.
-#[derive(Clone)]
+/// A reference to a diagnostic. Since this struct is only a reference, cloning is relatively cheap.
+/// May only be created by `DiagnosticSet`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct DiagnosticRef(Rc<Diagnostic>);
 
 impl Deref for DiagnosticRef {

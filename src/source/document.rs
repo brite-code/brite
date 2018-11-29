@@ -119,7 +119,7 @@ impl Position {
 /// selection in an editor. Therefore the end position is exclusive.
 ///
 /// We need to keep this small as an AST will contain a _lot_ of ranges. Currently 64 bits.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Range {
     /// The range’s start position.
     start: Position,

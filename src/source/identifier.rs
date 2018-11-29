@@ -14,11 +14,11 @@ use unicode_xid::UnicodeXID;
 /// pattern identifiers.
 ///
 /// [1]: http://www.unicode.org/reports/tr31
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(String);
 
 /// A keyword reserved in the identifier syntax.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Keyword {
     /// `_`
     Hole,

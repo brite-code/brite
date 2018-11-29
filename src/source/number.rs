@@ -15,7 +15,7 @@ use std::{f64, u32};
 /// - Binary: 0b101
 ///
 /// [1]: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Number {
     raw: String,
     value: f64,

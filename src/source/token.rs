@@ -6,6 +6,7 @@ use crate::diagnostics::DiagnosticRef;
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the
 /// full range of the document.
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Glyph(GlyphToken),
     Identifier(IdentifierToken),
@@ -18,6 +19,7 @@ pub enum Token {
 ///
 /// The actual start position is the true start of the token. This is where the significant
 /// characters in the token begin. The “full start” position includes whitespace and comments.
+#[derive(Clone, Debug, PartialEq)]
 pub struct TokenRange {
     /// The token’s full starting position. Including whitespace and comments.
     full_start: Position,
@@ -49,12 +51,14 @@ impl TokenRange {
 }
 
 /// Some sequence of characters that helps define a construct in our programming language.
+#[derive(Clone, Debug, PartialEq)]
 pub struct GlyphToken {
     range: TokenRange,
     glyph: Glyph,
 }
 
 /// A glyph is some symbol which is a part of Brite source code.
+#[derive(Clone, Debug, PartialEq)]
 pub enum Glyph {
     /// Any `Keyword`.
     Keyword(Keyword),
@@ -69,6 +73,7 @@ impl GlyphToken {
 }
 
 /// Any `Identifier`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct IdentifierToken {
     range: TokenRange,
     identifier: Identifier,
@@ -81,6 +86,7 @@ impl IdentifierToken {
 }
 
 /// Any `Number`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct NumberToken {
     range: TokenRange,
     number: Number,
@@ -98,6 +104,7 @@ impl NumberToken {
 /// Instead of holding a diagnostic identifier, we hold information needed to convert this error
 /// token into a diagnostic. It is difficult to perform a side-effect in our lexer as it returns
 /// an iterator. So our parser converts error tokens into diagnostics.
+#[derive(Clone, Debug, PartialEq)]
 pub struct ErrorToken {
     range: TokenRange,
     diagnostic: DiagnosticRef,
