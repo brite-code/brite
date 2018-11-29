@@ -1,2 +1,9 @@
+# OS
+**/.DS_Store
+
+# Playground
+/.play
+
+# Rust
 /target
 **/*.rs.bk
