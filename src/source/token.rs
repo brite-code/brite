@@ -1,6 +1,7 @@
 use super::document::{Position, Range};
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
+use crate::diagnostics::DiagnosticRef;
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the
@@ -99,28 +100,12 @@ impl NumberToken {
 /// an iterator. So our parser converts error tokens into diagnostics.
 pub struct ErrorToken {
     range: TokenRange,
-    description: ErrorTokenDescription,
-}
-
-/// A token representing an error that occurred while tokenizing.
-enum ErrorTokenDescription {
-    /// We encountered an unexpected character while tokenizing.
-    UnexpectedChar { unexpected: char },
-    /// We tried to parse a number, but the number’s format was invalid.
-    InvalidNumber { invalid: String },
+    diagnostic: DiagnosticRef,
 }
 
 impl ErrorToken {
-    fn new(range: TokenRange, description: ErrorTokenDescription) -> Self {
-        ErrorToken { range, description }
-    }
-
-    pub fn unexpected_char(range: TokenRange, unexpected: char) -> Self {
-        Self::new(range, ErrorTokenDescription::UnexpectedChar { unexpected })
-    }
-
-    pub fn invalid_number(range: TokenRange, invalid: String) -> Self {
-        Self::new(range, ErrorTokenDescription::InvalidNumber { invalid })
+    pub fn new(range: TokenRange, diagnostic: DiagnosticRef) -> Self {
+        ErrorToken { range, diagnostic }
     }
 }
 

@@ -6,24 +6,34 @@
 
 use super::ast::*;
 use super::token::*;
+use crate::diagnostics::DiagnosticSet;
+use std::cell::RefCell;
 use std::iter::Peekable;
 
 /// Parses a stream of tokens into an Abstract Syntax Tree (AST).
-pub struct Parser<I>
+pub struct Parser<'a, I>
 where
     I: Iterator<Item = Token>,
 {
+    diagnostics: &'a RefCell<DiagnosticSet>,
     tokens: Peekable<I>,
 }
 
-impl<I> Parser<I>
+impl<'a, I> Parser<'a, I>
 where
     I: Iterator<Item = Token>,
 {
-    /// Parses a module consuming all tokens in the provided iterator.
-    pub fn parse(tokens: I) -> Module {
+    fn new(diagnostics: &'a RefCell<DiagnosticSet>, tokens: I) -> Self {
         let tokens = tokens.peekable();
-        let parser = Parser { tokens };
+        Parser {
+            diagnostics,
+            tokens,
+        }
+    }
+
+    /// Parses a module consuming all tokens in the provided iterator.
+    pub fn parse(diagnostics: &'a RefCell<DiagnosticSet>, tokens: I) -> Module {
+        let parser = Self::new(diagnostics, tokens);
         unimplemented!()
     }
 

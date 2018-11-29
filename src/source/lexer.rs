@@ -6,28 +6,31 @@ use super::document::{Position, Range};
 use super::identifier::Identifier;
 use super::number::Number;
 use super::token::*;
+use crate::diagnostics::{Diagnostic, DiagnosticSet};
+use std::cell::RefCell;
 use std::iter::Peekable;
 
 /// A lexer turns an iterator of source document characters into an iterator of tokens.
-pub struct Lexer<I>
+pub struct Lexer<'a, I>
 where
     I: Iterator<Item = (Position, char)>,
 {
+    diagnostics: &'a RefCell<DiagnosticSet>,
     chars: Peekable<I>,
 }
 
-impl<I> Lexer<I>
+impl<'a, I> Lexer<'a, I>
 where
     I: Iterator<Item = (Position, char)>,
 {
     /// Create a new lexer.
-    pub fn new(chars: I) -> Self {
+    pub fn new(diagnostics: &'a RefCell<DiagnosticSet>, chars: I) -> Self {
         let chars = chars.peekable();
-        Lexer { chars }
+        Lexer { diagnostics, chars }
     }
 }
 
-impl<I> Iterator for Lexer<I>
+impl<'a, I> Iterator for Lexer<'a, I>
 where
     I: Iterator<Item = (Position, char)>,
 {
@@ -150,16 +153,18 @@ where
                             // then we have an invalid number token. Collect all the identifier or
                             // number tokens before returning the error token.
                             if peek_identifier_continue(self) {
-                                let mut raw = match number {
+                                let mut invalid = match number {
                                     Ok(number) => number.into_raw(),
-                                    Err(raw) => raw,
+                                    Err(invalid) => invalid,
                                 };
                                 while peek_identifier_continue(self) {
-                                    raw.push(self.chars.next().unwrap().1);
+                                    invalid.push(self.chars.next().unwrap().1);
                                 }
-                                let range = Range::new(start, raw.len() as u32);
-                                let range = TokenRange::new(full_start, range);
-                                return Some(ErrorToken::invalid_number(range, raw).into());
+                                let range = Range::new(start, invalid.len() as u32);
+                                return Some(self.error(
+                                    TokenRange::new(full_start, range),
+                                    Diagnostic::lexer_invalid_number(range, invalid),
+                                ));
                             }
 
                             // Return the parsed number.
@@ -169,10 +174,12 @@ where
                                     let range = TokenRange::new(full_start, range);
                                     Some(NumberToken::new(range, number).into())
                                 }
-                                Err(raw) => {
-                                    let range = Range::new(start, raw.len() as u32);
-                                    let range = TokenRange::new(full_start, range);
-                                    Some(ErrorToken::invalid_number(range, raw).into())
+                                Err(invalid) => {
+                                    let range = Range::new(start, invalid.len() as u32);
+                                    Some(self.error(
+                                        TokenRange::new(full_start, range),
+                                        Diagnostic::lexer_invalid_number(range, invalid),
+                                    ))
                                 }
                             };
                         }
@@ -180,11 +187,23 @@ where
                         // Otherwise we have an unexpected character!
                         self.chars.next();
                         let range = Range::new(start, c.len_utf8() as u32);
-                        let range = TokenRange::new(full_start, range);
-                        Some(ErrorToken::unexpected_char(range, c).into())
+                        Some(self.error(
+                            TokenRange::new(full_start, range),
+                            Diagnostic::lexer_unexpected_char(range, c),
+                        ))
                     }
                 },
             };
         }
+    }
+}
+
+impl<'a, I> Lexer<'a, I>
+where
+    I: Iterator<Item = (Position, char)>,
+{
+    fn error(&self, range: TokenRange, diagnostic: Diagnostic) -> Token {
+        let diagnostic = self.diagnostics.borrow_mut().report(diagnostic);
+        ErrorToken::new(range, diagnostic).into()
     }
 }

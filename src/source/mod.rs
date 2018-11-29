@@ -14,14 +14,18 @@ pub use self::token::*;
 
 use self::lexer::Lexer;
 use self::parser::Parser;
-use crate::diagnostics::Diagnostic;
-use std::rc::Rc;
+use crate::diagnostics::DiagnosticSet;
+use std::cell::RefCell;
 
 /// Parses a Brite source document into an Abstract Syntax Tree (AST). We can handle any source
 /// text thrown at this function. Only correct Brite code can be executed, though.
-pub fn parse(document: &Document) -> (Vec<Rc<Diagnostic>>, Module) {
+pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
+    // Create a new diagnostics set. We wrap the set in a `RefCell` because we want to give both
+    // `Lexer` and `Parser` a mutable reference. We can’t have two mutable references so we use
+    // a `RefCell`.
+    let diagnostics = RefCell::new(DiagnosticSet::new());
     // Create the lexer out of document characters.
-    let lexer = Lexer::new(document.chars());
+    let lexer = Lexer::new(&diagnostics, document.chars());
     // Parse our module from the lexer. Optionally add some extra debugging information on
     // the lexer.
     let module = if cfg!(debug_assertions) {
@@ -34,9 +38,11 @@ pub fn parse(document: &Document) -> (Vec<Rc<Diagnostic>>, Module) {
             Some(token)
         });
         // Now parse our module.
-        Parser::parse(lexer)
+        Parser::parse(&diagnostics, lexer)
     } else {
-        Parser::parse(lexer)
+        Parser::parse(&diagnostics, lexer)
     };
-    unimplemented!()
+    // Return the parsed module and the reported diagnostics.
+    let diagnostics = diagnostics.into_inner();
+    (diagnostics, module)
 }
