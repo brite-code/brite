@@ -21,7 +21,8 @@ where
     I: Iterator<Item = (Position, char)>,
 {
     /// Create a new lexer.
-    pub fn new(chars: Peekable<I>) -> Self {
+    pub fn new(chars: I) -> Self {
+        let chars = chars.peekable();
         Lexer { chars }
     }
 }

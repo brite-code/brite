@@ -40,6 +40,11 @@ impl TokenRange {
     pub fn start(&self) -> Position {
         self.range.start()
     }
+
+    /// Gets the end of this token range.
+    pub fn end(&self) -> Position {
+        self.range.end()
+    }
 }
 
 /// Some sequence of characters that helps define a construct in our programming language.

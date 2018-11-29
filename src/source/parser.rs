@@ -9,14 +9,7 @@ use super::token::*;
 use std::iter::Peekable;
 
 /// Parses a stream of tokens into an Abstract Syntax Tree (AST).
-pub fn parse(tokens: impl Iterator<Item = Token>) -> Module {
-    let parser = Parser {
-        tokens: tokens.peekable(),
-    };
-    unimplemented!()
-}
-
-struct Parser<I>
+pub struct Parser<I>
 where
     I: Iterator<Item = Token>,
 {
@@ -27,5 +20,12 @@ impl<I> Parser<I>
 where
     I: Iterator<Item = Token>,
 {
+    /// Parses a module consuming all tokens in the provided iterator.
+    pub fn parse(tokens: I) -> Module {
+        let tokens = tokens.peekable();
+        let parser = Parser { tokens };
+        unimplemented!()
+    }
+
     fn parse_items(&mut self) {}
 }

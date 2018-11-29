@@ -70,6 +70,11 @@ impl Document {
 pub struct Position(u32);
 
 impl Position {
+    /// The initial position.
+    pub fn initial() -> Self {
+        Position(0)
+    }
+
     /// Gets the zero-based line number of this position in the provided document. A new line is
     /// created by `\n`, `\r\n`, or `\r`.
     pub fn line(&self, document: &Document) -> usize {
@@ -131,6 +136,12 @@ impl Range {
     /// Returns the start position of our range.
     pub fn start(&self) -> Position {
         self.start
+    }
+
+    /// Returns the end position of our range. Will always be greater than or equal to the start
+    /// position. Remember that range is not inclusive.
+    pub fn end(&self) -> Position {
+        Position(self.start.0 + self.length)
     }
 }
 
