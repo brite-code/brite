@@ -1,4 +1,5 @@
-use super::position::{Chars, Range};
+use super::document::Position;
+use std::iter::Peekable;
 use unicode_xid::UnicodeXID;
 
 /// A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
@@ -34,16 +35,15 @@ impl Identifier {
     /// - `Some(Err())` if we parsed a keyword.
     /// - `None` if we could not parse an identifier. We consumed no characters from the iterator
     ///   in this case.
-    pub fn parse<I>(chars: &mut Chars<I>) -> Option<Result<Identifier, Keyword>>
-    where
-        I: Iterator<Item = char>,
-    {
+    pub fn parse(
+        chars: &mut Peekable<impl Iterator<Item = (Position, char)>>,
+    ) -> Option<Result<Identifier, Keyword>> {
         let mut identifier = String::new();
 
         match chars.peek() {
             None => return None,
-            Some(c) => if Identifier::is_start(c) {
-                identifier.push(c);
+            Some((_, c)) => if Identifier::is_start(*c) {
+                identifier.push(*c);
                 chars.next();
             } else {
                 return None;
@@ -53,8 +53,8 @@ impl Identifier {
         loop {
             match chars.peek() {
                 None => break,
-                Some(c) => if Identifier::is_continue(c) {
-                    identifier.push(c);
+                Some((_, c)) => if Identifier::is_continue(*c) {
+                    identifier.push(*c);
                     chars.next();
                 } else {
                     break;
@@ -98,11 +98,32 @@ impl Identifier {
             c => UnicodeXID::is_xid_continue(c),
         }
     }
+
+    /// The length of this identifier in UTF-8 code units.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+}
+
+impl Keyword {
+    /// The keyword’s string representation.
+    fn as_str(&self) -> &'static str {
+        match self {
+            Keyword::Hole => "_",
+            Keyword::True => "true",
+            Keyword::False => "false",
+        }
+    }
+
+    /// The length of this keyword in UTF-8 code units.
+    pub fn len(&self) -> usize {
+        self.as_str().len()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::position::Position;
+    use super::super::document::Document;
     use super::*;
 
     #[test]
@@ -129,8 +150,8 @@ mod tests {
         ];
 
         for (source, expected) in cases {
-            let mut chars = Chars::new(Position::initial(), source.chars());
-            let actual = Identifier::parse(&mut chars);
+            let mut document = Document::new("/path/to/document.txt".into(), source.into());
+            let actual = Identifier::parse(&mut document.chars().peekable());
             let expected =
                 expected.map(|expected| expected.map(|()| Identifier(String::from(source))));
             assert_eq!(actual, expected);

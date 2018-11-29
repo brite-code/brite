@@ -62,15 +62,16 @@ impl Document {
 /// - `abc|def`: Here the position is 3 since it is between our third and fourth characters.
 /// - `abcdef|`: Here the position is 6 since it is after our sixth character at the end.
 ///
-/// We need to keep this small as an AST will contain a _lot_ of them. Currently a 32 bit unsigned
-/// integer which represents the _byte_ offset into the source document.
+/// We need to keep this small as an AST will contain a _lot_ of positions. Currently a 32 bit
+/// unsigned integer which represents the _byte_ offset into the source document.
 ///
 /// [1]: https://microsoft.github.io/language-server-protocol/specification
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Position(u32);
 
 impl Position {
-    /// Gets the zero-based line number of this position in the provided document.
+    /// Gets the zero-based line number of this position in the provided document. A new line is
+    /// created by `\n`, `\r\n`, or `\r`.
     pub fn line(&self, document: &Document) -> usize {
         match document.lines.binary_search(self) {
             Ok(line) => line + 1,
@@ -106,6 +107,30 @@ impl Position {
                 .map(|c| c.len_utf16())
                 .sum()
         }
+    }
+}
+
+/// A range in a text document expressed as start and end positions. A range is comparable to a
+/// selection in an editor. Therefore the end position is exclusive.
+///
+/// We need to keep this small as an AST will contain a _lot_ of ranges. Currently 64 bits.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct Range {
+    /// The range’s start position.
+    start: Position,
+    /// The length of characters covered by this range.
+    length: u32,
+}
+
+impl Range {
+    /// Creates a new range. `length` is the number of UTF-8 code units spanned by the range.
+    pub fn new(start: Position, length: u32) -> Self {
+        Range { start, length }
+    }
+
+    /// Returns the start position of our range.
+    pub fn start(&self) -> Position {
+        self.start
     }
 }
 

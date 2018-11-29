@@ -7,7 +7,7 @@
 //! - Type checking.
 //! - Pretty printing.
 
-use super::position::Position;
+use super::document::Position;
 
 /// A module represents a single Brite file. A module is made up of any number of declarations
 /// or statements.

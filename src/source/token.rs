@@ -1,6 +1,6 @@
+use super::document::{Position, Range};
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
-use super::position::{Position, Range};
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the
@@ -39,11 +39,6 @@ impl TokenRange {
     /// Gets the start of this token range.
     pub fn start(&self) -> Position {
         self.range.start()
-    }
-
-    /// Gets the end of this token range.
-    pub fn end(&self) -> Position {
-        self.range.end()
     }
 }
 
