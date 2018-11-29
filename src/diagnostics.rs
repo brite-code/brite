@@ -34,10 +34,10 @@ enum DiagnosticMessage {
 
 #[derive(Debug, PartialEq)]
 enum ErrorDiagnosticMessage {
-    /// The lexer ran into a string of characters it did not recognize.
-    LexerUnexpectedChar { unexpected: char },
+    /// The lexer ran into a character it did not recognize.
+    UnexpectedChar { unexpected: char },
     /// The lexer tried to parse a number, but that number was in an invalid format.
-    LexerInvalidNumber { invalid: String },
+    InvalidNumber { invalid: String },
 }
 
 #[derive(Debug, PartialEq)]
@@ -55,13 +55,13 @@ impl Diagnostic {
         Self::new(range, DiagnosticMessage::Error(message))
     }
 
-    pub fn lexer_unexpected_char(range: Range, unexpected: char) -> Self {
-        let message = ErrorDiagnosticMessage::LexerUnexpectedChar { unexpected };
+    pub fn unexpected_char(range: Range, unexpected: char) -> Self {
+        let message = ErrorDiagnosticMessage::UnexpectedChar { unexpected };
         Self::error(range, message)
     }
 
-    pub fn lexer_invalid_number(range: Range, invalid: String) -> Self {
-        let message = ErrorDiagnosticMessage::LexerInvalidNumber { invalid };
+    pub fn invalid_number(range: Range, invalid: String) -> Self {
+        let message = ErrorDiagnosticMessage::InvalidNumber { invalid };
         Self::error(range, message)
     }
 }

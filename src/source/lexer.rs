@@ -163,7 +163,7 @@ where
                                 let range = Range::new(start, invalid.len() as u32);
                                 return Some(self.error(
                                     TokenRange::new(full_start, range),
-                                    Diagnostic::lexer_invalid_number(range, invalid),
+                                    Diagnostic::invalid_number(range, invalid),
                                 ));
                             }
 
@@ -178,7 +178,7 @@ where
                                     let range = Range::new(start, invalid.len() as u32);
                                     Some(self.error(
                                         TokenRange::new(full_start, range),
-                                        Diagnostic::lexer_invalid_number(range, invalid),
+                                        Diagnostic::invalid_number(range, invalid),
                                     ))
                                 }
                             };
@@ -189,7 +189,7 @@ where
                         let range = Range::new(start, c.len_utf8() as u32);
                         Some(self.error(
                             TokenRange::new(full_start, range),
-                            Diagnostic::lexer_unexpected_char(range, c),
+                            Diagnostic::unexpected_char(range, c),
                         ))
                     }
                 },
