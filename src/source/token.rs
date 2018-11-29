@@ -12,6 +12,7 @@ pub enum Token {
     Identifier(IdentifierToken),
     Number(NumberToken),
     Error(ErrorToken),
+    End(EndToken),
 }
 
 /// The range covered by a token. Every token has two start positions. The “full start” position
@@ -77,6 +78,10 @@ impl GlyphToken {
     pub fn new(range: TokenRange, glyph: Glyph) -> Self {
         GlyphToken { range, glyph }
     }
+
+    pub fn keyword(range: TokenRange, keyword: Keyword) -> Self {
+        Self::new(range, Glyph::Keyword(keyword))
+    }
 }
 
 /// Any `Identifier`.
@@ -123,13 +128,41 @@ impl ErrorToken {
     }
 }
 
+/// The last token in the document. Once our lexer returns `EndToken` it will continue returning
+/// `EndToken` forever.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EndToken {
+    range: TokenRange,
+}
+
+impl EndToken {
+    pub fn new(range: TokenRange) -> Self {
+        EndToken { range }
+    }
+}
+
 impl Token {
+    pub fn is_identifier(&self) -> bool {
+        match self {
+            Token::Identifier(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_end(&self) -> bool {
+        match self {
+            Token::End(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn full_range(&self) -> &TokenRange {
         match self {
             Token::Glyph(t) => &t.range,
             Token::Identifier(t) => &t.range,
             Token::Number(t) => &t.range,
             Token::Error(t) => &t.range,
+            Token::End(t) => &t.range,
         }
     }
 }
@@ -155,5 +188,11 @@ impl Into<Token> for NumberToken {
 impl Into<Token> for ErrorToken {
     fn into(self) -> Token {
         Token::Error(self)
+    }
+}
+
+impl Into<Token> for EndToken {
+    fn into(self) -> Token {
+        Token::End(self)
     }
 }

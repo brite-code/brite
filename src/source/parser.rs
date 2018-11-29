@@ -15,58 +15,23 @@
 //! [1]: https://github.com/Microsoft/tolerant-php-parser/blob/master/docs/HowItWorks.md
 
 use super::ast::*;
-use super::document::*;
-use super::token::*;
-use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticSet};
+use super::lexer::Lexer;
+use crate::diagnostics::DiagnosticSet;
 use std::cell::RefCell;
-use std::iter::Peekable;
 
 /// Parses a stream of tokens into an Abstract Syntax Tree (AST).
-pub struct Parser<'a, I>
-where
-    I: Iterator<Item = Token>,
-{
+pub struct Parser<'a> {
     diagnostics: &'a RefCell<DiagnosticSet>,
-    tokens: Peekable<I>,
+    lexer: Lexer<'a>,
 }
 
-impl<'a, I> Parser<'a, I>
-where
-    I: Iterator<Item = Token>,
-{
-    fn new(diagnostics: &'a RefCell<DiagnosticSet>, tokens: I) -> Self {
-        let tokens = tokens.peekable();
-        Parser {
-            diagnostics,
-            tokens,
-        }
+impl<'a> Parser<'a> {
+    fn new(diagnostics: &'a RefCell<DiagnosticSet>, lexer: Lexer<'a>) -> Self {
+        Parser { diagnostics, lexer }
     }
 
     /// Parses a module from a token stream consuming _all_ tokens in the stream.
-    pub fn parse(diagnostics: &'a RefCell<DiagnosticSet>, tokens: I) -> Module {
+    pub fn parse(diagnostics: &'a RefCell<DiagnosticSet>, lexer: Lexer<'a>) -> Module {
         unimplemented!()
     }
-
-    fn block(&mut self) {
-        self.statement(Mode::Normal);
-    }
-
-    fn statement(&mut self, mode: Mode) -> Result<Statement, Error> {
-        match mode {
-            Mode::Normal => unimplemented!(),
-            Mode::Recovery(error) => unimplemented!(),
-        }
-    }
-
-    /// Reports an error diagnostic.
-    fn error<T>(&mut self, diagnostic: Diagnostic) -> Result<T, Error> {
-        Err(self.diagnostics.borrow_mut().report(diagnostic))
-    }
-}
-
-type Error = DiagnosticRef;
-
-enum Mode {
-    Normal,
-    Recovery(Error),
 }

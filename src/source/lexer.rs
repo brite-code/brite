@@ -2,87 +2,103 @@
 //! parsing than characters since tokens will parse numbers, identifiers, glyphs, and will skip
 //! comments and whitespace.
 
-use super::document::{Position, Range};
+use super::document::{DocumentChars, Range};
 use super::identifier::Identifier;
 use super::number::Number;
 use super::token::*;
 use crate::diagnostics::{Diagnostic, DiagnosticSet};
 use std::cell::RefCell;
-use std::iter::Peekable;
 
 /// A lexer turns an iterator of source document characters into an iterator of tokens.
-pub struct Lexer<'a, I>
-where
-    I: Iterator<Item = (Position, char)>,
-{
+pub struct Lexer<'a> {
     diagnostics: &'a RefCell<DiagnosticSet>,
-    chars: Peekable<I>,
+    chars: DocumentChars<'a>,
+    lookahead: Option<Token>,
 }
 
-impl<'a, I> Lexer<'a, I>
-where
-    I: Iterator<Item = (Position, char)>,
-{
+impl<'a> Lexer<'a> {
     /// Create a new lexer.
-    pub fn new(diagnostics: &'a RefCell<DiagnosticSet>, chars: I) -> Self {
-        let chars = chars.peekable();
-        Lexer { diagnostics, chars }
+    pub fn new(diagnostics: &'a RefCell<DiagnosticSet>, chars: DocumentChars<'a>) -> Self {
+        Lexer {
+            diagnostics,
+            chars,
+            lookahead: None,
+        }
     }
-}
 
-impl<'a, I> Iterator for Lexer<'a, I>
-where
-    I: Iterator<Item = (Position, char)>,
-{
-    type Item = Token;
+    /// Consume the next token in the lexer. Calling `Lexer::advance()` again will return a
+    /// new token. Eventually we will return an `EndToken`. When that happens subsequent calls to
+    /// `Lexer::advance()` will only ever return an `EndToken`.
+    #[inline]
+    pub fn advance(&mut self) -> Token {
+        match self.lookahead.take() {
+            Some(token) => token,
+            None => {
+                let position = self.chars.position();
+                let token = self.actually_advance();
+                debug_assert_eq!(position, token.full_range().full_start());
+                token
+            }
+        }
+    }
 
-    fn next(&mut self) -> Option<Token> {
+    /// Look at the next token without consuming the token and advancing the lexer. Calling
+    /// `Lexer::lookahead()` again will return the same token.
+    #[inline]
+    pub fn lookahead(&mut self) -> &Token {
+        if self.lookahead.is_none() {
+            self.lookahead = Some(self.advance());
+        }
+        match &self.lookahead {
+            Some(token) => token,
+            None => unreachable!(),
+        }
+    }
+
+    /// Actually advances the lexer. The `Lexer::advance()` function performs some
+    /// housekeeping work only.
+    fn actually_advance(&mut self) -> Token {
         // The full start of our token including trivia like whitespace and comments.
-        let full_start = match self.chars.peek() {
-            None => return None,
-            Some((full_start, _)) => *full_start,
-        };
+        let full_start = self.chars.position();
 
         // Loop since we want to ignore whitespace and comments while still remembering our full
         // start position.
         loop {
-            return match self.chars.peek() {
-                None => return None,
+            return match self.chars.lookahead() {
                 Some(c) => match c {
-                    (start, ';') => {
-                        let start = *start;
-                        self.chars.next();
+                    ';' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
                         let range = TokenRange::new(full_start, Range::new(start, 1));
-                        Some(GlyphToken::new(range, Glyph::Semicolon).into())
+                        GlyphToken::new(range, Glyph::Semicolon).into()
                     }
 
                     // Parse tokens that start with a slash.
-                    (start, '/') => {
-                        let start = *start;
-                        self.chars.next();
-                        match self.chars.peek() {
+                    '/' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        match self.chars.lookahead() {
                             // If we see a slash immediately following our last slash then we have
                             // a line comment! Ignore all characters until the end of the line.
-                            Some((_, '/')) => {
-                                self.chars.next();
+                            Some('/') => {
+                                self.chars.advance();
                                 // Ignore all characters until we find a newline. A newline is one
                                 // of `\n`, `\r\n`, or `\r`.
                                 loop {
-                                    match self.chars.peek() {
-                                        Some((_, '\n')) => {
-                                            self.chars.next();
+                                    match self.chars.lookahead() {
+                                        Some('\n') => {
+                                            self.chars.advance();
                                             break;
                                         }
-                                        Some((_, '\r')) => {
-                                            if let Some((_, '\n')) = self.chars.peek() {
-                                                self.chars.next();
-                                            }
-                                            self.chars.next();
+                                        Some('\r') => {
+                                            self.chars.advance();
+                                            self.chars.advance_char('\n');
                                             break;
                                         }
-                                        _ => {}
+                                        _ => {
+                                            self.chars.advance();
+                                        }
                                     }
-                                    self.chars.next();
                                 }
                                 // We’re done with the line comment so continue...
                                 continue;
@@ -90,15 +106,17 @@ where
 
                             // If we see a star immediately following our last slash then we have a
                             // block comment! Ignore all characters until the block comment closes.
-                            Some((_, '*')) => {
-                                self.chars.next();
+                            Some('*') => {
+                                self.chars.advance();
                                 // Ignore all characters until we find a block comment end.
                                 loop {
-                                    if let Some((_, '*')) = self.chars.next() {
-                                        if let Some((_, '/')) = self.chars.peek() {
-                                            self.chars.next();
+                                    // TODO: Test closing comments with `**/`.
+                                    if self.chars.advance_char('*') {
+                                        if self.chars.advance_char('/') {
                                             break;
                                         }
+                                    } else {
+                                        self.chars.advance();
                                     }
                                 }
                                 // We’re done with the block comment so continue...
@@ -108,33 +126,27 @@ where
                             // Otherwise, we have a slash glyph.
                             _ => {
                                 let range = TokenRange::new(full_start, Range::new(start, 1));
-                                Some(GlyphToken::new(range, Glyph::Slash).into())
+                                GlyphToken::new(range, Glyph::Slash).into()
                             }
                         }
                     }
 
-                    (start, c) => {
-                        let (start, c) = (*start, *c);
-
+                    c => {
                         // Ignore whitespace...
                         if c.is_whitespace() {
-                            self.chars.next();
+                            self.chars.advance();
                             continue;
                         }
 
+                        let start = self.chars.position();
+
                         // If we could parse an identifier...
                         if let Some(identifier) = Identifier::parse(&mut self.chars) {
+                            let end = self.chars.position();
+                            let range = TokenRange::new(full_start, Range::between(start, end));
                             return match identifier {
-                                Ok(identifier) => {
-                                    let range = Range::new(start, identifier.len() as u32);
-                                    let range = TokenRange::new(full_start, range);
-                                    Some(IdentifierToken::new(range, identifier).into())
-                                }
-                                Err(keyword) => {
-                                    let range = Range::new(start, keyword.len() as u32);
-                                    let range = TokenRange::new(full_start, range);
-                                    Some(GlyphToken::new(range, Glyph::Keyword(keyword)).into())
-                                }
+                                Ok(identifier) => IdentifierToken::new(range, identifier).into(),
+                                Err(keyword) => GlyphToken::keyword(range, keyword).into(),
                             };
                         }
 
@@ -144,34 +156,22 @@ where
                         // identifier without a space. For example, we want `4px` to be a
                         // syntax error.
                         if let Some(number) = Number::parse(&mut self.chars) {
-                            /// Is the current character an identifier continuation? Lifted into a
-                            /// function since it’s a bit long when written inline.
-                            fn peek_identifier_continue(
-                                lexer: &mut Lexer<impl Iterator<Item = (Position, char)>>,
-                            ) -> bool {
-                                lexer
-                                    .chars
-                                    .peek()
-                                    .map(|(_, c)| Identifier::is_continue(*c))
-                                    .unwrap_or(false)
-                            }
-
                             // If our number is immediately followed by an identifier or a number
                             // then we have an invalid number token. Collect all the identifier or
                             // number tokens before returning the error token.
-                            if peek_identifier_continue(self) {
+                            if self.chars.lookahead_is(Identifier::is_continue) {
                                 let mut invalid = match number {
                                     Ok(number) => number.into_raw(),
                                     Err(invalid) => invalid,
                                 };
-                                while peek_identifier_continue(self) {
-                                    invalid.push(self.chars.next().unwrap().1);
+                                while self.chars.lookahead_is(Identifier::is_continue) {
+                                    invalid.push(self.chars.advance().unwrap());
                                 }
                                 let range = Range::new(start, invalid.len() as u32);
-                                return Some(self.error(
+                                return self.error(
                                     TokenRange::new(full_start, range),
                                     Diagnostic::invalid_number(range, invalid),
-                                ));
+                                );
                             }
 
                             // Return the parsed number.
@@ -179,38 +179,80 @@ where
                                 Ok(number) => {
                                     let range = Range::new(start, number.raw().len() as u32);
                                     let range = TokenRange::new(full_start, range);
-                                    Some(NumberToken::new(range, number).into())
+                                    NumberToken::new(range, number).into()
                                 }
                                 Err(invalid) => {
                                     let range = Range::new(start, invalid.len() as u32);
-                                    Some(self.error(
+                                    self.error(
                                         TokenRange::new(full_start, range),
                                         Diagnostic::invalid_number(range, invalid),
-                                    ))
+                                    )
                                 }
                             };
                         }
 
                         // Otherwise we have an unexpected character!
-                        self.chars.next();
-                        let range = Range::new(start, c.len_utf8() as u32);
-                        Some(self.error(
+                        self.chars.advance();
+                        let range = Range::new(start, c.len_utf8() as u32); // TODO: Test `c.len_utf8()`.
+                        self.error(
                             TokenRange::new(full_start, range),
                             Diagnostic::unexpected_char(range, c),
-                        ))
+                        )
                     }
                 },
+                // When we reach the end of our document return an `EndToken` and keep returning an
+                // `EndToken` for all time.
+                None => {
+                    let end = self.chars.position();
+                    self.chars.advance();
+                    let range = TokenRange::new(full_start, Range::new(end, 0));
+                    EndToken::new(range).into()
+                }
             };
         }
     }
-}
 
-impl<'a, I> Lexer<'a, I>
-where
-    I: Iterator<Item = (Position, char)>,
-{
+    /// Reports an error diagnostic and returns an error token referencing that diagnostic.
     fn error(&self, range: TokenRange, diagnostic: Diagnostic) -> Token {
         let diagnostic = self.diagnostics.borrow_mut().report(diagnostic);
         ErrorToken::new(range, diagnostic).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::document::Document;
+    use super::*;
+    use crate::diagnostics::DiagnosticSet;
+    use std::cell::RefCell;
+
+    #[test]
+    #[should_panic(
+        expected = "Should not call `DocumentChars::advance()` again after it returns `None`."
+    )]
+    fn document_chars_end_panic() {
+        let document = Document::new("/path/to/document.txt".into(), "abc".into());
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, document.chars());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.advance().is_end());
+        lexer.advance();
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Should not call `DocumentChars::advance()` again after it returns `None`."
+    )]
+    fn document_chars_end_panic_lookahead() {
+        let document = Document::new("/path/to/document.txt".into(), "abc".into());
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, document.chars());
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.advance().is_end());
+        lexer.lookahead();
     }
 }

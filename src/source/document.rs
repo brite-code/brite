@@ -1,6 +1,9 @@
 use std::fs;
 use std::io;
+use std::iter::Peekable;
+use std::mem;
 use std::path::PathBuf;
+use std::str::Chars;
 
 /// A Brite source code document. Source code is represented as text and turned into an AST through
 /// the process of lexing and parsing. This object contains metadata about a source document
@@ -60,10 +63,117 @@ impl Document {
 
     /// Gets an iterator of characters in the source document along with the position of
     /// that character.
-    pub fn chars<'a>(&'a self) -> impl Iterator<Item = (Position, char)> + 'a {
-        self.text
-            .char_indices()
-            .map(|(i, c)| (Position(i as u32), c))
+    pub fn chars(&self) -> DocumentChars {
+        DocumentChars {
+            chars: self.text.chars().peekable(),
+            position: 0,
+            #[cfg(debug_assertions)]
+            done: false,
+        }
+    }
+}
+
+/// An iterator of characters in a Brite source document. We don’t implement the `Iterator` trait
+/// for this struct since it forces composition on us. We don’t care about iterator composition in
+/// our parser. We’d prefer domain specific iterators at every step along the way.
+///
+/// Let’s illustrate what the methods of `DocumentChars` do. In the following diagram, the caret
+/// (`^`) represents the current character returned by `DocumentChars::lookahead()`. The bar (`|`)
+/// represents the current position returned by  `DocumentChars::position()`.
+///
+/// ```
+/// |abcdef
+///  ^
+/// ```
+///
+/// We start by pointing at the first character. Calling `DocumentChars::advance()` returns `a` and
+/// advances our iterator to the next character.
+///
+/// ```
+/// a|bcdef
+///   ^
+/// ```
+///
+/// This continues until we reach the last character.
+///
+/// ```
+/// abcde|f
+///       ^
+/// ```
+///
+/// Calling `DocumentChars::advance()` here will return `f` and puts us in the following state.
+///
+/// ```
+/// abcdef|
+///        ^
+/// ```
+///
+/// Now calling `DocumentChars::advance()` will return `None` and will continue to return `None`
+/// every time it is called. The position returned by `DocumentChars::position()` is the final
+/// position in our document.
+pub struct DocumentChars<'a> {
+    chars: Peekable<Chars<'a>>,
+    position: u32,
+    #[cfg(debug_assertions)]
+    done: bool,
+}
+
+impl<'a> DocumentChars<'a> {
+    /// Consumes a character and advances our iterator to the next character. To look at the next
+    /// character without consuming it, call `DocumentChars::lookahead()`.
+    ///
+    /// When `None` is returned we’ve reached the end of our document’s characters. Calling
+    /// `DocumentChars::advance()` will only return `None` now.
+    #[inline]
+    pub fn advance(&mut self) -> Option<char> {
+        match self.chars.next() {
+            None => {
+                debug_assert!(
+                    !mem::replace(&mut self.done, true),
+                    "Should not call `DocumentChars::advance()` again after it returns `None`."
+                );
+                None
+            }
+            Some(c) => {
+                self.position += c.len_utf8() as u32;
+                Some(c)
+            }
+        }
+    }
+
+    /// Looks at the next character without advancing the iterator.
+    #[inline]
+    pub fn lookahead(&mut self) -> Option<char> {
+        self.chars.peek().cloned()
+    }
+
+    /// Returns the position between the previous character and the next character. See the
+    /// documentation on `DocumentChars` for more information.
+    #[inline]
+    pub fn position(&self) -> Position {
+        Position(self.position)
+    }
+
+    /// Advance if the character we are advancing is equal to the provided character. Returns true
+    /// if we were able to advance.
+    #[inline]
+    pub fn advance_char(&mut self, c: char) -> bool {
+        if self.lookahead() == Some(c) {
+            self.advance();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Runs a test function on the lookahead character. If the lookahead character is `None` we
+    /// return false.
+    #[inline]
+    pub fn lookahead_is<F>(&mut self, f: F) -> bool
+    where
+        F: FnOnce(char) -> bool,
+    {
+        self.lookahead().map(f).unwrap_or(false)
     }
 }
 
@@ -142,6 +252,18 @@ impl Range {
     /// Creates a new range. `length` is the number of UTF-8 code units spanned by the range.
     pub fn new(start: Position, length: u32) -> Self {
         Range { start, length }
+    }
+
+    /// Creates a range between two positions.
+    pub fn between(start: Position, end: Position) -> Self {
+        if start <= end {
+            let length = end.0 - start.0;
+            Range { start, length }
+        } else {
+            let (start, end) = (end, start);
+            let length = end.0 - start.0;
+            Range { start, length }
+        }
     }
 
     /// Returns the start position of our range.
@@ -286,4 +408,38 @@ mod tests {
         assert_eq!(Position(14).character(&document), 9);
         assert_eq!(Position(500).character(&document), 495);
     }
+
+    #[test]
+    #[should_panic(
+        expected = "Should not call `DocumentChars::advance()` again after it returns `None`."
+    )]
+    fn document_chars_end_panic() {
+        let document = Document::new("/path/to/document.txt".into(), "abc".into());
+        let mut chars = document.chars();
+        assert_eq!(chars.advance(), Some('a'));
+        assert_eq!(chars.advance(), Some('b'));
+        assert_eq!(chars.advance(), Some('c'));
+        assert_eq!(chars.advance(), None);
+        chars.advance();
+    }
+
+    #[test]
+    fn document_chars_end_panic_lookahead() {
+        let document = Document::new("/path/to/document.txt".into(), "abc".into());
+        let mut chars = document.chars();
+        assert_eq!(chars.lookahead(), Some('a'));
+        assert_eq!(chars.lookahead(), Some('a'));
+        assert_eq!(chars.advance(), Some('a'));
+        assert_eq!(chars.lookahead(), Some('b'));
+        assert_eq!(chars.lookahead(), Some('b'));
+        assert_eq!(chars.advance(), Some('b'));
+        assert_eq!(chars.lookahead(), Some('c'));
+        assert_eq!(chars.lookahead(), Some('c'));
+        assert_eq!(chars.advance(), Some('c'));
+        assert_eq!(chars.lookahead(), None);
+        assert_eq!(chars.lookahead(), None);
+        assert_eq!(chars.advance(), None);
+        assert_eq!(chars.lookahead(), None);
+    }
+
 }

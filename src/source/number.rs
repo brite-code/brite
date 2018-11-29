@@ -1,5 +1,4 @@
-use super::document::Position;
-use std::iter::Peekable;
+use super::document::DocumentChars;
 use std::str::FromStr;
 use std::{f64, u32};
 
@@ -44,25 +43,21 @@ impl Number {
     /// number immediately following the number. Since numbers include letter characters like `x`,
     /// `b`, and `e` we don’t want arbitrary identifiers following numbers as that might
     /// be confusing.
-    pub fn parse(
-        chars: &mut Peekable<impl Iterator<Item = (Position, char)>>,
-    ) -> Option<Result<Number, String>> {
+    pub fn parse(chars: &mut DocumentChars) -> Option<Result<Number, String>> {
         let mut raw = String::new();
 
         // If the first number we parse is 0 then we may have a binary or hexadecimal number on
         // our hands.
-        match chars.peek() {
-            Some((_, '0')) => {
-                raw.push(chars.next().unwrap().1);
-                match chars.peek() {
+        match chars.lookahead() {
+            Some('0') => {
+                raw.push(chars.advance().unwrap());
+                match chars.lookahead() {
                     // Parse a binary number.
-                    Some((_, 'b')) | Some((_, 'B')) => {
-                        raw.push(chars.next().unwrap().1);
+                    Some('b') | Some('B') => {
+                        raw.push(chars.advance().unwrap());
                         loop {
-                            match chars.peek() {
-                                Some((_, '0')) | Some((_, '1')) => {
-                                    raw.push(chars.next().unwrap().1)
-                                }
+                            match chars.lookahead() {
+                                Some('0') | Some('1') => raw.push(chars.advance().unwrap()),
                                 _ => break,
                             }
                         }
@@ -77,12 +72,13 @@ impl Number {
                         };
                     }
                     // Parse a hexadecimal number.
-                    Some((_, 'x')) | Some((_, 'X')) => {
-                        raw.push(chars.next().unwrap().1);
+                    Some('x') | Some('X') => {
+                        raw.push(chars.advance().unwrap());
                         loop {
-                            match chars.peek() {
-                                Some((_, '0'...'9')) | Some((_, 'a'...'f'))
-                                | Some((_, 'A'...'F')) => raw.push(chars.next().unwrap().1),
+                            match chars.lookahead() {
+                                Some('0'...'9') | Some('a'...'f') | Some('A'...'F') => {
+                                    raw.push(chars.advance().unwrap())
+                                }
                                 _ => break,
                             }
                         }
@@ -104,18 +100,18 @@ impl Number {
 
         // Get all the digits in the whole part of the number.
         loop {
-            match chars.peek() {
-                Some((_, '0'...'9')) => raw.push(chars.next().unwrap().1),
+            match chars.lookahead() {
+                Some('0'...'9') => raw.push(chars.advance().unwrap()),
                 _ => break,
             }
         }
 
         // Get all the digits in the fractional part of the number.
-        if let Some((_, '.')) = chars.peek() {
-            raw.push(chars.next().unwrap().1);
+        if let Some('.') = chars.lookahead() {
+            raw.push(chars.advance().unwrap());
             loop {
-                match chars.peek() {
-                    Some((_, '0'...'9')) => raw.push(chars.next().unwrap().1),
+                match chars.lookahead() {
+                    Some('0'...'9') => raw.push(chars.advance().unwrap()),
                     _ => break,
                 }
             }
@@ -126,16 +122,16 @@ impl Number {
             None
         } else {
             // Get all the digits in the exponential part of the number.
-            match chars.peek() {
-                Some((_, 'e')) | Some((_, 'E')) => {
-                    raw.push(chars.next().unwrap().1);
-                    match chars.peek() {
-                        Some((_, '+')) | Some((_, '-')) => raw.push(chars.next().unwrap().1),
+            match chars.lookahead() {
+                Some('e') | Some('E') => {
+                    raw.push(chars.advance().unwrap());
+                    match chars.lookahead() {
+                        Some('+') | Some('-') => raw.push(chars.advance().unwrap()),
                         _ => {}
                     }
                     loop {
-                        match chars.peek() {
-                            Some((_, '0'...'9')) => raw.push(chars.next().unwrap().1),
+                        match chars.lookahead() {
+                            Some('0'...'9') => raw.push(chars.advance().unwrap()),
                             _ => break,
                         }
                     }
@@ -277,7 +273,7 @@ mod tests {
 
         for (source, expected) in cases {
             let mut document = Document::new("/path/to/document.txt".into(), source.into());
-            let actual = Number::parse(&mut document.chars().peekable());
+            let actual = Number::parse(&mut document.chars());
             let expected = expected.map(|expected| {
                 expected
                     .map(|value| {

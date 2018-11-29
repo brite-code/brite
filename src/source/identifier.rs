@@ -1,5 +1,4 @@
-use super::document::Position;
-use std::iter::Peekable;
+use super::document::DocumentChars;
 use unicode_xid::UnicodeXID;
 
 /// A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
@@ -35,27 +34,25 @@ impl Identifier {
     /// - `Some(Err())` if we parsed a keyword.
     /// - `None` if we could not parse an identifier. We consumed no characters from the iterator
     ///   in this case.
-    pub fn parse(
-        chars: &mut Peekable<impl Iterator<Item = (Position, char)>>,
-    ) -> Option<Result<Identifier, Keyword>> {
+    pub fn parse(chars: &mut DocumentChars) -> Option<Result<Identifier, Keyword>> {
         let mut identifier = String::new();
 
-        match chars.peek() {
+        match chars.lookahead() {
             None => return None,
-            Some((_, c)) => if Identifier::is_start(*c) {
-                identifier.push(*c);
-                chars.next();
+            Some(c) => if Identifier::is_start(c) {
+                identifier.push(c);
+                chars.advance();
             } else {
                 return None;
             },
         };
 
         loop {
-            match chars.peek() {
+            match chars.lookahead() {
                 None => break,
-                Some((_, c)) => if Identifier::is_continue(*c) {
-                    identifier.push(*c);
-                    chars.next();
+                Some(c) => if Identifier::is_continue(c) {
+                    identifier.push(c);
+                    chars.advance();
                 } else {
                     break;
                 },
@@ -151,7 +148,7 @@ mod tests {
 
         for (source, expected) in cases {
             let mut document = Document::new("/path/to/document.txt".into(), source.into());
-            let actual = Identifier::parse(&mut document.chars().peekable());
+            let actual = Identifier::parse(&mut document.chars());
             let expected =
                 expected.map(|expected| expected.map(|()| Identifier(String::from(source))));
             assert_eq!(actual, expected);
