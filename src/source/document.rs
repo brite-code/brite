@@ -1,3 +1,5 @@
+use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 /// A Brite source code document. Source code is represented as text and turned into an AST through
@@ -15,6 +17,12 @@ pub struct Document {
 }
 
 impl Document {
+    /// Reads a file from the file system and creates a document out of it.
+    pub fn read(path: PathBuf) -> Result<Self, io::Error> {
+        let text = fs::read_to_string(&path)?;
+        Ok(Document::new(path, text))
+    }
+
     /// Creates a new source code document.
     pub fn new(path: PathBuf, text: String) -> Self {
         // Calculate all the line boundaries in our source code.
