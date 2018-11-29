@@ -49,6 +49,13 @@ where
             return match self.chars.peek() {
                 None => return None,
                 Some(c) => match c {
+                    (start, ';') => {
+                        let start = *start;
+                        self.chars.next();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        Some(GlyphToken::new(range, Glyph::Semicolon).into())
+                    }
+
                     // Parse tokens that start with a slash.
                     (start, '/') => {
                         let start = *start;

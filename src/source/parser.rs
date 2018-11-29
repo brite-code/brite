@@ -43,70 +43,30 @@ where
     }
 
     /// Parses a module from a token stream consuming _all_ tokens in the stream.
-    pub fn parse(
-        document: &'a Document,
-        diagnostics: &'a RefCell<DiagnosticSet>,
-        tokens: I,
-    ) -> Module {
-        let mut parser = Self::new(diagnostics, tokens);
-        let items = parser.parse_item_list();
-
-        // Assert that we consumed all the tokens while parsing.
-        debug_assert!(
-            parser.tokens.peek().is_none(),
-            "Parsing must consume all tokens."
-        );
-
-        Module {
-            range: document.range(),
-            items,
-        }
+    pub fn parse(diagnostics: &'a RefCell<DiagnosticSet>, tokens: I) -> Module {
+        unimplemented!()
     }
 
-    fn parse_item_list(&mut self) -> Vec<Item> {
-        let mut items = Vec::new();
-
-        // While we still have tokens continue to parse items.
-        while !self.tokens.peek().is_none() {
-            unimplemented!()
-            // // Try to parse an item. If successful we add it to the `items` array and try to parse
-            // // another item.
-            // if let Some(item) = self.parse_item() {
-            //     items.push(item);
-            // } else {
-            //     // We expect there to always be a token because of our while loop condition. Also,
-            //     // `self.parse_item()` should only return `None` if it did not consume any tokens.
-            //     let token = self.tokens.next().unwrap();
-            // }
-        }
-
-        // Shrink the items list. We’ve parsed all of them!
-        items.shrink_to_fit();
-        items
+    fn block(&mut self) {
+        self.statement(Mode::Normal);
     }
 
-    fn parse_item(&mut self) -> Result<Item, DiagnosticRef> {
-        self.parse_statement().map(Item::Statement)
-    }
-
-    fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
-        self.parse_expression().map(Statement::Expression)
-    }
-
-    fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
-        match self.tokens.peek() {
-            _ => {
-                let token = self.tokens.next().unwrap();
-                self.error(Diagnostic::unexpected_token(
-                    token.full_range().range(),
-                    token,
-                ))
-            }
+    fn statement(&mut self, mode: Mode) -> Result<Statement, Error> {
+        match mode {
+            Mode::Normal => unimplemented!(),
+            Mode::Recovery(error) => unimplemented!(),
         }
     }
 
     /// Reports an error diagnostic.
-    fn error<T>(&mut self, diagnostic: Diagnostic) -> Result<T, DiagnosticRef> {
+    fn error<T>(&mut self, diagnostic: Diagnostic) -> Result<T, Error> {
         Err(self.diagnostics.borrow_mut().report(diagnostic))
     }
+}
+
+type Error = DiagnosticRef;
+
+enum Mode {
+    Normal,
+    Recovery(Error),
 }

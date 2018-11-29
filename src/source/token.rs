@@ -67,6 +67,8 @@ pub struct GlyphToken {
 pub enum Glyph {
     /// Any `Keyword`.
     Keyword(Keyword),
+    /// `;`
+    Semicolon,
     /// `/`
     Slash,
 }
