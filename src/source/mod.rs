@@ -33,7 +33,7 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
     if cfg!(debug_assertions) {
         let tokens = Lexer::tokens(&document).1;
         // Assert that the start of each token is equal to the end of the previous token.
-        let mut prev_position = document.range().start();
+        let mut prev_position = document.start();
         for token in &tokens {
             assert_eq!(
                 prev_position,
@@ -45,7 +45,7 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
         // Assert that the end of the last token is equal to the end of the document.
         assert_eq!(
             prev_position,
-            document.range().end(),
+            document.end(),
             "End of the last token does not equal end of the document."
         );
         // Assert that we can convert our module AST back into the list of tokens it was

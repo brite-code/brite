@@ -17,6 +17,9 @@ pub struct Lexer<'a> {
     chars: DocumentChars<'a>,
     /// If we have looked ahead then this will be `Some()`.
     lookahead: Option<Token>,
+    /// If we have reached the end then this will be `Some()`. We will forever return this token now
+    /// whenever `Lexer::advance()` is called.
+    end: Option<Token>,
     /// Every time we call `Lexer::actually_advance()` we set this `line` property. We set the
     /// property to `true` if somewhere in the trivia of our token we have a newline. We set the
     /// property to `false` if there is no newline in the trivia of our token.
@@ -30,6 +33,7 @@ impl<'a> Lexer<'a> {
             diagnostics,
             chars: document.chars(),
             lookahead: None,
+            end: None,
             line: false,
         }
     }
@@ -110,6 +114,11 @@ impl<'a> Lexer<'a> {
     /// Actually advances the lexer. The `Lexer::advance()` function performs some
     /// housekeeping work only.
     fn actually_advance(&mut self) -> Token {
+        // If we have ended then just keep returning the same token!
+        if let Some(token) = &self.end {
+            return token.clone();
+        }
+
         // The full start of our token including trivia like whitespace and comments.
         let full_start = self.chars.position();
 
@@ -331,7 +340,9 @@ impl<'a> Lexer<'a> {
                     let end = self.chars.position();
                     self.chars.advance();
                     let range = TokenRange::new(full_start, Range::new(end, 0));
-                    EndToken::new(range).into()
+                    let token: Token = EndToken::new(range).into();
+                    self.end = Some(token.clone());
+                    token
                 }
             };
         }
@@ -352,23 +363,18 @@ mod tests {
     use std::cell::RefCell;
 
     #[test]
-    #[should_panic(
-        expected = "Should not call `DocumentChars::advance()` again after it returns `None`."
-    )]
-    fn document_chars_end_panic() {
+    fn document_chars_end() {
         let document = Document::new("/path/to/document.txt".into(), "abc".into());
         let diagnostics = RefCell::new(DiagnosticSet::new());
         let mut lexer = Lexer::new(&diagnostics, &document);
         assert!(lexer.advance().is_identifier());
         assert!(lexer.advance().is_end());
-        lexer.advance();
+        assert!(lexer.advance().is_end());
+        assert!(lexer.advance().is_end());
     }
 
     #[test]
-    #[should_panic(
-        expected = "Should not call `DocumentChars::advance()` again after it returns `None`."
-    )]
-    fn document_chars_end_panic_lookahead() {
+    fn document_chars_end_lookahead() {
         let document = Document::new("/path/to/document.txt".into(), "abc".into());
         let diagnostics = RefCell::new(DiagnosticSet::new());
         let mut lexer = Lexer::new(&diagnostics, &document);
@@ -378,7 +384,33 @@ mod tests {
         assert!(lexer.lookahead().is_end());
         assert!(lexer.lookahead().is_end());
         assert!(lexer.advance().is_end());
-        lexer.lookahead();
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.lookahead().is_end());
+    }
+
+    #[test]
+    fn document_chars_end_full_range() {
+        let document = Document::new("/path/to/document.txt".into(), "  ".into());
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        let token = lexer.advance();
+        assert!(token.is_end());
+        assert_eq!(
+            token.full_range(),
+            &TokenRange::new(document.start(), Range::new(document.end(), 0))
+        );
+        let token = lexer.advance();
+        assert!(token.is_end());
+        assert_eq!(
+            token.full_range(),
+            &TokenRange::new(document.start(), Range::new(document.end(), 0))
+        );
+        let token = lexer.advance();
+        assert!(token.is_end());
+        assert_eq!(
+            token.full_range(),
+            &TokenRange::new(document.start(), Range::new(document.end(), 0))
+        );
     }
 
     #[test]

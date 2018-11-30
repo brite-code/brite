@@ -1,7 +1,6 @@
 use std::fs;
 use std::io;
 use std::iter::Peekable;
-use std::mem;
 use std::path::PathBuf;
 use std::str::Chars;
 
@@ -53,12 +52,14 @@ impl Document {
         Document { path, text, lines }
     }
 
-    /// The range of our document encompassing every single character in its source text.
-    pub fn range(&self) -> Range {
-        Range {
-            start: Position(0),
-            length: self.text.len() as u32,
-        }
+    /// The position our document starts at.
+    pub fn start(&self) -> Position {
+        Position(0)
+    }
+
+    /// The position our document ends at.
+    pub fn end(&self) -> Position {
+        Position(self.text.len() as u32)
     }
 
     /// Gets an iterator of characters in the source document along with the position of
@@ -67,8 +68,6 @@ impl Document {
         DocumentChars {
             chars: self.text.chars().peekable(),
             position: 0,
-            #[cfg(debug_assertions)]
-            done: false,
         }
     }
 }
@@ -114,8 +113,6 @@ impl Document {
 pub struct DocumentChars<'a> {
     chars: Peekable<Chars<'a>>,
     position: u32,
-    #[cfg(debug_assertions)]
-    done: bool,
 }
 
 impl<'a> DocumentChars<'a> {
@@ -127,13 +124,7 @@ impl<'a> DocumentChars<'a> {
     #[inline]
     pub fn advance(&mut self) -> Option<char> {
         match self.chars.next() {
-            None => {
-                debug_assert!(
-                    !mem::replace(&mut self.done, true),
-                    "Should not call `DocumentChars::advance()` again after it returns `None`."
-                );
-                None
-            }
+            None => None,
             Some(c) => {
                 self.position += c.len_utf8() as u32;
                 Some(c)
@@ -410,17 +401,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Should not call `DocumentChars::advance()` again after it returns `None`."
-    )]
-    fn document_chars_end_panic() {
+    fn document_chars_end() {
         let document = Document::new("/path/to/document.txt".into(), "abc".into());
         let mut chars = document.chars();
         assert_eq!(chars.advance(), Some('a'));
         assert_eq!(chars.advance(), Some('b'));
         assert_eq!(chars.advance(), Some('c'));
         assert_eq!(chars.advance(), None);
-        chars.advance();
+        assert_eq!(chars.advance(), None);
+        assert_eq!(chars.advance(), None);
     }
 
     #[test]
@@ -439,6 +428,10 @@ mod tests {
         assert_eq!(chars.lookahead(), None);
         assert_eq!(chars.lookahead(), None);
         assert_eq!(chars.advance(), None);
+        assert_eq!(chars.lookahead(), None);
+        assert_eq!(chars.lookahead(), None);
+        assert_eq!(chars.advance(), None);
+        assert_eq!(chars.lookahead(), None);
         assert_eq!(chars.lookahead(), None);
     }
 

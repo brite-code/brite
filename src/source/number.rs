@@ -272,7 +272,7 @@ mod tests {
         ];
 
         for (source, expected) in cases {
-            let mut document = Document::new("/path/to/document.txt".into(), source.into());
+            let document = Document::new("/path/to/document.txt".into(), source.into());
             let actual = Number::parse(&mut document.chars());
             let expected = expected.map(|expected| {
                 expected
