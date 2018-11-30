@@ -18,26 +18,25 @@ use super::ast::*;
 use super::identifier::Keyword;
 use super::lexer::Lexer;
 use super::token::*;
-use crate::diagnostics::DiagnosticSet;
-use std::cell::RefCell;
 
 #[derive(Debug)]
 enum Never {}
 
 /// Parses a stream of tokens into an Abstract Syntax Tree (AST).
 pub struct Parser<'a> {
-    diagnostics: &'a RefCell<DiagnosticSet>,
+    /// The lexer our parser uses to generate tokens. The lexer owns a diagnostics struct that we
+    /// also use in our parser.
     lexer: Lexer<'a>,
 }
 
 impl<'a> Parser<'a> {
-    fn new(diagnostics: &'a RefCell<DiagnosticSet>, lexer: Lexer<'a>) -> Self {
-        Parser { diagnostics, lexer }
+    fn new(lexer: Lexer<'a>) -> Self {
+        Parser { lexer }
     }
 
     /// Parses a module from a token stream consuming _all_ tokens in the stream.
-    pub fn parse(diagnostics: &'a RefCell<DiagnosticSet>, lexer: Lexer<'a>) -> Module {
-        let mut parser = Parser::new(diagnostics, lexer);
+    pub fn parse(lexer: Lexer<'a>) -> Module {
+        let mut parser = Parser::new(lexer);
         parser.parse_module().unwrap()
     }
 
