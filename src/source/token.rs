@@ -68,10 +68,26 @@ pub struct GlyphToken {
 pub enum Glyph {
     /// Any `Keyword`.
     Keyword(Keyword),
+    /// `{`
+    BraceLeft,
+    /// `}`
+    BraceRight,
+    /// `,`
+    Comma,
+    /// `.`
+    Dot,
+    /// `=`
+    Equals,
+    /// `(`
+    ParenLeft,
+    /// `)`
+    ParenRight,
     /// `;`
     Semicolon,
     /// `/`
     Slash,
+    /// `_`
+    Underscore,
 }
 
 impl GlyphToken {
@@ -81,6 +97,10 @@ impl GlyphToken {
 
     pub fn keyword(range: TokenRange, keyword: Keyword) -> Self {
         Self::new(range, Glyph::Keyword(keyword))
+    }
+
+    pub fn glyph(&self) -> &Glyph {
+        &self.glyph
     }
 }
 
@@ -142,9 +162,23 @@ impl EndToken {
 }
 
 impl Token {
+    pub fn is_glyph(&self, glyph: Glyph) -> bool {
+        match self {
+            Token::Glyph(token) => token.glyph == glyph,
+            _ => false,
+        }
+    }
+
     pub fn is_identifier(&self) -> bool {
         match self {
             Token::Identifier(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        match self {
+            Token::Number(_) => true,
             _ => false,
         }
     }

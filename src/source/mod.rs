@@ -28,9 +28,34 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
     let lexer = Lexer::new(&diagnostics, &document);
     // Parse our module using the lexer.
     let module = Parser::parse(&diagnostics, lexer);
-    // Make sure that we can recreate our tokens list from the parsed AST. This ensures that our AST
-    // contains _all_ the information in our source document.
-    debug_assert_eq!(Lexer::tokens(&document).1, module.clone().into_tokens());
+    // If debug assertions are enabled then run our invariants to make sure that the tokens list and
+    // the module AST are well formed.
+    if cfg!(debug_assertions) {
+        let tokens = Lexer::tokens(&document).1;
+        // Assert that the start of each token is equal to the end of the previous token.
+        let mut prev_position = document.range().start();
+        for token in &tokens {
+            assert_eq!(
+                prev_position,
+                token.full_range().full_start(),
+                "Start of the next token does not equal end of the previous token."
+            );
+            prev_position = token.full_range().end();
+        }
+        // Assert that the end of the last token is equal to the end of the document.
+        assert_eq!(
+            prev_position,
+            document.range().end(),
+            "End of the last token does not equal end of the document."
+        );
+        // Assert that we can convert our module AST back into the list of tokens it was
+        // parsed from.
+        assert_eq!(
+            tokens,
+            module.clone().into_tokens(),
+            "Could not turn the module AST back into the tokens list it was parsed from."
+        );
+    }
     // Return the parsed module and the reported diagnostics.
     let diagnostics = diagnostics.into_inner();
     (diagnostics, module)

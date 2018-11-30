@@ -11,9 +11,16 @@ use std::cell::RefCell;
 
 /// A lexer turns an iterator of source document characters into an iterator of tokens.
 pub struct Lexer<'a> {
+    /// The diagnostics struct we will report errors to.
     diagnostics: &'a RefCell<DiagnosticSet>,
+    /// The document characters we are lexing.
     chars: DocumentChars<'a>,
+    /// If we have looked ahead then this will be `Some()`.
     lookahead: Option<Token>,
+    /// Every time we call `Lexer::actually_advance()` we set this `line` property. We set the
+    /// property to `true` if somewhere in the trivia of our token we have a newline. We set the
+    /// property to `false` if there is no newline in the trivia of our token.
+    line: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -23,6 +30,7 @@ impl<'a> Lexer<'a> {
             diagnostics,
             chars: document.chars(),
             lookahead: None,
+            line: false,
         }
     }
 
@@ -56,12 +64,7 @@ impl<'a> Lexer<'a> {
     pub fn advance(&mut self) -> Token {
         match self.lookahead.take() {
             Some(token) => token,
-            None => {
-                let position = self.chars.position();
-                let token = self.actually_advance();
-                debug_assert_eq!(position, token.full_range().full_start());
-                token
-            }
+            None => self.actually_advance(),
         }
     }
 
@@ -70,11 +73,37 @@ impl<'a> Lexer<'a> {
     #[inline]
     pub fn lookahead(&mut self) -> &Token {
         if self.lookahead.is_none() {
-            self.lookahead = Some(self.advance());
+            self.lookahead = Some(self.actually_advance());
         }
         match &self.lookahead {
             Some(token) => token,
             None => unreachable!(),
+        }
+    }
+
+    /// Look at the next token on the same line as our current line. If the next token is on the
+    /// same line then return the token. If the next token is on a different line return `None`.
+    #[inline]
+    pub fn lookahead_on_same_line(&mut self) -> Option<&Token> {
+        if self.lookahead.is_none() {
+            self.lookahead = Some(self.actually_advance());
+        }
+        // `self.line` is set when we call `Lexer::actually_advance()`. It is set to true when there
+        // is some newline in the trivia of the token returned by `Lexer::actually_advance()`.
+        //
+        // At this point we are guaranteed to have a token in `self.lookahead` based on our if
+        // statement above. Therefore `self.line` applies to the trivia of the
+        // `self.lookahead` token.
+        //
+        // NOTE: Unfortunately this is a bit brittle and depends on a number of behaviors across
+        // lexer functions.
+        if self.line {
+            None
+        } else {
+            Some(match &self.lookahead {
+                Some(token) => token,
+                None => unreachable!(),
+            })
         }
     }
 
@@ -84,16 +113,75 @@ impl<'a> Lexer<'a> {
         // The full start of our token including trivia like whitespace and comments.
         let full_start = self.chars.position();
 
+        // Reset whether or not we’ve seen a line in the trivia of our token.
+        self.line = false;
+
         // Loop since we want to ignore whitespace and comments while still remembering our full
         // start position.
         loop {
             return match self.chars.lookahead() {
                 Some(c) => match c {
+                    '{' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::BraceLeft).into()
+                    }
+
+                    '}' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::BraceRight).into()
+                    }
+
+                    ',' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::Dot).into()
+                    }
+
+                    '.' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::Dot).into()
+                    }
+
+                    '=' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::Equals).into()
+                    }
+
+                    '(' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::ParenLeft).into()
+                    }
+
+                    ')' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::ParenRight).into()
+                    }
+
                     ';' => {
                         let start = self.chars.position();
                         self.chars.advance();
                         let range = TokenRange::new(full_start, Range::new(start, 1));
                         GlyphToken::new(range, Glyph::Semicolon).into()
+                    }
+
+                    '_' => {
+                        let start = self.chars.position();
+                        self.chars.advance();
+                        let range = TokenRange::new(full_start, Range::new(start, 1));
+                        GlyphToken::new(range, Glyph::Underscore).into()
                     }
 
                     // Parse tokens that start with a slash.
@@ -154,8 +242,22 @@ impl<'a> Lexer<'a> {
                         }
                     }
 
+                    // Ignore newlines (`\n`).
+                    '\n' => {
+                        self.chars.advance();
+                        self.line = true;
+                        continue;
+                    }
+
+                    // Ignore newlines (`\r` and `\r\n`).
+                    '\r' => {
+                        self.chars.advance();
+                        self.line = true;
+                        continue;
+                    }
+
                     c => {
-                        // Ignore whitespace...
+                        // Ignore whitespace.
                         if c.is_whitespace() {
                             self.chars.advance();
                             continue;
@@ -277,5 +379,112 @@ mod tests {
         assert!(lexer.lookahead().is_end());
         assert!(lexer.advance().is_end());
         lexer.lookahead();
+    }
+
+    #[test]
+    fn lookahead_on_same_line() {
+        let document = Document::new("/path/to/document.txt".into(), "a 0".into());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_number());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.advance().is_end());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_number());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.advance().is_end());
+
+        let document = Document::new("/path/to/document.txt".into(), "a\n0".into());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.lookahead_on_same_line().is_none());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.advance().is_end());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead_on_same_line().is_none());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.advance().is_end());
+
+        let document = Document::new("/path/to/document.txt".into(), "a\r0".into());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.lookahead_on_same_line().is_none());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.advance().is_end());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead_on_same_line().is_none());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.advance().is_end());
+
+        let document = Document::new("/path/to/document.txt".into(), "a\r\n0".into());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.lookahead_on_same_line().is_none());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.advance().is_end());
+
+        let diagnostics = RefCell::new(DiagnosticSet::new());
+        let mut lexer = Lexer::new(&diagnostics, &document);
+        assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
+        assert!(lexer.lookahead().is_identifier());
+        assert!(lexer.advance().is_identifier());
+        assert!(lexer.lookahead_on_same_line().is_none());
+        assert!(lexer.lookahead().is_number());
+        assert!(lexer.advance().is_number());
+        assert!(lexer.lookahead_on_same_line().unwrap().is_end());
+        assert!(lexer.lookahead().is_end());
+        assert!(lexer.advance().is_end());
     }
 }

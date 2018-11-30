@@ -61,30 +61,26 @@ impl PushTokens for Item {
 /// A block makes it so the items inside are only accessible in the block.
 #[derive(Clone, Debug)]
 pub struct Block {
-    brace_open: GlyphToken,
+    brace_left: GlyphToken,
     items: Vec<Item>,
-    brace_close: GlyphToken,
+    brace_right: GlyphToken,
+}
+
+impl Block {
+    pub fn new(brace_left: GlyphToken, items: Vec<Item>, brace_right: GlyphToken) -> Self {
+        Block {
+            brace_left,
+            items,
+            brace_right,
+        }
+    }
 }
 
 impl PushTokens for Block {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
-        self.brace_open.push_tokens(tokens);
+        self.brace_left.push_tokens(tokens);
         self.items.push_tokens(tokens);
-        self.brace_close.push_tokens(tokens);
-    }
-}
-
-/// An item in a comma list with an optional trailing comma.
-#[derive(Clone, Debug)]
-pub struct CommaListItem<T> {
-    item: T,
-    comma: Option<GlyphToken>,
-}
-
-impl<T: PushTokens> PushTokens for CommaListItem<T> {
-    fn push_tokens(self, tokens: &mut Vec<Token>) {
-        self.item.push_tokens(tokens);
-        self.comma.push_tokens(tokens);
+        self.brace_right.push_tokens(tokens);
     }
 }
 
@@ -95,6 +91,13 @@ pub enum Statement {
     Expression(ExpressionStatement),
     /// `let x = E;`
     Binding(BindingStatement),
+}
+
+impl Into<Item> for Statement {
+    #[inline]
+    fn into(self) -> Item {
+        Item::Statement(self)
+    }
 }
 
 impl PushTokens for Statement {
@@ -115,6 +118,15 @@ pub struct ExpressionStatement {
     semicolon: Option<GlyphToken>,
 }
 
+impl ExpressionStatement {
+    pub fn new(expression: Expression, semicolon: Option<GlyphToken>) -> Self {
+        ExpressionStatement {
+            expression,
+            semicolon,
+        }
+    }
+}
+
 impl PushTokens for ExpressionStatement {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.expression.push_tokens(tokens);
@@ -132,6 +144,24 @@ pub struct BindingStatement {
     equals: GlyphToken,
     value: Expression,
     semicolon: Option<GlyphToken>,
+}
+
+impl BindingStatement {
+    pub fn new(
+        let_: GlyphToken,
+        pattern: Pattern,
+        equals: GlyphToken,
+        value: Expression,
+        semicolon: Option<GlyphToken>,
+    ) -> Self {
+        BindingStatement {
+            let_,
+            pattern,
+            equals,
+            value,
+            semicolon,
+        }
+    }
 }
 
 impl PushTokens for BindingStatement {
@@ -172,6 +202,12 @@ pub struct BooleanConstant {
     value: bool,
 }
 
+impl BooleanConstant {
+    pub fn new(token: GlyphToken, value: bool) -> Self {
+        BooleanConstant { token, value }
+    }
+}
+
 impl PushTokens for BooleanConstant {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.token.push_tokens(tokens);
@@ -187,6 +223,12 @@ impl PushTokens for BooleanConstant {
 #[derive(Clone, Debug)]
 pub struct NumberConstant {
     token: NumberToken,
+}
+
+impl NumberConstant {
+    pub fn new(token: NumberToken) -> Self {
+        NumberConstant { token }
+    }
 }
 
 impl PushTokens for NumberConstant {
@@ -211,6 +253,8 @@ pub enum Expression {
     Conditional(Box<ConditionalExpression>),
     /// `do { ... }`
     Block(BlockExpression),
+    /// `(E)`
+    Wrapped(Box<WrappedExpression>),
 }
 
 impl PushTokens for Expression {
@@ -222,6 +266,7 @@ impl PushTokens for Expression {
             Expression::Property(property) => property.push_tokens(tokens),
             Expression::Conditional(conditional) => conditional.push_tokens(tokens),
             Expression::Block(block) => block.push_tokens(tokens),
+            Expression::Wrapped(wrapped) => wrapped.push_tokens(tokens),
         }
     }
 }
@@ -232,6 +277,12 @@ impl PushTokens for Expression {
 #[derive(Clone, Debug)]
 pub struct VariableExpression {
     identifier: IdentifierToken,
+}
+
+impl VariableExpression {
+    pub fn new(identifier: IdentifierToken) -> Self {
+        VariableExpression { identifier }
+    }
 }
 
 impl PushTokens for VariableExpression {
@@ -246,17 +297,33 @@ impl PushTokens for VariableExpression {
 #[derive(Clone, Debug)]
 pub struct CallExpression {
     callee: Expression,
-    paren_open: GlyphToken,
+    paren_left: GlyphToken,
     arguments: Vec<CommaListItem<Expression>>,
-    paren_close: GlyphToken,
+    paren_right: GlyphToken,
+}
+
+impl CallExpression {
+    pub fn new(
+        callee: Expression,
+        paren_left: GlyphToken,
+        arguments: Vec<CommaListItem<Expression>>,
+        paren_right: GlyphToken,
+    ) -> Self {
+        CallExpression {
+            callee,
+            paren_left,
+            arguments,
+            paren_right,
+        }
+    }
 }
 
 impl PushTokens for CallExpression {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.callee.push_tokens(tokens);
-        self.paren_open.push_tokens(tokens);
+        self.paren_left.push_tokens(tokens);
         self.arguments.push_tokens(tokens);
-        self.paren_close.push_tokens(tokens);
+        self.paren_right.push_tokens(tokens);
     }
 }
 
@@ -268,6 +335,16 @@ pub struct PropertyExpression {
     object: Expression,
     dot: GlyphToken,
     property: IdentifierToken,
+}
+
+impl PropertyExpression {
+    pub fn new(object: Expression, dot: GlyphToken, property: IdentifierToken) -> Self {
+        PropertyExpression {
+            object,
+            dot,
+            property,
+        }
+    }
 }
 
 impl PushTokens for PropertyExpression {
@@ -299,6 +376,28 @@ pub struct ConditionalExpressionAlternate {
     block: Block,
 }
 
+impl ConditionalExpression {
+    pub fn new(
+        if_: GlyphToken,
+        test: Expression,
+        consequent: Block,
+        alternate: Option<ConditionalExpressionAlternate>,
+    ) -> Self {
+        ConditionalExpression {
+            if_,
+            test,
+            consequent,
+            alternate,
+        }
+    }
+}
+
+impl ConditionalExpressionAlternate {
+    pub fn new(else_: GlyphToken, block: Block) -> Self {
+        ConditionalExpressionAlternate { else_, block }
+    }
+}
+
 impl PushTokens for ConditionalExpression {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.if_.push_tokens(tokens);
@@ -324,10 +423,44 @@ pub struct BlockExpression {
     block: Block,
 }
 
+impl BlockExpression {
+    pub fn new(do_: GlyphToken, block: Block) -> Self {
+        BlockExpression { do_, block }
+    }
+}
+
 impl PushTokens for BlockExpression {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.do_.push_tokens(tokens);
         self.block.push_tokens(tokens);
+    }
+}
+
+/// ```ite
+/// (E)
+/// ```
+#[derive(Clone, Debug)]
+pub struct WrappedExpression {
+    paren_left: GlyphToken,
+    expression: Expression,
+    paren_right: GlyphToken,
+}
+
+impl WrappedExpression {
+    pub fn new(paren_left: GlyphToken, expression: Expression, paren_right: GlyphToken) -> Self {
+        WrappedExpression {
+            paren_left,
+            expression,
+            paren_right,
+        }
+    }
+}
+
+impl PushTokens for WrappedExpression {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        self.paren_left.push_tokens(tokens);
+        self.expression.push_tokens(tokens);
+        self.paren_right.push_tokens(tokens);
     }
 }
 
@@ -358,6 +491,12 @@ pub struct HolePattern {
     hole: GlyphToken,
 }
 
+impl HolePattern {
+    pub fn new(hole: GlyphToken) -> Self {
+        HolePattern { hole }
+    }
+}
+
 impl PushTokens for HolePattern {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.hole.push_tokens(tokens);
@@ -372,9 +511,35 @@ pub struct VariablePattern {
     identifier: IdentifierToken,
 }
 
+impl VariablePattern {
+    pub fn new(identifier: IdentifierToken) -> Self {
+        VariablePattern { identifier }
+    }
+}
+
 impl PushTokens for VariablePattern {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.identifier.push_tokens(tokens);
+    }
+}
+
+/// An item in a comma list with an optional trailing comma.
+#[derive(Clone, Debug)]
+pub struct CommaListItem<T> {
+    item: T,
+    comma: Option<GlyphToken>,
+}
+
+impl<T> CommaListItem<T> {
+    pub fn new(item: T, comma: Option<GlyphToken>) -> Self {
+        CommaListItem { item, comma }
+    }
+}
+
+impl<T: PushTokens> PushTokens for CommaListItem<T> {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        self.item.push_tokens(tokens);
+        self.comma.push_tokens(tokens);
     }
 }
 

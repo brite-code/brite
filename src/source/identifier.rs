@@ -25,6 +25,14 @@ pub enum Keyword {
     True,
     /// `false`
     False,
+    /// `let`
+    Let,
+    /// `if`
+    If,
+    /// `else`
+    Else,
+    /// `do`
+    Do,
 }
 
 impl Identifier {
@@ -65,6 +73,10 @@ impl Identifier {
             "_" => Some(Err(Keyword::Hole)),
             "true" => Some(Err(Keyword::True)),
             "false" => Some(Err(Keyword::False)),
+            "let" => Some(Err(Keyword::Let)),
+            "if" => Some(Err(Keyword::If)),
+            "else" => Some(Err(Keyword::Else)),
+            "do" => Some(Err(Keyword::Do)),
             _ => Some(Ok(Identifier(identifier))),
         }
     }
@@ -109,6 +121,10 @@ impl Keyword {
             Keyword::Hole => "_",
             Keyword::True => "true",
             Keyword::False => "false",
+            Keyword::Let => "let",
+            Keyword::If => "if",
+            Keyword::Else => "else",
+            Keyword::Do => "do",
         }
     }
 
@@ -144,6 +160,7 @@ mod tests {
             ("_", Some(Err(Keyword::Hole))),
             ("true", Some(Err(Keyword::True))),
             ("false", Some(Err(Keyword::False))),
+            ("let", Some(Err(Keyword::Let))),
         ];
 
         for (source, expected) in cases {
