@@ -40,19 +40,9 @@ impl TokenRange {
         self.full_start
     }
 
-    /// Gets the start of this token range.
-    pub fn start(&self) -> Position {
-        self.range.start()
-    }
-
     /// Gets the end of this token range.
     pub fn end(&self) -> Position {
         self.range.end()
-    }
-
-    /// Gets the actual range of our token. Excluding the full start.
-    pub fn range(&self) -> Range {
-        self.range()
     }
 }
 
@@ -169,6 +159,7 @@ impl Token {
         }
     }
 
+    #[cfg(test)]
     pub fn is_identifier(&self) -> bool {
         match self {
             Token::Identifier(_) => true,
@@ -176,6 +167,7 @@ impl Token {
         }
     }
 
+    #[cfg(test)]
     pub fn is_number(&self) -> bool {
         match self {
             Token::Number(_) => true,

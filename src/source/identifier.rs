@@ -107,31 +107,6 @@ impl Identifier {
             c => UnicodeXID::is_xid_continue(c),
         }
     }
-
-    /// The length of this identifier in UTF-8 code units.
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-impl Keyword {
-    /// The keyword’s string representation.
-    fn as_str(&self) -> &'static str {
-        match self {
-            Keyword::Hole => "_",
-            Keyword::True => "true",
-            Keyword::False => "false",
-            Keyword::Let => "let",
-            Keyword::If => "if",
-            Keyword::Else => "else",
-            Keyword::Do => "do",
-        }
-    }
-
-    /// The length of this keyword in UTF-8 code units.
-    pub fn len(&self) -> usize {
-        self.as_str().len()
-    }
 }
 
 #[cfg(test)]

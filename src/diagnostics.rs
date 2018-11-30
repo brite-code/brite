@@ -27,8 +27,10 @@ enum DiagnosticMessage {
     /// code which is technically correct but might be suboptimal. Warnings will not block
     /// deployment of a program by default. However, it is strongly recommended that warnings
     /// be fixed.
+    #[allow(dead_code)]
     Warning(WarningDiagnosticMessage),
     /// Useful information about a user’s program that does not need to be fixed like a warning.
+    #[allow(dead_code)]
     Info(InfoDiagnosticMessage),
 }
 
