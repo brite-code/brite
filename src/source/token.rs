@@ -54,7 +54,7 @@ pub struct GlyphToken {
 }
 
 /// A glyph is some symbol which is a part of Brite source code.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Glyph {
     /// Any `Keyword`.
     Keyword(Keyword),

@@ -17,7 +17,7 @@ use unicode_xid::UnicodeXID;
 pub struct Identifier(String);
 
 /// A keyword reserved in the identifier syntax.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Keyword {
     /// `_`
     Hole,
