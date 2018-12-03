@@ -1,12 +1,12 @@
 use super::ast::*;
 use super::identifier::Keyword;
-use super::lexer::Lexer;
 use super::token::*;
 
-use self::p::{ParseResult, Parser};
+use self::p::Parser;
 
-/// Intentionally `#[inline(always)]`. We want `parse_expression` to be inlined into `Parser`
-/// specialized functions like `Parser::run::<parse_expression>`.
+/// Intentionally `#[inline(always)]`. We want `parse_expression` to be inlined into the `Parser`
+/// trait’s specialized functions like `Parser::run::<parse_expression>`. Then constant propagation
+/// should eliminate the parser object created by this function.
 #[inline(always)]
 fn parse_expression() -> impl Parser<Data = Expression> {
     p::choose5(
@@ -33,50 +33,13 @@ mod p {
     use super::super::identifier::Keyword;
     use super::super::lexer::Lexer;
     use super::super::token::*;
-    use std::marker::PhantomData;
-
-    pub trait ParseResult<T>: Sized {
-        fn parse<P: Parser<Data = T>>(lexer: &mut Lexer, p: P) -> Self;
-    }
-
-    pub struct TestParseResult<T> {
-        ok: bool,
-        phantom: PhantomData<T>,
-    }
-
-    impl<T> ParseResult<T> for TestParseResult<T> {
-        #[inline(always)]
-        fn parse<P: Parser<Data = T>>(lexer: &mut Lexer, p: P) -> Self {
-            let ok = p.test(lexer);
-            TestParseResult {
-                ok,
-                phantom: PhantomData,
-            }
-        }
-    }
-
-    pub struct RunParseResult<T> {
-        result: Option<T>,
-    }
-
-    impl<T> ParseResult<T> for RunParseResult<T> {
-        #[inline(always)]
-        fn parse<P: Parser<Data = T>>(lexer: &mut Lexer, p: P) -> Self {
-            let result = p.run(lexer);
-            RunParseResult { result }
-        }
-    }
 
     pub trait Parser: Sized {
         type Data;
 
-        /// Tests if this parser _might_ successfully parse without consuming any tokens from the
-        /// lexer. We use this to resolve a choice to a certain parser.
-        ///
-        /// Implementations _must not_ advance the lexer!
-        fn test(&self, lexer: &mut Lexer) -> bool;
+        fn test(&self, token: &Token) -> bool;
 
-        fn run(&self, lexer: &mut Lexer) -> Option<Self::Data>;
+        fn run(self, lexer: &mut Lexer) -> Option<Self::Data>;
 
         #[inline(always)]
         fn map<T, F>(self, mapper: F) -> MapParser<Self, F>
@@ -103,12 +66,12 @@ mod p {
         type Data = U;
 
         #[inline(always)]
-        fn test(&self, lexer: &mut Lexer) -> bool {
-            self.parser.test(lexer)
+        fn test(&self, token: &Token) -> bool {
+            self.parser.test(token)
         }
 
         #[inline(always)]
-        fn run(&self, lexer: &mut Lexer) -> Option<Self::Data> {
+        fn run(self, lexer: &mut Lexer) -> Option<Self::Data> {
             self.parser.run(lexer).map(&self.mapper)
         }
     }
@@ -123,15 +86,15 @@ mod p {
         /// a `Parser`. We want `parse_expression` to be inlined in
         /// `Parser::test::<fn parse_expression()>` and have that function be the one expressed in
         /// the build.
-        fn test(&self, lexer: &mut Lexer) -> bool {
-            self().test(lexer)
+        fn test(&self, token: &Token) -> bool {
+            self().test(token)
         }
 
         /// Intentionally not `#[inline(always)]`. Say we have `fn parse_expression()` which returns
         /// a `Parser`. We want `parse_expression` to be inlined in
         /// `Parser::run::<fn parse_expression()>` and have that function be the one expressed in
         /// the build.
-        fn run(&self, lexer: &mut Lexer) -> Option<Self::Data> {
+        fn run(self, lexer: &mut Lexer) -> Option<Self::Data> {
             self().run(lexer)
         }
     }
@@ -147,15 +110,15 @@ mod p {
         type Data = IdentifierToken;
 
         #[inline(always)]
-        fn test(&self, lexer: &mut Lexer) -> bool {
-            match lexer.lookahead() {
+        fn test(&self, token: &Token) -> bool {
+            match token {
                 Token::Identifier(_) => true,
                 _ => false,
             }
         }
 
         #[inline(always)]
-        fn run(&self, lexer: &mut Lexer) -> Option<Self::Data> {
+        fn run(self, lexer: &mut Lexer) -> Option<Self::Data> {
             match lexer.advance() {
                 Token::Identifier(token) => Some(token),
                 _ => None,
@@ -174,15 +137,15 @@ mod p {
         type Data = NumberToken;
 
         #[inline(always)]
-        fn test(&self, lexer: &mut Lexer) -> bool {
-            match lexer.lookahead() {
+        fn test(&self, token: &Token) -> bool {
+            match token {
                 Token::Number(_) => true,
                 _ => false,
             }
         }
 
         #[inline(always)]
-        fn run(&self, lexer: &mut Lexer) -> Option<Self::Data> {
+        fn run(self, lexer: &mut Lexer) -> Option<Self::Data> {
             match lexer.advance() {
                 Token::Number(token) => Some(token),
                 _ => None,
@@ -208,15 +171,15 @@ mod p {
         type Data = GlyphToken;
 
         #[inline(always)]
-        fn test(&self, lexer: &mut Lexer) -> bool {
-            match lexer.lookahead() {
+        fn test(&self, token: &Token) -> bool {
+            match token {
                 Token::Glyph(token) => token.glyph() == &self.glyph,
                 _ => false,
             }
         }
 
         #[inline(always)]
-        fn run(&self, lexer: &mut Lexer) -> Option<Self::Data> {
+        fn run(self, lexer: &mut Lexer) -> Option<Self::Data> {
             match lexer.advance() {
                 Token::Glyph(token) => if token.glyph() == &self.glyph {
                     Some(token)
@@ -238,14 +201,14 @@ mod p {
                     type Data = ($($t::Data),*);
 
                     #[inline(always)]
-                    fn test(&self, lexer: &mut Lexer) -> bool {
+                    fn test(&self, token: &Token) -> bool {
                         // NOTE: We assume that every macro invocation has at least `p1: P1` and
                         // that `p1` is the first parser.
-                        self.p1.test(lexer)
+                        self.p1.test(token)
                     }
 
                     #[inline(always)]
-                    fn run(&self, lexer: &mut Lexer) -> Option<Self::Data> {
+                    fn run(self, lexer: &mut Lexer) -> Option<Self::Data> {
                         $(let $x = self.$x.run(lexer)?;)*
                         Some(($($x),*))
                     }
@@ -266,13 +229,14 @@ mod p {
                     type Data = T;
 
                     #[inline(always)]
-                    fn test(&self, lexer: &mut Lexer) -> bool {
-                        $(self.$x.test(lexer))||*
+                    fn test(&self, token: &Token) -> bool {
+                        $(self.$x.test(token))||*
                     }
 
                     #[inline(always)]
-                    fn run(&self, lexer: &mut Lexer) -> Option<Self::Data> {
-                        $(if self.$x.test(lexer) {
+                    fn run(self, lexer: &mut Lexer) -> Option<Self::Data> {
+                        let token = lexer.lookahead();
+                        $(if self.$x.test(token) {
                             return self.$x.run(lexer);
                         })*
                         None
