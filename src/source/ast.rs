@@ -208,6 +208,18 @@ impl BooleanConstant {
     }
 }
 
+impl Into<Constant> for BooleanConstant {
+    fn into(self) -> Constant {
+        Constant::Boolean(self)
+    }
+}
+
+impl Into<Expression> for BooleanConstant {
+    fn into(self) -> Expression {
+        Expression::Constant(Constant::Boolean(self))
+    }
+}
+
 impl PushTokens for BooleanConstant {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.token.push_tokens(tokens);
@@ -228,6 +240,18 @@ pub struct NumberConstant {
 impl NumberConstant {
     pub fn new(token: NumberToken) -> Self {
         NumberConstant { token }
+    }
+}
+
+impl Into<Constant> for NumberConstant {
+    fn into(self) -> Constant {
+        Constant::Number(self)
+    }
+}
+
+impl Into<Expression> for NumberConstant {
+    fn into(self) -> Expression {
+        Expression::Constant(Constant::Number(self))
     }
 }
 
@@ -282,6 +306,12 @@ pub struct VariableExpression {
 impl VariableExpression {
     pub fn new(identifier: IdentifierToken) -> Self {
         VariableExpression { identifier }
+    }
+}
+
+impl Into<Expression> for VariableExpression {
+    fn into(self) -> Expression {
+        Expression::Variable(self)
     }
 }
 
@@ -453,6 +483,12 @@ impl WrappedExpression {
             expression,
             paren_right,
         }
+    }
+}
+
+impl Into<Expression> for WrappedExpression {
+    fn into(self) -> Expression {
+        Expression::Wrapped(Box::new(self))
     }
 }
 
