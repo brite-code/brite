@@ -312,6 +312,8 @@ impl<'a> ParserContext<'a> {
     }
 }
 
+/* ─── Primitive Parsers ──────────────────────────────────────────────────────────────────────── */
+
 trait TransformParser {
     type Parser: Parser;
     type Data;
@@ -351,8 +353,6 @@ where
         data.into()
     }
 }
-
-/* ─── Primitive Parsers ──────────────────────────────────────────────────────────────────────── */
 
 struct IdentifierParser;
 
