@@ -29,11 +29,11 @@ type StatementParser = ChoiceParser2<ExpressionStatementParser, BindingStatement
 struct ExpressionStatementParser;
 
 impl TransformParser for ExpressionStatementParser {
-    type Parser = OptionalSemicolonParser<ExpressionParser>;
+    type Parser = GroupParser2<ExpressionParser, OptionalParser<glyph_parser::Semicolon>>;
     type Data = Statement;
 
-    fn transform((expression, semicolon): (Expression, Option<GlyphToken>)) -> Statement {
-        ExpressionStatement::new(expression, semicolon).into()
+    fn transform((expression, semicolon): (Expression, Recover<Option<GlyphToken>>)) -> Statement {
+        ExpressionStatement::new(expression, semicolon.unwrap()).into()
     }
 }
 
@@ -43,23 +43,25 @@ impl TransformParser for ExpressionStatementParser {
 struct BindingStatementParser;
 
 impl TransformParser for BindingStatementParser {
-    type Parser = OptionalSemicolonParser<
-        GroupParser4<keyword_parser::Let, PatternParser, glyph_parser::Equals, ExpressionParser>,
+    type Parser = GroupParser5<
+        keyword_parser::Let,
+        PatternParser,
+        glyph_parser::Equals,
+        ExpressionParser,
+        OptionalParser<glyph_parser::Semicolon>,
     >;
     type Data = Statement;
 
     fn transform(
-        ((_let, pattern, equals, expression), semicolon): (
-            (
-                GlyphToken,
-                Recover<Pattern>,
-                Recover<GlyphToken>,
-                Recover<Expression>,
-            ),
-            Option<GlyphToken>,
+        (_let, pattern, equals, expression, semicolon): (
+            GlyphToken,
+            Recover<Pattern>,
+            Recover<GlyphToken>,
+            Recover<Expression>,
+            Recover<Option<GlyphToken>>,
         ),
     ) -> Statement {
-        BindingStatement::new(_let, pattern, equals, expression, semicolon).into()
+        BindingStatement::new(_let, pattern, equals, expression, semicolon.unwrap()).into()
     }
 }
 
@@ -314,6 +316,28 @@ impl<'a> ParserContext<'a> {
 
 /* ─── Primitive Parsers ──────────────────────────────────────────────────────────────────────── */
 
+/// NOTE: Ideally, `OptionalParser<P>::parse` would return `Option<P::Data>` instead of
+/// `Recover<Option<P::Data>>`, but its good enough for now.
+struct OptionalParser<P: Parser> {
+    phantom: PhantomData<P>,
+}
+
+impl<P: Parser> Parser for OptionalParser<P> {
+    type Data = Option<P::Data>;
+
+    fn test(token: &Token) -> bool {
+        P::test(token)
+    }
+
+    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+        Some(P::try_parse(context))
+    }
+
+    fn parse(context: &mut ParserContext) -> Recover<Self::Data> {
+        Ok(P::try_parse(context))
+    }
+}
+
 trait TransformParser {
     type Parser: Parser;
     type Data;
@@ -509,23 +533,7 @@ macro_rules! choice {
 
 group!(struct GroupParser2<P1, P2>);
 group!(struct GroupParser3<P1, P2, P3>);
-group!(struct GroupParser4<P1, P2, P3, P4>);
+group!(struct GroupParser5<P1, P2, P3, P4, P5>);
 
 choice!(struct ChoiceParser2<P1, P2>);
 choice!(struct ChoiceParser5<P1, P2, P3, P4, P5>);
-
-struct OptionalSemicolonParser<P: Parser>(PhantomData<P>);
-
-impl<P: Parser> Parser for OptionalSemicolonParser<P> {
-    type Data = (P::Data, Option<GlyphToken>);
-
-    fn test(token: &Token) -> bool {
-        P::test(token)
-    }
-
-    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-        let item = P::try_parse(context)?;
-        let semicolon = context.lexer.advance_glyph(Glyph::Semicolon);
-        Some((item, semicolon))
-    }
-}
