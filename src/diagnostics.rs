@@ -41,7 +41,7 @@ enum ErrorDiagnosticMessage {
     /// The lexer tried to parse a number, but that number was in an invalid format.
     InvalidNumber { invalid: String },
     /// The parser ran into a token it did not recognize.
-    UnexpectedToken { token: Token },
+    UnexpectedToken { unexpected: Token },
 }
 
 #[derive(Debug, PartialEq)]
@@ -69,8 +69,8 @@ impl Diagnostic {
         Self::error(range, message)
     }
 
-    pub fn unexpected_token(range: Range, token: Token) -> Self {
-        let message = ErrorDiagnosticMessage::UnexpectedToken { token };
+    pub fn unexpected_token(range: Range, unexpected: Token) -> Self {
+        let message = ErrorDiagnosticMessage::UnexpectedToken { unexpected };
         Self::error(range, message)
     }
 }

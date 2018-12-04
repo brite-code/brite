@@ -40,6 +40,11 @@ impl TokenRange {
         self.full_start
     }
 
+    /// Gets the range for this position _not_ including the full start.
+    pub fn range(&self) -> Range {
+        self.range
+    }
+
     /// Gets the end of this token range.
     pub fn end(&self) -> Position {
         self.range.end()

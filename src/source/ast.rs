@@ -8,6 +8,7 @@
 //! - Pretty printing.
 
 use super::token::*;
+use crate::diagnostics::DiagnosticRef;
 
 /// A module represents a single Brite file. A module is made up of any number of declarations
 /// or statements.
@@ -36,6 +37,61 @@ impl Module {
         self.items.push_tokens(&mut tokens);
         tokens.push(self.end.into());
         tokens
+    }
+}
+
+/// Some error occurred while parsing. Errors must be fixed for a Brite program to be deployed!
+/// An error may occur anywhere in our AST.
+pub struct Error {
+    /// The tokens we skipped before arriving at this error. It’s important that we track
+    /// of the skipped tokens so that we can turn our AST back into the tokens list it was
+    /// parsed from.
+    skipped: Vec<Token>,
+    /// Some diagnostic we reported for this error. Usually the first diagnostic if there were a
+    /// couple reported for this error location. Each token we skip will log a diagnostic,
+    /// for instance.
+    diagnostic: DiagnosticRef,
+}
+
+impl Error {
+    pub fn new(skipped: Vec<Token>, diagnostic: DiagnosticRef) -> Self {
+        Error {
+            skipped,
+            diagnostic,
+        }
+    }
+}
+
+impl PushTokens for Error {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        tokens.extend(self.skipped);
+    }
+}
+
+/// Whenever we parse a node in our AST we might run into an unexpected token. At this point we go
+/// into error recovery mode. This is the result of error recovery. Most of the  data in our AST are
+/// wrapped in this.
+pub enum Recover<T> {
+    /// There was no error. We were able to parse the node without a problem.
+    Ok(T),
+    /// There was an error while parsing our node, but the error was not fatal. For instance, we
+    /// might have seen some unexpected tokens, skipped over them, and then parsed our node.
+    Error(Error, T),
+    /// There was an error while parsing our node and the error was fatal. We were not able to
+    /// recover from the error.
+    FatalError(Error),
+}
+
+impl<T: PushTokens> PushTokens for Recover<T> {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        match self {
+            Recover::Ok(x) => x.push_tokens(tokens),
+            Recover::Error(e, x) => {
+                e.push_tokens(tokens);
+                x.push_tokens(tokens);
+            }
+            Recover::FatalError(e) => e.push_tokens(tokens),
+        }
     }
 }
 
@@ -579,22 +635,22 @@ impl<T: PushTokens> PushTokens for CommaListItem<T> {
     }
 }
 
-/* ─── Utilities ──────────────────────────────────────────────────────────────────────────────── */
+/* ─── Push Tokens ────────────────────────────────────────────────────────────────────────────── */
 
 /// Helps us implement `Module::into_tokens()`.
+///
+/// Unrelated to authentication “push tokens” 😛
 trait PushTokens {
     fn push_tokens(self, tokens: &mut Vec<Token>) -> ();
 }
 
 impl<T: Into<Token>> PushTokens for T {
-    #[inline]
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         tokens.push(self.into());
     }
 }
 
 impl<T: PushTokens> PushTokens for Option<T> {
-    #[inline]
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         if let Some(value) = self {
             value.push_tokens(tokens);
@@ -603,7 +659,6 @@ impl<T: PushTokens> PushTokens for Option<T> {
 }
 
 impl<T: PushTokens> PushTokens for Vec<T> {
-    #[inline]
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         for item in self {
             item.push_tokens(tokens);
