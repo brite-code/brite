@@ -84,6 +84,17 @@ pub enum Recover<T> {
     FatalError(Error),
 }
 
+impl<T> Recover<T> {
+    /// Transforms the value contained by recover to another value.
+    pub fn map<U>(self, f: impl Fn(T) -> U) -> Recover<U> {
+        match self {
+            Recover::Ok(x) => Recover::Ok(f(x)),
+            Recover::Error(error, x) => Recover::Error(error, f(x)),
+            Recover::FatalError(error) => Recover::FatalError(error),
+        }
+    }
+}
+
 impl<T: PushTokens> PushTokens for Recover<T> {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         match self {
@@ -152,7 +163,6 @@ pub enum Statement {
 }
 
 impl Into<Item> for Statement {
-    #[inline]
     fn into(self) -> Item {
         Item::Statement(self)
     }
@@ -172,16 +182,22 @@ impl PushTokens for Statement {
 /// ```
 #[derive(Clone, Debug)]
 pub struct ExpressionStatement {
-    expression: Expression,
-    semicolon: Option<GlyphToken>,
+    expression: Recover<Expression>,
+    semicolon: Option<Recover<GlyphToken>>,
 }
 
 impl ExpressionStatement {
-    pub fn new(expression: Expression, semicolon: Option<GlyphToken>) -> Self {
+    pub fn new(expression: Recover<Expression>, semicolon: Option<Recover<GlyphToken>>) -> Self {
         ExpressionStatement {
             expression,
             semicolon,
         }
+    }
+}
+
+impl Into<Statement> for ExpressionStatement {
+    fn into(self) -> Statement {
+        Statement::Expression(self)
     }
 }
 

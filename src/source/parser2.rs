@@ -5,9 +5,20 @@ use super::token::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef};
 use std::marker::PhantomData;
 
-pub fn parse_expression(lexer: Lexer) -> Recover<Expression> {
+/// Parses a complete Brite module AST out of a stream of lexical tokens.
+///
+/// Implements the ability to recover from parse errors.
+pub fn parse(lexer: Lexer) -> Module {
     let mut context = ParserContext::new(lexer);
-    ExpressionParser::parse(&mut context)
+    let expression = ExpressionParser::parse(&mut context);
+    let statement: Statement = ExpressionStatement::new(expression, None).into();
+    let end = loop {
+        match context.lexer.advance() {
+            Token::End(end) => break end,
+            _ => {}
+        }
+    };
+    Module::new(vec![statement.into()], end)
 }
 
 type ExpressionParser = ChoiceParser5<
@@ -79,7 +90,7 @@ impl TransformParser for WrappedExpressionParser {
     }
 }
 
-/* ─── Framework ──────────────────────────────────────────────────────────────────────────────── */
+/* ─── Parsing Framework ──────────────────────────────────────────────────────────────────────── */
 
 trait Parser: Sized {
     type Data;
@@ -238,7 +249,7 @@ impl<T: TransformParser> Parser for T {
     }
 }
 
-/* ─── Parsers ────────────────────────────────────────────────────────────────────────────────── */
+/* ─── Primitive Parsers ──────────────────────────────────────────────────────────────────────── */
 
 struct IdentifierParser;
 
