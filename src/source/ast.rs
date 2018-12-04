@@ -168,12 +168,12 @@ impl PushTokens for Statement {
 /// ```
 #[derive(Clone, Debug)]
 pub struct ExpressionStatement {
-    expression: Recover<Expression>,
+    expression: Expression,
     semicolon: Option<GlyphToken>,
 }
 
 impl ExpressionStatement {
-    pub fn new(expression: Recover<Expression>, semicolon: Option<GlyphToken>) -> Self {
+    pub fn new(expression: Expression, semicolon: Option<GlyphToken>) -> Self {
         ExpressionStatement {
             expression,
             semicolon,
@@ -199,7 +199,7 @@ impl PushTokens for ExpressionStatement {
 /// ```
 #[derive(Clone, Debug)]
 pub struct BindingStatement {
-    let_: Recover<GlyphToken>,
+    let_: GlyphToken,
     pattern: Recover<Pattern>,
     equals: Recover<GlyphToken>,
     value: Recover<Expression>,
@@ -208,7 +208,7 @@ pub struct BindingStatement {
 
 impl BindingStatement {
     pub fn new(
-        let_: Recover<GlyphToken>,
+        let_: GlyphToken,
         pattern: Recover<Pattern>,
         equals: Recover<GlyphToken>,
         value: Recover<Expression>,
@@ -270,12 +270,12 @@ impl PushTokens for Constant {
 /// ```
 #[derive(Clone, Debug)]
 pub struct BooleanConstant {
-    token: Recover<GlyphToken>,
+    token: GlyphToken,
     value: bool,
 }
 
 impl BooleanConstant {
-    pub fn new(token: Recover<GlyphToken>, value: bool) -> Self {
+    pub fn new(token: GlyphToken, value: bool) -> Self {
         BooleanConstant { token, value }
     }
 }
@@ -300,11 +300,11 @@ impl PushTokens for BooleanConstant {
 /// ```
 #[derive(Clone, Debug)]
 pub struct NumberConstant {
-    token: Recover<NumberToken>,
+    token: NumberToken,
 }
 
 impl NumberConstant {
-    pub fn new(token: Recover<NumberToken>) -> Self {
+    pub fn new(token: NumberToken) -> Self {
         NumberConstant { token }
     }
 }
@@ -360,11 +360,11 @@ impl PushTokens for Expression {
 /// ```
 #[derive(Clone, Debug)]
 pub struct VariableExpression {
-    identifier: Recover<IdentifierToken>,
+    identifier: IdentifierToken,
 }
 
 impl VariableExpression {
-    pub fn new(identifier: Recover<IdentifierToken>) -> Self {
+    pub fn new(identifier: IdentifierToken) -> Self {
         VariableExpression { identifier }
     }
 }
@@ -531,14 +531,14 @@ impl PushTokens for BlockExpression {
 /// ```
 #[derive(Clone, Debug)]
 pub struct WrappedExpression {
-    paren_left: Recover<GlyphToken>,
+    paren_left: GlyphToken,
     expression: Recover<Expression>,
     paren_right: Recover<GlyphToken>,
 }
 
 impl WrappedExpression {
     pub fn new(
-        paren_left: Recover<GlyphToken>,
+        paren_left: GlyphToken,
         expression: Recover<Expression>,
         paren_right: Recover<GlyphToken>,
     ) -> Self {
@@ -588,11 +588,11 @@ impl PushTokens for Pattern {
 /// ```
 #[derive(Clone, Debug)]
 pub struct HolePattern {
-    hole: Recover<GlyphToken>,
+    hole: GlyphToken,
 }
 
 impl HolePattern {
-    pub fn new(hole: Recover<GlyphToken>) -> Self {
+    pub fn new(hole: GlyphToken) -> Self {
         HolePattern { hole }
     }
 }
@@ -614,11 +614,11 @@ impl PushTokens for HolePattern {
 /// ```
 #[derive(Clone, Debug)]
 pub struct VariablePattern {
-    identifier: Recover<IdentifierToken>,
+    identifier: IdentifierToken,
 }
 
 impl VariablePattern {
-    pub fn new(identifier: Recover<IdentifierToken>) -> Self {
+    pub fn new(identifier: IdentifierToken) -> Self {
         VariablePattern { identifier }
     }
 }

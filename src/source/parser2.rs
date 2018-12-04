@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 pub fn parse(lexer: Lexer) -> Module {
     let mut context = ParserContext::new(lexer);
     let expression = ExpressionParser::parse(&mut context);
-    let statement: Statement = ExpressionStatement::new(expression, None).into();
+    let statement: Statement = ExpressionStatement::new(expression.unwrap(), None).into();
     let end = loop {
         match context.lexer.advance() {
             Token::End(end) => break end,
@@ -29,10 +29,10 @@ type StatementParser = ChoiceParser2<ExpressionStatementParser, BindingStatement
 struct ExpressionStatementParser;
 
 impl TransformParser for ExpressionStatementParser {
-    type Parser = GroupParser2<ExpressionParser, glyph_parser::optional::Semicolon>;
+    type Parser = OptionalSemicolonParser<ExpressionParser>;
     type Data = Statement;
 
-    fn transform((expression, semicolon): (Recover<Expression>, Option<GlyphToken>)) -> Statement {
+    fn transform((expression, semicolon): (Expression, Option<GlyphToken>)) -> Statement {
         ExpressionStatement::new(expression, semicolon).into()
     }
 }
@@ -43,21 +43,19 @@ impl TransformParser for ExpressionStatementParser {
 struct BindingStatementParser;
 
 impl TransformParser for BindingStatementParser {
-    type Parser = GroupParser5<
-        keyword_parser::Let,
-        PatternParser,
-        glyph_parser::Equals,
-        ExpressionParser,
-        glyph_parser::optional::Semicolon,
+    type Parser = OptionalSemicolonParser<
+        GroupParser4<keyword_parser::Let, PatternParser, glyph_parser::Equals, ExpressionParser>,
     >;
     type Data = Statement;
 
     fn transform(
-        (_let, pattern, equals, expression, semicolon): (
-            Recover<GlyphToken>,
-            Recover<Pattern>,
-            Recover<GlyphToken>,
-            Recover<Expression>,
+        ((_let, pattern, equals, expression), semicolon): (
+            (
+                GlyphToken,
+                Recover<Pattern>,
+                Recover<GlyphToken>,
+                Recover<Expression>,
+            ),
             Option<GlyphToken>,
         ),
     ) -> Statement {
@@ -74,7 +72,7 @@ impl TransformParser for TrueConstantParser {
     type Parser = keyword_parser::True;
     type Data = Constant;
 
-    fn transform(boolean: Recover<GlyphToken>) -> Constant {
+    fn transform(boolean: GlyphToken) -> Constant {
         BooleanConstant::new(boolean, true).into()
     }
 }
@@ -88,7 +86,7 @@ impl TransformParser for FalseConstantParser {
     type Parser = keyword_parser::False;
     type Data = Constant;
 
-    fn transform(boolean: Recover<GlyphToken>) -> Constant {
+    fn transform(boolean: GlyphToken) -> Constant {
         BooleanConstant::new(boolean, false).into()
     }
 }
@@ -105,7 +103,7 @@ impl TransformParser for NumberConstantParser {
     type Parser = NumberParser;
     type Data = Constant;
 
-    fn transform(number: Recover<NumberToken>) -> Constant {
+    fn transform(number: NumberToken) -> Constant {
         NumberConstant::new(number).into()
     }
 }
@@ -127,7 +125,7 @@ impl TransformParser for VariableExpressionParser {
     type Parser = IdentifierParser;
     type Data = Expression;
 
-    fn transform(identifier: Recover<IdentifierToken>) -> Expression {
+    fn transform(identifier: IdentifierToken) -> Expression {
         VariableExpression::new(identifier).into()
     }
 }
@@ -143,7 +141,7 @@ impl TransformParser for WrappedExpressionParser {
 
     fn transform(
         (paren_left, expression, paren_right): (
-            Recover<GlyphToken>,
+            GlyphToken,
             Recover<Expression>,
             Recover<GlyphToken>,
         ),
@@ -163,7 +161,7 @@ impl TransformParser for HolePatternParser {
     type Parser = glyph_parser::Underscore;
     type Data = Pattern;
 
-    fn transform(hole: Recover<GlyphToken>) -> Pattern {
+    fn transform(hole: GlyphToken) -> Pattern {
         HolePattern::new(hole).into()
     }
 }
@@ -177,7 +175,7 @@ impl TransformParser for VariablePatternParser {
     type Parser = IdentifierParser;
     type Data = Pattern;
 
-    fn transform(identifier: Recover<IdentifierToken>) -> Pattern {
+    fn transform(identifier: IdentifierToken) -> Pattern {
         VariablePattern::new(identifier).into()
     }
 }
@@ -189,10 +187,17 @@ trait Parser: Sized {
 
     fn test(token: &Token) -> bool;
 
-    // TODO: Consider optional parsers when writing documentation.
-    fn parse(context: &mut ParserContext) -> Self::Data;
-
     fn try_parse(context: &mut ParserContext) -> Option<Self::Data>;
+
+    fn parse(context: &mut ParserContext) -> Recover<Self::Data> {
+        // Try to parse our node. If successful return the node. If unsuccesful then we are in
+        // error recovery mode!
+        if let Some(x) = Self::try_parse(context) {
+            Ok(x)
+        } else {
+            context.recover(Self::try_parse)
+        }
+    }
 }
 
 struct ParserContext<'a> {
@@ -217,22 +222,11 @@ impl<'a> ParserContext<'a> {
     }
 
     /// Provides error recovery logic for a parsing operation which might fail. Takes a
-    /// `try_parse` function which, like `Parser::try_parse`, consumes no input on failure and
-    /// returns `None`. If a call to `try_parse` fails we will advance to the next token and
-    /// try again. _Unless_ the next token can be handled by any parser in our stack. Then we
-    /// will return a fatal error node and let the parent parser handle the token.
-    fn retry<T>(&mut self, try_parse: impl Fn(&mut ParserContext) -> Option<T>) -> Recover<T> {
-        // Try to parse our node. If successful return the node. If unsuccesful then we are in
-        // error recovery mode!
-        if let Some(x) = try_parse(self) {
-            Ok(x)
-        } else {
-            self.recover(try_parse)
-        }
-    }
-
-    /// Error recovery behavior for `ParserContext::retry`.
-    fn recover<T>(&mut self, try_parse: impl Fn(&mut ParserContext) -> Option<T>) -> Recover<T> {
+    /// `Parser::try_parse` function which consumes no input on failure and returns `None`. If a
+    /// call to `try_parse` fails we will advance to the next token and try again. _Unless_ the next
+    /// token can be handled by any parser in our stack. Then we will return a fatal error node and
+    /// let the parent parser handle the token.
+    fn recover<T>(&mut self, try_parse: fn(&mut ParserContext) -> Option<T>) -> Recover<T> {
         // Setup information we will need for creating errors.
         let mut skipped = Vec::new();
         let mut first_diagnostic = None;
@@ -332,10 +326,6 @@ impl<T: TransformParser> Parser for T {
         T::Parser::test(token)
     }
 
-    fn parse(context: &mut ParserContext) -> Self::Data {
-        T::transform(T::Parser::parse(context))
-    }
-
     fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
         T::Parser::try_parse(context).map(T::transform)
     }
@@ -367,36 +357,28 @@ where
 struct IdentifierParser;
 
 impl Parser for IdentifierParser {
-    type Data = Recover<IdentifierToken>;
+    type Data = IdentifierToken;
 
     fn test(token: &Token) -> bool {
         token.is_identifier()
     }
 
-    fn parse(context: &mut ParserContext) -> Self::Data {
-        context.retry(|context| context.lexer.advance_identifier())
-    }
-
     fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-        context.lexer.advance_identifier().map(Ok)
+        context.lexer.advance_identifier()
     }
 }
 
 struct NumberParser;
 
 impl Parser for NumberParser {
-    type Data = Recover<NumberToken>;
+    type Data = NumberToken;
 
     fn test(token: &Token) -> bool {
         token.is_number()
     }
 
-    fn parse(context: &mut ParserContext) -> Self::Data {
-        context.retry(|context| context.lexer.advance_number())
-    }
-
     fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-        context.lexer.advance_number().map(Ok)
+        context.lexer.advance_number()
     }
 }
 
@@ -408,18 +390,14 @@ mod glyph_parser {
             pub struct $glyph;
 
             impl Parser for $glyph {
-                type Data = Recover<GlyphToken>;
+                type Data = GlyphToken;
 
                 fn test(token: &Token) -> bool {
                     token.is_glyph(Glyph::$glyph)
                 }
 
-                fn parse(context: &mut ParserContext) -> Self::Data {
-                    context.retry(|context| context.lexer.advance_glyph(Glyph::$glyph))
-                }
-
                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-                    context.lexer.advance_glyph(Glyph::$glyph).map(Ok)
+                    context.lexer.advance_glyph(Glyph::$glyph)
                 }
             }
         };
@@ -428,35 +406,8 @@ mod glyph_parser {
     glyph!(Equals);
     glyph!(ParenLeft);
     glyph!(ParenRight);
+    glyph!(Semicolon);
     glyph!(Underscore);
-
-    pub mod optional {
-        use super::*;
-
-        macro_rules! glyph {
-            ($glyph:ident) => {
-                pub struct $glyph;
-
-                impl Parser for $glyph {
-                    type Data = Option<GlyphToken>;
-
-                    fn test(token: &Token) -> bool {
-                        token.is_glyph(Glyph::$glyph)
-                    }
-
-                    fn parse(context: &mut ParserContext) -> Self::Data {
-                        context.lexer.advance_glyph(Glyph::$glyph)
-                    }
-
-                    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-                        context.lexer.advance_glyph(Glyph::$glyph).map(Some)
-                    }
-                }
-            };
-        }
-
-        glyph!(Semicolon);
-    }
 }
 
 mod keyword_parser {
@@ -467,25 +418,16 @@ mod keyword_parser {
             pub struct $keyword;
 
             impl Parser for $keyword {
-                type Data = Recover<GlyphToken>;
+                type Data = GlyphToken;
 
                 fn test(token: &Token) -> bool {
                     token.is_glyph(Glyph::Keyword(Keyword::$keyword))
-                }
-
-                fn parse(context: &mut ParserContext) -> Self::Data {
-                    context.retry(|context| {
-                        context
-                            .lexer
-                            .advance_glyph(Glyph::Keyword(Keyword::$keyword))
-                    })
                 }
 
                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
                     context
                         .lexer
                         .advance_glyph(Glyph::Keyword(Keyword::$keyword))
-                        .map(Ok)
                 }
             }
         };
@@ -516,19 +458,10 @@ macro_rules! group {
         struct $name<P1: Parser, $($t: Parser),*>(PhantomData<(P1, $($t),*)>);
 
         impl<P1: Parser, $($t: Parser),*> Parser for $name<P1, $($t),*> {
-            type Data = (P1::Data, $($t::Data),*);
+            type Data = (P1::Data, $(Recover<$t::Data>),*);
 
             fn test(token: &Token) -> bool {
                 P1::test(token)
-            }
-
-            #[allow(non_snake_case)]
-            fn parse(context: &mut ParserContext) -> Self::Data {
-                reverse_statements!($(context.recover_push($t::test)),*);
-                let P1 = P1::parse(context);
-                $(context.recover_pop();
-                let $t = $t::parse(context);)*
-                (P1, $($t),*)
             }
 
             #[allow(non_snake_case)]
@@ -555,30 +488,18 @@ macro_rules! choice {
         struct $name<P1: Parser, $($t: Parser<Data = P1::Data>),*>(PhantomData<(P1, $($t),*)>);
 
         impl<P1: Parser, $($t: Parser<Data = P1::Data>),*> Parser for $name<P1, $($t),*> {
-            type Data = Recover<P1::Data>;
+            type Data = P1::Data;
 
             fn test(token: &Token) -> bool {
                 P1::test(token) || $($t::test(token))||*
             }
 
-            fn parse(context: &mut ParserContext) -> Self::Data {
-                context.retry(|context| {
-                    if let x @ Some(_) = P1::try_parse(context) {
-                        return x;
-                    }
-                    $(if let x @ Some(_) = $t::try_parse(context) {
-                        return x;
-                    })*
-                    None
-                })
-            }
-
             fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-                if let Some(x) = P1::try_parse(context) {
-                    return Some(Ok(x));
+                if let x @ Some(_) = P1::try_parse(context) {
+                    return x;
                 }
-                $(if let Some(x) = $t::try_parse(context) {
-                    return Some(Ok(x));
+                $(if let x @ Some(_) = $t::try_parse(context) {
+                    return x;
                 })*
                 None
             }
@@ -588,7 +509,23 @@ macro_rules! choice {
 
 group!(struct GroupParser2<P1, P2>);
 group!(struct GroupParser3<P1, P2, P3>);
-group!(struct GroupParser5<P1, P2, P3, P4, P5>);
+group!(struct GroupParser4<P1, P2, P3, P4>);
 
 choice!(struct ChoiceParser2<P1, P2>);
 choice!(struct ChoiceParser5<P1, P2, P3, P4, P5>);
+
+struct OptionalSemicolonParser<P: Parser>(PhantomData<P>);
+
+impl<P: Parser> Parser for OptionalSemicolonParser<P> {
+    type Data = (P::Data, Option<GlyphToken>);
+
+    fn test(token: &Token) -> bool {
+        P::test(token)
+    }
+
+    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+        let item = P::try_parse(context)?;
+        let semicolon = context.lexer.advance_glyph(Glyph::Semicolon);
+        Some((item, semicolon))
+    }
+}
