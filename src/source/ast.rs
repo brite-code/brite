@@ -224,6 +224,12 @@ impl BindingStatement {
     }
 }
 
+impl Into<Statement> for BindingStatement {
+    fn into(self) -> Statement {
+        Statement::Binding(self)
+    }
+}
+
 impl PushTokens for BindingStatement {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.let_.push_tokens(tokens);
@@ -582,12 +588,18 @@ impl PushTokens for Pattern {
 /// ```
 #[derive(Clone, Debug)]
 pub struct HolePattern {
-    hole: GlyphToken,
+    hole: Recover<GlyphToken>,
 }
 
 impl HolePattern {
-    pub fn new(hole: GlyphToken) -> Self {
+    pub fn new(hole: Recover<GlyphToken>) -> Self {
         HolePattern { hole }
+    }
+}
+
+impl Into<Pattern> for HolePattern {
+    fn into(self) -> Pattern {
+        Pattern::Hole(self)
     }
 }
 
@@ -602,12 +614,18 @@ impl PushTokens for HolePattern {
 /// ```
 #[derive(Clone, Debug)]
 pub struct VariablePattern {
-    identifier: IdentifierToken,
+    identifier: Recover<IdentifierToken>,
 }
 
 impl VariablePattern {
-    pub fn new(identifier: IdentifierToken) -> Self {
+    pub fn new(identifier: Recover<IdentifierToken>) -> Self {
         VariablePattern { identifier }
+    }
+}
+
+impl Into<Pattern> for VariablePattern {
+    fn into(self) -> Pattern {
+        Pattern::Variable(self)
     }
 }
 

@@ -21,7 +21,7 @@ pub fn parse(lexer: Lexer) -> Module {
     Module::new(vec![statement.into()], end)
 }
 
-type StatementParser = ChoiceParser2<ExpressionStatementParser, ExpressionStatementParser>;
+type StatementParser = ChoiceParser2<ExpressionStatementParser, BindingStatementParser>;
 
 /// ```ite
 /// E;
@@ -37,33 +37,33 @@ impl TransformParser for ExpressionStatementParser {
     }
 }
 
-// /// ```ite
-// /// let x = E;
-// /// ```
-// struct BindingStatementParser;
+/// ```ite
+/// let x = E;
+/// ```
+struct BindingStatementParser;
 
-// impl TransformParser for BindingStatementParser {
-//     type Parser = GroupParser5<
-//         keyword_parser::Let,
-//         PatternParser,
-//         glyph_parser::Equals,
-//         ExpressionParser,
-//         glyph_parser::optional::Semicolon,
-//     >;
-//     type Data = Statement;
+impl TransformParser for BindingStatementParser {
+    type Parser = GroupParser5<
+        keyword_parser::Let,
+        PatternParser,
+        glyph_parser::Equals,
+        ExpressionParser,
+        glyph_parser::optional::Semicolon,
+    >;
+    type Data = Statement;
 
-//     fn transform(
-//         (_let, pattern, equals, expression, semicolon): (
-//             Recover<GlyphToken>,
-//             Recover<Pattern>,
-//             Recover<GlyphToken>,
-//             Recover<Expression>,
-//             Option<GlyphToken>,
-//         ),
-//     ) -> Statement {
-//         BindingStatement::new(_let, pattern, equals, expression, semicolon).into()
-//     }
-// }
+    fn transform(
+        (_let, pattern, equals, expression, semicolon): (
+            Recover<GlyphToken>,
+            Recover<Pattern>,
+            Recover<GlyphToken>,
+            Recover<Expression>,
+            Option<GlyphToken>,
+        ),
+    ) -> Statement {
+        BindingStatement::new(_let, pattern, equals, expression, semicolon).into()
+    }
+}
 
 /// ```ite
 /// true
@@ -149,6 +149,36 @@ impl TransformParser for WrappedExpressionParser {
         ),
     ) -> Expression {
         WrappedExpression::new(paren_left, expression, paren_right).into()
+    }
+}
+
+type PatternParser = ChoiceParser2<HolePatternParser, VariablePatternParser>;
+
+/// ```ite
+/// _
+/// ```
+struct HolePatternParser;
+
+impl TransformParser for HolePatternParser {
+    type Parser = glyph_parser::Underscore;
+    type Data = Pattern;
+
+    fn transform(hole: Recover<GlyphToken>) -> Pattern {
+        HolePattern::new(hole).into()
+    }
+}
+
+/// ```ite
+/// x
+/// ```
+struct VariablePatternParser;
+
+impl TransformParser for VariablePatternParser {
+    type Parser = IdentifierParser;
+    type Data = Pattern;
+
+    fn transform(identifier: Recover<IdentifierToken>) -> Pattern {
+        VariablePattern::new(identifier).into()
     }
 }
 
@@ -398,6 +428,7 @@ mod glyph_parser {
     glyph!(Equals);
     glyph!(ParenLeft);
     glyph!(ParenRight);
+    glyph!(Underscore);
 
     pub mod optional {
         use super::*;
