@@ -157,6 +157,23 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Looks at the next token and returns true if it is the end token.
+    pub fn lookahead_end(&mut self) -> bool {
+        self.lookahead().is_end()
+    }
+
+    /// Advances the lexer, but only if the next token is the end token.
+    pub fn advance_end(&mut self) -> Option<EndToken> {
+        if self.lookahead_end() {
+            match self.advance() {
+                Token::End(token) => Some(token),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        }
+    }
+
     /// Actually advances the lexer. The `Lexer::advance()` function performs some
     /// housekeeping work only.
     fn actually_advance(&mut self) -> Token {

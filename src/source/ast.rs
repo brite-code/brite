@@ -15,13 +15,13 @@ use crate::diagnostics::DiagnosticRef;
 #[derive(Clone, Debug)]
 pub struct Module {
     /// All the items in our module.
-    items: Vec<Item>,
+    items: Vec<Recover<Item>>,
     /// The final token in our module.
     end: EndToken,
 }
 
 impl Module {
-    pub fn new(items: Vec<Item>, end: EndToken) -> Self {
+    pub fn new(items: Vec<Recover<Item>>, end: EndToken) -> Self {
         Module { items, end }
     }
 
@@ -691,7 +691,7 @@ impl<T: PushTokens> PushTokens for Vec<T> {
 
 impl<T: PushTokens> PushTokens for Box<T> {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
-        self.push_tokens(tokens);
+        T::push_tokens(*self, tokens);
     }
 }
 

@@ -7,16 +7,21 @@ use super::token::*;
 ///
 /// Implements the ability to recover from parse errors.
 pub fn parse(lexer: Lexer) -> Module {
+    // Create our parsing context.
     let mut context = ParserContext::new(lexer);
-    let expression = ExpressionParser::parse(&mut context);
-    let statement: Statement = ExpressionStatement::new(expression.unwrap(), None).into();
-    let end = loop {
-        match context.lexer.advance() {
-            Token::End(end) => break end,
-            _ => {}
-        }
-    };
-    Module::new(vec![statement.into()], end)
+    // Until we reach the end token, parse items. If an item is in recovery mode it will stop trying
+    // to recover once it reaches the end token.
+    let mut items = Vec::new();
+    while !context.lexer.lookahead_end() {
+        items.push(ItemParser::parse(&mut context));
+    }
+    // Optimization: We are done mutating our vector. Shrink it to the smallest size.
+    items.shrink_to_fit();
+    // We expect that advancing the lexer will give us our `EndToken`. Since we should only exit our
+    // above while-loop when we have reached the end.
+    let end = context.lexer.advance_end().unwrap();
+    // Construct the module and return it.
+    Module::new(items, end)
 }
 
 type ItemParser = p::Into<StatementParser, Item>;
@@ -330,11 +335,47 @@ mod p {
         }
 
         fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-            Some(P::try_parse(context))
+            P::try_parse(context).map(Some)
         }
 
         fn parse(context: &mut ParserContext) -> Recover<Self::Data> {
             Ok(P::try_parse(context))
+        }
+    }
+
+    /// NOTE: Ideally, `Many<P>::parse` would return `Vec<P::Data>` instead of
+    /// `Recover<Vec<P::Data>>`, but its good enough for now.
+    pub struct Many<P: Parser, Q: Parser> {
+        phantom: PhantomData<(P, Q)>,
+    }
+
+    impl<P: Parser, Q: Parser> Parser for Many<P, Q> {
+        type Data = Vec<Recover<P::Data>>;
+
+        fn test(token: &Token) -> bool {
+            P::test(token)
+        }
+
+        fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+            let mut items = Vec::new();
+            while !Q::test(context.lexer.lookahead()) {
+                items.push(P::parse(context));
+            }
+            items.shrink_to_fit();
+            if items.len() == 0 {
+                None
+            } else {
+                Some(items)
+            }
+        }
+
+        fn parse(context: &mut ParserContext) -> Recover<Self::Data> {
+            let mut items = Vec::new();
+            while !Q::test(context.lexer.lookahead()) {
+                items.push(P::parse(context));
+            }
+            items.shrink_to_fit();
+            Ok(items)
         }
     }
 
