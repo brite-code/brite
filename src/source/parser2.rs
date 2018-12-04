@@ -1,59 +1,123 @@
+use self::p::Parser;
 use super::ast::*;
 use super::identifier::Keyword;
 use super::lexer::Lexer;
 use super::token::*;
 
-trait Parser {
-    type Data;
+fn expression() -> impl Parser<Data = Result<IdentifierToken, ()>> {
+    p::identifier()
 
-    fn test(token: &Token) -> bool;
-
-    fn parse(context: &mut ParserContext) -> Self::Data;
-
-    fn try_parse(context: &mut ParserContext) -> Option<Self::Data>;
-}
-
-struct ParserContext<'a> {
-    lexer: Lexer<'a>,
-    recover: Vec<fn(&Token) -> bool>,
-}
-
-impl<'a> ParserContext<'a> {
-    fn recover_push(&mut self, f: fn(&Token) -> bool) {
-        self.recover.push(f);
-    }
-
-    fn recover_pop(&mut self) {
-        self.recover.pop();
-    }
-
-    fn retry<T>(&mut self, f: impl Fn(&mut ParserContext) -> Option<T>) -> Result<T, ()> {
-        if let Some(x) = f(self) {
-            return Ok(x);
-        }
-        loop {
-            let token = self.lexer.lookahead();
-            if let Token::End(_) = token {
-                return Err(());
-            }
-            for f in self.recover.iter().rev() {
-                if f(token) {
-                    return Err(());
-                }
-            }
-            self.lexer.advance();
-            match f(self) {
-                Some(x) => return Ok(x),
-                None => {}
-            }
-        }
-    }
+    // p::choose5(
+    //     // Parse `VariableExpression`.
+    //     p::identifier().map(|token| Expression::Variable(VariableExpression::new(token))),
+    //     // Parse `NumberExpression`.
+    //     p::number().map(|token| NumberConstant::new(token).into()),
+    //     // Parse true `BooleanExpression`.
+    //     p::keyword(Keyword::True).map(|token| BooleanConstant::new(token, true).into()),
+    //     // Parse false `BooleanExpression`.
+    //     p::keyword(Keyword::False).map(|token| BooleanConstant::new(token, false).into()),
+    //     // Parse `WrappedExpression`.
+    //     p::group3(
+    //         p::glyph(Glyph::ParenLeft),
+    //         parse_expression,
+    //         p::glyph(Glyph::ParenRight),
+    //     ).map(|(paren_left, expression, paren_right)| {
+    //         WrappedExpression::new(paren_left, expression, paren_right).into()
+    //     }),
+    // )
 }
 
 mod p {
+    use super::super::lexer::Lexer;
     use super::super::token::*;
-    use super::{Parser, ParserContext};
     use std::marker::PhantomData;
+    use std::mem;
+
+    pub trait Parser: Sized {
+        type Data;
+
+        fn test(token: &Token) -> bool;
+
+        fn parse(context: &mut ParserContext) -> Self::Data;
+
+        fn try_parse(context: &mut ParserContext) -> Option<Self::Data>;
+
+        fn map<F>(self, _f: F) -> MapParser<Self, F>
+        where
+            F: Function<Parameter = Self::Data>,
+        {
+            MapParser(PhantomData)
+        }
+    }
+
+    pub struct ParserContext<'a> {
+        lexer: Lexer<'a>,
+        recover: Vec<fn(&Token) -> bool>,
+    }
+
+    impl<'a> ParserContext<'a> {
+        fn recover_push(&mut self, f: fn(&Token) -> bool) {
+            self.recover.push(f);
+        }
+
+        fn recover_pop(&mut self) {
+            self.recover.pop();
+        }
+
+        fn retry<T>(&mut self, f: impl Fn(&mut ParserContext) -> Option<T>) -> Result<T, ()> {
+            if let Some(x) = f(self) {
+                return Ok(x);
+            }
+            loop {
+                let token = self.lexer.lookahead();
+                if let Token::End(_) = token {
+                    return Err(());
+                }
+                for f in self.recover.iter().rev() {
+                    if f(token) {
+                        return Err(());
+                    }
+                }
+                self.lexer.advance();
+                match f(self) {
+                    Some(x) => return Ok(x),
+                    None => {}
+                }
+            }
+        }
+    }
+
+    /// Type-level function.
+    ///
+    /// TODO: Document!
+    pub trait Function {
+        type Parameter;
+        type Return;
+
+        fn call(a: Self::Parameter) -> Self::Return;
+    }
+
+    pub struct MapParser<P, F>(PhantomData<(P, F)>);
+
+    impl<P, F> Parser for MapParser<P, F>
+    where
+        P: Parser,
+        F: Function<Parameter = P::Data>,
+    {
+        type Data = F::Return;
+
+        fn test(token: &Token) -> bool {
+            P::test(token)
+        }
+
+        fn parse(context: &mut ParserContext) -> Self::Data {
+            F::call(P::parse(context))
+        }
+
+        fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+            P::try_parse(context).map(F::call)
+        }
+    }
 
     pub fn identifier() -> impl Parser<Data = Result<IdentifierToken, ()>> {
         IdentifierParser
@@ -115,81 +179,100 @@ mod p {
     }
 
     macro_rules! group {
-        (pub struct $name:ident<P1, $($t:ident),+>) => {
-            pub struct $name<P1, $($t),*> {
-                phantom: PhantomData<(P1, $($t),*)>
-            }
-
-            impl<P1: Parser, $($t: Parser),*> Parser for $name<P1, $($t),*> {
-                type Data = (P1::Data, $($t::Data),*);
-
-                fn test(token: &Token) -> bool {
-                    P1::test(token)
+        (pub fn $name:ident(p1: P1, $($x:ident: $t:ident),+)) => {
+            pub fn $name<P1: Parser, $($t: Parser),*>(p1: P1, $($x: $t),*) -> impl Parser<Data = (P1::Data, $($t::Data),*)> {
+                #[allow(dead_code)]
+                struct GroupParser<P1, $($t),*> {
+                    p1: P1,
+                    $($x: $t),*
                 }
 
-                #[allow(non_snake_case)]
-                fn parse(context: &mut ParserContext) -> Self::Data {
-                    reverse_statements!($(context.recover_push($t::test)),*);
-                    let P1 = P1::parse(context);
-                    $(context.recover_pop();
-                    let $t = $t::parse(context);)*
-                    (P1, $($t),*)
+                impl<P1: Parser, $($t: Parser),*> Parser for GroupParser<P1, $($t),*> {
+                    type Data = (P1::Data, $($t::Data),*);
+
+                    fn test(token: &Token) -> bool {
+                        P1::test(token)
+                    }
+
+                    fn parse(context: &mut ParserContext) -> Self::Data {
+                        reverse_statements!($(context.recover_push($t::test)),*);
+                        let p1 = P1::parse(context);
+                        $(context.recover_pop();
+                        let $x = $t::parse(context);)*
+                        (p1, $($x),*)
+                    }
+
+                    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+                        reverse_statements!($(context.recover_push($t::test)),*);
+                        let p1 = match P1::try_parse(context) {
+                            Some(p1) => p1,
+                            None => {
+                                $(ignore!($t); context.recover_pop();)*
+                                return None;
+                            }
+                        };
+                        $(context.recover_pop();
+                        let $x = $t::parse(context);)*
+                        Some((p1, $($x),*))
+
+                    }
                 }
 
-                #[allow(non_snake_case)]
-                fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-                    reverse_statements!($(context.recover_push($t::test)),*);
-                    let P1 = match P1::try_parse(context) {
-                        Some(P1) => P1,
-                        None => {
-                            $(ignore!($t); context.recover_pop();)*
-                            return None;
-                        }
-                    };
-                    $(context.recover_pop();
-                    let $t = $t::parse(context);)*
-                    Some((P1, $($t),*))
-
-                }
+                let parser = GroupParser { p1, $($x),* };
+                debug_assert_eq!(
+                    mem::size_of_val(&parser), 0,
+                    "We expect all parsers to be zero sized. This makes them compile-time only."
+                );
+                parser
             }
         };
     }
 
-    macro_rules! choice {
-        (pub struct $name:ident<$($t:ident),+>) => {
-            pub struct $name<$($t),*>{
-                phantom: PhantomData<($($t),*)>
-            }
-
-            impl<T, $($t: Parser<Data = T>),*> Parser for $name<$($t),*> {
-                type Data = Result<T, ()>;
-
-                fn test(token: &Token) -> bool {
-                    $($t::test(token))||*
+    macro_rules! choose {
+        (pub fn $name:ident($($x:ident: $t:ident),+)) => {
+            pub fn $name<T, $($t: Parser<Data = T>),*>($($x: $t),*) -> impl Parser<Data = Result<T, ()>> {
+                #[allow(dead_code)]
+                pub struct ChooseParser<$($t),*>{
+                    $($x: $t),*
                 }
 
-                fn parse(context: &mut ParserContext) -> Self::Data {
-                    context.retry(|context| {
-                        $(if let x @ Some(_) = $t::try_parse(context) {
-                            return x;
+                impl<T, $($t: Parser<Data = T>),*> Parser for ChooseParser<$($t),*> {
+                    type Data = Result<T, ()>;
+
+                    fn test(token: &Token) -> bool {
+                        $($t::test(token))||*
+                    }
+
+                    fn parse(context: &mut ParserContext) -> Self::Data {
+                        context.retry(|context| {
+                            $(if let $x @ Some(_) = $t::try_parse(context) {
+                                return $x;
+                            })*
+                            None
+                        })
+                    }
+
+                    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+                        $(if let Some($x) = $t::try_parse(context) {
+                            return Some(Ok($x));
                         })*
                         None
-                    })
+                    }
                 }
 
-                fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-                    $(if let Some(x) = $t::try_parse(context) {
-                        return Some(Ok(x));
-                    })*
-                    None
-                }
+                let parser = ChooseParser { $($x),* };
+                debug_assert_eq!(
+                    mem::size_of_val(&parser), 0,
+                    "We expect all parsers to be zero sized. This makes them compile-time only."
+                );
+                parser
             }
         };
     }
 
-    group!(pub struct Group2<P1, P2>);
+    group!(pub fn group2(p1: P1, p2: P2));
 
-    choice!(pub struct Choice2<P1, P2>);
+    choose!(pub fn choose5(p1: P1, p2: P2, p3: P3, p4: P4, p5: P5));
 }
 
 // struct Recover {
