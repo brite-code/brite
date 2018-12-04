@@ -140,6 +140,23 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Looks at the next token and returns true if it is the specified glyph.
+    pub fn lookahead_glyph(&mut self, glyph: Glyph) -> bool {
+        self.lookahead().is_glyph(glyph)
+    }
+
+    /// Advances the lexer, but only if the next token is the specified glyph.
+    pub fn advance_glyph(&mut self, glyph: Glyph) -> Option<GlyphToken> {
+        if self.lookahead_glyph(glyph) {
+            match self.advance() {
+                Token::Glyph(token) => Some(token),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        }
+    }
+
     /// Actually advances the lexer. The `Lexer::advance()` function performs some
     /// housekeeping work only.
     fn actually_advance(&mut self) -> Token {

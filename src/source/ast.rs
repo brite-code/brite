@@ -42,6 +42,7 @@ impl Module {
 
 /// Some error occurred while parsing. Errors must be fixed for a Brite program to be deployed!
 /// An error may occur anywhere in our AST.
+#[derive(Clone, Debug)]
 pub struct Error {
     /// The tokens we skipped before arriving at this error. It’s important that we track
     /// of the skipped tokens so that we can turn our AST back into the tokens list it was
@@ -71,6 +72,7 @@ impl PushTokens for Error {
 /// Whenever we parse a node in our AST we might run into an unexpected token. At this point we go
 /// into error recovery mode. This is the result of error recovery. Most of the  data in our AST are
 /// wrapped in this.
+#[derive(Clone, Debug)]
 pub enum Recover<T> {
     /// There was no error. We were able to parse the node without a problem.
     Ok(T),
@@ -254,12 +256,12 @@ impl PushTokens for Constant {
 /// ```
 #[derive(Clone, Debug)]
 pub struct BooleanConstant {
-    token: GlyphToken,
+    token: Recover<GlyphToken>,
     value: bool,
 }
 
 impl BooleanConstant {
-    pub fn new(token: GlyphToken, value: bool) -> Self {
+    pub fn new(token: Recover<GlyphToken>, value: bool) -> Self {
         BooleanConstant { token, value }
     }
 }
@@ -290,11 +292,11 @@ impl PushTokens for BooleanConstant {
 /// ```
 #[derive(Clone, Debug)]
 pub struct NumberConstant {
-    token: NumberToken,
+    token: Recover<NumberToken>,
 }
 
 impl NumberConstant {
-    pub fn new(token: NumberToken) -> Self {
+    pub fn new(token: Recover<NumberToken>) -> Self {
         NumberConstant { token }
     }
 }
@@ -356,11 +358,11 @@ impl PushTokens for Expression {
 /// ```
 #[derive(Clone, Debug)]
 pub struct VariableExpression {
-    identifier: IdentifierToken,
+    identifier: Recover<IdentifierToken>,
 }
 
 impl VariableExpression {
-    pub fn new(identifier: IdentifierToken) -> Self {
+    pub fn new(identifier: Recover<IdentifierToken>) -> Self {
         VariableExpression { identifier }
     }
 }
@@ -527,13 +529,17 @@ impl PushTokens for BlockExpression {
 /// ```
 #[derive(Clone, Debug)]
 pub struct WrappedExpression {
-    paren_left: GlyphToken,
-    expression: Expression,
-    paren_right: GlyphToken,
+    paren_left: Recover<GlyphToken>,
+    expression: Recover<Expression>,
+    paren_right: Recover<GlyphToken>,
 }
 
 impl WrappedExpression {
-    pub fn new(paren_left: GlyphToken, expression: Expression, paren_right: GlyphToken) -> Self {
+    pub fn new(
+        paren_left: Recover<GlyphToken>,
+        expression: Recover<Expression>,
+        paren_right: Recover<GlyphToken>,
+    ) -> Self {
         WrappedExpression {
             paren_left,
             expression,

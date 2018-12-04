@@ -1,7 +1,85 @@
-use super::ast::{Error, Recover};
+use super::ast::*;
+use super::identifier::Keyword;
 use super::lexer::Lexer;
 use super::token::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef};
+use std::marker::PhantomData;
+
+pub fn parse_expression(lexer: Lexer) -> Recover<Expression> {
+    let mut context = ParserContext::new(lexer);
+    ExpressionParser::parse(&mut context)
+}
+
+type ExpressionParser = ChoiceParser5<
+    VariableExpressionParser,
+    NumberExpressionParser,
+    TrueExpressionParser,
+    FalseExpressionParser,
+    WrappedExpressionParser,
+>;
+
+struct VariableExpressionParser;
+
+impl TransformParser for VariableExpressionParser {
+    type Parser = IdentifierParser;
+    type Data = Expression;
+
+    fn transform(identifier: Recover<IdentifierToken>) -> Expression {
+        VariableExpression::new(identifier).into()
+    }
+}
+
+struct NumberExpressionParser;
+
+impl TransformParser for NumberExpressionParser {
+    type Parser = NumberParser;
+    type Data = Expression;
+
+    fn transform(number: Recover<NumberToken>) -> Expression {
+        NumberConstant::new(number).into()
+    }
+}
+
+struct TrueExpressionParser;
+
+impl TransformParser for TrueExpressionParser {
+    type Parser = keyword_parser::True;
+    type Data = Expression;
+
+    fn transform(boolean: Recover<GlyphToken>) -> Expression {
+        BooleanConstant::new(boolean, true).into()
+    }
+}
+
+struct FalseExpressionParser;
+
+impl TransformParser for FalseExpressionParser {
+    type Parser = keyword_parser::False;
+    type Data = Expression;
+
+    fn transform(boolean: Recover<GlyphToken>) -> Expression {
+        BooleanConstant::new(boolean, false).into()
+    }
+}
+
+struct WrappedExpressionParser;
+
+impl TransformParser for WrappedExpressionParser {
+    type Parser = GroupParser3<glyph_parser::ParenLeft, ExpressionParser, glyph_parser::ParenRight>;
+    type Data = Expression;
+
+    fn transform(
+        (paren_left, expression, paren_right): (
+            Recover<GlyphToken>,
+            Recover<Expression>,
+            Recover<GlyphToken>,
+        ),
+    ) -> Expression {
+        WrappedExpression::new(paren_left, expression, paren_right).into()
+    }
+}
+
+/* ─── Framework ──────────────────────────────────────────────────────────────────────────────── */
 
 trait Parser: Sized {
     type Data;
@@ -19,6 +97,13 @@ struct ParserContext<'a> {
 }
 
 impl<'a> ParserContext<'a> {
+    fn new(lexer: Lexer<'a>) -> Self {
+        ParserContext {
+            lexer,
+            recover: Vec::new(),
+        }
+    }
+
     fn recover_push(&mut self, f: fn(&Token) -> bool) {
         self.recover.push(f);
     }
@@ -130,6 +215,31 @@ impl<'a> ParserContext<'a> {
     }
 }
 
+trait TransformParser {
+    type Parser: Parser;
+    type Data;
+
+    fn transform(data: <Self::Parser as Parser>::Data) -> Self::Data;
+}
+
+impl<T: TransformParser> Parser for T {
+    type Data = T::Data;
+
+    fn test(token: &Token) -> bool {
+        T::Parser::test(token)
+    }
+
+    fn parse(context: &mut ParserContext) -> Self::Data {
+        T::transform(T::Parser::parse(context))
+    }
+
+    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+        T::Parser::try_parse(context).map(T::transform)
+    }
+}
+
+/* ─── Parsers ────────────────────────────────────────────────────────────────────────────────── */
+
 struct IdentifierParser;
 
 impl Parser for IdentifierParser {
@@ -166,113 +276,161 @@ impl Parser for NumberParser {
     }
 }
 
-// macro_rules! reverse_statements {
-//     () => {};
-//     ($s1:stmt) => {
-//         $s1;
-//     };
-//     ($s1:stmt, $($sn:stmt),*) => {
-//         reverse_statements!($($sn),*);
-//         $s1;
-//     };
-// }
+mod glyph_parser {
+    use super::*;
 
-// macro_rules! ignore {
-//     ($x:tt) => {};
-// }
+    macro_rules! glyph {
+        ($glyph:ident) => {
+            pub struct $glyph;
 
-// macro_rules! group {
-//     (pub fn $name:ident(p1: P1, $($x:ident: $t:ident),+)) => {
-//         pub fn $name<P1: Parser, $($t: Parser),*>(p1: P1, $($x: $t),*) -> impl Parser<Data = (P1::Data, $($t::Data),*)> {
-//             #[allow(dead_code)]
-//             struct GroupParser<P1, $($t),*> {
-//                 p1: P1,
-//                 $($x: $t),*
-//             }
+            impl Parser for $glyph {
+                type Data = Recover<GlyphToken>;
 
-//             impl<P1: Parser, $($t: Parser),*> Parser for GroupParser<P1, $($t),*> {
-//                 type Data = (P1::Data, $($t::Data),*);
+                fn test(token: &Token) -> bool {
+                    token.is_glyph(Glyph::$glyph)
+                }
 
-//                 fn test(token: &Token) -> bool {
-//                     P1::test(token)
-//                 }
+                fn parse(context: &mut ParserContext) -> Self::Data {
+                    context.retry(|context| context.lexer.advance_glyph(Glyph::$glyph))
+                }
 
-//                 fn parse(context: &mut ParserContext) -> Self::Data {
-//                     reverse_statements!($(context.recover_push($t::test)),*);
-//                     let p1 = P1::parse(context);
-//                     $(context.recover_pop();
-//                     let $x = $t::parse(context);)*
-//                     (p1, $($x),*)
-//                 }
+                fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+                    context.lexer.advance_glyph(Glyph::$glyph).map(Recover::Ok)
+                }
+            }
+        };
+    }
 
-//                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-//                     reverse_statements!($(context.recover_push($t::test)),*);
-//                     let p1 = match P1::try_parse(context) {
-//                         Some(p1) => p1,
-//                         None => {
-//                             $(ignore!($t); context.recover_pop();)*
-//                             return None;
-//                         }
-//                     };
-//                     $(context.recover_pop();
-//                     let $x = $t::parse(context);)*
-//                     Some((p1, $($x),*))
+    glyph!(ParenLeft);
+    glyph!(ParenRight);
+}
 
-//                 }
-//             }
+mod keyword_parser {
+    use super::*;
 
-//             let parser = GroupParser { p1, $($x),* };
-//             debug_assert_eq!(
-//                 mem::size_of_val(&parser), 0,
-//                 "We expect all parsers to be zero sized. This makes them compile-time only."
-//             );
-//             parser
-//         }
-//     };
-// }
+    macro_rules! keyword {
+        ($keyword:ident) => {
+            pub struct $keyword;
 
-// macro_rules! choose {
-//     (pub fn $name:ident($($x:ident: $t:ident),+)) => {
-//         pub fn $name<T, $($t: Parser<Data = T>),*>($($x: $t),*) -> impl Parser<Data = Recover<T>> {
-//             #[allow(dead_code)]
-//             pub struct ChooseParser<$($t),*>{
-//                 $($x: $t),*
-//             }
+            impl Parser for $keyword {
+                type Data = Recover<GlyphToken>;
 
-//             impl<T, $($t: Parser<Data = T>),*> Parser for ChooseParser<$($t),*> {
-//                 type Data = Recover<T>;
+                fn test(token: &Token) -> bool {
+                    token.is_glyph(Glyph::Keyword(Keyword::$keyword))
+                }
 
-//                 fn test(token: &Token) -> bool {
-//                     $($t::test(token))||*
-//                 }
+                fn parse(context: &mut ParserContext) -> Self::Data {
+                    context.retry(|context| {
+                        context
+                            .lexer
+                            .advance_glyph(Glyph::Keyword(Keyword::$keyword))
+                    })
+                }
 
-//                 fn parse(context: &mut ParserContext) -> Self::Data {
-//                     context.retry(|context| {
-//                         $(if let $x @ Some(_) = $t::try_parse(context) {
-//                             return $x;
-//                         })*
-//                         None
-//                     })
-//                 }
+                fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+                    context
+                        .lexer
+                        .advance_glyph(Glyph::Keyword(Keyword::$keyword))
+                        .map(Recover::Ok)
+                }
+            }
+        };
+    }
 
-//                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-//                     $(if let Some($x) = $t::try_parse(context) {
-//                         return Some(Recover::Ok($x));
-//                     })*
-//                     None
-//                 }
-//             }
+    keyword!(True);
+    keyword!(False);
+}
 
-//             let parser = ChooseParser { $($x),* };
-//             debug_assert_eq!(
-//                 mem::size_of_val(&parser), 0,
-//                 "We expect all parsers to be zero sized. This makes them compile-time only."
-//             );
-//             parser
-//         }
-//     };
-// }
+macro_rules! reverse_statements {
+    () => {};
+    ($s1:stmt) => {
+        $s1;
+    };
+    ($s1:stmt, $($sn:stmt),*) => {
+        reverse_statements!($($sn),*);
+        $s1;
+    };
+}
 
-// group!(pub fn group2(p1: P1, p2: P2));
+macro_rules! ignore {
+    ($x:tt) => {};
+}
 
-// choose!(pub fn choose5(p1: P1, p2: P2, p3: P3, p4: P4, p5: P5));
+macro_rules! group {
+    (struct $name:ident<P1, $($t:ident),+>) => {
+        struct $name<P1: Parser, $($t: Parser),*>(PhantomData<(P1, $($t),*)>);
+
+        impl<P1: Parser, $($t: Parser),*> Parser for $name<P1, $($t),*> {
+            type Data = (P1::Data, $($t::Data),*);
+
+            fn test(token: &Token) -> bool {
+                P1::test(token)
+            }
+
+            #[allow(non_snake_case)]
+            fn parse(context: &mut ParserContext) -> Self::Data {
+                reverse_statements!($(context.recover_push($t::test)),*);
+                let P1 = P1::parse(context);
+                $(context.recover_pop();
+                let $t = $t::parse(context);)*
+                (P1, $($t),*)
+            }
+
+            #[allow(non_snake_case)]
+            fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+                reverse_statements!($(context.recover_push($t::test)),*);
+                let P1 = match P1::try_parse(context) {
+                    Some(P1) => P1,
+                    None => {
+                        $(ignore!($t); context.recover_pop();)*
+                        return None;
+                    }
+                };
+                $(context.recover_pop();
+                let $t = $t::parse(context);)*
+                Some((P1, $($t),*))
+
+            }
+        }
+    };
+}
+
+macro_rules! choice {
+    (struct $name:ident<P1, $($t:ident),+>) => {
+        struct $name<P1: Parser, $($t: Parser<Data = P1::Data>),*>(PhantomData<(P1, $($t),*)>);
+
+        impl<P1: Parser, $($t: Parser<Data = P1::Data>),*> Parser for $name<P1, $($t),*> {
+            type Data = Recover<P1::Data>;
+
+            fn test(token: &Token) -> bool {
+                P1::test(token) || $($t::test(token))||*
+            }
+
+            fn parse(context: &mut ParserContext) -> Self::Data {
+                context.retry(|context| {
+                    if let x @ Some(_) = P1::try_parse(context) {
+                        return x;
+                    }
+                    $(if let x @ Some(_) = $t::try_parse(context) {
+                        return x;
+                    })*
+                    None
+                })
+            }
+
+            fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+                if let Some(x) = P1::try_parse(context) {
+                    return Some(Recover::Ok(x));
+                }
+                $(if let Some(x) = $t::try_parse(context) {
+                    return Some(Recover::Ok(x));
+                })*
+                None
+            }
+        }
+    };
+}
+
+group!(struct GroupParser3<P1, P2, P3>);
+
+choice!(struct ChoiceParser5<P1, P2, P3, P4, P5>);
