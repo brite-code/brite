@@ -21,14 +21,106 @@ pub fn parse(lexer: Lexer) -> Module {
     Module::new(vec![statement.into()], end)
 }
 
+type StatementParser = ChoiceParser2<ExpressionStatementParser, ExpressionStatementParser>;
+
+/// ```ite
+/// E;
+/// ```
+struct ExpressionStatementParser;
+
+impl TransformParser for ExpressionStatementParser {
+    type Parser = GroupParser2<ExpressionParser, glyph_parser::optional::Semicolon>;
+    type Data = Statement;
+
+    fn transform((expression, semicolon): (Recover<Expression>, Option<GlyphToken>)) -> Statement {
+        ExpressionStatement::new(expression, semicolon).into()
+    }
+}
+
+// /// ```ite
+// /// let x = E;
+// /// ```
+// struct BindingStatementParser;
+
+// impl TransformParser for BindingStatementParser {
+//     type Parser = GroupParser5<
+//         keyword_parser::Let,
+//         PatternParser,
+//         glyph_parser::Equals,
+//         ExpressionParser,
+//         glyph_parser::optional::Semicolon,
+//     >;
+//     type Data = Statement;
+
+//     fn transform(
+//         (_let, pattern, equals, expression, semicolon): (
+//             Recover<GlyphToken>,
+//             Recover<Pattern>,
+//             Recover<GlyphToken>,
+//             Recover<Expression>,
+//             Option<GlyphToken>,
+//         ),
+//     ) -> Statement {
+//         BindingStatement::new(_let, pattern, equals, expression, semicolon).into()
+//     }
+// }
+
+/// ```ite
+/// true
+/// ```
+struct TrueConstantParser;
+
+impl TransformParser for TrueConstantParser {
+    type Parser = keyword_parser::True;
+    type Data = Constant;
+
+    fn transform(boolean: Recover<GlyphToken>) -> Constant {
+        BooleanConstant::new(boolean, true).into()
+    }
+}
+
+/// ```ite
+/// false
+/// ```
+struct FalseConstantParser;
+
+impl TransformParser for FalseConstantParser {
+    type Parser = keyword_parser::False;
+    type Data = Constant;
+
+    fn transform(boolean: Recover<GlyphToken>) -> Constant {
+        BooleanConstant::new(boolean, false).into()
+    }
+}
+
+/// ```ite
+/// 0
+/// 1
+/// 42
+/// 3.1415
+/// ```
+struct NumberConstantParser;
+
+impl TransformParser for NumberConstantParser {
+    type Parser = NumberParser;
+    type Data = Constant;
+
+    fn transform(number: Recover<NumberToken>) -> Constant {
+        NumberConstant::new(number).into()
+    }
+}
+
 type ExpressionParser = ChoiceParser5<
     VariableExpressionParser,
-    NumberExpressionParser,
-    TrueExpressionParser,
-    FalseExpressionParser,
+    IntoParser<NumberConstantParser, Expression>,
+    IntoParser<TrueConstantParser, Expression>,
+    IntoParser<FalseConstantParser, Expression>,
     WrappedExpressionParser,
 >;
 
+/// ```ite
+/// x
+/// ```
 struct VariableExpressionParser;
 
 impl TransformParser for VariableExpressionParser {
@@ -40,39 +132,9 @@ impl TransformParser for VariableExpressionParser {
     }
 }
 
-struct NumberExpressionParser;
-
-impl TransformParser for NumberExpressionParser {
-    type Parser = NumberParser;
-    type Data = Expression;
-
-    fn transform(number: Recover<NumberToken>) -> Expression {
-        NumberConstant::new(number).into()
-    }
-}
-
-struct TrueExpressionParser;
-
-impl TransformParser for TrueExpressionParser {
-    type Parser = keyword_parser::True;
-    type Data = Expression;
-
-    fn transform(boolean: Recover<GlyphToken>) -> Expression {
-        BooleanConstant::new(boolean, true).into()
-    }
-}
-
-struct FalseExpressionParser;
-
-impl TransformParser for FalseExpressionParser {
-    type Parser = keyword_parser::False;
-    type Data = Expression;
-
-    fn transform(boolean: Recover<GlyphToken>) -> Expression {
-        BooleanConstant::new(boolean, false).into()
-    }
-}
-
+/// ```ite
+/// (E)
+/// ```
 struct WrappedExpressionParser;
 
 impl TransformParser for WrappedExpressionParser {
@@ -97,6 +159,7 @@ trait Parser: Sized {
 
     fn test(token: &Token) -> bool;
 
+    // TODO: Consider optional parsers when writing documentation.
     fn parse(context: &mut ParserContext) -> Self::Data;
 
     fn try_parse(context: &mut ParserContext) -> Option<Self::Data>;
@@ -132,7 +195,7 @@ impl<'a> ParserContext<'a> {
         // Try to parse our node. If successful return the node. If unsuccesful then we are in
         // error recovery mode!
         if let Some(x) = try_parse(self) {
-            Recover::Ok(x)
+            Ok(x)
         } else {
             self.recover(try_parse)
         }
@@ -161,9 +224,8 @@ impl<'a> ParserContext<'a> {
                 // But only attach the first diagnostic to the AST. This will be the
                 // diagnostic thrown at runtime.
                 let diagnostic = first_diagnostic.unwrap_or(diagnostic);
-                let error = Error::new(skipped, diagnostic);
-                // Return a fatal error.
-                return Recover::FatalError(error);
+                let error = RecoverError::new(skipped, diagnostic, None);
+                return Err(Box::new(error));
             }
 
             // Call all the recovery functions in our stack. If one of the recovery functions
@@ -184,8 +246,8 @@ impl<'a> ParserContext<'a> {
                             self.unexpected_token(token)
                         }
                     };
-                    let error = Error::new(skipped, diagnostic);
-                    return Recover::FatalError(error);
+                    let error = RecoverError::new(skipped, diagnostic, None);
+                    return Err(Box::new(error));
                 }
             }
 
@@ -208,8 +270,8 @@ impl<'a> ParserContext<'a> {
                 // `Recover::Ok` with the skipped tokens and the first diagnostic we reported
                 // in our error recovery process.
                 Some(x) => {
-                    let error = Error::new(skipped, first_diagnostic.unwrap());
-                    return Recover::Error(error, x);
+                    let error = RecoverError::new(skipped, first_diagnostic.unwrap(), Some(x));
+                    return Err(Box::new(error));
                 }
                 // If our parsing function failed, again, then do nothing and go back to the top
                 // of our loop.
@@ -249,6 +311,27 @@ impl<T: TransformParser> Parser for T {
     }
 }
 
+struct IntoParser<P, T>
+where
+    P: Parser,
+    P::Data: Into<T>,
+{
+    phantom: PhantomData<(P, T)>,
+}
+
+impl<P, T> TransformParser for IntoParser<P, T>
+where
+    P: Parser,
+    P::Data: Into<T>,
+{
+    type Parser = P;
+    type Data = T;
+
+    fn transform(data: P::Data) -> T {
+        data.into()
+    }
+}
+
 /* ─── Primitive Parsers ──────────────────────────────────────────────────────────────────────── */
 
 struct IdentifierParser;
@@ -265,7 +348,7 @@ impl Parser for IdentifierParser {
     }
 
     fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-        context.lexer.advance_identifier().map(Recover::Ok)
+        context.lexer.advance_identifier().map(Ok)
     }
 }
 
@@ -283,7 +366,7 @@ impl Parser for NumberParser {
     }
 
     fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-        context.lexer.advance_number().map(Recover::Ok)
+        context.lexer.advance_number().map(Ok)
     }
 }
 
@@ -306,14 +389,43 @@ mod glyph_parser {
                 }
 
                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-                    context.lexer.advance_glyph(Glyph::$glyph).map(Recover::Ok)
+                    context.lexer.advance_glyph(Glyph::$glyph).map(Ok)
                 }
             }
         };
     }
 
+    glyph!(Equals);
     glyph!(ParenLeft);
     glyph!(ParenRight);
+
+    pub mod optional {
+        use super::*;
+
+        macro_rules! glyph {
+            ($glyph:ident) => {
+                pub struct $glyph;
+
+                impl Parser for $glyph {
+                    type Data = Option<GlyphToken>;
+
+                    fn test(token: &Token) -> bool {
+                        token.is_glyph(Glyph::$glyph)
+                    }
+
+                    fn parse(context: &mut ParserContext) -> Self::Data {
+                        context.lexer.advance_glyph(Glyph::$glyph)
+                    }
+
+                    fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+                        context.lexer.advance_glyph(Glyph::$glyph).map(Some)
+                    }
+                }
+            };
+        }
+
+        glyph!(Semicolon);
+    }
 }
 
 mod keyword_parser {
@@ -342,7 +454,7 @@ mod keyword_parser {
                     context
                         .lexer
                         .advance_glyph(Glyph::Keyword(Keyword::$keyword))
-                        .map(Recover::Ok)
+                        .map(Ok)
                 }
             }
         };
@@ -350,6 +462,7 @@ mod keyword_parser {
 
     keyword!(True);
     keyword!(False);
+    keyword!(Let);
 }
 
 macro_rules! reverse_statements {
@@ -431,10 +544,10 @@ macro_rules! choice {
 
             fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
                 if let Some(x) = P1::try_parse(context) {
-                    return Some(Recover::Ok(x));
+                    return Some(Ok(x));
                 }
                 $(if let Some(x) = $t::try_parse(context) {
-                    return Some(Recover::Ok(x));
+                    return Some(Ok(x));
                 })*
                 None
             }
@@ -442,6 +555,9 @@ macro_rules! choice {
     };
 }
 
+group!(struct GroupParser2<P1, P2>);
 group!(struct GroupParser3<P1, P2, P3>);
+group!(struct GroupParser5<P1, P2, P3, P4, P5>);
 
+choice!(struct ChoiceParser2<P1, P2>);
 choice!(struct ChoiceParser5<P1, P2, P3, P4, P5>);

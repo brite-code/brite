@@ -43,7 +43,7 @@ impl Module {
 /// Some error occurred while parsing. Errors must be fixed for a Brite program to be deployed!
 /// An error may occur anywhere in our AST.
 #[derive(Clone, Debug)]
-pub struct Error {
+pub struct RecoverError<T> {
     /// The tokens we skipped before arriving at this error. It’s important that we track
     /// of the skipped tokens so that we can turn our AST back into the tokens list it was
     /// parsed from.
@@ -52,61 +52,47 @@ pub struct Error {
     /// couple reported for this error location. Each token we skip will log a diagnostic,
     /// for instance.
     diagnostic: DiagnosticRef,
+    /// Sometimes, we will be able to skip some tokens and parse the AST node anyway. Other times we
+    /// are unable to recover an AST node.
+    recovered: Option<T>,
 }
 
-impl Error {
-    pub fn new(skipped: Vec<Token>, diagnostic: DiagnosticRef) -> Self {
-        Error {
+impl<T> RecoverError<T> {
+    pub fn new(skipped: Vec<Token>, diagnostic: DiagnosticRef, recovered: Option<T>) -> Self {
+        RecoverError {
             skipped,
             diagnostic,
+            recovered,
         }
     }
 }
 
-impl PushTokens for Error {
+impl<T: PushTokens> PushTokens for RecoverError<T> {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         tokens.extend(self.skipped);
+        self.recovered.push_tokens(tokens);
     }
 }
 
 /// Whenever we parse a node in our AST we might run into an unexpected token. At this point we go
-/// into error recovery mode. This is the result of error recovery. Most of the  data in our AST are
-/// wrapped in this.
-#[derive(Clone, Debug)]
-pub enum Recover<T> {
-    /// There was no error. We were able to parse the node without a problem.
-    Ok(T),
-    /// There was an error while parsing our node, but the error was not fatal. For instance, we
-    /// might have seen some unexpected tokens, skipped over them, and then parsed our node.
-    Error(Error, T),
-    /// There was an error while parsing our node and the error was fatal. We were not able to
-    /// recover from the error.
-    FatalError(Error),
-}
-
-impl<T> Recover<T> {
-    /// Transforms the value contained by recover to another value.
-    pub fn map<U>(self, f: impl Fn(T) -> U) -> Recover<U> {
-        match self {
-            Recover::Ok(x) => Recover::Ok(f(x)),
-            Recover::Error(error, x) => Recover::Error(error, f(x)),
-            Recover::FatalError(error) => Recover::FatalError(error),
-        }
-    }
-}
-
-impl<T: PushTokens> PushTokens for Recover<T> {
-    fn push_tokens(self, tokens: &mut Vec<Token>) {
-        match self {
-            Recover::Ok(x) => x.push_tokens(tokens),
-            Recover::Error(e, x) => {
-                e.push_tokens(tokens);
-                x.push_tokens(tokens);
-            }
-            Recover::FatalError(e) => e.push_tokens(tokens),
-        }
-    }
-}
+/// into error recovery mode. This is the result of error recovery. Most of the data in our AST is
+/// wrapped in this result type.
+///
+/// - `Ok()`: There was no error. We were able to parse the node without a problem.
+/// - `Err()`: There was an error while parsing our node. This error was not necessarily fatal! The
+///   `RecoverError` may have a recovered node we may continue using.
+///
+/// The size in memory of `Recover` will be the larger of the size of its ok case and its error
+/// case. For instance, if the size of the ok case is 5 and the size of the error case is 10 the
+/// size of `Recover` will be a little larger than 10.
+///
+/// `RecoverError<T>` is always larger than `T` since `RecoverError<T>` contains a `T` and some
+/// other stuff. Since the error case is uncommon we want the size of `Recover` to be `T` plus the
+/// overhead of `Result`. But if `RecoverError<T>` is larger than `T` the size will be
+/// `RecoverError<T>` plus the overhead of `Result`. So we wrap `RecoverError<T>` in a `Box`. A
+/// `Box` is a pointer to some `RecoverError<T>` on the heap so its size should generally be smaller
+/// than the size of `T`.
+pub type Recover<T> = Result<T, Box<RecoverError<T>>>;
 
 /// A Brite source code item is either a declarative `Declaration` whose order does not matter or an
 /// imperative `Statement` whose order does matter.
@@ -183,11 +169,11 @@ impl PushTokens for Statement {
 #[derive(Clone, Debug)]
 pub struct ExpressionStatement {
     expression: Recover<Expression>,
-    semicolon: Option<Recover<GlyphToken>>,
+    semicolon: Option<GlyphToken>,
 }
 
 impl ExpressionStatement {
-    pub fn new(expression: Recover<Expression>, semicolon: Option<Recover<GlyphToken>>) -> Self {
+    pub fn new(expression: Recover<Expression>, semicolon: Option<GlyphToken>) -> Self {
         ExpressionStatement {
             expression,
             semicolon,
@@ -213,19 +199,19 @@ impl PushTokens for ExpressionStatement {
 /// ```
 #[derive(Clone, Debug)]
 pub struct BindingStatement {
-    let_: GlyphToken,
-    pattern: Pattern,
-    equals: GlyphToken,
-    value: Expression,
+    let_: Recover<GlyphToken>,
+    pattern: Recover<Pattern>,
+    equals: Recover<GlyphToken>,
+    value: Recover<Expression>,
     semicolon: Option<GlyphToken>,
 }
 
 impl BindingStatement {
     pub fn new(
-        let_: GlyphToken,
-        pattern: Pattern,
-        equals: GlyphToken,
-        value: Expression,
+        let_: Recover<GlyphToken>,
+        pattern: Recover<Pattern>,
+        equals: Recover<GlyphToken>,
+        value: Recover<Expression>,
         semicolon: Option<GlyphToken>,
     ) -> Self {
         BindingStatement {
@@ -255,6 +241,12 @@ pub enum Constant {
     Boolean(BooleanConstant),
     /// `0`, `1`, `-42`, `3.1415`
     Number(NumberConstant),
+}
+
+impl Into<Expression> for Constant {
+    fn into(self) -> Expression {
+        Expression::Constant(self)
+    }
 }
 
 impl PushTokens for Constant {
@@ -288,12 +280,6 @@ impl Into<Constant> for BooleanConstant {
     }
 }
 
-impl Into<Expression> for BooleanConstant {
-    fn into(self) -> Expression {
-        Expression::Constant(Constant::Boolean(self))
-    }
-}
-
 impl PushTokens for BooleanConstant {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.token.push_tokens(tokens);
@@ -320,12 +306,6 @@ impl NumberConstant {
 impl Into<Constant> for NumberConstant {
     fn into(self) -> Constant {
         Constant::Number(self)
-    }
-}
-
-impl Into<Expression> for NumberConstant {
-    fn into(self) -> Expression {
-        Expression::Constant(Constant::Number(self))
     }
 }
 
@@ -666,16 +646,19 @@ trait PushTokens {
     fn push_tokens(self, tokens: &mut Vec<Token>) -> ();
 }
 
-impl<T: Into<Token>> PushTokens for T {
-    fn push_tokens(self, tokens: &mut Vec<Token>) {
-        tokens.push(self.into());
-    }
-}
-
 impl<T: PushTokens> PushTokens for Option<T> {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         if let Some(value) = self {
             value.push_tokens(tokens);
+        }
+    }
+}
+
+impl<T: PushTokens, E: PushTokens> PushTokens for Result<T, E> {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        match self {
+            Ok(x) => x.push_tokens(tokens),
+            Err(e) => e.push_tokens(tokens),
         }
     }
 }
@@ -685,5 +668,49 @@ impl<T: PushTokens> PushTokens for Vec<T> {
         for item in self {
             item.push_tokens(tokens);
         }
+    }
+}
+
+impl<T: PushTokens> PushTokens for Box<T> {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        self.push_tokens(tokens);
+    }
+}
+
+impl PushTokens for GlyphToken {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        tokens.push(self.into());
+    }
+}
+
+impl PushTokens for IdentifierToken {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        tokens.push(self.into());
+    }
+}
+
+impl PushTokens for NumberToken {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
+        tokens.push(self.into());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem;
+
+    #[test]
+    fn recover_mem_size() {
+        let diff = mem::size_of::<Result<GlyphToken, usize>>() - mem::size_of::<GlyphToken>();
+        assert_eq!(
+            mem::size_of::<Recover<GlyphToken>>(),
+            mem::size_of::<GlyphToken>() + diff,
+        );
+        let diff = mem::size_of::<Result<Expression, usize>>() - mem::size_of::<Expression>();
+        assert_eq!(
+            mem::size_of::<Recover<Expression>>(),
+            mem::size_of::<Expression>() + diff,
+        );
     }
 }
