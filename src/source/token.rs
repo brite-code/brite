@@ -159,7 +159,6 @@ impl Token {
         }
     }
 
-    #[cfg(test)]
     pub fn is_identifier(&self) -> bool {
         match self {
             Token::Identifier(_) => true,
@@ -167,7 +166,6 @@ impl Token {
         }
     }
 
-    #[cfg(test)]
     pub fn is_number(&self) -> bool {
         match self {
             Token::Number(_) => true,

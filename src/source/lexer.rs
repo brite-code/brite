@@ -62,7 +62,6 @@ impl<'a> Lexer<'a> {
     /// Consume the next token in the lexer. Calling `Lexer::advance()` again will return a
     /// new token. Eventually we will return an `EndToken`. When that happens subsequent calls to
     /// `Lexer::advance()` will only ever return an `EndToken`.
-    #[inline]
     pub fn advance(&mut self) -> Token {
         match self.lookahead.take() {
             Some(token) => token,
@@ -72,7 +71,6 @@ impl<'a> Lexer<'a> {
 
     /// Look at the next token without consuming the token and advancing the lexer. Calling
     /// `Lexer::lookahead()` again will return the same token.
-    #[inline]
     pub fn lookahead(&mut self) -> &Token {
         if self.lookahead.is_none() {
             self.lookahead = Some(self.actually_advance());
@@ -85,7 +83,6 @@ impl<'a> Lexer<'a> {
 
     /// Look at the next token on the same line as our current line. If the next token is on the
     /// same line then return the token. If the next token is on a different line return `None`.
-    #[inline]
     pub fn lookahead_on_same_line(&mut self) -> Option<&Token> {
         if self.lookahead.is_none() {
             self.lookahead = Some(self.actually_advance());
@@ -106,6 +103,40 @@ impl<'a> Lexer<'a> {
                 Some(token) => token,
                 None => unreachable!(),
             })
+        }
+    }
+
+    /// Looks at the next token and returns true if it is an identifier.
+    pub fn lookahead_identifier(&mut self) -> bool {
+        self.lookahead().is_identifier()
+    }
+
+    /// Advances the lexer, but only if the next token is an identifier.
+    pub fn advance_identifier(&mut self) -> Option<IdentifierToken> {
+        if self.lookahead_identifier() {
+            match self.advance() {
+                Token::Identifier(token) => Some(token),
+                _ => unreachable!(),
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Looks at the next token and returns true if it is a number.
+    pub fn lookahead_number(&mut self) -> bool {
+        self.lookahead().is_number()
+    }
+
+    /// Advances the lexer, but only if the next token is a number.
+    pub fn advance_number(&mut self) -> Option<NumberToken> {
+        if self.lookahead_number() {
+            match self.advance() {
+                Token::Number(token) => Some(token),
+                _ => unreachable!(),
+            }
+        } else {
+            None
         }
     }
 
