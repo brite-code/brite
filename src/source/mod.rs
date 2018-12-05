@@ -9,9 +9,9 @@ mod number;
 mod parser2;
 mod token;
 
-pub use self::ast::*;
-pub use self::document::*;
-pub use self::token::*;
+pub use self::ast::Module;
+pub use self::document::{Document, Range};
+pub use self::token::Token;
 
 use self::lexer::Lexer;
 use crate::diagnostics::DiagnosticSet;

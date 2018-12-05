@@ -1,9 +1,7 @@
+extern crate brite;
 extern crate unicode_xid;
 
-mod diagnostics;
-mod source;
-
-use self::source::{parse, Document};
+use brite::source::{parse, Document};
 use std::env;
 use std::path::PathBuf;
 
