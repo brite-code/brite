@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs;
 use std::io;
 use std::iter::Peekable;
@@ -183,10 +184,15 @@ impl<'a> DocumentChars<'a> {
 /// unsigned integer which represents the _byte_ offset into the source document.
 ///
 /// [1]: https://microsoft.github.io/language-server-protocol/specification
-#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Position(u32);
 
 impl Position {
+    /// The index of the position in a UTF-8 string.
+    pub fn utf8_index(&self) -> u32 {
+        self.0
+    }
+
     /// Gets the zero-based line number of this position in the provided document. A new line is
     /// created by `\n`, `\r\n`, or `\r`.
     pub fn line(&self, document: &Document) -> usize {
@@ -227,11 +233,17 @@ impl Position {
     }
 }
 
+impl fmt::Debug for Position {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Position({})", self.0)
+    }
+}
+
 /// A range in a text document expressed as start and end positions. A range is comparable to a
 /// selection in an editor. Therefore the end position is exclusive.
 ///
 /// We need to keep this small as an AST will contain a _lot_ of ranges. Currently 64 bits.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Range {
     /// The range’s start position.
     start: Position,
@@ -266,6 +278,12 @@ impl Range {
     /// position. Remember that range is not inclusive.
     pub fn end(&self) -> Position {
         Position(self.start.0 + self.length)
+    }
+}
+
+impl fmt::Debug for Range {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Range({}, {})", self.start.0, self.length)
     }
 }
 

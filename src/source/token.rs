@@ -1,6 +1,7 @@
 use super::document::{Position, Range};
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
+use std::fmt;
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the
@@ -19,7 +20,7 @@ pub enum Token {
 ///
 /// The actual start position is the true start of the token. This is where the significant
 /// characters in the token begin. The “full start” position includes whitespace and comments.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct TokenRange {
     /// The token’s full starting position. Including whitespace and comments.
     full_start: Position,
@@ -47,6 +48,17 @@ impl TokenRange {
     /// Gets the end of this token range.
     pub fn end(&self) -> Position {
         self.range.end()
+    }
+}
+
+impl fmt::Debug for TokenRange {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "TokenRange({}, {:?})",
+            self.full_start.utf8_index(),
+            self.range
+        )
     }
 }
 

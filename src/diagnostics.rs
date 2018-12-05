@@ -1,4 +1,5 @@
 use crate::source::{Range, Token};
+use std::fmt;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -84,12 +85,18 @@ impl DiagnosticSet {
 
 /// A reference to a diagnostic. Since this struct is only a reference, cloning is relatively cheap.
 /// May only be created by `DiagnosticSet`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct DiagnosticRef(Rc<Diagnostic>);
 
 impl Deref for DiagnosticRef {
     type Target = Diagnostic;
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl fmt::Debug for DiagnosticRef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }

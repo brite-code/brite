@@ -11,6 +11,7 @@ fn main() {
     let path = args.next().expect("Expecting a file path.");
     let path = PathBuf::from(&path);
     let document = Document::read(path).unwrap();
-    let (diagnostics, _) = parse(&document);
+    let (diagnostics, module) = parse(&document);
     println!("{:#?}", diagnostics);
+    println!("{:#?}", module);
 }
