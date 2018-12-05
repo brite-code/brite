@@ -2,11 +2,13 @@ use self::p::{Parser, ParserContext};
 use super::ast::*;
 use super::lexer::Lexer;
 use super::token::*;
+use crate::diagnostics::DiagnosticSet;
 
-/// Parses a complete Brite module AST out of a stream of lexical tokens.
+/// Parses a complete Brite module AST out of a stream of lexical tokens. Reports all diagnostics
+/// discovered while parsing to the `DiagnosticSet` returned by this function.
 ///
 /// Implements the ability to recover from parse errors.
-pub fn parse(lexer: Lexer) -> Module {
+pub fn parse(lexer: Lexer) -> (DiagnosticSet, Module) {
     // Create our parsing context.
     let mut context = ParserContext::new(lexer);
     // Until we reach the end token, parse items. If an item is in recovery mode it will stop trying
@@ -21,7 +23,9 @@ pub fn parse(lexer: Lexer) -> Module {
     // above while-loop when we have reached the end.
     let end = context.lexer.advance_end().unwrap();
     // Construct the module and return it.
-    Module::new(items, end)
+    let module = Module::new(items, end);
+    let diagnostics = context.diagnostics;
+    (diagnostics, module)
 }
 
 type ItemParser = p::Into<StatementParser, Item>;
@@ -187,7 +191,7 @@ mod p {
     use super::super::identifier::Keyword;
     use super::super::lexer::Lexer;
     use super::super::token::*;
-    use crate::diagnostics::{Diagnostic, DiagnosticRef};
+    use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticSet};
     use std::convert;
     use std::marker::PhantomData;
 
@@ -211,6 +215,7 @@ mod p {
 
     pub struct ParserContext<'a> {
         pub lexer: Lexer<'a>,
+        pub diagnostics: DiagnosticSet,
         recover: Vec<fn(&Token) -> bool>,
     }
 
@@ -218,6 +223,7 @@ mod p {
         pub fn new(lexer: Lexer<'a>) -> Self {
             ParserContext {
                 lexer,
+                diagnostics: DiagnosticSet::new(),
                 recover: Vec::new(),
             }
         }
@@ -248,40 +254,39 @@ mod p {
             loop {
                 let token = self.lexer.lookahead();
 
-                // If we have reached the end token then we are _guaranteed_ to be unable to
-                // parse our node. After all, there are no more tokens. Return a fatal error.
-                if let Token::End(_) = token {
-                    // Always report an unexpected end token error.
-                    let token = token.clone();
-                    let diagnostic = self.unexpected_token(token);
-                    // But only attach the first diagnostic to the AST. This will be the
-                    // diagnostic thrown at runtime.
-                    let diagnostic = first_diagnostic.unwrap_or(diagnostic);
+                // Now that we know this token fails to parse, let’s check if we can recover from
+                // this token.
+                //
+                // If the token is an end token we _must_ recover. If we don’t recover we will be in
+                // this loop forever since the lexer will keep giving us the end token.
+                let recover = if let Token::End(_) = token {
+                    true
+                } else {
+                    // If any of the recovery functions in our stack match the current token then
+                    // we recover. If _all_ recovery functions return false then we know no one can
+                    // handle this token so we should skip it.
+                    //
+                    // We reverse the iterator because we expect local errors to be more common. So
+                    // the last recovery functions on the stack should be more likely to match
+                    // the token.
+                    self.recover.iter().rev().any(|recover| recover(token))
+                };
+
+                // If we recover then return `Err()` instead of advancing the lexer.
+                if recover {
+                    // If we can recover from this token then presumably it is part of a valid
+                    // AST node to be parsed later. So we only want to report an error if we have
+                    // not found any other unexpected tokens. Meaning this token is certainly out
+                    // of place.
+                    let diagnostic = match first_diagnostic {
+                        Some(diagnostic) => diagnostic,
+                        None => {
+                            let token = token.clone();
+                            self.unexpected_token(token)
+                        }
+                    };
                     let error = RecoverError::new(skipped, diagnostic, None);
                     return Err(Box::new(error));
-                }
-
-                // Call all the recovery functions in our stack. If one of the recovery functions
-                // returns true then we know one of our parent parsing functions may continue from
-                // this token! So we return a fatal error.
-                //
-                // If _all_ recovery functions return false then we know no one can handle this
-                // token so we should skip it.
-                for recover in self.recover.iter().rev() {
-                    if recover(token) {
-                        // If we can recover from this token then presumably it is part of a valid
-                        // AST node. So we only want to report an error if we have not found any
-                        // other unexpected tokens. Meaning this token is certainly out of place.
-                        let diagnostic = match first_diagnostic {
-                            Some(diagnostic) => diagnostic,
-                            None => {
-                                let token = token.clone();
-                                self.unexpected_token(token)
-                            }
-                        };
-                        let error = RecoverError::new(skipped, diagnostic, None);
-                        return Err(Box::new(error));
-                    }
                 }
 
                 // Advance the lexer and push the token to our `skipped` list.
@@ -317,7 +322,7 @@ mod p {
         fn unexpected_token(&mut self, token: Token) -> DiagnosticRef {
             let range = token.full_range().range();
             let diagnostic = Diagnostic::unexpected_token(range, token);
-            self.lexer.diagnostics.report(diagnostic)
+            self.diagnostics.report(diagnostic)
         }
     }
 

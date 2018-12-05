@@ -36,10 +36,6 @@ enum DiagnosticMessage {
 
 #[derive(Debug, PartialEq)]
 enum ErrorDiagnosticMessage {
-    /// The lexer ran into a character it did not recognize.
-    UnexpectedChar { unexpected: char },
-    /// The lexer tried to parse a number, but that number was in an invalid format.
-    InvalidNumber { invalid: String },
     /// The parser ran into a token it did not recognize.
     UnexpectedToken { unexpected: Token },
 }
@@ -59,16 +55,6 @@ impl Diagnostic {
         Self::new(range, DiagnosticMessage::Error(message))
     }
 
-    pub fn unexpected_char(range: Range, unexpected: char) -> Self {
-        let message = ErrorDiagnosticMessage::UnexpectedChar { unexpected };
-        Self::error(range, message)
-    }
-
-    pub fn invalid_number(range: Range, invalid: String) -> Self {
-        let message = ErrorDiagnosticMessage::InvalidNumber { invalid };
-        Self::error(range, message)
-    }
-
     pub fn unexpected_token(range: Range, unexpected: Token) -> Self {
         let message = ErrorDiagnosticMessage::UnexpectedToken { unexpected };
         Self::error(range, message)
@@ -76,6 +62,7 @@ impl Diagnostic {
 }
 
 /// A set of some diagnostics all associated with the same resource.
+#[derive(Debug)]
 pub struct DiagnosticSet {
     diagnostics: Vec<DiagnosticRef>,
 }

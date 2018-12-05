@@ -6,12 +6,9 @@ use super::document::{Document, DocumentChars, Range};
 use super::identifier::Identifier;
 use super::number::Number;
 use super::token::*;
-use crate::diagnostics::{Diagnostic, DiagnosticSet};
 
 /// A lexer turns an iterator of source document characters into an iterator of tokens.
 pub struct Lexer<'a> {
-    /// The diagnostics struct we will report errors to.
-    pub diagnostics: &'a mut DiagnosticSet,
     /// The document characters we are lexing.
     chars: DocumentChars<'a>,
     /// If we have looked ahead then this will be `Some()`.
@@ -27,9 +24,8 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     /// Create a new lexer.
-    pub fn new(diagnostics: &'a mut DiagnosticSet, document: &'a Document) -> Self {
+    pub fn new(document: &'a Document) -> Self {
         Lexer {
-            diagnostics,
             chars: document.chars(),
             lookahead: None,
             end: None,
@@ -37,12 +33,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// Gets a list of all the tokens in a document along with the diagnostics reported while
-    /// tokenizing the document.
-    pub fn tokens(document: &'a Document) -> (DiagnosticSet, Vec<Token>) {
+    /// Gets a list of all the tokens in a document.
+    pub fn tokens(document: &'a Document) -> Vec<Token> {
         // Construct everything we’ll need for tokenization.
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, document);
+        let mut lexer = Lexer::new(document);
         let mut tokens = Vec::new();
         // Advance through the lexer pushing every token. Once we reach the `EndToken` we push that
         // to our list and break out of the loop.
@@ -55,8 +49,8 @@ impl<'a> Lexer<'a> {
                 token => tokens.push(token),
             }
         }
-        // Return our diagnostics and tokens.
-        (diagnostics, tokens)
+        // Return our tokens.
+        tokens
     }
 
     /// Consume the next token in the lexer. Calling `Lexer::advance()` again will return a
@@ -365,10 +359,8 @@ impl<'a> Lexer<'a> {
                                     invalid.push(self.chars.advance().unwrap());
                                 }
                                 let range = Range::new(start, invalid.len() as u32);
-                                return self.error(
-                                    TokenRange::new(full_start, range),
-                                    Diagnostic::invalid_number(range, invalid),
-                                );
+                                let range = TokenRange::new(full_start, range);
+                                return ErrorToken::invalid_number(range, invalid).into();
                             }
 
                             // Return the parsed number.
@@ -380,10 +372,8 @@ impl<'a> Lexer<'a> {
                                 }
                                 Err(invalid) => {
                                     let range = Range::new(start, invalid.len() as u32);
-                                    self.error(
-                                        TokenRange::new(full_start, range),
-                                        Diagnostic::invalid_number(range, invalid),
-                                    )
+                                    let range = TokenRange::new(full_start, range);
+                                    ErrorToken::invalid_number(range, invalid).into()
                                 }
                             };
                         }
@@ -391,10 +381,8 @@ impl<'a> Lexer<'a> {
                         // Otherwise we have an unexpected character!
                         self.chars.advance();
                         let range = Range::new(start, c.len_utf8() as u32); // TODO: Test `c.len_utf8()`.
-                        self.error(
-                            TokenRange::new(full_start, range),
-                            Diagnostic::unexpected_char(range, c),
-                        )
+                        let range = TokenRange::new(full_start, range);
+                        ErrorToken::unexpected_char(range, c).into()
                     }
                 },
                 // When we reach the end of our document return an `EndToken` and keep returning an
@@ -410,12 +398,6 @@ impl<'a> Lexer<'a> {
             };
         }
     }
-
-    /// Reports an error diagnostic and returns an error token referencing that diagnostic.
-    fn error(&mut self, range: TokenRange, diagnostic: Diagnostic) -> Token {
-        let diagnostic = self.diagnostics.report(diagnostic);
-        ErrorToken::new(range, diagnostic).into()
-    }
 }
 
 #[cfg(test)]
@@ -425,8 +407,7 @@ mod tests {
     #[test]
     fn document_chars_end() {
         let document = Document::new("/path/to/document.txt".into(), "abc".into());
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.advance().is_identifier());
         assert!(lexer.advance().is_end());
         assert!(lexer.advance().is_end());
@@ -436,8 +417,7 @@ mod tests {
     #[test]
     fn document_chars_end_lookahead() {
         let document = Document::new("/path/to/document.txt".into(), "abc".into());
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -451,8 +431,7 @@ mod tests {
     #[test]
     fn document_chars_end_full_range() {
         let document = Document::new("/path/to/document.txt".into(), "  ".into());
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         let token = lexer.advance();
         assert!(token.is_end());
         assert_eq!(
@@ -477,8 +456,7 @@ mod tests {
     fn lookahead_on_same_line() {
         let document = Document::new("/path/to/document.txt".into(), "a 0".into());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -489,8 +467,7 @@ mod tests {
         assert!(lexer.lookahead_on_same_line().unwrap().is_end());
         assert!(lexer.advance().is_end());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -503,8 +480,7 @@ mod tests {
 
         let document = Document::new("/path/to/document.txt".into(), "a\n0".into());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -515,8 +491,7 @@ mod tests {
         assert!(lexer.lookahead_on_same_line().unwrap().is_end());
         assert!(lexer.advance().is_end());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -529,8 +504,7 @@ mod tests {
 
         let document = Document::new("/path/to/document.txt".into(), "a\r0".into());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -541,8 +515,7 @@ mod tests {
         assert!(lexer.lookahead_on_same_line().unwrap().is_end());
         assert!(lexer.advance().is_end());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -555,8 +528,7 @@ mod tests {
 
         let document = Document::new("/path/to/document.txt".into(), "a\r\n0".into());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.advance().is_identifier());
@@ -567,8 +539,7 @@ mod tests {
         assert!(lexer.lookahead_on_same_line().unwrap().is_end());
         assert!(lexer.advance().is_end());
 
-        let mut diagnostics = DiagnosticSet::new();
-        let mut lexer = Lexer::new(&mut diagnostics, &document);
+        let mut lexer = Lexer::new(&document);
         assert!(lexer.lookahead_on_same_line().unwrap().is_identifier());
         assert!(lexer.lookahead().is_identifier());
         assert!(lexer.advance().is_identifier());

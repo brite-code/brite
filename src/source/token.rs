@@ -1,7 +1,6 @@
 use super::document::{Position, Range};
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
-use crate::diagnostics::DiagnosticRef;
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
 /// a source document we produce a list of tokens whose positions when added together should be the
@@ -128,18 +127,34 @@ impl NumberToken {
 /// An error we encountered while tokenizing the program. Errors are not fatal so an error is
 /// represented as a token.
 ///
-/// Instead of holding a diagnostic identifier, we hold information needed to convert this error
-/// token into a diagnostic. It is difficult to perform a side-effect in our lexer as it returns
-/// an iterator. So our parser converts error tokens into diagnostics.
+/// Our lexer does not report any diagnostics when it encounters an error. Instead our lexer creates
+/// an error token and our parser will report an unexpected token error.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ErrorToken {
     range: TokenRange,
-    diagnostic: DiagnosticRef,
+    description: ErrorTokenDescription,
+}
+
+/// An `ErrorToken` description.
+#[derive(Clone, Debug, PartialEq)]
+enum ErrorTokenDescription {
+    /// The lexer ran into a character it did not recognize.
+    UnexpectedChar { unexpected: char },
+    /// The lexer tried to parse a number, but that number was in an invalid format.
+    InvalidNumber { invalid: String },
 }
 
 impl ErrorToken {
-    pub fn new(range: TokenRange, diagnostic: DiagnosticRef) -> Self {
-        ErrorToken { range, diagnostic }
+    fn new(range: TokenRange, description: ErrorTokenDescription) -> Self {
+        ErrorToken { range, description }
+    }
+
+    pub fn unexpected_char(range: TokenRange, unexpected: char) -> Self {
+        Self::new(range, ErrorTokenDescription::UnexpectedChar { unexpected })
+    }
+
+    pub fn invalid_number(range: TokenRange, invalid: String) -> Self {
+        Self::new(range, ErrorTokenDescription::InvalidNumber { invalid })
     }
 }
 
