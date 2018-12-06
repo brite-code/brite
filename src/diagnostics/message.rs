@@ -17,6 +17,13 @@
 //! - Use correct English grammar. It can be hard to make a program which produces correct English
 //!   grammar. If you must, consult a spellchecker.
 //!
+//! - Write messages in first-person plural. That is, use “we”. For example “we found an error”.
+//!   This personifies our type checker as a team of people looking for bugs in the programmer’s
+//!   code. By personifying our type checker error messages feel like a dialogue. Elm’s error
+//!   messages are famous for using first-person tense. I (Caleb) always found messages like “I
+//!   found an error” to be a bit annoying since the type checker is certainly not a person nor is
+//!   it built by a single person. Hopefully “we” will be a nice compromise.
+//!
 //! - Use language the programmer will understand. Not language the compiler understands. Words
 //!   like “identifier”, “token”, and “expression” are compiler speak. Instead of compiler speak
 //!   like “identifier” use a phrase like “variable name”.
@@ -61,7 +68,21 @@ pub enum DiagnosticMessage {
 #[derive(Debug, PartialEq)]
 pub enum ErrorDiagnosticMessage {
     /// The parser ran into a token it did not recognize.
-    UnexpectedToken { unexpected: Token },
+    UnexpectedToken {
+        unexpected: Token,
+        expected: ParserExpected,
+    },
+}
+
+/// What did the parser expect when it encountered an unexpected token?
+#[derive(Clone, Debug, PartialEq)]
+pub enum ParserExpected {
+    Glyph(Glyph),
+    Identifier,
+    Number,
+    Item,
+    Expression,
+    Pattern,
 }
 
 #[derive(Debug, PartialEq)]
@@ -85,47 +106,57 @@ impl DiagnosticMessage {
     fn error_message(message: &ErrorDiagnosticMessage) -> Markup {
         use self::ErrorDiagnosticMessage::*;
         match message {
-            UnexpectedToken { unexpected } => {
+            // Thought and care that went into this error message:
+            //
+            // - When designing this message we started with “Unexpected character `%`. Expected
+            //   expression.” and ended with the message “We found `%` when we wanted an
+            //   expression.” The latter uses smaller words. It isn’t abrupt. It personifies the
+            //   type checker with “we”.
+            // - Instead of “We found a `%` character” we print the message as “We found `%`”. The
+            //   latter is shorter. It is also very hard to choose correctly between “a” and “an”
+            //   for arbitrary user input. For example this is wrong “a `=` character” since `=` is
+            //   pronounced “equals” which starts with a vowel sound. It should be “an `=`
+            //   character”. We are unaware of a way to correctly guess the pronunciation people use
+            //   for glyphs in general.
+            // - For unexpected endings we say “We found the file’s end”. We reference “the file”
+            //   and use a curly quote (`’`) for the possessive.
+            // - For unexpected tokens when we expected a pattern we say “We found `=` when we
+            //   wanted a variable name.” because the word “pattern” is compiler speak. Even though
+            //   patterns can be more than a variable name, 80% of the time the programmer will
+            //   write a variable name.
+            UnexpectedToken {
+                unexpected,
+                expected,
+            } => {
                 let mut message = Markup::new();
-                message.push("Unexpected ");
+                message.push("We found ");
                 match unexpected {
-                    Token::Identifier(_) => message.push("variable name"),
-                    Token::Number(_) => message.push("number"),
-                    Token::End(_) => message.push("ending"),
-                    Token::Glyph(token) => {
-                        let glyph = token.glyph();
-                        match glyph {
-                            Glyph::Keyword(keyword) => {
-                                message.push("keyword ");
-                                message.push_code(keyword.as_str());
-                            }
-                            // NOTE: This list should only match single character glyphs! Remember
-                            // that when adding a new glyph that not all glyphs have to be
-                            // single character.
-                            Glyph::BraceLeft
-                            | Glyph::BraceRight
-                            | Glyph::Comma
-                            | Glyph::Dot
-                            | Glyph::Equals
-                            | Glyph::ParenLeft
-                            | Glyph::ParenRight
-                            | Glyph::Semicolon
-                            | Glyph::Slash => {
-                                message.push("character ");
-                                message.push_code(glyph.as_str());
-                            }
-                        }
-                    }
+                    Token::Glyph(token) => message.push_code(token.glyph().as_str()),
+                    Token::Identifier(_) => message.push("a variable name"),
+                    Token::Number(_) => message.push("a number"),
+                    Token::End(_) => message.push("the file’s end"),
                     Token::Error(token) => {
                         use crate::source::ErrorTokenDescription;
                         match &token.description {
                             ErrorTokenDescription::UnexpectedChar { unexpected } => {
-                                message.push("character ");
-                                message.push_code(unexpected.to_string());
+                                message.push_code(unexpected.to_string())
                             }
-                            ErrorTokenDescription::InvalidNumber { .. } => message.push("number"),
+                            ErrorTokenDescription::InvalidNumber { .. } => message.push("a number"),
                         }
                     }
+                }
+                message.push(" when we wanted ");
+                match expected {
+                    ParserExpected::Glyph(glyph) => message.push_code(glyph.as_str()),
+                    ParserExpected::Identifier => message.push("a variable name"),
+                    ParserExpected::Number => message.push("a number"),
+                    // NOTE: The words “statement”, “declaration”, “expression”, and “pattern” are
+                    // compiler speak. However, at least “statement” and “expression” are relatively
+                    // common in C-like languages, so we use those words. But we use “variable name”
+                    // for “pattern”. Even though patterns can be more than a variable name.
+                    ParserExpected::Item => message.push("a statement"),
+                    ParserExpected::Expression => message.push("an expression"),
+                    ParserExpected::Pattern => message.push("a variable name"),
                 }
                 message.push(".");
                 message

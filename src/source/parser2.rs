@@ -1,8 +1,8 @@
-use self::p::{Parser, ParserContext};
+use self::p::{Parser, ParserContext, Provide};
 use super::ast::*;
 use super::lexer::Lexer;
 use super::token::*;
-use crate::diagnostics::DiagnosticSet;
+use crate::diagnostics::{DiagnosticSet, ParserExpected};
 
 /// Parses a complete Brite module AST out of a stream of lexical tokens. Reports all diagnostics
 /// discovered while parsing to the `DiagnosticSet` returned by this function.
@@ -28,9 +28,19 @@ pub fn parse(lexer: Lexer) -> (DiagnosticSet, Module) {
     (diagnostics, module)
 }
 
-type ItemParser = p::Into<StatementParser, Item>;
+type ItemParser = p::Choice2<
+    ExpectedItem,
+    p::Into<ExpressionStatementParser, Item>,
+    p::Into<BindingStatementParser, Item>,
+>;
 
-type StatementParser = p::Choice2<ExpressionStatementParser, BindingStatementParser>;
+struct ExpectedItem;
+
+impl Provide<ParserExpected> for ExpectedItem {
+    fn get() -> ParserExpected {
+        ParserExpected::Item
+    }
+}
 
 /// ```ite
 /// E;
@@ -115,12 +125,21 @@ impl p::Transform for NumberConstantParser {
 }
 
 type ExpressionParser = p::Choice5<
+    ExpectedExpression,
     VariableExpressionParser,
     p::Into<NumberConstantParser, Expression>,
     p::Into<TrueConstantParser, Expression>,
     p::Into<FalseConstantParser, Expression>,
     WrappedExpressionParser,
 >;
+
+struct ExpectedExpression;
+
+impl Provide<ParserExpected> for ExpectedExpression {
+    fn get() -> ParserExpected {
+        ParserExpected::Expression
+    }
+}
 
 /// ```ite
 /// x
@@ -156,7 +175,15 @@ impl p::Transform for WrappedExpressionParser {
     }
 }
 
-type PatternParser = p::Choice2<HolePatternParser, VariablePatternParser>;
+type PatternParser = p::Choice2<ExpectedPattern, HolePatternParser, VariablePatternParser>;
+
+struct ExpectedPattern;
+
+impl Provide<ParserExpected> for ExpectedPattern {
+    fn get() -> ParserExpected {
+        ParserExpected::Pattern
+    }
+}
 
 /// ```ite
 /// _
@@ -191,12 +218,14 @@ mod p {
     use super::super::identifier::Keyword;
     use super::super::lexer::Lexer;
     use super::super::token::*;
-    use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticSet};
+    use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticSet, ParserExpected};
     use std::convert;
     use std::marker::PhantomData;
 
     pub trait Parser: Sized {
         type Data;
+
+        fn expected() -> ParserExpected;
 
         fn test(token: &Token) -> bool;
 
@@ -208,7 +237,7 @@ mod p {
             if let Some(x) = Self::try_parse(context) {
                 Ok(x)
             } else {
-                context.recover(Self::try_parse)
+                context.recover(Self::expected(), Self::try_parse)
             }
         }
     }
@@ -241,7 +270,11 @@ mod p {
         /// call to `try_parse` fails we will advance to the next token and try again. _Unless_ the
         /// next token can be handled by any parser in our stack. Then we will return a fatal error
         /// node and let the parent parser handle the token.
-        fn recover<T>(&mut self, try_parse: fn(&mut ParserContext) -> Option<T>) -> Recover<T> {
+        fn recover<T>(
+            &mut self,
+            expected: ParserExpected,
+            try_parse: fn(&mut ParserContext) -> Option<T>,
+        ) -> Recover<T> {
             // Setup information we will need for creating errors.
             let mut skipped = Vec::new();
             let mut first_diagnostic = None;
@@ -282,7 +315,7 @@ mod p {
                         Some(diagnostic) => diagnostic,
                         None => {
                             let token = token.clone();
-                            self.unexpected_token(token)
+                            self.unexpected_token(token, expected)
                         }
                     };
                     let error = RecoverError::new(skipped, diagnostic, None);
@@ -296,7 +329,7 @@ mod p {
                 // Report an unexpected token diagnostic for every token that we skip. Keep the
                 // first skipped token diagnostic around. We’ll use this diagnostic in the AST to
                 // cause runtime crashes.
-                let diagnostic = self.unexpected_token(token);
+                let diagnostic = self.unexpected_token(token, expected.clone());
                 if first_diagnostic.is_none() {
                     first_diagnostic = Some(diagnostic);
                 }
@@ -319,11 +352,19 @@ mod p {
         }
 
         /// Report an unexpected token error. The diagnostics object is owned by our lexer.
-        fn unexpected_token(&mut self, token: Token) -> DiagnosticRef {
-            let range = token.full_range().range();
-            let diagnostic = Diagnostic::unexpected_token(range, token);
+        fn unexpected_token(
+            &mut self,
+            unexpected: Token,
+            expected: ParserExpected,
+        ) -> DiagnosticRef {
+            let range = unexpected.full_range().range();
+            let diagnostic = Diagnostic::unexpected_token(range, unexpected, expected);
             self.diagnostics.report(diagnostic)
         }
+    }
+
+    pub trait Provide<T> {
+        fn get() -> T;
     }
 
     /// NOTE: Ideally, `Optional<P>::parse` would return `Option<P::Data>` instead of
@@ -334,6 +375,10 @@ mod p {
 
     impl<P: Parser> Parser for Optional<P> {
         type Data = Option<P::Data>;
+
+        fn expected() -> ParserExpected {
+            P::expected()
+        }
 
         fn test(token: &Token) -> bool {
             P::test(token)
@@ -356,6 +401,10 @@ mod p {
 
     impl<P: Parser, Q: Parser> Parser for Many<P, Q> {
         type Data = Vec<Recover<P::Data>>;
+
+        fn expected() -> ParserExpected {
+            P::expected()
+        }
 
         fn test(token: &Token) -> bool {
             P::test(token)
@@ -394,6 +443,10 @@ mod p {
     impl<T: Transform> Parser for T {
         type Data = T::Data;
 
+        fn expected() -> ParserExpected {
+            T::Parser::expected()
+        }
+
         fn test(token: &Token) -> bool {
             T::Parser::test(token)
         }
@@ -429,6 +482,10 @@ mod p {
     impl Parser for Identifier {
         type Data = IdentifierToken;
 
+        fn expected() -> ParserExpected {
+            ParserExpected::Identifier
+        }
+
         fn test(token: &Token) -> bool {
             token.is_identifier()
         }
@@ -442,6 +499,10 @@ mod p {
 
     impl Parser for Number {
         type Data = NumberToken;
+
+        fn expected() -> ParserExpected {
+            ParserExpected::Number
+        }
 
         fn test(token: &Token) -> bool {
             token.is_number()
@@ -458,6 +519,10 @@ mod p {
 
             impl Parser for $glyph {
                 type Data = GlyphToken;
+
+                fn expected() -> ParserExpected {
+                    ParserExpected::Glyph(Glyph::$glyph)
+                }
 
                 fn test(token: &Token) -> bool {
                     token.is_glyph(Glyph::$glyph)
@@ -476,6 +541,10 @@ mod p {
 
             impl Parser for $keyword {
                 type Data = GlyphToken;
+
+                fn expected() -> ParserExpected {
+                    ParserExpected::Glyph(Glyph::Keyword(Keyword::$keyword))
+                }
 
                 fn test(token: &Token) -> bool {
                     token.is_glyph(Glyph::Keyword(Keyword::$keyword))
@@ -522,6 +591,10 @@ mod p {
             impl<P1: Parser, $($t: Parser),*> Parser for $name<P1, $($t),*> {
                 type Data = (P1::Data, $(Recover<$t::Data>),*);
 
+                fn expected() -> ParserExpected {
+                    P1::expected()
+                }
+
                 fn test(token: &Token) -> bool {
                     P1::test(token)
                 }
@@ -547,10 +620,26 @@ mod p {
 
     macro_rules! choice {
         (pub struct $name:ident<P1, $($t:ident),+>) => {
-            pub struct $name<P1: Parser, $($t: Parser<Data = P1::Data>),*>(PhantomData<(P1, $($t),*)>);
+            pub struct $name<E, P1, $($t),*>
+            where
+                E: Provide<ParserExpected>,
+                P1: Parser,
+                $($t: Parser<Data = P1::Data>),*
+            {
+                phantom: PhantomData<(E, P1, $($t),*)>,
+            }
 
-            impl<P1: Parser, $($t: Parser<Data = P1::Data>),*> Parser for $name<P1, $($t),*> {
+            impl<E, P1, $($t),*> Parser for $name<E, P1, $($t),*>
+            where
+                E: Provide<ParserExpected>,
+                P1: Parser,
+                $($t: Parser<Data = P1::Data>),*
+            {
                 type Data = P1::Data;
+
+                fn expected() -> ParserExpected {
+                    E::get()
+                }
 
                 fn test(token: &Token) -> bool {
                     P1::test(token) || $($t::test(token))||*

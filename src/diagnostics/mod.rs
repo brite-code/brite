@@ -8,6 +8,8 @@ use std::fmt;
 use std::ops::Deref;
 use std::rc::Rc;
 
+pub use self::message::ParserExpected;
+
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
 /// range of characters which the diagnostic points to. However, a diagnostic does not contain the
 /// resource name being pointed to.
@@ -30,8 +32,12 @@ impl Diagnostic {
         Self::new(range, DiagnosticMessage::Error(message))
     }
 
-    pub fn unexpected_token(range: Range, unexpected: Token) -> Self {
-        let message = ErrorDiagnosticMessage::UnexpectedToken { unexpected };
+    /// The parser ran into a token it did not recognize.
+    pub fn unexpected_token(range: Range, unexpected: Token, expected: ParserExpected) -> Self {
+        let message = ErrorDiagnosticMessage::UnexpectedToken {
+            unexpected,
+            expected,
+        };
         Self::error(range, message)
     }
 
