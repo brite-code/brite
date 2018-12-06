@@ -11,7 +11,7 @@ mod token;
 
 pub use self::ast::Module;
 pub use self::document::{Document, Range};
-pub use self::token::Token;
+pub use self::token::*;
 
 use self::lexer::Lexer;
 use crate::diagnostics::DiagnosticSet;

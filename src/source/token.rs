@@ -144,12 +144,12 @@ impl NumberToken {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ErrorToken {
     range: TokenRange,
-    description: ErrorTokenDescription,
+    pub description: ErrorTokenDescription,
 }
 
 /// An `ErrorToken` description.
 #[derive(Clone, Debug, PartialEq)]
-enum ErrorTokenDescription {
+pub enum ErrorTokenDescription {
     /// The lexer ran into a character it did not recognize.
     UnexpectedChar { unexpected: char },
     /// The lexer tried to parse a number, but that number was in an invalid format.

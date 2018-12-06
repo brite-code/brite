@@ -60,6 +60,69 @@ impl Diagnostic {
         let message = ErrorDiagnosticMessage::UnexpectedToken { unexpected };
         Self::error(range, message)
     }
+
+    /// Creates a message string for the provided diagnostic. This is the message string which will
+    /// be displayed to the user.
+    ///
+    /// # Style Guide
+    ///
+    /// What makes a good error message? These guides are designed to produce the clearest message
+    /// possible. Follow these guides to create good, consistent, error messages.
+    ///
+    /// - Keep diagnostic messages short. Preferably a single, clear, sentence. This format works
+    ///   best for all our target editors. Consider VSCode which uses a hover dialog for viewing
+    ///   errors inline and a “problems” panel to view all errors in a project. Short single-line
+    ///   messages work best in both of these locations.
+    ///
+    /// - Use language the programmer will understand. Not language the compiler understands. Words
+    ///   like “identifier”, “token”, and “expression” are compiler speak. Instead of compiler speak
+    ///   like “identifier” use a phrase like “variable name”.
+    ///
+    /// - Any text that might be written in code should go between backtick characters (\`). This is
+    ///   the convention established by markdown. Ideally, code editors will format this as
+    ///   inline code. Remember to escape the text in between backticks!
+    ///
+    /// - If you use quotes, make sure they are curly quotes. For instance “phrase” instead
+    ///   of "phrase". Same for single quotes. For instance ‘phrase’ instead of 'phrase'. Unless you
+    ///   are talking about quotes inside of code.
+    pub fn message(&self) -> String {
+        match &self.message {
+            DiagnosticMessage::Error(message) => Self::error_message(message),
+            DiagnosticMessage::Warning(_) => unreachable!(),
+            DiagnosticMessage::Info(_) => unreachable!(),
+        }
+    }
+
+    /// Creates a message string to be displayed to the user
+    fn error_message(message: &ErrorDiagnosticMessage) -> String {
+        use self::ErrorDiagnosticMessage::*;
+        match message {
+            UnexpectedToken { unexpected } => {
+                let mut message = String::new();
+                message.push_str("Unexpected ");
+                match unexpected {
+                    Token::Glyph(_) => unimplemented!(),
+                    Token::Identifier(_) => message.push_str("variable name"),
+                    Token::Number(_) => message.push_str("number"),
+                    Token::End(_) => message.push_str("ending"),
+                    Token::Error(token) => {
+                        use crate::source::ErrorTokenDescription;
+                        match &token.description {
+                            ErrorTokenDescription::UnexpectedChar { unexpected } => {
+                                message.push_str("character `");
+                                message.push(*unexpected);
+                                message.push_str("`");
+                            }
+                            ErrorTokenDescription::InvalidNumber { .. } => {
+                                message.push_str("number")
+                            }
+                        }
+                    }
+                }
+                message
+            }
+        }
+    }
 }
 
 /// A set of some diagnostics all associated with the same resource.
