@@ -39,4 +39,47 @@ impl Markup {
     pub fn push_code(&mut self, code: impl Into<String>) {
         self.segments.push(Segment::Code(code.into()))
     }
+
+    /// Converts markup to a simple string format. This format is not intended to be parsed by any
+    /// markup processor. We only escape backticks (`\``) since they are used for inline code.
+    ///
+    /// Don’t use this function to create markdown! Markdown requires more escapes. Use this
+    /// function when you intend to display the markup to the user without any formatting.
+    pub fn to_simple_string(&self) -> String {
+        // Compute a rough estimate for our string’s capacity based on the segments. We will only
+        // exceed that capacity if there are backticks which need to be escaped.
+        let mut s = String::with_capacity(
+            self.segments
+                .iter()
+                .map(|segment| match segment {
+                    Segment::Plain(s) => s.len(),
+                    Segment::Code(s) => s.len() + 2,
+                }).sum(),
+        );
+        // Push every character in every segment to our final string. Surround code segments in
+        // backticks (`\``) and escape all other backticks.
+        for segment in &self.segments {
+            match segment {
+                Segment::Plain(cs) => {
+                    for c in cs.chars() {
+                        match c {
+                            '`' => s.push_str("\\`"),
+                            _ => s.push(c),
+                        }
+                    }
+                }
+                Segment::Code(cs) => {
+                    s.push('`');
+                    for c in cs.chars() {
+                        match c {
+                            '`' => s.push_str("\\`"),
+                            _ => s.push(c),
+                        }
+                    }
+                    s.push('`');
+                }
+            }
+        }
+        s
+    }
 }

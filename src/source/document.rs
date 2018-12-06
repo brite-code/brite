@@ -2,7 +2,7 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::iter::Peekable;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::Chars;
 
 /// A Brite source code document. Source code is represented as text and turned into an AST through
@@ -51,6 +51,11 @@ impl Document {
         };
         // Return the created document.
         Document { path, text, lines }
+    }
+
+    /// Returns the path to this document.
+    pub fn path(&self) -> &Path {
+        &self.path
     }
 
     /// The position our document starts at.

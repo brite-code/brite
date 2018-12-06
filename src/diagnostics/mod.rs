@@ -41,6 +41,11 @@ impl Diagnostic {
         Self::error(range, message)
     }
 
+    /// Returns the range of this diagnostic.
+    pub fn range(&self) -> Range {
+        self.range
+    }
+
     /// Creates a diagnostic message to be displayed to the user. Diagnostic messages are built
     /// using `Markup` objects for some light formatting.
     pub fn message(&self) -> Markup {
@@ -59,6 +64,11 @@ impl DiagnosticSet {
     pub fn new() -> Self {
         let diagnostics = Vec::new();
         DiagnosticSet { diagnostics }
+    }
+
+    /// Iterates over each diagnostic in the set.
+    pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
+        self.diagnostics.iter().map(Deref::deref)
     }
 
     /// Adds a diagnostic to the set and return a reference to that diagnostic.
