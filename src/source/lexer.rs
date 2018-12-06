@@ -373,11 +373,12 @@ impl<'a> Lexer<'a> {
 
                         // Otherwise we have an unexpected character!
                         self.chars.advance();
-                        let range = Range::new(start, c.len_utf8() as u32); // TODO: Test `c.len_utf8()`.
+                        let range = Range::new(start, c.len_utf8() as u32);
                         let range = TokenRange::new(full_start, range);
                         ErrorToken::unexpected_char(range, c).into()
                     }
                 },
+
                 // When we reach the end of our document return an `EndToken` and keep returning an
                 // `EndToken` for all time.
                 None => {

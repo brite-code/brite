@@ -4,9 +4,9 @@ mod message;
 use self::markup::Markup;
 use self::message::{DiagnosticMessage, ErrorDiagnosticMessage};
 use crate::source::{Document, Range, Token};
-use std::env;
 use std::fmt;
 use std::ops::Deref;
+use std::path::Path;
 use std::rc::Rc;
 
 pub use self::message::ParserExpected;
@@ -55,11 +55,11 @@ impl Diagnostic {
 
     /// Formats the diagnostic as a simple string. Usable for quickly showing an error to the user.
     /// Requires the document this diagnostic was created with to properly format the
-    /// diagnostic’s range.
-    pub fn to_simple_string(&self, document: &Document) -> String {
+    /// diagnostic’s range. Also accepts an optional path that we should print the document path
+    /// relative to.
+    pub fn to_simple_string(&self, document: &Document, relative_to: Option<&Path>) -> String {
         let path = document.path();
-        let path = env::current_dir()
-            .ok()
+        let path = relative_to
             .and_then(|current_dir| path.strip_prefix(current_dir).ok())
             .unwrap_or(path);
         format!(

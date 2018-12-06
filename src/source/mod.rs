@@ -25,7 +25,9 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
     let (diagnostics, module) = parser2::parse(lexer);
     // If debug assertions are enabled then run our invariants to make sure that the tokens list and
     // the module AST are well formed.
-    if cfg!(debug_assertions) {
+    //
+    // These assertions are very important for test suite coverage.
+    if cfg!(test) || cfg!(debug_assertions) {
         let tokens = Lexer::tokens(&document);
         // Assert that the start of each token is equal to the end of the previous token.
         let mut prev_position = document.start();
