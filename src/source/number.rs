@@ -1,6 +1,6 @@
 use super::document::DocumentChars;
+use std::f64;
 use std::str::FromStr;
-use std::{f64, u32};
 
 /// Some number that we parsed from a source document. We only parse positive numbers. Negative
 /// numbers may be created with the negative unary operator. All numbers are represented as 64-bit
@@ -55,42 +55,56 @@ impl Number {
                     // Parse a binary number.
                     Some('b') | Some('B') => {
                         raw.push(chars.advance().unwrap());
+                        let mut value = 0.;
                         loop {
-                            match chars.lookahead() {
-                                Some('0') | Some('1') => raw.push(chars.advance().unwrap()),
+                            let n = match chars.lookahead() {
+                                Some('0') => 0.,
+                                Some('1') => 1.,
                                 _ => break,
-                            }
+                            };
+                            value = value * 2. + n;
+                            raw.push(chars.advance().unwrap());
                         }
-                        let (_, binary) = raw.split_at(2);
-                        return match u32::from_str_radix(binary, 2) {
-                            Ok(value) => {
-                                raw.shrink_to_fit();
-                                let value = f64::from(value);
-                                Some(Ok(Number { raw, value }))
-                            }
-                            Err(_) => Some(Err(raw)),
-                        };
+                        if raw.len() == 2 {
+                            return Some(Err(raw));
+                        } else {
+                            raw.shrink_to_fit();
+                            return Some(Ok(Number { raw, value }));
+                        }
                     }
                     // Parse a hexadecimal number.
                     Some('x') | Some('X') => {
                         raw.push(chars.advance().unwrap());
+                        let mut value = 0.;
                         loop {
-                            match chars.lookahead() {
-                                Some('0'...'9') | Some('a'...'f') | Some('A'...'F') => {
-                                    raw.push(chars.advance().unwrap())
-                                }
+                            let n = match chars.lookahead() {
+                                Some('0') => 0.,
+                                Some('1') => 1.,
+                                Some('2') => 2.,
+                                Some('3') => 3.,
+                                Some('4') => 4.,
+                                Some('5') => 5.,
+                                Some('6') => 6.,
+                                Some('7') => 7.,
+                                Some('8') => 8.,
+                                Some('9') => 9.,
+                                Some('a') | Some('A') => 10.,
+                                Some('b') | Some('B') => 11.,
+                                Some('c') | Some('C') => 12.,
+                                Some('d') | Some('D') => 13.,
+                                Some('e') | Some('E') => 14.,
+                                Some('f') | Some('F') => 15.,
                                 _ => break,
-                            }
+                            };
+                            value = value * 16. + n;
+                            raw.push(chars.advance().unwrap());
                         }
-                        let (_, hexadecimal) = raw.split_at(2);
-                        return match u32::from_str_radix(hexadecimal, 16) {
-                            Ok(value) => {
-                                raw.shrink_to_fit();
-                                let value = f64::from(value);
-                                Some(Ok(Number { raw, value }))
-                            }
-                            Err(_) => Some(Err(raw)),
-                        };
+                        if raw.len() == 2 {
+                            return Some(Err(raw));
+                        } else {
+                            raw.shrink_to_fit();
+                            return Some(Ok(Number { raw, value }));
+                        }
                     }
                     _ => {}
                 }
@@ -161,7 +175,9 @@ mod tests {
     fn parse_number() {
         const ERR: Result<f64, ()> = Err(());
 
-        let cases: Vec<(&'static str, Option<Result<f64, ()>>)> = vec![
+        let big_hex = format!("0x1{}", String::from("0").repeat(256));
+
+        let cases: Vec<(&str, Option<Result<f64, ()>>)> = vec![
             ("", None),
             ("x", None),
             ("e", None),
@@ -212,9 +228,9 @@ mod tests {
             ("0X1B", Some(Ok(27.))),
             ("0XB1", Some(Ok(177.))),
             ("0b11111111111111111111111111111111", Some(Ok(4294967295.))),
-            ("0b100000000000000000000000000000000", Some(ERR)),
+            ("0b100000000000000000000000000000000", Some(Ok(4294967296.))),
             ("0xFFFFFFFF", Some(Ok(4294967295.))),
-            ("0x100000000", Some(ERR)),
+            ("0x100000000", Some(Ok(4294967296.))),
             ("1", Some(Ok(1.))),
             ("42", Some(Ok(42.))),
             ("4294967295", Some(Ok(4294967295.))),
@@ -272,6 +288,7 @@ mod tests {
             ("1e309", Some(Ok(f64::INFINITY))),
             ("1e-500", Some(Ok(0.))),
             (".", Some(ERR)),
+            (&big_hex, Some(Ok(f64::INFINITY))),
         ];
 
         for (source, expected) in cases {

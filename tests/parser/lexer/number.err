@@ -19,4 +19,3 @@ number.ite(33,1): `0O` is not a number.
 number.ite(34,1): `0z` is not a number.
 number.ite(35,1): `0Z` is not a number.
 number.ite(37,2): `42px` is not a number.
-number.ite(40,1): `0x100000000` is not a number.
