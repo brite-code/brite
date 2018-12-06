@@ -72,6 +72,8 @@ pub enum ErrorDiagnosticMessage {
         unexpected: Token,
         expected: ParserExpected,
     },
+    /// The parser tried found an invalid number.
+    InvalidNumber { raw: String },
 }
 
 /// What did the parser expect when it encountered an unexpected token?
@@ -135,17 +137,7 @@ impl DiagnosticMessage {
                     Token::Identifier(_) => message.push("a variable name"),
                     Token::Number(_) => message.push("a number"),
                     Token::End(_) => message.push("the file’s end"),
-                    Token::Error(token) => {
-                        use crate::source::ErrorTokenDescription;
-                        match &token.description {
-                            ErrorTokenDescription::UnexpectedChar { unexpected } => {
-                                message.push_code(unexpected.to_string())
-                            }
-                            ErrorTokenDescription::InvalidNumber { .. } => {
-                                message.push("an invalid number")
-                            }
-                        }
-                    }
+                    Token::Unexpected(token) => message.push_code(token.unexpected().to_string()),
                 }
                 message.push(" when we wanted ");
                 match expected {
@@ -161,6 +153,13 @@ impl DiagnosticMessage {
                     ParserExpected::Pattern => message.push("a variable name"),
                 }
                 message.push(".");
+                message
+            }
+
+            InvalidNumber { raw } => {
+                let mut message = Markup::new();
+                message.push_code(raw.clone());
+                message.push(" is not a number.");
                 message
             }
         }

@@ -19,10 +19,12 @@ use crate::diagnostics::DiagnosticSet;
 /// Parses a Brite source document into an Abstract Syntax Tree (AST). We can handle any source
 /// text thrown at this function. Only correct Brite code can be executed, though.
 pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
+    // Create our diagnostics set.
+    let mut diagnostics = DiagnosticSet::new();
     // Create the lexer out of document characters.
-    let lexer = Lexer::new(&document);
+    let lexer = Lexer::new(&mut diagnostics, &document);
     // Parse our module using the lexer. Reporting all diagnostics to the `DiagnosticSet` we return.
-    let (diagnostics, module) = parser2::parse(lexer);
+    let module = parser2::parse(lexer);
     // If debug assertions are enabled then run our invariants to make sure that the tokens list and
     // the module AST are well formed.
     //

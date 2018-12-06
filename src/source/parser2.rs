@@ -2,13 +2,13 @@ use self::p::{Parser, ParserContext, Provide};
 use super::ast::*;
 use super::lexer::Lexer;
 use super::token::*;
-use crate::diagnostics::{DiagnosticSet, ParserExpected};
+use crate::diagnostics::ParserExpected;
 
 /// Parses a complete Brite module AST out of a stream of lexical tokens. Reports all diagnostics
 /// discovered while parsing to the `DiagnosticSet` returned by this function.
 ///
 /// Implements the ability to recover from parse errors.
-pub fn parse(lexer: Lexer) -> (DiagnosticSet, Module) {
+pub fn parse(lexer: Lexer) -> Module {
     // Create our parsing context.
     let mut context = ParserContext::new(lexer);
     // Until we reach the end token, parse items. If an item is in recovery mode it will stop trying
@@ -23,9 +23,7 @@ pub fn parse(lexer: Lexer) -> (DiagnosticSet, Module) {
     // above while-loop when we have reached the end.
     let end = context.lexer.advance_end().unwrap();
     // Construct the module and return it.
-    let module = Module::new(items, end);
-    let diagnostics = context.diagnostics;
-    (diagnostics, module)
+    Module::new(items, end)
 }
 
 type StatementParser = p::Choice3<
@@ -233,7 +231,7 @@ mod p {
     use super::super::identifier::Keyword;
     use super::super::lexer::Lexer;
     use super::super::token::*;
-    use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticSet, ParserExpected};
+    use crate::diagnostics::{Diagnostic, DiagnosticRef, ParserExpected};
     use std::convert;
     use std::marker::PhantomData;
 
@@ -259,7 +257,6 @@ mod p {
 
     pub struct ParserContext<'a> {
         pub lexer: Lexer<'a>,
-        pub diagnostics: DiagnosticSet,
         recover: Vec<fn(&Token) -> bool>,
     }
 
@@ -267,7 +264,6 @@ mod p {
         pub fn new(lexer: Lexer<'a>) -> Self {
             ParserContext {
                 lexer,
-                diagnostics: DiagnosticSet::new(),
                 recover: Vec::new(),
             }
         }
@@ -374,7 +370,7 @@ mod p {
         ) -> DiagnosticRef {
             let range = unexpected.full_range().range();
             let diagnostic = Diagnostic::unexpected_token(range, unexpected, expected);
-            self.diagnostics.report(diagnostic)
+            self.lexer.diagnostics_mut().report(diagnostic)
         }
     }
 

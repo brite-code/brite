@@ -33,13 +33,18 @@ impl Diagnostic {
         Self::new(range, DiagnosticMessage::Error(message))
     }
 
-    /// The parser ran into a token it did not recognize.
     pub fn unexpected_token(range: Range, unexpected: Token, expected: ParserExpected) -> Self {
-        let message = ErrorDiagnosticMessage::UnexpectedToken {
-            unexpected,
-            expected,
-        };
-        Self::error(range, message)
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::UnexpectedToken {
+                unexpected,
+                expected,
+            },
+        )
+    }
+
+    pub fn invalid_number(range: Range, raw: String) -> Self {
+        Self::error(range, ErrorDiagnosticMessage::InvalidNumber { raw })
     }
 
     /// Returns the range of this diagnostic.

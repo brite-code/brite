@@ -1,6 +1,7 @@
 use super::document::{Position, Range};
 use super::identifier::{Identifier, Keyword};
 use super::number::Number;
+use crate::diagnostics::DiagnosticRef;
 use std::fmt;
 
 /// A token in Brite source code is a range of text with some simple semantic meaning. When parsing
@@ -11,7 +12,7 @@ pub enum Token {
     Glyph(GlyphToken),
     Identifier(IdentifierToken),
     Number(NumberToken),
-    Error(ErrorToken),
+    Unexpected(UnexpectedToken),
     End(EndToken),
 }
 
@@ -139,50 +140,35 @@ impl IdentifierToken {
     }
 }
 
-/// Any `Number`.
+/// Any `Number`. This could be a valid number or an invalid number.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NumberToken {
     range: TokenRange,
-    number: Number,
+    /// If the number is valid our result is `Ok()`. If the number is invalid our result is `Err()`
+    /// with the raw string value of the number we tried to parse.
+    number: Result<Number, DiagnosticRef>,
 }
 
 impl NumberToken {
-    pub fn new(range: TokenRange, number: Number) -> Self {
+    pub fn new(range: TokenRange, number: Result<Number, DiagnosticRef>) -> Self {
         NumberToken { range, number }
     }
 }
 
-/// An error we encountered while tokenizing the program. Errors are not fatal so an error is
-/// represented as a token.
-///
-/// Our lexer does not report any diagnostics when it encounters an error. Instead our lexer creates
-/// an error token and our parser will report an unexpected token error.
+/// An unexpected token we encountered while tokenizing the program.
 #[derive(Clone, Debug, PartialEq)]
-pub struct ErrorToken {
+pub struct UnexpectedToken {
     range: TokenRange,
-    pub description: ErrorTokenDescription,
+    unexpected: char,
 }
 
-/// An `ErrorToken` description.
-#[derive(Clone, Debug, PartialEq)]
-pub enum ErrorTokenDescription {
-    /// The lexer ran into a character it did not recognize.
-    UnexpectedChar { unexpected: char },
-    /// The lexer tried to parse a number, but that number was in an invalid format.
-    InvalidNumber { invalid: String },
-}
-
-impl ErrorToken {
-    fn new(range: TokenRange, description: ErrorTokenDescription) -> Self {
-        ErrorToken { range, description }
+impl UnexpectedToken {
+    pub fn new(range: TokenRange, unexpected: char) -> Self {
+        UnexpectedToken { range, unexpected }
     }
 
-    pub fn unexpected_char(range: TokenRange, unexpected: char) -> Self {
-        Self::new(range, ErrorTokenDescription::UnexpectedChar { unexpected })
-    }
-
-    pub fn invalid_number(range: TokenRange, invalid: String) -> Self {
-        Self::new(range, ErrorTokenDescription::InvalidNumber { invalid })
+    pub fn unexpected(&self) -> char {
+        self.unexpected
     }
 }
 
@@ -233,7 +219,7 @@ impl Token {
             Token::Glyph(t) => &t.range,
             Token::Identifier(t) => &t.range,
             Token::Number(t) => &t.range,
-            Token::Error(t) => &t.range,
+            Token::Unexpected(t) => &t.range,
             Token::End(t) => &t.range,
         }
     }
@@ -257,9 +243,9 @@ impl Into<Token> for NumberToken {
     }
 }
 
-impl Into<Token> for ErrorToken {
+impl Into<Token> for UnexpectedToken {
     fn into(self) -> Token {
-        Token::Error(self)
+        Token::Unexpected(self)
     }
 }
 
