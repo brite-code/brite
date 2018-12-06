@@ -243,13 +243,6 @@ impl<'a> Lexer<'a> {
                         GlyphToken::new(range, Glyph::Semicolon).into()
                     }
 
-                    '_' => {
-                        let start = self.chars.position();
-                        self.chars.advance();
-                        let range = TokenRange::new(full_start, Range::new(start, 1));
-                        GlyphToken::new(range, Glyph::Underscore).into()
-                    }
-
                     // Parse tokens that start with a slash.
                     '/' => {
                         let start = self.chars.position();

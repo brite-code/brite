@@ -92,8 +92,6 @@ pub enum Glyph {
     Semicolon,
     /// `/`
     Slash,
-    /// `_`
-    Underscore,
 }
 
 impl GlyphToken {
@@ -107,6 +105,24 @@ impl GlyphToken {
 
     pub fn glyph(&self) -> &Glyph {
         &self.glyph
+    }
+}
+
+impl Glyph {
+    /// Gets the string representation of this glyph. As a static string.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Glyph::Keyword(keyword) => keyword.as_str(),
+            Glyph::BraceLeft => "{",
+            Glyph::BraceRight => "}",
+            Glyph::Comma => ",",
+            Glyph::Dot => ".",
+            Glyph::Equals => "=",
+            Glyph::ParenLeft => "(",
+            Glyph::ParenRight => ")",
+            Glyph::Semicolon => ";",
+            Glyph::Slash => "/",
+        }
     }
 }
 

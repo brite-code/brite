@@ -109,6 +109,21 @@ impl Identifier {
     }
 }
 
+impl Keyword {
+    /// Gets the string representation of this glyph. As a static string.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Keyword::Hole => "_",
+            Keyword::True => "true",
+            Keyword::False => "false",
+            Keyword::Let => "let",
+            Keyword::If => "if",
+            Keyword::Else => "else",
+            Keyword::Do => "do",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::document::Document;

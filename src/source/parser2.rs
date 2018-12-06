@@ -164,7 +164,7 @@ type PatternParser = p::Choice2<HolePatternParser, VariablePatternParser>;
 struct HolePatternParser;
 
 impl p::Transform for HolePatternParser {
-    type Parser = p::Underscore;
+    type Parser = p::Hole;
     type Data = Pattern;
 
     fn transform(hole: GlyphToken) -> Pattern {
@@ -494,8 +494,8 @@ mod p {
     glyph!(ParenLeft);
     glyph!(ParenRight);
     glyph!(Semicolon);
-    glyph!(Underscore);
 
+    keyword!(Hole);
     keyword!(True);
     keyword!(False);
     keyword!(Let);
