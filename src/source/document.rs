@@ -127,7 +127,6 @@ impl<'a> DocumentChars<'a> {
     ///
     /// When `None` is returned we’ve reached the end of our document’s characters. Calling
     /// `DocumentChars::advance()` will only return `None` now.
-    #[inline]
     pub fn advance(&mut self) -> Option<char> {
         match self.chars.next() {
             None => None,
@@ -139,21 +138,18 @@ impl<'a> DocumentChars<'a> {
     }
 
     /// Looks at the next character without advancing the iterator.
-    #[inline]
     pub fn lookahead(&mut self) -> Option<char> {
         self.chars.peek().cloned()
     }
 
     /// Returns the position between the previous character and the next character. See the
     /// documentation on `DocumentChars` for more information.
-    #[inline]
     pub fn position(&self) -> Position {
         Position(self.position)
     }
 
     /// Advance if the character we are advancing is equal to the provided character. Returns true
     /// if we were able to advance.
-    #[inline]
     pub fn advance_char(&mut self, c: char) -> bool {
         if self.lookahead() == Some(c) {
             self.advance();
@@ -165,7 +161,6 @@ impl<'a> DocumentChars<'a> {
 
     /// Runs a test function on the lookahead character. If the lookahead character is `None` we
     /// return false.
-    #[inline]
     pub fn lookahead_is<F>(&mut self, f: F) -> bool
     where
         F: FnOnce(char) -> bool,

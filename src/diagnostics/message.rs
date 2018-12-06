@@ -141,7 +141,9 @@ impl DiagnosticMessage {
                             ErrorTokenDescription::UnexpectedChar { unexpected } => {
                                 message.push_code(unexpected.to_string())
                             }
-                            ErrorTokenDescription::InvalidNumber { .. } => message.push("a number"),
+                            ErrorTokenDescription::InvalidNumber { .. } => {
+                                message.push("an invalid number")
+                            }
                         }
                     }
                 }

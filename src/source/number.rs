@@ -120,6 +120,8 @@ impl Number {
         // If we parsed no characters then we don’t have a number to parse.
         if raw.is_empty() {
             None
+        } else if raw == "." {
+            Some(Err(raw))
         } else {
             // Get all the digits in the exponential part of the number.
             match chars.lookahead() {
@@ -269,6 +271,7 @@ mod tests {
             ("1e308", Some(Ok(1e308))),
             ("1e309", Some(Ok(f64::INFINITY))),
             ("1e-500", Some(Ok(0.))),
+            (".", Some(ERR)),
         ];
 
         for (source, expected) in cases {

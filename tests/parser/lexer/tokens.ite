@@ -1,0 +1,12 @@
+// Create a scenario where each token will produce a parse error;
+
+(0 {);
+(});
+(,);
+(.);
+(=);
+({(});
+());
+(();
+(;);
+(/);

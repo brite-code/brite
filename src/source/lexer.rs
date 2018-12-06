@@ -205,14 +205,7 @@ impl<'a> Lexer<'a> {
                         let start = self.chars.position();
                         self.chars.advance();
                         let range = TokenRange::new(full_start, Range::new(start, 1));
-                        GlyphToken::new(range, Glyph::Dot).into()
-                    }
-
-                    '.' => {
-                        let start = self.chars.position();
-                        self.chars.advance();
-                        let range = TokenRange::new(full_start, Range::new(start, 1));
-                        GlyphToken::new(range, Glyph::Dot).into()
+                        GlyphToken::new(range, Glyph::Comma).into()
                     }
 
                     '=' => {
@@ -280,7 +273,6 @@ impl<'a> Lexer<'a> {
                                 self.chars.advance();
                                 // Ignore all characters until we find a block comment end.
                                 loop {
-                                    // TODO: Test closing comments with `**/`.
                                     if self.chars.advance_char('*') {
                                         if self.chars.advance_char('/') {
                                             break;
@@ -340,6 +332,15 @@ impl<'a> Lexer<'a> {
                         // identifier without a space. For example, we want `4px` to be a
                         // syntax error.
                         if let Some(number) = Number::parse(&mut self.chars) {
+                            // If we just parsed a dot then we have a dot glyph.
+                            if match &number {
+                                Err(raw) => raw == ".",
+                                _ => false,
+                            } {
+                                let range = TokenRange::new(full_start, Range::new(start, 1));
+                                return GlyphToken::new(range, Glyph::Dot).into();
+                            }
+
                             // If our number is immediately followed by an identifier or a number
                             // then we have an invalid number token. Collect all the identifier or
                             // number tokens before returning the error token.
