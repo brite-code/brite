@@ -15,7 +15,7 @@ pub fn parse(lexer: Lexer) -> (DiagnosticSet, Module) {
     // to recover once it reaches the end token.
     let mut items = Vec::new();
     while !context.lexer.lookahead_end() {
-        items.push(ItemParser::parse(&mut context));
+        items.push(StatementParser::parse(&mut context));
     }
     // Optimization: We are done mutating our vector. Shrink it to the smallest size.
     items.shrink_to_fit();
@@ -28,17 +28,14 @@ pub fn parse(lexer: Lexer) -> (DiagnosticSet, Module) {
     (diagnostics, module)
 }
 
-type ItemParser = p::Choice2<
-    ExpectedItem,
-    p::Into<ExpressionStatementParser, Item>,
-    p::Into<BindingStatementParser, Item>,
->;
+type StatementParser =
+    p::Choice2<ExpectedStatement, ExpressionStatementParser, BindingStatementParser>;
 
-struct ExpectedItem;
+struct ExpectedStatement;
 
-impl Provide<ParserExpected> for ExpectedItem {
+impl Provide<ParserExpected> for ExpectedStatement {
     fn get() -> ParserExpected {
-        ParserExpected::Item
+        ParserExpected::Statement
     }
 }
 

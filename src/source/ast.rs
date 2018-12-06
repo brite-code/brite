@@ -14,15 +14,15 @@ use crate::diagnostics::DiagnosticRef;
 /// or statements.
 #[derive(Clone, Debug)]
 pub struct Module {
-    /// All the items in our module.
-    items: Vec<Recover<Item>>,
+    /// All the statements in our module.
+    statements: Vec<Recover<Statement>>,
     /// The final token in our module.
     end: EndToken,
 }
 
 impl Module {
-    pub fn new(items: Vec<Recover<Item>>, end: EndToken) -> Self {
-        Module { items, end }
+    pub fn new(statements: Vec<Recover<Statement>>, end: EndToken) -> Self {
+        Module { statements, end }
     }
 
     /// Converts the Brite AST back into the list of tokens it was parsed from. By making sure we
@@ -34,7 +34,7 @@ impl Module {
     /// documentation comments on things like function declarations.
     pub fn into_tokens(self) -> Vec<Token> {
         let mut tokens = Vec::new();
-        self.items.push_tokens(&mut tokens);
+        self.statements.push_tokens(&mut tokens);
         tokens.push(self.end.into());
         tokens
     }
@@ -94,21 +94,6 @@ impl<T: PushTokens> PushTokens for RecoverError<T> {
 /// than the size of `T`.
 pub type Recover<T> = Result<T, Box<RecoverError<T>>>;
 
-/// A Brite source code item is either a declarative `Declaration` whose order does not matter or an
-/// imperative `Statement` whose order does matter.
-#[derive(Clone, Debug)]
-pub enum Item {
-    Statement(Statement),
-}
-
-impl PushTokens for Item {
-    fn push_tokens(self, tokens: &mut Vec<Token>) {
-        match self {
-            Item::Statement(statement) => statement.push_tokens(tokens),
-        }
-    }
-}
-
 /// ```ite
 /// { ... }
 /// ```
@@ -117,15 +102,19 @@ impl PushTokens for Item {
 #[derive(Clone, Debug)]
 pub struct Block {
     brace_left: GlyphToken,
-    items: Vec<Item>,
+    statements: Vec<Statement>,
     brace_right: GlyphToken,
 }
 
 impl Block {
-    pub fn new(brace_left: GlyphToken, items: Vec<Item>, brace_right: GlyphToken) -> Self {
+    pub fn new(
+        brace_left: GlyphToken,
+        statements: Vec<Statement>,
+        brace_right: GlyphToken,
+    ) -> Self {
         Block {
             brace_left,
-            items,
+            statements,
             brace_right,
         }
     }
@@ -134,7 +123,7 @@ impl Block {
 impl PushTokens for Block {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.brace_left.push_tokens(tokens);
-        self.items.push_tokens(tokens);
+        self.statements.push_tokens(tokens);
         self.brace_right.push_tokens(tokens);
     }
 }
@@ -146,12 +135,6 @@ pub enum Statement {
     Expression(ExpressionStatement),
     /// `let x = E;`
     Binding(BindingStatement),
-}
-
-impl Into<Item> for Statement {
-    fn into(self) -> Item {
-        Item::Statement(self)
-    }
 }
 
 impl PushTokens for Statement {
