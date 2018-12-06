@@ -12,17 +12,9 @@ fn main() -> Result<(), io::Error> {
     let path = args.next().expect("Expecting a file path.");
     let path = PathBuf::from(&path);
     let document = Document::read(path)?;
-    let (diagnostics, _module) = parse(&document);
-    let path = document.path();
-    let path = path.strip_prefix(env::current_dir()?).unwrap_or(path);
+    let (diagnostics, _) = parse(&document);
     for diagnostic in diagnostics.iter() {
-        println!(
-            "{}({},{}): {}",
-            path.to_string_lossy(),
-            diagnostic.range().start().line(&document) + 1,
-            diagnostic.range().start().character(&document) + 1,
-            diagnostic.message().to_simple_string()
-        );
+        println!("{}", diagnostic.to_simple_string(&document));
     }
     Ok(())
 }

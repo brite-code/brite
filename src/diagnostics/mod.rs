@@ -3,7 +3,8 @@ mod message;
 
 use self::markup::Markup;
 use self::message::{DiagnosticMessage, ErrorDiagnosticMessage};
-use crate::source::{Range, Token};
+use crate::source::{Document, Range, Token};
+use std::env;
 use std::fmt;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -50,6 +51,24 @@ impl Diagnostic {
     /// using `Markup` objects for some light formatting.
     pub fn message(&self) -> Markup {
         self.message.message()
+    }
+
+    /// Formats the diagnostic as a simple string. Usable for quickly showing an error to the user.
+    /// Requires the document this diagnostic was created with to properly format the
+    /// diagnostic’s range.
+    pub fn to_simple_string(&self, document: &Document) -> String {
+        let path = document.path();
+        let path = env::current_dir()
+            .ok()
+            .and_then(|current_dir| path.strip_prefix(current_dir).ok())
+            .unwrap_or(path);
+        format!(
+            "{}({},{}): {}",
+            path.to_string_lossy(),
+            self.range.start().line(&document) + 1,
+            self.range.start().character(&document) + 1,
+            self.message.message().to_simple_string()
+        )
     }
 }
 
