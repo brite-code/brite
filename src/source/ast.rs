@@ -135,13 +135,16 @@ pub enum Statement {
     Expression(ExpressionStatement),
     /// `let x = E;`
     Binding(BindingStatement),
+    /// `;`
+    Empty(EmptyStatement),
 }
 
 impl PushTokens for Statement {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         match self {
-            Statement::Expression(expression) => expression.push_tokens(tokens),
-            Statement::Binding(binding) => binding.push_tokens(tokens),
+            Statement::Expression(s) => s.push_tokens(tokens),
+            Statement::Binding(s) => s.push_tokens(tokens),
+            Statement::Empty(s) => s.push_tokens(tokens),
         }
     }
 }
@@ -219,6 +222,34 @@ impl PushTokens for BindingStatement {
         self.pattern.push_tokens(tokens);
         self.equals.push_tokens(tokens);
         self.value.push_tokens(tokens);
+        self.semicolon.push_tokens(tokens);
+    }
+}
+
+/// ```ite
+/// ;
+/// ```
+///
+/// Allows us to parse individual semicolons without a statement.
+#[derive(Clone, Debug)]
+pub struct EmptyStatement {
+    semicolon: GlyphToken,
+}
+
+impl EmptyStatement {
+    pub fn new(semicolon: GlyphToken) -> Self {
+        EmptyStatement { semicolon }
+    }
+}
+
+impl Into<Statement> for EmptyStatement {
+    fn into(self) -> Statement {
+        Statement::Empty(self)
+    }
+}
+
+impl PushTokens for EmptyStatement {
+    fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.semicolon.push_tokens(tokens);
     }
 }

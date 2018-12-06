@@ -28,8 +28,12 @@ pub fn parse(lexer: Lexer) -> (DiagnosticSet, Module) {
     (diagnostics, module)
 }
 
-type StatementParser =
-    p::Choice2<ExpectedStatement, ExpressionStatementParser, BindingStatementParser>;
+type StatementParser = p::Choice3<
+    ExpectedStatement,
+    ExpressionStatementParser,
+    BindingStatementParser,
+    EmptyStatementParser,
+>;
 
 struct ExpectedStatement;
 
@@ -73,6 +77,20 @@ impl p::Transform for BindingStatementParser {
         ),
     ) -> Statement {
         BindingStatement::new(_let, pattern, equals, expression, semicolon.unwrap()).into()
+    }
+}
+
+/// ```ite
+/// ;
+/// ```
+struct EmptyStatementParser;
+
+impl p::Transform for EmptyStatementParser {
+    type Parser = p::Semicolon;
+    type Data = Statement;
+
+    fn transform(semicolon: GlyphToken) -> Statement {
+        EmptyStatement::new(semicolon).into()
     }
 }
 
@@ -660,5 +678,6 @@ mod p {
     group!(pub struct Group5<P1, P2, P3, P4, P5>);
 
     choice!(pub struct Choice2<P1, P2>);
+    choice!(pub struct Choice3<P1, P2, P3>);
     choice!(pub struct Choice5<P1, P2, P3, P4, P5>);
 }
