@@ -86,7 +86,7 @@ impl Document {
 /// (`^`) represents the current character returned by `DocumentChars::lookahead()`. The bar (`|`)
 /// represents the current position returned by  `DocumentChars::position()`.
 ///
-/// ```
+/// ```txt
 /// |abcdef
 ///  ^
 /// ```
@@ -94,21 +94,21 @@ impl Document {
 /// We start by pointing at the first character. Calling `DocumentChars::advance()` returns `a` and
 /// advances our iterator to the next character.
 ///
-/// ```
+/// ```txt
 /// a|bcdef
 ///   ^
 /// ```
 ///
 /// This continues until we reach the last character.
 ///
-/// ```
+/// ```txt
 /// abcde|f
 ///       ^
 /// ```
 ///
 /// Calling `DocumentChars::advance()` here will return `f` and puts us in the following state.
 ///
-/// ```
+/// ```txt
 /// abcdef|
 ///        ^
 /// ```
