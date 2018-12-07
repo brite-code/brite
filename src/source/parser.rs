@@ -1,360 +1,461 @@
-//! Parses a stream of tokens into an Abstract Syntax Tree (AST). We designed our parser with error
-//! recovery in mind! The parser should be able to process any text document thrown at it. The error
-//! recovery design is partly inspired by [Microsoft’s error tolerant PHP parser][1] design.
-//!
-//! Our goal for the error recovery behavior is:
-//!
-//! 1. Don’t over-complicate the parser. We’d rather the parser be easily extendable then have super
-//!    robust error recovery.
-//! 2. Don’t go to great lengths to produce some reasonable AST for code immediately around a
-//!    syntax error. We’d rather show one syntax error than five type checker errors because we
-//!    parsed some nonsense AST.
-//! 3. Do parse surrounding declarations. That way we may continue providing services like
-//!    hover types.
-//!
-//! [1]: https://github.com/Microsoft/tolerant-php-parser/blob/master/docs/HowItWorks.md
-
 use super::ast::*;
-use super::identifier::Keyword;
 use super::lexer::Lexer;
 use super::token::*;
-use std::collections::HashMap;
+use crate::diagnostics::{Diagnostic, DiagnosticRef, ParserExpected};
 
-#[derive(Debug)]
-enum Never {}
-
-/// Parses a stream of tokens into an Abstract Syntax Tree (AST).
-pub struct Parser<'a> {
-    /// The lexer our parser uses to generate tokens. The lexer owns a diagnostics struct that we
-    /// also use in our parser.
-    lexer: Lexer<'a>,
-    /// Glyphs at which our parser will recover from an error.
-    recoverable: HashMap<Glyph, usize>,
+/// Parses a complete Brite module AST out of a stream of lexical tokens. Reports all diagnostics
+/// discovered while parsing to the `DiagnosticSet` returned by this function.
+///
+/// Implements the ability to recover from parse errors.
+pub fn parse(lexer: Lexer) -> Module {
+    // Create our parsing context.
+    let mut context = ParserContext::new(lexer);
+    // Until we reach the end token, parse items. If an item is in recovery mode it will stop trying
+    // to recover once it reaches the end token.
+    let mut items = Vec::new();
+    while !context.lexer.lookahead_end() {
+        items.push(p::Statement::parse(&mut context));
+    }
+    // Optimization: We are done mutating our vector. Shrink it to the smallest size.
+    items.shrink_to_fit();
+    // We expect that advancing the lexer will give us our `EndToken`. Since we should only exit our
+    // above while-loop when we have reached the end.
+    let end = context.lexer.advance_end().unwrap();
+    // Construct the module and return it.
+    Module::new(items, end)
 }
 
-impl<'a> Parser<'a> {
+macro_rules! parser {
+    (
+        $(
+            $name:ident ::= $( {$( $symbol:tt )+} )|+
+        )*
+    ) => {
+        mod p {
+            use super::super::ast::{self, Recover};
+            use super::super::identifier::Keyword;
+            use super::super::token::*;
+            use super::{ParserContext, ParserFrom};
+            use crate::diagnostics::ParserExpected;
+
+            $(
+                parser_rule!($name ::= $( {$( $symbol )*} )|*);
+            )*
+        }
+    };
+}
+
+macro_rules! parser_rule {
+    // Optimization for `BooleanConstant`. We need this because otherwise it would be difficult to
+    // correctly initialize the true/false value.
+    (BooleanConstant ::= {"true"} | {"false"}) => {
+        pub(super) struct BooleanConstant;
+
+        impl BooleanConstant {
+            fn test(token: &Token) -> bool {
+                token.is_glyph(Glyph::Keyword(Keyword::True)) ||
+                    token.is_glyph(Glyph::Keyword(Keyword::False))
+            }
+
+            fn try_parse(context: &mut ParserContext) -> Option<ast::BooleanConstant> {
+                if let Some(token) = context.lexer.advance_glyph(Glyph::Keyword(Keyword::True)) {
+                    Some(ast::BooleanConstant::new(token, true))
+                } else if let Some(token) = context.lexer.advance_glyph(Glyph::Keyword(Keyword::False)) {
+                    Some(ast::BooleanConstant::new(token, false))
+                } else {
+                    None
+                }
+            }
+        }
+    };
+    (
+        $name:ident ::= $( {$symbol_1:tt $($symbol_n:tt)*} )|+
+    ) => {
+        pub(super) struct $name;
+
+        impl $name {
+            #[allow(dead_code)]
+            fn test(token: &Token) -> bool {
+                $(parser_symbol_test!(token, $symbol_1))||*
+            }
+
+            fn try_parse(context: &mut ParserContext) -> Option<ast::$name> {
+                $(
+                    reverse_statements!($(context.recover_push(parser_symbol_test_fn!($symbol_n))),*);
+                    if let Some(x1) = parser_symbol_try_parse!(context, $symbol_1) {
+                        let data = (x1, $({
+                            context.recover_pop();
+                            parser_symbol_parse!(context, $symbol_n)
+                        }),*);
+                        return Some(ParserFrom::from(data));
+                    } else {
+                        $(ignore!($symbol_n); context.recover_pop();)*
+                    }
+                )*
+                None
+            }
+
+            parser_rule_parse_fn_def!($name ::= $({$symbol_1 $($symbol_n)*})|*);
+        }
+    };
+}
+
+macro_rules! parser_rule_parse_fn_def {
+    (
+        $name:ident ::= {$symbol_1:tt $($symbol_n:tt)*}
+    ) => {
+        // Unimplemented...
+    };
+    (
+        $name:ident ::= {$symbol_1_1:tt $($symbol_1_n:tt)*}
+                      | $( {$symbol_n_1:tt $($symbol_n_n:tt)*} )|+
+    ) => {
+        pub(super) fn parse(context: &mut ParserContext) -> Recover<ast::$name> {
+            context.retry(ParserExpected::$name, $name::try_parse)
+        }
+    };
+}
+
+macro_rules! parser_symbol_glyph {
+    ("_") => {
+        Glyph::Keyword(Keyword::Hole)
+    };
+    ("let") => {
+        Glyph::Keyword(Keyword::Let)
+    };
+    ("=") => {
+        Glyph::Equals
+    };
+    ("(") => {
+        Glyph::ParenLeft
+    };
+    (")") => {
+        Glyph::ParenRight
+    };
+    (";") => {
+        Glyph::Semicolon
+    };
+}
+
+macro_rules! parser_symbol_test {
+    ($token:expr, [opt: $symbol:tt]) => {
+        parser_symbol_test!($symbol)
+    };
+    ($token:expr, identifier) => {
+        $token.is_identifier()
+    };
+    ($token:expr, number) => {
+        $token.is_number()
+    };
+    ($token:expr, $name:ident) => {
+        $name::test($token)
+    };
+    ($token:expr, $glyph:tt) => {
+        $token.is_glyph(parser_symbol_glyph!($glyph))
+    };
+}
+
+macro_rules! parser_symbol_test_fn {
+    ([opt: $symbol:tt]) => {
+        parser_symbol_test_fn!($symbol)
+    };
+    (identifier) => {
+        Token::is_identifier
+    };
+    (number) => {
+        Token::is_number
+    };
+    ($name:ident) => {
+        $name::test
+    };
+    ($glyph:tt) => {
+        |token| token.is_glyph(parser_symbol_glyph!($glyph))
+    };
+}
+
+macro_rules! parser_symbol_try_parse {
+    ($context:expr, [opt: $symbol:tt]) => {
+        parser_symbol_try_parse!($context, $symbol)
+    };
+    ($context:expr, identifier) => {
+        $context.lexer.advance_identifier()
+    };
+    ($context:expr, number) => {
+        $context.lexer.advance_number()
+    };
+    ($context:expr, $name:ident) => {
+        $name::try_parse($context)
+    };
+    ($context:expr, $glyph:tt) => {
+        $context.lexer.advance_glyph(parser_symbol_glyph!($glyph))
+    };
+}
+
+macro_rules! parser_symbol_parse {
+    ($context:expr, [opt: $symbol:tt]) => {
+        parser_symbol_try_parse!($context, $symbol)
+    };
+    ($context:expr, identifier) => {
+        $context.retry(ParserExpected::Identifier, |context| {
+            context.lexer.advance_identifier()
+        })
+    };
+    ($context:expr, number) => {
+        $context.retry(ParserExpected::Number, |context| {
+            context.lexer.advance_number()
+        })
+    };
+    ($context:expr, $name:ident) => {
+        $name::parse($context)
+    };
+    ($context:expr, $glyph:tt) => {
+        $context.retry(
+            ParserExpected::Glyph(parser_symbol_glyph!($glyph)),
+            |context| context.lexer.advance_glyph(parser_symbol_glyph!($glyph)),
+        )
+    };
+}
+
+macro_rules! reverse_statements {
+    () => {};
+    ($s1:stmt) => {
+        $s1;
+    };
+    ($s1:stmt, $($sn:stmt),*) => {
+        reverse_statements!($($sn),*);
+        $s1;
+    };
+}
+
+macro_rules! ignore {
+    ($x:tt) => {};
+}
+
+parser! {
+    Statement ::= {ExpressionStatement}
+                | {BindingStatement}
+                | {EmptyStatement}
+
+    ExpressionStatement ::= {Expression [opt: ";"]}
+
+    BindingStatement ::= {"let" Pattern "=" Expression [opt: ";"]}
+
+    EmptyStatement ::= {";"}
+
+    BooleanConstant ::= {"true"} | {"false"}
+
+    NumberConstant ::= {number}
+
+    Expression ::= {VariableExpression}
+                 | {BooleanConstant}
+                 | {NumberConstant}
+                 | {WrappedExpression}
+
+    VariableExpression ::= {identifier}
+
+    WrappedExpression ::= {"(" Expression ")"}
+
+    Pattern ::= {VariablePattern}
+              | {HolePattern}
+
+    VariablePattern ::= {identifier}
+
+    HolePattern ::= {"_"}
+}
+
+struct ParserContext<'a> {
+    lexer: Lexer<'a>,
+    recover: Vec<fn(&Token) -> bool>,
+}
+
+impl<'a> ParserContext<'a> {
     fn new(lexer: Lexer<'a>) -> Self {
-        Parser {
+        ParserContext {
             lexer,
-            recoverable: HashMap::new(),
+            recover: Vec::new(),
         }
     }
 
-    /// Parses a module from a token stream consuming _all_ tokens in the stream.
-    pub fn parse(lexer: Lexer<'a>) -> Module {
-        let mut parser = Parser::new(lexer);
-        parser.parse_module().unwrap()
+    fn recover_push(&mut self, f: fn(&Token) -> bool) {
+        self.recover.push(f);
     }
 
-    fn parse_module(&mut self) -> Result<Module, Never> {
-        // Parse all the items we can until we reach the end.
-        let items = self.parse_item_list(Token::is_end)?;
-        // Consume the ending token. We need it for our AST.
-        let end = match self.lexer.advance() {
-            Token::End(end) => end,
-            _ => unreachable!(),
-        };
-        // Assert that our recover map is empty.
-        debug_assert!(self.recoverable.is_empty());
-        // Return the module AST.
-        Ok(Module::new(items, end))
+    fn recover_pop(&mut self) {
+        self.recover.pop();
     }
 
-    fn parse_block(&mut self) -> Result<Block, Never> {
-        let brace_left = self.parse_glyph(Glyph::BraceLeft)?;
-        let items = self.parse_item_list(|token| token.is_glyph(Glyph::BraceRight))?;
-        let brace_right = self.parse_glyph(Glyph::BraceRight)?;
-        Ok(Block::new(brace_left, items, brace_right))
-    }
-
-    fn parse_item_list<F>(&mut self, until: F) -> Result<Vec<Item>, Never>
-    where
-        F: Fn(&Token) -> bool,
-    {
-        let mut items = Vec::new();
-        while !until(self.lexer.lookahead()) {
-            let item = self.parse_item()?;
-            items.push(item);
-        }
-        items.shrink_to_fit();
-        Ok(items)
-    }
-
-    fn parse_item(&mut self) -> Result<Item, Never> {}
-
-    fn parse_statement(&mut self) -> Result<Statement, Never> {
-        self.recover_at(Glyph::Semicolon, Self::actually_parse_statement)
-    }
-
-    fn actually_parse_statement(&mut self) -> Result<Statement, Never> {
-        // Parse `BindingStatement`.
-        if let Some(let_) = self.try_parse_glyph(Glyph::Keyword(Keyword::Let)) {
-            let pattern = self.recover_at(Glyph::Equals, Self::parse_pattern);
-            let equals = self.parse_glyph(Glyph::Equals);
-            let value = self.parse_expression();
-            let semicolon = self.try_parse_glyph(Glyph::Semicolon);
-            let binding = BindingStatement::new(let_, pattern, equals, value, semicolon);
-            return Ok(Statement::Binding(binding).into());
-        }
-
-        // Parse `ExpressionStatement` if we couldn’t parse any other statement.
-        let expression = self.parse_expression();
-        let semicolon = self.try_parse_glyph(Glyph::Semicolon);
-        let statement = ExpressionStatement::new(expression, semicolon);
-        Ok(Statement::Expression(statement).into())
-    }
-
-    fn parse_expression(&mut self) -> Result<Expression, Never> {
-        let expression = match self.lexer.advance() {
-            // Parse `VariableExpression`.
-            Token::Identifier(token) => Expression::Variable(VariableExpression::new(token)),
-
-            // Parse `NumberConstant`.
-            Token::Number(token) => {
-                let constant = NumberConstant::new(token);
-                Expression::Constant(Constant::Number(constant))
-            }
-
-            Token::Glyph(token) => match token.glyph() {
-                // Parse true `BooleanConstant`.
-                Glyph::Keyword(Keyword::True) => {
-                    let constant = BooleanConstant::new(token, true);
-                    Expression::Constant(Constant::Boolean(constant))
-                }
-
-                // Parse false `BooleanConstant`.
-                Glyph::Keyword(Keyword::False) => {
-                    let constant = BooleanConstant::new(token, false);
-                    Expression::Constant(Constant::Boolean(constant))
-                }
-
-                // Parse `ConditionalExpression`.
-                Glyph::Keyword(Keyword::If) => {
-                    let if_ = token;
-                    let test = self.parse_expression()?;
-                    let consequent = self.parse_block()?;
-                    let alternate =
-                        if let Some(else_) = self.try_parse_glyph(Glyph::Keyword(Keyword::Else)) {
-                            let block = self.parse_block()?;
-                            Some(ConditionalExpressionAlternate::new(else_, block))
-                        } else {
-                            None
-                        };
-                    let conditional = ConditionalExpression::new(if_, test, consequent, alternate);
-                    Expression::Conditional(Box::new(conditional))
-                }
-
-                // Parse `BlockExpression`.
-                Glyph::Keyword(Keyword::Do) => {
-                    let do_ = token;
-                    let block = self.parse_block()?;
-                    Expression::Block(BlockExpression::new(do_, block))
-                }
-
-                // Parse `WrappedExpression`.
-                Glyph::ParenLeft => {
-                    let paren_left = token;
-                    let expression = self.parse_expression()?;
-                    let paren_right = self.parse_glyph(Glyph::ParenRight)?;
-                    let wrapped = WrappedExpression::new(paren_left, expression, paren_right);
-                    Expression::Wrapped(Box::new(wrapped))
-                }
-
-                _ => unimplemented!(),
-            },
-
-            _ => unimplemented!(),
-        };
-
-        // Parse some expression extensions.
-        let mut expression = expression;
-        loop {
-            // Parse `PropertyExpression`.
-            if let Some(dot) = self.try_parse_glyph(Glyph::Dot) {
-                let property = self.parse_identifier()?;
-                let member = PropertyExpression::new(expression, dot, property);
-                expression = Expression::Property(Box::new(member));
-                continue;
-            }
-
-            // Parse `CallExpression`.
-            if let Some(paren_left) = self.try_parse_glyph_on_same_line(Glyph::ParenLeft) {
-                let arguments = self.parse_comma_list(Parser::parse_expression, |token| {
-                    token.is_glyph(Glyph::ParenRight)
-                })?;
-                let paren_right = self.parse_glyph(Glyph::ParenRight)?;
-                let call = CallExpression::new(expression, paren_left, arguments, paren_right);
-                expression = Expression::Call(Box::new(call));
-                continue;
-            }
-
-            // If we could not parse any extension break out of the loop.
-            break;
-        }
-
-        Ok(expression)
-    }
-
-    fn parse_pattern(&mut self) -> Result<Pattern, Never> {
-        match self.lexer.advance() {
-            // Parse a `VariablePattern`.
-            Token::Identifier(identifier) => {
-                let variable = VariablePattern::new(identifier);
-                Ok(Pattern::Variable(variable))
-            }
-
-            Token::Glyph(token) => match token.glyph() {
-                // Parse a `HolePattern`.
-                Glyph::Underscore => Ok(Pattern::Hole(HolePattern::new(token))),
-
-                _ => unimplemented!(),
-            },
-
-            _ => unimplemented!(),
-        }
-    }
-
-    /// Parses a list of comma separated items until a specified token. The list may optionally have
-    /// trailing commas.
-    fn parse_comma_list<T, F, G>(
+    fn retry<T>(
         &mut self,
-        parse_item: F,
-        until: G,
-    ) -> Result<Vec<CommaListItem<T>>, Never>
-    where
-        F: Fn(&mut Self) -> Result<T, Never>,
-        G: Fn(&Token) -> bool,
-    {
-        let mut items = Vec::new();
-
-        // Keep parsing items until we find the token we want to stop at.
-        while !until(self.lexer.lookahead()) {
-            let item = parse_item(self)?;
-
-            // If the next glyph is a comma then parse it and try to parse another item. If this is
-            // a trailing comma then the while loop’s condition will fail and we won’t parse
-            // another item.
-            if let Some(comma) = self.try_parse_glyph(Glyph::Comma) {
-                items.push(CommaListItem::new(item, Some(comma)));
-                continue;
-            }
-
-            // If there is no comma, but we do see our final token then add our item and break out
-            // of the loop.
-            if until(self.lexer.lookahead()) {
-                items.push(CommaListItem::new(item, None));
-                break;
-            }
-
-            // Otherwise, we have an error.
-            unimplemented!();
-        }
-
-        items.shrink_to_fit();
-        Ok(items)
-    }
-
-    /* ─── Utilities ──────────────────────────────────────────────────────────────────────────── */
-
-    /// Tries to parse the provided glyph. If we could not parse the provided token then return
-    /// `None` and don’t advance the lexer. Otherwise advance the lexer and return the parsed token.
-    fn try_parse_glyph(&mut self, glyph: Glyph) -> Option<GlyphToken> {
-        match self.lexer.lookahead() {
-            Token::Glyph(token) if token.glyph() == &glyph => match self.lexer.advance() {
-                Token::Glyph(token) => Some(token),
-                _ => unreachable!(),
-            },
-            _ => None,
-        }
-    }
-
-    /// Tries to parse the provided glyph, but _only_ if that glyph is on the same line as our
-    /// current lexer position. If we could not parse the provided token then return `None` and
-    /// don’t advance the lexer. Otherwise advance the lexer and return the parsed token.
-    fn try_parse_glyph_on_same_line(&mut self, glyph: Glyph) -> Option<GlyphToken> {
-        match self.lexer.lookahead_on_same_line() {
-            Some(Token::Glyph(token)) if token.glyph() == &glyph => match self.lexer.advance() {
-                Token::Glyph(token) => Some(token),
-                _ => unreachable!(),
-            },
-            _ => None,
-        }
-    }
-
-    /// Parses the provided glyph or fails if the next token is not the provided glyph. Always
-    /// advances the lexer.
-    fn parse_glyph(&mut self, glyph: Glyph) -> Result<GlyphToken, Never> {
-        match self.lexer.advance() {
-            Token::Glyph(token) => {
-                if token.glyph() == &glyph {
-                    return Ok(token);
-                }
-            }
-            _ => {}
-        }
-        unimplemented!()
-    }
-
-    /// Parses an identifier or fails if the next token is not an identifier. Always advances
-    /// the lexer.
-    fn parse_identifier(&mut self) -> Result<IdentifierToken, Never> {
-        match self.lexer.advance() {
-            Token::Identifier(token) => Ok(token),
-            _ => unimplemented!(),
-        }
-    }
-
-    /* ─── Error Recovery ─────────────────────────────────────────────────────────────────────── */
-
-    /// If a parse error is encountered while executing the provided function we will skip tokens
-    /// trying to get a successful parse. That is until we reach one of the tokens we were told to
-    /// recover from. This is how we introduce a glyph to be recovered from into scope.
-    fn recover_at<T>(&mut self, glyph: Glyph, f: impl FnOnce(&mut Self) -> T) -> T {
-        if let Some(n) = self.recoverable.get_mut(&glyph) {
-            *n += 1;
+        expected: ParserExpected,
+        try_parse: impl Fn(&mut ParserContext) -> Option<T>,
+    ) -> Recover<T> {
+        // Try to parse our node. If successful return the node. If unsuccesful then we are in
+        // error recovery mode!
+        if let Some(x) = try_parse(self) {
+            Ok(x)
         } else {
-            self.recoverable.insert(glyph, 1);
+            self.recover(expected, try_parse)
         }
-        let result = f(self);
-        if let Some(n) = self.recoverable.get_mut(&glyph) {
-            *n -= 1;
-            if *n == 0 {
-                self.recoverable.remove(&glyph);
-            }
-        }
-        result
     }
 
-    fn recover<Node>(&mut self, parse: impl Fn(&mut Self) -> Option<Node>) -> Result<Node, Never> {
-        // Shortcut if there are no errors and we can successfully parse our node.
-        if let Some(node) = parse(self) {
-            return Ok(node);
-        }
-
-        // Collect all the nodes we’ll skip when trying to recover.
+    /// Provides error recovery logic for a parsing operation which might fail. Takes a
+    /// `Parser::try_parse` function which consumes no input on failure and returns `None`. If a
+    /// call to `try_parse` fails we will advance to the next token and try again. _Unless_ the
+    /// next token can be handled by any parser in our stack. Then we will return a fatal error
+    /// node and let the parent parser handle the token.
+    fn recover<T>(
+        &mut self,
+        expected: ParserExpected,
+        try_parse: impl Fn(&mut ParserContext) -> Option<T>,
+    ) -> Recover<T> {
+        // Setup information we will need for creating errors.
         let mut skipped = Vec::new();
-
-        // Skip tokens in the lexer until we:
+        let mut first_diagnostic = None;
+        // At the beginning of this loop we know that the current token (returned by
+        // `Lexer::lookahead`) can _not_ be parsed by `try_parse`.
         //
-        // 1. Reach the end at which we will immediately recover.
-        // 2. Reach a recoverable token at which we will immediately recover.
-        // 3. Can finally parse a node.
+        // We will first check to see if one of the parsing functions in our stack can recover
+        // from this token. If no parsing function can recover from this token then we will
+        // advance the lexer and try to parse again.
         loop {
-            let recover = match self.lexer.lookahead() {
-                Token::End(_) => true,
-                Token::Glyph(token) if self.recoverable.contains_key(&token.glyph()) => true,
-                _ => false,
-            };
-            if recover {
-                /* error */
-                unimplemented!()
+            let token = self.lexer.lookahead();
+
+            // Now that we know this token fails to parse, let’s check if we can recover from
+            // this token.
+            //
+            // If the token is an end token we _must_ recover. If we don’t recover we will be in
+            // this loop forever since the lexer will keep giving us the end token.
+            let recover = if let Token::End(_) = token {
+                true
             } else {
-                skipped.push(self.lexer.advance());
-                if let Some(node) = parse(self) {
-                    /* skipped */
-                    unimplemented!()
+                // If any of the recovery functions in our stack match the current token then
+                // we recover. If _all_ recovery functions return false then we know no one can
+                // handle this token so we should skip it.
+                //
+                // We reverse the iterator because we expect local errors to be more common. So
+                // the last recovery functions on the stack should be more likely to match
+                // the token.
+                self.recover.iter().rev().any(|recover| recover(token))
+            };
+
+            // If we recover then return `Err()` instead of advancing the lexer.
+            if recover {
+                // If we can recover from this token then presumably it is part of a valid
+                // AST node to be parsed later. So we only want to report an error if we have
+                // not found any other unexpected tokens. Meaning this token is certainly out
+                // of place.
+                let diagnostic = match first_diagnostic {
+                    Some(diagnostic) => diagnostic,
+                    None => {
+                        let token = token.clone();
+                        self.unexpected_token(token, expected)
+                    }
+                };
+                let error = RecoverError::new(skipped, diagnostic, None);
+                return Err(Box::new(error));
+            }
+
+            // Advance the lexer and push the token to our `skipped` list.
+            let token = self.lexer.advance();
+            skipped.push(token.clone());
+
+            // Report an unexpected token diagnostic for every token that we skip. Keep the
+            // first skipped token diagnostic around. We’ll use this diagnostic in the AST to
+            // cause runtime crashes.
+            let diagnostic = self.unexpected_token(token, expected.clone());
+            if first_diagnostic.is_none() {
+                first_diagnostic = Some(diagnostic);
+            }
+
+            // Retry our parsing function.
+            match try_parse(self) {
+                // If we were able to parse our node then, hooray! However, we still encountered
+                // an error which must not be ignored. So return `Recover::Error` instead of
+                // `Recover::Ok` with the skipped tokens and the first diagnostic we reported
+                // in our error recovery process.
+                Some(x) => {
+                    let error = RecoverError::new(skipped, first_diagnostic.unwrap(), Some(x));
+                    return Err(Box::new(error));
                 }
+                // If our parsing function failed, again, then do nothing and go back to the top
+                // of our loop.
+                None => {}
             }
         }
+    }
+
+    /// Report an unexpected token error. The diagnostics object is owned by our lexer.
+    fn unexpected_token(&mut self, unexpected: Token, expected: ParserExpected) -> DiagnosticRef {
+        let range = unexpected.full_range().range();
+        let diagnostic = Diagnostic::unexpected_token(range, unexpected, expected);
+        self.lexer.diagnostics_mut().report(diagnostic)
+    }
+}
+
+trait ParserFrom<T> {
+    fn from(data: T) -> Self;
+}
+
+impl<T, U: Into<T>> ParserFrom<(U,)> for T {
+    fn from((data,): (U,)) -> T {
+        data.into()
+    }
+}
+
+type BindingStatementData = (
+    GlyphToken,
+    Recover<Pattern>,
+    Recover<GlyphToken>,
+    Recover<Expression>,
+    Option<GlyphToken>,
+);
+
+impl ParserFrom<BindingStatementData> for BindingStatement {
+    fn from((let_, pattern, equals, value, semicolon): BindingStatementData) -> Self {
+        BindingStatement::new(let_, pattern, equals, value, semicolon)
+    }
+}
+
+impl ParserFrom<(Expression, Option<GlyphToken>)> for ExpressionStatement {
+    fn from((expression, semicolon): (Expression, Option<GlyphToken>)) -> Self {
+        ExpressionStatement::new(expression, semicolon)
+    }
+}
+
+impl ParserFrom<(GlyphToken,)> for EmptyStatement {
+    fn from((semicolon,): (GlyphToken,)) -> Self {
+        EmptyStatement::new(semicolon)
+    }
+}
+
+impl ParserFrom<(NumberToken,)> for NumberConstant {
+    fn from((number,): (NumberToken,)) -> Self {
+        NumberConstant::new(number)
+    }
+}
+
+impl ParserFrom<(IdentifierToken,)> for VariableExpression {
+    fn from((identifier,): (IdentifierToken,)) -> Self {
+        VariableExpression::new(identifier)
+    }
+}
+
+type WrappedExpressionData = (GlyphToken, Recover<Expression>, Recover<GlyphToken>);
+
+impl ParserFrom<WrappedExpressionData> for WrappedExpression {
+    fn from((paren_left, expression, paren_right): WrappedExpressionData) -> Self {
+        WrappedExpression::new(paren_left, expression, paren_right)
+    }
+}
+
+impl ParserFrom<(IdentifierToken,)> for VariablePattern {
+    fn from((identifier,): (IdentifierToken,)) -> Self {
+        VariablePattern::new(identifier)
+    }
+}
+
+impl ParserFrom<(GlyphToken,)> for HolePattern {
+    fn from((hole,): (GlyphToken,)) -> Self {
+        HolePattern::new(hole)
     }
 }

@@ -5,8 +5,7 @@ mod document;
 mod identifier;
 mod lexer;
 mod number;
-// mod parser;
-mod parser2;
+mod parser;
 mod token;
 
 pub use self::ast::Module;
@@ -24,7 +23,7 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
     // Create the lexer out of document characters.
     let lexer = Lexer::new(&mut diagnostics, &document);
     // Parse our module using the lexer. Reporting all diagnostics to the `DiagnosticSet` we return.
-    let module = parser2::parse(lexer);
+    let module = parser::parse(lexer);
     // If debug assertions are enabled then run our invariants to make sure that the tokens list and
     // the module AST are well formed.
     //
