@@ -65,6 +65,14 @@ impl<T> RecoverError<T> {
             recovered,
         }
     }
+
+    pub fn map<U>(self, mapper: impl Fn(T) -> U) -> RecoverError<U> {
+        RecoverError {
+            skipped: self.skipped,
+            diagnostic: self.diagnostic,
+            recovered: self.recovered.map(mapper),
+        }
+    }
 }
 
 impl<T: PushTokens> PushTokens for RecoverError<T> {

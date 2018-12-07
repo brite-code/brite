@@ -1,4 +1,4 @@
-use self::p::{Parser, ParserContext, Provide};
+use self::p::{Parser, ParserContext};
 use super::ast::*;
 use super::lexer::Lexer;
 use super::token::*;
@@ -27,16 +27,16 @@ pub fn parse(lexer: Lexer) -> Module {
 }
 
 type StatementParser = p::Choice3<
-    ExpectedStatement,
+    StatementChoiceHelper,
     ExpressionStatementParser,
     BindingStatementParser,
     EmptyStatementParser,
 >;
 
-struct ExpectedStatement;
+struct StatementChoiceHelper;
 
-impl Provide<ParserExpected> for ExpectedStatement {
-    fn get() -> ParserExpected {
+impl p::ChoiceHelper for StatementChoiceHelper {
+    fn expected() -> ParserExpected {
         ParserExpected::Statement
     }
 }
@@ -50,8 +50,8 @@ impl p::Transform for ExpressionStatementParser {
     type Parser = p::Group2<ExpressionParser, p::Optional<p::Semicolon>>;
     type Data = Statement;
 
-    fn transform((expression, semicolon): (Expression, Recover<Option<GlyphToken>>)) -> Statement {
-        ExpressionStatement::new(expression, semicolon.unwrap()).into()
+    fn transform((expression, semicolon): (Expression, Option<GlyphToken>)) -> Statement {
+        ExpressionStatement::new(expression, semicolon).into()
     }
 }
 
@@ -71,10 +71,10 @@ impl p::Transform for BindingStatementParser {
             Recover<Pattern>,
             Recover<GlyphToken>,
             Recover<Expression>,
-            Recover<Option<GlyphToken>>,
+            Option<GlyphToken>,
         ),
     ) -> Statement {
-        BindingStatement::new(_let, pattern, equals, expression, semicolon.unwrap()).into()
+        BindingStatement::new(_let, pattern, equals, expression, semicolon).into()
     }
 }
 
@@ -138,7 +138,7 @@ impl p::Transform for NumberConstantParser {
 }
 
 type ExpressionParser = p::Choice5<
-    ExpectedExpression,
+    ExpressionChoiceHelper,
     VariableExpressionParser,
     p::Into<NumberConstantParser, Expression>,
     p::Into<TrueConstantParser, Expression>,
@@ -146,10 +146,10 @@ type ExpressionParser = p::Choice5<
     WrappedExpressionParser,
 >;
 
-struct ExpectedExpression;
+struct ExpressionChoiceHelper;
 
-impl Provide<ParserExpected> for ExpectedExpression {
-    fn get() -> ParserExpected {
+impl p::ChoiceHelper for ExpressionChoiceHelper {
+    fn expected() -> ParserExpected {
         ParserExpected::Expression
     }
 }
@@ -188,12 +188,12 @@ impl p::Transform for WrappedExpressionParser {
     }
 }
 
-type PatternParser = p::Choice2<ExpectedPattern, HolePatternParser, VariablePatternParser>;
+type PatternParser = p::Choice2<PatternChoiceHelper, HolePatternParser, VariablePatternParser>;
 
-struct ExpectedPattern;
+struct PatternChoiceHelper;
 
-impl Provide<ParserExpected> for ExpectedPattern {
-    fn get() -> ParserExpected {
+impl p::ChoiceHelper for PatternChoiceHelper {
+    fn expected() -> ParserExpected {
         ParserExpected::Pattern
     }
 }
@@ -232,26 +232,48 @@ mod p {
     use super::super::lexer::Lexer;
     use super::super::token::*;
     use crate::diagnostics::{Diagnostic, DiagnosticRef, ParserExpected};
+    use crate::utils::never::Never;
     use std::convert;
     use std::marker::PhantomData;
 
-    pub trait Parser: Sized {
+    pub trait Parser {
         type Data;
-
-        fn expected() -> ParserExpected;
+        type Error;
 
         fn test(token: &Token) -> bool;
 
         fn try_parse(context: &mut ParserContext) -> Option<Self::Data>;
 
-        fn parse(context: &mut ParserContext) -> Recover<Self::Data> {
-            // Try to parse our node. If successful return the node. If unsuccesful then we are in
-            // error recovery mode!
-            if let Some(x) = Self::try_parse(context) {
-                Ok(x)
-            } else {
-                context.recover(Self::expected(), Self::try_parse)
-            }
+        fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error>;
+    }
+
+    pub trait Transform {
+        type Parser: Parser;
+        type Data;
+
+        fn transform(data: <Self::Parser as Parser>::Data) -> Self::Data;
+    }
+
+    impl<T, U, P> Parser for T
+    where
+        T: Transform<Parser = P>,
+        P: Parser<Data = U, Error = Box<RecoverError<U>>>,
+    {
+        type Data = T::Data;
+        type Error = Box<RecoverError<T::Data>>;
+
+        fn test(token: &Token) -> bool {
+            T::Parser::test(token)
+        }
+
+        fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
+            T::Parser::try_parse(context).map(T::transform)
+        }
+
+        fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
+            T::Parser::parse(context)
+                .map(T::transform)
+                .map_err(|error| Box::new(error.map(T::transform)))
         }
     }
 
@@ -276,6 +298,20 @@ mod p {
             self.recover.pop();
         }
 
+        pub fn retry<T>(
+            &mut self,
+            expected: ParserExpected,
+            try_parse: impl Fn(&mut ParserContext) -> Option<T>,
+        ) -> Recover<T> {
+            // Try to parse our node. If successful return the node. If unsuccesful then we are in
+            // error recovery mode!
+            if let Some(x) = try_parse(self) {
+                Ok(x)
+            } else {
+                self.recover(expected, try_parse)
+            }
+        }
+
         /// Provides error recovery logic for a parsing operation which might fail. Takes a
         /// `Parser::try_parse` function which consumes no input on failure and returns `None`. If a
         /// call to `try_parse` fails we will advance to the next token and try again. _Unless_ the
@@ -284,7 +320,7 @@ mod p {
         fn recover<T>(
             &mut self,
             expected: ParserExpected,
-            try_parse: fn(&mut ParserContext) -> Option<T>,
+            try_parse: impl Fn(&mut ParserContext) -> Option<T>,
         ) -> Recover<T> {
             // Setup information we will need for creating errors.
             let mut skipped = Vec::new();
@@ -374,22 +410,13 @@ mod p {
         }
     }
 
-    pub trait Provide<T> {
-        fn get() -> T;
-    }
-
-    /// NOTE: Ideally, `Optional<P>::parse` would return `Option<P::Data>` instead of
-    /// `Recover<Option<P::Data>>`, but its good enough for now.
     pub struct Optional<P: Parser> {
         phantom: PhantomData<P>,
     }
 
     impl<P: Parser> Parser for Optional<P> {
         type Data = Option<P::Data>;
-
-        fn expected() -> ParserExpected {
-            P::expected()
-        }
+        type Error = Never;
 
         fn test(token: &Token) -> bool {
             P::test(token)
@@ -399,71 +426,8 @@ mod p {
             P::try_parse(context).map(Some)
         }
 
-        fn parse(context: &mut ParserContext) -> Recover<Self::Data> {
+        fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
             Ok(P::try_parse(context))
-        }
-    }
-
-    /// NOTE: Ideally, `Many<P>::parse` would return `Vec<P::Data>` instead of
-    /// `Recover<Vec<P::Data>>`, but its good enough for now.
-    pub struct Many<P: Parser, Q: Parser> {
-        phantom: PhantomData<(P, Q)>,
-    }
-
-    impl<P: Parser, Q: Parser> Parser for Many<P, Q> {
-        type Data = Vec<Recover<P::Data>>;
-
-        fn expected() -> ParserExpected {
-            P::expected()
-        }
-
-        fn test(token: &Token) -> bool {
-            P::test(token)
-        }
-
-        fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-            let mut items = Vec::new();
-            while !Q::test(context.lexer.lookahead()) {
-                items.push(P::parse(context));
-            }
-            items.shrink_to_fit();
-            if items.len() == 0 {
-                None
-            } else {
-                Some(items)
-            }
-        }
-
-        fn parse(context: &mut ParserContext) -> Recover<Self::Data> {
-            let mut items = Vec::new();
-            while !Q::test(context.lexer.lookahead()) {
-                items.push(P::parse(context));
-            }
-            items.shrink_to_fit();
-            Ok(items)
-        }
-    }
-
-    pub trait Transform {
-        type Parser: Parser;
-        type Data;
-
-        fn transform(data: <Self::Parser as Parser>::Data) -> Self::Data;
-    }
-
-    impl<T: Transform> Parser for T {
-        type Data = T::Data;
-
-        fn expected() -> ParserExpected {
-            T::Parser::expected()
-        }
-
-        fn test(token: &Token) -> bool {
-            T::Parser::test(token)
-        }
-
-        fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-            T::Parser::try_parse(context).map(T::transform)
         }
     }
 
@@ -492,10 +456,7 @@ mod p {
 
     impl Parser for Identifier {
         type Data = IdentifierToken;
-
-        fn expected() -> ParserExpected {
-            ParserExpected::Identifier
-        }
+        type Error = Box<RecoverError<Self::Data>>;
 
         fn test(token: &Token) -> bool {
             token.is_identifier()
@@ -504,16 +465,17 @@ mod p {
         fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
             context.lexer.advance_identifier()
         }
+
+        fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
+            context.retry(ParserExpected::Identifier, Self::try_parse)
+        }
     }
 
     pub struct Number;
 
     impl Parser for Number {
         type Data = NumberToken;
-
-        fn expected() -> ParserExpected {
-            ParserExpected::Number
-        }
+        type Error = Box<RecoverError<Self::Data>>;
 
         fn test(token: &Token) -> bool {
             token.is_number()
@@ -521,6 +483,10 @@ mod p {
 
         fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
             context.lexer.advance_number()
+        }
+
+        fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
+            context.retry(ParserExpected::Number, Self::try_parse)
         }
     }
 
@@ -530,10 +496,7 @@ mod p {
 
             impl Parser for $glyph {
                 type Data = GlyphToken;
-
-                fn expected() -> ParserExpected {
-                    ParserExpected::Glyph(Glyph::$glyph)
-                }
+                type Error = Box<RecoverError<Self::Data>>;
 
                 fn test(token: &Token) -> bool {
                     token.is_glyph(Glyph::$glyph)
@@ -541,6 +504,10 @@ mod p {
 
                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
                     context.lexer.advance_glyph(Glyph::$glyph)
+                }
+
+                fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
+                    context.retry(ParserExpected::Glyph(Glyph::$glyph), Self::try_parse)
                 }
             }
         };
@@ -552,19 +519,20 @@ mod p {
 
             impl Parser for $keyword {
                 type Data = GlyphToken;
-
-                fn expected() -> ParserExpected {
-                    ParserExpected::Glyph(Glyph::Keyword(Keyword::$keyword))
-                }
+                type Error = Box<RecoverError<Self::Data>>;
 
                 fn test(token: &Token) -> bool {
                     token.is_glyph(Glyph::Keyword(Keyword::$keyword))
                 }
 
                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
-                    context
-                        .lexer
-                        .advance_glyph(Glyph::Keyword(Keyword::$keyword))
+                    let glyph = Glyph::Keyword(Keyword::$keyword);
+                    context.lexer.advance_glyph(glyph)
+                }
+
+                fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
+                    let expected = ParserExpected::Glyph(Glyph::Keyword(Keyword::$keyword));
+                    context.retry(expected, Self::try_parse)
                 }
             }
         };
@@ -597,14 +565,21 @@ mod p {
 
     macro_rules! group {
         (pub struct $name:ident<P1, $($t:ident),+>) => {
-            pub struct $name<P1: Parser, $($t: Parser),*>(PhantomData<(P1, $($t),*)>);
+            pub struct $name<P1, $($t),*>
+            where
+                P1: Parser,
+                $($t: Parser),*
+            {
+                phantom: PhantomData<(P1, $($t),*)>,
+            }
 
-            impl<P1: Parser, $($t: Parser),*> Parser for $name<P1, $($t),*> {
-                type Data = (P1::Data, $(Recover<$t::Data>),*);
-
-                fn expected() -> ParserExpected {
-                    P1::expected()
-                }
+            impl<P1, $($t),*> Parser for $name<P1, $($t),*>
+            where
+                P1: Parser,
+                $($t: Parser),*
+            {
+                type Data = (Result<P1::Data, P1::Error>, $(Result<$t::Data, $t::Error>),*);
+                type Error = Never;
 
                 fn test(token: &Token) -> bool {
                     P1::test(token)
@@ -614,7 +589,7 @@ mod p {
                 fn try_parse(context: &mut ParserContext) -> Option<Self::Data> {
                     reverse_statements!($(context.recover_push($t::test)),*);
                     let P1 = match P1::try_parse(context) {
-                        Some(P1) => P1,
+                        Some(P1) => Ok(P1),
                         None => {
                             $(ignore!($t); context.recover_pop();)*
                             return None;
@@ -623,34 +598,43 @@ mod p {
                     $(context.recover_pop();
                     let $t = $t::parse(context);)*
                     Some((P1, $($t),*))
+                }
 
+                #[allow(non_snake_case)]
+                fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
+                    reverse_statements!($(context.recover_push($t::test)),*);
+                    let P1 = P1::parse(context);
+                    $(context.recover_pop();
+                    let $t = $t::parse(context);)*
+                    Ok((P1, $($t),*))
                 }
             }
         };
     }
 
+    pub trait ChoiceHelper {
+        fn expected() -> ParserExpected;
+    }
+
     macro_rules! choice {
-        (pub struct $name:ident<P1, $($t:ident),+>) => {
-            pub struct $name<E, P1, $($t),*>
+        (pub struct $name:ident<C, P1, $($t:ident),+>) => {
+            pub struct $name<C, P1, $($t),*>
             where
-                E: Provide<ParserExpected>,
+                C: ChoiceHelper,
                 P1: Parser,
                 $($t: Parser<Data = P1::Data>),*
             {
-                phantom: PhantomData<(E, P1, $($t),*)>,
+                phantom: PhantomData<(C, P1, $($t),*)>,
             }
 
-            impl<E, P1, $($t),*> Parser for $name<E, P1, $($t),*>
+            impl<C, P1, $($t),*> Parser for $name<C, P1, $($t),*>
             where
-                E: Provide<ParserExpected>,
+                C: ChoiceHelper,
                 P1: Parser,
                 $($t: Parser<Data = P1::Data>),*
             {
                 type Data = P1::Data;
-
-                fn expected() -> ParserExpected {
-                    E::get()
-                }
+                type Error = Box<RecoverError<Self::Data>>;
 
                 fn test(token: &Token) -> bool {
                     P1::test(token) || $($t::test(token))||*
@@ -665,6 +649,10 @@ mod p {
                     })*
                     None
                 }
+
+                fn parse(context: &mut ParserContext) -> Result<Self::Data, Self::Error> {
+                    context.retry(C::expected(), Self::try_parse)
+                }
             }
         };
     }
@@ -673,7 +661,7 @@ mod p {
     group!(pub struct Group3<P1, P2, P3>);
     group!(pub struct Group5<P1, P2, P3, P4, P5>);
 
-    choice!(pub struct Choice2<P1, P2>);
-    choice!(pub struct Choice3<P1, P2, P3>);
-    choice!(pub struct Choice5<P1, P2, P3, P4, P5>);
+    choice!(pub struct Choice2<C, P1, P2>);
+    choice!(pub struct Choice3<C, P1, P2, P3>);
+    choice!(pub struct Choice5<C, P1, P2, P3, P4, P5>);
 }
