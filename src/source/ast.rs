@@ -308,6 +308,12 @@ impl Into<Constant> for BooleanConstant {
     }
 }
 
+impl Into<Expression> for BooleanConstant {
+    fn into(self) -> Expression {
+        Expression::Constant(self.into())
+    }
+}
+
 impl PushTokens for BooleanConstant {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.token.push_tokens(tokens);
@@ -334,6 +340,12 @@ impl NumberConstant {
 impl Into<Constant> for NumberConstant {
     fn into(self) -> Constant {
         Constant::Number(self)
+    }
+}
+
+impl Into<Expression> for NumberConstant {
+    fn into(self) -> Expression {
+        Expression::Constant(self.into())
     }
 }
 
