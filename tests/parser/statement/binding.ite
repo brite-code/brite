@@ -37,3 +37,7 @@ let x = 0; 😈
 
 let x = 0
 let y = 42
+
+let _ = 42;
+
+let _ = _;

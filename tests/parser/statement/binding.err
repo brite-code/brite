@@ -40,3 +40,4 @@ binding.ite(36,13): We found `😈` when we wanted `=`.
 binding.ite(36,18): We found `😈` when we wanted an expression.
 binding.ite(36,23): We found `😈` when we wanted a statement.
 binding.ite(36,28): We found `😈` when we wanted a statement.
+binding.ite(43,9): We found `_` when we wanted an expression.
