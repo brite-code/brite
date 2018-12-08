@@ -478,7 +478,7 @@ impl PushTokens for PropertyExpression {
 #[derive(Clone, Debug)]
 pub struct ConditionalExpression {
     if_: GlyphToken,
-    test: Expression,
+    test: Recover<Expression>,
     consequent: Block,
     alternate: Option<ConditionalExpressionAlternate>,
 }
@@ -495,7 +495,7 @@ pub struct ConditionalExpressionAlternate {
 impl ConditionalExpression {
     pub fn new(
         if_: GlyphToken,
-        test: Expression,
+        test: Recover<Expression>,
         consequent: Block,
         alternate: Option<ConditionalExpressionAlternate>,
     ) -> Self {
@@ -511,6 +511,12 @@ impl ConditionalExpression {
 impl ConditionalExpressionAlternate {
     pub fn new(else_: GlyphToken, block: Block) -> Self {
         ConditionalExpressionAlternate { else_, block }
+    }
+}
+
+impl Into<Expression> for ConditionalExpression {
+    fn into(self) -> Expression {
+        Expression::Conditional(Box::new(self))
     }
 }
 

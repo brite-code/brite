@@ -221,6 +221,7 @@ macro_rules! parser_rule_extra {
         /// retrying until it sees a `D` or a `G`.
         ///
         /// [1]: https://en.wikipedia.org/wiki/LR_parser
+        #[allow(dead_code)]
         pub(super) fn parse(context: &mut ParserContext) -> ast::$name {
             // Push all the parser recover functions in reverse order to our error recovery
             // stack. If we encounter an unrecognized token we will test each recovery
@@ -295,6 +296,12 @@ macro_rules! parser_symbol_glyph {
     };
     ("let") => {
         Glyph::Keyword(Keyword::Let)
+    };
+    ("if") => {
+        Glyph::Keyword(Keyword::If)
+    };
+    ("else") => {
+        Glyph::Keyword(Keyword::Else)
     };
     ("do") => {
         Glyph::Keyword(Keyword::Do)
@@ -525,8 +532,11 @@ parser! {
 
     Expression ::= {identifier}
                  | {Constant}
+                 | {"if" Expression Block [opt: ConditionalExpressionAlternate]}
                  | {"do" Block}
                  | {"(" Expression ")"}
+
+    ConditionalExpressionAlternate ::= {"else" Block}
 
     Pattern ::= {identifier}
               | {"_"}
@@ -761,11 +771,38 @@ impl ParserFrom<(GlyphToken, Block)> for Expression {
     }
 }
 
+type ConditionalExpressionData = (
+    GlyphToken,
+    Recover<Expression>,
+    Block,
+    Option<ConditionalExpressionAlternate>,
+);
+
+impl ParserFrom<ConditionalExpressionData> for Expression {
+    fn from((if_, test, consequent, alternate): ConditionalExpressionData) -> Self {
+        ConditionalExpression::new(if_, test, consequent, alternate).into()
+    }
+}
+
 type WrappedExpressionData = (GlyphToken, Recover<Expression>, Recover<GlyphToken>);
 
 impl ParserFrom<WrappedExpressionData> for Expression {
     fn from((paren_left, expression, paren_right): WrappedExpressionData) -> Self {
         WrappedExpression::new(paren_left, expression, paren_right).into()
+    }
+}
+
+impl ParserFrom<(GlyphToken, Block)> for ConditionalExpressionAlternate {
+    fn from((else_, block): (GlyphToken, Block)) -> Self {
+        ConditionalExpressionAlternate::new(else_, block)
+    }
+}
+
+impl ParserFrom<(Recover<GlyphToken>, Block)> for ConditionalExpressionAlternate {
+    fn from(_: (Recover<GlyphToken>, Block)) -> Self {
+        unimplemented!(
+            "We don’t expect `ConditionalExpressionAlternate::parse()` to ever be called."
+        )
     }
 }
 
