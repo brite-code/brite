@@ -114,3 +114,38 @@ binding.ite(108,11): We found `😈` when we wanted a statement.
 binding.ite(110,2): We found `let` when we wanted an expression.
 binding.ite(110,2): We found `let` when we wanted `)`.
 binding.ite(110,11): We found `)` when we wanted a statement.
+binding.ite(115,1): We found `let` when we wanted a variable name.
+binding.ite(115,1): We found `let` when we wanted `=`.
+binding.ite(115,1): We found `let` when we wanted an expression.
+binding.ite(116,1): We found `let` when we wanted `=`.
+binding.ite(116,1): We found `let` when we wanted an expression.
+binding.ite(118,1): We found `let` when we wanted an expression.
+binding.ite(118,5): We found `=` when we wanted a variable name.
+binding.ite(119,1): We found `let` when we wanted an expression.
+binding.ite(119,5): We found `=` when we wanted a variable name.
+binding.ite(121,5): We found a number when we wanted a variable name.
+binding.ite(121,5): We found a number when we wanted `=`.
+binding.ite(122,7): We found a number when we wanted `=`.
+binding.ite(124,5): We found `😈` when we wanted a variable name.
+binding.ite(126,1): We found `let` when we wanted `=`.
+binding.ite(126,1): We found `let` when we wanted an expression.
+binding.ite(126,5): We found `😈` when we wanted a variable name.
+binding.ite(126,8): We found a number when we wanted `=`.
+binding.ite(127,5): We found `😈` when we wanted a variable name.
+binding.ite(129,1): We found `let` when we wanted an expression.
+binding.ite(129,5): We found `😈` when we wanted a variable name.
+binding.ite(129,8): We found a number when we wanted `=`.
+binding.ite(130,7): We found `😈` when we wanted `=`.
+binding.ite(132,1): We found `let` when we wanted an expression.
+binding.ite(132,5): We found `=` when we wanted a variable name.
+binding.ite(132,7): We found `😈` when we wanted an expression.
+binding.ite(133,7): We found `😈` when we wanted `=`.
+binding.ite(135,1): We found `let` when we wanted an expression.
+binding.ite(135,5): We found `😈` when we wanted a variable name.
+binding.ite(136,7): We found `😈` when we wanted `=`.
+binding.ite(137,9): We found `😈` when we wanted an expression.
+binding.ite(139,1): We found `😈` when we wanted an expression.
+binding.ite(140,5): We found `😈` when we wanted a variable name.
+binding.ite(141,7): We found `😈` when we wanted `=`.
+binding.ite(142,9): We found `😈` when we wanted an expression.
+binding.ite(143,11): We found `😈` when we wanted a statement.

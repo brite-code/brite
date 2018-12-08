@@ -440,15 +440,17 @@ macro_rules! parser_symbol_parse {
             if let Some(until) = parser_symbol_try_parse!($context, $until_symbol) {
                 break Ok(until);
             }
-            // Parse an item.
+            // Parse an item. Add some recovery functions to the stack before doing so.
+            $context.recover_push(parser_symbol_recover_fn!($item_symbol));
             $context.recover_push(parser_symbol_recover_fn!($until_symbol));
             let item: Recover<_> = parser_symbol_parse!($context, $item_symbol);
+            $context.recover_pop();
             $context.recover_pop();
             match &item {
                 // If the item erred fatally then parse the “until” symbol and break out
                 // of the loop.
                 Err(error) if error.recovered().is_none() => {
-                    items.push(item); // TODO: Test
+                    items.push(item);
                     break parser_symbol_parse!($context, $until_symbol);
                 }
                 // Push the item and carry on with the loop...
