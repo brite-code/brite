@@ -545,6 +545,12 @@ impl BlockExpression {
     }
 }
 
+impl Into<Expression> for BlockExpression {
+    fn into(self) -> Expression {
+        Expression::Block(self)
+    }
+}
+
 impl PushTokens for BlockExpression {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.do_.push_tokens(tokens);

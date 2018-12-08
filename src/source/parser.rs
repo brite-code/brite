@@ -143,6 +143,7 @@ macro_rules! parser_rule {
             /// We will call `D::try_parse` and `G::try_parse` to choose which branch to take.
             ///
             /// _Returning `None` means we did not advance our lexer!_
+            #[allow(dead_code)]
             fn try_parse(context: &mut ParserContext) -> Option<ast::$name> {
                 $(
                     // Push all the parser recover functions in reverse order to our error recovery
@@ -434,7 +435,9 @@ macro_rules! parser_symbol_parse {
                 break Ok(until);
             }
             // Parse an item.
+            $context.recover_push(parser_symbol_recover_fn!($until_symbol));
             let item: Recover<_> = parser_symbol_parse!($context, $item_symbol);
+            $context.recover_pop();
             match &item {
                 // If the item erred fatally then parse the “until” symbol and break out
                 // of the loop.
@@ -506,7 +509,7 @@ parser! {
                 | {"let" Pattern "=" Expression [opt: ";"]}
                 | {";"}
 
-    // Block ::= {"{" [many: Statement, until: "}"]}
+    Block ::= {"{" [many: Statement, until: "}"]}
 
     Constant ::= {"true"}
                | {"false"}
@@ -514,7 +517,7 @@ parser! {
 
     Expression ::= {identifier}
                  | {Constant}
-                //  | {"do" Block}
+                 | {"do" Block}
                  | {"(" Expression ")"}
 
     Pattern ::= {identifier}
@@ -721,20 +724,19 @@ impl ParserFrom<(NumberToken,)> for Constant {
 
 type BlockData = (
     Recover<GlyphToken>,
-    Vec<Recover<Statement>>,
-    Recover<GlyphToken>,
+    (Vec<Recover<Statement>>, Recover<GlyphToken>),
 );
 
 impl ParserFrom<BlockData> for Block {
-    fn from((brace_left, statements, brace_right): BlockData) -> Self {
+    fn from((brace_left, (statements, brace_right)): BlockData) -> Self {
         Block::new(brace_left, statements, brace_right)
     }
 }
 
-type TryBlockData = (GlyphToken, Vec<Recover<Statement>>, Recover<GlyphToken>);
+type TryBlockData = (GlyphToken, (Vec<Recover<Statement>>, Recover<GlyphToken>));
 
 impl ParserFrom<TryBlockData> for Block {
-    fn from((brace_left, statements, brace_right): TryBlockData) -> Self {
+    fn from((brace_left, (statements, brace_right)): TryBlockData) -> Self {
         Block::new(Ok(brace_left), statements, brace_right)
     }
 }
@@ -742,6 +744,12 @@ impl ParserFrom<TryBlockData> for Block {
 impl ParserFrom<(IdentifierToken,)> for Expression {
     fn from((identifier,): (IdentifierToken,)) -> Self {
         VariableExpression::new(identifier).into()
+    }
+}
+
+impl ParserFrom<(GlyphToken, Block)> for Expression {
+    fn from((do_, block): (GlyphToken, Block)) -> Self {
+        BlockExpression::new(do_, block).into()
     }
 }
 

@@ -41,3 +41,36 @@ let y = 42
 let _ = 42;
 
 let _ = _;
+
+do { let x = 0 }
+
+do { let }
+do { let x }
+do { let x = }
+
+do { let = }
+do { let = 0 }
+
+do { let 0 }
+do { let x 0 }
+
+do { let 😈 }
+
+do { let 😈 0 }
+do { let 😈 = }
+
+do { let 😈 0 }
+do { let x 😈 }
+
+do { let = 😈 }
+do { let x 😈 }
+
+do { let 😈 = 0 }
+do { let x 😈 0 }
+do { let x = 😈 }
+
+do { 😈 let x = 0 }
+do { let 😈 x = 0 }
+do { let x 😈 = 0 }
+do { let x = 😈 0 }
+do { let x = 0 😈 }
