@@ -1,0 +1,18 @@
+do {}
+do {
+do }
+do
+
+}} // Two blocks need to be closed.
+
+let _ = do {};
+let _ = do {;
+let _ = do };
+let _ = do;
+
+}} // Two blocks need to be closed.
+
+(do {});
+(do {);
+(do });
+(do);
