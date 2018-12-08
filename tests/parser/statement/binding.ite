@@ -74,3 +74,37 @@ do { let 😈 x = 0 }
 do { let x 😈 = 0 }
 do { let x = 😈 0 }
 do { let x = 0 😈 }
+
+let
+
+let x
+let x =
+
+let =
+let = 0
+
+let 0
+let x 0
+
+let 😈
+
+let 😈 0
+let 😈 =
+
+let 😈 0
+let x 😈
+
+let = 😈
+let x 😈
+
+let 😈 = 0
+let x 😈 0
+let x = 😈
+
+😈 let x = 0
+let 😈 x = 0
+let x 😈 = 0
+let x = 😈 0
+let x = 0 😈
+
+(let x = 0);

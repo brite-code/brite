@@ -1,11 +1,10 @@
 wrapped.ite(5,5): We found `;` when we wanted `)`.
 wrapped.ite(6,4): We found `)` when we wanted a statement.
 wrapped.ite(9,3): We found `,` when we wanted `)`.
-wrapped.ite(9,5): We found a variable name when we wanted `)`.
+wrapped.ite(9,6): We found `)` when we wanted a statement.
 wrapped.ite(11,2): We found `😈` when we wanted an expression.
 wrapped.ite(18,1): We found `(` when we wanted `)`.
-wrapped.ite(18,2): We found a variable name when we wanted `)`.
 wrapped.ite(18,4): We found `)` when we wanted a statement.
 wrapped.ite(21,3): We found `,` when we wanted `)`.
-wrapped.ite(21,5): We found a variable name when we wanted `)`.
+wrapped.ite(21,6): We found `)` when we wanted a statement.
 wrapped.ite(23,2): We found `😈` when we wanted an expression.

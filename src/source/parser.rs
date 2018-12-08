@@ -64,12 +64,18 @@ use crate::diagnostics::{Diagnostic, DiagnosticRef, ParserExpected};
 pub fn parse(lexer: Lexer) -> Module {
     // Create our parsing context.
     let mut context = ParserContext::new(lexer);
+    // While we are parsing, we want to recover at the next statement.
+    context.recover_push(p::Statement::recover);
     // Until we reach the end token, parse items. If an item is in recovery mode it will stop trying
     // to recover once it reaches the end token.
     let mut items = Vec::new();
     while !context.lexer.lookahead_end() {
         items.push(p::Statement::parse(&mut context));
     }
+    // Pop our recovery function we added to context and assert that our error recovery stack should
+    // be empty.
+    context.recover_pop();
+    debug_assert!(context.recover.is_empty());
     // Optimization: We are done mutating our vector. Shrink it to the smallest size.
     items.shrink_to_fit();
     // We expect that advancing the lexer will give us our `EndToken`. Since we should only exit our
@@ -237,7 +243,7 @@ macro_rules! parser_rule_extra {
         ///
         /// This is not the same for a rule with multiple expressions!
         #[allow(dead_code)]
-        fn recover(token: &Token) -> bool {
+        pub(super) fn recover(token: &Token) -> bool {
             parser_symbol_recover!(token, $symbol_1)
                 $(|| parser_symbol_recover!(token, $symbol_n))*
         }
@@ -267,7 +273,7 @@ macro_rules! parser_rule_extra {
         /// Our multiple expression parser will not be able to skip the first token so we can’t
         /// recover at any token besides the first token.
         #[allow(dead_code)]
-        fn recover(token: &Token) -> bool {
+        pub(super) fn recover(token: &Token) -> bool {
             parser_symbol_recover!(token, $symbol_1_1)
                 || $(parser_symbol_recover!(token, $symbol_n_1))||*
         }
