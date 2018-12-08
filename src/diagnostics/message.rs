@@ -83,6 +83,7 @@ pub enum ParserExpected {
     Identifier,
     Number,
     Statement,
+    Constant,
     Expression,
     Pattern,
 }
@@ -149,6 +150,7 @@ impl DiagnosticMessage {
                     // common in C-like languages, so we use those words. But we use “variable name”
                     // for “pattern”. Even though patterns can be more than a variable name.
                     ParserExpected::Statement => message.push("a statement"),
+                    ParserExpected::Constant => message.push("a constant"),
                     ParserExpected::Expression => message.push("an expression"),
                     ParserExpected::Pattern => message.push("a variable name"),
                 }

@@ -66,6 +66,10 @@ impl<T> RecoverError<T> {
         }
     }
 
+    pub fn recovered(&self) -> Option<&T> {
+        self.recovered.as_ref()
+    }
+
     pub fn map<U>(self, mapper: impl Fn(T) -> U) -> RecoverError<U> {
         RecoverError {
             skipped: self.skipped,
@@ -109,16 +113,16 @@ pub type Recover<T> = Result<T, Box<RecoverError<T>>>;
 /// A block makes it so the items inside are only accessible in the block.
 #[derive(Clone, Debug)]
 pub struct Block {
-    brace_left: GlyphToken,
-    statements: Vec<Statement>,
-    brace_right: GlyphToken,
+    brace_left: Recover<GlyphToken>,
+    statements: Vec<Recover<Statement>>,
+    brace_right: Recover<GlyphToken>,
 }
 
 impl Block {
     pub fn new(
-        brace_left: GlyphToken,
-        statements: Vec<Statement>,
-        brace_right: GlyphToken,
+        brace_left: Recover<GlyphToken>,
+        statements: Vec<Recover<Statement>>,
+        brace_right: Recover<GlyphToken>,
     ) -> Self {
         Block {
             brace_left,
@@ -308,12 +312,6 @@ impl Into<Constant> for BooleanConstant {
     }
 }
 
-impl Into<Expression> for BooleanConstant {
-    fn into(self) -> Expression {
-        Expression::Constant(self.into())
-    }
-}
-
 impl PushTokens for BooleanConstant {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.token.push_tokens(tokens);
@@ -340,12 +338,6 @@ impl NumberConstant {
 impl Into<Constant> for NumberConstant {
     fn into(self) -> Constant {
         Constant::Number(self)
-    }
-}
-
-impl Into<Expression> for NumberConstant {
-    fn into(self) -> Expression {
-        Expression::Constant(self.into())
     }
 }
 

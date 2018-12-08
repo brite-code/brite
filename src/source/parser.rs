@@ -49,6 +49,7 @@
 //! Explore the source code of this module for more information about how everything works!
 
 use super::ast::*;
+use super::identifier::Keyword;
 use super::lexer::Lexer;
 use super::token::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ParserExpected};
@@ -121,28 +122,6 @@ macro_rules! parser {
 ///
 /// [1]: https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form
 macro_rules! parser_rule {
-    // Special case for `BooleanConstant`. We need this because otherwise it would be difficult to
-    // correctly initialize the true/false value otherwise.
-    (BooleanConstant ::= {"true"} | {"false"}) => {
-        pub(super) struct BooleanConstant;
-
-        impl BooleanConstant {
-            fn test(token: &Token) -> bool {
-                token.is_glyph(Glyph::Keyword(Keyword::True)) ||
-                    token.is_glyph(Glyph::Keyword(Keyword::False))
-            }
-
-            fn try_parse(context: &mut ParserContext) -> Option<ast::BooleanConstant> {
-                if let Some(token) = context.lexer.advance_glyph(Glyph::Keyword(Keyword::True)) {
-                    Some(ast::BooleanConstant::new(token, true))
-                } else if let Some(token) = context.lexer.advance_glyph(Glyph::Keyword(Keyword::False)) {
-                    Some(ast::BooleanConstant::new(token, false))
-                } else {
-                    None
-                }
-            }
-        }
-    };
     (
         $name:ident ::= $( {$symbol_1:tt $($symbol_n:tt)*} )|+
     ) => {
@@ -151,37 +130,37 @@ macro_rules! parser_rule {
         pub(super) struct $name;
 
         impl $name {
-            /// Tests if this rule may apply used based on looking at the first token. Just because
-            /// this returns true we don’t know if the entire parser will succeed. After all, this
-            /// is only a hint based on the first token.
-            #[allow(dead_code)]
-            fn test(token: &Token) -> bool {
-                $(parser_symbol_test!(token, $symbol_1))||*
-            }
-
             /// Try to parse the rule. We return `Some()` unless the _first_ token is not valid for
             /// this rule. In that case we return `None`.
+            ///
+            /// We need this function for speculative parsing. That is if we have a rule `Bar` that
+            /// looks like:
+            ///
+            /// ```txt
+            /// Bar ::= {D E F} | {G H I}
+            /// ```
+            ///
+            /// We will call `D::try_parse` and `G::try_parse` to choose which branch to take.
             ///
             /// _Returning `None` means we did not advance our lexer!_
             fn try_parse(context: &mut ParserContext) -> Option<ast::$name> {
                 $(
-                    // Push all the parser test functions in reverse order to our error recovery
+                    // Push all the parser recover functions in reverse order to our error recovery
                     // stack. If we encounter an unrecognized token we will test each recovery
                     // function to see if any future parsers will be able to handle the token. If no
                     // future parser can handle the token we will skip the token.
-                    reverse_statements!($(context.recover_push(parser_symbol_test_fn!($symbol_n))),*);
+                    reverse_statements!($(context.recover_push(parser_symbol_recover_fn!($symbol_n))),*);
                     // Try to parse the first symbol. Returns `None` if we could not parse _and_ we
                     // did not advance the lexer.
                     if let Some(x1) = parser_symbol_try_parse!(context, $symbol_1) {
-                        // Parse all the other symbols in our rule. Make sure to pop its test
+                        // Parse all the other symbols in our rule. Make sure to pop its recover
                         // function from our error recovery stack before trying to parse.
                         let data = (x1, $({
                             context.recover_pop();
                             parser_symbol_parse!(context, $symbol_n)
                         }),*);
-                        // After we’ve parsed all the data create our AST node from the data we
-                        // parsed using our `ParserFrom` trait. Which is kinda like `From` but
-                        // specific to our parser.
+                        // After we’ve parsed all the data, create our AST node using our
+                        // `ParserFrom` trait. Which is like `From` but specific to our parser.
                         return Some(ParserFrom::from(data));
                     } else {
                         // If we could not parse our first symbol then make sure to cleanup our
@@ -197,18 +176,70 @@ macro_rules! parser_rule {
             }
 
             // We want different behaviors depending on whether we have only one expression or
-            // multiple expressions. So defer to a function which splits on these two branches.
-            parser_rule_parse_fn!($name ::= $({$symbol_1 $($symbol_n)*})|*);
+            // multiple expressions. So defer to a macro which splits on these two branches.
+            parser_rule_extra!($name ::= $({$symbol_1 $($symbol_n)*})|*);
         }
     };
 }
 
-macro_rules! parser_rule_parse_fn {
+/// Extra definitions for the the `parser_rule!` `impl`. We have a separate macro so that we can
+/// split on one expression vs. multiple expressions.
+macro_rules! parser_rule_extra {
     // If our rule only has one expression...
     (
         $name:ident ::= {$symbol_1:tt $($symbol_n:tt)*}
     ) => {
-        // Unimplemented...
+        /// Always parses an AST node. Unlike `try_parse` which bails and returns `None` if the
+        /// first token does not match.
+        ///
+        /// The parsing behavior of a rule with a single expression is different from the parsing
+        /// behavior of a rule with multiple expressions. For example, in the following `Foo`
+        /// (which has one expression) and `Bar` (which has two expressions) have different
+        /// parsing behaviors!
+        ///
+        /// ```txt
+        /// Foo ::= {A B C}
+        ///
+        /// Bar ::= {D E F} | {G H I}
+        /// ```
+        ///
+        /// For `Foo` we will parse each of its components `A`, `B`, and `C` with error recovery. If
+        /// we can’t parse an `A` but we can parse a `B` then we will create an AST node with an
+        /// error for `A` and a valid `B`.
+        ///
+        /// However, we can’t do the same for `Bar`. Our parser is an [LR(1)][1] parser so when we
+        /// need to make a choice we can only look ahead one token. That means to parse `Bar` we
+        /// _must_ see a `D` or a `G`. We can’t skip `D` and parse `E` since that means we’d have
+        /// to commit to the first expression when parsing. So our parser for `Bar` will keep
+        /// retrying until it sees a `D` or a `G`.
+        ///
+        /// [1]: https://en.wikipedia.org/wiki/LR_parser
+        pub(super) fn parse(context: &mut ParserContext) -> ast::$name {
+            // Push all the parser recover functions in reverse order to our error recovery
+            // stack. If we encounter an unrecognized token we will test each recovery
+            // function to see if any future parsers will be able to handle the token. If no
+            // future parser can handle the token we will skip the token.
+            reverse_statements!($(context.recover_push(parser_symbol_recover_fn!($symbol_n))),*);
+            // Parse all our symbols, including the first one. Make sure that before we parse a
+            // symbol we pop its error recovery function from the stack.
+            let data = (parser_symbol_parse!(context, $symbol_1), $({
+                context.recover_pop();
+                parser_symbol_parse!(context, $symbol_n)
+            }),*);
+            // After we’ve parsed all the data, create our AST node using our `ParserFrom` trait.
+            // Which is like `From` but specific to our parser.
+            ParserFrom::from(data)
+        }
+
+        /// We can recover from any of the symbols in our rule. Since when we parse we will skip
+        /// over missing nodes.
+        ///
+        /// This is not the same for a rule with multiple expressions!
+        #[allow(dead_code)]
+        fn recover(token: &Token) -> bool {
+            parser_symbol_recover!(token, $symbol_1)
+                $(|| parser_symbol_recover!(token, $symbol_n))*
+        }
     };
 
     // If our rule has two or more expressions...
@@ -216,10 +247,28 @@ macro_rules! parser_rule_parse_fn {
         $name:ident ::= {$symbol_1_1:tt $($symbol_1_n:tt)*}
                       | $( {$symbol_n_1:tt $($symbol_n_n:tt)*} )|+
     ) => {
-        /// To parse this grammar rule we keep retrying the `try_parse` function until it succeeds
-        /// or until we recover.
+        /// Always parses an AST node. Unlike `try_parse` which bails and returns `None` if the
+        /// first token does not match.
+        ///
+        /// To parse this grammar rule we keep retrying the `try_parse` function for the first
+        /// symbol of each expression until one of the expressions match.
+        #[allow(dead_code)]
         pub(super) fn parse(context: &mut ParserContext) -> Recover<ast::$name> {
             context.retry(ParserExpected::$name, $name::try_parse)
+        }
+
+        /// We can only recover if the _first_ symbol in one of our expressions can recover.
+        ///
+        /// This is not the same as the behavior for a rule with a single expression! A rule with a
+        /// single expression may recover from any symbol in the expression. Not just the first
+        /// symbol.
+        ///
+        /// Our multiple expression parser will not be able to skip the first token so we can’t
+        /// recover at any token besides the first token.
+        #[allow(dead_code)]
+        fn recover(token: &Token) -> bool {
+            parser_symbol_recover!(token, $symbol_1_1)
+                || $(parser_symbol_recover!(token, $symbol_n_1))||*
         }
     };
 }
@@ -231,8 +280,23 @@ macro_rules! parser_symbol_glyph {
     ("_") => {
         Glyph::Keyword(Keyword::Hole)
     };
+    ("true") => {
+        Glyph::Keyword(Keyword::True)
+    };
+    ("false") => {
+        Glyph::Keyword(Keyword::False)
+    };
     ("let") => {
         Glyph::Keyword(Keyword::Let)
+    };
+    ("do") => {
+        Glyph::Keyword(Keyword::Do)
+    };
+    ("{") => {
+        Glyph::BraceLeft
+    };
+    ("}") => {
+        Glyph::BraceRight
     };
     ("=") => {
         Glyph::Equals
@@ -249,9 +313,13 @@ macro_rules! parser_symbol_glyph {
 }
 
 /// Test if a token matches the first token of a symbol.
-macro_rules! parser_symbol_test {
+macro_rules! parser_symbol_recover {
     ($token:expr, [opt: $symbol:tt]) => {
-        parser_symbol_test!($symbol)
+        parser_symbol_recover!($token, $symbol)
+    };
+    ($token:expr, [many: $item_symbol:tt, until: $until_symbol:tt]) => {
+        parser_symbol_recover!($token, $item_symbol)
+            || parser_symbol_recover!($token, $until_symbol)
     };
     ($token:expr, identifier) => {
         $token.is_identifier()
@@ -260,7 +328,7 @@ macro_rules! parser_symbol_test {
         $token.is_number()
     };
     ($token:expr, $name:ident) => {
-        $name::test($token)
+        $name::recover($token)
     };
     ($token:expr, $glyph:tt) => {
         $token.is_glyph(parser_symbol_glyph!($glyph))
@@ -272,9 +340,12 @@ macro_rules! parser_symbol_test {
 ///
 /// We need a function pointer for error recovery because at runtime we’ll call a _dynamic_ stack of
 /// these functions in `ParserContext::recover` to determine if we can recover from an error.
-macro_rules! parser_symbol_test_fn {
+macro_rules! parser_symbol_recover_fn {
     ([opt: $symbol:tt]) => {
-        parser_symbol_test_fn!($symbol)
+        parser_symbol_recover_fn!($symbol)
+    };
+    ([many: $item_symbol:tt, until: $until_symbol:tt]) => {
+        |token| parser_symbol_recover!(token, [many: $item_symbol, until: $until_symbol])
     };
     (identifier) => {
         Token::is_identifier
@@ -283,7 +354,7 @@ macro_rules! parser_symbol_test_fn {
         Token::is_number
     };
     ($name:ident) => {
-        $name::test
+        $name::recover
     };
     ($glyph:tt) => {
         |token| token.is_glyph(parser_symbol_glyph!($glyph))
@@ -293,18 +364,43 @@ macro_rules! parser_symbol_test_fn {
 /// Try to parse a symbol. If the symbol fails to parse and we _do not_ advance the lexer then we
 /// return `None`. Otherwise we return `Some()`. Even if there was an error.
 macro_rules! parser_symbol_try_parse {
+    // Try to parse the optional symbol. Do nothing special.
     ($context:expr, [opt: $symbol:tt]) => {
         parser_symbol_try_parse!($context, $symbol)
     };
+
+    // Lookahead and see if we could parse the many tokens symbol. If yes then invoke
+    // `parser_symbol_parse!` for parsing.
+    ($context:expr, [many: $item_symbol:tt, until: $until_symbol:tt]) => {
+        if parser_symbol_test!(
+            $context.lexer.lookahead(),
+            [many: $item_symbol, until: $until_symbol]
+        ) {
+            Some(parser_symbol_parse!(
+                $context,
+                [many: $item_symbol, until: $until_symbol]
+            ))
+        } else {
+            None
+        }
+    };
+
+    // Only advance the lexer if the next token is an identifier.
     ($context:expr, identifier) => {
         $context.lexer.advance_identifier()
     };
+
+    // Only advance the lexer if the next token is a number.
     ($context:expr, number) => {
         $context.lexer.advance_number()
     };
+
+    // Use the non-terminal’s `try_parse` function.
     ($context:expr, $name:ident) => {
         $name::try_parse($context)
     };
+
+    // Only advance the lexer if the next token is the specified glyph.
     ($context:expr, $glyph:tt) => {
         $context.lexer.advance_glyph(parser_symbol_glyph!($glyph))
     };
@@ -313,22 +409,67 @@ macro_rules! parser_symbol_try_parse {
 /// Parses a symbol. Usually by calling `ParserContext::retry` with the `try_parse` version of
 /// the parser.
 macro_rules! parser_symbol_parse {
+    // To parse an optional symbol we instead use the `try_parse` version. We do not retry if it
+    // returns `None`.
     ($context:expr, [opt: $symbol:tt]) => {
         parser_symbol_try_parse!($context, $symbol)
     };
+
+    // Parses as many of a symbol as we can until we reach a specified ending symbol. The algorithm
+    // (in words) goes something like this:
+    //
+    // 1. If we see the end symbol then stop looping.
+    // 2. Parse an item and add it to our list.
+    // 3. If the item we parsed erred fatally (the parser did not recover an item) then try to parse
+    //    our end token and stop looping.
+    // 4. Go back to 1.
+    //
+    // We expect both `$item_symbol` and `$until_symbol` to return `Recover<T>` when parsing.
+    ($context:expr, [many: $item_symbol:tt, until: $until_symbol:tt]) => {{
+        let mut items = Vec::new();
+        // Parse all the items we can in a loop...
+        let until: Recover<_> = loop {
+            // If we see the “until” symbol then break.
+            if let Some(until) = parser_symbol_try_parse!($context, $until_symbol) {
+                break Ok(until);
+            }
+            // Parse an item.
+            let item: Recover<_> = parser_symbol_parse!($context, $item_symbol);
+            match &item {
+                // If the item erred fatally then parse the “until” symbol and break out
+                // of the loop.
+                Err(error) if error.recovered().is_none() => {
+                    items.push(item); // TODO: Test
+                    break parser_symbol_parse!($context, $until_symbol);
+                }
+                // Push the item and carry on with the loop...
+                _ => items.push(item),
+            }
+        };
+        // Return the items list and the “until” value we parsed.
+        (items, until)
+    }};
+
+    // Parse an identifier. Retry until we either find one or give up.
     ($context:expr, identifier) => {
         $context.retry(ParserExpected::Identifier, |context| {
             context.lexer.advance_identifier()
         })
     };
+
+    // Parse a number. Retry until we either find one or give up.
     ($context:expr, number) => {
         $context.retry(ParserExpected::Number, |context| {
             context.lexer.advance_number()
         })
     };
+
+    // Use the non-terminal’s parsing function to parse.
     ($context:expr, $name:ident) => {
         $name::parse($context)
     };
+
+    // Parse a glyph. Retry until we either find one or give up.
     ($context:expr, $glyph:tt) => {
         $context.retry(
             ParserExpected::Glyph(parser_symbol_glyph!($glyph)),
@@ -361,35 +502,23 @@ macro_rules! ignore {
 ///
 /// [1]: https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form
 parser! {
-    Statement ::= {ExpressionStatement}
-                | {BindingStatement}
-                | {EmptyStatement}
+    Statement ::= {Expression [opt: ";"]}
+                | {"let" Pattern "=" Expression [opt: ";"]}
+                | {";"}
 
-    ExpressionStatement ::= {Expression [opt: ";"]}
+    // Block ::= {"{" [many: Statement, until: "}"]}
 
-    BindingStatement ::= {"let" Pattern "=" Expression [opt: ";"]}
+    Constant ::= {"true"}
+               | {"false"}
+               | {number}
 
-    EmptyStatement ::= {";"}
+    Expression ::= {identifier}
+                 | {Constant}
+                //  | {"do" Block}
+                 | {"(" Expression ")"}
 
-    BooleanConstant ::= {"true"} | {"false"}
-
-    NumberConstant ::= {number}
-
-    Expression ::= {VariableExpression}
-                 | {BooleanConstant}
-                 | {NumberConstant}
-                 | {WrappedExpression}
-
-    VariableExpression ::= {identifier}
-
-    WrappedExpression ::= {"(" Expression ")"}
-
-    Pattern ::= {VariablePattern}
-              | {HolePattern}
-
-    VariablePattern ::= {identifier}
-
-    HolePattern ::= {"_"}
+    Pattern ::= {identifier}
+              | {"_"}
 }
 
 /// Our context while parsing. Holds the lexer and a an error recovery stack.
@@ -559,52 +688,79 @@ type BindingStatementData = (
     Option<GlyphToken>,
 );
 
-impl ParserFrom<BindingStatementData> for BindingStatement {
+impl ParserFrom<BindingStatementData> for Statement {
     fn from((let_, pattern, equals, value, semicolon): BindingStatementData) -> Self {
-        BindingStatement::new(let_, pattern, equals, value, semicolon)
+        BindingStatement::new(let_, pattern, equals, value, semicolon).into()
     }
 }
 
-impl ParserFrom<(Expression, Option<GlyphToken>)> for ExpressionStatement {
+impl ParserFrom<(Expression, Option<GlyphToken>)> for Statement {
     fn from((expression, semicolon): (Expression, Option<GlyphToken>)) -> Self {
-        ExpressionStatement::new(expression, semicolon)
+        ExpressionStatement::new(expression, semicolon).into()
     }
 }
 
-impl ParserFrom<(GlyphToken,)> for EmptyStatement {
+impl ParserFrom<(GlyphToken,)> for Statement {
     fn from((semicolon,): (GlyphToken,)) -> Self {
-        EmptyStatement::new(semicolon)
+        EmptyStatement::new(semicolon).into()
     }
 }
 
-impl ParserFrom<(NumberToken,)> for NumberConstant {
+impl ParserFrom<(GlyphToken,)> for Constant {
+    fn from((token,): (GlyphToken,)) -> Self {
+        let value = token.glyph() == &Glyph::Keyword(Keyword::True);
+        BooleanConstant::new(token, value).into()
+    }
+}
+
+impl ParserFrom<(NumberToken,)> for Constant {
     fn from((number,): (NumberToken,)) -> Self {
-        NumberConstant::new(number)
+        NumberConstant::new(number).into()
     }
 }
 
-impl ParserFrom<(IdentifierToken,)> for VariableExpression {
+type BlockData = (
+    Recover<GlyphToken>,
+    Vec<Recover<Statement>>,
+    Recover<GlyphToken>,
+);
+
+impl ParserFrom<BlockData> for Block {
+    fn from((brace_left, statements, brace_right): BlockData) -> Self {
+        Block::new(brace_left, statements, brace_right)
+    }
+}
+
+type TryBlockData = (GlyphToken, Vec<Recover<Statement>>, Recover<GlyphToken>);
+
+impl ParserFrom<TryBlockData> for Block {
+    fn from((brace_left, statements, brace_right): TryBlockData) -> Self {
+        Block::new(Ok(brace_left), statements, brace_right)
+    }
+}
+
+impl ParserFrom<(IdentifierToken,)> for Expression {
     fn from((identifier,): (IdentifierToken,)) -> Self {
-        VariableExpression::new(identifier)
+        VariableExpression::new(identifier).into()
     }
 }
 
 type WrappedExpressionData = (GlyphToken, Recover<Expression>, Recover<GlyphToken>);
 
-impl ParserFrom<WrappedExpressionData> for WrappedExpression {
+impl ParserFrom<WrappedExpressionData> for Expression {
     fn from((paren_left, expression, paren_right): WrappedExpressionData) -> Self {
-        WrappedExpression::new(paren_left, expression, paren_right)
+        WrappedExpression::new(paren_left, expression, paren_right).into()
     }
 }
 
-impl ParserFrom<(IdentifierToken,)> for VariablePattern {
+impl ParserFrom<(IdentifierToken,)> for Pattern {
     fn from((identifier,): (IdentifierToken,)) -> Self {
-        VariablePattern::new(identifier)
+        VariablePattern::new(identifier).into()
     }
 }
 
-impl ParserFrom<(GlyphToken,)> for HolePattern {
+impl ParserFrom<(GlyphToken,)> for Pattern {
     fn from((hole,): (GlyphToken,)) -> Self {
-        HolePattern::new(hole)
+        HolePattern::new(hole).into()
     }
 }
