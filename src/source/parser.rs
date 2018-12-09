@@ -141,6 +141,9 @@ macro_rules! parser_rule {
             ///
             /// Our multiple expression parser will not be able to skip the first token so we can’t
             /// recover at any token besides the first token.
+            ///
+            /// IMPORTANT: If `recover` returns true when `try_parse` returns `None` then we
+            /// risk non-termination!
             #[allow(dead_code)]
             pub(super) fn recover(token: &Token) -> bool {
                 $(parser_symbol_recover!(token, $symbol_1))||*
@@ -189,6 +192,12 @@ macro_rules! parser_rule {
                         context.recover_pop();)*
                     }
                 )*
+                // If `try_parse()` fails but `recover()` returns true then we risk non-termination
+                // for parsers like `[many: symbol]`.
+                debug_assert!(
+                    !Self::recover(context.lexer.lookahead()),
+                    "If `try_parse()` failed `recover()` must return false or else we risk non-termination."
+                );
                 None
             }
 
@@ -328,6 +337,14 @@ macro_rules! parser_symbol_recover {
         parser_symbol_recover!($token, $item_symbol)
             || parser_symbol_recover!($token, $until_symbol)
     };
+    ($token:expr, [line: $glyph:tt]) => {
+        match $token {
+            Token::Glyph(token) => {
+                token.glyph() == parser_symbol_glyph!($glyph) && token.single_line()
+            }
+            _ => false,
+        }
+    };
     ($token:expr, identifier) => {
         $token.is_identifier()
     };
@@ -356,6 +373,9 @@ macro_rules! parser_symbol_recover_fn {
     };
     ([many: $item_symbol:tt, until: $until_symbol:tt]) => {
         |token| parser_symbol_recover!(token, [many: $item_symbol, until: $until_symbol])
+    };
+    ([line: $glyph:tt]) => {
+        |token| parser_symbol_recover!(token, $glyph)
     };
     (identifier) => {
         Token::is_identifier
@@ -400,6 +420,18 @@ macro_rules! parser_symbol_try_parse {
                 $context,
                 [many: $item_symbol, until: $until_symbol]
             ))
+        } else {
+            None
+        }
+    };
+
+    // Try to parse a symbol on the same line.
+    ($context:expr, [line: $glyph:tt]) => {
+        if parser_symbol_recover!($context.lexer.lookahead(), [line: $glyph]) {
+            match $context.lexer.advance() {
+                Token::Glyph(token) => Some(token),
+                _ => unreachable!(),
+            }
         } else {
             None
         }
@@ -489,6 +521,8 @@ macro_rules! parser_symbol_parse {
         (items, until)
     }};
 
+    // NOTE: We intentionally don’t have a rule for `[line: glyph]` since we don’t need one! Yet...
+
     // Parse an identifier. Retry until we either find one or give up.
     ($context:expr, identifier) => {
         $context.retry(ParserExpected::Identifier, |context| {
@@ -550,6 +584,20 @@ macro_rules! ignore {
 /// Since `Expression` and `PrimaryExpression` share the same initial tokens. The difference only
 /// comes into play at the `.` after an `Expression`.
 ///
+/// Our parser syntax has a couple of parser modifiers which can be used to express various parsing
+/// behaviors. These include:
+///
+/// - `[opt: symbol]` represents an optional symbol. It may or may not parse the symbol.
+///
+/// - `[many: symbol]` will parse as many of the symbol as we can as long as we can. That means we
+///   keep trying to parse another symbol. If we can’t immediately parse the symbol we stop.
+///
+/// - `[many: item_symbol, until: until_symbol]` is like `[many: symbol]` but instead of parsing as
+///   long as we have `item_symbol`, adding `until:` will parse until the “until” symbol. That means
+///   if we can’t immediately parse an item we’ll insert an error item instead of aborting.
+///
+/// - `[line: glyph]` will only parse the glyph if it is on the same line.
+///
 /// [1]: https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form
 /// [2]: https://en.wikipedia.org/wiki/LR_parser
 parser! {
@@ -574,7 +622,7 @@ parser! {
     FullExpression ::= {Expression [many: ExpressionExtension]}
 
     ExpressionExtension ::= {"." identifier}
-                          | {"." identifier} // A second one forces multiple expression parsing mode.
+                          | {[line: "("] ")"}
 
     Pattern ::= {identifier}
               | {"_"}
@@ -786,7 +834,7 @@ impl ParserFrom<TryBlockData> for Block {
 
 impl ParserFrom<(GlyphToken,)> for Constant {
     fn from((token,): (GlyphToken,)) -> Self {
-        let value = token.glyph() == &Glyph::Keyword(Keyword::True);
+        let value = token.glyph() == Glyph::Keyword(Keyword::True);
         BooleanConstant::new(token, value).into()
     }
 }
@@ -875,6 +923,10 @@ enum ExpressionExtension {
         dot: GlyphToken,
         label: Recover<IdentifierToken>,
     },
+    Call {
+        paren_left: GlyphToken,
+        paren_right: Recover<GlyphToken>,
+    },
 }
 
 impl ExpressionExtension {
@@ -883,6 +935,10 @@ impl ExpressionExtension {
             ExpressionExtension::Property { dot, label } => {
                 PropertyExpression::new(expression, dot, label).into()
             }
+            ExpressionExtension::Call {
+                paren_left,
+                paren_right,
+            } => CallExpression::new(expression, paren_left, Vec::new(), paren_right).into(),
         }
     }
 }
@@ -890,6 +946,15 @@ impl ExpressionExtension {
 impl ParserFrom<(GlyphToken, Recover<IdentifierToken>)> for ExpressionExtension {
     fn from((dot, label): (GlyphToken, Recover<IdentifierToken>)) -> Self {
         ExpressionExtension::Property { dot, label }
+    }
+}
+
+impl ParserFrom<(GlyphToken, Recover<GlyphToken>)> for ExpressionExtension {
+    fn from((paren_left, paren_right): (GlyphToken, Recover<GlyphToken>)) -> Self {
+        ExpressionExtension::Call {
+            paren_left,
+            paren_right,
+        }
     }
 }
 

@@ -412,18 +412,18 @@ impl PushTokens for VariableExpression {
 /// ```
 #[derive(Clone, Debug)]
 pub struct CallExpression {
-    callee: Expression,
+    callee: Recover<Expression>,
     paren_left: GlyphToken,
     arguments: Vec<CommaListItem<Expression>>,
-    paren_right: GlyphToken,
+    paren_right: Recover<GlyphToken>,
 }
 
 impl CallExpression {
     pub fn new(
-        callee: Expression,
+        callee: Recover<Expression>,
         paren_left: GlyphToken,
         arguments: Vec<CommaListItem<Expression>>,
-        paren_right: GlyphToken,
+        paren_right: Recover<GlyphToken>,
     ) -> Self {
         CallExpression {
             callee,
@@ -431,6 +431,12 @@ impl CallExpression {
             arguments,
             paren_right,
         }
+    }
+}
+
+impl Into<Expression> for CallExpression {
+    fn into(self) -> Expression {
+        Expression::Call(Box::new(self))
     }
 }
 

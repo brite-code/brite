@@ -21,7 +21,7 @@ pub fn parse(document: &Document) -> (DiagnosticSet, Module) {
     // Create our diagnostics set.
     let mut diagnostics = DiagnosticSet::new();
     // Create the lexer out of document characters.
-    let lexer = Lexer::new(&mut diagnostics, &document);
+    let lexer = Lexer::new(&mut diagnostics, document);
     // Parse our module using the lexer. Reporting all diagnostics to the `DiagnosticSet` we return.
     let module = parser::parse(lexer);
     // If debug assertions are enabled then run our invariants to make sure that the tokens list and

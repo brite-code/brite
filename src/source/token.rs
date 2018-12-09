@@ -46,6 +46,11 @@ impl TokenRange {
         self.range
     }
 
+    /// Gets the actual start of this token range _not_ including the full start.
+    pub fn start(&self) -> Position {
+        self.range.start()
+    }
+
     /// Gets the end of this token range.
     pub fn end(&self) -> Position {
         self.range.end()
@@ -66,8 +71,12 @@ impl fmt::Debug for TokenRange {
 /// Some sequence of characters that helps define a construct in our programming language.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GlyphToken {
+    /// The range of the token. Including the trivia before the actual token range.
     range: TokenRange,
+    /// The glyph represented by this token.
     glyph: Glyph,
+    /// Is the full range of this token on a single line?
+    single_line: bool,
 }
 
 /// A glyph is some symbol which is a part of Brite source code.
@@ -96,16 +105,31 @@ pub enum Glyph {
 }
 
 impl GlyphToken {
-    pub fn new(range: TokenRange, glyph: Glyph) -> Self {
-        GlyphToken { range, glyph }
+    pub fn new(range: TokenRange, glyph: Glyph, single_line: bool) -> Self {
+        GlyphToken {
+            range,
+            glyph,
+            single_line,
+        }
     }
 
-    pub fn keyword(range: TokenRange, keyword: Keyword) -> Self {
-        Self::new(range, Glyph::Keyword(keyword))
+    pub fn keyword(range: TokenRange, keyword: Keyword, single_line: bool) -> Self {
+        Self::new(range, Glyph::Keyword(keyword), single_line)
     }
 
-    pub fn glyph(&self) -> &Glyph {
-        &self.glyph
+    pub fn full_range(&self) -> &TokenRange {
+        &self.range
+    }
+
+    pub fn glyph(&self) -> Glyph {
+        self.glyph
+    }
+
+    /// Is the full range of this token on a single line? The glyph itself is always a few
+    /// characters that fit on a single line, but the full range includes trivia like comments and
+    /// whitespace which might span multiple lines.
+    pub fn single_line(&self) -> bool {
+        self.single_line
     }
 }
 
