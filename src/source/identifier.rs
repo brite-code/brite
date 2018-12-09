@@ -82,7 +82,7 @@ impl Identifier {
     }
 
     /// Does this start an identifier?
-    fn is_start(c: char) -> bool {
+    pub fn is_start(c: char) -> bool {
         match c {
             // Optimization: Quickly detect ASCII Latin characters.
             'a'...'z' => true,

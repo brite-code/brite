@@ -1,4 +1,5 @@
 use super::document::DocumentChars;
+use super::identifier::Identifier;
 use std::f64;
 use std::str::FromStr;
 
@@ -122,11 +123,16 @@ impl Number {
 
         // Get all the digits in the fractional part of the number.
         if let Some('.') = chars.lookahead() {
-            raw.push(chars.advance().unwrap());
-            loop {
-                match chars.lookahead() {
-                    Some('0'...'9') => raw.push(chars.advance().unwrap()),
-                    _ => break,
+            if match chars.lookahead2() {
+                Some(c) => !Identifier::is_start(c),
+                None => true,
+            } {
+                raw.push(chars.advance().unwrap());
+                loop {
+                    match chars.lookahead() {
+                        Some('0'...'9') => raw.push(chars.advance().unwrap()),
+                        _ => break,
+                    }
                 }
             }
         }
@@ -134,8 +140,6 @@ impl Number {
         // If we parsed no characters then we don’t have a number to parse.
         if raw.is_empty() {
             None
-        } else if raw == "." {
-            Some(Err(raw))
         } else {
             // Get all the digits in the exponential part of the number.
             match chars.lookahead() {

@@ -317,6 +317,18 @@ impl<'a> Lexer<'a> {
                     }
 
                     c => {
+                        // Parse a dot, but only if the next character is not a number.
+                        if c == '.' {
+                            if let Some('0'...'9') = self.chars.lookahead2() {
+                                // Noop, this is a number...
+                            } else {
+                                let start = self.chars.position();
+                                self.chars.advance();
+                                let range = TokenRange::new(full_start, Range::new(start, 1));
+                                return GlyphToken::new(range, Glyph::Dot).into();
+                            }
+                        }
+
                         // Ignore whitespace.
                         if c.is_whitespace() {
                             self.chars.advance();
@@ -341,15 +353,6 @@ impl<'a> Lexer<'a> {
                         // identifier without a space. For example, we want `4px` to be a
                         // syntax error.
                         if let Some(number) = Number::parse(&mut self.chars) {
-                            // If we just parsed a dot then we have a dot glyph.
-                            if match &number {
-                                Err(raw) => raw == ".",
-                                _ => false,
-                            } {
-                                let range = TokenRange::new(full_start, Range::new(start, 1));
-                                return GlyphToken::new(range, Glyph::Dot).into();
-                            }
-
                             // If our number is immediately followed by an identifier or a number
                             // then we have an invalid number token. Collect all the identifier or
                             // number tokens before returning the error token.

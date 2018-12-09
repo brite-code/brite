@@ -40,5 +40,5 @@ property.ite(41,5): We found `😈` when we wanted `)`.
 property.ite(41,9): We found `)` when we wanted a statement.
 property.ite(42,6): We found `😈` when we wanted a variable name.
 property.ite(43,7): We found `😈` when we wanted `)`.
-property.ite(45,1): `2.p` is not a number.
-property.ite(50,1): `2.e` is not a number.
+property.ite(56,3): We found `.` when we wanted a variable name.
+property.ite(58,4): We found `)` when we wanted a variable name.

@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fs;
 use std::io;
-use std::iter::Peekable;
 use std::path::{Path, PathBuf};
 use std::str::Chars;
 
@@ -72,8 +71,9 @@ impl Document {
     /// that character.
     pub fn chars(&self) -> DocumentChars {
         DocumentChars {
-            chars: self.text.chars().peekable(),
+            chars: self.text.chars(),
             position: 0,
+            lookahead: DocumentCharsLookahead::None,
         }
     }
 }
@@ -117,8 +117,16 @@ impl Document {
 /// every time it is called. The position returned by `DocumentChars::position()` is the final
 /// position in our document.
 pub struct DocumentChars<'a> {
-    chars: Peekable<Chars<'a>>,
+    chars: Chars<'a>,
     position: u32,
+    lookahead: DocumentCharsLookahead,
+}
+
+/// Lookahead state for `DocumentChars`.
+enum DocumentCharsLookahead {
+    None,
+    Lookahead1(Option<char>),
+    Lookahead2(Option<char>, Option<char>),
 }
 
 impl<'a> DocumentChars<'a> {
@@ -128,18 +136,52 @@ impl<'a> DocumentChars<'a> {
     /// When `None` is returned we’ve reached the end of our document’s characters. Calling
     /// `DocumentChars::advance()` will only return `None` now.
     pub fn advance(&mut self) -> Option<char> {
-        match self.chars.next() {
-            None => None,
-            Some(c) => {
-                self.position += c.len_utf8() as u32;
-                Some(c)
+        let next = match self.lookahead {
+            DocumentCharsLookahead::None => self.chars.next(),
+            DocumentCharsLookahead::Lookahead1(lookahead1) => {
+                self.lookahead = DocumentCharsLookahead::None;
+                lookahead1
             }
+            DocumentCharsLookahead::Lookahead2(lookahead1, lookahead2) => {
+                self.lookahead = DocumentCharsLookahead::Lookahead1(lookahead2);
+                lookahead1
+            }
+        };
+        if let Some(c) = next {
+            self.position += c.len_utf8() as u32;
         }
+        next
     }
 
     /// Looks at the next character without advancing the iterator.
     pub fn lookahead(&mut self) -> Option<char> {
-        self.chars.peek().cloned()
+        match self.lookahead {
+            DocumentCharsLookahead::None => {
+                let lookahead1 = self.chars.next();
+                self.lookahead = DocumentCharsLookahead::Lookahead1(lookahead1);
+                lookahead1
+            }
+            DocumentCharsLookahead::Lookahead1(lookahead1) => lookahead1,
+            DocumentCharsLookahead::Lookahead2(lookahead1, _) => lookahead1,
+        }
+    }
+
+    /// Looks two characters ahead without advancing the iterator.
+    pub fn lookahead2(&mut self) -> Option<char> {
+        match self.lookahead {
+            DocumentCharsLookahead::None => {
+                let lookahead1 = self.chars.next();
+                let lookahead2 = self.chars.next();
+                self.lookahead = DocumentCharsLookahead::Lookahead2(lookahead1, lookahead2);
+                lookahead2
+            }
+            DocumentCharsLookahead::Lookahead1(lookahead1) => {
+                let lookahead2 = self.chars.next();
+                self.lookahead = DocumentCharsLookahead::Lookahead2(lookahead1, lookahead2);
+                lookahead2
+            }
+            DocumentCharsLookahead::Lookahead2(_, lookahead2) => lookahead2,
+        }
     }
 
     /// Returns the position between the previous character and the next character. See the
