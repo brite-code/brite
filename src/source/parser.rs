@@ -70,7 +70,8 @@ pub fn parse(lexer: Lexer) -> Module {
     // to recover once it reaches the end token.
     let mut items = Vec::new();
     while !context.lexer.lookahead_end() {
-        items.push(p::Statement::parse(&mut context));
+        let item = p::Statement::parse(&mut context);
+        items.push(item);
     }
     // Pop our recovery function we added to context and assert that our error recovery stack should
     // be empty.
@@ -110,10 +111,10 @@ macro_rules! parser {
             //! might collide with other declaration names. (Particularly from the `ast` module.)
             //! Import everything we need.
 
-            use super::super::ast::{self, Recover};
+            use super::super::ast::Recover;
             use super::super::identifier::Keyword;
             use super::super::token::*;
-            use super::{ParserContext, ParserFrom};
+            use super::{ParserContext, ParserFrom, ParserRetry};
             use crate::diagnostics::ParserExpected;
 
             $(
@@ -136,6 +137,15 @@ macro_rules! parser_rule {
         pub(super) struct $name;
 
         impl $name {
+            /// We can only recover if the _first_ symbol in one of our expressions can recover.
+            ///
+            /// Our multiple expression parser will not be able to skip the first token so we can’t
+            /// recover at any token besides the first token.
+            #[allow(dead_code)]
+            pub(super) fn recover(token: &Token) -> bool {
+                $(parser_symbol_recover!(token, $symbol_1))||*
+            }
+
             /// Try to parse the rule. We return `Some()` unless the _first_ token is not valid for
             /// this rule. In that case we return `None`.
             ///
@@ -150,7 +160,7 @@ macro_rules! parser_rule {
             ///
             /// _Returning `None` means we did not advance our lexer!_
             #[allow(dead_code)]
-            fn try_parse(context: &mut ParserContext) -> Option<ast::$name> {
+            fn try_parse(context: &mut ParserContext) -> Option<super::$name> {
                 $(
                     // Push all the parser recover functions in reverse order to our error recovery
                     // stack. If we encounter an unrecognized token we will test each recovery
@@ -222,7 +232,7 @@ macro_rules! parser_rule_extra {
         ///
         /// [1]: https://en.wikipedia.org/wiki/LR_parser
         #[allow(dead_code)]
-        pub(super) fn parse(context: &mut ParserContext) -> ast::$name {
+        pub(super) fn parse(context: &mut ParserContext) -> super::$name {
             // Push all the parser recover functions in reverse order to our error recovery
             // stack. If we encounter an unrecognized token we will test each recovery
             // function to see if any future parsers will be able to handle the token. If no
@@ -238,16 +248,6 @@ macro_rules! parser_rule_extra {
             // Which is like `From` but specific to our parser.
             ParserFrom::from(data)
         }
-
-        /// We can recover from any of the symbols in our rule. Since when we parse we will skip
-        /// over missing nodes.
-        ///
-        /// This is not the same for a rule with multiple expressions!
-        #[allow(dead_code)]
-        pub(super) fn recover(token: &Token) -> bool {
-            parser_symbol_recover!(token, $symbol_1)
-                $(|| parser_symbol_recover!(token, $symbol_n))*
-        }
     };
 
     // If our rule has two or more expressions...
@@ -261,22 +261,9 @@ macro_rules! parser_rule_extra {
         /// To parse this grammar rule we keep retrying the `try_parse` function for the first
         /// symbol of each expression until one of the expressions match.
         #[allow(dead_code)]
-        pub(super) fn parse(context: &mut ParserContext) -> Recover<ast::$name> {
-            context.retry(ParserExpected::$name, $name::try_parse)
-        }
-
-        /// We can only recover if the _first_ symbol in one of our expressions can recover.
-        ///
-        /// This is not the same as the behavior for a rule with a single expression! A rule with a
-        /// single expression may recover from any symbol in the expression. Not just the first
-        /// symbol.
-        ///
-        /// Our multiple expression parser will not be able to skip the first token so we can’t
-        /// recover at any token besides the first token.
-        #[allow(dead_code)]
-        pub(super) fn recover(token: &Token) -> bool {
-            parser_symbol_recover!(token, $symbol_1_1)
-                || $(parser_symbol_recover!(token, $symbol_n_1))||*
+        pub(super) fn parse(context: &mut ParserContext) -> Recover<super::$name> {
+            let expected = <super::$name as ParserRetry>::expected();
+            context.retry(expected, $name::try_parse)
         }
     };
 }
@@ -312,6 +299,9 @@ macro_rules! parser_symbol_glyph {
     ("}") => {
         Glyph::BraceRight
     };
+    (".") => {
+        Glyph::Dot
+    };
     ("=") => {
         Glyph::Equals
     };
@@ -329,6 +319,9 @@ macro_rules! parser_symbol_glyph {
 /// Test if a token matches the first token of a symbol.
 macro_rules! parser_symbol_recover {
     ($token:expr, [opt: $symbol:tt]) => {
+        parser_symbol_recover!($token, $symbol)
+    };
+    ($token:expr, [many: $symbol:tt]) => {
         parser_symbol_recover!($token, $symbol)
     };
     ($token:expr, [many: $item_symbol:tt, until: $until_symbol:tt]) => {
@@ -358,6 +351,9 @@ macro_rules! parser_symbol_recover_fn {
     ([opt: $symbol:tt]) => {
         parser_symbol_recover_fn!($symbol)
     };
+    ([many: $symbol:tt]) => {
+        parser_symbol_recover_fn!($symbol)
+    };
     ([many: $item_symbol:tt, until: $until_symbol:tt]) => {
         |token| parser_symbol_recover!(token, [many: $item_symbol, until: $until_symbol])
     };
@@ -382,6 +378,16 @@ macro_rules! parser_symbol_try_parse {
     ($context:expr, [opt: $symbol:tt]) => {
         parser_symbol_try_parse!($context, $symbol)
     };
+
+    // Invokes `parser_symbol_parse!` and returns `None` if we could parse no items.
+    ($context:expr, [many: $symbol:tt]) => {{
+        let items = parser_symbol_parse!($context, [many: $symbol]);
+        if items.len() == 0 {
+            None
+        } else {
+            Some(items)
+        }
+    }};
 
     // Lookahead and see if we could parse the many tokens symbol. If yes then invoke
     // `parser_symbol_parse!` for parsing.
@@ -428,6 +434,21 @@ macro_rules! parser_symbol_parse {
     ($context:expr, [opt: $symbol:tt]) => {
         parser_symbol_try_parse!($context, $symbol)
     };
+
+    // Parses as many of a symbol as we can while we see more. We keep calling `try_parse` on the
+    // symbol until `try_parse` returns `None`.
+    //
+    // This is unlike `[many:until:]` which will keep parsing until reaching an end symbol. The
+    // strategy for `[many:]` is to only parse what we can immediately see.
+    ($context:expr, [many: $symbol:tt]) => {{
+        let mut items = Vec::new();
+        $context.recover_push(parser_symbol_recover_fn!($symbol));
+        while let Some(item) = parser_symbol_try_parse!($context, $symbol) {
+            items.push(item);
+        }
+        $context.recover_pop();
+        items
+    }};
 
     // Parses as many of a symbol as we can until we reach a specified ending symbol. The algorithm
     // (in words) goes something like this:
@@ -518,10 +539,22 @@ macro_rules! ignore {
 /// Yay! Finally, our `parser!` macro invocation. This is where we define Brite the language.
 /// Remember that the syntax of `parser!` is [BNF][1] inspired.
 ///
+/// Also, remember that our parser is [LR(1)][2] which means we will only be able to switch between
+/// parse branches based on the first token. Therefore a rule like the following won’t work.
+///
+/// ```txt
+/// Expression ::= {PrimaryExpression}
+///              | {Expression "." identifier}
+/// ```
+///
+/// Since `Expression` and `PrimaryExpression` share the same initial tokens. The difference only
+/// comes into play at the `.` after an `Expression`.
+///
 /// [1]: https://en.wikipedia.org/wiki/Backus%E2%80%93Naur_form
+/// [2]: https://en.wikipedia.org/wiki/LR_parser
 parser! {
-    Statement ::= {Expression [opt: ";"]}
-                | {"let" Pattern "=" Expression [opt: ";"]}
+    Statement ::= {FullExpression [opt: ";"]}
+                | {"let" Pattern "=" FullExpression [opt: ";"]}
                 | {";"}
 
     Block ::= {"{" [many: Statement, until: "}"]}
@@ -532,11 +565,16 @@ parser! {
 
     Expression ::= {identifier}
                  | {Constant}
-                 | {"if" Expression Block [opt: ConditionalExpressionAlternate]}
+                 | {"if" FullExpression Block [opt: ConditionalExpressionAlternate]}
                  | {"do" Block}
-                 | {"(" Expression ")"}
+                 | {"(" FullExpression ")"}
 
     ConditionalExpressionAlternate ::= {"else" Block}
+
+    FullExpression ::= {Expression [many: ExpressionExtension]}
+
+    ExpressionExtension ::= {"." identifier}
+                          | {"." identifier} // A second one forces multiple expression parsing mode.
 
     Pattern ::= {identifier}
               | {"_"}
@@ -705,38 +743,25 @@ type BindingStatementData = (
     GlyphToken,
     Recover<Pattern>,
     Recover<GlyphToken>,
-    Recover<Expression>,
+    FullExpression,
     Option<GlyphToken>,
 );
 
 impl ParserFrom<BindingStatementData> for Statement {
     fn from((let_, pattern, equals, value, semicolon): BindingStatementData) -> Self {
-        BindingStatement::new(let_, pattern, equals, value, semicolon).into()
+        BindingStatement::new(let_, pattern, equals, value.0, semicolon).into()
     }
 }
 
-impl ParserFrom<(Expression, Option<GlyphToken>)> for Statement {
-    fn from((expression, semicolon): (Expression, Option<GlyphToken>)) -> Self {
-        ExpressionStatement::new(expression, semicolon).into()
+impl ParserFrom<(FullExpression, Option<GlyphToken>)> for Statement {
+    fn from((expression, semicolon): (FullExpression, Option<GlyphToken>)) -> Self {
+        ExpressionStatement::new(expression.0, semicolon).into()
     }
 }
 
 impl ParserFrom<(GlyphToken,)> for Statement {
     fn from((semicolon,): (GlyphToken,)) -> Self {
         EmptyStatement::new(semicolon).into()
-    }
-}
-
-impl ParserFrom<(GlyphToken,)> for Constant {
-    fn from((token,): (GlyphToken,)) -> Self {
-        let value = token.glyph() == &Glyph::Keyword(Keyword::True);
-        BooleanConstant::new(token, value).into()
-    }
-}
-
-impl ParserFrom<(NumberToken,)> for Constant {
-    fn from((number,): (NumberToken,)) -> Self {
-        NumberConstant::new(number).into()
     }
 }
 
@@ -759,6 +784,19 @@ impl ParserFrom<TryBlockData> for Block {
     }
 }
 
+impl ParserFrom<(GlyphToken,)> for Constant {
+    fn from((token,): (GlyphToken,)) -> Self {
+        let value = token.glyph() == &Glyph::Keyword(Keyword::True);
+        BooleanConstant::new(token, value).into()
+    }
+}
+
+impl ParserFrom<(NumberToken,)> for Constant {
+    fn from((number,): (NumberToken,)) -> Self {
+        NumberConstant::new(number).into()
+    }
+}
+
 impl ParserFrom<(IdentifierToken,)> for Expression {
     fn from((identifier,): (IdentifierToken,)) -> Self {
         VariableExpression::new(identifier).into()
@@ -773,22 +811,22 @@ impl ParserFrom<(GlyphToken, Block)> for Expression {
 
 type ConditionalExpressionData = (
     GlyphToken,
-    Recover<Expression>,
+    FullExpression,
     Block,
     Option<ConditionalExpressionAlternate>,
 );
 
 impl ParserFrom<ConditionalExpressionData> for Expression {
     fn from((if_, test, consequent, alternate): ConditionalExpressionData) -> Self {
-        ConditionalExpression::new(if_, test, consequent, alternate).into()
+        ConditionalExpression::new(if_, test.0, consequent, alternate).into()
     }
 }
 
-type WrappedExpressionData = (GlyphToken, Recover<Expression>, Recover<GlyphToken>);
+type WrappedExpressionData = (GlyphToken, FullExpression, Recover<GlyphToken>);
 
 impl ParserFrom<WrappedExpressionData> for Expression {
     fn from((paren_left, expression, paren_right): WrappedExpressionData) -> Self {
-        WrappedExpression::new(paren_left, expression, paren_right).into()
+        WrappedExpression::new(paren_left, expression.0, paren_right).into()
     }
 }
 
@@ -806,6 +844,55 @@ impl ParserFrom<(Recover<GlyphToken>, Block)> for ConditionalExpressionAlternate
     }
 }
 
+struct FullExpression(Recover<Expression>);
+
+impl ParserFrom<(Recover<Expression>, Vec<ExpressionExtension>)> for FullExpression {
+    fn from((expression, extensions): (Recover<Expression>, Vec<ExpressionExtension>)) -> Self {
+        FullExpression(
+            extensions
+                .into_iter()
+                .fold(expression, |expression, extension| {
+                    Ok(extension.build(expression))
+                }),
+        )
+    }
+}
+
+impl ParserFrom<(Expression, Vec<ExpressionExtension>)> for FullExpression {
+    fn from((expression, extensions): (Expression, Vec<ExpressionExtension>)) -> Self {
+        FullExpression(
+            extensions
+                .into_iter()
+                .fold(Ok(expression), |expression, extension| {
+                    Ok(extension.build(expression))
+                }),
+        )
+    }
+}
+
+enum ExpressionExtension {
+    Property {
+        dot: GlyphToken,
+        label: Recover<IdentifierToken>,
+    },
+}
+
+impl ExpressionExtension {
+    fn build(self, expression: Recover<Expression>) -> Expression {
+        match self {
+            ExpressionExtension::Property { dot, label } => {
+                PropertyExpression::new(expression, dot, label).into()
+            }
+        }
+    }
+}
+
+impl ParserFrom<(GlyphToken, Recover<IdentifierToken>)> for ExpressionExtension {
+    fn from((dot, label): (GlyphToken, Recover<IdentifierToken>)) -> Self {
+        ExpressionExtension::Property { dot, label }
+    }
+}
+
 impl ParserFrom<(IdentifierToken,)> for Pattern {
     fn from((identifier,): (IdentifierToken,)) -> Self {
         VariablePattern::new(identifier).into()
@@ -815,5 +902,40 @@ impl ParserFrom<(IdentifierToken,)> for Pattern {
 impl ParserFrom<(GlyphToken,)> for Pattern {
     fn from((hole,): (GlyphToken,)) -> Self {
         HolePattern::new(hole).into()
+    }
+}
+
+/// Various functions for parsers which are retried.
+trait ParserRetry {
+    fn expected() -> ParserExpected;
+}
+
+impl ParserRetry for Statement {
+    fn expected() -> ParserExpected {
+        ParserExpected::Statement
+    }
+}
+
+impl ParserRetry for Constant {
+    fn expected() -> ParserExpected {
+        unimplemented!("We don’t expect `Constant::parse()` to ever be called.")
+    }
+}
+
+impl ParserRetry for Expression {
+    fn expected() -> ParserExpected {
+        ParserExpected::Expression
+    }
+}
+
+impl ParserRetry for ExpressionExtension {
+    fn expected() -> ParserExpected {
+        unimplemented!("We don’t expect `ExpressionExtension::parse()` to ever be called.")
+    }
+}
+
+impl ParserRetry for Pattern {
+    fn expected() -> ParserExpected {
+        ParserExpected::Pattern
     }
 }

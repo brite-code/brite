@@ -13,12 +13,13 @@ fn main() -> Result<(), io::Error> {
     let path = args.next().expect("Expecting a file path.");
     let path = PathBuf::from(&path);
     let document = Document::read(path)?;
-    let (diagnostics, _) = parse(&document);
+    let (diagnostics, module) = parse(&document);
     for diagnostic in diagnostics.iter() {
         println!(
             "{}",
             diagnostic.to_simple_string(&document, Some(&current_dir))
         );
     }
+    println!("{:#?}", module);
     Ok(())
 }

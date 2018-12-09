@@ -166,12 +166,12 @@ impl PushTokens for Statement {
 /// ```
 #[derive(Clone, Debug)]
 pub struct ExpressionStatement {
-    expression: Expression,
+    expression: Recover<Expression>,
     semicolon: Option<GlyphToken>,
 }
 
 impl ExpressionStatement {
-    pub fn new(expression: Expression, semicolon: Option<GlyphToken>) -> Self {
+    pub fn new(expression: Recover<Expression>, semicolon: Option<GlyphToken>) -> Self {
         ExpressionStatement {
             expression,
             semicolon,
@@ -448,18 +448,24 @@ impl PushTokens for CallExpression {
 /// ```
 #[derive(Clone, Debug)]
 pub struct PropertyExpression {
-    object: Expression,
+    object: Recover<Expression>,
     dot: GlyphToken,
-    property: IdentifierToken,
+    label: Recover<IdentifierToken>,
 }
 
 impl PropertyExpression {
-    pub fn new(object: Expression, dot: GlyphToken, property: IdentifierToken) -> Self {
-        PropertyExpression {
-            object,
-            dot,
-            property,
-        }
+    pub fn new(
+        object: Recover<Expression>,
+        dot: GlyphToken,
+        label: Recover<IdentifierToken>,
+    ) -> Self {
+        PropertyExpression { object, dot, label }
+    }
+}
+
+impl Into<Expression> for PropertyExpression {
+    fn into(self) -> Expression {
+        Expression::Property(Box::new(self))
     }
 }
 
@@ -467,7 +473,7 @@ impl PushTokens for PropertyExpression {
     fn push_tokens(self, tokens: &mut Vec<Token>) {
         self.object.push_tokens(tokens);
         self.dot.push_tokens(tokens);
-        self.property.push_tokens(tokens);
+        self.label.push_tokens(tokens);
     }
 }
 
