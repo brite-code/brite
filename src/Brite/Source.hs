@@ -123,12 +123,16 @@ keyword t =
     "do" -> Just Do
     _ -> Nothing
 
+-- A token is a more semantic unit for describing Brite source code documents than a character.
+-- Through the tokenization of a document we add meaning by parsing low-level code elements like
+-- identifiers, numbers, strings, comments, and glyphs.
 data Token
   = GlyphToken Glyph
   | IdentifierToken Identifier
   | UnexpectedChar Char
   deriving (Eq, Show)
 
+-- A glyph represents some constant sequence of characters that is used in Brite syntax.
 data Glyph
   = Keyword Keyword
   -- `{`
