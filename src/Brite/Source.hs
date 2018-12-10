@@ -167,6 +167,10 @@ tokenize :: Position -> T.Text -> TokenList
 tokenize position0 text0 =
   if T.null text0 then EndToken position0 else
   case T.head text0 of
+    -- Ignore whitespace.
+    ' ' -> tokenize position1 text1
+
+    -- Parse some glyphs.
     '{' -> NextToken range1 (GlyphToken BraceLeft) (tokenize position1 text1)
     '}' -> NextToken range1 (GlyphToken BraceRight) (tokenize position1 text1)
     ',' -> NextToken range1 (GlyphToken Comma) (tokenize position1 text1)
@@ -175,7 +179,6 @@ tokenize position0 text0 =
     '(' -> NextToken range1 (GlyphToken ParenLeft) (tokenize position1 text1)
     ')' -> NextToken range1 (GlyphToken ParenRight) (tokenize position1 text1)
     ';' -> NextToken range1 (GlyphToken Semicolon) (tokenize position1 text1)
-    '/' -> NextToken range1 (GlyphToken Slash) (tokenize position1 text1)
 
     -- Ignore newlines (`\n`).
     '\n' ->
@@ -193,9 +196,6 @@ tokenize position0 text0 =
       in
         tokenize position2 text2
 
-    -- Ignore whitespace (shortcut).
-    ' ' -> tokenize position1 text1
-
     -- Parse an identifier.
     --
     -- The identifier we create is represented as a `T.Text`. This text value is linked to the
@@ -212,6 +212,49 @@ tokenize position0 text0 =
           Nothing -> IdentifierToken (Identifier identifier)
       in
         NextToken range2 token (tokenize position2 text2)
+
+    -- Parse a single line comment. Single line comments ignore all characters until the
+    -- next newline.
+    '/' | not (T.null text1) && T.head text1 == '/' ->
+      let
+        (n, text2) = loop 2 (T.tail text1)
+        position2 = position0 { positionCharacter = positionCharacter position0 + n }
+      in
+        tokenize position2 text2
+      where
+        loop n t =
+          case T.uncons t of
+            Nothing -> (n, t)
+            Just ('\n', t') -> (n, t)
+            Just ('\r', t') -> (n, t)
+            Just (c, t') -> loop (n + utf16Length c) t'
+
+    -- Parse a multi-line comment. Multi-line comments ignore all characters until the character
+    -- sequence `*/`.
+    '/' | not (T.null text1) && T.head text1 == '*' ->
+      let
+        position2 = position0 { positionCharacter = positionCharacter position0 + 2 }
+      in
+        uncurry tokenize (loop position2 (T.tail text1))
+      where
+        loop p t =
+          case T.uncons t of
+            Nothing -> (p, t)
+            Just ('*', t') | not (T.null t') && T.head t' == '/' ->
+              let p' = p { positionCharacter = positionCharacter p + 2 } in
+              (p', T.tail t')
+            Just ('\n', t') ->
+              let p' = p { positionCharacter = 0, positionLine = positionLine p + 1 } in
+              loop p' t'
+            Just ('\r', t') ->
+              let p' = p { positionCharacter = 0, positionLine = positionLine p + 1 } in
+              loop p' (if T.null t' || T.head t' /= '\n' then t' else T.tail t')
+            Just (c, t') ->
+              let p' = p { positionCharacter = positionCharacter p + utf16Length c } in
+              loop p' t'
+
+    -- Parse the slash glyph.
+    '/' -> NextToken range1 (GlyphToken Slash) (tokenize position1 text1)
 
     -- Ignore whitespace.
     c | isSpace c -> tokenize position1 text1

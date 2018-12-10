@@ -127,3 +127,40 @@ spec = describe "tokenize" $ do
       ( [(Range (Position 0 0) (Position 0 2), GlyphToken (Keyword Do))]
       , Position 0 2
       )
+
+  it "parses single line comments" $ do
+    toList (tokenize initialPosition "/") `shouldBe`
+      ([(Range (Position 0 0) (Position 0 1), GlyphToken Slash)], Position 0 1)
+    toList (tokenize initialPosition "//") `shouldBe` ([], Position 0 2)
+    toList (tokenize initialPosition "// abc") `shouldBe` ([], Position 0 6)
+    toList (tokenize initialPosition "// abc\nx") `shouldBe`
+      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (identifier "x")))]
+      , Position 1 1
+      )
+    toList (tokenize initialPosition "// abc\rx") `shouldBe`
+      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (identifier "x")))]
+      , Position 1 1
+      )
+    toList (tokenize initialPosition "// abc\r\nx") `shouldBe`
+      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (identifier "x")))]
+      , Position 1 1
+      )
+    toList (tokenize initialPosition "// 😈") `shouldBe` ([], Position 0 5)
+
+  it "parses multi-line comments" $ do
+    toList (tokenize initialPosition "/") `shouldBe`
+      ([(Range (Position 0 0) (Position 0 1), GlyphToken Slash)], Position 0 1)
+    toList (tokenize initialPosition "/*") `shouldBe` ([], Position 0 2)
+    toList (tokenize initialPosition "/* ") `shouldBe` ([], Position 0 3)
+    toList (tokenize initialPosition "/* *") `shouldBe` ([], Position 0 4)
+    toList (tokenize initialPosition "/* */") `shouldBe` ([], Position 0 5)
+    toList (tokenize initialPosition "/* **") `shouldBe` ([], Position 0 5)
+    toList (tokenize initialPosition "/* **/") `shouldBe` ([], Position 0 6)
+    toList (tokenize initialPosition "/* \n */") `shouldBe` ([], Position 1 3)
+    toList (tokenize initialPosition "/* \r */") `shouldBe` ([], Position 1 3)
+    toList (tokenize initialPosition "/* \r\n */") `shouldBe` ([], Position 1 3)
+    toList (tokenize initialPosition "/* 😈 */") `shouldBe` ([], Position 0 8)
+    toList (tokenize initialPosition "/* */ x") `shouldBe`
+      ( [(Range (Position 0 6) (Position 0 7), IdentifierToken (fromJust (identifier "x")))]
+      , Position 0 7
+      )
