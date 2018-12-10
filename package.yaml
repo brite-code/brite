@@ -4,6 +4,7 @@ dependencies:
   - base >= 4.7 && < 5
   - hspec >= 2.5 && < 3
   - text >= 1.2 && < 2
+  - text-icu >= 0.7 && < 1
 
 library:
   source-dirs: src
