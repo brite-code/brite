@@ -5,16 +5,18 @@ module Brite.Parser.Framework
   ( Parser
   , glyph
   , keyword
+  , identifier
   , parse
   ) where
 
 import Brite.Source
+import Data.Maybe
 
 -- Parses some tokens from a `TokenList` returning `a`.
 data Parser a where
   -- A terminal parser may only parse a single token. It takes a test function and if the test
   -- function returns true our parser returns `Just` with the token’s range.
-  TerminalParser :: (Token -> Bool) -> Parser (Maybe Range)
+  TerminalParser :: (Token -> Maybe b) -> Parser (Maybe (Range, b))
   -- An empty parser never parses any tokens. It always returns its payload.
   EmptyParser :: a -> Parser a
   -- A sequence parser combines two parsers to be executed one after another. The first parser
@@ -40,18 +42,24 @@ instance Applicative Parser where
   (<*>) = SequenceParser
 
 -- Glyph parser. Returns the range that was parsed if we could parse the glyph.
-glyph :: Glyph -> Parser (Maybe Range)
+glyph :: Glyph -> Parser (Maybe (Range, ()))
 glyph g = TerminalParser (\case
-  GlyphToken g' -> g == g'
-  _ -> False)
+  GlyphToken g' | g == g' -> Just ()
+  _ -> Nothing)
 
 -- Keyword parser. Returns the range that was parsed if we could parse the glyph.
-keyword :: Keyword -> Parser (Maybe Range)
+keyword :: Keyword -> Parser (Maybe (Range, ()))
 keyword k = glyph (Keyword k)
+
+-- Identifier parser. Returns the identifier along with the range of the identifier.
+identifier :: Parser (Maybe (Range, Identifier))
+identifier = TerminalParser (\case
+  IdentifierToken identifier -> Just identifier
+  _ -> Nothing)
 
 -- Tests if the token is the _first_ token of the parser.
 test :: Parser a -> Token -> Bool
-test (TerminalParser p) t = p t
+test (TerminalParser p) t = isJust (p t)
 test (EmptyParser _) _ = False
 test (SequenceParser (EmptyParser _) q) t = test q t
 test (SequenceParser p _) t = test p t
@@ -71,24 +79,32 @@ parse' :: (Token -> Bool) -> Parser a -> TokenList -> (a, TokenList)
 -- Empty parser consumes no tokens and always returns its payload.
 parse' _ (EmptyParser a) tokens = (a, tokens)
 
--- The terminal parser attempts to parse its list of tokens...
+-- The terminal parser attempts to parse a single token. If we can’t immediately parse the token,
+-- then we will keep trying to parse the token as long as `retry` returns true.
 parse' retry (TerminalParser p) tokens =
   loop tokens
   where
     loop ts =
       case ts of
-        -- If the next token matches our terminal parser then eat that token and return!
-        NextToken range token ts' | p token -> (Just range, ts')
+        -- If there’s a token let’s try parsing it!
+        NextToken range token ts' ->
+          case p token of
+            -- If we could successfully parse the token then return the range for this token, the
+            -- associated data, and the remaining tokens in our list.
+            Just x -> (Just (range, x), ts')
+            Nothing ->
+              case token of
+                -- If we failed to parse the token then check if we can retry by calling `retry`.
+                -- (As an optimization, assume that we can always retry `UnexpectedChar`.) If we can
+                -- retry, then loop!
+                UnexpectedChar _ -> loop ts'
+                _ | retry token -> loop ts'
 
-        -- Always retry if we see an unexpected character. We don’t have to call `retry` to
-        -- know that.
-        NextToken _ (UnexpectedChar _) ts' -> loop ts'
+                -- If we cannot retry then give up on parsing this token.
+                _ -> (Nothing, ts)
 
-        -- Retry if calling `retry` returns true.
-        NextToken _ token ts' | retry token -> loop ts'
-
-        -- Otherwise we are not allowed to retry. Abort trying to parse this terminal.
-        _ -> (Nothing, ts)
+        -- If we reach the end of our token list then give up trying to parse this terminal token.
+        EndToken _ -> (Nothing, ts)
 
 -- For our sequence parser, execute both parsers in order. The first parser may not retry a token
 -- that the second parser should parse.

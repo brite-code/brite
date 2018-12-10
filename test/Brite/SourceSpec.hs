@@ -66,35 +66,35 @@ spec = describe "tokenize" $ do
 
   it "parses identifiers" $ do
     toList (tokenize initialPosition "x") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 1), IdentifierToken (fromJust (identifier "x")))]
+      ( [(Range (Position 0 0) (Position 0 1), IdentifierToken (fromJust (newIdentifier "x")))]
       , Position 0 1
       )
     toList (tokenize initialPosition "foo") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (identifier "foo")))]
+      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (newIdentifier "foo")))]
       , Position 0 3
       )
     toList (tokenize initialPosition "Bar") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (identifier "Bar")))]
+      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (newIdentifier "Bar")))]
       , Position 0 3
       )
     toList (tokenize initialPosition "_42") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (identifier "_42")))]
+      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (newIdentifier "_42")))]
       , Position 0 3
       )
     toList (tokenize initialPosition "Θ") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 1), IdentifierToken (fromJust (identifier "Θ")))]
+      ( [(Range (Position 0 0) (Position 0 1), IdentifierToken (fromJust (newIdentifier "Θ")))]
       , Position 0 1
       )
     toList (tokenize initialPosition "𐐷") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 2), IdentifierToken (fromJust (identifier "𐐷")))]
+      ( [(Range (Position 0 0) (Position 0 2), IdentifierToken (fromJust (newIdentifier "𐐷")))]
       , Position 0 2
       )
     toList (tokenize initialPosition "u𐐷") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (identifier "u𐐷")))]
+      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (newIdentifier "u𐐷")))]
       , Position 0 3
       )
     toList (tokenize initialPosition "𐐷w") `shouldBe`
-      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (identifier "𐐷w")))]
+      ( [(Range (Position 0 0) (Position 0 3), IdentifierToken (fromJust (newIdentifier "𐐷w")))]
       , Position 0 3
       )
 
@@ -134,15 +134,15 @@ spec = describe "tokenize" $ do
     toList (tokenize initialPosition "//") `shouldBe` ([], Position 0 2)
     toList (tokenize initialPosition "// abc") `shouldBe` ([], Position 0 6)
     toList (tokenize initialPosition "// abc\nx") `shouldBe`
-      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (identifier "x")))]
+      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (newIdentifier "x")))]
       , Position 1 1
       )
     toList (tokenize initialPosition "// abc\rx") `shouldBe`
-      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (identifier "x")))]
+      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (newIdentifier "x")))]
       , Position 1 1
       )
     toList (tokenize initialPosition "// abc\r\nx") `shouldBe`
-      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (identifier "x")))]
+      ( [(Range (Position 1 0) (Position 1 1), IdentifierToken (fromJust (newIdentifier "x")))]
       , Position 1 1
       )
     toList (tokenize initialPosition "// 😈") `shouldBe` ([], Position 0 5)
@@ -161,6 +161,6 @@ spec = describe "tokenize" $ do
     toList (tokenize initialPosition "/* \r\n */") `shouldBe` ([], Position 1 3)
     toList (tokenize initialPosition "/* 😈 */") `shouldBe` ([], Position 0 8)
     toList (tokenize initialPosition "/* */ x") `shouldBe`
-      ( [(Range (Position 0 6) (Position 0 7), IdentifierToken (fromJust (identifier "x")))]
+      ( [(Range (Position 0 6) (Position 0 7), IdentifierToken (fromJust (newIdentifier "x")))]
       , Position 0 7
       )

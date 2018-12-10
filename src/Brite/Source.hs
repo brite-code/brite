@@ -8,7 +8,7 @@ module Brite.Source
   , initialPosition
   , Range(..)
   , Identifier
-  , identifier
+  , newIdentifier
   , Keyword(..)
   , Token(..)
   , Glyph(..)
@@ -77,8 +77,8 @@ newtype Identifier = Identifier T.Text
 
 -- Tries to create a new identifier. Returns `Just` if the identifier is valid and `Nothing` if
 -- the identifier is invalid.
-identifier :: T.Text -> Maybe Identifier
-identifier t = if ok then Just (Identifier t) else Nothing
+newIdentifier :: T.Text -> Maybe Identifier
+newIdentifier t = if ok then Just (Identifier t) else Nothing
   where
     ok =
       not (T.null t)
