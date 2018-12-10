@@ -4,7 +4,7 @@ module Brite.Parser
   () where
 
 import Brite.AST
-import Brite.Token
+import Brite.Source
 import Control.Applicative
 import Control.Monad
 import Data.Functor
