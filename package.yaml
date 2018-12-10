@@ -2,6 +2,7 @@ name: brite
 
 dependencies:
   - base >= 4.7 && < 5
+  - hspec >= 2.5 && < 3
   - text >= 1.2 && < 2
 
 library:

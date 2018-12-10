@@ -12,6 +12,7 @@ module Brite.Source
   ) where
 
 import Data.Bits ((.&.))
+import Data.Char
 import qualified Data.Text as T
 
 -- A position between two characters in a Brite source code document. The encoding of a position is
@@ -23,6 +24,10 @@ import qualified Data.Text as T
 --
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Position = Position { positionLine :: !Int, positionCharacter :: !Int }
+  deriving (Eq)
+
+instance Show Position where
+  show (Position line character) = show line ++ ":" ++ show character
 
 -- The position at the start of a document.
 initialPosition :: Position
@@ -43,12 +48,17 @@ utf16Length c = if n .&. 0xFFFF == n then 1 else 2
 --
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Range = Range { rangeStart :: Position, rangeEnd :: Position }
+  deriving (Eq)
+
+instance Show Range where
+  show (Range start end) = if start == end then show start else show start ++ "-" ++ show end
 
 data Token
   = GlyphToken Glyph
   -- | IdentifierToken Identifier
   -- | NumberToken Number
   | UnexpectedChar Char
+  deriving (Eq, Show)
 
 data Glyph
   -- = KeywordGlyph Keyword
@@ -70,6 +80,7 @@ data Glyph
   | Semicolon
   -- `/`
   | Slash
+  deriving (Eq, Show)
 
 -- A lazy list of tokens. Customized to include some extra token and end data.
 data TokenList
@@ -109,12 +120,21 @@ tokenize position0 text0 =
       in
         tokenize position2 text2
 
+    -- Ignore whitespace (shortcut).
+    ' ' -> tokenize position1 text1
+
     c ->
-      let
-        position2 = position0 { positionCharacter = positionCharacter position0 + utf16Length c }
-        range2 = Range position0 position2
-      in
-        NextToken range2 (UnexpectedChar c) (tokenize position2 text1)
+      -- Ignore whitespace.
+      if isSpace c then
+        tokenize position1 text1
+
+      -- Unexpected character.
+      else
+        let
+          position2 = position0 { positionCharacter = positionCharacter position0 + utf16Length c }
+          range2 = Range position0 position2
+        in
+          NextToken range2 (UnexpectedChar c) (tokenize position2 text1)
 
     where
       position1 = position0 { positionCharacter = positionCharacter position0 + 1 }
