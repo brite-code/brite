@@ -1,4 +1,4 @@
-module Brite.Source.AST
+module Brite.AST
   ( Expression
   ) where
 

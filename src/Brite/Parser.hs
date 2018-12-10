@@ -1,10 +1,10 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
-module Brite.Source.Parser
+module Brite.Parser
   () where
 
-import Brite.Source.AST
-import Brite.Source.Token
+import Brite.AST
+import Brite.Token
 import Control.Applicative
 import Control.Monad
 import Data.Functor

@@ -1,4 +1,4 @@
-module Brite.Source.Token
+module Brite.Token
   ( Token(..)
   , Glyph(..)
   ) where
