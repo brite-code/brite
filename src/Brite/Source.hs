@@ -8,22 +8,23 @@ module Brite.Source
   , initialPosition
   , Range(..)
   , Identifier
-  , newIdentifier
+  , identifierText
   , Keyword(..)
   , Token(..)
   , Glyph(..)
   , TokenList(..)
   , tokenize
+  , debugPosition
+  , debugRange
   , debugTokens
   ) where
 
 import Data.Bits ((.&.))
 import Data.Char
-import Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as T.Lazy
-import qualified Data.Text.Lazy.Builder as T.Builder
-import qualified Data.Text.Lazy.Builder.Int as T.Builder
+import qualified Data.Text.Lazy as L
+import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text.Lazy.Builder.Int as B
 import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
 
 -- A position between two characters in a Brite source code document. The encoding of a position is
@@ -70,16 +71,9 @@ data Range = Range { rangeStart :: Position, rangeEnd :: Position }
 -- [1]: http://www.unicode.org/reports/tr31
 newtype Identifier = Identifier T.Text
 
--- Tries to create a new identifier. Returns `Just` if the identifier is valid and `Nothing` if
--- the identifier is invalid.
-newIdentifier :: T.Text -> Maybe Identifier
-newIdentifier t = if ok then Just (Identifier t) else Nothing
-  where
-    ok =
-      not (T.null t)
-        && isIdentifierStart (T.head t)
-        && T.all isIdentifierContinue (T.tail t)
-        && isNothing (keyword t)
+-- Get the text representation of an identifier.
+identifierText :: Identifier -> T.Text
+identifierText (Identifier t) = t
 
 -- Is this character the start of an identifier?
 isIdentifierStart :: Char -> Bool
@@ -161,7 +155,7 @@ data Glyph
 
 -- Gets the text representation of a glyph.
 glyphText :: Glyph -> T.Text
-glyphText (Keyword keyword) = keywordText keyword
+glyphText (Keyword k) = keywordText k
 glyphText BraceLeft = "{"
 glyphText BraceRight = "}"
 glyphText Comma = ","
@@ -221,11 +215,11 @@ tokenize position0 text0 =
     c | isIdentifierStart c ->
       let
         (identifier, text2) = T.span isIdentifierContinue text0
-        n = T.foldl (\n c -> n + utf16Length c) 0 identifier
+        n = T.foldl (\acc c' -> acc + utf16Length c') 0 identifier
         position2 = position0 { positionCharacter = positionCharacter position0 + n }
         range2 = Range position0 position2
         token = case keyword identifier of
-          Just keyword -> Glyph (Keyword keyword)
+          Just k -> Glyph (Keyword k)
           Nothing -> IdentifierToken (Identifier identifier)
       in
         NextToken range2 token (tokenize position2 text2)
@@ -242,8 +236,8 @@ tokenize position0 text0 =
         loop n t =
           case T.uncons t of
             Nothing -> (n, t)
-            Just ('\n', t') -> (n, t)
-            Just ('\r', t') -> (n, t)
+            Just ('\n', _) -> (n, t)
+            Just ('\r', _) -> (n, t)
             Just (c, t') -> loop (n + utf16Length c) t'
 
     -- Parse a multi-line comment. Multi-line comments ignore all characters until the character
@@ -289,27 +283,27 @@ tokenize position0 text0 =
       range1 = Range position0 position1
       text1 = T.tail text0
 
+-- Debug a position.
+debugPosition :: Position -> B.Builder
+debugPosition (Position line character) =
+  B.decimal line `mappend` B.singleton ':' `mappend` B.decimal character
+
+-- Debug a range of characters.
+debugRange :: Range -> B.Builder
+debugRange (Range start end) =
+  debugPosition start `mappend` B.singleton '-' `mappend` debugPosition end
+
 -- Builds a text value we can use to debug a token list.
-debugTokens :: TokenList -> T.Lazy.Text
-debugTokens tokens = T.Builder.toLazyText (debugTokens' tokens)
+debugTokens :: TokenList -> L.Text
+debugTokens tokens = B.toLazyText (debugTokens' tokens)
 
-debugTokens' :: TokenList -> T.Builder.Builder
-
-debugTokens' (EndToken p) =
-  T.Builder.fromLazyText position
-    `mappend` T.Builder.fromText "| End\n"
-  where
-    position = T.Lazy.justifyLeft 10 ' ' $
-      T.Builder.toLazyText $
-        T.Builder.decimal (positionLine p)
-          `mappend` T.Builder.singleton ':'
-          `mappend` T.Builder.decimal (positionCharacter p)
+debugTokens' :: TokenList -> B.Builder
 
 debugTokens' (NextToken r t ts) =
-  T.Builder.fromLazyText range
-    `mappend` T.Builder.fromText "| "
-    `mappend` T.Builder.fromText token
-    `mappend` T.Builder.singleton '\n'
+  B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
+    `mappend` B.fromText "| "
+    `mappend` B.fromText token
+    `mappend` B.singleton '\n'
     `mappend` debugTokens' ts
   where
     token = case t of
@@ -317,12 +311,6 @@ debugTokens' (NextToken r t ts) =
       IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
       UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
 
-    range = T.Lazy.justifyLeft 10 ' ' $
-      T.Builder.toLazyText $
-        T.Builder.decimal (positionLine (rangeStart r))
-          `mappend` T.Builder.singleton ':'
-          `mappend` T.Builder.decimal (positionCharacter (rangeStart r))
-          `mappend` T.Builder.singleton '-'
-          `mappend` T.Builder.decimal (positionLine (rangeEnd r))
-          `mappend` T.Builder.singleton ':'
-          `mappend` T.Builder.decimal (positionCharacter (rangeEnd r))
+debugTokens' (EndToken p) =
+  B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
+    `mappend` B.fromText "| End\n"

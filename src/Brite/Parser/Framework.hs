@@ -3,7 +3,7 @@
 
 module Brite.Parser.Framework
   ( Parser
-  , ParseResult
+  , ParseResult(..)
   , glyph
   , keyword
   , identifier
@@ -14,20 +14,13 @@ import Brite.Diagnostics
 import Brite.Source
 import Data.Maybe
 
--- The result of a parser is a doozy: `Either (Diagnostic, Maybe a) a`. We return `Right` if we were
--- able to successfully parse the terminal. We return `Left` if we were not. `Left` also contains
--- the diagnostic we reported so that we can use it to crash at runtime. However, `Left` _also_
--- contains `Maybe (Range, a)`. We might have been able to recover from our error. If so then we
--- will have `Just`.
-type ParseResult a = Either (Diagnostic, Maybe a) a
-
 -- Parses some tokens from a `TokenList` returning `a`.
 data Parser a where
   -- A terminal parser may only parse a single token. It takes a function which tries to parse a
   -- single token. If that function returns `Just` we know our terminal parser was successful.
   --
   -- Also contains `ExpectedToken` for error reporting.
-  TerminalParser :: ExpectedToken -> (Token -> Maybe b) -> Parser (Result (Range, a))
+  TerminalParser :: ExpectedToken -> (Token -> Maybe b) -> Parser (ParseResult (Range, b))
   -- An empty parser never parses any tokens. It always returns its payload.
   EmptyParser :: a -> Parser a
   -- A sequence parser combines two parsers to be executed one after another. The first parser
@@ -52,18 +45,32 @@ instance Applicative Parser where
   pure = EmptyParser
   (<*>) = SequenceParser
 
+-- A parse result is returned by our terminal parser after attempting to parse a token.
+data ParseResult a
+  -- We were able to successfully parse some data.
+  = Success a
+  -- We ran into an error, but we were able to recover and successfully parse some data.
+  | Recover Diagnostic a
+  -- We failed to parse any data.
+  | Failure Diagnostic
+
+instance Functor ParseResult where
+  fmap f (Success a) = Success (f a)
+  fmap f (Recover e a) = Recover e (f a)
+  fmap _ (Failure e) = Failure e
+
 -- Glyph parser. Returns the range that was parsed if we could parse the glyph.
-glyph :: Glyph -> Parser (Maybe (Range, ()))
+glyph :: Glyph -> Parser (ParseResult (Range, ()))
 glyph g = TerminalParser (ExpectedGlyph g) (\case
   Glyph g' | g == g' -> Just ()
   _ -> Nothing)
 
 -- Keyword parser. Returns the range that was parsed if we could parse the glyph.
-keyword :: Keyword -> Parser (Maybe (Range, ()))
+keyword :: Keyword -> Parser (ParseResult (Range, ()))
 keyword k = glyph (Keyword k)
 
 -- Identifier parser. Returns the identifier along with the range of the identifier.
-identifier :: Parser (Maybe (Range, Identifier))
+identifier :: Parser (ParseResult (Range, Identifier))
 identifier = TerminalParser ExpectedIdentifier (\case
   IdentifierToken ident -> Just ident
   _ -> Nothing)
@@ -95,7 +102,7 @@ parse' _ (EmptyParser a) tokens = return (a, tokens)
 parse' retry (TerminalParser expected p) tokens =
   loop Nothing tokens
   where
-    loop error ts =
+    loop err ts =
       case ts of
         -- If there’s a token, let’s try parsing it!
         NextToken range token ts' ->
@@ -105,7 +112,10 @@ parse' retry (TerminalParser expected p) tokens =
             --
             -- If there is an error we return `Left` instead of `Right`.
             Just x ->
-              return (maybe (Right (range, x)) (\e -> Left (e, Just (range, x))) error, ts')
+              let
+                result = maybe (Success (range, x)) (\e -> Recover e (range, x)) err
+              in
+                return (result, ts')
 
             Nothing ->
               case token of
@@ -113,27 +123,27 @@ parse' retry (TerminalParser expected p) tokens =
                 -- we can retry, then loop! (As an optimization, assume that we can always
                 -- retry `UnexpectedChar`.)
                 UnexpectedChar _ -> do
-                  error' <- unexpectedToken range token expected
-                  loop (Just (fromMaybe error' error)) ts'
+                  err' <- unexpectedToken range token expected
+                  loop (Just (fromMaybe err' err)) ts'
 
                 _ | retry token -> do
-                  error' <- unexpectedToken range token expected
-                  loop (Just (fromMaybe error' error)) ts'
+                  err' <- unexpectedToken range token expected
+                  loop (Just (fromMaybe err' err)) ts'
 
                 -- If we cannot retry then give up on parsing this token.
                 --
                 -- Only report an unexpected token error if we didn’t have another error. Since,
                 -- presumably, if we can’t retry then this will be a valid token for another parser.
                 _ -> do
-                  error' <- maybe (unexpectedToken (Range position position) token expected) return error
-                  return (Left (error', Nothing), ts)
+                  err' <- maybe (unexpectedToken range token expected) return err
+                  return (Failure err', ts)
 
         -- If we reach the end of our token list then give up trying to parse this terminal token.
         --
         -- Only report an unexpected ending error if we didn’t have another error.
         EndToken position -> do
-          error' <- maybe (unexpectedEnding (Range position position) expected) return error
-          return (Left (error', Nothing), ts)
+          err' <- maybe (unexpectedEnding (Range position position) expected) return err
+          return (Failure err', ts)
 
 -- For our sequence parser, execute both parsers in order. The first parser may not retry a token
 -- that the second parser should parse.
