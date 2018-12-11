@@ -55,11 +55,13 @@ module Brite.Diagnostics
   , unexpectedToken
   , unexpectedEnding
   , diagnosticMessage
+  , debugDiagnostic
   ) where
 
 import qualified Brite.Diagnostics.Markup as M
 import Brite.Source
 import qualified Data.Text as T
+import qualified Data.Text.Lazy.Builder as B
 
 -- A diagnostic is some message presented to the user about their program. Diagnostics contain a
 -- range of characters which the diagnostic points to. Diagnostics are only valid in the scope of
@@ -199,3 +201,12 @@ diagnosticErrorMessage (UnexpectedEnding expected) =
 expectedTokenDescription :: ExpectedToken -> M.Markup
 expectedTokenDescription (ExpectedGlyph glyph) = M.code (glyphText glyph)
 expectedTokenDescription ExpectedIdentifier = M.plain "a variable name"
+
+-- Prints a diagnostic for debugging purposes.
+debugDiagnostic :: Diagnostic -> B.Builder
+debugDiagnostic diagnostic =
+  B.singleton '('
+    <> debugRange (diagnosticRange diagnostic)
+    <> B.fromText ") "
+    <> M.toBuilder (diagnosticMessage diagnostic)
+    <> B.singleton '\n'

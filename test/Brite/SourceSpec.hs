@@ -5,14 +5,14 @@ module Brite.SourceSpec (spec) where
 import Brite.Source
 import Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as T.Lazy
+import qualified Data.Text.Lazy as L
 import Test.Hspec
 
 testTokenize :: HasCallStack => T.Text -> T.Text -> Expectation
 testTokenize input expected =
   let
     tokens = tokenize initialPosition input
-    actual = T.Lazy.toStrict (debugTokens tokens)
+    actual = L.toStrict (debugTokens tokens)
   in
     actual `shouldBe` expected
 

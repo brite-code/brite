@@ -1,5 +1,6 @@
 module Brite.Parser
-  () where
+  ( bindingStatement
+  ) where
 
 import Brite.AST
 import Brite.Parser.Framework
