@@ -1,17 +1,13 @@
 module Brite.Diagnostics
-  ( DiagnosticMonad
-  , Diagnostic
+  ( Diagnostic
+  , DiagnosticMonad
+  , DiagnosticWriter
   , ExpectedToken(..)
   , unexpectedToken
   , unexpectedEnding
   ) where
 
 import Brite.Source
-
--- A diagnostic monad will allow us to report diagnostics. The diagnostics we report will go into
--- a list where they may be read from later.
-class Monad m => DiagnosticMonad m where
-  report :: Diagnostic -> m Diagnostic
 
 -- A diagnostic is some message presented to the user about their program. Diagnostics contain a
 -- range of characters which the diagnostic points to. Diagnostics are only valid in the scope of
@@ -54,6 +50,35 @@ data ErrorDiagnosticMessage
 data WarningDiagnosticMessage
 
 data InfoDiagnosticMessage
+
+-- A diagnostic monad will allow us to report diagnostics. The diagnostics we report will go into
+-- a list where they may be read from later.
+class Monad m => DiagnosticMonad m where
+  report :: Diagnostic -> m Diagnostic
+
+-- A simple diagnostic writer monad which writes diagnostics to a list.
+data DiagnosticWriter a = DiagnosticWriter a [Diagnostic]
+
+instance Functor DiagnosticWriter where
+  fmap f (DiagnosticWriter a ds) = DiagnosticWriter (f a) ds
+
+instance Applicative DiagnosticWriter where
+  pure a = DiagnosticWriter a []
+  (DiagnosticWriter f x) <*> (DiagnosticWriter a y) = DiagnosticWriter (f a) (x ++ y)
+
+instance Monad DiagnosticWriter where
+  (DiagnosticWriter a x) >>= f =
+    let
+      (DiagnosticWriter b y) = f a
+    in
+      DiagnosticWriter b (x ++ y)
+
+instance DiagnosticMonad DiagnosticWriter where
+  report d = DiagnosticWriter d [d]
+
+-- Runs a `DiagnosticWriter` monad.
+runDiagnosticWriter :: DiagnosticWriter a -> (a, [Diagnostic])
+runDiagnosticWriter (DiagnosticWriter a ds) = (a, ds)
 
 -- What token did we expect?
 data ExpectedToken

@@ -76,7 +76,7 @@ test (SequenceParser (EmptyParser _) q) t = test q t
 test (SequenceParser p _) t = test p t
 
 -- Parses some tokens from a list returning the result and the list of tokens we did not parse.
-runParser :: DiagnosticMonad m => Parser a -> TokenList -> m (a, TokenList)
+runParser :: Parser a -> TokenList -> DiagnosticWriter (a, TokenList)
 runParser = runParser' (const True)
 
 -- The internal implementation of `parse`. Also takes a `Token -> Bool` retry function. If while
@@ -85,7 +85,7 @@ runParser = runParser' (const True)
 -- to parse again. By default, we always retry. Unless we are parsing a sequence. In that case the
 -- sequence parser will not allow us to retry if the unrecognized token is recognized as the start
 -- of the parser we are sequenced with.
-runParser' :: DiagnosticMonad m => (Token -> Bool) -> Parser a -> TokenList -> m (a, TokenList)
+runParser' :: (Token -> Bool) -> Parser a -> TokenList -> DiagnosticWriter (a, TokenList)
 
 -- Empty parser consumes no tokens and always returns its payload.
 runParser' _ (EmptyParser a) tokens = return (a, tokens)
