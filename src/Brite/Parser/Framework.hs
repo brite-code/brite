@@ -3,6 +3,7 @@
 
 module Brite.Parser.Framework
   ( Parser
+  , ParseResult
   , glyph
   , keyword
   , identifier
@@ -13,13 +14,20 @@ import Brite.Diagnostics
 import Brite.Source
 import Data.Maybe
 
+-- The result of a parser is a doozy: `Either (Diagnostic, Maybe a) a`. We return `Right` if we were
+-- able to successfully parse the terminal. We return `Left` if we were not. `Left` also contains
+-- the diagnostic we reported so that we can use it to crash at runtime. However, `Left` _also_
+-- contains `Maybe (Range, a)`. We might have been able to recover from our error. If so then we
+-- will have `Just`.
+type ParseResult a = Either (Diagnostic, Maybe a) a
+
 -- Parses some tokens from a `TokenList` returning `a`.
 data Parser a where
-  -- A terminal parser may only parse a single token. It takes a test function and if the test
-  -- function returns true our parser returns `Just` with the token’s range.
+  -- A terminal parser may only parse a single token. It takes a function which tries to parse a
+  -- single token. If that function returns `Just` we know our terminal parser was successful.
   --
   -- Also contains `ExpectedToken` for error reporting.
-  TerminalParser :: ExpectedToken -> (Token -> Maybe b) -> Parser (Maybe (Range, b))
+  TerminalParser :: ExpectedToken -> (Token -> Maybe b) -> Parser (Result (Range, a))
   -- An empty parser never parses any tokens. It always returns its payload.
   EmptyParser :: a -> Parser a
   -- A sequence parser combines two parsers to be executed one after another. The first parser
@@ -68,7 +76,7 @@ test (SequenceParser (EmptyParser _) q) t = test q t
 test (SequenceParser p _) t = test p t
 
 -- Parses some tokens from a list returning the result and the list of tokens we did not parse.
-parse :: Parser a -> TokenList -> (a, TokenList)
+parse :: DiagnosticMonad m => Parser a -> TokenList -> m (a, TokenList)
 parse = parse' (const True)
 
 -- The internal implementation of `parse`. Also takes a `Token -> Bool` retry function. If while
@@ -77,43 +85,59 @@ parse = parse' (const True)
 -- to parse again. By default, we always retry. Unless we are parsing a sequence. In that case the
 -- sequence parser will not allow us to retry if the unrecognized token is recognized as the start
 -- of the parser we are sequenced with.
-parse' :: (Token -> Bool) -> Parser a -> TokenList -> (a, TokenList)
+parse' :: DiagnosticMonad m => (Token -> Bool) -> Parser a -> TokenList -> m (a, TokenList)
 
 -- Empty parser consumes no tokens and always returns its payload.
-parse' _ (EmptyParser a) tokens = (a, tokens)
+parse' _ (EmptyParser a) tokens = return (a, tokens)
 
 -- The terminal parser attempts to parse a single token. If we can’t immediately parse the token,
 -- then we will keep trying to parse the token as long as `retry` returns true.
 parse' retry (TerminalParser expected p) tokens =
-  loop tokens
+  loop Nothing tokens
   where
-    loop ts =
+    loop error ts =
       case ts of
-        -- If there’s a token let’s try parsing it!
+        -- If there’s a token, let’s try parsing it!
         NextToken range token ts' ->
           case p token of
             -- If we could successfully parse the token then return the range for this token, the
             -- associated data, and the remaining tokens in our list.
-            Just x -> (Just (range, x), ts')
+            --
+            -- If there is an error we return `Left` instead of `Right`.
+            Just x ->
+              return (maybe (Right (range, x)) (\e -> Left (e, Just (range, x))) error, ts')
+
             Nothing ->
               case token of
-                -- If we failed to parse the token then check if we can retry by calling `retry`.
-                -- (As an optimization, assume that we can always retry `UnexpectedChar`.) If we can
-                -- retry, then loop!
-                UnexpectedChar _ -> loop ts'
-                _ | retry token -> loop ts'
+                -- If we failed to parse the token then check if we can retry by calling `retry`. If
+                -- we can retry, then loop! (As an optimization, assume that we can always
+                -- retry `UnexpectedChar`.)
+                UnexpectedChar _ -> do
+                  error' <- unexpectedToken range token expected
+                  loop (Just (fromMaybe error' error)) ts'
+
+                _ | retry token -> do
+                  error' <- unexpectedToken range token expected
+                  loop (Just (fromMaybe error' error)) ts'
 
                 -- If we cannot retry then give up on parsing this token.
-                _ -> (Nothing, ts)
+                --
+                -- Only report an unexpected token error if we didn’t have another error. Since,
+                -- presumably, if we can’t retry then this will be a valid token for another parser.
+                _ -> do
+                  error' <- maybe (unexpectedToken (Range position position) token expected) return error
+                  return (Left (error', Nothing), ts)
 
         -- If we reach the end of our token list then give up trying to parse this terminal token.
-        EndToken _ -> (Nothing, ts)
+        --
+        -- Only report an unexpected ending error if we didn’t have another error.
+        EndToken position -> do
+          error' <- maybe (unexpectedEnding (Range position position) expected) return error
+          return (Left (error', Nothing), ts)
 
 -- For our sequence parser, execute both parsers in order. The first parser may not retry a token
 -- that the second parser should parse.
-parse' retry (SequenceParser p q) ts0 =
-  let
-    (f, ts1) = parse' (\t -> not (test q t) && retry t) p ts0
-    (b, ts2) = parse' retry q ts1
-  in
-    (f b, ts2)
+parse' retry (SequenceParser p q) ts0 = do
+  (f, ts1) <- parse' (\t -> not (test q t) && retry t) p ts0
+  (b, ts2) <- parse' retry q ts1
+  return (f b, ts2)

@@ -1,10 +1,17 @@
 module Brite.Diagnostics
-  ( Diagnostic
+  ( DiagnosticMonad
+  , Diagnostic
   , ExpectedToken(..)
   , unexpectedToken
+  , unexpectedEnding
   ) where
 
 import Brite.Source
+
+-- A diagnostic monad will allow us to report diagnostics. The diagnostics we report will go into
+-- a list where they may be read from later.
+class Monad m => DiagnosticMonad m where
+  report :: Diagnostic -> m Diagnostic
 
 -- A diagnostic is some message presented to the user about their program. Diagnostics contain a
 -- range of characters which the diagnostic points to. Diagnostics are only valid in the scope of
@@ -21,6 +28,9 @@ data Diagnostic = Diagnostic
 
 -- The diagnostic message. Includes the severity of the message. Each diagnostic may have some
 -- related information.
+--
+-- Diagnostic messages may not be constructed outside of this module. We always construct and report
+-- a diagnostic at the same time as well.
 data DiagnosticMessage
   -- Error diagnostics must be resolved by the programmer. Error diagnostics will prevent the
   -- program from being deployed. However, the program may still run in development, but
@@ -38,6 +48,8 @@ data DiagnosticMessage
 data ErrorDiagnosticMessage
   -- The parser ran into a token it did not recognize.
   = UnexpectedToken Token ExpectedToken
+  -- The parser ran into the end of the source document unexpectedly.
+  | UnexpectedEnding ExpectedToken
 
 data WarningDiagnosticMessage
 
@@ -49,6 +61,11 @@ data ExpectedToken
   | ExpectedIdentifier
 
 -- The parser ran into a token it did not recognize.
-unexpectedToken :: Range -> Token -> ExpectedToken -> Diagnostic
-unexpectedToken range unexpected expected =
-  Diagnostic range (Error (UnexpectedToken unexpected expected))
+unexpectedToken :: DiagnosticMonad m => Range -> Token -> ExpectedToken -> m Diagnostic
+unexpectedToken range unexpected expected = report $ Diagnostic range $ Error $
+  UnexpectedToken unexpected expected
+
+-- The parser ran into the end of the source document unexpectedly.
+unexpectedEnding :: DiagnosticMonad m => Range -> ExpectedToken -> m Diagnostic
+unexpectedEnding range expected = report $ Diagnostic range $ Error $
+  UnexpectedEnding expected

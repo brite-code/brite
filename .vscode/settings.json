@@ -21,5 +21,6 @@
   },
   "[haskell]": {
     "editor.rulers": [100]
-  }
+  },
+  "haskell.hlint.logLevel": "warn"
 }
