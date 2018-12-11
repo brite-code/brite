@@ -14,12 +14,16 @@ module Brite.Source
   , Glyph(..)
   , TokenList(..)
   , tokenize
+  , debugTokens
   ) where
 
 import Data.Bits ((.&.))
 import Data.Char
 import Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as T.Lazy
+import qualified Data.Text.Lazy.Builder as T.Builder
+import qualified Data.Text.Lazy.Builder.Int as T.Builder
 import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
 
 -- A position between two characters in a Brite source code document. The encoding of a position is
@@ -31,10 +35,6 @@ import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
 --
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Position = Position { positionLine :: !Int, positionCharacter :: !Int }
-  deriving (Eq)
-
-instance Show Position where
-  show (Position line character) = show line ++ ":" ++ show character
 
 -- The position at the start of a document.
 initialPosition :: Position
@@ -55,10 +55,6 @@ utf16Length c = if n .&. 0xFFFF == n then 1 else 2
 --
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Range = Range { rangeStart :: Position, rangeEnd :: Position }
-  deriving (Eq)
-
-instance Show Range where
-  show (Range start end) = if start == end then show start else show start ++ "-" ++ show end
 
 -- A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
 -- Specification][1] including the optional underscore (`_`) character.
@@ -73,7 +69,6 @@ instance Show Range where
 --
 -- [1]: http://www.unicode.org/reports/tr31
 newtype Identifier = Identifier T.Text
-  deriving (Eq, Show)
 
 -- Tries to create a new identifier. Returns `Just` if the identifier is valid and `Nothing` if
 -- the identifier is invalid.
@@ -107,7 +102,7 @@ data Keyword
   | If
   | Else
   | Do
-  deriving (Eq, Show)
+  deriving (Eq)
 
 -- Tries to convert a text value into a keyword. Returns `Just` if the text value is a keyword.
 -- Returns `Nothing` if the text value is not a keyword.
@@ -123,6 +118,16 @@ keyword t =
     "do" -> Just Do
     _ -> Nothing
 
+-- Gets the raw text for a keyword.
+keywordText :: Keyword -> T.Text
+keywordText Hole = "_"
+keywordText True_ = "true"
+keywordText False_ = "false"
+keywordText Let = "let"
+keywordText If = "if"
+keywordText Else = "else"
+keywordText Do = "do"
+
 -- A token is a more semantic unit for describing Brite source code documents than a character.
 -- Through the tokenization of a document we add meaning by parsing low-level code elements like
 -- identifiers, numbers, strings, comments, and glyphs.
@@ -130,7 +135,6 @@ data Token
   = GlyphToken Glyph
   | IdentifierToken Identifier
   | UnexpectedChar Char
-  deriving (Eq, Show)
 
 -- A glyph represents some constant sequence of characters that is used in Brite syntax.
 data Glyph
@@ -153,7 +157,20 @@ data Glyph
   | Semicolon
   -- `/`
   | Slash
-  deriving (Eq, Show)
+  deriving (Eq)
+
+-- Gets the text representation of a glyph.
+glyphText :: Glyph -> T.Text
+glyphText (Keyword keyword) = keywordText keyword
+glyphText BraceLeft = "{"
+glyphText BraceRight = "}"
+glyphText Comma = ","
+glyphText Dot = "."
+glyphText Equals = "="
+glyphText ParenLeft = "("
+glyphText ParenRight = ")"
+glyphText Semicolon = ";"
+glyphText Slash = "/"
 
 -- A lazy list of tokens. Customized to include some extra token and end data.
 data TokenList
@@ -271,3 +288,41 @@ tokenize position0 text0 =
       position1 = position0 { positionCharacter = positionCharacter position0 + 1 }
       range1 = Range position0 position1
       text1 = T.tail text0
+
+-- Builds a text value we can use to debug a token list.
+debugTokens :: TokenList -> T.Lazy.Text
+debugTokens tokens = T.Builder.toLazyText (debugTokens' tokens)
+
+debugTokens' :: TokenList -> T.Builder.Builder
+
+debugTokens' (EndToken p) =
+  T.Builder.fromLazyText position
+    `mappend` T.Builder.fromText "| End\n"
+  where
+    position = T.Lazy.justifyLeft 10 ' ' $
+      T.Builder.toLazyText $
+        T.Builder.decimal (positionLine p)
+          `mappend` T.Builder.singleton ':'
+          `mappend` T.Builder.decimal (positionCharacter p)
+
+debugTokens' (NextToken r t ts) =
+  T.Builder.fromLazyText range
+    `mappend` T.Builder.fromText "| "
+    `mappend` T.Builder.fromText token
+    `mappend` T.Builder.singleton '\n'
+    `mappend` debugTokens' ts
+  where
+    token = case t of
+      GlyphToken glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
+      IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
+      UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
+
+    range = T.Lazy.justifyLeft 10 ' ' $
+      T.Builder.toLazyText $
+        T.Builder.decimal (positionLine (rangeStart r))
+          `mappend` T.Builder.singleton ':'
+          `mappend` T.Builder.decimal (positionCharacter (rangeStart r))
+          `mappend` T.Builder.singleton '-'
+          `mappend` T.Builder.decimal (positionLine (rangeEnd r))
+          `mappend` T.Builder.singleton ':'
+          `mappend` T.Builder.decimal (positionCharacter (rangeEnd r))
