@@ -22,5 +22,6 @@
   "[haskell]": {
     "editor.rulers": [100]
   },
-  "haskell.hlint.logLevel": "warn"
+  "haskell.hlint.logLevel": "warn",
+  "haskell.hlint.hints": ["-XNoPatternSynonyms"] // https://github.com/ndmitchell/hlint/issues/199
 }
