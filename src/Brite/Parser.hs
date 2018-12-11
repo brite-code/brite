@@ -13,11 +13,9 @@ bindingStatement =
     <*> glyph Equals
     <*> expression
   where
-    build (Success _) p (Success _) x = BindingStatement p x
-    build (Recover e _) p _ x = ErrorStatement e (Just (BindingStatement p x))
-    build (Failure e) p _ x = ErrorStatement e (Just (BindingStatement p x))
-    build (Success _) p (Recover e _) x = ErrorStatement e (Just (BindingStatement p x))
-    build (Success _) p (Failure e) x = ErrorStatement e (Just (BindingStatement p x))
+    build (Right _) p (Right _) x = BindingStatement p x
+    build (Left (e, _)) p _ x = ErrorStatement e (Just (BindingStatement p x))
+    build _ p (Left (e, _)) x = ErrorStatement e (Just (BindingStatement p x))
 
 expression :: Parser Expression
 expression = variableExpression
@@ -25,9 +23,8 @@ expression = variableExpression
 variableExpression :: Parser Expression
 variableExpression = build <$> identifier
   where
-    build (Success (r, n)) = VariableExpression r n
-    build (Recover e (r, n)) = ErrorExpression e (Just (VariableExpression r n))
-    build (Failure e) = ErrorExpression e Nothing
+    build (Right (r, n)) = VariableExpression r n
+    build (Left (e, m)) = ErrorExpression e (fmap (build . Right) m)
 
 pattern :: Parser Pattern
 pattern = variablePattern
@@ -35,6 +32,5 @@ pattern = variablePattern
 variablePattern :: Parser Pattern
 variablePattern = build <$> identifier
   where
-    build (Success (r, n)) = VariablePattern r n
-    build (Recover e (r, n)) = ErrorPattern e (Just (VariablePattern r n))
-    build (Failure e) = ErrorPattern e Nothing
+    build (Right (r, n)) = VariablePattern r n
+    build (Left (e, m)) = ErrorPattern e (fmap (build . Right) m)

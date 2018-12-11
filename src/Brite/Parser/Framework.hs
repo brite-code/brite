@@ -3,11 +3,11 @@
 
 module Brite.Parser.Framework
   ( Parser
-  , ParseResult(..)
+  , ParseResult
   , glyph
   , keyword
   , identifier
-  , parse
+  , runParser
   ) where
 
 import Brite.Diagnostics
@@ -46,18 +46,11 @@ instance Applicative Parser where
   (<*>) = SequenceParser
 
 -- A parse result is returned by our terminal parser after attempting to parse a token.
-data ParseResult a
-  -- We were able to successfully parse some data.
-  = Success a
-  -- We ran into an error, but we were able to recover and successfully parse some data.
-  | Recover Diagnostic a
-  -- We failed to parse any data.
-  | Failure Diagnostic
-
-instance Functor ParseResult where
-  fmap f (Success a) = Success (f a)
-  fmap f (Recover e a) = Recover e (f a)
-  fmap _ (Failure e) = Failure e
+--
+-- * `Right` if we were able to successfully parse some data.
+-- * `Left Nothing` if we failed to parse any data.
+-- * `Left Just` if we ran into an error, but we were able to recover.
+type ParseResult a = Either (Diagnostic, Maybe a) a
 
 -- Glyph parser. Returns the range that was parsed if we could parse the glyph.
 glyph :: Glyph -> Parser (ParseResult (Range, ()))
@@ -83,8 +76,8 @@ test (SequenceParser (EmptyParser _) q) t = test q t
 test (SequenceParser p _) t = test p t
 
 -- Parses some tokens from a list returning the result and the list of tokens we did not parse.
-parse :: DiagnosticMonad m => Parser a -> TokenList -> m (a, TokenList)
-parse = parse' (const True)
+runParser :: DiagnosticMonad m => Parser a -> TokenList -> m (a, TokenList)
+runParser = runParser' (const True)
 
 -- The internal implementation of `parse`. Also takes a `Token -> Bool` retry function. If while
 -- trying to parse a terminal token we run into an unrecognized token then we will call the retry
@@ -92,14 +85,14 @@ parse = parse' (const True)
 -- to parse again. By default, we always retry. Unless we are parsing a sequence. In that case the
 -- sequence parser will not allow us to retry if the unrecognized token is recognized as the start
 -- of the parser we are sequenced with.
-parse' :: DiagnosticMonad m => (Token -> Bool) -> Parser a -> TokenList -> m (a, TokenList)
+runParser' :: DiagnosticMonad m => (Token -> Bool) -> Parser a -> TokenList -> m (a, TokenList)
 
 -- Empty parser consumes no tokens and always returns its payload.
-parse' _ (EmptyParser a) tokens = return (a, tokens)
+runParser' _ (EmptyParser a) tokens = return (a, tokens)
 
 -- The terminal parser attempts to parse a single token. If we can’t immediately parse the token,
 -- then we will keep trying to parse the token as long as `retry` returns true.
-parse' retry (TerminalParser expected p) tokens =
+runParser' retry (TerminalParser expected p) tokens =
   loop Nothing tokens
   where
     loop err ts =
@@ -113,7 +106,7 @@ parse' retry (TerminalParser expected p) tokens =
             -- If there is an error we return `Left` instead of `Right`.
             Just x ->
               let
-                result = maybe (Success (range, x)) (\e -> Recover e (range, x)) err
+                result = maybe (Right (range, x)) (\e -> Left (e, Just (range, x))) err
               in
                 return (result, ts')
 
@@ -136,18 +129,18 @@ parse' retry (TerminalParser expected p) tokens =
                 -- presumably, if we can’t retry then this will be a valid token for another parser.
                 _ -> do
                   err' <- maybe (unexpectedToken range token expected) return err
-                  return (Failure err', ts)
+                  return (Left (err', Nothing), ts)
 
         -- If we reach the end of our token list then give up trying to parse this terminal token.
         --
         -- Only report an unexpected ending error if we didn’t have another error.
         EndToken position -> do
           err' <- maybe (unexpectedEnding (Range position position) expected) return err
-          return (Failure err', ts)
+          return (Left (err', Nothing), ts)
 
 -- For our sequence parser, execute both parsers in order. The first parser may not retry a token
 -- that the second parser should parse.
-parse' retry (SequenceParser p q) ts0 = do
-  (f, ts1) <- parse' (\t -> not (test q t) && retry t) p ts0
-  (b, ts2) <- parse' retry q ts1
+runParser' retry (SequenceParser p q) ts0 = do
+  (f, ts1) <- runParser' (\t -> not (test q t) && retry t) p ts0
+  (b, ts2) <- runParser' retry q ts1
   return (f b, ts2)
