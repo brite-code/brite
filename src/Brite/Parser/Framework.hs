@@ -44,7 +44,7 @@ instance Applicative Parser where
 -- Glyph parser. Returns the range that was parsed if we could parse the glyph.
 glyph :: Glyph -> Parser (Maybe (Range, ()))
 glyph g = TerminalParser (\case
-  GlyphToken g' | g == g' -> Just ()
+  Glyph g' | g == g' -> Just ()
   _ -> Nothing)
 
 -- Keyword parser. Returns the range that was parsed if we could parse the glyph.

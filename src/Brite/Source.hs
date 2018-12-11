@@ -132,7 +132,7 @@ keywordText Do = "do"
 -- Through the tokenization of a document we add meaning by parsing low-level code elements like
 -- identifiers, numbers, strings, comments, and glyphs.
 data Token
-  = GlyphToken Glyph
+  = Glyph Glyph
   | IdentifierToken Identifier
   | UnexpectedChar Char
 
@@ -188,14 +188,14 @@ tokenize position0 text0 =
     ' ' -> tokenize position1 text1
 
     -- Parse some glyphs.
-    '{' -> NextToken range1 (GlyphToken BraceLeft) (tokenize position1 text1)
-    '}' -> NextToken range1 (GlyphToken BraceRight) (tokenize position1 text1)
-    ',' -> NextToken range1 (GlyphToken Comma) (tokenize position1 text1)
-    '.' -> NextToken range1 (GlyphToken Dot) (tokenize position1 text1)
-    '=' -> NextToken range1 (GlyphToken Equals) (tokenize position1 text1)
-    '(' -> NextToken range1 (GlyphToken ParenLeft) (tokenize position1 text1)
-    ')' -> NextToken range1 (GlyphToken ParenRight) (tokenize position1 text1)
-    ';' -> NextToken range1 (GlyphToken Semicolon) (tokenize position1 text1)
+    '{' -> NextToken range1 (Glyph BraceLeft) (tokenize position1 text1)
+    '}' -> NextToken range1 (Glyph BraceRight) (tokenize position1 text1)
+    ',' -> NextToken range1 (Glyph Comma) (tokenize position1 text1)
+    '.' -> NextToken range1 (Glyph Dot) (tokenize position1 text1)
+    '=' -> NextToken range1 (Glyph Equals) (tokenize position1 text1)
+    '(' -> NextToken range1 (Glyph ParenLeft) (tokenize position1 text1)
+    ')' -> NextToken range1 (Glyph ParenRight) (tokenize position1 text1)
+    ';' -> NextToken range1 (Glyph Semicolon) (tokenize position1 text1)
 
     -- Ignore newlines (`\n`).
     '\n' ->
@@ -225,7 +225,7 @@ tokenize position0 text0 =
         position2 = position0 { positionCharacter = positionCharacter position0 + n }
         range2 = Range position0 position2
         token = case keyword identifier of
-          Just keyword -> GlyphToken (Keyword keyword)
+          Just keyword -> Glyph (Keyword keyword)
           Nothing -> IdentifierToken (Identifier identifier)
       in
         NextToken range2 token (tokenize position2 text2)
@@ -271,7 +271,7 @@ tokenize position0 text0 =
               loop p' t'
 
     -- Parse the slash glyph.
-    '/' -> NextToken range1 (GlyphToken Slash) (tokenize position1 text1)
+    '/' -> NextToken range1 (Glyph Slash) (tokenize position1 text1)
 
     -- Ignore whitespace.
     c | isSpace c -> tokenize position1 text1
@@ -313,7 +313,7 @@ debugTokens' (NextToken r t ts) =
     `mappend` debugTokens' ts
   where
     token = case t of
-      GlyphToken glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
+      Glyph glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
       IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
       UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
 
