@@ -10,8 +10,10 @@ module Brite.Source
   , Identifier
   , identifierText
   , Keyword(..)
+  , keywordText
   , Token(..)
   , Glyph(..)
+  , glyphText
   , TokenList(..)
   , tokenize
   , debugPosition
@@ -286,12 +288,12 @@ tokenize position0 text0 =
 -- Debug a position.
 debugPosition :: Position -> B.Builder
 debugPosition (Position line character) =
-  B.decimal line `mappend` B.singleton ':' `mappend` B.decimal character
+  B.decimal line <> B.singleton ':' <> B.decimal character
 
 -- Debug a range of characters.
 debugRange :: Range -> B.Builder
 debugRange (Range start end) =
-  debugPosition start `mappend` B.singleton '-' `mappend` debugPosition end
+  debugPosition start <> B.singleton '-' <> debugPosition end
 
 -- Builds a text value we can use to debug a token list.
 debugTokens :: TokenList -> L.Text
@@ -301,10 +303,10 @@ debugTokens' :: TokenList -> B.Builder
 
 debugTokens' (NextToken r t ts) =
   B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
-    `mappend` B.fromText "| "
-    `mappend` B.fromText token
-    `mappend` B.singleton '\n'
-    `mappend` debugTokens' ts
+    <> B.fromText "| "
+    <> B.fromText token
+    <> B.singleton '\n'
+    <> debugTokens' ts
   where
     token = case t of
       Glyph glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
@@ -313,4 +315,4 @@ debugTokens' (NextToken r t ts) =
 
 debugTokens' (EndToken p) =
   B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
-    `mappend` B.fromText "| End\n"
+    <> B.fromText "| End\n"

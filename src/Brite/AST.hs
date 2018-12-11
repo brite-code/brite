@@ -44,42 +44,42 @@ data Pattern
 debugStatement :: Statement -> B.Builder
 debugStatement (BindingStatement p x) =
   B.fromText "(bind "
-    `mappend` debugPattern p
-    `mappend` B.fromText " "
-    `mappend` debugExpression x
-    `mappend` B.fromText ")"
+    <> debugPattern p
+    <> B.singleton ' '
+    <> debugExpression x
+    <> B.fromText ")"
 debugStatement (ErrorStatement _ Nothing) = B.fromText "err"
 debugStatement (ErrorStatement _ (Just s)) =
   B.fromText "(err "
-    `mappend` debugStatement s
-    `mappend` B.fromText ")"
+    <> debugStatement s
+    <> B.fromText ")"
 
 -- Debug an expression in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugExpression :: Expression -> B.Builder
 debugExpression (VariableExpression range ident) =
   B.fromText "(var "
-    `mappend` debugRange range
-    `mappend` B.fromText " `"
-    `mappend` B.fromText (identifierText ident)
-    `mappend` B.fromText "`)"
+    <> debugRange range
+    <> B.fromText " `"
+    <> B.fromText (identifierText ident)
+    <> B.fromText "`)"
 debugExpression (ErrorExpression _ Nothing) = B.fromText "err"
 debugExpression (ErrorExpression _ (Just x)) =
   B.fromText "(err "
-    `mappend` debugExpression x
-    `mappend` B.fromText ")"
+    <> debugExpression x
+    <> B.fromText ")"
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugPattern :: Pattern -> B.Builder
 debugPattern (VariablePattern range ident) =
   B.fromText "(var "
-    `mappend` debugRange range
-    `mappend` B.fromText " `"
-    `mappend` B.fromText (identifierText ident)
-    `mappend` B.fromText "`)"
+    <> debugRange range
+    <> B.fromText " `"
+    <> B.fromText (identifierText ident)
+    <> B.fromText "`)"
 debugPattern (ErrorPattern _ Nothing) = B.fromText "err"
 debugPattern (ErrorPattern _ (Just x)) =
   B.fromText "(err "
-    `mappend` debugPattern x
-    `mappend` B.fromText ")"
+    <> debugPattern x
+    <> B.fromText ")"
