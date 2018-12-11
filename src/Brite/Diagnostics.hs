@@ -1,6 +1,7 @@
 module Brite.Diagnostics
   ( Diagnostic
   , ExpectedToken(..)
+  , unexpectedToken
   ) where
 
 import Brite.Source

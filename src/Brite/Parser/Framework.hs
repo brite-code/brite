@@ -57,7 +57,7 @@ keyword k = glyph (Keyword k)
 -- Identifier parser. Returns the identifier along with the range of the identifier.
 identifier :: Parser (Maybe (Range, Identifier))
 identifier = TerminalParser ExpectedIdentifier (\case
-  IdentifierToken identifier -> Just identifier
+  IdentifierToken ident -> Just ident
   _ -> Nothing)
 
 -- Tests if the token is the _first_ token of the parser.
