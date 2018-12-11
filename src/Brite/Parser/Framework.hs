@@ -9,6 +9,7 @@ module Brite.Parser.Framework
   , parse
   ) where
 
+import Brite.Diagnostics
 import Brite.Source
 import Data.Maybe
 
@@ -16,7 +17,9 @@ import Data.Maybe
 data Parser a where
   -- A terminal parser may only parse a single token. It takes a test function and if the test
   -- function returns true our parser returns `Just` with the token’s range.
-  TerminalParser :: (Token -> Maybe b) -> Parser (Maybe (Range, b))
+  --
+  -- Also contains `ExpectedToken` for error reporting.
+  TerminalParser :: ExpectedToken -> (Token -> Maybe b) -> Parser (Maybe (Range, b))
   -- An empty parser never parses any tokens. It always returns its payload.
   EmptyParser :: a -> Parser a
   -- A sequence parser combines two parsers to be executed one after another. The first parser
@@ -25,7 +28,7 @@ data Parser a where
 
 instance Functor Parser where
   -- To map a terminal parser we sequence it with an empty parser that returns the mapper function.
-  fmap f p@(TerminalParser _) = SequenceParser (EmptyParser f) p
+  fmap f p@(TerminalParser _ _) = SequenceParser (EmptyParser f) p
 
   -- Empty parsers map their constant argument.
   fmap f (EmptyParser a) = EmptyParser (f a)
@@ -43,7 +46,7 @@ instance Applicative Parser where
 
 -- Glyph parser. Returns the range that was parsed if we could parse the glyph.
 glyph :: Glyph -> Parser (Maybe (Range, ()))
-glyph g = TerminalParser (\case
+glyph g = TerminalParser (ExpectedGlyph g) (\case
   Glyph g' | g == g' -> Just ()
   _ -> Nothing)
 
@@ -53,13 +56,13 @@ keyword k = glyph (Keyword k)
 
 -- Identifier parser. Returns the identifier along with the range of the identifier.
 identifier :: Parser (Maybe (Range, Identifier))
-identifier = TerminalParser (\case
+identifier = TerminalParser ExpectedIdentifier (\case
   IdentifierToken identifier -> Just identifier
   _ -> Nothing)
 
 -- Tests if the token is the _first_ token of the parser.
 test :: Parser a -> Token -> Bool
-test (TerminalParser p) t = isJust (p t)
+test (TerminalParser _ p) t = isJust (p t)
 test (EmptyParser _) _ = False
 test (SequenceParser (EmptyParser _) q) t = test q t
 test (SequenceParser p _) t = test p t
@@ -81,7 +84,7 @@ parse' _ (EmptyParser a) tokens = (a, tokens)
 
 -- The terminal parser attempts to parse a single token. If we can’t immediately parse the token,
 -- then we will keep trying to parse the token as long as `retry` returns true.
-parse' retry (TerminalParser p) tokens =
+parse' retry (TerminalParser expected p) tokens =
   loop tokens
   where
     loop ts =
