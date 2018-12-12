@@ -2,11 +2,9 @@ name: brite
 
 dependencies:
   - base >= 4.7 && < 5
-  - hashable >= 1.2 && < 2
   - hspec >= 2.5 && < 3
   - text >= 1.2 && < 2
   - text-icu >= 0.7 && < 1
-  - unordered-containers >= 0.2 && < 1
 
 library:
   source-dirs: src

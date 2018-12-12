@@ -1,7 +1,6 @@
 -- Responsible for turning a Brite source text into a format which may be parsed. This includes
 -- tokenizing the document and determining positions.
 
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Source
@@ -24,13 +23,11 @@ module Brite.Source
 
 import Data.Bits ((.&.))
 import Data.Char
-import Data.Hashable (Hashable)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text.Lazy.Builder.Int as B
 import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
-import GHC.Generics (Generic)
 
 -- A position between two characters in a Brite source code document. The encoding of a position is
 -- based on the [Language Server Protocol][1].
@@ -101,9 +98,7 @@ data Keyword
   | If
   | Else
   | Do
-  deriving (Eq, Generic)
-
-instance Hashable Keyword
+  deriving (Eq)
 
 -- Tries to convert a text value into a keyword. Returns `Just` if the text value is a keyword.
 -- Returns `Nothing` if the text value is not a keyword.
@@ -158,9 +153,7 @@ data Glyph
   | Semicolon
   -- `/`
   | Slash
-  deriving (Eq, Generic)
-
-instance Hashable Glyph
+  deriving (Eq)
 
 -- Gets the text representation of a glyph.
 glyphText :: Glyph -> T.Text
