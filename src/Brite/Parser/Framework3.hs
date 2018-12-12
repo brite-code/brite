@@ -11,6 +11,7 @@ module Brite.Parser.Framework3
 import Prelude hiding (sequence)
 import Brite.Diagnostics
 import Brite.Source
+import Data.Maybe
 
 newtype Parser a = Parser
   { unParser :: forall b. TokenList -> ParserOk a b -> ParserErr a b -> DiagnosticWriter b
@@ -57,9 +58,9 @@ identifier = terminal ExpectedIdentifier $ \t ->
     _ -> Nothing
 
 terminal :: ExpectedToken -> (Token -> Maybe a) -> Parser (Either Diagnostic (Range, a))
-terminal ex parse = Parser run
+terminal ex parse = Parser (run Nothing)
   where
-    run ts1 ok err =
+    run e ts1 ok err =
       case ts1 of
         NextToken r t ts2 ->
           case parse t of
@@ -68,26 +69,33 @@ terminal ex parse = Parser run
               case t of
                 -- If we see an unexpected character we assume no one can handle it, so report
                 -- an error and immediately try again.
+                --
+                -- Call `run` with the first reported error.
                 UnexpectedChar _ -> do
-                  _ <- unexpectedToken r t ex
-                  run ts2 ok err
+                  e' <- unexpectedToken r t ex
+                  run (Just (fromMaybe e' e)) ts2 ok err
 
                 _ ->
-                  -- Call the error callback with deferred error reporting.
+                  -- Call the error callback so that we may attempt recovery. The error value either
+                  -- uses the first reported error while calling `run` or it reports its own error.
                   --
-                  -- If the continuation is called then we want to retry our parser. First report an
-                  -- error, though.
-                  let e = unexpectedToken r t ex in
+                  -- If the continuation is called then we report an error and call `run` with the
+                  -- first reported error.
                   err ts1
-                    (Left <$> e)
-                    (ParserErrCont (\ts3 -> e *> run ts3 ok err))
+                    (Left <$> maybe (unexpectedToken r t ex) return e)
+                    (ParserErrCont (\ts3 -> do
+                      e' <- unexpectedToken r t ex
+                      run (Just (fromMaybe e' e)) ts3 ok err))
 
         EndToken p ->
-          -- Call the error callback and defer error reporting. The continuation should never be
-          -- used. Since we’re at the end there are no more tokens to retry.
+          -- Call the error callback so that we may attempt recovery. The error value either uses
+          -- the first reported error while calling `run` or it reports its own error.
+          --
+          -- The continuation should never be used since we’re at the end. There are no more tokens
+          -- to retry.
           err ts1
-            (Left <$> unexpectedEnding (Range p p) ex)
-            (ParserErrCont (error "unused"))
+            (Left <$> maybe (unexpectedEnding (Range p p) ex) return e)
+            (error "unused")
 
 sequence :: Parser (a -> b) -> Parser a -> Parser b
 sequence p1 p2 = Parser $ \ts0 ok err ->

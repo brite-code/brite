@@ -138,7 +138,7 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \(0:8-0:8) We wanted `=` but the file ended.\n\
       \(0:8-0:8) We wanted a variable name but the file ended.\n\
       \\n\
-      \(err (bind (err (var 0:7-0:8 `y`)) err))\n"
+      \(err (bind (var 0:7-0:8 `y`) err))\n"
     )
   , ( "let 😈 ="
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
@@ -185,7 +185,7 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \(0:7-0:7) We wanted `=` but the file ended.\n\
       \(0:7-0:7) We wanted a variable name but the file ended.\n\
       \\n\
-      \(err (bind (err (var 0:6-0:7 `y`)) err))\n"
+      \(err (bind (var 0:6-0:7 `y`) err))\n"
     )
   , ( "let ) ="
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
