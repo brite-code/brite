@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Brite.Parser.Framework3
+module Brite.Parser.Framework
   ( Parser
   , runParser
   , glyph

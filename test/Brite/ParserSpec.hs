@@ -5,7 +5,7 @@ module Brite.ParserSpec (spec) where
 import Brite.AST
 import Brite.Diagnostics
 import Brite.Parser
-import Brite.Parser.Framework3
+import Brite.Parser.Framework
 import Brite.Source
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
