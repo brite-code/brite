@@ -5,9 +5,13 @@ module Brite.Parser.Framework
   , runParser
   , retry
   , optional
+  , unexpected
   , glyph
   , keyword
   , identifier
+  , tryGlyph
+  , tryKeyword
+  , tryIdentifier
   ) where
 
 import Brite.Diagnostics
@@ -129,10 +133,7 @@ instance Applicative Parser where
 instance Alternative Parser where
   -- The error message for `empty` is really unspecific. We will consider it a bug if the error
   -- message ever appears. Please don’t use it in production!
-  empty = Parser (\ts err _ _ ->
-    case ts of
-      NextToken r t _ -> err (unexpectedToken r t ExpectedUnknown)
-      EndToken p -> err (unexpectedEnding (Range p p) ExpectedUnknown))
+  empty = unexpected ExpectedUnknown
 
   -- The parser choice operator. This operator is incredibly important to our parsing framework.
   -- It chooses between two parsers, `p1` and `p2`. First we attempt to parse `p1`. If it fails by
@@ -221,21 +222,50 @@ optional p = Parser (\ts _ ok skip -> run ts ok skip)
         (\ts1 a -> ok ts1 (Just a))
         (\ts1 a k -> skip ts1 (Just <$> a) k)
 
+-- Always fails with an unexpected token error. We can use this at the end of an alternative chain
+-- to make the error message better.
+unexpected :: ExpectedToken -> Parser a
+unexpected ex = Parser $ \ts err _ _ ->
+  case ts of
+    NextToken r t _ -> err (unexpectedToken r t ex)
+    EndToken p -> err (unexpectedEnding (Range p p) ex)
+
 -- Parses a glyph.
-glyph :: Glyph -> Parser Range
-glyph g = Parser $ \ts err ok _ ->
+glyph :: Glyph -> Parser (Either Diagnostic Range)
+glyph = retry . tryGlyph
+
+-- Parses a keyword.
+keyword :: Keyword -> Parser (Either Diagnostic Range)
+keyword = retry . tryKeyword
+
+-- Parses an identifier.
+identifier :: Parser (Either Diagnostic (Range, Identifier))
+identifier = retry tryIdentifier
+
+-- Parses a glyph. Throws an error if we fail without retrying.
+--
+-- Technically this function is more primitive then its counterpart `glyph`, but we fall into the
+-- pit of success by adding a bit of syntactic vinegar to this name.
+tryGlyph :: Glyph -> Parser Range
+tryGlyph g = Parser $ \ts err ok _ ->
   case ts of
     NextToken r (Glyph g') ts' | g == g' -> ok ts' r
     NextToken r t _ -> err (unexpectedToken r t (ExpectedGlyph g))
     EndToken p -> err (unexpectedEnding (Range p p) (ExpectedGlyph g))
 
--- Parses a keyword.
-keyword :: Keyword -> Parser Range
-keyword = glyph . Keyword
+-- Parses a keyword. Throws an error if we fail without retrying.
+--
+-- Technically this function is more primitive then its counterpart `keyword`, but we fall into the
+-- pit of success by adding a bit of syntactic vinegar to this name.
+tryKeyword :: Keyword -> Parser Range
+tryKeyword = tryGlyph . Keyword
 
--- Parses an identifier.
-identifier :: Parser (Range, Identifier)
-identifier = Parser $ \ts err ok _ ->
+-- Parses an identifier. Throws an error if we fail without retrying.
+--
+-- Technically this function is more primitive then its counterpart `identifier`, but we fall into
+-- the pit of success by adding a bit of syntactic vinegar to this name.
+tryIdentifier :: Parser (Range, Identifier)
+tryIdentifier = Parser $ \ts err ok _ ->
   case ts of
     NextToken r (IdentifierToken i) ts' -> ok ts' (r, i)
     NextToken r t _ -> err (unexpectedToken r t ExpectedIdentifier)

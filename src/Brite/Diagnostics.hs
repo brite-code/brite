@@ -138,6 +138,9 @@ runDiagnosticWriter (DiagnosticWriter a ds) = (a, ds)
 data ExpectedToken
   = ExpectedGlyph Glyph
   | ExpectedIdentifier
+  | ExpectedStatement
+  | ExpectedExpression
+  | ExpectedPattern
   | ExpectedUnknown
 
 -- The parser ran into a token it did not recognize.
@@ -166,15 +169,18 @@ diagnosticErrorMessage :: ErrorDiagnosticMessage -> M.Markup
 -- * When designing this message we started with “Unexpected character `%`. Expected expression.”
 --   and ended with the message “We found `%` when we wanted an expression.” The latter uses smaller
 --   words. It isn’t abrupt. It personifies the type checker with “we”.
+--
 -- * The message starts with what we wanted and ends with what we found. Instead of saying
 --   “We found `%` when we expected an expression.” the message reads “We wanted an expression but
 --   we found `%`.” This gets to the resolution of the error message faster. In most cases the
 --   programmer only really needs to see “We wanted an expression” to know the solution.
+--
 -- * Instead of “we found a `%` character” we print the message as “we found `%`”. The latter is
 --   shorter. It is also very hard to choose correctly between “a” and “an” for arbitrary user
 --   input. For example this is wrong “a `=` character” since `=` is pronounced “equals” which
 --   starts with a vowel sound. It should be “an `=` character”. We are unaware of a way to
 --   correctly guess the pronunciation people use for glyphs in general.
+--
 -- * For unexpected tokens when we expected a pattern we say “We found `=` when we wanted a variable
 --   name.” because the word “pattern” is compiler speak. Even though patterns can be more than a
 --   variable name, 80% of the time the programmer will write a variable name.
@@ -202,6 +208,9 @@ diagnosticErrorMessage (UnexpectedEnding expected) =
 expectedTokenDescription :: ExpectedToken -> M.Markup
 expectedTokenDescription (ExpectedGlyph glyph) = M.code (glyphText glyph)
 expectedTokenDescription ExpectedIdentifier = M.plain "a variable name"
+expectedTokenDescription ExpectedStatement = M.plain "a statement"
+expectedTokenDescription ExpectedExpression = M.plain "an expression"
+expectedTokenDescription ExpectedPattern = M.plain "a variable name"
 expectedTokenDescription ExpectedUnknown = M.plain "something"
 
 -- Prints a diagnostic for debugging purposes.
