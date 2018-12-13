@@ -26,7 +26,10 @@ testParse input expected =
     actual `shouldBe` expected
 
 spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expected)
-  [ ( "let x = y"
+  [ ( "let x = y;"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
+    )
+  , ( "let x = y"
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "let"
@@ -54,165 +57,230 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \\n\
       \(err (bind (var 0:4-0:5 `y`) err))\n"
     )
+  , ( "let ;"
+    , "(0:4-0:5) We wanted a variable name but we found `;`.\n\
+      \(0:4-0:5) We wanted `=` but we found `;`.\n\
+      \(0:4-0:5) We wanted an expression but we found `;`.\n\
+      \\n\
+      \(err (bind err err))\n"
+    )
   , ( "let x ="
     , "(0:7-0:7) We wanted an expression but the file ended.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) err)\n"
-    )
-  , ( "let = y"
-    , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
-      \\n\
-      \(bind err (var 0:6-0:7 `y`))\n"
     )
   , ( "let x y"
     , "(0:6-0:7) We wanted `=` but we found a variable name.\n\
       \\n\
       \(err (bind (var 0:4-0:5 `x`) (var 0:6-0:7 `y`)))\n"
     )
-  , ( "let x = y"
+  , ( "let x ;"
+    , "(0:6-0:7) We wanted `=` but we found `;`.\n\
+      \(0:6-0:7) We wanted an expression but we found `;`.\n\
+      \\n\
+      \(err (bind (var 0:4-0:5 `x`) err))\n"
+    )
+  , ( "let = y"
+    , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
+      \\n\
+      \(bind err (var 0:6-0:7 `y`))\n"
+    )
+  , ( "let = ;"
+    , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
+      \(0:6-0:7) We wanted an expression but we found `;`.\n\
+      \\n\
+      \(bind err err)\n"
+    )
+  , ( "let x = y;"
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
-  , ( "😈 let x = y"
+  , ( "😈 let x = y;"
     , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
       \\n\
       \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n"
     )
-  , ( "let 😈 x = y"
+  , ( "let 😈 x = y;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
       \\n\
       \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n"
     )
-  , ( "let x 😈 = y"
+  , ( "let x 😈 = y;"
     , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:11-0:12 `y`))\n"
     )
-  , ( "let x = 😈 y"
+  , ( "let x = 😈 y;"
     , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:11-0:12 `y`))\n"
     )
-  , ( "let x = y 😈"
+  , ( "let x = y 😈;"
+    , "(0:10-0:12) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
+    )
+  , ( "let x = y; 😈"
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
-  , ( ") let x = y"
+  , ( "let x = y 😈"
+    , "(0:10-0:12) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
+    )
+  , ( ") let x = y;"
     , "(0:0-0:1) We wanted a statement but we found `)`.\n\
       \\n\
       \(bind (var 0:6-0:7 `x`) (var 0:10-0:11 `y`))\n"
     )
-  , ( "let ) x = y"
+  , ( "let ) x = y;"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
       \\n\
       \(bind (var 0:6-0:7 `x`) (var 0:10-0:11 `y`))\n"
     )
-  , ( "let x ) = y"
+  , ( "let x ) = y;"
     , "(0:6-0:7) We wanted `=` but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:10-0:11 `y`))\n"
       )
-  , ( "let x = ) y"
+  , ( "let x = ) y;"
     , "(0:8-0:9) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:10-0:11 `y`))\n"
     )
-  , ( "let x = y )"
+  , ( "let x = y );"
+    , "(0:10-0:11) We wanted `;` but we found `)`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
+    )
+  , ( "let x = y; )"
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
-  , ( "let 😈 = y"
+  , ( "let x = y )"
+    , "(0:10-0:11) We wanted `;` but we found `)`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
+    )
+  , ( "let 😈 = y;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
       \\n\
       \(bind err (var 0:9-0:10 `y`))\n"
     )
-  , ( "let x 😈 y"
+  , ( "let x 😈 y;"
     , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
       \\n\
       \(err (bind (var 0:4-0:5 `x`) (var 0:9-0:10 `y`)))\n"
     )
-  , ( "let x = 😈"
+  , ( "let x = 😈;"
     , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) err)\n"
     )
-  , ( "let 😈 y"
+  , ( "let 😈 y;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
-      \(0:8-0:8) We wanted `=` but the file ended.\n\
-      \(0:8-0:8) We wanted an expression but the file ended.\n\
+      \(0:8-0:9) We wanted `=` but we found `;`.\n\
+      \(0:8-0:9) We wanted an expression but we found `;`.\n\
       \\n\
       \(err (bind (var 0:7-0:8 `y`) err))\n"
     )
-  , ( "let 😈 ="
+  , ( "let 😈 =;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
-      \(0:8-0:8) We wanted an expression but the file ended.\n\
+      \(0:8-0:9) We wanted an expression but we found `;`.\n\
       \\n\
       \(bind err err)\n"
     )
-  , ( "let x 😈"
+  , ( "let x 😈;"
     , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
-      \(0:8-0:8) We wanted an expression but the file ended.\n\
+      \(0:8-0:9) We wanted an expression but we found `;`.\n\
       \\n\
       \(err (bind (var 0:4-0:5 `x`) err))\n"
     )
-  , ( "let = 😈"
+  , ( "let = 😈;"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
       \(0:6-0:8) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind err err)\n"
     )
-  , ( "let 😈"
+  , ( "let 😈;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
-      \(0:6-0:6) We wanted `=` but the file ended.\n\
-      \(0:6-0:6) We wanted an expression but the file ended.\n\
+      \(0:6-0:7) We wanted `=` but we found `;`.\n\
+      \(0:6-0:7) We wanted an expression but we found `;`.\n\
       \\n\
       \(err (bind err err))\n"
     )
-  , ( "let ) = y"
+  , ( "let ) = y;"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
       \\n\
       \(bind err (var 0:8-0:9 `y`))\n"
     )
-  , ( "let x ) y"
+  , ( "let x ) y;"
     , "(0:6-0:7) We wanted `=` but we found `)`.\n\
       \\n\
       \(err (bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`)))\n"
     )
-  , ( "let x = )"
+  , ( "let x = );"
     , "(0:8-0:9) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) err)\n"
     )
-  , ( "let ) y"
+  , ( "let ) y;"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
-      \(0:7-0:7) We wanted `=` but the file ended.\n\
-      \(0:7-0:7) We wanted an expression but the file ended.\n\
+      \(0:7-0:8) We wanted `=` but we found `;`.\n\
+      \(0:7-0:8) We wanted an expression but we found `;`.\n\
       \\n\
       \(err (bind (var 0:6-0:7 `y`) err))\n"
     )
-  , ( "let ) ="
+  , ( "let ) =;"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
-      \(0:7-0:7) We wanted an expression but the file ended.\n\
+      \(0:7-0:8) We wanted an expression but we found `;`.\n\
       \\n\
       \(bind err err)\n"
     )
-  , ( "let x )"
+  , ( "let x );"
     , "(0:6-0:7) We wanted `=` but we found `)`.\n\
-      \(0:7-0:7) We wanted an expression but the file ended.\n\
+      \(0:7-0:8) We wanted an expression but we found `;`.\n\
       \\n\
       \(err (bind (var 0:4-0:5 `x`) err))\n"
     )
-  , ( "let = )"
+  , ( "let = );"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
       \(0:6-0:7) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind err err)\n"
     )
-  , ( "let )"
+  , ( "let );"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
-      \(0:5-0:5) We wanted `=` but the file ended.\n\
-      \(0:5-0:5) We wanted an expression but the file ended.\n\
+      \(0:5-0:6) We wanted `=` but we found `;`.\n\
+      \(0:5-0:6) We wanted an expression but we found `;`.\n\
       \\n\
       \(err (bind err err))\n"
     )
   , ( "x"
+    , "(var 0:0-0:1 `x`)\n"
+    )
+  , ( "x;"
+    , "(var 0:0-0:1 `x`)\n"
+    )
+  , ( "😈 x"
+    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(var 0:3-0:4 `x`)\n"
+    )
+  , ( "x 😈"
+    , "(0:2-0:4) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(var 0:0-0:1 `x`)\n"
+    )
+  , ( "😈 x;"
+    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(var 0:3-0:4 `x`)\n"
+    )
+  , ( "x 😈;"
+    , "(0:2-0:4) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(var 0:0-0:1 `x`)\n"
+    )
+  , ( "x; 😈"
     , "(var 0:0-0:1 `x`)\n"
     )
   , ( "="
@@ -227,6 +295,11 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
     )
   , ( ")"
     , "(0:0-0:1) We wanted a statement but we found `)`.\n\
+      \\n\
+      \err\n"
+    )
+  , ( ";"
+    , "(0:0-0:1) We wanted a statement but we found `;`.\n\
       \\n\
       \err\n"
     )
