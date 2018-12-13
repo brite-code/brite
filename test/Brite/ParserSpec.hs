@@ -212,4 +212,14 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \\n\
       \(err (bind err err))\n"
     )
+  , ( "x"
+    , "(var 0:0-0:1 `x`)\n"
+    )
+  , ( "="
+    , "(0:0-0:1) We wanted `let` but we found `=`.\n\
+      \(0:0-0:1) We wanted a variable name but we found `=`.\n\
+      \(0:1-0:1) We wanted a variable name but the file ended.\n\
+      \\n\
+      \(err (bind err err))\n"
+    )
   ]
