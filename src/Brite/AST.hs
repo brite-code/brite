@@ -2,11 +2,11 @@
 
 module Brite.AST
   ( Statement(..)
+  , Constant(..)
   , Expression(..)
   , Pattern(..)
   , debugStatement
   , debugExpression
-  , debugPattern
   ) where
 
 import Brite.Diagnostics
@@ -23,11 +23,18 @@ data Statement
   -- able to recover.
   | ErrorStatement Diagnostic (Maybe Statement)
 
+-- Some constant value in our program.
+data Constant
+  -- `true`, `false`
+  = BooleanConstant Range Bool
+
 -- Some instructions our programming language interprets to return a value and possibly perform
 -- some side effects.
 data Expression
+  -- `C`
+  = ConstantExpression Constant
   -- `x`
-  = VariableExpression Range Identifier
+  | VariableExpression Range Identifier
   -- A parsing error occurred when trying to parse our expression. We might or might not have been
   -- able to recover.
   | ErrorExpression Diagnostic (Maybe Expression)
@@ -57,9 +64,16 @@ debugStatement (ErrorStatement _ (Just s)) =
     <> debugStatement s
     <> B.fromText ")"
 
+-- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
+-- the structure of the AST node.
+debugConstant :: Constant -> B.Builder
+debugConstant (BooleanConstant range True) = B.fromText "(bool " <> debugRange range <> B.fromText " true)"
+debugConstant (BooleanConstant range False) = B.fromText "(bool " <> debugRange range <> B.fromText " false)"
+
 -- Debug an expression in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugExpression :: Expression -> B.Builder
+debugExpression (ConstantExpression constant) = debugConstant constant
 debugExpression (VariableExpression range ident) =
   B.fromText "(var "
     <> debugRange range

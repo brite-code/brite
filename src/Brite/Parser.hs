@@ -33,6 +33,19 @@ tryBindingStatement =
     build _ p (Right _) x _ = BindingStatement p x
     build _ p (Left e) x _ = ErrorStatement e (Just (BindingStatement p x))
 
+tryConstant :: Parser Constant
+tryConstant =
+  tryBooleanTrue
+    <|> tryBooleanFalse
+
+tryBooleanTrue :: Parser Constant
+tryBooleanTrue = build <$> tryKeyword True_
+  where build r = BooleanConstant r True
+
+tryBooleanFalse :: Parser Constant
+tryBooleanFalse = build <$> tryKeyword False_
+  where build r = BooleanConstant r False
+
 expression :: Parser Expression
 expression = build <$> retry (tryExpression <|> unexpected ExpectedExpression)
   where
@@ -42,6 +55,7 @@ expression = build <$> retry (tryExpression <|> unexpected ExpectedExpression)
 tryExpression :: Parser Expression
 tryExpression =
   tryVariableExpression
+    <|> (ConstantExpression <$> tryConstant)
 
 tryVariableExpression :: Parser Expression
 tryVariableExpression = uncurry VariableExpression <$> tryIdentifier

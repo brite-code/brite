@@ -303,4 +303,10 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \\n\
       \err\n"
     )
+  , ( "true"
+    , "(bool 0:0-0:4 true)\n"
+    )
+  , ( "false"
+    , "(bool 0:0-0:5 false)\n"
+    )
   ]
