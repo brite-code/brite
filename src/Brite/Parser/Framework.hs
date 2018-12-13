@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Brite.Parser.Framework4
+module Brite.Parser.Framework
   ( Parser
   , runParser
   , retry

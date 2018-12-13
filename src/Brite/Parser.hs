@@ -3,7 +3,7 @@ module Brite.Parser
   ) where
 
 import Brite.AST
-import Brite.Parser.Framework4
+import Brite.Parser.Framework
 import Brite.Source
 import Control.Applicative hiding (optional)
 
