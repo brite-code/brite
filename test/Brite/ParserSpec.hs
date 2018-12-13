@@ -4,7 +4,7 @@ module Brite.ParserSpec (spec) where
 
 import Brite.AST
 import Brite.Diagnostics
-import Brite.Parser
+import qualified Brite.Parser as P
 import Brite.Parser.Framework
 import Brite.Source
 import qualified Data.Text as T
@@ -16,7 +16,7 @@ testParse :: HasCallStack => T.Text -> T.Text -> Expectation
 testParse input expected =
   let
     tokens = tokenize initialPosition input
-    (statement, diagnostics) = runDiagnosticWriter (runParser bindingStatement tokens)
+    (statement, diagnostics) = runDiagnosticWriter (runParser P.statement tokens)
     actual = L.toStrict $ B.toLazyText $
       (if null diagnostics then "" else
         mconcat (map debugDiagnostic diagnostics) <> B.singleton '\n')

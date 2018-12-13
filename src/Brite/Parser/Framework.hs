@@ -3,6 +3,7 @@
 module Brite.Parser.Framework
   ( Parser
   , runParser
+  , (<|>)
   , glyph
   , keyword
   , identifier
@@ -35,14 +36,16 @@ import Data.Maybe
 -- * If no one recognizes the token then we skip the token and try our original parser again on the
 --   next token.
 newtype Parser a = Parser
-  { unParser :: forall b. TokenList -> ParserOk a b -> ParserErr a b -> DiagnosticWriter b
+  { unParser :: forall b. Mode -> TokenList -> ParserOk a b -> ParserErr a b -> DiagnosticWriter b
   }
+
+data Mode = Normal | Speculative
 
 -- The “ok” continuation for our parser.
 --
 -- If the parser was successful it calls this function with the remaining tokens stream and
 -- the parsed value.
-type ParserOk a b = TokenList -> a -> DiagnosticWriter b
+type ParserOk a b = Mode -> TokenList -> a -> DiagnosticWriter b
 
 -- The “error” continuation for our parser.
 --
@@ -63,14 +66,24 @@ type ParserErr a b = TokenList -> DiagnosticWriter a -> ParserErrRetry b -> Diag
 type ParserErrRetry b = TokenList -> DiagnosticWriter b
 
 instance Functor Parser where
-  fmap f p = Parser (\ts0 ok err ->
-    unParser p ts0
-      (\ts1 x -> ok ts1 (f x))
+  fmap f p = Parser (\m ts0 ok err ->
+    unParser p m ts0
+      (\m' ts1 x -> ok m' ts1 (f x))
       (\ts1 x k -> err ts1 (f <$> x) k))
 
 instance Applicative Parser where
-  pure a = Parser (\ts ok _ -> ok ts a)
+  pure a = Parser (\m ts ok _ -> ok m ts a)
   (<*>) = sequence
+
+infixr 1 <|>
+
+-- Tries to parse the first parser. If we can’t then parse the second parser.
+--
+-- `Control.Applicative.Alternative` has an operator of the same name which does basically the same
+-- thing. Chooses between two alternatives. However, we don’t have a way to express the empty state
+-- required by that type class since error states are decided on a parser-by-parser basis.
+(<|>) :: Parser a -> Parser a -> Parser a
+(<|>) = choose
 
 -- Run a parser against a stream of tokens returning the parsed value and diagnostics reported
 -- during the process.
@@ -79,8 +92,8 @@ instance Applicative Parser where
 -- not parsed.
 runParser :: Parser a -> TokenList -> DiagnosticWriter a
 runParser p ts0 =
-  unParser p ts0
-    (\_ a -> return a)
+  unParser p Normal ts0
+    (\_ _ a -> return a)
     (\ts1 a k ->
       case ts1 of
         NextToken _ _ ts2 -> k ts2
@@ -112,13 +125,13 @@ identifier = terminal ExpectedIdentifier $ \t ->
 --
 -- [1]: https://en.wikipedia.org/wiki/Context-free_grammar
 terminal :: ExpectedToken -> (Token -> Maybe a) -> Parser (Either Diagnostic (Range, a))
-terminal ex parse = Parser (run Nothing)
+terminal ex parse = Parser (\_ ts ok err -> run Nothing ts ok err)
   where
     run e ts1 ok err =
       case ts1 of
         NextToken r t ts2 ->
           case parse t of
-            Just a -> ok ts2 $ Right (r, a)
+            Just a -> ok Normal ts2 $ Right (r, a)
             Nothing ->
               case t of
                 -- If we see an unexpected character we assume no one can handle it, so report
@@ -149,7 +162,7 @@ terminal ex parse = Parser (run Nothing)
           -- to retry.
           err ts1
             (Left <$> maybe (unexpectedEnding (Range p p) ex) return e)
-            (error "unused")
+            (error "unreachable")
 
 -- Sequences two parsers one after another. We execute the first parser to get a function for
 -- constructing the second parser.
@@ -157,22 +170,36 @@ terminal ex parse = Parser (run Nothing)
 -- If the first parser fails but the second parser succeeds then we recover from the first
 -- parser’s error.
 sequence :: Parser (a -> b) -> Parser a -> Parser b
-sequence p1 p2 = Parser $ \ts0 ok err ->
+sequence p1 p2 = Parser $ \m0 ts0 ok err ->
   -- Run the first parser.
-  unParser p1 ts0
+  unParser p1 m0 ts0
 
     -- If the first parser succeeds:
-    (\ts1 f ->
-      -- Run the second parser. If it succeeds call our “ok” callback. If it fails call our
+    (\m1 ts1 f ->
+      -- Run the second parser. If it succeeds call our “ok” callback. If it fails, call our
       -- “err” callback.
-      unParser p2 ts1
-        (\ts2 a -> ok ts2 (f a))
+      unParser p2 m1 ts1
+        (\m2 ts2 a -> ok m2 ts2 (f a))
         (\ts2 a k -> err ts2 (f <$> a) k))
 
     -- If the first parser fails:
     (\ts1 f k ->
-      -- Run the second parser. If it suceeds we can recover from our first parser’s error! If it
-      -- fails call our “err” callback.
-      unParser p2 ts1
-        (\ts2 a -> f >>= \f' -> ok ts2 (f' a))
-        (\ts2 a _ -> err ts2 (f <*> a) k))
+      case m0 of
+        -- If we are in speculative mode and we error _don’t_ run the second parser and _don’t_ try
+        -- to recover from the error. We also don’t provide any arguments to `err`. We expect that
+        -- speculative mode won’t need them.
+        Speculative ->
+          err (error "speculative") (error "speculative") (error "speculative")
+
+        Normal ->
+          -- Run the second parser. If it suceeds we can recover from our first parser’s error! If
+          -- it fails, call our “err” callback.
+          unParser p2 Normal ts1
+            (\m1 ts2 a -> f >>= \f' -> ok m1 ts2 (f' a))
+            (\ts2 a _ -> err ts2 (f <*> a) k))
+
+-- Tries to parse the first parser. If we can’t then parse the second parser.
+choose :: Parser a -> Parser a -> Parser a
+choose p1 p2 = Parser $ \m ts ok err ->
+  unParser p1 Speculative ts ok
+    (\_ _ _ -> unParser p2 m ts ok err)

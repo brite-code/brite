@@ -1,10 +1,15 @@
 module Brite.Parser
-  ( bindingStatement
+  ( statement
   ) where
 
 import Brite.AST
 import Brite.Parser.Framework
 import Brite.Source
+
+statement :: Parser Statement
+statement =
+  (ExpressionStatement <$> expression)
+    <|> bindingStatement
 
 bindingStatement :: Parser Statement
 bindingStatement =

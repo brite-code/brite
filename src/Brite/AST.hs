@@ -15,8 +15,10 @@ import qualified Data.Text.Lazy.Builder as B
 
 -- Represents some imperative action to be carried out.
 data Statement
+  -- `E;`
+  = ExpressionStatement Expression
   -- `let x = E;`
-  = BindingStatement Pattern Expression
+  | BindingStatement Pattern Expression
   -- A parsing error occurred when trying to parse our statement. We might or might not have been
   -- able to recover.
   | ErrorStatement Diagnostic (Maybe Statement)
@@ -42,6 +44,7 @@ data Pattern
 -- Debug a statement in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugStatement :: Statement -> B.Builder
+debugStatement (ExpressionStatement x) = debugExpression x
 debugStatement (BindingStatement p x) =
   B.fromText "(bind "
     <> debugPattern p
