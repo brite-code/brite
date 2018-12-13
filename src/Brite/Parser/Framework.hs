@@ -131,28 +131,17 @@ terminal ex parse = Parser (\_ ts ok err -> run Nothing ts ok err)
       case ts1 of
         NextToken r t ts2 ->
           case parse t of
-            Just a -> ok Normal ts2 $ Right (r, a)
+            Just a -> ok Normal ts2 (Right (r, a))
             Nothing ->
-              case t of
-                -- If we see an unexpected character we assume no one can handle it, so report
-                -- an error and immediately try again.
-                --
-                -- Call `run` with the first reported error.
-                UnexpectedChar _ -> do
+              -- Call the error callback so that we may attempt recovery. The error value either
+              -- uses the first reported error while calling `run` or it reports its own error.
+              --
+              -- If the continuation is called then we retry with the new tokens.
+              err ts1
+                (Left <$> maybe (unexpectedToken r t ex) return e)
+                (\ts3 -> do
                   e' <- unexpectedToken r t ex
-                  run (Just (fromMaybe e' e)) ts2 ok err
-
-                _ ->
-                  -- Call the error callback so that we may attempt recovery. The error value either
-                  -- uses the first reported error while calling `run` or it reports its own error.
-                  --
-                  -- If the continuation is called then we report an error and call `run` with the
-                  -- first reported error.
-                  err ts1
-                    (Left <$> maybe (unexpectedToken r t ex) return e)
-                    (\ts3 -> do
-                      e' <- unexpectedToken r t ex
-                      run (Just (fromMaybe e' e)) ts3 ok err)
+                  run (Just (fromMaybe e' e)) ts3 ok err)
 
         EndToken p ->
           -- Call the error callback so that we may attempt recovery. The error value either uses
