@@ -185,7 +185,7 @@ sequence p1 p2 = Parser $ \m0 ts0 ok err ->
           -- it fails, call our “err” callback.
           unParser p2 Normal ts1
             (\m1 ts2 a -> f >>= \f' -> ok m1 ts2 (f' a))
-            (\ts2 a _ -> err ts2 (f <*> a) k))
+            (\_ a _ -> err ts1 (f <*> a) k))
 
 -- Tries to parse the first parser. If we can’t then parse the second parser.
 choose :: Parser a -> Parser a -> Parser a

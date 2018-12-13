@@ -138,6 +138,7 @@ runDiagnosticWriter (DiagnosticWriter a ds) = (a, ds)
 data ExpectedToken
   = ExpectedGlyph Glyph
   | ExpectedIdentifier
+  | ExpectedUnknown
 
 -- The parser ran into a token it did not recognize.
 unexpectedToken :: DiagnosticMonad m => Range -> Token -> ExpectedToken -> m Diagnostic
@@ -201,6 +202,7 @@ diagnosticErrorMessage (UnexpectedEnding expected) =
 expectedTokenDescription :: ExpectedToken -> M.Markup
 expectedTokenDescription (ExpectedGlyph glyph) = M.code (glyphText glyph)
 expectedTokenDescription ExpectedIdentifier = M.plain "a variable name"
+expectedTokenDescription ExpectedUnknown = M.plain "something"
 
 -- Prints a diagnostic for debugging purposes.
 debugDiagnostic :: Diagnostic -> B.Builder
