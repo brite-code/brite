@@ -5,7 +5,7 @@ module Brite.ParserSpec (spec) where
 import Brite.AST
 import Brite.Diagnostics
 import qualified Brite.Parser as P
-import Brite.Parser.Framework
+import Brite.Parser.Framework4
 import Brite.Source
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
@@ -20,7 +20,7 @@ testParse input expected =
     actual = L.toStrict $ B.toLazyText $
       (if null diagnostics then "" else
         mconcat (map debugDiagnostic diagnostics) <> B.singleton '\n')
-      <> debugStatement statement
+      <> debugStatement (either (error "nope") id statement)
       <> B.singleton '\n'
   in
     actual `shouldBe` expected
@@ -73,7 +73,7 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "😈 let x = y"
-    , "(0:0-0:2) We wanted `let` but we found `😈`.\n\
+    , "(0:0-0:2) We wanted a variable name but we found `😈`.\n\
       \\n\
       \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n"
     )
@@ -96,7 +96,7 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( ") let x = y"
-    , "(0:0-0:1) We wanted `let` but we found `)`.\n\
+    , "(0:0-0:1) We wanted a variable name but we found `)`.\n\
       \\n\
       \(bind (var 0:6-0:7 `x`) (var 0:10-0:11 `y`))\n"
     )
@@ -216,10 +216,8 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
     , "(var 0:0-0:1 `x`)\n"
     )
   , ( "="
-    , "(0:0-0:1) We wanted `let` but we found `=`.\n\
-      \(0:0-0:1) We wanted a variable name but we found `=`.\n\
-      \(0:1-0:1) We wanted a variable name but the file ended.\n\
+    , "(0:0-0:1) We wanted a variable name but we found `=`.\n\
       \\n\
-      \(err (bind err err))\n"
+      \err\n"
     )
   ]
