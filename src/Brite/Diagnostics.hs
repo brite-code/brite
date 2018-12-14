@@ -111,28 +111,33 @@ class Monad m => DiagnosticMonad m where
   report :: Diagnostic -> m Diagnostic
 
 -- A simple diagnostic writer monad which writes diagnostics to a list.
-data DiagnosticWriter a = DiagnosticWriter a [Diagnostic]
+--
+-- Uses a function to build up the diagnostics list so that we can use cons (`:`) instead of append
+-- (`++`). This is basically the same as using `WriterT` with the [`Endo`][1] monoid.
+--
+-- [1]: http://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Monoid.html#t:Endo
+data DiagnosticWriter a = DiagnosticWriter a ([Diagnostic] -> [Diagnostic])
 
 instance Functor DiagnosticWriter where
   fmap f (DiagnosticWriter a ds) = DiagnosticWriter (f a) ds
 
 instance Applicative DiagnosticWriter where
-  pure a = DiagnosticWriter a []
-  (DiagnosticWriter f x) <*> (DiagnosticWriter a y) = DiagnosticWriter (f a) (x ++ y)
+  pure a = DiagnosticWriter a id
+  (DiagnosticWriter f x) <*> (DiagnosticWriter a y) = DiagnosticWriter (f a) (x . y)
 
 instance Monad DiagnosticWriter where
   (DiagnosticWriter a x) >>= f =
     let
       (DiagnosticWriter b y) = f a
     in
-      DiagnosticWriter b (x ++ y)
+      DiagnosticWriter b (x . y)
 
 instance DiagnosticMonad DiagnosticWriter where
-  report d = DiagnosticWriter d [d]
+  report d = DiagnosticWriter d (\ds -> d : ds)
 
 -- Runs a `DiagnosticWriter` monad.
 runDiagnosticWriter :: DiagnosticWriter a -> (a, [Diagnostic])
-runDiagnosticWriter (DiagnosticWriter a ds) = (a, ds)
+runDiagnosticWriter (DiagnosticWriter a ds) = (a, ds [])
 
 -- What token did we expect?
 data ExpectedToken
