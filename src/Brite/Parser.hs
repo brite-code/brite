@@ -33,40 +33,46 @@ tryBindingStatement =
     build _ p (Right _) x _ = BindingStatement p x
     build _ p (Left e) x _ = ErrorStatement e (Just (BindingStatement p x))
 
-tryConstant :: Parser Constant
+tryConstant :: Parser (Range, Constant)
 tryConstant =
   tryBooleanTrue
     <|> tryBooleanFalse
 
-tryBooleanTrue :: Parser Constant
+tryBooleanTrue :: Parser (Range, Constant)
 tryBooleanTrue = build <$> tryKeyword True_
-  where build r = BooleanConstant r True
+  where build r = (r, BooleanConstant True)
 
-tryBooleanFalse :: Parser Constant
+tryBooleanFalse :: Parser (Range, Constant)
 tryBooleanFalse = build <$> tryKeyword False_
-  where build r = BooleanConstant r False
+  where build r = (r, BooleanConstant False)
 
 expression :: Parser Expression
 expression = build <$> retry (tryExpression <|> unexpected ExpectedExpression)
   where
-    build (Left e) = ErrorExpression e Nothing
+    build (Left e) = Expression (diagnosticRange e) (ErrorExpression e Nothing)
     build (Right x) = x
 
 tryExpression :: Parser Expression
 tryExpression =
   tryVariableExpression
-    <|> (ConstantExpression <$> tryConstant)
+    <|> tryConstantExpression
+
+tryConstantExpression :: Parser Expression
+tryConstantExpression = build <$> tryConstant
+  where build (r, c) = Expression r (ConstantExpression c)
 
 tryVariableExpression :: Parser Expression
-tryVariableExpression = uncurry VariableExpression <$> tryIdentifier
+tryVariableExpression = build <$> tryIdentifier
+  where build (r, n) = Expression r (VariableExpression n)
 
 pattern :: Parser Pattern
 pattern = fmap build . retry $
   tryVariablePattern
     <|> unexpected ExpectedPattern
   where
-    build (Left e) = ErrorPattern e Nothing
+    build (Left e) = Pattern (diagnosticRange e) (ErrorPattern e Nothing)
     build (Right p) = p
 
 tryVariablePattern :: Parser Pattern
-tryVariablePattern = uncurry VariablePattern <$> tryIdentifier
+tryVariablePattern = build <$> tryIdentifier
+  where build (r, n) = Pattern r (VariablePattern n)

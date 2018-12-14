@@ -4,7 +4,9 @@ module Brite.AST
   ( Statement(..)
   , Constant(..)
   , Expression(..)
+  , ExpressionNode(..)
   , Pattern(..)
+  , PatternNode(..)
   , debugStatement
   , debugExpression
   ) where
@@ -26,24 +28,34 @@ data Statement
 -- Some constant value in our program.
 data Constant
   -- `true`, `false`
-  = BooleanConstant Range Bool
+  = BooleanConstant Bool
 
 -- Some instructions our programming language interprets to return a value and possibly perform
 -- some side effects.
-data Expression
+data Expression = Expression
+  { expressionRange :: Range
+  , expressionNode :: ExpressionNode
+  }
+
+data ExpressionNode
   -- `C`
   = ConstantExpression Constant
   -- `x`
-  | VariableExpression Range Identifier
+  | VariableExpression Identifier
   -- A parsing error occurred when trying to parse our expression. We might or might not have been
   -- able to recover.
   | ErrorExpression Diagnostic (Maybe Expression)
 
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
-data Pattern
+data Pattern = Pattern
+  { patternRange :: Range
+  , patternNode :: PatternNode
+  }
+
+data PatternNode
   -- `x`
-  = VariablePattern Range Identifier
+  = VariablePattern Identifier
   -- A parsing error occurred when trying to parse our pattern. We might or might not have been
   -- able to recover.
   | ErrorPattern Diagnostic (Maybe Pattern)
@@ -66,37 +78,43 @@ debugStatement (ErrorStatement _ (Just s)) =
 
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
-debugConstant :: Constant -> B.Builder
-debugConstant (BooleanConstant range True) = B.fromText "(bool " <> debugRange range <> B.fromText " true)"
-debugConstant (BooleanConstant range False) = B.fromText "(bool " <> debugRange range <> B.fromText " false)"
+debugConstant :: Range -> Constant -> B.Builder
+debugConstant range (BooleanConstant True) = B.fromText "(bool " <> debugRange range <> B.fromText " true)"
+debugConstant range (BooleanConstant False) = B.fromText "(bool " <> debugRange range <> B.fromText " false)"
 
 -- Debug an expression in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugExpression :: Expression -> B.Builder
-debugExpression (ConstantExpression constant) = debugConstant constant
-debugExpression (VariableExpression range ident) =
+debugExpression (Expression range (ConstantExpression constant)) = debugConstant range constant
+debugExpression (Expression range (VariableExpression ident)) =
   B.fromText "(var "
     <> debugRange range
     <> B.fromText " `"
     <> B.fromText (identifierText ident)
     <> B.fromText "`)"
-debugExpression (ErrorExpression _ Nothing) = B.fromText "err"
-debugExpression (ErrorExpression _ (Just x)) =
+debugExpression (Expression range (ErrorExpression _ Nothing)) =
+  B.fromText "(err " <> debugRange range <> B.fromText ")"
+debugExpression (Expression range (ErrorExpression _ (Just x))) =
   B.fromText "(err "
+    <> debugRange range
+    <> B.fromText " "
     <> debugExpression x
     <> B.fromText ")"
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugPattern :: Pattern -> B.Builder
-debugPattern (VariablePattern range ident) =
+debugPattern (Pattern range (VariablePattern ident)) =
   B.fromText "(var "
     <> debugRange range
     <> B.fromText " `"
     <> B.fromText (identifierText ident)
     <> B.fromText "`)"
-debugPattern (ErrorPattern _ Nothing) = B.fromText "err"
-debugPattern (ErrorPattern _ (Just x)) =
+debugPattern (Pattern range (ErrorPattern _ Nothing)) =
+  B.fromText "(err " <> debugRange range <> B.fromText ")"
+debugPattern (Pattern range (ErrorPattern _ (Just p))) =
   B.fromText "(err "
-    <> debugPattern x
+    <> debugRange range
+    <> B.fromText " "
+    <> debugPattern p
     <> B.fromText ")"

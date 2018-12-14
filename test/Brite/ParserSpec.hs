@@ -37,37 +37,37 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \(0:3-0:3) We wanted `=` but the file ended.\n\
       \(0:3-0:3) We wanted an expression but the file ended.\n\
       \\n\
-      \(err (bind err err))\n"
+      \(err (bind (err 0:3-0:3) (err 0:3-0:3)))\n"
     )
   , ( "let x"
     , "(0:5-0:5) We wanted `=` but the file ended.\n\
       \(0:5-0:5) We wanted an expression but the file ended.\n\
       \\n\
-      \(err (bind (var 0:4-0:5 `x`) err))\n"
+      \(err (bind (var 0:4-0:5 `x`) (err 0:5-0:5)))\n"
     )
   , ( "let ="
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
       \(0:5-0:5) We wanted an expression but the file ended.\n\
       \\n\
-      \(bind err err)\n"
+      \(bind (err 0:4-0:5) (err 0:5-0:5))\n"
     )
   , ( "let y"
     , "(0:5-0:5) We wanted `=` but the file ended.\n\
       \(0:5-0:5) We wanted an expression but the file ended.\n\
       \\n\
-      \(err (bind (var 0:4-0:5 `y`) err))\n"
+      \(err (bind (var 0:4-0:5 `y`) (err 0:5-0:5)))\n"
     )
   , ( "let ;"
     , "(0:4-0:5) We wanted a variable name but we found `;`.\n\
       \(0:4-0:5) We wanted `=` but we found `;`.\n\
       \(0:4-0:5) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind err err))\n"
+      \(err (bind (err 0:4-0:5) (err 0:4-0:5)))\n"
     )
   , ( "let x ="
     , "(0:7-0:7) We wanted an expression but the file ended.\n\
       \\n\
-      \(bind (var 0:4-0:5 `x`) err)\n"
+      \(bind (var 0:4-0:5 `x`) (err 0:7-0:7))\n"
     )
   , ( "let x y"
     , "(0:6-0:7) We wanted `=` but we found a variable name.\n\
@@ -78,18 +78,18 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
     , "(0:6-0:7) We wanted `=` but we found `;`.\n\
       \(0:6-0:7) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind (var 0:4-0:5 `x`) err))\n"
+      \(err (bind (var 0:4-0:5 `x`) (err 0:6-0:7)))\n"
     )
   , ( "let = y"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
       \\n\
-      \(bind err (var 0:6-0:7 `y`))\n"
+      \(bind (err 0:4-0:5) (var 0:6-0:7 `y`))\n"
     )
   , ( "let = ;"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
       \(0:6-0:7) We wanted an expression but we found `;`.\n\
       \\n\
-      \(bind err err)\n"
+      \(bind (err 0:4-0:5) (err 0:6-0:7))\n"
     )
   , ( "let x = y;"
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
@@ -163,7 +163,7 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
   , ( "let 😈 = y;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
       \\n\
-      \(bind err (var 0:9-0:10 `y`))\n"
+      \(bind (err 0:4-0:6) (var 0:9-0:10 `y`))\n"
     )
   , ( "let x 😈 y;"
     , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
@@ -173,44 +173,44 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
   , ( "let x = 😈;"
     , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
       \\n\
-      \(bind (var 0:4-0:5 `x`) err)\n"
+      \(bind (var 0:4-0:5 `x`) (err 0:8-0:10))\n"
     )
   , ( "let 😈 y;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
       \(0:8-0:9) We wanted `=` but we found `;`.\n\
       \(0:8-0:9) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind (var 0:7-0:8 `y`) err))\n"
+      \(err (bind (var 0:7-0:8 `y`) (err 0:8-0:9)))\n"
     )
   , ( "let 😈 =;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
       \(0:8-0:9) We wanted an expression but we found `;`.\n\
       \\n\
-      \(bind err err)\n"
+      \(bind (err 0:4-0:6) (err 0:8-0:9))\n"
     )
   , ( "let x 😈;"
     , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
       \(0:8-0:9) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind (var 0:4-0:5 `x`) err))\n"
+      \(err (bind (var 0:4-0:5 `x`) (err 0:8-0:9)))\n"
     )
   , ( "let = 😈;"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
       \(0:6-0:8) We wanted an expression but we found `😈`.\n\
       \\n\
-      \(bind err err)\n"
+      \(bind (err 0:4-0:5) (err 0:6-0:8))\n"
     )
   , ( "let 😈;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
       \(0:6-0:7) We wanted `=` but we found `;`.\n\
       \(0:6-0:7) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind err err))\n"
+      \(err (bind (err 0:4-0:6) (err 0:6-0:7)))\n"
     )
   , ( "let ) = y;"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
       \\n\
-      \(bind err (var 0:8-0:9 `y`))\n"
+      \(bind (err 0:4-0:5) (var 0:8-0:9 `y`))\n"
     )
   , ( "let x ) y;"
     , "(0:6-0:7) We wanted `=` but we found `)`.\n\
@@ -220,39 +220,39 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
   , ( "let x = );"
     , "(0:8-0:9) We wanted an expression but we found `)`.\n\
       \\n\
-      \(bind (var 0:4-0:5 `x`) err)\n"
+      \(bind (var 0:4-0:5 `x`) (err 0:8-0:9))\n"
     )
   , ( "let ) y;"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
       \(0:7-0:8) We wanted `=` but we found `;`.\n\
       \(0:7-0:8) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind (var 0:6-0:7 `y`) err))\n"
+      \(err (bind (var 0:6-0:7 `y`) (err 0:7-0:8)))\n"
     )
   , ( "let ) =;"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
       \(0:7-0:8) We wanted an expression but we found `;`.\n\
       \\n\
-      \(bind err err)\n"
+      \(bind (err 0:4-0:5) (err 0:7-0:8))\n"
     )
   , ( "let x );"
     , "(0:6-0:7) We wanted `=` but we found `)`.\n\
       \(0:7-0:8) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind (var 0:4-0:5 `x`) err))\n"
+      \(err (bind (var 0:4-0:5 `x`) (err 0:7-0:8)))\n"
     )
   , ( "let = );"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
       \(0:6-0:7) We wanted an expression but we found `)`.\n\
       \\n\
-      \(bind err err)\n"
+      \(bind (err 0:4-0:5) (err 0:6-0:7))\n"
     )
   , ( "let );"
     , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
       \(0:5-0:6) We wanted `=` but we found `;`.\n\
       \(0:5-0:6) We wanted an expression but we found `;`.\n\
       \\n\
-      \(err (bind err err))\n"
+      \(err (bind (err 0:4-0:5) (err 0:5-0:6)))\n"
     )
   , ( "x"
     , "(var 0:0-0:1 `x`)\n"
