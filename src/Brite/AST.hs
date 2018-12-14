@@ -42,6 +42,8 @@ data ExpressionNode
   = ConstantExpression Constant
   -- `x`
   | VariableExpression Identifier
+  -- `(E)`
+  | WrappedExpression Expression
   -- A parsing error occurred when trying to parse our expression. We might or might not have been
   -- able to recover.
   | ErrorExpression Diagnostic (Maybe Expression)
@@ -92,13 +94,19 @@ debugExpression (Expression range (VariableExpression ident)) =
     <> B.fromText " `"
     <> B.fromText (identifierText ident)
     <> B.fromText "`)"
+debugExpression (Expression range (WrappedExpression expression)) =
+  B.fromText "(wrap "
+    <> debugRange range
+    <> B.fromText " "
+    <> debugExpression expression
+    <> B.fromText ")"
 debugExpression (Expression range (ErrorExpression _ Nothing)) =
   B.fromText "(err " <> debugRange range <> B.fromText ")"
-debugExpression (Expression range (ErrorExpression _ (Just x))) =
+debugExpression (Expression range (ErrorExpression _ (Just expression))) =
   B.fromText "(err "
     <> debugRange range
     <> B.fromText " "
-    <> debugExpression x
+    <> debugExpression expression
     <> B.fromText ")"
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see

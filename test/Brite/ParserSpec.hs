@@ -309,4 +309,41 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
   , ( "false"
     , "(bool 0:0-0:5 false)\n"
     )
+  , ( "("
+    , "(0:1-0:1) We wanted an expression but the file ended.\n\
+      \(0:1-0:1) We wanted `)` but the file ended.\n\
+      \\n\
+      \(err 0:0-0:1 (wrap 0:0-0:1 (err 0:1-0:1)))\n"
+    )
+  , ( "(x"
+    , "(0:2-0:2) We wanted `)` but the file ended.\n\
+      \\n\
+      \(err 0:0-0:2 (wrap 0:0-0:2 (var 0:1-0:2 `x`)))\n"
+    )
+  , ( "()"
+    , "(0:1-0:2) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(wrap 0:0-0:2 (err 0:1-0:2))\n"
+    )
+  , ( "(x)"
+    , "(wrap 0:0-0:3 (var 0:1-0:2 `x`))\n"
+    )
+  , ( "x)"
+    , "(0:1-0:2) We wanted `;` but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `x`)\n"
+    )
+  , ( "(x;"
+    , "(0:2-0:3) We wanted `)` but we found `;`.\n\
+      \\n\
+      \(err 0:0-0:2 (wrap 0:0-0:2 (var 0:1-0:2 `x`)))\n"
+    )
+  , ( "let x = (y);"
+    , "(bind (var 0:4-0:5 `x`) (wrap 0:8-0:11 (var 0:9-0:10 `y`)))\n"
+    )
+  , ( "let x = (y;"
+    , "(0:10-0:11) We wanted `)` but we found `;`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (err 0:8-0:10 (wrap 0:8-0:10 (var 0:9-0:10 `y`))))\n"
+    )
   ]
