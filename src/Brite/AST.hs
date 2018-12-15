@@ -3,6 +3,8 @@
 module Brite.AST
   ( Module(..)
   , Statement(..)
+  , StatementNode(..)
+  , Block(..)
   , Constant(..)
   , Expression(..)
   , ExpressionNode(..)
@@ -19,14 +21,23 @@ import qualified Data.Text.Lazy.Builder as B
 newtype Module = Module [Statement]
 
 -- Represents some imperative action to be carried out.
-data Statement
+data Statement = Statement
+  { statementRange :: Range
+  , statementNode :: StatementNode
+  }
+
+data StatementNode
   -- `E;`
   = ExpressionStatement Expression
   -- `let x = E;`
   | BindingStatement Pattern Expression
   -- A parsing error occurred when trying to parse our statement. We might or might not have been
   -- able to recover.
-  | ErrorStatement Diagnostic (Maybe Statement)
+  | ErrorStatement Diagnostic (Maybe StatementNode)
+
+-- A set of statements scoped in a block. Names declared in this block may only be accessed by code
+-- within the block.
+newtype Block = Block [Statement]
 
 -- Some constant value in our program.
 data Constant
@@ -45,11 +56,13 @@ data ExpressionNode
   = ConstantExpression Constant
   -- `x`
   | VariableExpression Identifier
+  -- `do { ... }`
+  | BlockExpression Block
   -- `(E)`
   | WrappedExpression Expression
   -- A parsing error occurred when trying to parse our expression. We might or might not have been
   -- able to recover.
-  | ErrorExpression Diagnostic (Maybe Expression)
+  | ErrorExpression Diagnostic (Maybe ExpressionNode)
 
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
@@ -63,29 +76,33 @@ data PatternNode
   = VariablePattern Identifier
   -- A parsing error occurred when trying to parse our pattern. We might or might not have been
   -- able to recover.
-  | ErrorPattern Diagnostic (Maybe Pattern)
+  | ErrorPattern Diagnostic (Maybe PatternNode)
 
 -- Debug a module in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST. Each statement in the module is on its own line.
 debugModule :: Module -> B.Builder
 debugModule (Module []) = B.fromText "empty\n"
 debugModule (Module statements) =
-  mconcat $ map (\s -> debugStatement s <> B.singleton '\n') statements
+  mconcat $ map (\s -> debugStatement "" s <> B.singleton '\n') statements
 
 -- Debug a statement in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
-debugStatement :: Statement -> B.Builder
-debugStatement (ExpressionStatement x) = debugExpression x
-debugStatement (BindingStatement p x) =
+debugStatement :: B.Builder -> Statement -> B.Builder
+debugStatement indentation (Statement _ (ExpressionStatement expression)) =
+  debugExpression indentation expression
+debugStatement indentation (Statement range (BindingStatement pattern expression)) =
   B.fromText "(bind "
-    <> debugPattern p
+    <> debugRange range
     <> B.singleton ' '
-    <> debugExpression x
+    <> debugPattern pattern
+    <> B.singleton ' '
+    <> debugExpression indentation expression
     <> B.fromText ")"
-debugStatement (ErrorStatement _ Nothing) = B.fromText "err"
-debugStatement (ErrorStatement _ (Just s)) =
+debugStatement _ (Statement range (ErrorStatement _ Nothing)) =
+  B.fromText "(err " <> debugRange range <> B.fromText ")"
+debugStatement indentation (Statement range (ErrorStatement _ (Just statement))) =
   B.fromText "(err "
-    <> debugStatement s
+    <> debugStatement indentation (Statement range statement)
     <> B.fromText ")"
 
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
@@ -96,27 +113,37 @@ debugConstant range (BooleanConstant False) = B.fromText "(bool " <> debugRange 
 
 -- Debug an expression in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
-debugExpression :: Expression -> B.Builder
-debugExpression (Expression range (ConstantExpression constant)) = debugConstant range constant
-debugExpression (Expression range (VariableExpression ident)) =
+debugExpression :: B.Builder -> Expression -> B.Builder
+debugExpression _ (Expression range (ConstantExpression constant)) =
+  debugConstant range constant
+debugExpression _ (Expression range (VariableExpression identifier)) =
   B.fromText "(var "
     <> debugRange range
     <> B.fromText " `"
-    <> B.fromText (identifierText ident)
+    <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
-debugExpression (Expression range (WrappedExpression expression)) =
+debugExpression indentation (Expression range (BlockExpression (Block block))) =
+  let
+    newIndentation = indentation <> B.fromText "  "
+  in
+    B.fromText "(block "
+      <> debugRange range
+      <> mconcat (map (\s ->
+          B.singleton '\n'
+            <> newIndentation
+            <> debugStatement newIndentation s) block)
+      <> B.fromText ")"
+debugExpression indentation (Expression range (WrappedExpression expression)) =
   B.fromText "(wrap "
     <> debugRange range
     <> B.fromText " "
-    <> debugExpression expression
+    <> debugExpression indentation expression
     <> B.fromText ")"
-debugExpression (Expression range (ErrorExpression _ Nothing)) =
+debugExpression _ (Expression range (ErrorExpression _ Nothing)) =
   B.fromText "(err " <> debugRange range <> B.fromText ")"
-debugExpression (Expression range (ErrorExpression _ (Just expression))) =
+debugExpression indentation (Expression range (ErrorExpression _ (Just expression))) =
   B.fromText "(err "
-    <> debugRange range
-    <> B.fromText " "
-    <> debugExpression expression
+    <> debugExpression indentation (Expression range expression)
     <> B.fromText ")"
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
@@ -130,9 +157,7 @@ debugPattern (Pattern range (VariablePattern ident)) =
     <> B.fromText "`)"
 debugPattern (Pattern range (ErrorPattern _ Nothing)) =
   B.fromText "(err " <> debugRange range <> B.fromText ")"
-debugPattern (Pattern range (ErrorPattern _ (Just p))) =
+debugPattern (Pattern range (ErrorPattern _ (Just pattern))) =
   B.fromText "(err "
-    <> debugRange range
-    <> B.fromText " "
-    <> debugPattern p
+    <> debugPattern (Pattern range pattern)
     <> B.fromText ")"

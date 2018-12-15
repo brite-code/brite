@@ -18,8 +18,18 @@ parse tokens = fromRight <$> runParser (Module <$> many tryStatement) tokens
 tryStatement :: Parser Statement
 tryStatement =
   tryBindingStatement
-    <|> (ExpressionStatement <$> tryExpression <* optional (tryGlyph Semicolon))
+    <|> tryExpressionStatement
     <|> unexpected ExpectedStatement
+
+tryExpressionStatement :: Parser Statement
+tryExpressionStatement =
+  build
+    <$> tryExpression
+    <*> optional (tryGlyph Semicolon)
+  where
+    build x Nothing = Statement (expressionRange x) (ExpressionStatement x)
+    build x (Just end) =
+      Statement (Range (rangeStart (expressionRange x)) (rangeEnd end)) (ExpressionStatement x)
 
 tryBindingStatement :: Parser Statement
 tryBindingStatement =
@@ -30,12 +40,16 @@ tryBindingStatement =
     <*> expression
     <*> optional (tryGlyph Semicolon)
   where
-    -- We have an annotation here so that Haskell tells us if the type changes on any of our
-    -- wildcards. For instance, if a type changes to `Either` then we’d want to use
-    -- `ErrorStatement`s when we have a `Left`.
-    build :: Range -> Pattern -> Either Diagnostic Range -> Expression -> Maybe Range -> Statement
-    build _ p (Right _) x _ = BindingStatement p x
-    build _ p (Left e) x _ = ErrorStatement e (Just (BindingStatement p x))
+    build start p (Right _) x (Just end) =
+      Statement (Range (rangeStart start) (rangeEnd end)) (BindingStatement p x)
+    build start p (Left e) x (Just end) =
+      let range = Range (rangeStart start) (rangeEnd end) in
+      Statement range (ErrorStatement e (Just (BindingStatement p x)))
+    build start p (Right _) x Nothing =
+      Statement (Range (rangeStart start) (rangeEnd (expressionRange x))) (BindingStatement p x)
+    build start p (Left e) x Nothing =
+      let range = Range (rangeStart start) (rangeEnd (expressionRange x)) in
+      Statement range (ErrorStatement e (Just (BindingStatement p x)))
 
 tryConstant :: Parser (Range, Constant)
 tryConstant =
@@ -56,11 +70,13 @@ expression = build <$> retry (tryExpression <|> unexpected ExpectedExpression)
     build (Left e) = Expression (diagnosticRange e) (ErrorExpression e Nothing)
     build (Right x) = x
 
+-- Ordered by frequency. Parsers that are more likely to match go first.
 tryExpression :: Parser Expression
 tryExpression =
   tryVariableExpression
     <|> tryWrappedExpression
     <|> tryConstantExpression
+    -- <|> tryBlockStatement
 
 tryConstantExpression :: Parser Expression
 tryConstantExpression = build <$> tryConstant
@@ -70,6 +86,22 @@ tryVariableExpression :: Parser Expression
 tryVariableExpression = build <$> tryIdentifier
   where build (r, n) = Expression r (VariableExpression n)
 
+-- tryBlockStatement :: Parser Expression
+-- tryBlockStatement =
+--   build
+--     <$> tryKeyword Do
+--     <*> glyph BraceLeft
+--     <*> many tryStatement
+--     <*> glyph BraceRight
+--   where
+--     build' range statements = Expression range (BlockExpression (Block statements))
+--     build start (Right _) statements (Right end) =
+--       build' (Range (rangeStart start) (rangeEnd end)) statements
+--     build start (Left error) statements (Right end) =
+--       let range = Range (rangeStart start) (rangeEnd end) in
+--       ErrorExpression range (Just (build' range statements))
+--     build start (Right _) statements (Left error) =
+
 tryWrappedExpression :: Parser Expression
 tryWrappedExpression =
   build
@@ -77,12 +109,11 @@ tryWrappedExpression =
     <*> expression
     <*> glyph ParenRight
   where
-    build r1 x (Right r2) = Expression (Range (rangeStart r1) (rangeEnd r2)) (WrappedExpression x)
-    build r1 x (Left e) =
-      let
-        range = Range (rangeStart r1) (rangeEnd (expressionRange x))
-      in
-        Expression range (ErrorExpression e (Just (Expression range (WrappedExpression x))))
+    build start x (Right end) =
+      Expression (Range (rangeStart start) (rangeEnd end)) (WrappedExpression x)
+    build start x (Left e) =
+      let range = Range (rangeStart start) (rangeEnd (expressionRange x)) in
+      Expression range (ErrorExpression e (Just (WrappedExpression x)))
 
 pattern :: Parser Pattern
 pattern = fmap build . retry $
