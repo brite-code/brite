@@ -1,21 +1,25 @@
 module Brite.Parser
-  ( statement
+  ( parse
   ) where
 
 import Brite.AST
 import Brite.Parser.Framework
 import Brite.Diagnostics
 import Brite.Source
-import Control.Applicative hiding (optional)
+import Control.Applicative hiding (optional, many)
 
-statement :: Parser Statement
-statement = fmap build . retry $
+-- Parses a Brite module from a stream of tokens.
+parse :: TokenList -> DiagnosticWriter Module
+parse tokens = fromRight <$> runParser (Module <$> many tryStatement) tokens
+  where
+    fromRight (Right x) = x
+    fromRight (Left _) = error "Unexpected failure."
+
+tryStatement :: Parser Statement
+tryStatement =
   tryBindingStatement
     <|> (ExpressionStatement <$> tryExpression <* optional (tryGlyph Semicolon))
     <|> unexpected ExpectedStatement
-  where
-    build (Left e) = ErrorStatement e Nothing
-    build (Right s) = s
 
 tryBindingStatement :: Parser Statement
 tryBindingStatement =

@@ -1,19 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.AST
-  ( Statement(..)
+  ( Module(..)
+  , Statement(..)
   , Constant(..)
   , Expression(..)
   , ExpressionNode(..)
   , Pattern(..)
   , PatternNode(..)
-  , debugStatement
-  , debugExpression
+  , debugModule
   ) where
 
 import Brite.Diagnostics
 import Brite.Source
 import qualified Data.Text.Lazy.Builder as B
+
+-- A single Brite file is a module. A module is made up of a list of statements.
+newtype Module = Module [Statement]
 
 -- Represents some imperative action to be carried out.
 data Statement
@@ -61,6 +64,13 @@ data PatternNode
   -- A parsing error occurred when trying to parse our pattern. We might or might not have been
   -- able to recover.
   | ErrorPattern Diagnostic (Maybe Pattern)
+
+-- Debug a module in an S-expression form. This abbreviated format should make it easier to see
+-- the structure of the AST. Each statement in the module is on its own line.
+debugModule :: Module -> B.Builder
+debugModule (Module []) = B.fromText "empty\n"
+debugModule (Module statements) =
+  mconcat $ map (\s -> debugStatement s <> B.singleton '\n') statements
 
 -- Debug a statement in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.

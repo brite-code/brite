@@ -4,7 +4,7 @@ module Brite.ParserSpec (spec) where
 
 import Brite.AST
 import Brite.Diagnostics
-import qualified Brite.Parser as P
+import Brite.Parser
 import Brite.Parser.Framework
 import Brite.Source
 import qualified Data.Text as T
@@ -12,20 +12,21 @@ import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
 import Test.Hspec
 
-testParse :: HasCallStack => T.Text -> T.Text -> Expectation
-testParse input expected =
-  let
-    tokens = tokenize initialPosition input
-    (statement, diagnostics) = runDiagnosticWriter (runParser P.statement tokens)
-    actual = L.toStrict $ B.toLazyText $
-      (if null diagnostics then "" else
-        mconcat (map debugDiagnostic diagnostics) <> B.singleton '\n')
-      <> debugStatement (either (error "nope") id statement)
-      <> B.singleton '\n'
-  in
-    actual `shouldBe` expected
+runTest :: T.Text -> T.Text -> Spec
+runTest input expected =
+  it (T.unpack (T.replace "\n" "\\n" input)) $
+    let
+      tokens = tokenize initialPosition input
+      (module_, diagnostics) = runDiagnosticWriter (parse tokens)
+      actual = L.toStrict $ B.toLazyText $
+        (if null diagnostics then "" else
+          mconcat (map debugDiagnostic diagnostics) <> B.singleton '\n')
+        <> debugModule module_
+    in
+      actual `shouldBe` expected
 
-spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expected)
+spec :: Spec
+spec = mapM_ (uncurry runTest)
   [ ( "let x = y;"
     , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
@@ -120,7 +121,9 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "let x = y; 😈"
-    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
+    , "(0:11-0:13) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "let x = y 😈"
     , "(0:10-0:12) We wanted `;` but we found `😈`.\n\
@@ -153,7 +156,9 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "let x = y; )"
-    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
+    , "(0:11-0:12) We wanted a statement but we found `)`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "let x = y )"
     , "(0:10-0:11) We wanted `;` but we found `)`.\n\
@@ -281,27 +286,29 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
       \(var 0:0-0:1 `x`)\n"
     )
   , ( "x; 😈"
-    , "(var 0:0-0:1 `x`)\n"
+    , "(0:3-0:5) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(var 0:0-0:1 `x`)\n"
     )
   , ( "="
     , "(0:0-0:1) We wanted a statement but we found `=`.\n\
       \\n\
-      \err\n"
+      \empty\n"
     )
   , ( "😈"
     , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
       \\n\
-      \err\n"
+      \empty\n"
     )
   , ( ")"
     , "(0:0-0:1) We wanted a statement but we found `)`.\n\
       \\n\
-      \err\n"
+      \empty\n"
     )
   , ( ";"
     , "(0:0-0:1) We wanted a statement but we found `;`.\n\
       \\n\
-      \err\n"
+      \empty\n"
     )
   , ( "true"
     , "(bool 0:0-0:4 true)\n"
@@ -345,5 +352,106 @@ spec = mapM_ (\(input, expected) -> it (T.unpack input) $ testParse input expect
     , "(0:10-0:11) We wanted `)` but we found `;`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (err 0:8-0:10 (wrap 0:8-0:10 (var 0:9-0:10 `y`))))\n"
+    )
+  , ( "let x = y; let x = y;"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n"
+    )
+  , ( "let x = y; let x = y; let x = y;"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
+      \(bind (var 0:26-0:27 `x`) (var 0:30-0:31 `y`))\n"
+    )
+  , ( "let x = y; let x = y; let x = y; let x = y;"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
+      \(bind (var 0:26-0:27 `x`) (var 0:30-0:31 `y`))\n\
+      \(bind (var 0:37-0:38 `x`) (var 0:41-0:42 `y`))\n"
+    )
+  , ( "let x = y let x = y"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:14-0:15 `x`) (var 0:18-0:19 `y`))\n"
+    )
+  , ( "let x = y let x = y let x = y"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:14-0:15 `x`) (var 0:18-0:19 `y`))\n\
+      \(bind (var 0:24-0:25 `x`) (var 0:28-0:29 `y`))\n"
+    )
+  , ( "let x = y let x = y let x = y let x = y"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:14-0:15 `x`) (var 0:18-0:19 `y`))\n\
+      \(bind (var 0:24-0:25 `x`) (var 0:28-0:29 `y`))\n\
+      \(bind (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))\n"
+    )
+  , ( "let x = y\nlet x = y\n"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 1:4-1:5 `x`) (var 1:8-1:9 `y`))\n"
+    )
+  , ( "let x = y\nlet x = y\nlet x = y\n"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 1:4-1:5 `x`) (var 1:8-1:9 `y`))\n\
+      \(bind (var 2:4-2:5 `x`) (var 2:8-2:9 `y`))\n"
+    )
+  , ( "let x = y\nlet x = y\nlet x = y\nlet x = y\n"
+    , "(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 1:4-1:5 `x`) (var 1:8-1:9 `y`))\n\
+      \(bind (var 2:4-2:5 `x`) (var 2:8-2:9 `y`))\n\
+      \(bind (var 3:4-3:5 `x`) (var 3:8-3:9 `y`))\n"
+    )
+  , ( "😈 let x = y; let x = y; let x = y;"
+    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n\
+      \(bind (var 0:18-0:19 `x`) (var 0:22-0:23 `y`))\n\
+      \(bind (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))\n"
+    )
+  , ( "let x = y; 😈 let x = y; let x = y;"
+    , "(0:11-0:13) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:18-0:19 `x`) (var 0:22-0:23 `y`))\n\
+      \(bind (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))\n"
+    )
+  , ( "let x = y; let x = y; 😈 let x = y;"
+    , "(0:22-0:24) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
+      \(bind (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))\n"
+    )
+  , ( "let x = y; let x = y; let x = y; 😈"
+    , "(0:33-0:35) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
+      \(bind (var 0:26-0:27 `x`) (var 0:30-0:31 `y`))\n"
+    )
+  , ( "😈 let x = y let x = y let x = y"
+    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n\
+      \(bind (var 0:17-0:18 `x`) (var 0:21-0:22 `y`))\n\
+      \(bind (var 0:27-0:28 `x`) (var 0:31-0:32 `y`))\n"
+    )
+  , ( "let x = y 😈 let x = y let x = y"
+    , "(0:10-0:12) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:17-0:18 `x`) (var 0:21-0:22 `y`))\n\
+      \(bind (var 0:27-0:28 `x`) (var 0:31-0:32 `y`))\n"
+    )
+  , ( "let x = y let x = y 😈 let x = y"
+    , "(0:20-0:22) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:14-0:15 `x`) (var 0:18-0:19 `y`))\n\
+      \(bind (var 0:27-0:28 `x`) (var 0:31-0:32 `y`))\n"
+    )
+  , ( "let x = y let x = y let x = y 😈"
+    , "(0:30-0:32) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(bind (var 0:14-0:15 `x`) (var 0:18-0:19 `y`))\n\
+      \(bind (var 0:24-0:25 `x`) (var 0:28-0:29 `y`))\n"
     )
   ]

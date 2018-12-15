@@ -5,6 +5,7 @@ module Brite.Parser.Framework
   , runParser
   , retry
   , optional
+  , many
   , unexpected
   , glyph
   , keyword
@@ -16,7 +17,8 @@ module Brite.Parser.Framework
 
 import Brite.Diagnostics
 import Brite.Source
-import Control.Applicative hiding (optional)
+import Control.Applicative hiding (optional, many)
+import qualified Data.DList as L
 import Data.Maybe
 
 -- The Brite parser turns a stream of tokens into the AST of a Brite program. The Brite parser is
@@ -124,9 +126,15 @@ instance Applicative Parser where
           (\ts2 a -> ok ts2 (f a))
           (\ts2 a k -> skip ts2 (f <$> a) k))
       (\ts1 f k ->
-        unParser p2 ts1 err
-          (\ts2 a -> f >>= \f' -> ok ts2 (f' a))
-          (\_ a _ -> skip ts1 (f <*> a) k))
+        case ts1 of
+          -- Optimization: if the token is an unexpected character don’t bother trying to run `p2`.
+          -- We know that no parser can handle an unexpected token. Instead call the
+          -- continuation immediately.
+          NextToken _ (UnexpectedChar _) ts2 -> k ts2
+          _ ->
+            unParser p2 ts1 err
+              (\ts2 a -> f >>= \f' -> ok ts2 (f' a))
+              (\_ a _ -> skip ts1 (f <*> a) k))
 
 -- Parsers are alternatives, we can choose between two alternatives. This is another very
 -- important combinator!
@@ -174,16 +182,9 @@ retry p = Parser (\ts _ ok skip -> run Nothing ts ok skip)
     run e1 ts0 ok skip =
       unParser p ts0
         (\e2 ->
-          let
-            a = Left <$> maybe e2 return e1
-            k ts1 = e2 >>= \e2' -> run (Just (fromMaybe e2' e1)) ts1 ok skip
-          in
-            case ts0 of
-              -- Optimization: if the token is an unexpected character don’t bother calling `skip`
-              -- since we know no one can handle an unexpected character. Instead call the
-              -- continuation immediately.
-              NextToken _ (UnexpectedChar _) ts1 -> k ts1
-              _ -> skip ts0 a k)
+          skip ts0
+            (Left <$> maybe e2 return e1)
+            (\ts1 -> e2 >>= \e2' -> run (Just (fromMaybe e2' e1)) ts1 ok skip))
 
         (\ts1 a -> ok ts1 (Right a))
         (\ts1 a k -> skip ts1 (Right <$> a) k)
@@ -191,7 +192,7 @@ retry p = Parser (\ts _ ok skip -> run Nothing ts ok skip)
 -- Either runs our parser or does not run our parser.
 --
 -- `Control.Applicative` also has an operator named `optional`. It is implemented as
--- `Just <$> v <|> pure Nothing`. However, our implementation does a very similar thing but is more
+-- `Just <$> v <|> pure Nothing`. Our implementation does a very similar thing but is more
 -- specialized to the task at hand.
 --
 -- Notably, `Control.Applicative` returns `Nothing` if we can’t run the parser.
@@ -207,20 +208,36 @@ optional p = Parser (\ts _ ok skip -> run ts ok skip)
   where
     run ts0 ok skip =
       unParser p ts0
-        (\e2 ->
-          let
-            a = return Nothing
-            k ts1 = e2 *> run ts1 ok skip
-          in
-            case ts0 of
-              -- Optimization: if the token is an unexpected character don’t bother calling `skip`
-              -- since we know no one can handle an unexpected character. Instead call the
-              -- continuation immediately.
-              NextToken _ (UnexpectedChar _) ts1 -> k ts1
-              _ -> skip ts0 a k)
-
+        (\e -> skip ts0 (return Nothing) (\ts1 -> e *> run ts1 ok skip))
         (\ts1 a -> ok ts1 (Just a))
         (\ts1 a k -> skip ts1 (Just <$> a) k)
+
+-- Applies the parser zero or more times and returns a list of the parsed values.
+--
+-- `Control.Applicative` also has an operator named `many`. It is implemented as roughly
+-- `many p = ((:) <$> p <*> (many p)) <|> pure []`. Our implementation does a very similar thing but
+-- is more specialized to the task at hand.
+--
+-- Notably, our implementation will not stop parsing until we reach a token which _can_ be parsed by
+-- a subsequent parser. Unlike the `Control.Applicative` version which will not stop parsing until
+-- we reach a token which _can’t_ be parsed by our current parser.
+--
+-- This parser will never fail. If nothing can be parsed we will report some diagnostics and return
+-- an empty list,
+many :: Parser a -> Parser [a]
+many p = Parser (\ts _ ok skip -> run (return L.empty) ts ok skip)
+  where
+    run acc ts ok skip =
+      unParser p ts
+        (\e -> skip ts (L.toList <$> acc) (\ts2 -> e *> run acc ts2 ok skip))
+        (\ts2 a -> run (flip L.snoc a <$> acc) ts2 ok skip)
+        (\ts2 a k -> runSkip (liftA2 L.snoc acc a) ts2 ok skip k)
+
+    runSkip acc ts ok skip k =
+      unParser p ts
+        (\_ -> skip ts (L.toList <$> acc) k)
+        (\ts2 a -> run (flip L.snoc a <$> acc) ts2 ok skip)
+        (\ts2 a k2 -> runSkip (liftA2 L.snoc acc a) ts2 ok skip k2)
 
 -- Always fails with an unexpected token error. We can use this at the end of an alternative chain
 -- to make the error message better.
