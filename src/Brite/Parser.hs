@@ -76,7 +76,7 @@ tryExpression =
   tryVariableExpression
     <|> tryWrappedExpression
     <|> tryConstantExpression
-    -- <|> tryBlockStatement
+    <|> tryBlockExpression
 
 tryConstantExpression :: Parser Expression
 tryConstantExpression = build <$> tryConstant
@@ -86,21 +86,33 @@ tryVariableExpression :: Parser Expression
 tryVariableExpression = build <$> tryIdentifier
   where build (r, n) = Expression r (VariableExpression n)
 
--- tryBlockStatement :: Parser Expression
--- tryBlockStatement =
---   build
---     <$> tryKeyword Do
---     <*> glyph BraceLeft
---     <*> many tryStatement
---     <*> glyph BraceRight
---   where
---     build' range statements = Expression range (BlockExpression (Block statements))
---     build start (Right _) statements (Right end) =
---       build' (Range (rangeStart start) (rangeEnd end)) statements
---     build start (Left error) statements (Right end) =
---       let range = Range (rangeStart start) (rangeEnd end) in
---       ErrorExpression range (Just (build' range statements))
---     build start (Right _) statements (Left error) =
+tryBlockExpression :: Parser Expression
+tryBlockExpression =
+  build
+    <$> tryKeyword Do
+    <*> glyph BraceLeft
+    <*> many tryStatement
+    <*> glyph BraceRight
+  where
+    build start (Right _) statements (Right end) =
+      Expression (Range (rangeStart start) (rangeEnd end)) (BlockExpression (Block statements))
+    build start (Left e) statements (Right end) =
+      let
+        range = Range (rangeStart start) (rangeEnd end)
+      in
+        Expression range (ErrorExpression e (Just (BlockExpression (Block statements))))
+    build start (Right end') statements (Left e) =
+      let
+        end = if null statements then end' else statementRange (last statements)
+        range = Range (rangeStart start) (rangeEnd end)
+      in
+        Expression range (ErrorExpression e (Just (BlockExpression (Block statements))))
+    build start (Left e) statements (Left _) =
+      let
+        end = if null statements then start else statementRange (last statements)
+        range = Range (rangeStart start) (rangeEnd end)
+      in
+        Expression range (ErrorExpression e (Just (BlockExpression (Block statements))))
 
 tryWrappedExpression :: Parser Expression
 tryWrappedExpression =
@@ -112,8 +124,10 @@ tryWrappedExpression =
     build start x (Right end) =
       Expression (Range (rangeStart start) (rangeEnd end)) (WrappedExpression x)
     build start x (Left e) =
-      let range = Range (rangeStart start) (rangeEnd (expressionRange x)) in
-      Expression range (ErrorExpression e (Just (WrappedExpression x)))
+      let
+        range = Range (rangeStart start) (rangeEnd (expressionRange x))
+      in
+        Expression range (ErrorExpression e (Just (WrappedExpression x)))
 
 pattern :: Parser Pattern
 pattern = fmap build . retry $
