@@ -6,7 +6,6 @@ import Brite.AST
 import Brite.Parser.Framework
 import Brite.Diagnostics
 import Brite.Source
-import Control.Applicative hiding (optional, many)
 
 -- Parses a Brite module from a stream of tokens.
 parse :: TokenList -> DiagnosticWriter Module
