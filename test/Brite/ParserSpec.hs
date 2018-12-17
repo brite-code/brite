@@ -529,7 +529,7 @@ spec = mapM_ (uncurry runTest)
   , ( "do"
     , "(0:2-0:2) We wanted `{` but the file ended.\n\
       \(0:2-0:2) We wanted `}` but the file ended.\n\
-      \\n(err (block 0:0-0:2))\n"
+      \\n(err 0:0-0:2)\n"
     )
   , ( "do do"
     , "(0:3-0:5) We wanted `{` but we found `do`.\n\
@@ -538,7 +538,7 @@ spec = mapM_ (uncurry runTest)
       \(0:5-0:5) We wanted `}` but the file ended.\n\
       \\n\
       \(err (block 0:0-0:5\n\
-      \  (err (block 0:3-0:5))))\n"
+      \  (err 0:3-0:5)))\n"
     )
   , ( "do { let x = y; }"
     , "(block 0:0-0:17\n\
@@ -591,7 +591,7 @@ spec = mapM_ (uncurry runTest)
     , "(0:11-0:12) We wanted `{` but we found `)`.\n\
       \(0:11-0:12) We wanted `}` but we found `)`.\n\
       \\n\
-      \(bind 0:0-0:13 (var 0:4-0:5 `x`) (wrap 0:8-0:12 (err (block 0:9-0:11))))\n"
+      \(bind 0:0-0:13 (var 0:4-0:5 `x`) (wrap 0:8-0:12 (err 0:9-0:11)))\n"
     )
   , ( "let x = (do let y = z; );"
     , "(0:12-0:15) We wanted `{` but we found `let`.\n\
@@ -837,7 +837,7 @@ spec = mapM_ (uncurry runTest)
       \(0:8-0:8) We wanted `}` but the file ended.\n\
       \\n\
       \(err (block 0:0-0:5\n\
-      \  (err (block 0:3-0:5))))\n"
+      \  (err 0:3-0:5)))\n"
     )
   , ( "do do )"
     , "(0:6-0:7) We wanted `{` but we found `)`.\n\
@@ -846,6 +846,6 @@ spec = mapM_ (uncurry runTest)
       \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
       \(err (block 0:0-0:5\n\
-      \  (err (block 0:3-0:5))))\n"
+      \  (err 0:3-0:5)))\n"
     )
   ]

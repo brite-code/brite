@@ -37,7 +37,10 @@ data StatementNode
 
 -- A set of statements scoped in a block. Names declared in this block may only be accessed by code
 -- within the block.
-newtype Block = Block [Statement]
+data Block = Block
+  { blockRange :: Range
+  , blockStatements :: [Statement]
+  }
 
 -- Some constant value in our program.
 data Constant
@@ -122,7 +125,7 @@ debugExpression _ (Expression range (VariableExpression identifier)) =
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
-debugExpression indentation (Expression range (BlockExpression (Block block))) =
+debugExpression indentation (Expression range (BlockExpression (Block _ block))) =
   let
     newIndentation = indentation <> B.fromText "  "
   in

@@ -50,6 +50,40 @@ tryBindingStatement =
       let range = Range (rangeStart start) (rangeEnd (expressionRange x)) in
       Statement range (ErrorStatement e (Just (BindingStatement p x)))
 
+block :: Parser (Either (Diagnostic, Maybe Block) Block)
+block =
+  build
+    <$> glyph BraceLeft
+    <*> many tryStatement
+    <*> glyph BraceRight
+  where
+    build (Right start) statements (Right end) =
+      let range = Range (rangeStart start) (rangeEnd end) in
+      Right (Block range statements)
+
+    build (Left err) statements (Right end) =
+      let
+        start = if null statements then end else statementRange (head statements)
+        range = Range (rangeStart start) (rangeEnd end)
+      in
+        Left (err, Just (Block range statements))
+
+    build (Right start) statements (Left err) =
+      let
+        end = if null statements then start else statementRange (last statements)
+        range = Range (rangeStart start) (rangeEnd end)
+      in
+        Left (err, Just (Block range statements))
+
+    build (Left err) statements (Left _) =
+      if null statements then Left (err, Nothing) else
+        let
+          start = statementRange (head statements)
+          end = statementRange (last statements)
+          range = Range (rangeStart start) (rangeEnd end)
+        in
+          Left (err, Just (Block range statements))
+
 tryConstant :: Parser (Range, Constant)
 tryConstant =
   tryBooleanTrue
@@ -86,32 +120,18 @@ tryVariableExpression = build <$> tryIdentifier
   where build (r, n) = Expression r (VariableExpression n)
 
 tryBlockExpression :: Parser Expression
-tryBlockExpression =
-  build
-    <$> tryKeyword Do
-    <*> glyph BraceLeft
-    <*> many tryStatement
-    <*> glyph BraceRight
+tryBlockExpression = build <$> tryKeyword Do <*> block
   where
-    build start (Right _) statements (Right end) =
-      Expression (Range (rangeStart start) (rangeEnd end)) (BlockExpression (Block statements))
-    build start (Left e) statements (Right end) =
-      let
-        range = Range (rangeStart start) (rangeEnd end)
-      in
-        Expression range (ErrorExpression e (Just (BlockExpression (Block statements))))
-    build start (Right end') statements (Left e) =
-      let
-        end = if null statements then end' else statementRange (last statements)
-        range = Range (rangeStart start) (rangeEnd end)
-      in
-        Expression range (ErrorExpression e (Just (BlockExpression (Block statements))))
-    build start (Left e) statements (Left _) =
-      let
-        end = if null statements then start else statementRange (last statements)
-        range = Range (rangeStart start) (rangeEnd end)
-      in
-        Expression range (ErrorExpression e (Just (BlockExpression (Block statements))))
+    build start (Right b) =
+      let range = Range (rangeStart start) (rangeEnd (blockRange b)) in
+      Expression range (BlockExpression b)
+
+    build start (Left (err, Just b)) =
+      let range = Range (rangeStart start) (rangeEnd (blockRange b)) in
+      Expression range (ErrorExpression err (Just (BlockExpression b)))
+
+    build start (Left (err, Nothing)) =
+      Expression start (ErrorExpression err Nothing)
 
 tryWrappedExpression :: Parser Expression
 tryWrappedExpression =
