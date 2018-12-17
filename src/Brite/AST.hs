@@ -2,6 +2,7 @@
 
 module Brite.AST
   ( Module(..)
+  , Name(..)
   , Statement(..)
   , StatementNode(..)
   , Block(..)
@@ -19,6 +20,12 @@ import qualified Data.Text.Lazy.Builder as B
 
 -- A single Brite file is a module. A module is made up of a list of statements.
 newtype Module = Module [Statement]
+
+-- An identifier with an associated range.
+data Name = Name
+  { nameRange :: Range
+  , nameIdentifier :: Identifier
+  }
 
 -- Represents some imperative action to be carried out.
 data Statement = Statement
@@ -59,6 +66,8 @@ data ExpressionNode
   = ConstantExpression Constant
   -- `x`
   | VariableExpression Identifier
+  -- `E.p`
+  | PropertyExpression Expression Name
   -- `if E { ... }`, if E { ... } else { ... }`
   | ConditionalExpression Expression Block (Maybe Block)
   -- `do { ... }`
@@ -89,6 +98,16 @@ debugModule :: Module -> B.Builder
 debugModule (Module []) = B.fromText "empty\n"
 debugModule (Module statements) =
   mconcat $ map (\s -> debugStatement "" s <> B.singleton '\n') statements
+
+-- Debug a name in an S-expression form. This abbreviated format should make it easier to see
+-- the structure of the AST.
+debugName :: Name -> B.Builder
+debugName (Name range identifier) =
+  B.fromText "(name "
+    <> debugRange range
+    <> B.fromText " `"
+    <> B.fromText (identifierText identifier)
+    <> B.fromText "`)"
 
 -- Debug a statement in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
@@ -140,6 +159,14 @@ debugExpression _ (Expression range (VariableExpression identifier)) =
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
+debugExpression indentation (Expression range (PropertyExpression object property)) =
+  B.fromText "(prop "
+    <> debugRange range
+    <> B.singleton ' '
+    <> debugExpression indentation object
+    <> B.singleton ' '
+    <> debugName property
+    <> B.singleton ')'
 debugExpression indentation (Expression range (ConditionalExpression test consequent Nothing)) =
   let newIndentation = indentation <> B.fromText "  " in
   B.fromText "(if "

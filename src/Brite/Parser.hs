@@ -107,13 +107,27 @@ expression = build <$> retry (tryExpression <|> unexpected ExpectedExpression)
     build (Right x) = x
 
 -- Ordered by frequency. Parsers that are more likely to match go first.
-tryExpression :: Parser Expression
-tryExpression =
+tryPrimaryExpression :: Parser Expression
+tryPrimaryExpression =
   tryVariableExpression
     <|> tryConditionalExpression
     <|> tryWrappedExpression
     <|> tryConstantExpression
     <|> tryBlockExpression
+
+tryExpression :: Parser Expression
+tryExpression =
+  build <$> tryPrimaryExpression <*> many tryExpressionExtension
+  where
+    build x [] = x
+    build x (ext : exts) = build (buildOne x ext) exts
+
+    buildOne x (PropertyExpressionExtension p) =
+      let range = Range (rangeStart (expressionRange x)) (rangeEnd (nameRange p)) in
+      Expression range (PropertyExpression x p)
+
+    buildOne x (ErrorExpressionExtension err) =
+      Expression (expressionRange x) (ErrorExpression err (Just (expressionNode x)))
 
 tryConstantExpression :: Parser Expression
 tryConstantExpression = build <$> tryConstant
@@ -176,6 +190,22 @@ tryWrappedExpression =
         range = Range (rangeStart start) (rangeEnd (expressionRange x))
       in
         Expression range (ErrorExpression e (Just (WrappedExpression x)))
+
+data ExpressionExtension
+  = PropertyExpressionExtension Name
+  | ErrorExpressionExtension Diagnostic
+
+tryExpressionExtension :: Parser ExpressionExtension
+tryExpressionExtension =
+  tryPropertyExpressionExtension
+    <|> unexpected ExpectedExpressionExtension
+
+tryPropertyExpressionExtension :: Parser ExpressionExtension
+tryPropertyExpressionExtension =
+  build <$> tryGlyph Dot <*> identifier
+  where
+    build _ (Right (range, ident)) = PropertyExpressionExtension (Name range ident)
+    build _ (Left err) = ErrorExpressionExtension err
 
 pattern :: Parser Pattern
 pattern = fmap build . retry $
