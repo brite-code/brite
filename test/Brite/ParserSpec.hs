@@ -508,28 +508,30 @@ spec = mapM_ (uncurry runTest)
       \(bind 0:20-0:29 (var 0:24-0:25 `x`) (var 0:28-0:29 `y`))\n"
     )
   , ( "do {}"
-    , "(block 0:0-0:5)\n"
+    , "(do 0:0-0:5 (block 0:3-0:5))\n"
     )
   , ( "do { "
     , "(0:5-0:5) We wanted `}` but the file ended.\n\
       \\n\
-      \(err (block 0:0-0:4))\n"
+      \(err (do 0:0-0:4 (block 0:3-0:4)))\n"
     )
   , ( "do }"
     , "(0:3-0:4) We wanted `{` but we found `}`.\n\
       \\n\
-      \(err (block 0:0-0:4))\n"
+      \(err (do 0:0-0:4 (block 0:3-0:4)))\n"
     )
   , ( "do } do }"
     , "(0:3-0:4) We wanted `{` but we found `}`.\n\
       \(0:8-0:9) We wanted `{` but we found `}`.\n\
       \\n\
-      \(err (block 0:0-0:4))\n(err (block 0:5-0:9))\n"
+      \(err (do 0:0-0:4 (block 0:3-0:4)))\n\
+      \(err (do 0:5-0:9 (block 0:8-0:9)))\n"
     )
   , ( "do"
     , "(0:2-0:2) We wanted `{` but the file ended.\n\
       \(0:2-0:2) We wanted `}` but the file ended.\n\
-      \\n(err 0:0-0:2)\n"
+      \\n\
+      \(err (do 0:0-0:2 (block 0:2-0:2)))\n"
     )
   , ( "do do"
     , "(0:3-0:5) We wanted `{` but we found `do`.\n\
@@ -537,271 +539,271 @@ spec = mapM_ (uncurry runTest)
       \(0:5-0:5) We wanted `}` but the file ended.\n\
       \(0:5-0:5) We wanted `}` but the file ended.\n\
       \\n\
-      \(err (block 0:0-0:5\n\
-      \  (err 0:3-0:5)))\n"
+      \(err (do 0:0-0:5 (block 0:3-0:5\n\
+      \  (err (do 0:3-0:5 (block 0:5-0:5))))))\n"
     )
   , ( "do { let x = y; }"
-    , "(block 0:0-0:17\n\
-      \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`)))\n"
+    , "(do 0:0-0:17 (block 0:3-0:17\n\
+      \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))))\n"
     )
   , ( "do { let x = y; "
     , "(0:16-0:16) We wanted `}` but the file ended.\n\
       \\n\
-      \(err (block 0:0-0:15\n\
-      \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))))\n"
+      \(err (do 0:0-0:15 (block 0:3-0:15\n\
+      \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`)))))\n"
     )
   , ( "do let x = y; }"
     , "(0:3-0:6) We wanted `{` but we found `let`.\n\
       \\n\
-      \(err (block 0:0-0:15\n\
-      \  (bind 0:3-0:13 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))))\n"
+      \(err (do 0:0-0:15 (block 0:3-0:15\n\
+      \  (bind 0:3-0:13 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`)))))\n"
     )
   , ( "do let x = y }"
     , "(0:3-0:6) We wanted `{` but we found `let`.\n\
       \\n\
-      \(err (block 0:0-0:14\n\
-      \  (bind 0:3-0:12 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))))\n"
+      \(err (do 0:0-0:14 (block 0:3-0:14\n\
+      \  (bind 0:3-0:12 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`)))))\n"
     )
   , ( "do let x = y;"
     , "(0:3-0:6) We wanted `{` but we found `let`.\n\
       \(0:13-0:13) We wanted `}` but the file ended.\n\
       \\n\
-      \(err (block 0:0-0:13\n\
-      \  (bind 0:3-0:13 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))))\n"
+      \(err (do 0:0-0:13 (block 0:3-0:13\n\
+      \  (bind 0:3-0:13 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`)))))\n"
     )
   , ( "do let x = y"
     , "(0:3-0:6) We wanted `{` but we found `let`.\n\
       \(0:12-0:12) We wanted `}` but the file ended.\n\
       \\n\
-      \(err (block 0:0-0:12\n\
-      \  (bind 0:3-0:12 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))))\n"
+      \(err (do 0:0-0:12 (block 0:3-0:12\n\
+      \  (bind 0:3-0:12 (var 0:7-0:8 `x`) (var 0:11-0:12 `y`)))))\n"
     )
   , ( "let x = (do {);"
     , "(0:13-0:14) We wanted `}` but we found `)`.\n\
       \\n\
-      \(bind 0:0-0:15 (var 0:4-0:5 `x`) (wrap 0:8-0:14 (err (block 0:9-0:13))))\n"
+      \(bind 0:0-0:15 (var 0:4-0:5 `x`) (wrap 0:8-0:14 (err (do 0:9-0:13 (block 0:12-0:13)))))\n"
     )
   , ( "let x = (do { let y = z; );"
     , "(0:25-0:26) We wanted `}` but we found `)`.\n\
       \\n\
-      \(bind 0:0-0:27 (var 0:4-0:5 `x`) (wrap 0:8-0:26 (err (block 0:9-0:24\n\
-      \  (bind 0:14-0:24 (var 0:18-0:19 `y`) (var 0:22-0:23 `z`))))))\n"
+      \(bind 0:0-0:27 (var 0:4-0:5 `x`) (wrap 0:8-0:26 (err (do 0:9-0:24 (block 0:12-0:24\n\
+      \  (bind 0:14-0:24 (var 0:18-0:19 `y`) (var 0:22-0:23 `z`)))))))\n"
     )
   , ( "let x = (do);"
     , "(0:11-0:12) We wanted `{` but we found `)`.\n\
       \(0:11-0:12) We wanted `}` but we found `)`.\n\
       \\n\
-      \(bind 0:0-0:13 (var 0:4-0:5 `x`) (wrap 0:8-0:12 (err 0:9-0:11)))\n"
+      \(bind 0:0-0:13 (var 0:4-0:5 `x`) (wrap 0:8-0:12 (err (do 0:9-0:12 (block 0:11-0:12)))))\n"
     )
   , ( "let x = (do let y = z; );"
     , "(0:12-0:15) We wanted `{` but we found `let`.\n\
       \(0:23-0:24) We wanted `}` but we found `)`.\n\
       \\n\
-      \(bind 0:0-0:25 (var 0:4-0:5 `x`) (wrap 0:8-0:24 (err (block 0:9-0:22\n\
-      \  (bind 0:12-0:22 (var 0:16-0:17 `y`) (var 0:20-0:21 `z`))))))\n"
+      \(bind 0:0-0:25 (var 0:4-0:5 `x`) (wrap 0:8-0:24 (err (do 0:9-0:22 (block 0:12-0:22\n\
+      \  (bind 0:12-0:22 (var 0:16-0:17 `y`) (var 0:20-0:21 `z`)))))))\n"
     )
   , ( "let x = (do { let y = z );"
     , "(0:24-0:25) We wanted `}` but we found `)`.\n\
       \\n\
-      \(bind 0:0-0:26 (var 0:4-0:5 `x`) (wrap 0:8-0:25 (err (block 0:9-0:23\n\
-      \  (bind 0:14-0:23 (var 0:18-0:19 `y`) (var 0:22-0:23 `z`))))))\n"
+      \(bind 0:0-0:26 (var 0:4-0:5 `x`) (wrap 0:8-0:25 (err (do 0:9-0:23 (block 0:12-0:23\n\
+      \  (bind 0:14-0:23 (var 0:18-0:19 `y`) (var 0:22-0:23 `z`)))))))\n"
     )
   , ( "let x = (do { let y = );"
     , "(0:22-0:23) We wanted an expression but we found `)`.\n\
       \(0:22-0:23) We wanted `}` but we found `)`.\n\
       \\n\
-      \(bind 0:0-0:24 (var 0:4-0:5 `x`) (wrap 0:8-0:23 (err (block 0:9-0:23\n\
-      \  (bind 0:14-0:23 (var 0:18-0:19 `y`) (err 0:22-0:23))))))\n"
+      \(bind 0:0-0:24 (var 0:4-0:5 `x`) (wrap 0:8-0:23 (err (do 0:9-0:23 (block 0:12-0:23\n\
+      \  (bind 0:14-0:23 (var 0:18-0:19 `y`) (err 0:22-0:23)))))))\n"
     )
   , ( "do { let x = y; }"
-    , "(block 0:0-0:17\n\
-      \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`)))\n"
+    , "(do 0:0-0:17 (block 0:3-0:17\n\
+      \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))))\n"
     )
   , ( "do { let x = y }"
-    , "(block 0:0-0:16\n\
-      \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`)))\n"
+    , "(do 0:0-0:16 (block 0:3-0:16\n\
+      \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; }"
-    , "(block 0:0-0:28\n\
+    , "(do 0:0-0:28 (block 0:3-0:28\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
-      \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`)))\n"
+      \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; let x = y; }"
-    , "(block 0:0-0:39\n\
+    , "(do 0:0-0:39 (block 0:3-0:39\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))\n\
-      \  (bind 0:27-0:37 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`)))\n"
+      \  (bind 0:27-0:37 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; let x = y; let x = y; }"
-    , "(block 0:0-0:50\n\
+    , "(do 0:0-0:50 (block 0:3-0:50\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))\n\
       \  (bind 0:27-0:37 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`))\n\
-      \  (bind 0:38-0:48 (var 0:42-0:43 `x`) (var 0:46-0:47 `y`)))\n"
+      \  (bind 0:38-0:48 (var 0:42-0:43 `x`) (var 0:46-0:47 `y`))))\n"
     )
   , ( "do { let x = y let x = y }"
-    , "(block 0:0-0:26\n\
+    , "(do 0:0-0:26 (block 0:3-0:26\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
-      \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`)))\n"
+      \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`))))\n"
     )
   , ( "do { let x = y let x = y let x = y }"
-    , "(block 0:0-0:36\n\
+    , "(do 0:0-0:36 (block 0:3-0:36\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`))\n\
-      \  (bind 0:25-0:34 (var 0:29-0:30 `x`) (var 0:33-0:34 `y`)))\n"
+      \  (bind 0:25-0:34 (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))))\n"
     )
   , ( "do { let x = y let x = y let x = y let x = y }"
-    , "(block 0:0-0:46\n\
+    , "(do 0:0-0:46 (block 0:3-0:46\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`))\n\
       \  (bind 0:25-0:34 (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))\n\
-      \  (bind 0:35-0:44 (var 0:39-0:40 `x`) (var 0:43-0:44 `y`)))\n"
+      \  (bind 0:35-0:44 (var 0:39-0:40 `x`) (var 0:43-0:44 `y`))))\n"
     )
   , ( "do { let x = y\nlet x = y\n }"
-    , "(block 0:0-2:2\n\
+    , "(do 0:0-2:2 (block 0:3-2:2\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
-      \  (bind 1:0-1:9 (var 1:4-1:5 `x`) (var 1:8-1:9 `y`)))\n"
+      \  (bind 1:0-1:9 (var 1:4-1:5 `x`) (var 1:8-1:9 `y`))))\n"
     )
   , ( "do { let x = y\nlet x = y\nlet x = y\n }"
-    , "(block 0:0-3:2\n\
+    , "(do 0:0-3:2 (block 0:3-3:2\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 1:0-1:9 (var 1:4-1:5 `x`) (var 1:8-1:9 `y`))\n\
-      \  (bind 2:0-2:9 (var 2:4-2:5 `x`) (var 2:8-2:9 `y`)))\n"
+      \  (bind 2:0-2:9 (var 2:4-2:5 `x`) (var 2:8-2:9 `y`))))\n"
     )
   , ( "do { let x = y\nlet x = y\nlet x = y\nlet x = y\n }"
-    , "(block 0:0-4:2\n\
+    , "(do 0:0-4:2 (block 0:3-4:2\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 1:0-1:9 (var 1:4-1:5 `x`) (var 1:8-1:9 `y`))\n\
       \  (bind 2:0-2:9 (var 2:4-2:5 `x`) (var 2:8-2:9 `y`))\n\
-      \  (bind 3:0-3:9 (var 3:4-3:5 `x`) (var 3:8-3:9 `y`)))\n"
+      \  (bind 3:0-3:9 (var 3:4-3:5 `x`) (var 3:8-3:9 `y`))))\n"
     )
   , ( "do { 😈 let x = y; let x = y; let x = y; }"
     , "(0:5-0:7) We wanted a statement but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:42\n\
+      \(do 0:0-0:42 (block 0:3-0:42\n\
       \  (bind 0:8-0:18 (var 0:12-0:13 `x`) (var 0:16-0:17 `y`))\n\
       \  (bind 0:19-0:29 (var 0:23-0:24 `x`) (var 0:27-0:28 `y`))\n\
-      \  (bind 0:30-0:40 (var 0:34-0:35 `x`) (var 0:38-0:39 `y`)))\n"
+      \  (bind 0:30-0:40 (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))))\n"
     )
   , ( "do { let x = y; 😈 let x = y; let x = y; }"
     , "(0:16-0:18) We wanted a statement but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:42\n\
+      \(do 0:0-0:42 (block 0:3-0:42\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:19-0:29 (var 0:23-0:24 `x`) (var 0:27-0:28 `y`))\n\
-      \  (bind 0:30-0:40 (var 0:34-0:35 `x`) (var 0:38-0:39 `y`)))\n"
+      \  (bind 0:30-0:40 (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; 😈 let x = y; }"
     , "(0:27-0:29) We wanted a statement but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:42\n\
+      \(do 0:0-0:42 (block 0:3-0:42\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))\n\
-      \  (bind 0:30-0:40 (var 0:34-0:35 `x`) (var 0:38-0:39 `y`)))\n"
+      \  (bind 0:30-0:40 (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; let x = y; 😈 }"
     , "(0:38-0:40) We wanted a statement but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:42\n\
+      \(do 0:0-0:42 (block 0:3-0:42\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))\n\
-      \  (bind 0:27-0:37 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`)))\n"
+      \  (bind 0:27-0:37 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`))))\n"
     )
   , ( "do { 😈 let x = y let x = y let x = y }"
     , "(0:5-0:7) We wanted a statement but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:39\n\
+      \(do 0:0-0:39 (block 0:3-0:39\n\
       \  (bind 0:8-0:17 (var 0:12-0:13 `x`) (var 0:16-0:17 `y`))\n\
       \  (bind 0:18-0:27 (var 0:22-0:23 `x`) (var 0:26-0:27 `y`))\n\
-      \  (bind 0:28-0:37 (var 0:32-0:33 `x`) (var 0:36-0:37 `y`)))\n"
+      \  (bind 0:28-0:37 (var 0:32-0:33 `x`) (var 0:36-0:37 `y`))))\n"
     )
   , ( "do { let x = y 😈 let x = y let x = y }"
     , "(0:15-0:17) We wanted `;` but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:39\n\
+      \(do 0:0-0:39 (block 0:3-0:39\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:18-0:27 (var 0:22-0:23 `x`) (var 0:26-0:27 `y`))\n\
-      \  (bind 0:28-0:37 (var 0:32-0:33 `x`) (var 0:36-0:37 `y`)))\n"
+      \  (bind 0:28-0:37 (var 0:32-0:33 `x`) (var 0:36-0:37 `y`))))\n"
     )
   , ( "do { let x = y let x = y 😈 let x = y }"
     , "(0:25-0:27) We wanted `;` but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:39\n\
+      \(do 0:0-0:39 (block 0:3-0:39\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`))\n\
-      \  (bind 0:28-0:37 (var 0:32-0:33 `x`) (var 0:36-0:37 `y`)))\n"
+      \  (bind 0:28-0:37 (var 0:32-0:33 `x`) (var 0:36-0:37 `y`))))\n"
     )
   , ( "do { let x = y let x = y let x = y 😈 }"
     , "(0:35-0:37) We wanted `;` but we found `😈`.\n\
       \\n\
-      \(block 0:0-0:39\n\
+      \(do 0:0-0:39 (block 0:3-0:39\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`))\n\
-      \  (bind 0:25-0:34 (var 0:29-0:30 `x`) (var 0:33-0:34 `y`)))\n"
+      \  (bind 0:25-0:34 (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))))\n"
     )
   , ( "do { ) let x = y; let x = y; let x = y; }"
     , "(0:5-0:6) We wanted a statement but we found `)`.\n\
       \\n\
-      \(block 0:0-0:41\n\
+      \(do 0:0-0:41 (block 0:3-0:41\n\
       \  (bind 0:7-0:17 (var 0:11-0:12 `x`) (var 0:15-0:16 `y`))\n\
       \  (bind 0:18-0:28 (var 0:22-0:23 `x`) (var 0:26-0:27 `y`))\n\
-      \  (bind 0:29-0:39 (var 0:33-0:34 `x`) (var 0:37-0:38 `y`)))\n"
+      \  (bind 0:29-0:39 (var 0:33-0:34 `x`) (var 0:37-0:38 `y`))))\n"
     )
   , ( "do { let x = y; ) let x = y; let x = y; }"
     , "(0:16-0:17) We wanted a statement but we found `)`.\n\
       \\n\
-      \(block 0:0-0:41\n\
+      \(do 0:0-0:41 (block 0:3-0:41\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:18-0:28 (var 0:22-0:23 `x`) (var 0:26-0:27 `y`))\n\
-      \  (bind 0:29-0:39 (var 0:33-0:34 `x`) (var 0:37-0:38 `y`)))\n"
+      \  (bind 0:29-0:39 (var 0:33-0:34 `x`) (var 0:37-0:38 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; ) let x = y; }"
     , "(0:27-0:28) We wanted a statement but we found `)`.\n\
       \\n\
-      \(block 0:0-0:41\n\
+      \(do 0:0-0:41 (block 0:3-0:41\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))\n\
-      \  (bind 0:29-0:39 (var 0:33-0:34 `x`) (var 0:37-0:38 `y`)))\n"
+      \  (bind 0:29-0:39 (var 0:33-0:34 `x`) (var 0:37-0:38 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; let x = y; ) }"
     , "(0:38-0:39) We wanted a statement but we found `)`.\n\
       \\n\
-      \(block 0:0-0:41\n\
+      \(do 0:0-0:41 (block 0:3-0:41\n\
       \  (bind 0:5-0:15 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:16-0:26 (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))\n\
-      \  (bind 0:27-0:37 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`)))\n"
+      \  (bind 0:27-0:37 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`))))\n"
     )
   , ( "do { ) let x = y let x = y let x = y }"
     , "(0:5-0:6) We wanted a statement but we found `)`.\n\
       \\n\
-      \(block 0:0-0:38\n\
+      \(do 0:0-0:38 (block 0:3-0:38\n\
       \  (bind 0:7-0:16 (var 0:11-0:12 `x`) (var 0:15-0:16 `y`))\n\
       \  (bind 0:17-0:26 (var 0:21-0:22 `x`) (var 0:25-0:26 `y`))\n\
-      \  (bind 0:27-0:36 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`)))\n"
+      \  (bind 0:27-0:36 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`))))\n"
     )
   , ( "do { let x = y ) let x = y let x = y }"
     , "(0:15-0:16) We wanted `;` but we found `)`.\n\
       \\n\
-      \(block 0:0-0:38\n\
+      \(do 0:0-0:38 (block 0:3-0:38\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:17-0:26 (var 0:21-0:22 `x`) (var 0:25-0:26 `y`))\n\
-      \  (bind 0:27-0:36 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`)))\n"
+      \  (bind 0:27-0:36 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`))))\n"
     )
   , ( "do { let x = y let x = y ) let x = y }"
     , "(0:25-0:26) We wanted `;` but we found `)`.\n\
       \\n\
-      \(block 0:0-0:38\n\
+      \(do 0:0-0:38 (block 0:3-0:38\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`))\n\
-      \  (bind 0:27-0:36 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`)))\n"
+      \  (bind 0:27-0:36 (var 0:31-0:32 `x`) (var 0:35-0:36 `y`))))\n"
     )
   , ( "do { let x = y let x = y let x = y ) }"
     , "(0:35-0:36) We wanted `;` but we found `)`.\n\
       \\n\
-      \(block 0:0-0:38\n\
+      \(do 0:0-0:38 (block 0:3-0:38\n\
       \  (bind 0:5-0:14 (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
       \  (bind 0:15-0:24 (var 0:19-0:20 `x`) (var 0:23-0:24 `y`))\n\
-      \  (bind 0:25-0:34 (var 0:29-0:30 `x`) (var 0:33-0:34 `y`)))\n"
+      \  (bind 0:25-0:34 (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))))\n"
     )
   , ( "let x = ) let x = )"
     , "(0:8-0:9) We wanted an expression but we found `)`.\n\
@@ -836,8 +838,8 @@ spec = mapM_ (uncurry runTest)
       \(0:8-0:8) We wanted `}` but the file ended.\n\
       \(0:8-0:8) We wanted `}` but the file ended.\n\
       \\n\
-      \(err (block 0:0-0:5\n\
-      \  (err 0:3-0:5)))\n"
+      \(err (do 0:0-0:8 (block 0:3-0:8\n\
+      \  (err (do 0:3-0:8 (block 0:6-0:8))))))\n"
     )
   , ( "do do )"
     , "(0:6-0:7) We wanted `{` but we found `)`.\n\
@@ -845,7 +847,7 @@ spec = mapM_ (uncurry runTest)
       \(0:7-0:7) We wanted `}` but the file ended.\n\
       \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
-      \(err (block 0:0-0:5\n\
-      \  (err 0:3-0:5)))\n"
+      \(err (do 0:0-0:7 (block 0:3-0:7\n\
+      \  (err (do 0:3-0:7 (block 0:6-0:7))))))\n"
     )
   ]

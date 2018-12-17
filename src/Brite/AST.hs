@@ -59,6 +59,8 @@ data ExpressionNode
   = ConstantExpression Constant
   -- `x`
   | VariableExpression Identifier
+  -- `if E { ... }`, if E { ... } else { ... }`
+  | ConditionalExpression Expression Block (Maybe Block)
   -- `do { ... }`
   | BlockExpression Block
   -- `(E)`
@@ -108,6 +110,21 @@ debugStatement indentation (Statement range (ErrorStatement _ (Just statement)))
     <> debugStatement indentation (Statement range statement)
     <> B.fromText ")"
 
+-- Debug a block in an S-expression form. This abbreviated format should make it easier to see
+-- the structure of the AST node.
+debugBlock :: B.Builder -> Block -> B.Builder
+debugBlock indentation block =
+  let
+    newIndentation = indentation <> B.fromText "  "
+  in
+    B.fromText "(block "
+      <> debugRange (blockRange block)
+      <> mconcat (map (\s ->
+          B.singleton '\n'
+            <> newIndentation
+            <> debugStatement newIndentation s) (blockStatements block))
+      <> B.fromText ")"
+
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugConstant :: Range -> Constant -> B.Builder
@@ -125,17 +142,12 @@ debugExpression _ (Expression range (VariableExpression identifier)) =
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
-debugExpression indentation (Expression range (BlockExpression (Block _ block))) =
-  let
-    newIndentation = indentation <> B.fromText "  "
-  in
-    B.fromText "(block "
-      <> debugRange range
-      <> mconcat (map (\s ->
-          B.singleton '\n'
-            <> newIndentation
-            <> debugStatement newIndentation s) block)
-      <> B.fromText ")"
+debugExpression indentation (Expression range (BlockExpression block)) =
+  B.fromText "(do "
+    <> debugRange range
+    <> B.singleton ' '
+    <> debugBlock indentation block
+    <> B.singleton ')'
 debugExpression indentation (Expression range (WrappedExpression expression)) =
   B.fromText "(wrap "
     <> debugRange range
