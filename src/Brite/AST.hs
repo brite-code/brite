@@ -114,16 +114,14 @@ debugStatement indentation (Statement range (ErrorStatement _ (Just statement)))
 -- the structure of the AST node.
 debugBlock :: B.Builder -> Block -> B.Builder
 debugBlock indentation block =
-  let
-    newIndentation = indentation <> B.fromText "  "
-  in
-    B.fromText "(block "
-      <> debugRange (blockRange block)
-      <> mconcat (map (\s ->
-          B.singleton '\n'
-            <> newIndentation
-            <> debugStatement newIndentation s) (blockStatements block))
-      <> B.fromText ")"
+  let newIndentation = indentation <> B.fromText "  " in
+  B.fromText "(block "
+    <> debugRange (blockRange block)
+    <> mconcat (map (\s ->
+        B.singleton '\n'
+          <> newIndentation
+          <> debugStatement newIndentation s) (blockStatements block))
+    <> B.fromText ")"
 
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
@@ -142,6 +140,21 @@ debugExpression _ (Expression range (VariableExpression identifier)) =
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
+debugExpression indentation (Expression range (ConditionalExpression test consequent Nothing)) =
+  let newIndentation = indentation <> B.fromText "  " in
+  B.fromText "(if "
+    <> debugRange range <> B.singleton '\n'
+    <> newIndentation <> debugExpression newIndentation test <> B.singleton '\n'
+    <> newIndentation <> debugBlock newIndentation consequent
+    <> B.singleton ')'
+debugExpression indentation (Expression range (ConditionalExpression test consequent (Just alternate))) =
+  let newIndentation = indentation <> B.fromText "  " in
+  B.fromText "(if "
+    <> debugRange range <> B.singleton '\n'
+    <> newIndentation <> debugExpression newIndentation test <> B.singleton '\n'
+    <> newIndentation <> debugBlock newIndentation consequent <> B.singleton '\n'
+    <> newIndentation <> debugBlock newIndentation alternate
+    <> B.singleton ')'
 debugExpression indentation (Expression range (BlockExpression block)) =
   B.fromText "(do "
     <> debugRange range

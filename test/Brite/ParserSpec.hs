@@ -850,4 +850,452 @@ spec = mapM_ (uncurry runTest)
       \(err (do 0:0-0:7 (block 0:3-0:7\n\
       \  (err (do 0:3-0:7 (block 0:6-0:7))))))\n"
     )
+  , ( "if x {}"
+    , "(if 0:0-0:7\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:7))\n"
+    )
+  , ( "if x { y }"
+    , "(if 0:0-0:10\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:10\n\
+      \    (var 0:7-0:8 `y`)))\n"
+    )
+  , ( "if x {} else {}"
+    , "(if 0:0-0:15\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:7)\n\
+      \  (block 0:13-0:15))\n"
+    )
+  , ( "if x { y } else {}"
+    , "(if 0:0-0:18\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:10\n\
+      \    (var 0:7-0:8 `y`))\n\
+      \  (block 0:16-0:18))\n"
+    )
+  , ( "if x {} else { y }"
+    , "(if 0:0-0:18\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:7)\n\
+      \  (block 0:13-0:18\n\
+      \    (var 0:15-0:16 `y`)))\n"
+    )
+  , ( "if x { y } else { z }"
+    , "(if 0:0-0:21\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:10\n\
+      \    (var 0:7-0:8 `y`))\n\
+      \  (block 0:16-0:21\n\
+      \    (var 0:18-0:19 `z`)))\n"
+    )
+  , ( "if {}"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \\n\
+      \(if 0:0-0:5\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5))\n"
+    )
+  , ( "if x }"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if x {"
+    , "(0:6-0:6) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if x"
+    , "(0:4-0:4) We wanted `{` but the file ended.\n\
+      \(0:4-0:4) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:4\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:4-0:4)))\n"
+    )
+  , ( "if {"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:4-0:4) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:4\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)))\n"
+    )
+  , ( "if }"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`. // TODO?\n\
+      \\n\
+      \(err (if 0:0-0:4\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)))\n"
+    )
+  , ( "if {} else {}"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \\n\
+      \(if 0:0-0:13\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5)\n\
+      \  (block 0:11-0:13))\n"
+    )
+  , ( "if x } else {}"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:14\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:12-0:14)))\n"
+    )
+  , ( "if x { else {}"
+    , "(0:7-0:11) We wanted `}` but we found `else`.\n\
+      \\n\
+      \(err (if 0:0-0:14\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:12-0:14)))\n"
+    )
+  , ( "if x else {}"
+    , "(0:5-0:9) We wanted `{` but we found `else`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \\n\
+      \(err (if 0:0-0:12\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:9)\n\
+      \  (block 0:10-0:12)))\n"
+    )
+  , ( "if { else {}"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \\n\
+      \(err (if 0:0-0:12\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:10-0:12)))\n"
+    )
+  , ( "if } else {}"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:12\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:10-0:12)))\n"
+    )
+  , ( "if {} {}"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:6-0:7) We wanted `else` but we found `{`.\n\
+      \(0:7-0:8) We wanted `else` but we found `}`.\n\
+      \\n\
+      \(if 0:0-0:5\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5))\n"
+    )
+  , ( "if x } {}"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \(0:7-0:8) We wanted `else` but we found `{`.\n\
+      \(0:8-0:9) We wanted `else` but we found `}`. // TODO\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if x { {}"
+    , "(0:7-0:8) We wanted a statement but we found `{`.\n\
+      \\n\
+      \(if 0:0-0:9\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:9))\n"
+    )
+  , ( "if { {}"
+    , "(0:5-0:6) We wanted a statement but we found `{`.\n\
+      \(0:3-0:4) We wanted an expression but we found `{`. // TODO\n\
+      \\n\
+      \(if 0:0-0:7\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:7))\n"
+    )
+  , ( "if } {}"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:5-0:6) We wanted `else` but we found `{`.\n\
+      \(0:6-0:7) We wanted `else` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:4\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)))\n"
+    )
+  , ( "if {} else }"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:11-0:12) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:12\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5)\n\
+      \  (block 0:11-0:12)))\n"
+    )
+  , ( "if x } else }"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \(0:12-0:13) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:13\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:12-0:13)))\n"
+    )
+  , ( "if x { else }"
+    , "(0:12-0:13) We wanted `{` but we found `}`.\n\
+      \(0:7-0:11) We wanted `}` but we found `else`. // TODO\n\
+      \\n\
+      \(err (if 0:0-0:13\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:12-0:13)))\n"
+    )
+  , ( "if x else }"
+    , "(0:10-0:11) We wanted `{` but we found `}`.\n\
+      \(0:5-0:9) We wanted `{` but we found `else`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:9)\n\
+      \  (block 0:10-0:11)))\n"
+    )
+  , ( "if { else }"
+    , "(0:10-0:11) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:10-0:11)))\n"
+    )
+  , ( "if } else }"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:10-0:11) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:10-0:11)))\n"
+    )
+  , ( "if {} else {"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:12-0:12) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:12\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5)\n\
+      \  (block 0:11-0:12)))\n"
+    )
+  , ( "if x } else {"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \(0:13-0:13) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:13\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:12-0:13)))\n"
+    )
+  , ( "if x { else {"
+    , "(0:7-0:11) We wanted `}` but we found `else`.\n\
+      \(0:13-0:13) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:13\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:12-0:13)))\n"
+    )
+  , ( "if x else {"
+    , "(0:5-0:9) We wanted `{` but we found `else`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \(0:11-0:11) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:9)\n\
+      \  (block 0:10-0:11)))\n"
+    )
+  , ( "if { else {"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \(0:11-0:11) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:10-0:11)))\n"
+    )
+  , ( "if } else {"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:11-0:11) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:10-0:11)))\n"
+    )
+  , ( "if {} else"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:10-0:10) We wanted `{` but the file ended.\n\
+      \(0:10-0:10) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:10\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5)\n\
+      \  (block 0:10-0:10)))\n"
+    )
+  , ( "if x } else"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \(0:11-0:11) We wanted `{` but the file ended.\n\
+      \(0:11-0:11) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:11-0:11)))\n"
+    )
+  , ( "if x { else"
+    , "(0:7-0:11) We wanted `}` but we found `else`.\n\
+      \(0:11-0:11) We wanted `{` but the file ended.\n\
+      \(0:11-0:11) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:11\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)\n\
+      \  (block 0:11-0:11)))\n"
+    )
+  , ( "if x else"
+    , "(0:5-0:9) We wanted `{` but we found `else`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \(0:9-0:9) We wanted `{` but the file ended.\n\
+      \(0:9-0:9) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:9\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:9)\n\
+      \  (block 0:9-0:9)))\n"
+    )
+  , ( "if { else"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \(0:9-0:9) We wanted `{` but the file ended.\n\
+      \(0:9-0:9) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:9\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:9-0:9)))\n"
+    )
+  , ( "if } else"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:9-0:9) We wanted `{` but the file ended.\n\
+      \(0:9-0:9) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:9\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)\n\
+      \  (block 0:9-0:9)))\n"
+    )
+  , ( "if {} {"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:6-0:7) We wanted `else` but we found `{`.\n\
+      \\n\
+      \(if 0:0-0:5\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5))\n"
+    )
+  , ( "if x } {"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \(0:7-0:8) We wanted `else` but we found `{`.\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if x { {"
+    , "(0:7-0:8) We wanted a statement but we found `{`.\n\
+      \(0:8-0:8) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if x {"
+    , "(0:6-0:6) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if { {"
+    , "(0:5-0:6) We wanted a statement but we found `{`.\n\
+      \(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:6-0:6) We wanted `}` but the file ended.\n\
+      \\n\
+      \(err (if 0:0-0:4\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)))\n"
+    )
+  , ( "if } {"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:5-0:6) We wanted `else` but we found `{`.\n\
+      \\n\
+      \(err (if 0:0-0:4\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)))\n"
+    )
+  , ( "if {} }"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:6-0:7) We wanted `else` but we found `}`.\n\
+      \\n\
+      \(if 0:0-0:5\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:5))\n"
+    )
+  , ( "if x } }"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \(0:7-0:8) We wanted `else` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if x { }"
+    , "(if 0:0-0:8\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:8))\n"
+    )
+  , ( "if x }"
+    , "(0:5-0:6) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:6\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:6)))\n"
+    )
+  , ( "if { }"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \\n\
+      \(if 0:0-0:6\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:6))\n"
+    )
+  , ( "if } }"
+    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
+      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:5-0:6) We wanted `else` but we found `}`.\n\
+      \\n\
+      \(err (if 0:0-0:4\n\
+      \  (err 0:3-0:4)\n\
+      \  (block 0:3-0:4)))\n"
+    )
   ]

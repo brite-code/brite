@@ -110,6 +110,7 @@ expression = build <$> retry (tryExpression <|> unexpected ExpectedExpression)
 tryExpression :: Parser Expression
 tryExpression =
   tryVariableExpression
+    <|> tryConditionalExpression
     <|> tryWrappedExpression
     <|> tryConstantExpression
     <|> tryBlockExpression
@@ -122,26 +123,33 @@ tryVariableExpression :: Parser Expression
 tryVariableExpression = build <$> tryIdentifier
   where build (r, n) = Expression r (VariableExpression n)
 
--- tryConditionalExpression :: Parser Expression
--- tryConditionalExpression =
---   build
---     <$> tryKeyword If
---     <*> expression
---     <*> block
---     <*> optional (tryKeyword Else *> block)
---   where
---     build start test (Right consequent) Nothing =
---       let range = Range (rangeStart start) (rangeEnd (blockRange consequent)) in
---       Expression range (ConditionalExpression test consequent Nothing)
---     build start test (Left (err, Just consequent)) Nothing =
---       let range = Range (rangeStart start) (rangeEnd (blockRange consequent)) in
---       Expression range (ErrorExpression err (Just (ConditionalExpression test consequent Nothing)))
---     build start test (Left (err, Nothing)) Nothing =
---       let
---         consequent = Block (Range (rangeEnd (expressionRange test)) (rangeEnd (expressionRange test))) []
---         range = Range (rangeStart start) (rangeEnd (blockRange consequent))
---       in
---         Expression range (ErrorExpression err (Just (ConditionalExpression test consequent Nothing)))
+tryConditionalExpression :: Parser Expression
+tryConditionalExpression =
+  build
+    <$> tryKeyword If
+    <*> expression
+    <*> block
+    <*> optional (tryKeyword Else *> block)
+  where
+    build start test (Right consequent) Nothing =
+      let range = Range (rangeStart start) (rangeEnd (blockRange consequent)) in
+      Expression range (ConditionalExpression test consequent Nothing)
+    build start test (Left (err, consequent)) Nothing =
+      let range = Range (rangeStart start) (rangeEnd (blockRange consequent)) in
+      Expression range (ErrorExpression err (Just (ConditionalExpression test consequent Nothing)))
+
+    build start test (Right consequent) (Just (Right alternate)) =
+      let range = Range (rangeStart start) (rangeEnd (blockRange alternate)) in
+      Expression range (ConditionalExpression test consequent (Just alternate))
+    build start test (Right consequent) (Just (Left (err, alternate))) =
+      let range = Range (rangeStart start) (rangeEnd (blockRange alternate)) in
+      Expression range (ErrorExpression err (Just (ConditionalExpression test consequent (Just alternate))))
+    build start test (Left (err, consequent)) (Just (Right alternate)) =
+      let range = Range (rangeStart start) (rangeEnd (blockRange alternate)) in
+      Expression range (ErrorExpression err (Just (ConditionalExpression test consequent (Just alternate))))
+    build start test (Left (err, consequent)) (Just (Left (_, alternate))) =
+      let range = Range (rangeStart start) (rangeEnd (blockRange alternate)) in
+      Expression range (ErrorExpression err (Just (ConditionalExpression test consequent (Just alternate))))
 
 tryBlockExpression :: Parser Expression
 tryBlockExpression = build <$> tryKeyword Do <*> block
