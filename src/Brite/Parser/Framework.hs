@@ -53,10 +53,10 @@ newtype Parser a = Parser { unParser :: forall b. ParserRun a b }
 -- * The fourth argument is the token stream we are parsing.
 --
 -- See the types below for more information on each callback.
-type ParserRun a b = ParserOk a b -> ParserYield a b -> ParserThrow b -> TokenList -> ParserMonad b
+type ParserRun a b = ParserOk a b -> ParserYield a b -> ParserThrow b -> TokenList -> b
 
 -- The ok callback is called when our parser successfully parses a value.
-type ParserOk a b = a -> TokenList -> ParserMonad b
+type ParserOk a b = ParserMonad a -> TokenList -> b
 
 -- The yield callback allows us to yield a possible parsed value. If another parser may continue
 -- from the point at which we yielded then that possible value becomes the actual parsed value. If
@@ -75,10 +75,10 @@ type ParserOk a b = a -> TokenList -> ParserMonad b
 -- You can think of the first and second arguments as “recover” and “retry” respectively. If we
 -- “recover” from an error then we use the first argument. If we advance the token stream and want
 -- to “retry” then we call the continuation passed as the second argument.
-type ParserYield a b = ParserMonad a -> ParserCont b -> TokenList -> ParserMonad b
+type ParserYield a b = ParserMonad a -> ParserCont b -> TokenList -> b
 
 -- We use a newtype to make it easier to track when continuations are created and called.
-newtype ParserCont b = ParserCont { continue :: TokenList -> ParserMonad b }
+newtype ParserCont b = ParserCont { continue :: TokenList -> b }
 
 -- The throw callback is called when our parser can’t handle the token stream. Effectively this
 -- function “throws” an error. We will recover in one of two ways after a throw:
@@ -93,7 +93,7 @@ newtype ParserCont b = ParserCont { continue :: TokenList -> ParserMonad b }
 --    throws by calling this error callback we will see if `q` can handle the token. If so then we
 --    will return an error value (`Left`) for `p` and parse `q`. If `q` cannot handle the token then
 --    we will skip the current token and attempt to parse `p` again with the new token stream.
-type ParserThrow b = ParserMonad Diagnostic -> TokenList -> ParserMonad b
+type ParserThrow b = ParserMonad Diagnostic -> TokenList -> b
 
 -- The monad in which our parser runs. Our parser needs to report diagnostics as it discovers them.
 -- Unlike traditional parsers which panic when they hit the first error, the Brite parser will
@@ -102,12 +102,12 @@ type ParserMonad = DiagnosticWriter
 
 -- Parsers are functors. We can map the value they carry.
 instance Functor Parser where
-  fmap f p = Parser $ \ok yield -> unParser p (ok . f) (yield . (f <$>))
+  fmap f p = Parser $ \ok yield -> unParser p (ok . (f <$>)) (yield . (f <$>))
 
 -- Parsers are applicatives, we can sequence them together. This is a very important combinator!
 instance Applicative Parser where
   -- Always succeeds without consuming any tokens from the stream.
-  pure a = Parser $ \ok _ _ -> ok a
+  pure a = Parser $ \ok _ _ -> ok (pure a)
 
   -- The parser sequencing operator. This operator is incredibly important to our parsing framework.
   -- It sequences two parsers `p1` and `p2` together. First we parse `p1` and then we parse `p2`.
@@ -123,7 +123,7 @@ instance Applicative Parser where
   -- In `p1 <*> p2` if `p1` succeeds but `p2` yields then the entire sequence yields.
   p1 <*> p2 = Parser $ \ok yield throw ->
     unParser p1
-      (\f -> unParser p2 (ok . f) (yield . (f <$>)) throw)
+      (\f -> unParser p2 (ok . (f <*>)) (yield . (f <*>)) throw)
       (\f k1 ts1 ->
         case ts1 of
           -- Optimization: if the token is an unexpected character don’t bother trying to run `p2`.
@@ -132,7 +132,7 @@ instance Applicative Parser where
           NextToken _ (UnexpectedChar _) ts2 -> continue k1 ts2
           _ ->
             unParser p2
-              (\a ts2 -> f >>= \f' -> ok (f' a) ts2)
+              (\a ts2 -> ok (f <*> a) ts2)
               (\a k2 ts2 -> yield (f <*> a) (if sameStart ts1 ts2 then k1 else k2) ts2)
               throw ts1)
       throw
@@ -157,7 +157,7 @@ p1 <|> p2 = Parser (\ok yield throw -> unParser p1 ok yield (\_ -> unParser p2 o
 runParser :: Parser a -> TokenList -> DiagnosticWriter (Either Diagnostic a)
 runParser p =
   unParser p
-    (\a _ -> return (Right a))
+    (\a _ -> Right <$> a)
     (\a k ts1 ->
       case ts1 of
         NextToken _ _ ts2 -> continue k ts2
@@ -175,12 +175,12 @@ retry :: Parser a -> Parser (Either Diagnostic a)
 retry p = Parser $ \ok yield _ ->
   let
     run e1 = unParser p
-      (ok . Right)
-      (yield . (Right <$>))
+      (\a -> ok (maybe id (*>) e1 (Right <$> a)))
+      (\a -> yield (maybe id (*>) e1 (Right <$> a)))
       (\e2 ->
         yield
-          (Left <$> maybe e2 return e1)
-          (ParserCont (\ts -> e2 >>= \e2' -> run (Just (fromMaybe e2' e1)) ts)))
+          (Left <$> fromMaybe e2 e1)
+          (ParserCont (run (Just (maybe e2 (<* e2) e1)))))
   in
     run Nothing
 
@@ -201,12 +201,12 @@ retry p = Parser $ \ok yield _ ->
 optional :: Parser a -> Parser (Maybe a)
 optional p = Parser $ \ok yield _ ->
   let
-    run = unParser p
-      (ok . Just)
-      (yield . (Just <$>))
-      (\e -> yield (pure Nothing) (ParserCont ((e *>) . run)))
+    run es = unParser p
+      (\a -> ok (es *> (Just <$> a)))
+      (\a -> yield (es *> (Just <$> a)))
+      (\e -> yield (es *> pure Nothing) (ParserCont (run (es <* e))))
   in
-    run
+    run (pure ())
 
 -- Applies the parser zero or more times and returns a list of the parsed values.
 --
@@ -219,19 +219,19 @@ optional p = Parser $ \ok yield _ ->
 -- we reach a token which _can’t_ be parsed by our current parser.
 --
 -- This parser will never fail. If nothing can be parsed we will report some diagnostics and return
--- an empty list,
+-- an empty list.
 many :: Parser a -> Parser [a]
 many p = Parser $ \_ yield _ ->
   let
     run acc =
       unParser p
-        (\a -> run (flip DL.snoc a <$> acc))
+        (\a -> run (liftA2 DL.snoc acc a))
         (\a -> runYield (liftA2 DL.snoc acc a))
-        (\e -> yield (DL.toList <$> acc) (ParserCont ((e *>) . run acc)))
+        (\e -> yield (DL.toList <$> acc) (ParserCont (run (acc <* e))))
 
     runYield acc k1 =
       unParser p
-        (\a -> run (flip DL.snoc a <$> acc))
+        (\a -> run (liftA2 DL.snoc acc a))
         (\a k2 -> runYield (liftA2 DL.snoc acc a) k2)
         (\_ -> yield (DL.toList <$> acc) k1)
   in
@@ -264,7 +264,7 @@ identifier = retry tryIdentifier
 tryGlyph :: Glyph -> Parser Range
 tryGlyph g = Parser $ \ok _ throw ts ->
   case ts of
-    NextToken r (Glyph g') ts' | g == g' -> ok r ts'
+    NextToken r (Glyph g') ts' | g == g' -> ok (pure r) ts'
     NextToken r t _ -> throw (unexpectedToken r t (ExpectedGlyph g)) ts
     EndToken p -> throw (unexpectedEnding (Range p p) (ExpectedGlyph g)) ts
 
@@ -282,7 +282,7 @@ tryKeyword = tryGlyph . Keyword
 tryIdentifier :: Parser (Range, Identifier)
 tryIdentifier = Parser $ \ok _ throw ts ->
   case ts of
-    NextToken r (IdentifierToken i) ts' -> ok (r, i) ts'
+    NextToken r (IdentifierToken i) ts' -> ok (pure (r, i)) ts'
     NextToken r t _ -> throw (unexpectedToken r t ExpectedIdentifier) ts
     EndToken p -> throw (unexpectedEnding (Range p p) ExpectedIdentifier) ts
 

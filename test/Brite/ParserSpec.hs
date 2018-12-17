@@ -833,8 +833,8 @@ spec = mapM_ (uncurry runTest)
       \(bind 0:12-0:21 (var 0:16-0:17 `x`) (err 0:20-0:21))\n"
     )
   , ( "do do 😈"
-    , "(0:6-0:8) We wanted `{` but we found `😈`.\n\
-      \(0:3-0:5) We wanted `{` but we found `do`.\n\
+    , "(0:3-0:5) We wanted `{` but we found `do`.\n\
+      \(0:6-0:8) We wanted `{` but we found `😈`.\n\
       \(0:8-0:8) We wanted `}` but the file ended.\n\
       \(0:8-0:8) We wanted `}` but the file ended.\n\
       \\n\
@@ -842,8 +842,8 @@ spec = mapM_ (uncurry runTest)
       \  (err (do 0:3-0:8 (block 0:6-0:8))))))\n"
     )
   , ( "do do )"
-    , "(0:6-0:7) We wanted `{` but we found `)`.\n\
-      \(0:3-0:5) We wanted `{` but we found `do`.\n\
+    , "(0:3-0:5) We wanted `{` but we found `do`.\n\
+      \(0:6-0:7) We wanted `{` but we found `)`.\n\
       \(0:7-0:7) We wanted `}` but the file ended.\n\
       \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
@@ -927,8 +927,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:3-0:4)))\n"
     )
   , ( "if }"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`. // TODO?\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:4\n\
       \  (err 0:3-0:4)\n\
@@ -977,8 +977,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:10-0:12)))\n"
     )
   , ( "if } else {}"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:12\n\
       \  (err 0:3-0:4)\n\
@@ -997,7 +997,7 @@ spec = mapM_ (uncurry runTest)
   , ( "if x } {}"
     , "(0:5-0:6) We wanted `{` but we found `}`.\n\
       \(0:7-0:8) We wanted `else` but we found `{`.\n\
-      \(0:8-0:9) We wanted `else` but we found `}`. // TODO\n\
+      \(0:8-0:9) We wanted `else` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:6\n\
       \  (var 0:3-0:4 `x`)\n\
@@ -1011,16 +1011,16 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:5-0:9))\n"
     )
   , ( "if { {}"
-    , "(0:5-0:6) We wanted a statement but we found `{`.\n\
-      \(0:3-0:4) We wanted an expression but we found `{`. // TODO\n\
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:5-0:6) We wanted a statement but we found `{`.\n\
       \\n\
       \(if 0:0-0:7\n\
       \  (err 0:3-0:4)\n\
       \  (block 0:3-0:7))\n"
     )
   , ( "if } {}"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \(0:5-0:6) We wanted `else` but we found `{`.\n\
       \(0:6-0:7) We wanted `else` but we found `}`.\n\
       \\n\
@@ -1047,8 +1047,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:12-0:13)))\n"
     )
   , ( "if x { else }"
-    , "(0:12-0:13) We wanted `{` but we found `}`.\n\
-      \(0:7-0:11) We wanted `}` but we found `else`. // TODO\n\
+    , "(0:7-0:11) We wanted `}` but we found `else`.\n\
+      \(0:12-0:13) We wanted `{` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:13\n\
       \  (var 0:3-0:4 `x`)\n\
@@ -1056,9 +1056,9 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:12-0:13)))\n"
     )
   , ( "if x else }"
-    , "(0:10-0:11) We wanted `{` but we found `}`.\n\
-      \(0:5-0:9) We wanted `{` but we found `else`.\n\
+    , "(0:5-0:9) We wanted `{` but we found `else`.\n\
       \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \(0:10-0:11) We wanted `{` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:11\n\
       \  (var 0:3-0:4 `x`)\n\
@@ -1066,9 +1066,9 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:10-0:11)))\n"
     )
   , ( "if { else }"
-    , "(0:10-0:11) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `{`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
       \(0:5-0:9) We wanted `}` but we found `else`.\n\
+      \(0:10-0:11) We wanted `{` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:11\n\
       \  (err 0:3-0:4)\n\
@@ -1076,8 +1076,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:10-0:11)))\n"
     )
   , ( "if } else }"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \(0:10-0:11) We wanted `{` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:11\n\
@@ -1133,8 +1133,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:10-0:11)))\n"
     )
   , ( "if } else {"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \(0:11-0:11) We wanted `}` but the file ended.\n\
       \\n\
       \(err (if 0:0-0:11\n\
@@ -1195,8 +1195,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:9-0:9)))\n"
     )
   , ( "if } else"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \(0:9-0:9) We wanted `{` but the file ended.\n\
       \(0:9-0:9) We wanted `}` but the file ended.\n\
       \\n\
@@ -1237,8 +1237,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:5-0:6)))\n"
     )
   , ( "if { {"
-    , "(0:5-0:6) We wanted a statement but we found `{`.\n\
-      \(0:3-0:4) We wanted an expression but we found `{`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:5-0:6) We wanted a statement but we found `{`.\n\
       \(0:6-0:6) We wanted `}` but the file ended.\n\
       \\n\
       \(err (if 0:0-0:4\n\
@@ -1246,8 +1246,8 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:3-0:4)))\n"
     )
   , ( "if } {"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \(0:5-0:6) We wanted `else` but we found `{`.\n\
       \\n\
       \(err (if 0:0-0:4\n\
@@ -1290,12 +1290,57 @@ spec = mapM_ (uncurry runTest)
       \  (block 0:3-0:6))\n"
     )
   , ( "if } }"
-    , "(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:3-0:4) We wanted an expression but we found `}`.\n\
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:3-0:4) We wanted `{` but we found `}`.\n\
       \(0:5-0:6) We wanted `else` but we found `}`.\n\
       \\n\
       \(err (if 0:0-0:4\n\
       \  (err 0:3-0:4)\n\
       \  (block 0:3-0:4)))\n"
+    )
+  , ( "x 😈 😈 ;"
+    , "(0:2-0:4) We wanted `;` but we found `😈`.\n\
+      \(0:5-0:7) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \(var 0:0-0:1 `x`)\n"
+    )
+  , ( "x ) ) ;"
+    , "(0:2-0:3) We wanted `;` but we found `)`.\n\
+      \(0:4-0:5) We wanted `;` but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `x`)\n"
+    )
+  , ( "let 😈 😈 x = y;"
+    , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
+      \(0:7-0:9) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(bind 0:0-0:16 (var 0:10-0:11 `x`) (var 0:14-0:15 `y`))\n"
+    )
+  , ( "let ) ) x = y;"
+    , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
+      \(0:6-0:7) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(bind 0:0-0:14 (var 0:8-0:9 `x`) (var 0:12-0:13 `y`))\n"
+    )
+  , ( "😈 😈"
+    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+      \(0:3-0:5) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \empty\n"
+    )
+  , ( ") )"
+    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
+      \(0:2-0:3) We wanted a statement but we found `)`.\n\
+      \\n\
+      \empty\n"
+    )
+  , ( "if x {} { let y = z }"
+    , "(0:8-0:9) We wanted `else` but we found `{`.\n\
+      \(0:20-0:21) We wanted `;` but we found `}`.\n\
+      \\n\
+      \(if 0:0-0:7\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  (block 0:5-0:7))\n\
+      \(bind 0:10-0:19 (var 0:14-0:15 `y`) (var 0:18-0:19 `z`))\n"
     )
   ]
