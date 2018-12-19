@@ -6,27 +6,32 @@ import Brite.Source
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
+import qualified Data.Text.Lazy.Builder as B
 import Test.Hspec
 
 runTest :: T.Text -> T.Text -> Spec
 runTest input expected =
   it (T.unpack (escape input)) $
     let
-      tokens = tokenize initialPosition input
-      actual = L.toStrict (debugTokens tokens)
+      tokens = tokenize' input
+      actual = L.toStrict (B.toLazyText (debugTokens tokens))
     in
       actual `shouldBe` expected
 
-escape =
-  T.replace "\n" "\\n"
-    . T.replace "\r" "\\r"
-    . T.replace "\t" "\\t"
-    . T.replace "\f" "\\f"
-    . T.replace "\v" "\\v"
-    . T.replace "\x00A0" "\\x00A0"
-    . T.replace "\x2002" "\\x2002"
-    . T.replace "\x2003" "\\x2003"
-    . T.replace "\x2009" "\\x2009"
+escape :: T.Text -> T.Text
+escape = T.concatMap
+  (\c ->
+    case c of
+      '\n' -> "\\n"
+      '\r' -> "\\r"
+      '\t' -> "\\t"
+      '\f' -> "\\f"
+      '\v' -> "\\v"
+      '\x00A0' -> "\\x00A0"
+      '\x2002' -> "\\x2002"
+      '\x2003' -> "\\x2003"
+      '\x2009' -> "\\x2009"
+      _ -> T.singleton c)
 
 spec :: Spec
 spec = mapM_ (uncurry runTest)

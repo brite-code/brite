@@ -14,7 +14,7 @@ import Test.Hspec
 
 runTest :: T.Text -> T.Text -> Spec
 runTest input expected =
-  it (T.unpack (T.replace "\n" "\\n" input)) $
+  it (T.unpack (escape input)) $
     let
       tokens = tokenize initialPosition input
       (module_, diagnostics) = runDiagnosticWriter (parse tokens)
@@ -24,6 +24,14 @@ runTest input expected =
         <> debugModule module_
     in
       actual `shouldBe` expected
+
+escape :: T.Text -> T.Text
+escape = T.concatMap
+  (\c ->
+    case c of
+      '\n' -> "\\n"
+      '\r' -> "\\r"
+      _ -> T.singleton c)
 
 spec :: Spec
 spec = mapM_ (uncurry runTest)
