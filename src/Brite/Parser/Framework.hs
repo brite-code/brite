@@ -19,7 +19,6 @@ module Brite.Parser.Framework
 import Brite.Diagnostics
 import Brite.Source
 import Control.Applicative (liftA2)
-import qualified Data.DList as DL
 import Data.Maybe
 
 -- The Brite parser turns a stream of tokens into the AST of a Brite program. The Brite parser is
@@ -225,17 +224,17 @@ many p = Parser $ \_ yield _ ->
   let
     run acc =
       unParser p
-        (\a -> run (liftA2 DL.snoc acc a))
-        (\a -> runYield (liftA2 DL.snoc acc a))
-        (\e -> yield (DL.toList <$> acc) (ParserCont (run (acc <* e))))
+        (\a -> run (liftA2 (flip (:)) acc a))
+        (\a -> runYield (liftA2 (flip (:)) acc a))
+        (\e -> yield (reverse <$> acc) (ParserCont (run (acc <* e))))
 
     runYield acc k1 =
       unParser p
-        (\a -> run (liftA2 DL.snoc acc a))
-        (\a k2 -> runYield (liftA2 DL.snoc acc a) k2)
-        (\_ -> yield (DL.toList <$> acc) k1)
+        (\a -> run (liftA2 (flip (:)) acc a))
+        (\a k2 -> runYield (liftA2 (flip (:)) acc a) k2)
+        (\_ -> yield (reverse <$> acc) k1)
   in
-    run (return DL.empty)
+    run (return [])
 
 -- Always fails with an unexpected token error. We can use this at the end of an alternative chain
 -- to make the error message better.
