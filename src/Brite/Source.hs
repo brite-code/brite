@@ -12,6 +12,7 @@ module Brite.Source
   , Keyword(..)
   , keywordText
   , Token(..)
+  , TokenKind(..)
   , Glyph(..)
   , glyphText
   , TokenList(..)
@@ -127,7 +128,13 @@ keywordText Do = "do"
 -- A token is a more semantic unit for describing Brite source code documents than a character.
 -- Through the tokenization of a document we add meaning by parsing low-level code elements like
 -- identifiers, numbers, strings, comments, and glyphs.
-data Token
+data Token = Token
+  { tokenRange :: Range
+  , tokenKind :: TokenKind
+  }
+
+-- The kind of a token.
+data TokenKind
   = Glyph Glyph
   | IdentifierToken Identifier
   | UnexpectedChar Char
@@ -171,7 +178,7 @@ glyphText Slash = "/"
 -- A lazy list of tokens. Customized to include some extra token and end data.
 data TokenList
   -- The next token in the list along with the token’s range.
-  = NextToken Range Token TokenList
+  = NextToken Token TokenList
   -- The end of the token list. Includes the position of the source text’s end.
   | EndToken Position
 
@@ -184,14 +191,14 @@ tokenize position0 text0 =
     ' ' -> tokenize position1 text1
 
     -- Parse some glyphs.
-    '{' -> NextToken range1 (Glyph BraceLeft) (tokenize position1 text1)
-    '}' -> NextToken range1 (Glyph BraceRight) (tokenize position1 text1)
-    ',' -> NextToken range1 (Glyph Comma) (tokenize position1 text1)
-    '.' -> NextToken range1 (Glyph Dot) (tokenize position1 text1)
-    '=' -> NextToken range1 (Glyph Equals) (tokenize position1 text1)
-    '(' -> NextToken range1 (Glyph ParenLeft) (tokenize position1 text1)
-    ')' -> NextToken range1 (Glyph ParenRight) (tokenize position1 text1)
-    ';' -> NextToken range1 (Glyph Semicolon) (tokenize position1 text1)
+    '{' -> NextToken (Token range1 (Glyph BraceLeft)) (tokenize position1 text1)
+    '}' -> NextToken (Token range1 (Glyph BraceRight)) (tokenize position1 text1)
+    ',' -> NextToken (Token range1 (Glyph Comma)) (tokenize position1 text1)
+    '.' -> NextToken (Token range1 (Glyph Dot)) (tokenize position1 text1)
+    '=' -> NextToken (Token range1 (Glyph Equals)) (tokenize position1 text1)
+    '(' -> NextToken (Token range1 (Glyph ParenLeft)) (tokenize position1 text1)
+    ')' -> NextToken (Token range1 (Glyph ParenRight)) (tokenize position1 text1)
+    ';' -> NextToken (Token range1 (Glyph Semicolon)) (tokenize position1 text1)
 
     -- Ignore newlines (`\n`).
     '\n' ->
@@ -220,11 +227,11 @@ tokenize position0 text0 =
         n = T.foldl (\acc c' -> acc + utf16Length c') 0 identifier
         position2 = position0 { positionCharacter = positionCharacter position0 + n }
         range2 = Range position0 position2
-        token = case keyword identifier of
+        kind = case keyword identifier of
           Just k -> Glyph (Keyword k)
           Nothing -> IdentifierToken (Identifier identifier)
       in
-        NextToken range2 token (tokenize position2 text2)
+        NextToken (Token range2 kind) (tokenize position2 text2)
 
     -- Parse a single line comment. Single line comments ignore all characters until the
     -- next newline.
@@ -267,7 +274,7 @@ tokenize position0 text0 =
               loop p' t'
 
     -- Parse the slash glyph.
-    '/' -> NextToken range1 (Glyph Slash) (tokenize position1 text1)
+    '/' -> NextToken (Token range1 (Glyph Slash)) (tokenize position1 text1)
 
     -- Ignore whitespace.
     c | isSpace c -> tokenize position1 text1
@@ -278,7 +285,7 @@ tokenize position0 text0 =
         position2 = position0 { positionCharacter = positionCharacter position0 + utf16Length c }
         range2 = Range position0 position2
       in
-        NextToken range2 (UnexpectedChar c) (tokenize position2 text1)
+        NextToken (Token range2 (UnexpectedChar c)) (tokenize position2 text1)
 
     where
       position1 = position0 { positionCharacter = positionCharacter position0 + 1 }
@@ -301,14 +308,14 @@ debugTokens tokens = B.toLazyText (debugTokens' tokens)
 
 debugTokens' :: TokenList -> B.Builder
 
-debugTokens' (NextToken r t ts) =
+debugTokens' (NextToken (Token r k) ts) =
   B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
     <> B.fromText "| "
     <> B.fromText token
     <> B.singleton '\n'
     <> debugTokens' ts
   where
-    token = case t of
+    token = case k of
       Glyph glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
       IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
       UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'

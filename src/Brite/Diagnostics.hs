@@ -97,7 +97,7 @@ data DiagnosticMessage
 
 data ErrorDiagnosticMessage
   -- The parser ran into a token it did not recognize.
-  = UnexpectedToken Token ExpectedToken
+  = UnexpectedToken TokenKind ExpectedToken
   -- The parser ran into the end of the source document unexpectedly.
   | UnexpectedEnding ExpectedToken
 
@@ -149,7 +149,7 @@ data ExpectedToken
   | ExpectedPattern
 
 -- The parser ran into a token it did not recognize.
-unexpectedToken :: DiagnosticMonad m => Range -> Token -> ExpectedToken -> m Diagnostic
+unexpectedToken :: DiagnosticMonad m => Range -> TokenKind -> ExpectedToken -> m Diagnostic
 unexpectedToken range unexpected expected = report $ Diagnostic range $ Error $
   UnexpectedToken unexpected expected
 
