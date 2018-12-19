@@ -22,8 +22,10 @@ runTest input expected =
         (if null diagnostics then "" else
           mconcat (map debugDiagnostic diagnostics) <> B.singleton '\n')
         <> debugModule module_
-    in
+      rebuiltInput = L.toStrict (B.toLazyText (rebuildSource (tokenize' input)))
+    in do
       actual `shouldBe` expected
+      rebuiltInput `shouldBe` input
 
 escape :: T.Text -> T.Text
 escape = T.concatMap

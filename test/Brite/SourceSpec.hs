@@ -15,8 +15,10 @@ runTest input expected =
     let
       tokens = tokenize' input
       actual = L.toStrict (B.toLazyText (debugTokens tokens))
-    in
+      rebuiltInput = L.toStrict (B.toLazyText (rebuildSource tokens))
+    in do
       actual `shouldBe` expected
+      rebuiltInput `shouldBe` input
 
 escape :: T.Text -> T.Text
 escape = T.concatMap
@@ -298,5 +300,13 @@ spec = mapM_ (uncurry runTest)
   , ( "/* **/ x"
     , "0:7-0:8   | Identifier `x`\n\
       \0:8       | End\n"
+    )
+  , ( "/*/ x"
+    , "0:4-0:5   | Identifier `x`\n\
+      \0:5       | End\n"
+    )
+  , ( "/**/ x"
+    , "0:5-0:6   | Identifier `x`\n\
+      \0:6       | End\n"
     )
   ]

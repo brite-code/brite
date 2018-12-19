@@ -24,6 +24,7 @@ module Brite.Source
   , TokenStream
   , tokenize'
   , nextToken
+  , rebuildSource
   , debugPosition
   , debugRange
   , debugTokens
@@ -162,7 +163,7 @@ data TokenKind
 -- the trivia between the last token and the ending.
 data EndToken = EndToken'
   { endTokenPosition :: Position
-  , endTokenLeadingTrivia :: [Trivia]
+  , endTokenTrivia :: [Trivia]
   }
 
 -- A glyph represents some constant sequence of characters that is used in Brite syntax.
@@ -221,9 +222,12 @@ data Trivia
 data Newline = LF | CR | CRLF
 
 data Comment
-  -- `// ...`. does not include the newline that ends the comment.
+  -- `// ...` does not include the newline that ends the comment. Does include the `//` characters.
   = LineComment T.Text
-  -- `/* ... */`
+  -- `/* ... */` does include the `/*` and `*/` characters.
+  --
+  -- NOTE: `/*/` is an acceptable block comment. Also, we don’t report a syntax error for
+  -- unterminated block comments.
   | BlockComment T.Text
 
 -- A lazy list of tokens. Customized to include some extra token and end data.
@@ -463,8 +467,8 @@ trivia side acc p0 t0 =
         -- Collect the comment and number of characters captured.
         (comment, n, t2) =
           T.spanWithState
-            (\n' c -> if c == '\n' || c == '\r' then Nothing else Just (n' + utf16Length c)) 2
-            (T.tail t1)
+            (\n' c -> if c == '\n' || c == '\r' then Nothing else Just (n' + utf16Length c)) 0
+            t0
 
         p2 = nextPosition n p0
       in
@@ -474,7 +478,7 @@ trivia side acc p0 t0 =
     Just ('/', t1) | not (T.null t1) && T.head t1 == '*' ->
       let
         -- Collect the comment and the position after the comment.
-        (comment', (finalState, p2), t2) =
+        (comment, (_, p2), t2) =
           T.spanWithState
             (\(state, p1) c ->
               case c of
@@ -490,12 +494,8 @@ trivia side acc p0 t0 =
 
                 -- Add the character’s UTF-16 length to the position and continue.
                 _ -> Just (0, nextPosition (utf16Length c) p1))
-            ((0 :: Int), nextPosition 2 p0)
-            (T.tail t1)
-
-        -- If the comment ends in `*/` then we want to remove those characters from the
-        -- comment text.
-        comment = if finalState == 2 then T.tail (T.tail comment') else comment'
+            ((0 :: Int), p0)
+            t0
 
         -- Create the new `acc` value.
         acc2 = Comment (BlockComment comment) : acc
@@ -513,6 +513,41 @@ trivia side acc p0 t0 =
 
     -- Return trivia if there isn’t more.
     _ -> (reverse acc, p0, t0)
+
+-- Takes a token stream, iterates through all the tokens, and rebuilds the source document. This
+-- function exercises the invariant that we must always be able to rebuild the source document from
+-- our token stream.
+rebuildSource :: TokenStream -> B.Builder
+rebuildSource tokens = loop mempty tokens
+  where
+    loop acc ts =
+      case nextToken ts of
+        Right (token, ts') -> loop (acc <> printToken token) ts'
+        Left endToken -> acc <> mconcat (map printTrivia (endTokenTrivia endToken))
+
+-- Prints a token into the source code it was parsed from.
+printToken :: Token -> B.Builder
+printToken token =
+  let
+    content = case tokenKind token of
+      Glyph g -> B.fromText (glyphText g)
+      IdentifierToken (Identifier ident) -> B.fromText ident
+      UnexpectedChar c -> B.singleton c
+  in
+    mconcat (map printTrivia (tokenLeadingTrivia token))
+      <> content
+      <> mconcat (map printTrivia (tokenTrailingTrivia token))
+
+-- Prints some trivia into the source code it was parsed from.
+printTrivia :: Trivia -> B.Builder
+printTrivia (Spaces n) = B.fromText (T.replicate n " ")
+printTrivia (Tabs n) = B.fromText (T.replicate n "\t")
+printTrivia (Newlines LF n) = B.fromText (T.replicate n "\n")
+printTrivia (Newlines CR n) = B.fromText (T.replicate n "\r")
+printTrivia (Newlines CRLF n) = B.fromText (T.replicate n "\r\n")
+printTrivia (Comment (LineComment comment)) = B.fromText comment
+printTrivia (Comment (BlockComment comment)) = B.fromText comment
+printTrivia (OtherWhitespace c) = B.singleton c
 
 -- Debug a position.
 debugPosition :: Position -> B.Builder
