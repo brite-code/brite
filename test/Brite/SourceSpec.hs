@@ -8,19 +8,30 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
 import Test.Hspec
 
-testTokenize :: HasCallStack => T.Text -> T.Text -> Expectation
-testTokenize input expected =
-  let
-    tokens = tokenize initialPosition input
-    actual = L.toStrict (debugTokens tokens)
-  in
-    actual `shouldBe` expected
+runTest :: T.Text -> T.Text -> Spec
+runTest input expected =
+  it (T.unpack (escape input)) $
+    let
+      tokens = tokenize initialPosition input
+      actual = L.toStrict (debugTokens tokens)
+    in
+      actual `shouldBe` expected
 
-spec = describe "tokenize" $ do
-  it "parses glyphs" $
-    testTokenize
-      "{},.=();/"
-      "0:0-0:1   | Glyph `{`\n\
+escape =
+  T.replace "\n" "\\n"
+    . T.replace "\r" "\\r"
+    . T.replace "\t" "\\t"
+    . T.replace "\f" "\\f"
+    . T.replace "\v" "\\v"
+    . T.replace "\x00A0" "\\x00A0"
+    . T.replace "\x2002" "\\x2002"
+    . T.replace "\x2003" "\\x2003"
+    . T.replace "\x2009" "\\x2009"
+
+spec :: Spec
+spec = mapM_ (uncurry runTest)
+  [ ( "{},.=();/"
+    , "0:0-0:1   | Glyph `{`\n\
       \0:1-0:2   | Glyph `}`\n\
       \0:2-0:3   | Glyph `,`\n\
       \0:3-0:4   | Glyph `.`\n\
@@ -30,247 +41,257 @@ spec = describe "tokenize" $ do
       \0:7-0:8   | Glyph `;`\n\
       \0:8-0:9   | Glyph `/`\n\
       \0:9       | End\n"
-
-  it "parses unexpected characters" $
-    testTokenize
-      "€"
-      "0:0-0:1   | Unexpected `€`\n\
+    )
+  , ( "€"
+    , "0:0-0:1   | Unexpected `€`\n\
       \0:1       | End\n"
-
-  it "parses unexpected characters made up of two UTF-16 code units" $
-    testTokenize
-      "😈"
-      "0:0-0:2   | Unexpected `😈`\n\
+    )
+  , ( "😈"
+    , "0:0-0:2   | Unexpected `😈`\n\
       \0:2       | End\n"
-
-  it "skips whitespace" $ do
-    testTokenize
-      ""
-      "0:0       | End\n"
-    testTokenize
-      " "
-      "0:1       | End\n"
-    testTokenize
-      "  "
-      "0:2       | End\n"
-    testTokenize
-      "   "
-      "0:3       | End\n"
-    testTokenize
-      "\t"
-      "0:1       | End\n"
-    testTokenize
-      "\f"
-      "0:1       | End\n"
-    testTokenize
-      "\v"
-      "0:1       | End\n"
-    testTokenize
-      "\x00A0"
-      "0:1       | End\n"
-    testTokenize
-      "\x2002"
-      "0:1       | End\n"
-    testTokenize
-      "\x2003"
-      "0:1       | End\n"
-    testTokenize
-      "\x2009"
-      "0:1       | End\n"
-
-  it "skips newlines" $ do
-    testTokenize
-      ""
-      "0:0       | End\n"
-    testTokenize
-      "\n"
-      "1:0       | End\n"
-    testTokenize
-      "\n\n"
-      "2:0       | End\n"
-    testTokenize
-      " \n"
-      "1:0       | End\n"
-    testTokenize
-      "\n "
-      "1:1       | End\n"
-    testTokenize
-      "\r"
-      "1:0       | End\n"
-    testTokenize
-      "\r\r"
-      "2:0       | End\n"
-    testTokenize
-      " \r"
-      "1:0       | End\n"
-    testTokenize
-      "\r "
-      "1:1       | End\n"
-    testTokenize
-      "\r\n"
-      "1:0       | End\n"
-    testTokenize
-      "\r\n\r\n"
-      "2:0       | End\n"
-    testTokenize
-      " \r\n"
-      "1:0       | End\n"
-    testTokenize
-      "\r\n "
-      "1:1       | End\n"
-    testTokenize
-      "\n\r\r\n"
-      "3:0       | End\n"
-    testTokenize
-      "\r\n\r\n"
-      "2:0       | End\n"
-    testTokenize
-      "\r\r\n\n"
-      "3:0       | End\n"
-    testTokenize
-      "\n\r\n\r"
-      "3:0       | End\n"
-    testTokenize
-      "\n\n\r\r"
-      "4:0       | End\n"
-    testTokenize
-      "\n\r"
-      "2:0       | End\n"
-
-  it "parses identifiers" $ do
-    testTokenize
-      "x"
-      "0:0-0:1   | Identifier `x`\n\
+    )
+  , ( "//"
+    , "0:2       | End\n"
+    )
+  , ( " //"
+    , "0:3       | End\n"
+    )
+  , ( "  //"
+    , "0:4       | End\n"
+    )
+  , ( "   //"
+    , "0:5       | End\n"
+    )
+  , ( "\t"
+    , "0:1       | End\n"
+    )
+  , ( "\f"
+    , "0:1       | End\n"
+    )
+  , ( "\v"
+    , "0:1       | End\n"
+    )
+  , ( "\x00A0"
+    , "0:1       | End\n"
+    )
+  , ( "\x2002"
+    , "0:1       | End\n"
+    )
+  , ( "\x2003"
+    , "0:1       | End\n"
+    )
+  , ( "\x2009"
+    , "0:1       | End\n"
+    )
+  , ( "\n"
+    , "1:0       | End\n"
+    )
+  , ( "\n\n"
+    , "2:0       | End\n"
+    )
+  , ( " \n"
+    , "1:0       | End\n"
+    )
+  , ( "\n "
+    , "1:1       | End\n"
+    )
+  , ( "\r"
+    , "1:0       | End\n"
+    )
+  , ( "\r\r"
+    , "2:0       | End\n"
+    )
+  , ( " \r"
+    , "1:0       | End\n"
+    )
+  , ( "\r "
+    , "1:1       | End\n"
+    )
+  , ( "\r\n"
+    , "1:0       | End\n"
+    )
+  , ( "\r\n\r\n"
+    , "2:0       | End\n"
+    )
+  , ( " \r\n"
+    , "1:0       | End\n"
+    )
+  , ( "\r\n "
+    , "1:1       | End\n"
+    )
+  , ( "\n\r\r\n"
+    , "3:0       | End\n"
+    )
+  , ( "\r\n\r\n"
+    , "2:0       | End\n"
+    )
+  , ( "\r\r\n\n"
+    , "3:0       | End\n"
+    )
+  , ( "\n\r\n\r"
+    , "3:0       | End\n"
+    )
+  , ( "\n\n\r\r"
+    , "4:0       | End\n"
+    )
+  , ( "\n\r"
+    , "2:0       | End\n"
+    )
+  , ( "x"
+    , "0:0-0:1   | Identifier `x`\n\
       \0:1       | End\n"
-    testTokenize
-      "foo"
-      "0:0-0:3   | Identifier `foo`\n\
+    )
+  , ( "foo"
+    , "0:0-0:3   | Identifier `foo`\n\
       \0:3       | End\n"
-    testTokenize
-      "Bar"
-      "0:0-0:3   | Identifier `Bar`\n\
+    )
+  , ( "Bar"
+    , "0:0-0:3   | Identifier `Bar`\n\
       \0:3       | End\n"
-    testTokenize
-      "_42"
-      "0:0-0:3   | Identifier `_42`\n\
+    )
+  , ( "_42"
+    , "0:0-0:3   | Identifier `_42`\n\
       \0:3       | End\n"
-    testTokenize
-      "Θ"
-      "0:0-0:1   | Identifier `Θ`\n\
+    )
+  , ( "Θ"
+    , "0:0-0:1   | Identifier `Θ`\n\
       \0:1       | End\n"
-    testTokenize
-      "𐐷"
-      "0:0-0:2   | Identifier `𐐷`\n\
+    )
+  , ( "𐐷"
+    , "0:0-0:2   | Identifier `𐐷`\n\
       \0:2       | End\n"
-    testTokenize
-      "u𐐷"
-      "0:0-0:3   | Identifier `u𐐷`\n\
+    )
+  , ( "u𐐷"
+    , "0:0-0:3   | Identifier `u𐐷`\n\
       \0:3       | End\n"
-    testTokenize
-      "𐐷w"
-      "0:0-0:3   | Identifier `𐐷w`\n\
+    )
+  , ( "𐐷w"
+    , "0:0-0:3   | Identifier `𐐷w`\n\
       \0:3       | End\n"
-
-  it "parses keywords" $ do
-    testTokenize
-      "_"
-      "0:0-0:1   | Glyph `_`\n\
+    )
+  , ( "_"
+    , "0:0-0:1   | Glyph `_`\n\
       \0:1       | End\n"
-    testTokenize
-      "true"
-      "0:0-0:4   | Glyph `true`\n\
+    )
+  , ( "true"
+    , "0:0-0:4   | Glyph `true`\n\
       \0:4       | End\n"
-    testTokenize
-      "false"
-      "0:0-0:5   | Glyph `false`\n\
+    )
+  , ( "false"
+    , "0:0-0:5   | Glyph `false`\n\
       \0:5       | End\n"
-    testTokenize
-      "let"
-      "0:0-0:3   | Glyph `let`\n\
+    )
+  , ( "let"
+    , "0:0-0:3   | Glyph `let`\n\
       \0:3       | End\n"
-    testTokenize
-      "if"
-      "0:0-0:2   | Glyph `if`\n\
+    )
+  , ( "if"
+    , "0:0-0:2   | Glyph `if`\n\
       \0:2       | End\n"
-    testTokenize
-      "else"
-      "0:0-0:4   | Glyph `else`\n\
+    )
+  , ( "else"
+    , "0:0-0:4   | Glyph `else`\n\
       \0:4       | End\n"
-    testTokenize
-      "do"
-      "0:0-0:2   | Glyph `do`\n\
+    )
+  , ( "do"
+    , "0:0-0:2   | Glyph `do`\n\
       \0:2       | End\n"
-
-  it "parses single line comments" $ do
-    testTokenize
-      "/"
-      "0:0-0:1   | Glyph `/`\n\
+    )
+  , ( "/"
+    , "0:0-0:1   | Glyph `/`\n\
       \0:1       | End\n"
-    testTokenize
-      "//"
-      "0:2       | End\n"
-    testTokenize
-      "// abc"
-      "0:6       | End\n"
-    testTokenize
-      "// abc\n"
-      "1:0       | End\n"
-    testTokenize
-      "// abc\nx"
-      "1:0-1:1   | Identifier `x`\n\
+    )
+  , ( "//"
+    , "0:2       | End\n"
+    )
+  , ( "// abc"
+    , "0:6       | End\n"
+    )
+  , ( "// abc\n"
+    , "1:0       | End\n"
+    )
+  , ( "// abc\nx"
+    , "1:0-1:1   | Identifier `x`\n\
       \1:1       | End\n"
-    testTokenize
-      "// abc\rx"
-      "1:0-1:1   | Identifier `x`\n\
+    )
+  , ( "// abc\rx"
+    , "1:0-1:1   | Identifier `x`\n\
       \1:1       | End\n"
-    testTokenize
-      "// abc\r\nx"
-      "1:0-1:1   | Identifier `x`\n\
+    )
+  , ( "// abc\r\nx"
+    , "1:0-1:1   | Identifier `x`\n\
       \1:1       | End\n"
-    testTokenize
-      "// 😈"
-      "0:5       | End\n"
-
-  it "parses multi-line comments" $ do
-    testTokenize
-      "/"
-      "0:0-0:1   | Glyph `/`\n\
+    )
+  , ( "// 😈"
+    , "0:5       | End\n"
+    )
+  , ( "/"
+    , "0:0-0:1   | Glyph `/`\n\
       \0:1       | End\n"
-    testTokenize
-      "/*"
-      "0:2       | End\n"
-    testTokenize
-      "/* "
-      "0:3       | End\n"
-    testTokenize
-      "/* *"
-      "0:4       | End\n"
-    testTokenize
-      "/* */"
-      "0:5       | End\n"
-    testTokenize
-      "/* **"
-      "0:5       | End\n"
-    testTokenize
-      "/* **/"
-      "0:6       | End\n"
-    testTokenize
-      "/* \n */"
-      "1:3       | End\n"
-    testTokenize
-      "/* \r */"
-      "1:3       | End\n"
-    testTokenize
-      "/* \r\n */"
-      "1:3       | End\n"
-    testTokenize
-      "/* 😈 */"
-      "0:8       | End\n"
-    testTokenize
-      "/* */ x"
-      "0:6-0:7   | Identifier `x`\n\
+    )
+  , ( "/*"
+    , "0:2       | End\n"
+    )
+  , ( "/* "
+    , "0:3       | End\n"
+    )
+  , ( "/* /"
+    , "0:4       | End\n"
+    )
+  , ( "/* *"
+    , "0:4       | End\n"
+    )
+  , ( "/* */"
+    , "0:5       | End\n"
+    )
+  , ( "/* **"
+    , "0:5       | End\n"
+    )
+  , ( "/* **/"
+    , "0:6       | End\n"
+    )
+  , ( "/* * */"
+    , "0:7       | End\n"
+    )
+  , ( "/* / */"
+    , "0:7       | End\n"
+    )
+  , ( "/* \n */"
+    , "1:3       | End\n"
+    )
+  , ( "/* \n\n */"
+    , "2:3       | End\n"
+    )
+  , ( "/* \r */"
+    , "1:3       | End\n"
+    )
+  , ( "/* \r\r */"
+    , "2:3       | End\n"
+    )
+  , ( "/* \r\n */"
+    , "1:3       | End\n"
+    )
+  , ( "/* \r\n\r\n */"
+    , "2:3       | End\n"
+    )
+  , ( "/* 😈 */"
+    , "0:8       | End\n"
+    )
+  , ( "/* € */"
+    , "0:7       | End\n"
+    )
+  , ( "/* 😈 😈 */"
+    , "0:11      | End\n"
+    )
+  , ( "/* € € */"
+    , "0:9       | End\n"
+    )
+  , ( "/* */ x"
+    , "0:6-0:7   | Identifier `x`\n\
       \0:7       | End\n"
-    testTokenize
-      "/* **/ x"
-      "0:7-0:8   | Identifier `x`\n\
+    )
+  , ( "/* **/ x"
+    , "0:7-0:8   | Identifier `x`\n\
       \0:8       | End\n"
+    )
+  ]
