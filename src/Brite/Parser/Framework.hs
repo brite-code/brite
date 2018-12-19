@@ -129,7 +129,7 @@ instance Applicative Parser where
           -- Optimization: if the token is an unexpected character don’t bother trying to run `p2`.
           -- We know that no parser can handle an unexpected token. Instead call the
           -- continuation immediately.
-          NextToken (Token _ (UnexpectedChar _)) ts2 -> continue k1 ts2
+          NextToken (Token { tokenKind = UnexpectedChar _ }) ts2 -> continue k1 ts2
           _ ->
             unParser p2
               (\a ts2 -> ok (f <*> a) ts2)
@@ -160,7 +160,7 @@ runParser p =
     (\a _ -> Right <$> a)
     (\a k ts1 ->
       case ts1 of
-        NextToken (Token _ _) ts2 -> continue k ts2
+        NextToken (Token {}) ts2 -> continue k ts2
         EndToken _ -> Right <$> a)
     (\e _ -> Left <$> e)
 
@@ -242,7 +242,7 @@ many p = Parser $ \_ yield _ ->
 unexpected :: ExpectedToken -> Parser a
 unexpected ex = Parser $ \_ _ throw ts ->
   case ts of
-    NextToken (Token r t) _ -> throw (unexpectedToken r t ex) ts
+    NextToken t _ -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) ts
     EndToken p -> throw (unexpectedEnding (Range p p) ex) ts
 
 -- Parses a glyph.
@@ -264,8 +264,8 @@ identifier = retry tryIdentifier
 tryGlyph :: Glyph -> Parser Range
 tryGlyph g = Parser $ \ok _ throw ts ->
   case ts of
-    NextToken (Token r (Glyph g')) ts' | g == g' -> ok (pure r) ts'
-    NextToken (Token r t) _ -> throw (unexpectedToken r t (ExpectedGlyph g)) ts
+    NextToken (Token { tokenRange = r, tokenKind = Glyph g' }) ts' | g == g' -> ok (pure r) ts'
+    NextToken t _ -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) ts
     EndToken p -> throw (unexpectedEnding (Range p p) (ExpectedGlyph g)) ts
 
 -- Parses a keyword. Throws an error if we fail without retrying.
@@ -282,18 +282,14 @@ tryKeyword = tryGlyph . Keyword
 tryIdentifier :: Parser (Range, Identifier)
 tryIdentifier = Parser $ \ok _ throw ts ->
   case ts of
-    NextToken (Token r (IdentifierToken i)) ts' -> ok (pure (r, i)) ts'
-    NextToken (Token r t) _ -> throw (unexpectedToken r t ExpectedIdentifier) ts
+    NextToken (Token { tokenRange = r, tokenKind = IdentifierToken i }) ts' -> ok (pure (r, i)) ts'
+    NextToken t _ -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) ts
     EndToken p -> throw (unexpectedEnding (Range p p) ExpectedIdentifier) ts
 
 -- Determines if two token streams start at the same position. We use this to determine if a parser
 -- parsed something or nothing.
 sameStart :: TokenList -> TokenList -> Bool
-sameStart (NextToken (Token (Range p1 _) _) _) (NextToken (Token (Range p2 _) _) _) =
-  positionLine p1 == positionLine p2 && positionCharacter p1 == positionCharacter p2
-sameStart (NextToken (Token (Range p1 _) _) _) (EndToken p2) =
-  positionLine p1 == positionLine p2 && positionCharacter p1 == positionCharacter p2
-sameStart (EndToken p1) (NextToken (Token (Range p2 _) _) _) =
-  positionLine p1 == positionLine p2 && positionCharacter p1 == positionCharacter p2
-sameStart (EndToken p1) (EndToken p2) =
-  positionLine p1 == positionLine p2 && positionCharacter p1 == positionCharacter p2
+sameStart (NextToken t1 _) (NextToken t2 _) = rangeStart (tokenRange t1) == rangeStart (tokenRange t2)
+sameStart (NextToken t1 _) (EndToken p2) = rangeStart (tokenRange t1) == p2
+sameStart (EndToken p1) (NextToken t2 _) = p1 == rangeStart (tokenRange t2)
+sameStart (EndToken p1) (EndToken p2) = p1 == p2

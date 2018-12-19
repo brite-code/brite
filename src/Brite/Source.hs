@@ -39,6 +39,7 @@ import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
 --
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Position = Position { positionLine :: !Int, positionCharacter :: !Int }
+  deriving (Eq)
 
 -- The position at the start of a document.
 initialPosition :: Position
@@ -131,6 +132,8 @@ keywordText Do = "do"
 data Token = Token
   { tokenRange :: Range
   , tokenKind :: TokenKind
+  , tokenLeadingTrivia :: ()
+  , tokenTrailingTrivia :: ()
   }
 
 -- The kind of a token.
@@ -191,14 +194,14 @@ tokenize position0 text0 =
     ' ' -> tokenize position1 text1
 
     -- Parse some glyphs.
-    '{' -> NextToken (Token range1 (Glyph BraceLeft)) (tokenize position1 text1)
-    '}' -> NextToken (Token range1 (Glyph BraceRight)) (tokenize position1 text1)
-    ',' -> NextToken (Token range1 (Glyph Comma)) (tokenize position1 text1)
-    '.' -> NextToken (Token range1 (Glyph Dot)) (tokenize position1 text1)
-    '=' -> NextToken (Token range1 (Glyph Equals)) (tokenize position1 text1)
-    '(' -> NextToken (Token range1 (Glyph ParenLeft)) (tokenize position1 text1)
-    ')' -> NextToken (Token range1 (Glyph ParenRight)) (tokenize position1 text1)
-    ';' -> NextToken (Token range1 (Glyph Semicolon)) (tokenize position1 text1)
+    '{' -> NextToken (Token range1 (Glyph BraceLeft) () ()) (tokenize position1 text1)
+    '}' -> NextToken (Token range1 (Glyph BraceRight) () ()) (tokenize position1 text1)
+    ',' -> NextToken (Token range1 (Glyph Comma) () ()) (tokenize position1 text1)
+    '.' -> NextToken (Token range1 (Glyph Dot) () ()) (tokenize position1 text1)
+    '=' -> NextToken (Token range1 (Glyph Equals) () ()) (tokenize position1 text1)
+    '(' -> NextToken (Token range1 (Glyph ParenLeft) () ()) (tokenize position1 text1)
+    ')' -> NextToken (Token range1 (Glyph ParenRight) () ()) (tokenize position1 text1)
+    ';' -> NextToken (Token range1 (Glyph Semicolon) () ()) (tokenize position1 text1)
 
     -- Ignore newlines (`\n`).
     '\n' ->
@@ -231,7 +234,7 @@ tokenize position0 text0 =
           Just k -> Glyph (Keyword k)
           Nothing -> IdentifierToken (Identifier identifier)
       in
-        NextToken (Token range2 kind) (tokenize position2 text2)
+        NextToken (Token range2 kind () ()) (tokenize position2 text2)
 
     -- Parse a single line comment. Single line comments ignore all characters until the
     -- next newline.
@@ -274,7 +277,7 @@ tokenize position0 text0 =
               loop p' t'
 
     -- Parse the slash glyph.
-    '/' -> NextToken (Token range1 (Glyph Slash)) (tokenize position1 text1)
+    '/' -> NextToken (Token range1 (Glyph Slash) () ()) (tokenize position1 text1)
 
     -- Ignore whitespace.
     c | isSpace c -> tokenize position1 text1
@@ -285,7 +288,7 @@ tokenize position0 text0 =
         position2 = position0 { positionCharacter = positionCharacter position0 + utf16Length c }
         range2 = Range position0 position2
       in
-        NextToken (Token range2 (UnexpectedChar c)) (tokenize position2 text1)
+        NextToken (Token range2 (UnexpectedChar c) () ()) (tokenize position2 text1)
 
     where
       position1 = position0 { positionCharacter = positionCharacter position0 + 1 }
@@ -308,7 +311,7 @@ debugTokens tokens = B.toLazyText (debugTokens' tokens)
 
 debugTokens' :: TokenList -> B.Builder
 
-debugTokens' (NextToken (Token r k) ts) =
+debugTokens' (NextToken (Token r k () ()) ts) =
   B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
     <> B.fromText "| "
     <> B.fromText token
