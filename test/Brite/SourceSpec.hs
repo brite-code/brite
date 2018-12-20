@@ -80,6 +80,14 @@ spec = mapM_ (uncurry runTest)
     , "+         | Tabs 1\n\
       \0:1       | End\n"
     )
+  , ( "\t\t"
+    , "+         | Tabs 2\n\
+      \0:2       | End\n"
+    )
+  , ( "\t\t\t"
+    , "+         | Tabs 3\n\
+      \0:3       | End\n"
+    )
   , ( "\f"
     , "+         | OtherWhitespace `\f`\n\
       \0:1       | End\n"
@@ -392,5 +400,131 @@ spec = mapM_ (uncurry runTest)
       \+         | Spaces 1\n\
       \0:5-0:6   | Identifier `x`\n\
       \0:6       | End\n"
+    )
+  , ( "a   b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 3\n\
+      \0:4-0:5   | Identifier `b`\n\
+      \0:5       | End\n"
+    )
+  , ( "a \n b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines LF 1\n\
+      \+         | Spaces 1\n\
+      \1:1-1:2   | Identifier `b`\n\
+      \1:2       | End\n"
+    )
+  , ( "a \r b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines CR 1\n\
+      \+         | Spaces 1\n\
+      \1:1-1:2   | Identifier `b`\n\
+      \1:2       | End\n"
+    )
+  , ( "a \r\n b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines CRLF 1\n\
+      \+         | Spaces 1\n\
+      \1:1-1:2   | Identifier `b`\n\
+      \1:2       | End\n"
+    )
+  , ( "a \n\n b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines LF 1\n\
+      \+         | Newlines LF 1\n\
+      \+         | Spaces 1\n\
+      \2:1-2:2   | Identifier `b`\n\
+      \2:2       | End\n"
+    )
+  , ( "a \n\n\n b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines LF 1\n\
+      \+         | Newlines LF 2\n\
+      \+         | Spaces 1\n\
+      \3:1-3:2   | Identifier `b`\n\
+      \3:2       | End\n"
+    )
+  , ( "a \r\r b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines CR 1\n\
+      \+         | Newlines CR 1\n\
+      \+         | Spaces 1\n\
+      \2:1-2:2   | Identifier `b`\n\
+      \2:2       | End\n"
+    )
+  , ( "a \r\r\r b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines CR 1\n\
+      \+         | Newlines CR 2\n\
+      \+         | Spaces 1\n\
+      \3:1-3:2   | Identifier `b`\n\
+      \3:2       | End\n"
+    )
+  , ( "a \r\n\r\n b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines CRLF 1\n\
+      \+         | Newlines CRLF 1\n\
+      \+         | Spaces 1\n\
+      \2:1-2:2   | Identifier `b`\n\
+      \2:2       | End\n"
+    )
+  , ( "a \r\n\r\n\r\n b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | Newlines CRLF 1\n\
+      \+         | Newlines CRLF 2\n\
+      \+         | Spaces 1\n\
+      \3:1-3:2   | Identifier `b`\n\
+      \3:2       | End\n"
+    )
+  , ( "a /* */ b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | BlockComment\n\
+      \-         | Spaces 1\n\
+      \0:8-0:9   | Identifier `b`\n\
+      \0:9       | End\n"
+    )
+  , ( "a /* */ /* */ b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | BlockComment\n\
+      \-         | Spaces 1\n\
+      \-         | BlockComment\n\
+      \-         | Spaces 1\n\
+      \0:14-0:15 | Identifier `b`\n\
+      \0:15      | End\n"
+    )
+  , ( "a /* \n */ b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | BlockComment\n\
+      \+         | Spaces 1\n\
+      \1:4-1:5   | Identifier `b`\n\
+      \1:5       | End\n"
+    )
+  , ( "a /* \r */ b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | BlockComment\n\
+      \+         | Spaces 1\n\
+      \1:4-1:5   | Identifier `b`\n\
+      \1:5       | End\n"
+    )
+  , ( "a /* \r\n */ b"
+    , "0:0-0:1   | Identifier `a`\n\
+      \-         | Spaces 1\n\
+      \-         | BlockComment\n\
+      \+         | Spaces 1\n\
+      \1:4-1:5   | Identifier `b`\n\
+      \1:5       | End\n"
     )
   ]
