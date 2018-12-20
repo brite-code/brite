@@ -389,13 +389,13 @@ nextToken (TokenStream p0 t0) =
     Just (c, t2) -> token (UnexpectedChar c) (utf16Length c) t2
   where
     -- Leading trivia
-    (leadingTrivia, p1, t1) = trivia Leading [] p0 t0
+    (leadingTrivia, p1, t1) = nextTrivia Leading [] p0 t0
 
     -- Creates a token with trailing trivia
     token k n t2 =
       let
         p2 = nextPosition n p1
-        (trailingTrivia, p3, t3) = trivia Trailing [] p2 t2
+        (trailingTrivia, p3, t3) = nextTrivia Trailing [] p2 t2
         tk = Token (Range p1 p2) k leadingTrivia trailingTrivia
       in
         Right (tk, TokenStream p3 t3)
@@ -404,22 +404,22 @@ nextToken (TokenStream p0 t0) =
 data TriviaSide = Leading | Trailing
 
 -- Parses some trivia!
-trivia :: TriviaSide -> [Trivia] -> Position -> T.Text -> ([Trivia], Position, T.Text)
-trivia side acc p0 t0 =
+nextTrivia :: TriviaSide -> [Trivia] -> Position -> T.Text -> ([Trivia], Position, T.Text)
+nextTrivia side acc p0 t0 =
   case T.uncons t0 of
     -- Spaces
     Just (' ', t1) ->
       let p1 = nextPosition 1 p0 in
       case acc of
-        Spaces n : acc' -> trivia side (Spaces (n + 1) : acc') p1 t1
-        acc' -> trivia side (Spaces 1 : acc') p1 t1
+        Spaces n : acc' -> nextTrivia side (Spaces (n + 1) : acc') p1 t1
+        acc' -> nextTrivia side (Spaces 1 : acc') p1 t1
 
     -- Tabs
     Just ('\t', t1) ->
       let p1 = nextPosition 1 p0 in
       case acc of
-        Tabs n : acc' -> trivia side (Tabs (n + 1) : acc') p1 t1
-        acc' -> trivia side (Tabs 1 : acc') p1 t1
+        Tabs n : acc' -> nextTrivia side (Tabs (n + 1) : acc') p1 t1
+        acc' -> nextTrivia side (Tabs 1 : acc') p1 t1
 
     -- Newlines (LF)
     Just ('\n', t1) ->
@@ -431,7 +431,7 @@ trivia side acc p0 t0 =
             acc' -> Newlines LF 1 : acc'
       in
         case side of
-          Leading -> trivia Leading acc1 p1 t1
+          Leading -> nextTrivia Leading acc1 p1 t1
           Trailing -> (reverse acc1, p1, t1)
 
     -- Newlines (CRLF)
@@ -445,7 +445,7 @@ trivia side acc p0 t0 =
             acc' -> Newlines CRLF 1 : acc'
       in
         case side of
-          Leading -> trivia Leading acc2 p2 t2
+          Leading -> nextTrivia Leading acc2 p2 t2
           Trailing -> (reverse acc2, p2, t2)
 
     -- Newlines (CR)
@@ -458,7 +458,7 @@ trivia side acc p0 t0 =
             acc' -> Newlines CR 1 : acc'
       in
         case side of
-          Leading -> trivia Leading acc1 p1 t1
+          Leading -> nextTrivia Leading acc1 p1 t1
           Trailing -> (reverse acc1, p1, t1)
 
     -- Line comments
@@ -472,7 +472,7 @@ trivia side acc p0 t0 =
 
         p2 = nextPosition n p0
       in
-        trivia side (Comment (LineComment comment) : acc) p2 t2
+        nextTrivia side (Comment (LineComment comment) : acc) p2 t2
 
     -- Block comments
     Just ('/', t1) | not (T.null t1) && T.head t1 == '*' ->
@@ -503,13 +503,13 @@ trivia side acc p0 t0 =
         -- If we are on the trailing side and the block comment spans multiple lines then stop
         -- parsing trivia.
         case side of
-          Leading -> trivia Leading acc2 p2 t2
+          Leading -> nextTrivia Leading acc2 p2 t2
           Trailing | positionLine p0 /= positionLine p2 -> (reverse acc2, p2, t2)
-          Trailing -> trivia Trailing acc2 p2 t2
+          Trailing -> nextTrivia Trailing acc2 p2 t2
 
     -- Other whitespace
     Just (c, t1) | isSpace c ->
-      trivia side (OtherWhitespace c : acc) (nextPosition (utf16Length c) p0) t1
+      nextTrivia side (OtherWhitespace c : acc) (nextPosition (utf16Length c) p0) t1
 
     -- Return trivia if there isn’t more.
     _ -> (reverse acc, p0, t0)
@@ -564,18 +564,40 @@ debugTokens :: TokenStream -> B.Builder
 debugTokens ts = debugTokens' (nextToken ts)
 
 debugTokens' :: Either EndToken (Token, TokenStream) -> B.Builder
-debugTokens' (Right (Token r k _ _, ts)) =
-  B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
+debugTokens' (Right (Token r k leadingTrivia trailingTrivia, ts)) =
+  mconcat (map (debugTrivia Leading) leadingTrivia)
+    <> B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
     <> B.fromText "| "
-    <> B.fromText token
+    <> B.fromText content
     <> B.singleton '\n'
+    <> mconcat (map (debugTrivia Trailing) trailingTrivia)
     <> debugTokens' (nextToken ts)
   where
-    token = case k of
+    content = case k of
       Glyph glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
       IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
       UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
 
-debugTokens' (Left (EndToken' p _)) =
-  B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
+debugTokens' (Left (EndToken' p leadingTrivia)) =
+  mconcat (map (debugTrivia Leading) leadingTrivia)
+    <> B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
     <> B.fromText "| End\n"
+
+debugTrivia :: TriviaSide -> Trivia -> B.Builder
+debugTrivia side trivia =
+  (case side of { Leading -> "+"; Trailing -> "-" })
+    <> B.fromText (T.replicate 9 " ")
+    <> B.fromText "| "
+    <> content
+    <> B.singleton '\n'
+  where
+    content =
+      case trivia of
+        Spaces n -> B.fromText "Spaces " <> B.decimal n
+        Tabs n -> B.fromText "Tabs " <> B.decimal n
+        Newlines LF n -> B.fromText "Newlines LF " <> B.decimal n
+        Newlines CR n -> B.fromText "Newlines CR " <> B.decimal n
+        Newlines CRLF n -> B.fromText "Newlines CRLF " <> B.decimal n
+        Comment (LineComment _) -> B.fromText "LineComment"
+        Comment (BlockComment _) -> B.fromText "BlockComment"
+        OtherWhitespace c -> B.fromText "OtherWhitespace `" <> B.singleton c <> B.singleton '`'

@@ -58,91 +58,137 @@ spec = mapM_ (uncurry runTest)
       \0:2       | End\n"
     )
   , ( "//"
-    , "0:2       | End\n"
+    , "+         | LineComment\n\
+      \0:2       | End\n"
     )
   , ( " //"
-    , "0:3       | End\n"
+    , "+         | Spaces 1\n\
+      \+         | LineComment\n\
+      \0:3       | End\n"
     )
   , ( "  //"
-    , "0:4       | End\n"
+    , "+         | Spaces 2\n\
+      \+         | LineComment\n\
+      \0:4       | End\n"
     )
   , ( "   //"
-    , "0:5       | End\n"
+    , "+         | Spaces 3\n\
+      \+         | LineComment\n\
+      \0:5       | End\n"
     )
   , ( "\t"
-    , "0:1       | End\n"
+    , "+         | Tabs 1\n\
+      \0:1       | End\n"
     )
   , ( "\f"
-    , "0:1       | End\n"
+    , "+         | OtherWhitespace `\f`\n\
+      \0:1       | End\n"
     )
   , ( "\v"
-    , "0:1       | End\n"
+    , "+         | OtherWhitespace `\v`\n\
+      \0:1       | End\n"
     )
   , ( "\x00A0"
-    , "0:1       | End\n"
+    , "+         | OtherWhitespace `\x00A0`\n\
+      \0:1       | End\n"
     )
   , ( "\x2002"
-    , "0:1       | End\n"
+    , "+         | OtherWhitespace `\x2002`\n\
+      \0:1       | End\n"
     )
   , ( "\x2003"
-    , "0:1       | End\n"
+    , "+         | OtherWhitespace `\x2003`\n\
+      \0:1       | End\n"
     )
   , ( "\x2009"
-    , "0:1       | End\n"
+    , "+         | OtherWhitespace `\x2009`\n\
+      \0:1       | End\n"
     )
   , ( "\n"
-    , "1:0       | End\n"
+    , "+         | Newlines LF 1\n\
+      \1:0       | End\n"
     )
   , ( "\n\n"
-    , "2:0       | End\n"
+    , "+         | Newlines LF 2\n\
+      \2:0       | End\n"
     )
   , ( " \n"
-    , "1:0       | End\n"
+    , "+         | Spaces 1\n\
+      \+         | Newlines LF 1\n\
+      \1:0       | End\n"
     )
   , ( "\n "
-    , "1:1       | End\n"
+    , "+         | Newlines LF 1\n\
+      \+         | Spaces 1\n\
+      \1:1       | End\n"
     )
   , ( "\r"
-    , "1:0       | End\n"
+    , "+         | Newlines CR 1\n\
+      \1:0       | End\n"
     )
   , ( "\r\r"
-    , "2:0       | End\n"
+    , "+         | Newlines CR 2\n\
+      \2:0       | End\n"
     )
   , ( " \r"
-    , "1:0       | End\n"
+    , "+         | Spaces 1\n\
+      \+         | Newlines CR 1\n\
+      \1:0       | End\n"
     )
   , ( "\r "
-    , "1:1       | End\n"
+    , "+         | Newlines CR 1\n\
+      \+         | Spaces 1\n\
+      \1:1       | End\n"
     )
   , ( "\r\n"
-    , "1:0       | End\n"
+    , "+         | Newlines CRLF 1\n\
+      \1:0       | End\n"
     )
   , ( "\r\n\r\n"
-    , "2:0       | End\n"
+    , "+         | Newlines CRLF 2\n\
+      \2:0       | End\n"
     )
   , ( " \r\n"
-    , "1:0       | End\n"
+    , "+         | Spaces 1\n\
+      \+         | Newlines CRLF 1\n\
+      \1:0       | End\n"
     )
   , ( "\r\n "
-    , "1:1       | End\n"
+    , "+         | Newlines CRLF 1\n\
+      \+         | Spaces 1\n\
+      \1:1       | End\n"
     )
   , ( "\n\r\r\n"
-    , "3:0       | End\n"
+    , "+         | Newlines LF 1\n\
+      \+         | Newlines CR 1\n\
+      \+         | Newlines CRLF 1\n\
+      \3:0       | End\n"
     )
   , ( "\r\n\r\n"
-    , "2:0       | End\n"
+    , "+         | Newlines CRLF 2\n\
+      \2:0       | End\n"
     )
   , ( "\r\r\n\n"
-    , "3:0       | End\n"
+    , "+         | Newlines CR 1\n\
+      \+         | Newlines CRLF 1\n\
+      \+         | Newlines LF 1\n\
+      \3:0       | End\n"
     )
   , ( "\n\r\n\r"
-    , "3:0       | End\n"
+    , "+         | Newlines LF 1\n\
+      \+         | Newlines CRLF 1\n\
+      \+         | Newlines CR 1\n\
+      \3:0       | End\n"
     )
   , ( "\n\n\r\r"
-    , "4:0       | End\n"
+    , "+         | Newlines LF 2\n\
+      \+         | Newlines CR 2\n\
+      \4:0       | End\n"
     )
   , ( "\n\r"
-    , "2:0       | End\n"
+    , "+         | Newlines LF 1\n\
+      \+         | Newlines CR 1\n\
+      \2:0       | End\n"
     )
   , ( "x"
     , "0:0-0:1   | Identifier `x`\n\
@@ -209,104 +255,142 @@ spec = mapM_ (uncurry runTest)
       \0:1       | End\n"
     )
   , ( "//"
-    , "0:2       | End\n"
+    , "+         | LineComment\n\
+      \0:2       | End\n"
     )
   , ( "// abc"
-    , "0:6       | End\n"
+    , "+         | LineComment\n\
+      \0:6       | End\n"
     )
   , ( "// abc\n"
-    , "1:0       | End\n"
+    , "+         | LineComment\n\
+      \+         | Newlines LF 1\n\
+      \1:0       | End\n"
     )
   , ( "// abc\nx"
-    , "1:0-1:1   | Identifier `x`\n\
+    , "+         | LineComment\n\
+      \+         | Newlines LF 1\n\
+      \1:0-1:1   | Identifier `x`\n\
       \1:1       | End\n"
     )
   , ( "// abc\rx"
-    , "1:0-1:1   | Identifier `x`\n\
+    , "+         | LineComment\n\
+      \+         | Newlines CR 1\n\
+      \1:0-1:1   | Identifier `x`\n\
       \1:1       | End\n"
     )
   , ( "// abc\r\nx"
-    , "1:0-1:1   | Identifier `x`\n\
+    , "+         | LineComment\n\
+      \+         | Newlines CRLF 1\n\
+      \1:0-1:1   | Identifier `x`\n\
       \1:1       | End\n"
     )
   , ( "// 😈"
-    , "0:5       | End\n"
+    , "+         | LineComment\n\
+      \0:5       | End\n"
     )
   , ( "/"
     , "0:0-0:1   | Glyph `/`\n\
       \0:1       | End\n"
     )
   , ( "/*"
-    , "0:2       | End\n"
+    , "+         | BlockComment\n\
+      \0:2       | End\n"
     )
   , ( "/* "
-    , "0:3       | End\n"
+    , "+         | BlockComment\n\
+      \0:3       | End\n"
     )
   , ( "/* /"
-    , "0:4       | End\n"
+    , "+         | BlockComment\n\
+      \0:4       | End\n"
     )
   , ( "/* *"
-    , "0:4       | End\n"
+    , "+         | BlockComment\n\
+      \0:4       | End\n"
     )
   , ( "/* */"
-    , "0:5       | End\n"
+    , "+         | BlockComment\n\
+      \0:5       | End\n"
     )
   , ( "/* **"
-    , "0:5       | End\n"
+    , "+         | BlockComment\n\
+      \0:5       | End\n"
     )
   , ( "/* **/"
-    , "0:6       | End\n"
+    , "+         | BlockComment\n\
+      \0:6       | End\n"
     )
   , ( "/* * */"
-    , "0:7       | End\n"
+    , "+         | BlockComment\n\
+      \0:7       | End\n"
     )
   , ( "/* / */"
-    , "0:7       | End\n"
+    , "+         | BlockComment\n\
+      \0:7       | End\n"
     )
   , ( "/* \n */"
-    , "1:3       | End\n"
+    , "+         | BlockComment\n\
+      \1:3       | End\n"
     )
   , ( "/* \n\n */"
-    , "2:3       | End\n"
+    , "+         | BlockComment\n\
+      \2:3       | End\n"
     )
   , ( "/* \r */"
-    , "1:3       | End\n"
+    , "+         | BlockComment\n\
+      \1:3       | End\n"
     )
   , ( "/* \r\r */"
-    , "2:3       | End\n"
+    , "+         | BlockComment\n\
+      \2:3       | End\n"
     )
   , ( "/* \r\n */"
-    , "1:3       | End\n"
+    , "+         | BlockComment\n\
+      \1:3       | End\n"
     )
   , ( "/* \r\n\r\n */"
-    , "2:3       | End\n"
+    , "+         | BlockComment\n\
+      \2:3       | End\n"
     )
   , ( "/* 😈 */"
-    , "0:8       | End\n"
+    , "+         | BlockComment\n\
+      \0:8       | End\n"
     )
   , ( "/* € */"
-    , "0:7       | End\n"
+    , "+         | BlockComment\n\
+      \0:7       | End\n"
     )
   , ( "/* 😈 😈 */"
-    , "0:11      | End\n"
+    , "+         | BlockComment\n\
+      \0:11      | End\n"
     )
   , ( "/* € € */"
-    , "0:9       | End\n"
+    , "+         | BlockComment\n\
+      \0:9       | End\n"
     )
   , ( "/* */ x"
-    , "0:6-0:7   | Identifier `x`\n\
+    , "+         | BlockComment\n\
+      \+         | Spaces 1\n\
+      \0:6-0:7   | Identifier `x`\n\
       \0:7       | End\n"
     )
   , ( "/* **/ x"
-    , "0:7-0:8   | Identifier `x`\n\
+    , "+         | BlockComment\n\
+      \+         | Spaces 1\n\
+      \0:7-0:8   | Identifier `x`\n\
       \0:8       | End\n"
     )
   , ( "/*/ x"
-    , "0:4-0:5   | Identifier `x`\n\
+    , "+         | BlockComment\n\
+      \+         | Spaces 1\n\
+      \0:4-0:5   | Identifier `x`\n\
       \0:5       | End\n"
     )
   , ( "/**/ x"
-    , "0:5-0:6   | Identifier `x`\n\
+    , "+         | BlockComment\n\
+      \+         | Spaces 1\n\
+      \0:5-0:6   | Identifier `x`\n\
       \0:6       | End\n"
     )
   ]
