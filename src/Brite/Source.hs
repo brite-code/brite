@@ -22,8 +22,9 @@ module Brite.Source
   , Comment(..)
   , TokenStream
   , tokenize
+  , tokenStreamToList
   , nextToken
-  , rebuildSource
+  , printSource
   , debugPosition
   , debugRange
   , debugTokens
@@ -240,6 +241,15 @@ data TokenStream = TokenStream Position T.Text
 tokenize :: T.Text -> TokenStream
 tokenize text = TokenStream initialPosition text
 
+-- Converts a token stream to a list of tokens and an end token.
+tokenStreamToList :: TokenStream -> ([Token], EndToken)
+tokenStreamToList = loop []
+  where
+    loop acc ts =
+      case nextToken ts of
+        Right (t, ts') -> loop (t : acc) ts'
+        Left t -> (reverse acc, t)
+
 -- Advances the token stream. Either returns a token and the remainder of the token stream or
 -- returns the ending token in the stream.
 nextToken :: TokenStream -> Either EndToken (Token, TokenStream)
@@ -400,40 +410,36 @@ nextTrivia side acc p0 t0 =
     -- Return trivia if there isn’t more.
     _ -> (reverse acc, p0, t0)
 
--- Takes a token stream, iterates through all the tokens, and rebuilds the source document. This
--- function exercises the invariant that we must always be able to rebuild the source document from
--- our token stream.
-rebuildSource :: TokenStream -> B.Builder
-rebuildSource tokens = loop mempty tokens
-  where
-    loop acc ts =
-      case nextToken ts of
-        Right (token, ts') -> loop (acc <> printToken token) ts'
-        Left endToken -> acc <> mconcat (map printTrivia (endTokenTrivia endToken))
+-- Takes a list of tokens and prints the source document. This function exercises the invariant that
+-- we must always be able to rebuild the source document from our token stream.
+printSource :: [Token] -> EndToken -> B.Builder
+printSource tokens endToken =
+  mconcat (map printTokenSource tokens)
+    <> mconcat (map printTriviaSource (endTokenTrivia endToken))
 
 -- Prints a token into the source code it was parsed from.
-printToken :: Token -> B.Builder
-printToken token =
+printTokenSource :: Token -> B.Builder
+printTokenSource token =
   let
     content = case tokenKind token of
       Glyph g -> B.fromText (glyphText g)
       IdentifierToken (Identifier ident) -> B.fromText ident
       UnexpectedChar c -> B.singleton c
   in
-    mconcat (map printTrivia (tokenLeadingTrivia token))
+    mconcat (map printTriviaSource (tokenLeadingTrivia token))
       <> content
-      <> mconcat (map printTrivia (tokenTrailingTrivia token))
+      <> mconcat (map printTriviaSource (tokenTrailingTrivia token))
 
 -- Prints some trivia into the source code it was parsed from.
-printTrivia :: Trivia -> B.Builder
-printTrivia (Spaces n) = B.fromText (T.replicate n " ")
-printTrivia (Tabs n) = B.fromText (T.replicate n "\t")
-printTrivia (Newlines LF n) = B.fromText (T.replicate n "\n")
-printTrivia (Newlines CR n) = B.fromText (T.replicate n "\r")
-printTrivia (Newlines CRLF n) = B.fromText (T.replicate n "\r\n")
-printTrivia (Comment (LineComment comment)) = B.fromText comment
-printTrivia (Comment (BlockComment comment)) = B.fromText comment
-printTrivia (OtherWhitespace c) = B.singleton c
+printTriviaSource :: Trivia -> B.Builder
+printTriviaSource (Spaces n) = B.fromText (T.replicate n " ")
+printTriviaSource (Tabs n) = B.fromText (T.replicate n "\t")
+printTriviaSource (Newlines LF n) = B.fromText (T.replicate n "\n")
+printTriviaSource (Newlines CR n) = B.fromText (T.replicate n "\r")
+printTriviaSource (Newlines CRLF n) = B.fromText (T.replicate n "\r\n")
+printTriviaSource (Comment (LineComment comment)) = B.fromText comment
+printTriviaSource (Comment (BlockComment comment)) = B.fromText comment
+printTriviaSource (OtherWhitespace c) = B.singleton c
 
 -- Debug a position.
 debugPosition :: Position -> B.Builder
@@ -446,26 +452,26 @@ debugRange (Range start end) =
   debugPosition start <> B.singleton '-' <> debugPosition end
 
 -- Debug a stream of tokens.
-debugTokens :: TokenStream -> B.Builder
-debugTokens ts = debugTokens' (nextToken ts)
+debugTokens :: [Token] -> EndToken -> B.Builder
+debugTokens tokens endToken = mconcat (map debugToken tokens) <> debugEndToken endToken
 
-debugTokens' :: Either EndToken (Token, TokenStream) -> B.Builder
-debugTokens' (Right (Token r k leadingTrivia trailingTrivia, ts)) =
-  mconcat (map (debugTrivia Leading) leadingTrivia)
+debugToken :: Token -> B.Builder
+debugToken (Token r k lt tt) =
+  mconcat (map (debugTrivia Leading) lt)
     <> B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
     <> B.fromText "| "
     <> B.fromText content
     <> B.singleton '\n'
-    <> mconcat (map (debugTrivia Trailing) trailingTrivia)
-    <> debugTokens' (nextToken ts)
+    <> mconcat (map (debugTrivia Trailing) tt)
   where
     content = case k of
       Glyph glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
       IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
       UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
 
-debugTokens' (Left (EndToken p leadingTrivia)) =
-  mconcat (map (debugTrivia Leading) leadingTrivia)
+debugEndToken :: EndToken -> B.Builder
+debugEndToken (EndToken p lt) =
+  mconcat (map (debugTrivia Leading) lt)
     <> B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
     <> B.fromText "| End\n"
 

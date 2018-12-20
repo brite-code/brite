@@ -13,12 +13,12 @@ runTest :: T.Text -> T.Text -> Spec
 runTest input expected =
   it (T.unpack (escape input)) $
     let
-      tokens = tokenize input
-      actual = L.toStrict (B.toLazyText (debugTokens tokens))
-      rebuiltInput = L.toStrict (B.toLazyText (rebuildSource tokens))
+      (tokens, endToken) = tokenStreamToList (tokenize input)
+      actual = L.toStrict (B.toLazyText (debugTokens tokens endToken))
+      input2 = L.toStrict (B.toLazyText (printSource tokens endToken))
     in do
       actual `shouldBe` expected
-      rebuiltInput `shouldBe` input
+      input2 `shouldBe` input
 
 escape :: T.Text -> T.Text
 escape = T.concatMap
