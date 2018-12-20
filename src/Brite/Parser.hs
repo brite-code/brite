@@ -8,7 +8,7 @@ import Brite.Diagnostics
 import Brite.Source
 
 -- Parses a Brite module from a stream of tokens.
-parse :: TokenList -> DiagnosticWriter Module
+parse :: TokenStream -> DiagnosticWriter Module
 parse tokens = fromRight <$> runParser (Module <$> many tryStatement) tokens
   where
     fromRight (Right x) = x

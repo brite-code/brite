@@ -52,10 +52,10 @@ newtype Parser a = Parser { unParser :: forall b. ParserRun a b }
 -- * The fourth argument is the token stream we are parsing.
 --
 -- See the types below for more information on each callback.
-type ParserRun a b = ParserOk a b -> ParserYield a b -> ParserThrow b -> TokenList -> b
+type ParserRun a b = ParserOk a b -> ParserYield a b -> ParserThrow b -> ParserState -> b
 
 -- The ok callback is called when our parser successfully parses a value.
-type ParserOk a b = ParserMonad a -> TokenList -> b
+type ParserOk a b = ParserMonad a -> ParserState -> b
 
 -- The yield callback allows us to yield a possible parsed value. If another parser may continue
 -- from the point at which we yielded then that possible value becomes the actual parsed value. If
@@ -74,10 +74,10 @@ type ParserOk a b = ParserMonad a -> TokenList -> b
 -- You can think of the first and second arguments as “recover” and “retry” respectively. If we
 -- “recover” from an error then we use the first argument. If we advance the token stream and want
 -- to “retry” then we call the continuation passed as the second argument.
-type ParserYield a b = ParserMonad a -> ParserCont b -> TokenList -> b
+type ParserYield a b = ParserMonad a -> ParserCont b -> ParserState -> b
 
 -- We use a newtype to make it easier to track when continuations are created and called.
-newtype ParserCont b = ParserCont { continue :: TokenList -> b }
+newtype ParserCont b = ParserCont { continue :: ParserState -> b }
 
 -- The throw callback is called when our parser can’t handle the token stream. Effectively this
 -- function “throws” an error. We will recover in one of two ways after a throw:
@@ -92,12 +92,16 @@ newtype ParserCont b = ParserCont { continue :: TokenList -> b }
 --    throws by calling this error callback we will see if `q` can handle the token. If so then we
 --    will return an error value (`Left`) for `p` and parse `q`. If `q` cannot handle the token then
 --    we will skip the current token and attempt to parse `p` again with the new token stream.
-type ParserThrow b = ParserMonad Diagnostic -> TokenList -> b
+type ParserThrow b = ParserMonad Diagnostic -> ParserState -> b
 
 -- The monad in which our parser runs. Our parser needs to report diagnostics as it discovers them.
 -- Unlike traditional parsers which panic when they hit the first error, the Brite parser will
 -- attempt to recover from every error. Meaning we’ll have many diagnostics.
 type ParserMonad = DiagnosticWriter
+
+-- The current state of the parser. Either we are at the end of the token stream or we are peeking
+-- one of the tokens in the stream.
+type ParserState = Either EndToken (Token, TokenStream)
 
 -- Parsers are functors. We can map the value they carry.
 instance Functor Parser where
@@ -128,7 +132,7 @@ instance Applicative Parser where
           -- Optimization: if the token is an unexpected character don’t bother trying to run `p2`.
           -- We know that no parser can handle an unexpected token. Instead call the
           -- continuation immediately.
-          NextToken (Token { tokenKind = UnexpectedChar _ }) ts2 -> continue k1 ts2
+          Right (Token { tokenKind = UnexpectedChar _ }, ts2) -> continue k1 (nextToken ts2)
           _ ->
             unParser p2
               (\a ts2 -> ok (f <*> a) ts2)
@@ -153,15 +157,16 @@ p1 <|> p2 = Parser (\ok yield throw -> unParser p1 ok yield (\_ -> unParser p2 o
 --
 -- We may not parse the token stream to its end. We don’t return the remaining tokens after we
 -- finish parsing.
-runParser :: Parser a -> TokenList -> DiagnosticWriter (Either Diagnostic a)
-runParser p =
+runParser :: Parser a -> TokenStream -> DiagnosticWriter (Either Diagnostic a)
+runParser p ts0 =
   unParser p
     (\a _ -> Right <$> a)
     (\a k ts1 ->
       case ts1 of
-        NextToken (Token {}) ts2 -> continue k ts2
-        EndToken _ -> Right <$> a)
+        Right (Token {}, ts2) -> continue k (nextToken ts2)
+        Left _ -> Right <$> a)
     (\e _ -> Left <$> e)
+    (nextToken ts0)
 
 -- Keeps retrying a parser when it fails until one of the following happens:
 --
@@ -241,8 +246,8 @@ many p = Parser $ \_ yield _ ->
 unexpected :: ExpectedToken -> Parser a
 unexpected ex = Parser $ \_ _ throw ts ->
   case ts of
-    NextToken t _ -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) ts
-    EndToken p -> throw (unexpectedEnding (Range p p) ex) ts
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) ts
+    Left t -> throw (unexpectedEnding (endTokenRange t) ex) ts
 
 -- Parses a glyph.
 glyph :: Glyph -> Parser (Either Diagnostic Range)
@@ -263,9 +268,9 @@ identifier = retry tryIdentifier
 tryGlyph :: Glyph -> Parser Range
 tryGlyph g = Parser $ \ok _ throw ts ->
   case ts of
-    NextToken (Token { tokenRange = r, tokenKind = Glyph g' }) ts' | g == g' -> ok (pure r) ts'
-    NextToken t _ -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) ts
-    EndToken p -> throw (unexpectedEnding (Range p p) (ExpectedGlyph g)) ts
+    Right (Token { tokenRange = r, tokenKind = Glyph g' }, ts') | g == g' -> ok (pure r) (nextToken ts')
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) ts
+    Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) ts
 
 -- Parses a keyword. Throws an error if we fail without retrying.
 --
@@ -281,14 +286,14 @@ tryKeyword = tryGlyph . Keyword
 tryIdentifier :: Parser (Range, Identifier)
 tryIdentifier = Parser $ \ok _ throw ts ->
   case ts of
-    NextToken (Token { tokenRange = r, tokenKind = IdentifierToken i }) ts' -> ok (pure (r, i)) ts'
-    NextToken t _ -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) ts
-    EndToken p -> throw (unexpectedEnding (Range p p) ExpectedIdentifier) ts
+    Right (Token { tokenRange = r, tokenKind = IdentifierToken i }, ts') -> ok (pure (r, i)) (nextToken ts')
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) ts
+    Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) ts
 
 -- Determines if two token streams start at the same position. We use this to determine if a parser
 -- parsed something or nothing.
-sameStart :: TokenList -> TokenList -> Bool
-sameStart (NextToken t1 _) (NextToken t2 _) = rangeStart (tokenRange t1) == rangeStart (tokenRange t2)
-sameStart (NextToken t1 _) (EndToken p2) = rangeStart (tokenRange t1) == p2
-sameStart (EndToken p1) (NextToken t2 _) = p1 == rangeStart (tokenRange t2)
-sameStart (EndToken p1) (EndToken p2) = p1 == p2
+sameStart :: ParserState -> ParserState -> Bool
+sameStart (Right (t1, _)) (Right (t2, _)) = rangeStart (tokenRange t1) == rangeStart (tokenRange t2)
+sameStart (Right (t1, _)) (Left t2) = rangeStart (tokenRange t1) == endTokenPosition t2
+sameStart (Left t1) (Right (t2, _)) = endTokenPosition t1 == rangeStart (tokenRange t2)
+sameStart (Left t1) (Left t2) = endTokenPosition t1 == endTokenPosition t2

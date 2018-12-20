@@ -14,15 +14,14 @@ module Brite.Source
   , Token(..)
   , TokenKind(..)
   , EndToken(..)
+  , endTokenRange
   , Glyph(..)
   , glyphText
   , Trivia(..)
   , Newline(..)
   , Comment(..)
-  , TokenList(..)
-  , tokenize
   , TokenStream
-  , tokenize'
+  , tokenize
   , nextToken
   , rebuildSource
   , debugPosition
@@ -161,10 +160,14 @@ data TokenKind
 
 -- The last token in a document. An end token has the position at which the document ended and all
 -- the trivia between the last token and the ending.
-data EndToken = EndToken'
+data EndToken = EndToken
   { endTokenPosition :: Position
   , endTokenTrivia :: [Trivia]
   }
+
+-- Gets the range covered by the end token. Starts and ends at the end token position.
+endTokenRange :: EndToken -> Range
+endTokenRange (EndToken { endTokenPosition = p }) = Range p p
 
 -- A glyph represents some constant sequence of characters that is used in Brite syntax.
 data Glyph
@@ -230,129 +233,12 @@ data Comment
   -- unterminated block comments.
   | BlockComment T.Text
 
--- A lazy list of tokens. Customized to include some extra token and end data.
-data TokenList
-  -- The next token in the list along with the token’s range.
-  = NextToken Token TokenList
-  -- The end of the token list. Includes the position of the source text’s end.
-  | EndToken Position
-
--- Turn Unicode text into a lazy list of tokens and their associated ranges.
-tokenize :: Position -> T.Text -> TokenList
-tokenize position0 text0 =
-  if T.null text0 then EndToken position0 else
-  case T.head text0 of
-    -- Ignore whitespace.
-    ' ' -> tokenize position1 text1
-
-    -- Parse some glyphs.
-    '{' -> NextToken (Token range1 (Glyph BraceLeft) [] []) (tokenize position1 text1)
-    '}' -> NextToken (Token range1 (Glyph BraceRight) [] []) (tokenize position1 text1)
-    ',' -> NextToken (Token range1 (Glyph Comma) [] []) (tokenize position1 text1)
-    '.' -> NextToken (Token range1 (Glyph Dot) [] []) (tokenize position1 text1)
-    '=' -> NextToken (Token range1 (Glyph Equals) [] []) (tokenize position1 text1)
-    '(' -> NextToken (Token range1 (Glyph ParenLeft) [] []) (tokenize position1 text1)
-    ')' -> NextToken (Token range1 (Glyph ParenRight) [] []) (tokenize position1 text1)
-    ';' -> NextToken (Token range1 (Glyph Semicolon) [] []) (tokenize position1 text1)
-
-    -- Ignore newlines (`\n`).
-    '\n' ->
-      let
-        position2 = position0 { positionCharacter = 0, positionLine = positionLine position0 + 1 }
-      in
-        tokenize position2 text1
-
-    -- Ignore newlines (`\r` and `\r\n`). If we have the sequence `\r\n` we only want to count one
-    -- newline and not two.
-    '\r' ->
-      let
-        position2 = position0 { positionCharacter = 0, positionLine = positionLine position0 + 1 }
-        text2 = if T.null text1 || T.head text1 /= '\n' then text1 else T.tail text1
-      in
-        tokenize position2 text2
-
-    -- Parse an identifier.
-    --
-    -- The identifier we create is represented as a `T.Text`. This text value is linked to the
-    -- source document it was created from. This means we don’t need to allocate new memory for
-    -- every identifier but also means our source document may live longer than expected.
-    c | isIdentifierStart c ->
-      let
-        (identifier, text2) = T.span isIdentifierContinue text0
-        n = T.foldl (\acc c' -> acc + utf16Length c') 0 identifier
-        position2 = position0 { positionCharacter = positionCharacter position0 + n }
-        range2 = Range position0 position2
-        kind = case keyword identifier of
-          Just k -> Glyph (Keyword k)
-          Nothing -> IdentifierToken (Identifier identifier)
-      in
-        NextToken (Token range2 kind [] []) (tokenize position2 text2)
-
-    -- Parse a single line comment. Single line comments ignore all characters until the
-    -- next newline.
-    '/' | not (T.null text1) && T.head text1 == '/' ->
-      let
-        (n, text2) = loop 2 (T.tail text1)
-        position2 = position0 { positionCharacter = positionCharacter position0 + n }
-      in
-        tokenize position2 text2
-      where
-        loop n t =
-          case T.uncons t of
-            Nothing -> (n, t)
-            Just ('\n', _) -> (n, t)
-            Just ('\r', _) -> (n, t)
-            Just (c, t') -> loop (n + utf16Length c) t'
-
-    -- Parse a multi-line comment. Multi-line comments ignore all characters until the character
-    -- sequence `*/`.
-    '/' | not (T.null text1) && T.head text1 == '*' ->
-      let
-        position2 = position0 { positionCharacter = positionCharacter position0 + 2 }
-      in
-        uncurry tokenize (loop position2 (T.tail text1))
-      where
-        loop p t =
-          case T.uncons t of
-            Nothing -> (p, t)
-            Just ('*', t') | not (T.null t') && T.head t' == '/' ->
-              let p' = p { positionCharacter = positionCharacter p + 2 } in
-              (p', T.tail t')
-            Just ('\n', t') ->
-              let p' = p { positionCharacter = 0, positionLine = positionLine p + 1 } in
-              loop p' t'
-            Just ('\r', t') ->
-              let p' = p { positionCharacter = 0, positionLine = positionLine p + 1 } in
-              loop p' (if T.null t' || T.head t' /= '\n' then t' else T.tail t')
-            Just (c, t') ->
-              let p' = p { positionCharacter = positionCharacter p + utf16Length c } in
-              loop p' t'
-
-    -- Parse the slash glyph.
-    '/' -> NextToken (Token range1 (Glyph Slash) [] []) (tokenize position1 text1)
-
-    -- Ignore whitespace.
-    c | isSpace c -> tokenize position1 text1
-
-    -- Unexpected character.
-    c ->
-      let
-        position2 = position0 { positionCharacter = positionCharacter position0 + utf16Length c }
-        range2 = Range position0 position2
-      in
-        NextToken (Token range2 (UnexpectedChar c) [] []) (tokenize position2 text1)
-
-    where
-      position1 = position0 { positionCharacter = positionCharacter position0 + 1 }
-      range1 = Range position0 position1
-      text1 = T.tail text0
-
 -- A stream of tokens. Call `nextToken` to advance the stream.
 data TokenStream = TokenStream Position T.Text
 
 -- Creates a token stream from a text document.
-tokenize' :: T.Text -> TokenStream
-tokenize' text = TokenStream initialPosition text
+tokenize :: T.Text -> TokenStream
+tokenize text = TokenStream initialPosition text
 
 -- Advances the token stream. Either returns a token and the remainder of the token stream or
 -- returns the ending token in the stream.
@@ -360,7 +246,7 @@ nextToken :: TokenStream -> Either EndToken (Token, TokenStream)
 nextToken (TokenStream p0 t0) =
   case T.uncons t1 of
     -- End token
-    Nothing -> Left (EndToken' p1 leadingTrivia)
+    Nothing -> Left (EndToken p1 leadingTrivia)
 
     -- Single character glyphs
     Just ('{', t2) -> token (Glyph BraceLeft) 1 t2
@@ -578,7 +464,7 @@ debugTokens' (Right (Token r k leadingTrivia trailingTrivia, ts)) =
       IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
       UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
 
-debugTokens' (Left (EndToken' p leadingTrivia)) =
+debugTokens' (Left (EndToken p leadingTrivia)) =
   mconcat (map (debugTrivia Leading) leadingTrivia)
     <> B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
     <> B.fromText "| End\n"

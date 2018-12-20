@@ -13,7 +13,7 @@ runTest :: T.Text -> T.Text -> Spec
 runTest input expected =
   it (T.unpack (escape input)) $
     let
-      tokens = tokenize' input
+      tokens = tokenize input
       actual = L.toStrict (B.toLazyText (debugTokens tokens))
       rebuiltInput = L.toStrict (B.toLazyText (rebuildSource tokens))
     in do

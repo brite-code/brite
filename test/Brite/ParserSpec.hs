@@ -16,13 +16,13 @@ runTest :: T.Text -> T.Text -> Spec
 runTest input expected =
   it (T.unpack (escape input)) $
     let
-      tokens = tokenize initialPosition input
+      tokens = tokenize input
       (module_, diagnostics) = runDiagnosticWriter (parse tokens)
       actual = L.toStrict $ B.toLazyText $
         (if null diagnostics then "" else
           mconcat (map debugDiagnostic diagnostics) <> B.singleton '\n')
         <> debugModule module_
-      rebuiltInput = L.toStrict (B.toLazyText (rebuildSource (tokenize' input)))
+      rebuiltInput = L.toStrict (B.toLazyText (rebuildSource tokens))
     in do
       actual `shouldBe` expected
       rebuiltInput `shouldBe` input
