@@ -1522,4 +1522,76 @@ spec = mapM_ (uncurry runTest)
       \  block\n\
       \  block) (name 0:16-0:17 `p`))\n"
     )
+  , ( "f()"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`))\n"
+    )
+  , ( "f ()"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`))\n"
+    )
+  , ( "f😈()"
+    , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`))\n"
+    )
+  , ( "f)()"
+    , "(0:1-0:2) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`))\n"
+    )
+  , ( "f\n()"
+    , "(1:1-1:2) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `f`)\n\
+      \(wrap err)\n"
+    )
+  , ( "f;()"
+    , "(0:3-0:4) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `f`)\n\
+      \(wrap err)\n"
+    )
+  , ( "f\n😈()"
+    , "(1:0-1:2) We wanted an expression but we found `😈`.\n\
+      \(1:3-1:4) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `f`)\n\
+      \(wrap err)\n"
+    )
+  , ( "f😈\n()"
+    , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
+      \(1:1-1:2) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `f`)\n\
+      \(wrap err)\n"
+    )
+  , ( "f\n)()"
+    , "(1:0-1:1) We wanted an expression but we found `)`.\n\
+      \(1:2-1:3) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `f`)\n\
+      \(wrap err)\n"
+    )
+  , ( "f)\n()"
+    , "(0:1-0:2) We wanted an expression but we found `)`.\n\
+      \(1:1-1:2) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(var 0:0-0:1 `f`)\n\
+      \(wrap err)\n"
+    )
+  , ( "f(😈)"
+    , "(0:2-0:4) We wanted `)` but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`))\n"
+    )
+  , ( "f("
+    , "(0:2-0:2) We wanted `)` but the file ended.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`))\n"
+    )
   ]

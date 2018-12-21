@@ -79,6 +79,8 @@ data ConditionalExpressionAlternate = ConditionalExpressionAlternate Token Block
 data ExpressionExtension
   -- `E.p`
   = PropertyExpressionExtension Token (Recover Name)
+  -- `f(...)`
+  | CallExpressionExtension Token (Recover Token)
 
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
@@ -162,6 +164,8 @@ conditionalExpressionAlternateTokens (ConditionalExpressionAlternate t b) =
 expressionExtensionTokens :: ExpressionExtension -> Tokens
 expressionExtensionTokens (PropertyExpressionExtension t l) =
   singletonToken t <> recoverTokens nameTokens l
+expressionExtensionTokens (CallExpressionExtension t1 t2) =
+  singletonToken t1 <> recoverTokens singletonToken t2
 
 -- Get tokens from a pattern.
 patternTokens :: Pattern -> Tokens
@@ -273,6 +277,12 @@ debugExpressionExtension indentation expression (PropertyExpressionExtension _ l
     <> debugExpression indentation expression
     <> B.singleton ' '
     <> debugRecover debugName label
+    <> B.singleton ')'
+debugExpressionExtension indentation expression (CallExpressionExtension _ _) =
+  let newIndentation = indentation <> B.fromText "  " in
+  B.fromText "(call"
+    <> B.singleton '\n' <> newIndentation
+    <> debugExpression newIndentation expression
     <> B.singleton ')'
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see

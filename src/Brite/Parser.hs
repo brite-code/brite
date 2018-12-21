@@ -85,11 +85,16 @@ tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <*> expression <
 tryExpressionExtension :: Parser ExpressionExtension
 tryExpressionExtension =
   tryPropertyExpressionExtension
+    <|> tryCallExpressionExtension
     <|> unexpected ExpectedExpression
 
 tryPropertyExpressionExtension :: Parser ExpressionExtension
 tryPropertyExpressionExtension =
   PropertyExpressionExtension <$> tryGlyph Dot <*> (fmap (uncurry Name) <$> identifier)
+
+tryCallExpressionExtension :: Parser ExpressionExtension
+tryCallExpressionExtension =
+  CallExpressionExtension <$> tryGlyphOnSameLine ParenLeft <*> glyph ParenRight
 
 pattern :: Parser (Recover Pattern)
 pattern = retry $

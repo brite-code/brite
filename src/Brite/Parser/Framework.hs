@@ -15,6 +15,7 @@ module Brite.Parser.Framework
   , tryGlyph
   , tryKeyword
   , tryIdentifier
+  , tryGlyphOnSameLine
   ) where
 
 import Brite.Diagnostics
@@ -329,7 +330,7 @@ identifier = retry tryIdentifier
 tryGlyph :: Glyph -> Parser Token
 tryGlyph g = Parser $ \ok _ throw s ->
   case parserTokenStreamStep s of
-    Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g' -> ok (pure t) (eatToken ts s)
+    Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g' -> ok (pure t) (eatToken t ts s)
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
@@ -347,9 +348,19 @@ tryKeyword = tryGlyph . Keyword
 tryIdentifier :: Parser (Identifier, Token)
 tryIdentifier = Parser $ \ok _ throw s ->
   case parserTokenStreamStep s of
-    Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> ok (pure (i, t)) (eatToken ts s)
+    Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> ok (pure (i, t)) (eatToken t ts s)
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) s
     Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) s
+
+-- Parses a glyph on the same line as the last token we successfully parsed. It doesn’t matter if
+-- there is a skipped glyph on the same line. Throws an error if we fail.
+tryGlyphOnSameLine :: Glyph -> Parser Token
+tryGlyphOnSameLine g = Parser $ \ok _ throw s ->
+  case parserTokenStreamStep s of
+    Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g'
+      && parserLastLine s == positionLine (rangeStart (tokenRange t)) -> ok (pure t) (eatToken t ts s)
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
+    Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
 -- Skips the next token in the provided token stream.
 skipToken :: TokenStream -> ParserState -> ParserState
@@ -358,10 +369,10 @@ skipToken ts s = s
   }
 
 -- Uses the next token in the provided token stream.
-eatToken :: TokenStream -> ParserState -> ParserState
-eatToken ts s = s
+eatToken :: Token -> TokenStream -> ParserState -> ParserState
+eatToken t ts s = s
   { parserTokenStreamStep = nextToken ts
-  , parserLastLine = positionLine (tokenStreamPosition ts)
+  , parserLastLine = positionLine (rangeEnd (tokenRange t))
   }
 
 -- A small utility function for adding the current token to the provided list of tokens.
