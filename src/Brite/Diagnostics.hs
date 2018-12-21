@@ -145,7 +145,6 @@ data ExpectedToken
   | ExpectedIdentifier
   | ExpectedStatement
   | ExpectedExpression
-  | ExpectedExpressionExtension
   | ExpectedPattern
 
 -- The parser ran into a token it did not recognize.
@@ -215,7 +214,6 @@ expectedTokenDescription (ExpectedGlyph glyph) = M.code (glyphText glyph)
 expectedTokenDescription ExpectedIdentifier = M.plain "a variable name"
 expectedTokenDescription ExpectedStatement = M.plain "a statement"
 expectedTokenDescription ExpectedExpression = M.plain "an expression"
-expectedTokenDescription ExpectedExpressionExtension = M.plain "an expression"
 expectedTokenDescription ExpectedPattern = M.plain "a variable name"
 
 -- Prints a diagnostic for debugging purposes.

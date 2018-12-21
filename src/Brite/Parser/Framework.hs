@@ -4,6 +4,7 @@ module Brite.Parser.Framework
   ( Parser
   , (<|>)
   , runParser
+  , Recover(..)
   , retry
   , optional
   , many
@@ -19,7 +20,6 @@ module Brite.Parser.Framework
 import Brite.Diagnostics
 import Brite.Source
 import Control.Applicative (liftA2)
-import Data.Maybe
 
 -- The Brite parser turns a stream of tokens into the AST of a Brite program. The Brite parser is
 -- build from a parser combinator framework much like Parsec. We do this because the Brite parser
@@ -74,10 +74,7 @@ type ParserOk a b = ParserMonad a -> ParserState -> b
 -- You can think of the first and second arguments as “recover” and “retry” respectively. If we
 -- “recover” from an error then we use the first argument. If we advance the token stream and want
 -- to “retry” then we call the continuation passed as the second argument.
-type ParserYield a b = ParserMonad a -> ParserCont b -> ParserState -> b
-
--- We use a newtype to make it easier to track when continuations are created and called.
-newtype ParserCont b = ParserCont { continue :: ParserState -> b }
+type ParserYield a b = ParserMonad a -> (ParserState -> b) -> ParserState -> b
 
 -- The throw callback is called when our parser can’t handle the token stream. Effectively this
 -- function “throws” an error. We will recover in one of two ways after a throw:
@@ -132,7 +129,7 @@ instance Applicative Parser where
           -- Optimization: if the token is an unexpected character don’t bother trying to run `p2`.
           -- We know that no parser can handle an unexpected token. Instead call the
           -- continuation immediately.
-          Right (Token { tokenKind = UnexpectedChar _ }, ts2) -> continue k1 (nextToken ts2)
+          Right (Token { tokenKind = UnexpectedChar _ }, ts2) -> k1 (nextToken ts2)
           _ ->
             unParser p2
               (\a ts2 -> ok (f <*> a) ts2)
@@ -163,10 +160,26 @@ runParser p ts0 =
     (\a _ -> Right <$> a)
     (\a k ts1 ->
       case ts1 of
-        Right (Token {}, ts2) -> continue k (nextToken ts2)
+        Right (Token {}, ts2) -> k (nextToken ts2)
         Left _ -> Right <$> a)
     (\e _ -> Left <$> e)
     (nextToken ts0)
+
+-- When parsing a value we may find some unexpected tokens. After skipping over those tokens we may
+-- either be able to parse our value or we’ll be able to continue parsing something else.
+data Recover a
+  -- We were able to successfully parse the value.
+  = Ok a
+  -- We recovered from an unexpected token error. Holds the tokens we skipped, the first error
+  -- diagnostic, and the recovered value.
+  | Recover [Token] Diagnostic a
+  -- We were unable to parse the value. Holds the tokens we skipped and the first error diagnostic.
+  | Fatal [Token] Diagnostic
+
+instance Functor Recover where
+  fmap f (Ok a) = Ok (f a)
+  fmap f (Recover ets e a) = Recover ets e (f a)
+  fmap _ (Fatal ets e) = Fatal ets e
 
 -- Keeps retrying a parser when it fails until one of the following happens:
 --
@@ -175,18 +188,27 @@ runParser p ts0 =
 -- 2. We skip some tokens which no parser can handle and our parser finally succeeds. We return
 --    `Right` in this case even though technically we skipped some tokens.
 -- 3. We reach the end of the token stream.
-retry :: Parser a -> Parser (Either Diagnostic a)
+retry :: Parser a -> Parser (Recover a)
 retry p = Parser $ \ok yield _ ->
   let
-    run e1 = unParser p
-      (\a -> ok (maybe id (*>) e1 (Right <$> a)))
-      (\a -> yield (maybe id (*>) e1 (Right <$> a)))
-      (\e2 ->
-        yield
-          (Left <$> fromMaybe e2 e1)
-          (ParserCont (run (Just (maybe e2 (<* e2) e1)))))
+    recover ets e1 =
+      unParser p
+        (\a -> ok (Recover (reverse ets) <$> e1 <*> a))
+        (\a -> yield (Recover (reverse ets) <$> e1 <*> a))
+        (\e2 ts ->
+          yield
+            (Fatal (reverse ets) <$> e1)
+            (recover (consToken ts ets) (e1 <* e2))
+            ts)
   in
-    run Nothing
+    unParser p
+      (ok . (Ok <$>))
+      (yield . (Ok <$>))
+      (\e ts ->
+        yield
+          (Fatal [] <$> e)
+          (recover (consToken ts []) e)
+          ts)
 
 -- Either runs our parser or does not run our parser.
 --
@@ -202,15 +224,27 @@ retry p = Parser $ \ok yield _ ->
 -- token our optional parser will skip the unexpected token and try to optionally run our parser
 -- again. The `Control.Applicative` version would see an unexpected token and give up instead of
 -- skipping it.
-optional :: Parser a -> Parser (Maybe a)
+optional :: Parser a -> Parser (Maybe (Recover a))
 optional p = Parser $ \ok yield _ ->
   let
-    run es = unParser p
-      (\a -> ok (es *> (Just <$> a)))
-      (\a -> yield (es *> (Just <$> a)))
-      (\e -> yield (es *> pure Nothing) (ParserCont (run (es <* e))))
+    recover ets e1 =
+      unParser p
+        (\a -> ok (Just <$> (Recover (reverse ets) <$> e1 <*> a)))
+        (\a -> yield (Just <$> (Recover (reverse ets) <$> e1 <*> a)))
+        (\e2 ts ->
+          yield
+            (Just <$> (Fatal (reverse ets) <$> e1))
+            (recover (consToken ts ets) (e1 <* e2))
+            ts)
   in
-    run (pure ())
+    unParser p
+      (ok . (Just . Ok <$>))
+      (yield . (Just . Ok <$>))
+      (\e ts ->
+        yield
+          (pure Nothing)
+          (recover (consToken ts []) e)
+          ts)
 
 -- Applies the parser zero or more times and returns a list of the parsed values.
 --
@@ -224,22 +258,39 @@ optional p = Parser $ \ok yield _ ->
 --
 -- This parser will never fail. If nothing can be parsed we will report some diagnostics and return
 -- an empty list.
-many :: Parser a -> Parser [a]
+many :: Parser a -> Parser [Recover a]
 many p = Parser $ \_ yield _ ->
   let
     run acc =
-      unParser p
-        (\a -> run (liftA2 (flip (:)) acc a))
-        (\a -> runYield (liftA2 (flip (:)) acc a))
-        (\e -> yield (reverse <$> acc) (ParserCont (run (acc <* e))))
+      let
+        recover ets e1 =
+          unParser p
+            (\a -> run (add acc (Recover (reverse ets) <$> e1 <*> a)))
+            (\a -> yield' (add acc (Recover (reverse ets) <$> e1 <*> a)))
+            (\e2 ts ->
+              yield
+                (reverse <$> add acc (Fatal (reverse ets) <$> e1))
+                (recover (consToken ts ets) (e1 <* e2))
+                ts)
+      in
+        unParser p
+          (\a -> run (add acc (Ok <$> a)))
+          (\a -> yield' (add acc (Ok <$> a)))
+          (\e ts ->
+            yield
+              (reverse <$> acc)
+              (recover (consToken ts []) e)
+              ts)
 
-    runYield acc k1 =
+    yield' acc k1 =
       unParser p
-        (\a -> run (liftA2 (flip (:)) acc a))
-        (\a k2 -> runYield (liftA2 (flip (:)) acc a) k2)
+        (\a -> run (add acc (Ok <$> a)))
+        (\a k2 -> yield' (add acc (Ok <$> a)) k2)
         (\_ -> yield (reverse <$> acc) k1)
   in
     run (return [])
+  where
+    add = liftA2 (flip (:))
 
 -- Always fails with an unexpected token error. We can use this at the end of an alternative chain
 -- to make the error message better.
@@ -250,25 +301,25 @@ unexpected ex = Parser $ \_ _ throw ts ->
     Left t -> throw (unexpectedEnding (endTokenRange t) ex) ts
 
 -- Parses a glyph.
-glyph :: Glyph -> Parser (Either Diagnostic Range)
+glyph :: Glyph -> Parser (Recover Token)
 glyph = retry . tryGlyph
 
 -- Parses a keyword.
-keyword :: Keyword -> Parser (Either Diagnostic Range)
+keyword :: Keyword -> Parser (Recover Token)
 keyword = retry . tryKeyword
 
 -- Parses an identifier.
-identifier :: Parser (Either Diagnostic (Range, Identifier))
+identifier :: Parser (Recover (Identifier, Token))
 identifier = retry tryIdentifier
 
 -- Parses a glyph. Throws an error if we fail without retrying.
 --
 -- Technically this function is more primitive then its counterpart `glyph`, but we fall into the
 -- pit of success by adding a bit of syntactic vinegar to this name.
-tryGlyph :: Glyph -> Parser Range
+tryGlyph :: Glyph -> Parser Token
 tryGlyph g = Parser $ \ok _ throw ts ->
   case ts of
-    Right (Token { tokenRange = r, tokenKind = Glyph g' }, ts') | g == g' -> ok (pure r) (nextToken ts')
+    Right (t @ Token { tokenKind = Glyph g' }, ts') | g == g' -> ok (pure t) (nextToken ts')
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) ts
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) ts
 
@@ -276,19 +327,24 @@ tryGlyph g = Parser $ \ok _ throw ts ->
 --
 -- Technically this function is more primitive then its counterpart `keyword`, but we fall into the
 -- pit of success by adding a bit of syntactic vinegar to this name.
-tryKeyword :: Keyword -> Parser Range
+tryKeyword :: Keyword -> Parser Token
 tryKeyword = tryGlyph . Keyword
 
 -- Parses an identifier. Throws an error if we fail without retrying.
 --
 -- Technically this function is more primitive then its counterpart `identifier`, but we fall into
 -- the pit of success by adding a bit of syntactic vinegar to this name.
-tryIdentifier :: Parser (Range, Identifier)
+tryIdentifier :: Parser (Identifier, Token)
 tryIdentifier = Parser $ \ok _ throw ts ->
   case ts of
-    Right (Token { tokenRange = r, tokenKind = IdentifierToken i }, ts') -> ok (pure (r, i)) (nextToken ts')
+    Right (t @ Token { tokenKind = IdentifierToken i }, ts') -> ok (pure (i, t)) (nextToken ts')
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) ts
     Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) ts
+
+-- A small utility function for adding the current token to the provided list of tokens.
+consToken :: ParserState -> [Token] -> [Token]
+consToken (Right (t, _)) ts = t : ts
+consToken (Left _) ts = ts
 
 -- Determines if two token streams start at the same position. We use this to determine if a parser
 -- parsed something or nothing.
