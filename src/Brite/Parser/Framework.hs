@@ -15,7 +15,6 @@ module Brite.Parser.Framework
   , tryGlyph
   , tryKeyword
   , tryIdentifier
-  , end
   ) where
 
 import Brite.Diagnostics
@@ -152,18 +151,15 @@ p1 <|> p2 = Parser (\ok yield throw -> unParser p1 ok yield (\_ -> unParser p2 o
 
 -- Runs a parser against a token stream. If the parser fails then we return `Left` with a
 -- diagnostic. While parsing we may report some diagnostics.
---
--- We may not parse the token stream to its end. We don’t return the remaining tokens after we
--- finish parsing.
-runParser :: Parser a -> TokenStream -> DiagnosticWriter (Either Diagnostic a)
+runParser :: Parser a -> TokenStream -> DiagnosticWriter (Either Diagnostic a, ParserState)
 runParser p ts0 =
   unParser p
-    (\a _ -> Right <$> a)
+    (\a ts -> (,) <$> (Right <$> a) <*> pure ts)
     (\a k ts1 ->
       case ts1 of
         Right (Token {}, ts2) -> k (nextToken ts2)
-        Left _ -> Right <$> a)
-    (\e _ -> Left <$> e)
+        Left _ -> (,) <$> (Right <$> a) <*> pure ts1)
+    (\e ts -> (,) <$> (Left <$> e) <*> pure ts)
     (nextToken ts0)
 
 -- When parsing a value we may find some unexpected tokens. After skipping over those tokens we may
@@ -341,13 +337,6 @@ tryIdentifier = Parser $ \ok _ throw ts ->
     Right (t @ Token { tokenKind = IdentifierToken i }, ts') -> ok (pure (i, t)) (nextToken ts')
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) ts
     Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) ts
-
--- Parses the end token. Throws if we have not yet ended.
-end :: Parser EndToken
-end = Parser $ \ok _ throw ts ->
-  case ts of
-    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedEnd) ts
-    Left t -> ok (pure t) ts
 
 -- A small utility function for adding the current token to the provided list of tokens.
 consToken :: ParserState -> [Token] -> [Token]

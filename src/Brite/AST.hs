@@ -204,9 +204,10 @@ debugStatement indentation (BindingStatement _ pattern _ expression _) =
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugBlock :: B.Builder -> Block -> B.Builder
+debugBlock _ (Block _ [] _) = B.fromText "block"
 debugBlock indentation block =
   let newIndentation = indentation <> B.fromText "  " in
-  B.fromText "(block "
+  B.fromText "(block"
     <> mconcat (map (\s ->
         B.singleton '\n'
           <> newIndentation
@@ -239,7 +240,7 @@ debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
   debugExpression indentation expression
 debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
   let newIndentation = indentation <> B.fromText "  " in
-  B.fromText "(if "
+  B.fromText "(if"
     <> B.singleton '\n' <> newIndentation
     <> debugRecover (debugExpression newIndentation) test
     <> B.singleton '\n' <> newIndentation
@@ -247,7 +248,7 @@ debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
     <> B.singleton ')'
 debugExpression indentation (ConditionalExpression _ test consequent (Just alternate)) =
   let newIndentation = indentation <> B.fromText "  " in
-  B.fromText "(if "
+  B.fromText "(if"
     <> B.singleton '\n' <> newIndentation
     <> debugRecover (debugExpression newIndentation) test
     <> B.singleton '\n' <> newIndentation

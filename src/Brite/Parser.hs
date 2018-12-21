@@ -6,16 +6,16 @@ import Brite.AST
 import Brite.Parser.Framework
 import Brite.Diagnostics
 import Brite.Source
+import qualified Data.Text.Lazy as L
+import qualified Data.Text.Lazy.Builder as B
 
 -- Parses a Brite module from a stream of tokens.
 parse :: TokenStream -> DiagnosticWriter Module
-parse tokens = fromRight <$> runParser module_ tokens
+parse tokens = build <$> runParser (many tryStatement) tokens
   where
-    fromRight (Right x) = x
-    fromRight (Left _) = error "Unexpected failure."
-
-module_ :: Parser Module
-module_ = Module <$> many tryStatement <*> end
+    build (Left e, _) = error ("Uncaught parser error: " ++ L.unpack (B.toLazyText (debugDiagnostic e)))
+    build (Right _, Right _) = error "Expected every token to be parsed."
+    build (Right statements, Left end) = Module statements end
 
 tryStatement :: Parser Statement
 tryStatement =
