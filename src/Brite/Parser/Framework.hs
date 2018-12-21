@@ -98,7 +98,10 @@ type ParserMonad = DiagnosticWriter
 
 -- The current state of the parser. Either we are at the end of the token stream or we are peeking
 -- one of the tokens in the stream.
-type ParserState = Either EndToken (Token, TokenStream)
+data ParserState = ParserState
+  { parserTokenStreamStep :: TokenStreamStep
+  , parserLastLine :: Int
+  }
 
 -- Parsers are functors. We can map the value they carry.
 instance Functor Parser where
@@ -124,17 +127,17 @@ instance Applicative Parser where
   p1 <*> p2 = Parser $ \ok yield throw ->
     unParser p1
       (\f -> unParser p2 (ok . (f <*>)) (yield . (f <*>)) throw)
-      (\f k1 ts1 ->
-        case ts1 of
+      (\f k1 s1 ->
+        case parserTokenStreamStep s1 of
           -- Optimization: if the token is an unexpected character don’t bother trying to run `p2`.
           -- We know that no parser can handle an unexpected token. Instead call the
           -- continuation immediately.
-          Right (Token { tokenKind = UnexpectedChar _ }, ts2) -> k1 (nextToken ts2)
+          Right (Token { tokenKind = UnexpectedChar _ }, ts2) -> k1 (skipToken ts2 s1)
           _ ->
             unParser p2
-              (\a ts2 -> ok (f <*> a) ts2)
-              (\a k2 ts2 -> yield (f <*> a) (if sameStart ts1 ts2 then k1 else k2) ts2)
-              throw ts1)
+              (ok . (f <*>))
+              (\a k2 s2 -> yield (f <*> a) (if sameStart s1 s2 then k1 else k2) s2)
+              throw s1)
       throw
 
 infixl 3 <|>
@@ -151,16 +154,26 @@ p1 <|> p2 = Parser (\ok yield throw -> unParser p1 ok yield (\_ -> unParser p2 o
 
 -- Runs a parser against a token stream. If the parser fails then we return `Left` with a
 -- diagnostic. While parsing we may report some diagnostics.
-runParser :: Parser a -> TokenStream -> DiagnosticWriter (Either Diagnostic a, ParserState)
+runParser :: Parser a -> TokenStream -> DiagnosticWriter (Either Diagnostic a, TokenStreamStep)
 runParser p ts0 =
   unParser p
-    (\a ts -> (,) <$> (Right <$> a) <*> pure ts)
-    (\a k ts1 ->
-      case ts1 of
-        Right (Token {}, ts2) -> k (nextToken ts2)
-        Left _ -> (,) <$> (Right <$> a) <*> pure ts1)
-    (\e ts -> (,) <$> (Left <$> e) <*> pure ts)
-    (nextToken ts0)
+    -- Ok: Return the value and the token state.
+    (\a s -> (,) <$> (Right <$> a) <*> pure (parserTokenStreamStep s))
+
+    -- Yield: If we’ve reached the end return the value. Otherwise skip the token and retry.
+    (\a k s ->
+      case parserTokenStreamStep s of
+        Right (Token {}, ts2) -> k (skipToken ts2 s)
+        Left _ -> (,) <$> (Right <$> a) <*> pure (parserTokenStreamStep s))
+
+    -- Throw: Return the error and the token state.
+    (\e s -> (,) <$> (Left <$> e) <*> pure (parserTokenStreamStep s))
+
+    -- State: Set up the initial state.
+    (ParserState
+      { parserTokenStreamStep = nextToken ts0
+      , parserLastLine = positionLine (tokenStreamPosition ts0)
+      })
 
 -- When parsing a value we may find some unexpected tokens. After skipping over those tokens we may
 -- either be able to parse our value or we’ll be able to continue parsing something else.
@@ -292,10 +305,10 @@ many p = Parser $ \_ yield _ ->
 -- Always fails with an unexpected token error. We can use this at the end of an alternative chain
 -- to make the error message better.
 unexpected :: ExpectedToken -> Parser a
-unexpected ex = Parser $ \_ _ throw ts ->
-  case ts of
-    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) ts
-    Left t -> throw (unexpectedEnding (endTokenRange t) ex) ts
+unexpected ex = Parser $ \_ _ throw s ->
+  case parserTokenStreamStep s of
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) s
+    Left t -> throw (unexpectedEnding (endTokenRange t) ex) s
 
 -- Parses a glyph.
 glyph :: Glyph -> Parser (Recover Token)
@@ -314,11 +327,11 @@ identifier = retry tryIdentifier
 -- Technically this function is more primitive then its counterpart `glyph`, but we fall into the
 -- pit of success by adding a bit of syntactic vinegar to this name.
 tryGlyph :: Glyph -> Parser Token
-tryGlyph g = Parser $ \ok _ throw ts ->
-  case ts of
-    Right (t @ Token { tokenKind = Glyph g' }, ts') | g == g' -> ok (pure t) (nextToken ts')
-    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) ts
-    Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) ts
+tryGlyph g = Parser $ \ok _ throw s ->
+  case parserTokenStreamStep s of
+    Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g' -> ok (pure t) (eatToken ts s)
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
+    Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
 -- Parses a keyword. Throws an error if we fail without retrying.
 --
@@ -332,21 +345,38 @@ tryKeyword = tryGlyph . Keyword
 -- Technically this function is more primitive then its counterpart `identifier`, but we fall into
 -- the pit of success by adding a bit of syntactic vinegar to this name.
 tryIdentifier :: Parser (Identifier, Token)
-tryIdentifier = Parser $ \ok _ throw ts ->
-  case ts of
-    Right (t @ Token { tokenKind = IdentifierToken i }, ts') -> ok (pure (i, t)) (nextToken ts')
-    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) ts
-    Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) ts
+tryIdentifier = Parser $ \ok _ throw s ->
+  case parserTokenStreamStep s of
+    Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> ok (pure (i, t)) (eatToken ts s)
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) s
+    Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) s
+
+-- Skips the next token in the provided token stream.
+skipToken :: TokenStream -> ParserState -> ParserState
+skipToken ts s = s
+  { parserTokenStreamStep = nextToken ts
+  }
+
+-- Uses the next token in the provided token stream.
+eatToken :: TokenStream -> ParserState -> ParserState
+eatToken ts s = s
+  { parserTokenStreamStep = nextToken ts
+  , parserLastLine = positionLine (tokenStreamPosition ts)
+  }
 
 -- A small utility function for adding the current token to the provided list of tokens.
 consToken :: ParserState -> [Token] -> [Token]
-consToken (Right (t, _)) ts = t : ts
-consToken (Left _) ts = ts
+consToken (ParserState (Right (t, _)) _) ts = t : ts
+consToken (ParserState (Left _) _) ts = ts
 
 -- Determines if two token streams start at the same position. We use this to determine if a parser
 -- parsed something or nothing.
 sameStart :: ParserState -> ParserState -> Bool
-sameStart (Right (t1, _)) (Right (t2, _)) = rangeStart (tokenRange t1) == rangeStart (tokenRange t2)
-sameStart (Right (t1, _)) (Left t2) = rangeStart (tokenRange t1) == endTokenPosition t2
-sameStart (Left t1) (Right (t2, _)) = endTokenPosition t1 == rangeStart (tokenRange t2)
-sameStart (Left t1) (Left t2) = endTokenPosition t1 == endTokenPosition t2
+sameStart (ParserState (Right (t1, _)) _) (ParserState (Right (t2, _)) _) =
+  rangeStart (tokenRange t1) == rangeStart (tokenRange t2)
+sameStart (ParserState (Right (t1, _)) _) (ParserState (Left t2) _) =
+  rangeStart (tokenRange t1) == endTokenPosition t2
+sameStart (ParserState (Left t1) _) (ParserState (Right (t2, _)) _) =
+  endTokenPosition t1 == rangeStart (tokenRange t2)
+sameStart (ParserState (Left t1) _) (ParserState (Left t2) _) =
+  endTokenPosition t1 == endTokenPosition t2

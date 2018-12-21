@@ -21,6 +21,9 @@ module Brite.Source
   , Newline(..)
   , Comment(..)
   , TokenStream
+  , tokenStreamPosition
+  , tokenStreamText
+  , TokenStreamStep
   , tokenize
   , tokenStreamToList
   , nextToken
@@ -235,7 +238,13 @@ data Comment
   | BlockComment T.Text
 
 -- A stream of tokens. Call `nextToken` to advance the stream.
-data TokenStream = TokenStream Position T.Text
+data TokenStream = TokenStream
+  { tokenStreamPosition :: Position
+  , tokenStreamText :: T.Text
+  }
+
+-- One step in the `TokenStream`. Created by calling `nextToken`.
+type TokenStreamStep = Either EndToken (Token, TokenStream)
 
 -- Creates a token stream from a text document.
 tokenize :: T.Text -> TokenStream
@@ -252,7 +261,7 @@ tokenStreamToList = loop []
 
 -- Advances the token stream. Either returns a token and the remainder of the token stream or
 -- returns the ending token in the stream.
-nextToken :: TokenStream -> Either EndToken (Token, TokenStream)
+nextToken :: TokenStream -> TokenStreamStep
 nextToken (TokenStream p0 t0) =
   case T.uncons t1 of
     -- End token
