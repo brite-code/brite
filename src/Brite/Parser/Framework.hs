@@ -15,6 +15,7 @@ module Brite.Parser.Framework
   , tryGlyph
   , tryKeyword
   , tryIdentifier
+  , end
   ) where
 
 import Brite.Diagnostics
@@ -340,6 +341,13 @@ tryIdentifier = Parser $ \ok _ throw ts ->
     Right (t @ Token { tokenKind = IdentifierToken i }, ts') -> ok (pure (i, t)) (nextToken ts')
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) ts
     Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) ts
+
+-- Parses the end token. Throws if we have not yet ended.
+end :: Parser EndToken
+end = Parser $ \ok _ throw ts ->
+  case ts of
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedEnd) ts
+    Left t -> ok (pure t) ts
 
 -- A small utility function for adding the current token to the provided list of tokens.
 consToken :: ParserState -> [Token] -> [Token]

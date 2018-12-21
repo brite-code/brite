@@ -9,10 +9,13 @@ import Brite.Source
 
 -- Parses a Brite module from a stream of tokens.
 parse :: TokenStream -> DiagnosticWriter Module
-parse tokens = fromRight <$> runParser (Module <$> many tryStatement) tokens
+parse tokens = fromRight <$> runParser module_ tokens
   where
     fromRight (Right x) = x
     fromRight (Left _) = error "Unexpected failure."
+
+module_ :: Parser Module
+module_ = Module <$> many tryStatement <*> end
 
 tryStatement :: Parser Statement
 tryStatement =

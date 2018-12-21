@@ -11,15 +11,20 @@ module Brite.AST
   , ConditionalExpressionAlternate(..)
   , ExpressionExtension(..)
   , Pattern(..)
+  , moduleTokens
   , debugModule
   ) where
 
 import Brite.Parser.Framework (Recover(..))
 import Brite.Source
+import Data.Monoid (Endo(..))
 import qualified Data.Text.Lazy.Builder as B
 
 -- A single Brite file is a module. A module is made up of a list of statements.
-newtype Module = Module [Recover Statement]
+data Module = Module
+  { moduleStatements :: [Recover Statement]
+  , moduleEnd :: EndToken
+  }
 
 -- An identifier with an associated range.
 data Name = Name
@@ -81,11 +86,92 @@ data Pattern
   -- `x`
   = VariablePattern Name
 
+-- Get all the tokens that make up a module. Printing these tokens to source should result in the
+-- exact source code of the document we parsed to produce this module.
+moduleTokens :: Module -> ([Token], EndToken)
+moduleTokens (Module statements end) =
+  ( appEndo (mconcat (map (recoverTokens statementTokens) statements)) []
+  , end
+  )
+
+-- Use a “difference list” trick to more efficiently build token lists.
+type Tokens = Endo [Token]
+
+-- Singleton token.
+singletonToken :: Token -> Tokens
+singletonToken t = Endo (t :)
+
+-- Get tokens from a type wrapped in `Recover`.
+recoverTokens :: (a -> Tokens) -> Recover a -> Tokens
+recoverTokens tokens (Ok a) = tokens a
+recoverTokens tokens (Recover ts _ a) = Endo (ts ++) <> tokens a
+recoverTokens _ (Fatal ts _) = Endo (ts ++)
+
+-- Get tokens from a type wrapped in `Maybe`.
+maybeTokens :: (a -> Tokens) -> Maybe a -> Tokens
+maybeTokens tokens (Just a) = tokens a
+maybeTokens _ Nothing = mempty
+
+-- Get tokens from a name.
+nameTokens :: Name -> Tokens
+nameTokens (Name _ t) = singletonToken t
+
+-- Get tokens from a statement.
+statementTokens :: Statement -> Tokens
+statementTokens (ExpressionStatement e t) =
+  expressionTokens e <> maybeTokens (recoverTokens singletonToken) t
+statementTokens (BindingStatement t1 p t2 e t3) =
+  singletonToken t1
+    <> recoverTokens patternTokens p
+    <> recoverTokens singletonToken t2
+    <> recoverTokens expressionTokens e
+    <> maybeTokens (recoverTokens singletonToken) t3
+
+-- Get tokens from a block.
+blockTokens :: Block -> Tokens
+blockTokens (Block t1 ss t2) =
+  recoverTokens singletonToken t1
+    <> mconcat (map (recoverTokens statementTokens) ss)
+    <> recoverTokens singletonToken t2
+
+-- Get tokens from a constant.
+constantTokens :: Constant -> Tokens
+constantTokens (BooleanConstant _ t) = singletonToken t
+
+-- Get tokens from an expression.
+expressionTokens :: Expression -> Tokens
+expressionTokens (ConstantExpression constant) = constantTokens constant
+expressionTokens (VariableExpression name) = nameTokens name
+expressionTokens (ConditionalExpression t e b Nothing) =
+  singletonToken t <> recoverTokens expressionTokens e <> blockTokens b
+expressionTokens (ConditionalExpression t e b (Just alt)) =
+  singletonToken t
+    <> recoverTokens expressionTokens e
+    <> blockTokens b
+    <> recoverTokens conditionalExpressionAlternateTokens alt
+expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
+expressionTokens (WrappedExpression t1 e t2) =
+  singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
+expressionTokens (ExpressionExtension e ext) =
+  expressionTokens e <> recoverTokens expressionExtensionTokens ext
+
+conditionalExpressionAlternateTokens :: ConditionalExpressionAlternate -> Tokens
+conditionalExpressionAlternateTokens (ConditionalExpressionAlternate t b) =
+  singletonToken t <> blockTokens b
+
+expressionExtensionTokens :: ExpressionExtension -> Tokens
+expressionExtensionTokens (PropertyExpressionExtension t l) =
+  singletonToken t <> recoverTokens nameTokens l
+
+-- Get tokens from a pattern.
+patternTokens :: Pattern -> Tokens
+patternTokens (VariablePattern name) = nameTokens name
+
 -- Debug a module in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST. Each statement in the module is on its own line.
 debugModule :: Module -> B.Builder
-debugModule (Module []) = B.fromText "empty\n"
-debugModule (Module statements) =
+debugModule (Module [] _) = B.fromText "empty\n"
+debugModule (Module statements _) =
   mconcat $ map (\s -> debugRecover (debugStatement "") s <> B.singleton '\n') statements
 
 debugRecover :: (a -> B.Builder) -> Recover a -> B.Builder

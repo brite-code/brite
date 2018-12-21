@@ -133,7 +133,7 @@ instance Monad DiagnosticWriter where
       DiagnosticWriter b (x . y)
 
 instance DiagnosticMonad DiagnosticWriter where
-  report d = DiagnosticWriter d (\ds -> d : ds)
+  report d = DiagnosticWriter d (d :)
 
 -- Runs a `DiagnosticWriter` monad.
 runDiagnosticWriter :: DiagnosticWriter a -> (a, [Diagnostic])
@@ -143,6 +143,7 @@ runDiagnosticWriter (DiagnosticWriter a ds) = (a, ds [])
 data ExpectedToken
   = ExpectedGlyph Glyph
   | ExpectedIdentifier
+  | ExpectedEnd
   | ExpectedStatement
   | ExpectedExpression
   | ExpectedPattern
@@ -212,6 +213,7 @@ diagnosticErrorMessage (UnexpectedEnding expected) =
 expectedTokenDescription :: ExpectedToken -> M.Markup
 expectedTokenDescription (ExpectedGlyph glyph) = M.code (glyphText glyph)
 expectedTokenDescription ExpectedIdentifier = M.plain "a variable name"
+expectedTokenDescription ExpectedEnd = M.plain "nothing more"
 expectedTokenDescription ExpectedStatement = M.plain "a statement"
 expectedTokenDescription ExpectedExpression = M.plain "an expression"
 expectedTokenDescription ExpectedPattern = M.plain "a variable name"
