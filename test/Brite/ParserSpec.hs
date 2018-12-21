@@ -1508,4 +1508,18 @@ spec = mapM_ (uncurry runTest)
       \  (var 0:3-0:4 `x`)\n\
       \  block)\n"
     )
+  , ( "do {}.p"
+    , "(prop (do block) (name 0:6-0:7 `p`))\n"
+    )
+  , ( "if x {}.p"
+    , "(prop (if\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  block) (name 0:8-0:9 `p`))\n"
+    )
+  , ( "if x {} else {}.p"
+    , "(prop (if\n\
+      \  (var 0:3-0:4 `x`)\n\
+      \  block\n\
+      \  block) (name 0:16-0:17 `p`))\n"
+    )
   ]
