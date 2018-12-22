@@ -3,7 +3,7 @@ module Brite.Parser
   ) where
 
 import Brite.AST
-import Brite.Parser.Framework6
+import Brite.Parser.Framework
 import Brite.Diagnostics
 import Brite.Source
 

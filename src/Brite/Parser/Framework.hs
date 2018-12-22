@@ -2,13 +2,15 @@
 
 module Brite.Parser.Framework
   ( Parser
-  , (<|>)
-  , runParser
+  , TryParser
   , Recover(..)
+  , runParser
+  , (<&>)
+  , (<|>)
+  , unexpected
   , retry
   , optional
   , many
-  , unexpected
   , glyph
   , keyword
   , identifier
@@ -22,159 +24,75 @@ import Brite.Diagnostics
 import Brite.Source
 import Control.Applicative (liftA2)
 
--- The Brite parser turns a stream of tokens into the AST of a Brite program. The Brite parser is
--- build from a parser combinator framework much like Parsec. We do this because the Brite parser
--- implements the advanced feature of error recovery. The framework abstracts away complex error
--- recovery behavior.
-newtype Parser a = Parser { unParser :: forall b. ParserRun a b }
-
--- The Brite parsing framework is implemented as a function which calls a continuation function on
--- completion. A parser is usually constructed like so:
+-- The Brite parser turns a tokens into the AST of a Brite program.
 --
--- ```hs
--- Parser $ \ok yield throw ts ->
---   *Insert parsing code here*
--- ```
+-- The Brite parser is built from a parser combinator framework, much like Parsec. We don’t use
+-- Parsec because we want to implement error recovery. Also it is more convenient to use our own
+-- custom token, location, and error types.
 --
--- `Parser` is merely a newtype wrapper around a function which takes four arguments.
+-- There are two parser data types, `Parser` and `TryParser`. Both are newtypes over a function
+-- which use a continuation passing style. `Parser` unconditionally parses a value which is usually
+-- an `Either` or some other type which has an error case. `TryParser` might panic and throw an
+-- error after looking at the current token instead of returning a value.
 --
--- * The first argument is a success callback. We call this function with a parsed value and the
---   reamining token stream when we were able to successfully parse the token stream.
+-- We use `TryParser` everywhere we need to choose between alternatives. Such as the choice operator
+-- `<|>` or `many`. We use `Parser` everywhere else.
 --
--- * The second argument is interesting it allows us to “yield” the current parser and let another
---   parser try to process the token stream. This function is how we implement error recovery. The
---   yield function takes a value which we will return if we end up skipping the parser. However, if
---   no other parsers can handle the remaining token stream we call the continuation passed
---   to yield.
+-- A `Parser` has three continuation functions it may call: `ok`, `yield1`, and `yield2`. Here’s
+-- what they do:
 --
--- * The third argument is an error callback. We call this function with an error diagnostic when
---   we can’t parse the token stream and need to panic.
+-- * `ok`: We call `ok` when the parser has successfully parsed a value! We are absolutely sure that
+--   this is the parser’s final value.
 --
--- * The fourth argument is the token stream we are parsing.
+-- * `yield1` and `yield2`: We call one of our yield functions when we have a parsed value but we
+--   aren’t absolutely sure that it’s the right value. To confirm it’s the right value we need to
+--   see if the next token can be parsed by a parser we are sequenced with. This is why in our
+--   sequencing operators `p1 <*> p2` and `p1 <&> p2` if `p1` calls a yield continuation and `p2`
+--   calls the ok continuation we call the ok continuation for the whole parser. We “recover” from
+--   `p1` yielding if `p2` is ok. If we don’t recover then we call the continuation passed to yield
+--   with the next token to retry.
 --
--- See the types below for more information on each callback.
-type ParserRun a b = ParserOk a b -> ParserYield a b -> ParserThrow b -> ParserState -> b
-
--- The ok callback is called when our parser successfully parses a value.
-type ParserOk a b = ParserMonad a -> ParserState -> b
-
--- The yield callback allows us to yield a possible parsed value. If another parser may continue
--- from the point at which we yielded then that possible value becomes the actual parsed value. If
--- no parser may continue then we err and try parsing again from the point at which we yielded.
+-- The difference between `yield1` and `yield2` is subtle. `yield1` is called when we want to yield
+-- but we didn’t consume any tokens. `yield2` is called when we want to yield and we have consumed
+-- tokens. In a sequencing operation like `p1 <*> p2`:
 --
--- The yield callback is a lot like the “ok” callback with two differences:
+-- * If both `p1` and `p2` call `yield1` we call `yield1` with `p1`’s continuation.
+-- * If `p1` calls `yield2` and `p2` calls `yield1` we call `yield2` with `p1`’s continuation.
+-- * If `p1` calls `yield1` and `p2` calls `yield2` we call `yield2` with `p2`’s continuation.
+-- * If both `p1` and `p2` call `yield2` we call `yield2` with `p2`’s continuation.
 --
--- 1. The yield callback takes a continuation as its second argument. If no parser matches a token
---    stream then we advance the token stream to the next token and call the continuation to retry
---    from where we yielded.
---
--- 2. The first parameter parsing result may have some deferred diagnostic reporting. Which is why
---    it is wrapped in a `ParserMonad`. These diagnostics are not reported until we recover and use
---    the value which only happens when another parser can parse the token stream.
---
--- You can think of the first and second arguments as “recover” and “retry” respectively. If we
--- “recover” from an error then we use the first argument. If we advance the token stream and want
--- to “retry” then we call the continuation passed as the second argument.
-type ParserYield a b = ParserMonad a -> (ParserState -> b) -> ParserState -> b
-
--- The throw callback is called when our parser can’t handle the token stream. Effectively this
--- function “throws” an error. We will recover in one of two ways after a throw:
---
--- 1. The nearest choice operator (`<|>`) will catch the error and will try the next parser. So in
---    `p <|> q` if `p` throws by calling this error callback we will ignore the error and try to
---    parse `q`.
---
--- 2. The nearest `retry` call will catch the error and will try to let other parsers handle the
---    token stream. If no other parser can handle the stream then `retry` will skip the token that
---    caused its parser to error and will try again on the next token. So in `retry p <*> q` if `p`
---    throws by calling this error callback we will see if `q` can handle the token. If so then we
---    will return an error value (`Left`) for `p` and parse `q`. If `q` cannot handle the token then
---    we will skip the current token and attempt to parse `p` again with the new token stream.
-type ParserThrow b = ParserMonad Diagnostic -> ParserState -> b
-
--- The monad in which our parser runs. Our parser needs to report diagnostics as it discovers them.
--- Unlike traditional parsers which panic when they hit the first error, the Brite parser will
--- attempt to recover from every error. Meaning we’ll have many diagnostics.
-type ParserMonad = DiagnosticWriter
-
--- The current state of the parser. Either we are at the end of the token stream or we are peeking
--- one of the tokens in the stream.
-data ParserState = ParserState
-  { parserTokenStreamStep :: TokenStreamStep
-  , parserLastLine :: Int
+-- Another way to explain the difference between `yield1` and `yield2` is that if we call `yield1`
+-- we are saying “if we are sequenced, continue from the previous parser”. Otherwise calling
+-- `yield2` will continue from the current parser.
+newtype Parser a = Parser
+  { parser :: forall b.
+         (DiagnosticWriter a -> ParserState -> b)                                -- ok
+      -> (DiagnosticWriter a -> (Token -> ParserState -> b) -> ParserState -> b) -- yield1
+      -> (DiagnosticWriter a -> (Token -> ParserState -> b) -> ParserState -> b) -- yield2
+      -> ParserState -> b
   }
 
--- Parsers are functors. We can map the value they carry.
-instance Functor Parser where
-  fmap f p = Parser $ \ok yield -> unParser p (ok . (f <$>)) (yield . (f <$>))
-
--- Parsers are applicatives, we can sequence them together. This is a very important combinator!
-instance Applicative Parser where
-  -- Always succeeds without consuming any tokens from the stream.
-  pure a = Parser $ \ok _ _ -> ok (pure a)
-
-  -- The parser sequencing operator. This operator is incredibly important to our parsing framework.
-  -- It sequences two parsers `p1` and `p2` together. First we parse `p1` and then we parse `p2`.
-  --
-  -- In `p1 <*> p2` if `p1` throws then the entire sequence throws. If `p2` throws then the entire
-  -- sequence throws, even if `p1` succeeded!
-  --
-  -- In `p1 <*> p2` if `p1` yields then we we try to parse `p2`. If `p2` succeeds then we use the
-  -- yielded value! If `p2` throws then the entire sequence throws. If `p2` also yields then our
-  -- sequence yields too. We yield with the first continuation if `p2` parsed no tokens. Otherwise
-  -- we yield with the second continuation.
-  --
-  -- In `p1 <*> p2` if `p1` succeeds but `p2` yields then the entire sequence yields.
-  p1 <*> p2 = Parser $ \ok yield throw ->
-    unParser p1
-      (\f -> unParser p2 (ok . (f <*>)) (yield . (f <*>)) throw)
-      (\f k1 s1 ->
-        case parserTokenStreamStep s1 of
-          -- Optimization: if the token is an unexpected character don’t bother trying to run `p2`.
-          -- We know that no parser can handle an unexpected token. Instead call the
-          -- continuation immediately.
-          Right (Token { tokenKind = UnexpectedChar _ }, ts2) -> k1 (skipToken ts2 s1)
-          _ ->
-            unParser p2
-              (ok . (f <*>))
-              (\a k2 s2 -> yield (f <*> a) (if sameStart s1 s2 then k1 else k2) s2)
-              throw s1)
-      throw
-
-infixl 3 <|>
-
--- The parser choice operator. This operator is incredibly important to our parsing framework.
--- It chooses between two parsers, `p1` and `p2`. First we attempt to parse `p1`. If it throws then
--- we ignore the error and we parse `p2`.
+-- See the documentation for `Parser`.
 --
--- This combinator, `optional`, and `many` exist as a part of the type class
--- `Control.Applicative.Alternative`. We don’t use `Alternative` and instead implement these
--- combinators ourselves for more domain specific logic.
-(<|>) :: Parser a -> Parser a -> Parser a
-p1 <|> p2 = Parser (\ok yield throw -> unParser p1 ok yield (\_ -> unParser p2 ok yield throw))
-
--- Runs a parser against a token stream. If the parser fails then we return `Left` with a
--- diagnostic. While parsing we may report some diagnostics.
-runParser :: Parser a -> TokenStream -> DiagnosticWriter (Either Diagnostic a, TokenStreamStep)
-runParser p ts0 =
-  unParser p
-    -- Ok: Return the value and the token state.
-    (\a s -> (,) <$> (Right <$> a) <*> pure (parserTokenStreamStep s))
-
-    -- Yield: If we’ve reached the end return the value. Otherwise skip the token and retry.
-    (\a k s ->
-      case parserTokenStreamStep s of
-        Right (Token {}, ts2) -> k (skipToken ts2 s)
-        Left _ -> (,) <$> (Right <$> a) <*> pure (parserTokenStreamStep s))
-
-    -- Throw: Return the error and the token state.
-    (\e s -> (,) <$> (Left <$> e) <*> pure (parserTokenStreamStep s))
-
-    -- State: Set up the initial state.
-    (ParserState
-      { parserTokenStreamStep = nextToken ts0
-      , parserLastLine = positionLine (tokenStreamPosition ts0)
-      })
+-- `TryParser` has the ability to “panic” and throw if we are unable to parse a value. `TryParser`
+-- will only throw after looking at the current token. This means our parser doesn’t have to do
+-- significant backtracking when parsing.
+--
+-- `TryParser` does not have a `yield1` continuation, only `yield2`. This is because currently we’d
+-- never use a `yield1` since `TryParser` always throws if it can’t consume input instead of
+-- yielding.
+--
+-- Unlike `Parser` which is `Applicative`, `TryParser` does not implement `Applicative`. We only
+-- allow sequencing `TryParser` with `Parser`. This is because if two `TryParser`s were sequenced
+-- together and the second one threw we’d have to backtrack our parser and re-parse which
+-- is innefficient!
+newtype TryParser a = TryParser
+  { tryParser :: forall b.
+         (DiagnosticWriter a -> ParserState -> b)                                -- ok
+      -> (DiagnosticWriter a -> (Token -> ParserState -> b) -> ParserState -> b) -- yield2
+      -> (DiagnosticWriter Diagnostic -> ParserState -> b)                       -- throw
+      -> ParserState -> b
+  }
 
 -- When parsing a value we may find some unexpected tokens. After skipping over those tokens we may
 -- either be able to parse our value or we’ll be able to continue parsing something else.
@@ -192,124 +110,204 @@ instance Functor Recover where
   fmap f (Recover ets e a) = Recover ets e (f a)
   fmap _ (Fatal ets e) = Fatal ets e
 
--- Keeps retrying a parser when it fails until one of the following happens:
+-- Runs a parser against against a token stream returning the parsed value and the end token for the
+-- file. Thanks to our error recovery implementation our parser always returns a value!
 --
--- 1. A parser we are sequenced with succeeds on the token we failed to parse then we return `Left`
---    and resume parsing from the parser which succeeded.
--- 2. We skip some tokens which no parser can handle and our parser finally succeeds. We return
---    `Right` in this case even though technically we skipped some tokens.
--- 3. We reach the end of the token stream.
-retry :: Parser a -> Parser (Recover a)
-retry p = Parser $ \ok yield _ ->
-  let
-    recover ets e1 =
-      unParser p
-        (\a -> ok (Recover (reverse ets) <$> e1 <*> a))
-        (\a -> yield (Recover (reverse ets) <$> e1 <*> a))
-        (\e2 ts ->
-          yield
-            (Fatal (reverse ets) <$> e1)
-            (recover (consToken ts ets) (e1 <* e2))
-            ts)
-  in
-    unParser p
-      (ok . (Ok <$>))
-      (yield . (Ok <$>))
-      (\e ts ->
-        yield
-          (Fatal [] <$> e)
-          (recover (consToken ts []) e)
-          ts)
-
--- Either runs our parser or does not run our parser.
---
--- `Control.Applicative` also has an operator named `optional`. It is implemented as
--- `Just <$> v <|> pure Nothing`. Our implementation does a very similar thing but is more
--- specialized to the task at hand.
---
--- Notably, `Control.Applicative` returns `Nothing` if we can’t run the parser.
---
--- Our implementation returns `Nothing` when we know that some other parser can successfully run.
---
--- This minor difference ends up meaning a lot for error recovery. If we encounter an unexpected
--- token our optional parser will skip the unexpected token and try to optionally run our parser
--- again. The `Control.Applicative` version would see an unexpected token and give up instead of
--- skipping it.
-optional :: Parser a -> Parser (Maybe (Recover a))
-optional p = Parser $ \ok yield _ ->
-  let
-    recover ets e1 =
-      unParser p
-        (\a -> ok (Just <$> (Recover (reverse ets) <$> e1 <*> a)))
-        (\a -> yield (Just <$> (Recover (reverse ets) <$> e1 <*> a)))
-        (\e2 ts ->
-          yield
-            (Just <$> (Fatal (reverse ets) <$> e1))
-            (recover (consToken ts ets) (e1 <* e2))
-            ts)
-  in
-    unParser p
-      (ok . (Just . Ok <$>))
-      (yield . (Just . Ok <$>))
-      (\e ts ->
-        yield
-          (pure Nothing)
-          (recover (consToken ts []) e)
-          ts)
-
--- Applies the parser zero or more times and returns a list of the parsed values.
---
--- `Control.Applicative` also has an operator named `many`. It is implemented as roughly
--- `many p = ((:) <$> p <*> (many p)) <|> pure []`. Our implementation does a very similar thing but
--- is more specialized to the task at hand.
---
--- Notably, our implementation will not stop parsing until we reach a token which _can_ be parsed by
--- a subsequent parser. Unlike the `Control.Applicative` version which will not stop parsing until
--- we reach a token which _can’t_ be parsed by our current parser.
---
--- This parser will never fail. If nothing can be parsed we will report some diagnostics and return
--- an empty list.
-many :: Parser a -> Parser [Recover a]
-many p = Parser $ \_ yield _ ->
-  let
-    run acc =
-      let
-        recover ets e1 =
-          unParser p
-            (\a -> run (add acc (Recover (reverse ets) <$> e1 <*> a)))
-            (\a -> yield' (add acc (Recover (reverse ets) <$> e1 <*> a)))
-            (\e2 ts ->
-              yield
-                (reverse <$> add acc (Fatal (reverse ets) <$> e1))
-                (recover (consToken ts ets) (e1 <* e2))
-                ts)
-      in
-        unParser p
-          (\a -> run (add acc (Ok <$> a)))
-          (\a -> yield' (add acc (Ok <$> a)))
-          (\e ts ->
-            yield
-              (reverse <$> acc)
-              (recover (consToken ts []) e)
-              ts)
-
-    yield' acc k1 =
-      unParser p
-        (\a -> run (add acc (Ok <$> a)))
-        (\a k2 -> yield' (add acc (Ok <$> a)) k2)
-        (\_ -> yield (reverse <$> acc) k1)
-  in
-    run (return [])
+-- We expect the parser to consume all tokens. If it does not then we will report an unexpected
+-- token diagnostic up until the end of the file.
+runParser :: Parser a -> TokenStream -> DiagnosticWriter (a, EndToken)
+runParser p ts0 = parser p ok yield yield s0
   where
-    add = liftA2 (flip (:))
+    s0 =
+      ParserState
+        { parserStep = nextToken ts0
+        , parserLastLine = positionLine (tokenStreamPosition ts0)
+        }
 
--- Always fails with an unexpected token error. We can use this at the end of an alternative chain
--- to make the error message better.
-unexpected :: ExpectedToken -> Parser a
-unexpected ex = Parser $ \_ _ throw s ->
-  case parserTokenStreamStep s of
+    ok a s1 = (,) <$> a <*> toEnd (parserStep s1)
+
+    toEnd (Left t) = return t
+    toEnd (Right (t, ts)) =
+      unexpectedToken (tokenRange t) (tokenKind t) ExpectedEnd *> toEnd (nextToken ts)
+
+    yield a k s =
+      case parserStep s of
+        Right (t, ts) -> k t (skipToken ts s)
+        Left t -> (,) <$> a <*> pure t
+
+-- The internal state of the parser.
+data ParserState = ParserState
+  -- The current step of the token stream.
+  { parserStep :: TokenStreamStep
+  -- The line number of the last token we ate. Does not count skipped error recovery tokens. We use
+  -- this for disambiguating certain language constructs when the user does not type semicolons.
+  , parserLastLine :: Int
+  }
+
+-- Skips the next token in the provided token stream.
+skipToken :: TokenStream -> ParserState -> ParserState
+skipToken ts s = s { parserStep = nextToken ts }
+
+-- Uses the next token in the provided token stream.
+--
+-- `parserLastLine` is updated when calling this.
+eatToken :: Token -> TokenStream -> ParserState -> ParserState
+eatToken t ts s = s
+  { parserStep = nextToken ts
+  , parserLastLine = positionLine (rangeEnd (tokenRange t))
+  }
+
+instance Functor Parser where
+  fmap f p = Parser $ \ok yield1 yield2 ->
+    parser p (ok . (f <$>)) (yield1 . (f <$>)) (yield2 . (f <$>))
+
+instance Applicative Parser where
+  pure a = Parser $ \ok _ _ -> ok (pure a)
+
+  -- The sequencing operator for two parsers. Note that while `Parser` is `Applicative` that
+  -- `TryParser` is not `Applicative`.
+  p1 <*> p2 = Parser $ \ok yield1 yield2 ->
+    parser p1
+      (\f ->
+        parser p2
+          (\a -> ok (f <*> a))            -- ok → ok
+          (\a -> yield2 (f <*> a))        -- ok → yield1
+          (\a -> yield2 (f <*> a)))       -- ok → yield2
+      (\f k1 ->
+        parser p2
+          (\a -> ok (f <*> a))            -- yield1 → ok
+          (\a _ -> yield1 (f <*> a) k1)   -- yield1 → yield1
+          (\a k2 -> yield2 (f <*> a) k2)) -- yield1 → yield2
+      (\f k1 ->
+        parser p2
+          (\a -> ok (f <*> a))            -- yield2 → ok
+          (\a _ -> yield2 (f <*> a) k1)   -- yield2 → yield1
+          (\a k2 -> yield2 (f <*> a) k2)) -- yield2 → yield2
+
+instance Functor TryParser where
+  fmap f p = TryParser $ \ok yield2 ->
+    tryParser p (ok . (f <$>)) (yield2 . (f <$>))
+
+infixl 4 <&>
+infixl 3 <|>
+
+-- Sequencing operator for a `TryParser` and a `Parser`. You can think of `p1 <&> p2` as `p1`
+-- _and_ `p2`.
+--
+-- `TryParser` is not `Applicative` so we can’t use the `<*>` sequencing operator like we can with
+-- `Parser`. Instead we define our own, custom, operator for sequencing `TryParser` and `Parser`.
+--
+-- `TryParser` is not `Applicative` because if we could sequence two `TryParser`s then we run the
+-- risk of significant backtracking if the second `TryParser` in a sequence failed!
+(<&>) :: TryParser (a -> b) -> Parser a -> TryParser b
+p1 <&> p2 = TryParser $ \ok yield2 throw ->
+  tryParser p1
+    (\f ->
+      parser p2
+        (\a -> ok (f <*> a))            -- ok → ok
+        (\a -> yield2 (f <*> a))        -- ok → yield1
+        (\a -> yield2 (f <*> a)))       -- ok → yield2
+    (shortcut $ \f k1 ->
+      parser p2
+        (\a -> ok (f <*> a))            -- yield2 → ok
+        (\a _ -> yield2 (f <*> a) k1)   -- yield2 → yield1
+        (\a k2 -> yield2 (f <*> a) k2)) -- yield2 → yield2
+    throw
+
+-- We know that no parser will be able to handle the `UnexpectedChar` token. So we can immediately
+-- call the continuation function provided to “yield” when we see an `UnexpectedChar`.
+--
+-- NOTE: Does this actually help performance? Maybe it hurts performance? We should test!
+shortcut :: (a -> (Token -> ParserState -> b) -> ParserState -> b) -> (a -> (Token -> ParserState -> b) -> ParserState -> b)
+shortcut f a k s =
+  case parserStep s of
+    Right (t @ Token { tokenKind = UnexpectedChar _ }, ts) -> k t (skipToken ts s)
+    _ -> f a k s
+{-# INLINE shortcut #-}
+
+-- The choice operator between two `TryParser`s. You can think of `p1 <|> p2` as `p1` _or_ `p2`.
+--
+-- Because `TryParser` is not `Applicative` it is also not `Alternative`. Instead we implement our
+-- own choice operator.
+(<|>) :: TryParser a -> TryParser a -> TryParser a
+p1 <|> p2 = TryParser $ \ok yield2 throw ->
+  tryParser p1 ok yield2 (\_ ->
+    tryParser p2 ok yield2 throw)
+
+-- Always reports an unexpected token diagnostic. Typically used at the end of a choice operator
+-- chain to customize the error message.
+unexpected :: ExpectedToken -> TryParser a
+unexpected ex = TryParser $ \_ _ throw s ->
+  case parserStep s of
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) s
     Left t -> throw (unexpectedEnding (endTokenRange t) ex) s
+
+-- Keeps retrying a `TryParser` when it throws until one of the following happens:
+--
+-- 1. A parser we are sequenced with succeeds on the token we failed to parse.
+-- 2. We skip some tokens which no parser can handle and our parser finally succeeds.
+-- 3. We reach the end of the token stream.
+retry :: TryParser a -> Parser (Recover a)
+retry p = Parser $ \ok yield1 yield2 ->
+  let
+    recover ts e1 =
+      tryParser p
+        (\a -> ok (Recover (reverse ts) <$> e1 <*> a))
+        (\a -> yield2 (Recover (reverse ts) <$> e1 <*> a))
+        (\e -> yield1 (Fatal (reverse ts) <$> e1) (\t -> recover (t : ts) (e1 <* e)))
+  in
+    tryParser p
+      (\a -> ok (Ok <$> a))
+      (\a -> yield2 (Ok <$> a))
+      (\e -> yield1 (Fatal [] <$> e) (\t -> recover [t] e))
+
+-- Optionally runs a `TryParser`.
+--
+-- If there are tokens no parser recongizes we skip the tokens and try to run our parser again.
+optional :: TryParser a -> Parser (Maybe (Recover a))
+optional p = Parser $ \ok yield1 yield2 ->
+  let
+    recover ts e1 =
+      tryParser p
+        (\a -> ok (Just <$> (Recover (reverse ts) <$> e1 <*> a)))
+        (\a -> yield2 (Just <$> (Recover (reverse ts) <$> e1 <*> a)))
+        (\e -> yield1 (Just . Fatal (reverse ts) <$> e1) (\t -> recover (t : ts) (e1 <* e)))
+  in
+    tryParser p
+      (\a -> ok (Just . Ok <$> a))
+      (\a -> yield2 (Just . Ok <$> a))
+      (\e -> yield1 (pure Nothing) (\t -> recover [t] e))
+
+-- Parses zero or more of a `TryParser`.
+--
+-- If there are tokens no parser recongizes we skip the tokens and try to run our parser again.
+many :: TryParser a -> Parser [Recover a]
+many p = Parser $ \_ yield1 yield2 ->
+  let
+    loopOk first as =
+      let
+        recover ts e1 =
+          tryParser p
+            (\a -> loopOk False (add as (Recover (reverse ts) <$> e1 <*> a)))
+            (\a -> loopYield2 (add as (Recover (reverse ts) <$> e1 <*> a)))
+            (\e -> yieldn (reverse <$> add as (Fatal (reverse ts) <$> e1)) (\t -> recover (t : ts) (e1 <* e)))
+      in
+        tryParser p
+          (\a -> loopOk False (add as (Ok <$> a)))
+          (\a -> loopYield2 (add as (Ok <$> a)))
+          (\e -> yieldn (reverse <$> as) (\t -> recover [t] e))
+      where
+        yieldn = if first then yield1 else yield2
+
+    loopYield2 as k1 =
+      tryParser p
+        (\a -> loopOk False (add as (Ok <$> a)))
+        (\a k2 -> loopYield2 (add as (Ok <$> a)) k2)
+        (\_ -> yield2 (reverse <$> as) k1)
+  in
+    loopOk True (pure [])
+  where
+    add as a = liftA2 (flip (:)) as a
 
 -- Parses a glyph.
 glyph :: Glyph -> Parser (Recover Token)
@@ -323,71 +321,32 @@ keyword = retry . tryKeyword
 identifier :: Parser (Recover (Identifier, Token))
 identifier = retry tryIdentifier
 
--- Parses a glyph. Throws an error if we fail without retrying.
---
--- Technically this function is more primitive then its counterpart `glyph`, but we fall into the
--- pit of success by adding a bit of syntactic vinegar to this name.
-tryGlyph :: Glyph -> Parser Token
-tryGlyph g = Parser $ \ok _ throw s ->
-  case parserTokenStreamStep s of
+-- Tries to parse a glyph.
+tryGlyph :: Glyph -> TryParser Token
+tryGlyph g = TryParser $ \ok _ throw s ->
+  case parserStep s of
     Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g' -> ok (pure t) (eatToken t ts s)
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
--- Parses a keyword. Throws an error if we fail without retrying.
---
--- Technically this function is more primitive then its counterpart `keyword`, but we fall into the
--- pit of success by adding a bit of syntactic vinegar to this name.
-tryKeyword :: Keyword -> Parser Token
+-- Tries to parse a keyword.
+tryKeyword :: Keyword -> TryParser Token
 tryKeyword = tryGlyph . Keyword
 
--- Parses an identifier. Throws an error if we fail without retrying.
---
--- Technically this function is more primitive then its counterpart `identifier`, but we fall into
--- the pit of success by adding a bit of syntactic vinegar to this name.
-tryIdentifier :: Parser (Identifier, Token)
-tryIdentifier = Parser $ \ok _ throw s ->
-  case parserTokenStreamStep s of
+-- Tries to parse an identifier.
+tryIdentifier :: TryParser (Identifier, Token)
+tryIdentifier = TryParser $ \ok _ throw s ->
+  case parserStep s of
     Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> ok (pure (i, t)) (eatToken t ts s)
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) s
     Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) s
 
--- Parses a glyph on the same line as the last token we successfully parsed. It doesn’t matter if
--- there is a skipped glyph on the same line. Throws an error if we fail.
-tryGlyphOnSameLine :: Glyph -> Parser Token
-tryGlyphOnSameLine g = Parser $ \ok _ throw s ->
-  case parserTokenStreamStep s of
+-- Tries to parse a glyph, but only if that glyph is on the _same line_ as the previously
+-- parsed glyph.
+tryGlyphOnSameLine :: Glyph -> TryParser Token
+tryGlyphOnSameLine g = TryParser $ \ok _ throw s ->
+  case parserStep s of
     Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g'
       && parserLastLine s == positionLine (rangeStart (tokenRange t)) -> ok (pure t) (eatToken t ts s)
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
-
--- Skips the next token in the provided token stream.
-skipToken :: TokenStream -> ParserState -> ParserState
-skipToken ts s = s
-  { parserTokenStreamStep = nextToken ts
-  }
-
--- Uses the next token in the provided token stream.
-eatToken :: Token -> TokenStream -> ParserState -> ParserState
-eatToken t ts s = s
-  { parserTokenStreamStep = nextToken ts
-  , parserLastLine = positionLine (rangeEnd (tokenRange t))
-  }
-
--- A small utility function for adding the current token to the provided list of tokens.
-consToken :: ParserState -> [Token] -> [Token]
-consToken (ParserState (Right (t, _)) _) ts = t : ts
-consToken (ParserState (Left _) _) ts = ts
-
--- Determines if two token streams start at the same position. We use this to determine if a parser
--- parsed something or nothing.
-sameStart :: ParserState -> ParserState -> Bool
-sameStart (ParserState (Right (t1, _)) _) (ParserState (Right (t2, _)) _) =
-  rangeStart (tokenRange t1) == rangeStart (tokenRange t2)
-sameStart (ParserState (Right (t1, _)) _) (ParserState (Left t2) _) =
-  rangeStart (tokenRange t1) == endTokenPosition t2
-sameStart (ParserState (Left t1) _) (ParserState (Right (t2, _)) _) =
-  endTokenPosition t1 == rangeStart (tokenRange t2)
-sameStart (ParserState (Left t1) _) (ParserState (Left t2) _) =
-  endTokenPosition t1 == endTokenPosition t2

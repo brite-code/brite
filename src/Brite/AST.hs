@@ -15,7 +15,7 @@ module Brite.AST
   , debugModule
   ) where
 
-import Brite.Parser.Framework6 (Recover(..))
+import Brite.Parser.Framework (Recover(..))
 import Brite.Source
 import Data.Monoid (Endo(..))
 import qualified Data.Text.Lazy.Builder as B
