@@ -100,7 +100,7 @@ instance Applicative Parser where
           (\a -> ok (f <*> a))            -- ok → ok
           (\a -> yield2 (f <*> a))        -- ok → yield1
           (\a -> yield2 (f <*> a)))       -- ok → yield2
-      (shortcut $ \f k1 ->
+      (\f k1 ->
         parser p2
           (\a -> ok (f <*> a))            -- yield1 → ok
           (\a _ -> yield1 (f <*> a) k1)   -- yield1 → yield1
@@ -111,15 +111,12 @@ instance Applicative Parser where
           (\a _ -> yield2 (f <*> a) k1)   -- yield2 → yield1
           (\a k2 -> yield2 (f <*> a) k2)) -- yield2 → yield2
 
-shortcut :: (a -> (Token -> ParserState -> b) -> ParserState -> b) -> (a -> (Token -> ParserState -> b) -> ParserState -> b)
-shortcut f a k s =
-  case parserStep s of
-    Right (t @ Token { tokenKind = UnexpectedChar _ }, ts) -> k t (skipToken ts s)
-    _ -> f a k s
-
 instance Functor TryParser where
   fmap f p = TryParser $ \ok yield2 ->
     tryParser p (ok . (f <$>)) (yield2 . (f <$>))
+
+infixl 4 <&>
+infixl 3 <|>
 
 (<&>) :: TryParser (a -> b) -> Parser a -> TryParser b
 p1 <&> p2 = TryParser $ \ok yield2 throw ->
@@ -129,12 +126,19 @@ p1 <&> p2 = TryParser $ \ok yield2 throw ->
         (\a -> ok (f <*> a))            -- ok → ok
         (\a -> yield2 (f <*> a))        -- ok → yield1
         (\a -> yield2 (f <*> a)))       -- ok → yield2
-    (\f k1 ->
+    (shortcut $ \f k1 ->
       parser p2
         (\a -> ok (f <*> a))            -- yield2 → ok
         (\a _ -> yield2 (f <*> a) k1)   -- yield2 → yield1
         (\a k2 -> yield2 (f <*> a) k2)) -- yield2 → yield2
     throw
+
+shortcut :: (a -> (Token -> ParserState -> b) -> ParserState -> b) -> (a -> (Token -> ParserState -> b) -> ParserState -> b)
+shortcut f a k s =
+  case parserStep s of
+    Right (t @ Token { tokenKind = UnexpectedChar _ }, ts) -> k t (skipToken ts s)
+    _ -> f a k s
+{-# INLINE shortcut #-}
 
 (<|>) :: TryParser a -> TryParser a -> TryParser a
 p1 <|> p2 = TryParser $ \ok yield2 throw ->
@@ -154,7 +158,7 @@ retry p = Parser $ \ok yield1 yield2 ->
       tryParser p
         (\a -> ok (Recover (reverse ts) <$> e1 <*> a))
         (\a -> yield2 (Recover (reverse ts) <$> e1 <*> a))
-        (\e -> yield1 (Fatal [] <$> e1) (\t -> recover (t : ts) (e1 <* e)))
+        (\e -> yield1 (Fatal (reverse ts) <$> e1) (\t -> recover (t : ts) (e1 <* e)))
   in
     tryParser p
       (\a -> ok (Ok <$> a))
@@ -168,7 +172,7 @@ optional p = Parser $ \ok yield1 yield2 ->
       tryParser p
         (\a -> ok (Just <$> (Recover (reverse ts) <$> e1 <*> a)))
         (\a -> yield2 (Just <$> (Recover (reverse ts) <$> e1 <*> a)))
-        (\e -> yield1 (Just . Fatal [] <$> e1) (\t -> recover (t : ts) (e1 <* e)))
+        (\e -> yield1 (Just . Fatal (reverse ts) <$> e1) (\t -> recover (t : ts) (e1 <* e)))
   in
     tryParser p
       (\a -> ok (Just . Ok <$> a))
@@ -184,14 +188,14 @@ many p = Parser $ \_ yield1 yield2 ->
           tryParser p
             (\a -> loopOk False (add as (Recover (reverse ts) <$> e1 <*> a)))
             (\a -> loopYield2 (add as (Recover (reverse ts) <$> e1 <*> a)))
-            (\e -> yield' (add as (Fatal (reverse ts) <$> e1)) (\t -> recover (t : ts) (e1 <* e)))
+            (\e -> yieldn (reverse <$> add as (Fatal (reverse ts) <$> e1)) (\t -> recover (t : ts) (e1 <* e)))
       in
         tryParser p
           (\a -> loopOk False (add as (Ok <$> a)))
           (\a -> loopYield2 (add as (Ok <$> a)))
-          (\e -> yield' (reverse <$> as) (\t -> recover [t] e))
+          (\e -> yieldn (reverse <$> as) (\t -> recover [t] e))
       where
-        yield' = if first then yield1 else yield2
+        yieldn = if first then yield1 else yield2
 
     loopYield2 as k1 =
       tryParser p

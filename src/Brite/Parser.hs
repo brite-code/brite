@@ -3,55 +3,49 @@ module Brite.Parser
   ) where
 
 import Brite.AST
-import Brite.Parser.Framework
+import Brite.Parser.Framework6
 import Brite.Diagnostics
 import Brite.Source
-import qualified Data.Text.Lazy as L
-import qualified Data.Text.Lazy.Builder as B
 
 -- Parses a Brite module from a stream of tokens.
 parse :: TokenStream -> DiagnosticWriter Module
-parse tokens = build <$> runParser (many tryStatement) tokens
-  where
-    build (Left e, _) = error ("Uncaught parser error: " ++ L.unpack (B.toLazyText (debugDiagnostic e)))
-    build (Right _, Right _) = error "Expected every token to be parsed."
-    build (Right statements, Left end) = Module statements end
+parse tokens = uncurry Module <$> runParser (many tryStatement) tokens
 
-tryStatement :: Parser Statement
+tryStatement :: TryParser Statement
 tryStatement =
   tryBindingStatement
     <|> tryExpressionStatement
     <|> unexpected ExpectedStatement
 
-tryExpressionStatement :: Parser Statement
-tryExpressionStatement = ExpressionStatement <$> tryExpression <*> optional (tryGlyph Semicolon)
+tryExpressionStatement :: TryParser Statement
+tryExpressionStatement = ExpressionStatement <$> tryExpression <&> optional (tryGlyph Semicolon)
 
-tryBindingStatement :: Parser Statement
+tryBindingStatement :: TryParser Statement
 tryBindingStatement =
   BindingStatement
     <$> tryKeyword Let
-    <*> pattern
-    <*> glyph Equals
-    <*> expression
-    <*> optional (tryGlyph Semicolon)
+    <&> pattern
+    <&> glyph Equals
+    <&> expression
+    <&> optional (tryGlyph Semicolon)
 
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
 
-tryConstant :: Parser Constant
+tryConstant :: TryParser Constant
 tryConstant = tryBooleanTrue <|> tryBooleanFalse
 
-tryBooleanTrue :: Parser Constant
+tryBooleanTrue :: TryParser Constant
 tryBooleanTrue = BooleanConstant True <$> tryKeyword True_
 
-tryBooleanFalse :: Parser Constant
+tryBooleanFalse :: TryParser Constant
 tryBooleanFalse = BooleanConstant False <$> tryKeyword False_
 
 expression :: Parser (Recover Expression)
 expression = retry (tryExpression <|> unexpected ExpectedExpression)
 
 -- Ordered by frequency. Parsers that are more likely to match go first.
-tryPrimaryExpression :: Parser Expression
+tryPrimaryExpression :: TryParser Expression
 tryPrimaryExpression =
   tryVariableExpression
     <|> tryConditionalExpression
@@ -59,47 +53,47 @@ tryPrimaryExpression =
     <|> tryConstantExpression
     <|> tryBlockExpression
 
-tryExpression :: Parser Expression
-tryExpression = foldl ExpressionExtension <$> tryPrimaryExpression <*> many tryExpressionExtension
+tryExpression :: TryParser Expression
+tryExpression = foldl ExpressionExtension <$> tryPrimaryExpression <&> many tryExpressionExtension
 
-tryConstantExpression :: Parser Expression
+tryConstantExpression :: TryParser Expression
 tryConstantExpression = ConstantExpression <$> tryConstant
 
-tryVariableExpression :: Parser Expression
+tryVariableExpression :: TryParser Expression
 tryVariableExpression = VariableExpression . uncurry Name <$> tryIdentifier
 
-tryConditionalExpression :: Parser Expression
+tryConditionalExpression :: TryParser Expression
 tryConditionalExpression =
   ConditionalExpression
     <$> tryKeyword If
-    <*> expression
-    <*> block
-    <*> optional (ConditionalExpressionAlternate <$> tryKeyword Else <*> block)
+    <&> expression
+    <&> block
+    <&> optional (ConditionalExpressionAlternate <$> tryKeyword Else <&> block)
 
-tryBlockExpression :: Parser Expression
-tryBlockExpression = BlockExpression <$> tryKeyword Do <*> block
+tryBlockExpression :: TryParser Expression
+tryBlockExpression = BlockExpression <$> tryKeyword Do <&> block
 
-tryWrappedExpression :: Parser Expression
-tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <*> expression <*> glyph ParenRight
+tryWrappedExpression :: TryParser Expression
+tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <&> glyph ParenRight
 
-tryExpressionExtension :: Parser ExpressionExtension
+tryExpressionExtension :: TryParser ExpressionExtension
 tryExpressionExtension =
   tryPropertyExpressionExtension
     <|> tryCallExpressionExtension
     <|> unexpected ExpectedExpression
 
-tryPropertyExpressionExtension :: Parser ExpressionExtension
+tryPropertyExpressionExtension :: TryParser ExpressionExtension
 tryPropertyExpressionExtension =
-  PropertyExpressionExtension <$> tryGlyph Dot <*> (fmap (uncurry Name) <$> identifier)
+  PropertyExpressionExtension <$> tryGlyph Dot <&> (fmap (uncurry Name) <$> identifier)
 
-tryCallExpressionExtension :: Parser ExpressionExtension
+tryCallExpressionExtension :: TryParser ExpressionExtension
 tryCallExpressionExtension =
-  CallExpressionExtension <$> tryGlyphOnSameLine ParenLeft <*> glyph ParenRight
+  CallExpressionExtension <$> tryGlyphOnSameLine ParenLeft <&> glyph ParenRight
 
 pattern :: Parser (Recover Pattern)
 pattern = retry $
   tryVariablePattern
     <|> unexpected ExpectedPattern
 
-tryVariablePattern :: Parser Pattern
+tryVariablePattern :: TryParser Pattern
 tryVariablePattern = VariablePattern . uncurry Name <$> tryIdentifier
