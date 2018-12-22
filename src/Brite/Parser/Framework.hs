@@ -353,14 +353,39 @@ tryGlyphOnSameLine g = TryParser $ \ok _ throw s ->
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
+-- A comma separated list of values which may optionally have a trailing comma. If there is a
+-- trailing comma then `commaListLastItem` will be `Nothing`.
 data CommaList a = CommaList
   { commaListItems :: [(Recover a, Recover Token)]
   , commaListLastItem :: Maybe (Recover a)
   }
 
+-- Parses a comma separated list of values which may optionally have a trailing comma.
+--
+-- I’ll be the first to admit it. The implementation of this combinator is a bit monsterous. Why do
+-- we implement `commaList` directly instead of building it up from parser combinators? What makes
+-- a comma list so hard to parse? A couple of things:
+--
+-- * We want to support trailing commas: `a, b, c,`. If we implemented this parser as
+--   `many (tryGlyph Comma <&> p)` then we’d always expect a `p` after every comma.
+--
+-- * We want to recover from cases where the user forgets a comma: `a b`. If we implemented this
+--   parser as `many (tryGlyph Comma <&> p)` then we’d panic after not being able to parse a comma
+--   and fail to continue on to `p`.
+--
+-- * We want to recover from cases where the user forgets a parsing item: `a, , c`. If we
+--   implemented this parser as `many (tryGlyph Comma <&> p)` then we’d get this behavior, but we’d
+--   not get the desired behaviors above.
+--
+-- So we implement `commaList` by hand, for now. It would be ideal if we could recognize the
+-- combinators necessary to build `commaList` and use those instead of implementing `commaList`
+-- by hand.
 commaList :: TryParser a -> Parser (CommaList a)
 commaList p = Parser $ \_ yield1 yield2 ->
   let
+    -- The start of the comma list loop:
+    --
+    -- We return here whenever we are ready to parse another item.
     loop empty acc =
       tryParser p
         (\a -> itemOk acc (Ok <$> a))
@@ -387,6 +412,7 @@ commaList p = Parser $ \_ yield1 yield2 ->
 
         yieldn = if empty then yield1 else yield2
 
+    -- When we successfully parse an item then we call this function:
     itemOk acc a1 =
       tryComma
         (\b -> loop False (add acc ((,) <$> a1 <*> (Ok <$> b))))
@@ -406,6 +432,10 @@ commaList p = Parser $ \_ yield1 yield2 ->
                       CommaList <$> (reverse <$> acc') <*> pure Nothing)
                     (\t -> recover (t : ts) (e1 <* e))))
 
+    -- When an item yields then we call this function:
+    --
+    -- Note that this is always `yield2` since `TryParser` only has a `yield2` continuation and not
+    -- a `yield1` continuation.
     itemYield acc a1 k1 =
       tryComma
         (\b -> loop False (add acc ((,) <$> a1 <*> (Ok <$> b))))
@@ -416,10 +446,15 @@ commaList p = Parser $ \_ yield1 yield2 ->
             (\_ ->
               yield2 (CommaList <$> (reverse <$> acc) <*> (Just <$> a1)) k1))
   in
+    -- Start the loop!
     loop True (pure [])
   where
+    -- Small utility for adding an item to the end of a list in an applicative execution context.
     add as a = liftA2 (flip (:)) as a
 
+    -- Conveniently, a single glyph parser never calls its “yield” callback. So inline the
+    -- implementation of `tryGlyph` and remove the yield callback from the signature. This greatly
+    -- simplifies our implementation.
     tryComma :: (DiagnosticWriter Token -> ParserState -> b) -> (DiagnosticWriter Diagnostic -> ParserState -> b) -> ParserState -> b
     tryComma ok throw s =
       case parserStep s of

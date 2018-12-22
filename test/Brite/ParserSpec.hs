@@ -1735,4 +1735,1444 @@ spec = mapM_ (uncurry runTest)
     , "(var 0:0-0:1 `f`)\n\
       \(wrap (var 0:3-0:4 `x`))\n"
     )
+  , ( "f(a)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a😈)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a})"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a😈})"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a}😈)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a😈,)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a},)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a😈},)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a}😈,)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a😈, b)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:7-0:8 `b`))\n"
+    )
+  , ( "f(a}, b)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:6-0:7 `b`))\n"
+    )
+  , ( "f(a😈}, b)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:8-0:9 `b`))\n"
+    )
+  , ( "f(a}😈, b)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:8-0:9 `b`))\n"
+    )
+  , ( "f(a😈, b.)" -- NOTE: `b.` is used here and below to enter “yield” mode for the expression.
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:9-0:10) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:7-0:8 `b`) err))\n"
+    )
+  , ( "f(a}, b.)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:8-0:9) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:6-0:7 `b`) err))\n"
+    )
+  , ( "f(a😈}, b.)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \(0:10-0:11) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:8-0:9 `b`) err))\n"
+    )
+  , ( "f(a}😈, b.)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \(0:10-0:11) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:8-0:9 `b`) err))\n"
+    )
+  , ( "f(a😈 b)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:6-0:7) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:6-0:7 `b`))\n"
+    )
+  , ( "f(a} b)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:5-0:6) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a😈} b)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \(0:7-0:8) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:7-0:8 `b`))\n"
+    )
+  , ( "f(a}😈 b)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \(0:7-0:8) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:7-0:8 `b`))\n"
+    )
+  , ( "f(a😈 b.)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:6-0:7) We wanted `,` but we found a variable name.\n\
+      \(0:8-0:9) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:6-0:7 `b`) err))\n"
+    )
+  , ( "f(a} b.)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:5-0:6) We wanted `,` but we found a variable name.\n\
+      \(0:7-0:8) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err))\n"
+    )
+  , ( "f(a😈} b.)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \(0:7-0:8) We wanted `,` but we found a variable name.\n\
+      \(0:9-0:10) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:7-0:8 `b`) err))\n"
+    )
+  , ( "f(a}😈 b.)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \(0:7-0:8) We wanted `,` but we found a variable name.\n\
+      \(0:9-0:10) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:7-0:8 `b`) err))\n"
+    )
+  , ( "f(a, b)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b😈)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b})"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b}😈)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b😈})"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b😈,)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b},)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b}😈,)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b😈},)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b😈, c)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, b}, c)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, b}😈, c)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b😈}, c)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b😈, c.)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:12-0:13) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:10-0:11 `c`) err))\n"
+    )
+  , ( "f(a, b}, c.)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:11-0:12) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:9-0:10 `c`) err))\n"
+    )
+  , ( "f(a, b}😈, c.)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \(0:13-0:14) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:11-0:12 `c`) err))\n"
+    )
+  , ( "f(a, b😈}, c.)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \(0:13-0:14) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:11-0:12 `c`) err))\n"
+    )
+  , ( "f(a, b😈 c)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:9-0:10) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, b} c)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:8-0:9) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(a, b}😈 c)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \(0:10-0:11) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, b😈} c)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \(0:10-0:11) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, b😈 c.)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:9-0:10) We wanted `,` but we found a variable name.\n\
+      \(0:11-0:12) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:9-0:10 `c`) err))\n"
+    )
+  , ( "f(a, b} c.)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:8-0:9) We wanted `,` but we found a variable name.\n\
+      \(0:10-0:11) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:8-0:9 `c`) err))\n"
+    )
+    , ( "f(a, b}😈 c.)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \(0:10-0:11) We wanted `,` but we found a variable name.\n\
+      \(0:12-0:13) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:10-0:11 `c`) err))\n"
+    )
+  , ( "f(a, b😈} c.)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \(0:10-0:11) We wanted `,` but we found a variable name.\n\
+      \(0:12-0:13) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (prop (var 0:10-0:11 `c`) err))\n"
+    )
+  , ( "f(a.)"
+    , "(0:4-0:5) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (var 0:2-0:3 `a`) err))\n"
+    )
+  , ( "f(a.,)"
+    , "(0:4-0:5) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (var 0:2-0:3 `a`) err))\n"
+    )
+  , ( "f(a., b)"
+    , "(0:4-0:5) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (var 0:2-0:3 `a`) err)\n\
+      \  (var 0:6-0:7 `b`))\n"
+    )
+  , ( "f(a. (b))"
+    , "(0:5-0:6) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (call\n\
+      \    (prop (var 0:2-0:3 `a`) err)\n\
+      \    (var 0:6-0:7 `b`)))\n"
+    )
+  , ( "f(a. (b).)"
+    , "(0:5-0:6) We wanted a variable name but we found `(`.\n\
+      \(0:9-0:10) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (call\n\
+      \    (prop (var 0:2-0:3 `a`) err)\n\
+      \    (var 0:6-0:7 `b`)) err))\n"
+    )
+  , ( "f(a.😈)"
+    , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (var 0:2-0:3 `a`) err))\n"
+    )
+  , ( "f(a.})"
+    , "(0:4-0:5) We wanted a variable name but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (var 0:2-0:3 `a`) err))\n"
+    )
+  , ( "f(a.😈})"
+    , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
+      \(0:6-0:7) We wanted a variable name but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (var 0:2-0:3 `a`) err))\n"
+    )
+  , ( "f(a.}😈)"
+    , "(0:4-0:5) We wanted a variable name but we found `}`.\n\
+      \(0:5-0:7) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (prop (var 0:2-0:3 `a`) err))\n"
+    )
+  , ( "f(a, b.)"
+    , "(0:7-0:8) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err))\n"
+    )
+  , ( "f(a, b.,)"
+    , "(0:7-0:8) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err))\n"
+    )
+  , ( "f(a, b., c)"
+    , "(0:7-0:8) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, b. (c))"
+    , "(0:8-0:9) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (call\n\
+      \    (prop (var 0:5-0:6 `b`) err)\n\
+      \    (var 0:9-0:10 `c`)))\n"
+    )
+  , ( "f(a, b. (c).)"
+    , "(0:8-0:9) We wanted a variable name but we found `(`.\n\
+      \(0:12-0:13) We wanted a variable name but we found `)`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (call\n\
+      \    (prop (var 0:5-0:6 `b`) err)\n\
+      \    (var 0:9-0:10 `c`)) err))\n"
+    )
+  , ( "f(a, b.😈)"
+    , "(0:7-0:9) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err))\n"
+    )
+  , ( "f(a, b.})"
+    , "(0:7-0:8) We wanted a variable name but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err))\n"
+    )
+  , ( "f(a, b.😈})"
+    , "(0:7-0:9) We wanted a variable name but we found `😈`.\n\
+      \(0:9-0:10) We wanted a variable name but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err))\n"
+    )
+  , ( "f(a, b.}😈)"
+    , "(0:7-0:8) We wanted a variable name but we found `}`.\n\
+      \(0:8-0:10) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (prop (var 0:5-0:6 `b`) err))\n"
+    )
+  , ( "f(😈)"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err)\n"
+    )
+  , ( "f(})"
+    , "(0:2-0:3) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err)\n"
+    )
+  , ( "f(😈})"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \(0:4-0:5) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err)\n"
+    )
+  , ( "f(}😈)"
+    , "(0:2-0:3) We wanted an expression but we found `}`.\n\
+      \(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, 😈)"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, })"
+    , "(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, 😈})"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \(0:7-0:8) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, }😈)"
+    , "(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err)\n"
+    )
+  , ( "f(a b)"
+    , "(0:4-0:5) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:4-0:5 `b`))\n"
+    )
+  , ( "f(a, b c)"
+    , "(0:7-0:8) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:7-0:8 `c`))\n"
+    )
+  , ( "f(a b, c)"
+    , "(0:4-0:5) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:4-0:5 `b`)\n\
+      \  (var 0:7-0:8 `c`))\n"
+    )
+  , ( "f(a b c)"
+    , "(0:4-0:5) We wanted `,` but we found a variable name.\n\
+      \(0:6-0:7) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:4-0:5 `b`)\n\
+      \  (var 0:6-0:7 `c`))\n"
+    )
+  , ( "f(a b, c, d)"
+    , "(0:4-0:5) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:4-0:5 `b`)\n\
+      \  (var 0:7-0:8 `c`)\n\
+      \  (var 0:10-0:11 `d`))\n"
+    )
+  , ( "f(a, b c, d)"
+    , "(0:7-0:8) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:7-0:8 `c`)\n\
+      \  (var 0:10-0:11 `d`))\n"
+    )
+  , ( "f(a, b, c d)"
+    , "(0:10-0:11) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`)\n\
+      \  (var 0:10-0:11 `d`))\n"
+    )
+  , ( "f(a b c, d)"
+    , "(0:4-0:5) We wanted `,` but we found a variable name.\n\
+      \(0:6-0:7) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:4-0:5 `b`)\n\
+      \  (var 0:6-0:7 `c`)\n\
+      \  (var 0:9-0:10 `d`))\n"
+    )
+  , ( "f(a, b c d)"
+    , "(0:7-0:8) We wanted `,` but we found a variable name.\n\
+      \(0:9-0:10) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:7-0:8 `c`)\n\
+      \  (var 0:9-0:10 `d`))\n"
+    )
+  , ( "f(a b, c d)"
+    , "(0:4-0:5) We wanted `,` but we found a variable name.\n\
+      \(0:9-0:10) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:4-0:5 `b`)\n\
+      \  (var 0:7-0:8 `c`)\n\
+      \  (var 0:9-0:10 `d`))\n"
+    )
+  , ( "f(a b c d)"
+    , "(0:4-0:5) We wanted `,` but we found a variable name.\n\
+      \(0:6-0:7) We wanted `,` but we found a variable name.\n\
+      \(0:8-0:9) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:4-0:5 `b`)\n\
+      \  (var 0:6-0:7 `c`)\n\
+      \  (var 0:8-0:9 `d`))\n"
+    )
+  , ( "f(a,, b)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`))\n"
+    )
+  , ( "f(a,, b, c)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, b,, c)"
+    , "(0:7-0:8) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a,, b,, c)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \(0:8-0:9) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  err\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a,, b, c, d)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:9-0:10 `c`)\n\
+      \  (var 0:12-0:13 `d`))\n"
+    )
+  , ( "f(a, b,, c, d)"
+    , "(0:7-0:8) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err\n\
+      \  (var 0:9-0:10 `c`)\n\
+      \  (var 0:12-0:13 `d`))\n"
+    )
+  , ( "f(a, b, c,, d)"
+    , "(0:10-0:11) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`)\n\
+      \  err\n\
+      \  (var 0:12-0:13 `d`))\n"
+    )
+  , ( "f(a, b,, c,, d)"
+    , "(0:7-0:8) We wanted an expression but we found `,`.\n\
+      \(0:11-0:12) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err\n\
+      \  (var 0:9-0:10 `c`)\n\
+      \  err\n\
+      \  (var 0:13-0:14 `d`))\n"
+    )
+  , ( "f(a,, b, c,, d)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \(0:11-0:12) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:9-0:10 `c`)\n\
+      \  err\n\
+      \  (var 0:13-0:14 `d`))\n"
+    )
+  , ( "f(a,, b,, c, d)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \(0:8-0:9) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  err\n\
+      \  (var 0:10-0:11 `c`)\n\
+      \  (var 0:13-0:14 `d`))\n"
+    )
+  , ( "f(a,, b,, c,, d)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \(0:8-0:9) We wanted an expression but we found `,`.\n\
+      \(0:12-0:13) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  err\n\
+      \  (var 0:10-0:11 `c`)\n\
+      \  err\n\
+      \  (var 0:14-0:15 `d`))\n"
+    )
+  , ( "f(a, b, c, d,)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`)\n\
+      \  (var 0:11-0:12 `d`))\n"
+    )
+  , ( "f(a, b, c, d,,)"
+    , "(0:13-0:14) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`)\n\
+      \  (var 0:11-0:12 `d`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, b, c,,)"
+    , "(0:10-0:11) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, b,,)"
+    , "(0:7-0:8) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err)\n"
+    )
+  , ( "f(a,,)"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, 😈, c)"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(😈, b, c)"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, b, 😈)"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, }, c)"
+    , "(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(}, b, c)"
+    , "(0:2-0:3) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(a, b, })"
+    , "(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, 😈}, c)"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \(0:7-0:8) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(😈}, b, c)"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \(0:4-0:5) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, b, 😈})"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \(0:10-0:11) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, }😈, c)"
+    , "(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  err\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(}😈, b, c)"
+    , "(0:2-0:3) We wanted an expression but we found `}`.\n\
+      \(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, b, }😈)"
+    , "(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \(0:9-0:11) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  err)\n"
+    )
+  , ( "f(a, b😈, c)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a😈, b, c)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, b, c😈)"
+    , "(0:9-0:11) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(a, b}, c)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a}, b, c)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, b, c})"
+    , "(0:9-0:10) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(a, b😈}, c)"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a😈}, b, c)"
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b, c😈})"
+    , "(0:9-0:11) We wanted an expression but we found `😈`.\n\
+      \(0:11-0:12) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(a, b}😈, c)"
+    , "(0:6-0:7) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a}😈, b, c)"
+    , "(0:3-0:4) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b, c}😈)"
+    , "(0:9-0:10) We wanted an expression but we found `}`.\n\
+      \(0:10-0:12) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(a, 😈b, c)"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(😈a, b, c)"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, b, 😈c)"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, }b, c)"
+    , "(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(}a, b, c)"
+    , "(0:2-0:3) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:3-0:4 `a`)\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, b, }c)"
+    , "(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(a, 😈}b, c)"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \(0:7-0:8) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(😈}a, b, c)"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \(0:4-0:5) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:5-0:6 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b, 😈}c)"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \(0:10-0:11) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, }😈b, c)"
+    , "(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(}😈a, b, c)"
+    , "(0:2-0:3) We wanted an expression but we found `}`.\n\
+      \(0:3-0:5) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:5-0:6 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b, }😈c)"
+    , "(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \(0:9-0:11) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, 😈b}, c)"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(😈a}, b, c)"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b, 😈c})"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \(0:11-0:12) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a, }b😈, c)"
+    , "(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:6-0:7 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(}a😈, b, c)"
+    , "(0:2-0:3) We wanted an expression but we found `}`.\n\
+      \(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:3-0:4 `a`)\n\
+      \  (var 0:8-0:9 `b`)\n\
+      \  (var 0:11-0:12 `c`))\n"
+    )
+  , ( "f(a, b, }c😈)"
+    , "(0:8-0:9) We wanted an expression but we found `}`.\n\
+      \(0:10-0:12) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:9-0:10 `c`))\n"
+    )
+  , ( "f(, a)"
+    , "(0:2-0:3) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err\n\
+      \  (var 0:4-0:5 `a`))\n"
+    )
+  , ( "f(, a, b)"
+    , "(0:2-0:3) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`))\n"
+    )
+  , ( "f(, a, b, c)"
+    , "(0:2-0:3) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`))\n"
+    )
+  , ( "f(a,)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(,)"
+    , "(0:2-0:3) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  err)\n"
+    )
+  , ( "f()"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`))\n"
+    )
+  , ( "f(a)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a,)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`))\n"
+    )
+  , ( "f(a, b)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b,)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`))\n"
+    )
+  , ( "f(a, b, c)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
+  , ( "f(a, b, c,)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `a`)\n\
+      \  (var 0:5-0:6 `b`)\n\
+      \  (var 0:8-0:9 `c`))\n"
+    )
   ]
