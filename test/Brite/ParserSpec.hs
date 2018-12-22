@@ -3175,4 +3175,17 @@ spec = mapM_ (uncurry runTest)
       \  (var 0:5-0:6 `b`)\n\
       \  (var 0:8-0:9 `c`))\n"
     )
+  , ( "let _ = x;"
+    , "(bind (hole 0:4-0:5`) (var 0:8-0:9 `x`))\n"
+    )
+  , ( "let x = _;"
+    , "(0:8-0:9) We wanted an expression but we found `_`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) err)\n"
+    )
+  , ( "let _ = _;"
+    , "(0:8-0:9) We wanted an expression but we found `_`.\n\
+      \\n\
+      \(bind (hole 0:4-0:5`) err)\n"
+    )
   ]

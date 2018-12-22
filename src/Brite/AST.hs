@@ -88,6 +88,8 @@ data ExpressionExtension
 data Pattern
   -- `x`
   = VariablePattern Name
+  -- `_`
+  | HolePattern Token
 
 -- Get all the tokens that make up a module. Printing these tokens to source should result in the
 -- exact source code of the document we parsed to produce this module.
@@ -177,6 +179,7 @@ expressionExtensionTokens (CallExpressionExtension t1 args t2) =
 -- Get tokens from a pattern.
 patternTokens :: Pattern -> Tokens
 patternTokens (VariablePattern name) = nameTokens name
+patternTokens (HolePattern token) = singletonToken token
 
 -- Debug a module in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST. Each statement in the module is on its own line.
@@ -305,4 +308,8 @@ debugPattern (VariablePattern (Name identifier token)) =
     <> debugRange (tokenRange token)
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
+    <> B.fromText "`)"
+debugPattern (HolePattern token) =
+  B.fromText "(hole "
+    <> debugRange (tokenRange token)
     <> B.fromText "`)"

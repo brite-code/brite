@@ -101,7 +101,11 @@ tryCallExpressionExtension =
 pattern :: Parser (Recover Pattern)
 pattern = retry $
   tryVariablePattern
+    <|> tryHolePattern
     <|> unexpected ExpectedPattern
 
 tryVariablePattern :: TryParser Pattern
 tryVariablePattern = VariablePattern . uncurry Name <$> tryIdentifier
+
+tryHolePattern :: TryParser Pattern
+tryHolePattern = HolePattern <$> tryKeyword Hole
