@@ -18,6 +18,8 @@ module Brite.Parser.Framework
   , tryKeyword
   , tryIdentifier
   , tryGlyphOnSameLine
+  , CommaList(..)
+  , commaList
   ) where
 
 import Brite.Diagnostics
@@ -289,20 +291,20 @@ many p = Parser $ \_ yield1 yield2 ->
         recover ts e1 =
           tryParser p
             (\a -> loopOk False (add as (Recover (reverse ts) <$> e1 <*> a)))
-            (\a -> loopYield2 (add as (Recover (reverse ts) <$> e1 <*> a)))
+            (\a -> loopYield (add as (Recover (reverse ts) <$> e1 <*> a)))
             (\e -> yieldn (reverse <$> add as (Fatal (reverse ts) <$> e1)) (\t -> recover (t : ts) (e1 <* e)))
       in
         tryParser p
           (\a -> loopOk False (add as (Ok <$> a)))
-          (\a -> loopYield2 (add as (Ok <$> a)))
+          (\a -> loopYield (add as (Ok <$> a)))
           (\e -> yieldn (reverse <$> as) (\t -> recover [t] e))
       where
         yieldn = if first then yield1 else yield2
 
-    loopYield2 as k1 =
+    loopYield as k1 =
       tryParser p
         (\a -> loopOk False (add as (Ok <$> a)))
-        (\a k2 -> loopYield2 (add as (Ok <$> a)) k2)
+        (\a k2 -> loopYield (add as (Ok <$> a)) k2)
         (\_ -> yield2 (reverse <$> as) k1)
   in
     loopOk True (pure [])
@@ -350,3 +352,77 @@ tryGlyphOnSameLine g = TryParser $ \ok _ throw s ->
       && parserLastLine s == positionLine (rangeStart (tokenRange t)) -> ok (pure t) (eatToken t ts s)
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
+
+data CommaList a = CommaList
+  { commaListItems :: [(Recover a, Recover Token)]
+  , commaListLastItem :: Maybe (Recover a)
+  }
+
+commaList :: TryParser a -> Parser (CommaList a)
+commaList p = Parser $ \_ yield1 yield2 ->
+  let
+    loop empty acc =
+      tryParser p
+        (\a -> itemOk acc (Ok <$> a))
+        (\a k -> itemYield acc (Ok <$> a) k)
+        (\e ->
+          tryComma
+            (\b -> loop False (add acc ((,) <$> (Fatal [] <$> e) <*> (Ok <$> b))))
+            (\_ ->
+              yieldn
+                (CommaList <$> (reverse <$> acc) <*> pure Nothing)
+                (\t -> recover [t] e)))
+      where
+        recover ts e1 =
+          tryParser p
+            (\a -> itemOk acc (Recover (reverse ts) <$> e1 <*> a))
+            (\a k -> itemYield acc (Recover (reverse ts) <$> e1 <*> a) k)
+            (\e ->
+              tryComma
+                (\b -> loop False (add acc ((,) <$> (Fatal (reverse ts) <$> e1) <*> (Ok <$> b))))
+                (\_ ->
+                  yieldn
+                    (CommaList <$> (reverse <$> acc) <*> (Just . Fatal (reverse ts) <$> e1))
+                    (\t -> recover (t : ts) (e1 <* e))))
+
+        yieldn = if empty then yield1 else yield2
+
+    itemOk acc a1 =
+      tryComma
+        (\b -> loop False (add acc ((,) <$> a1 <*> (Ok <$> b))))
+        (\e -> yield2 (CommaList <$> (reverse <$> acc) <*> (Just <$> a1)) (\t ->
+          recover [t] e))
+      where
+        recover ts e1 =
+          tryComma
+            (\b -> loop False (add acc ((,) <$> a1 <*> (Recover (reverse ts) <$> e1 <*> b))))
+            (\e ->
+              tryParser p
+                (\a2 -> itemOk (add acc ((,) <$> a1 <*> (Fatal (reverse ts) <$> e1))) (Ok <$> a2))
+                (\a2 k -> itemYield (add acc ((,) <$> a1 <*> (Fatal (reverse ts) <$> e1))) (Ok <$> a2) k)
+                (\_ ->
+                  yield2
+                    (let acc' = add acc ((,) <$> a1 <*> (Fatal (reverse ts) <$> e1)) in
+                      CommaList <$> (reverse <$> acc') <*> pure Nothing)
+                    (\t -> recover (t : ts) (e1 <* e))))
+
+    itemYield acc a1 k1 =
+      tryComma
+        (\b -> loop False (add acc ((,) <$> a1 <*> (Ok <$> b))))
+        (\e ->
+          tryParser p
+            (\a2 -> itemOk (add acc ((,) <$> a1 <*> (Fatal [] <$> e))) (Ok <$> a2))
+            (\a2 k2 -> itemYield (add acc ((,) <$> a1 <*> (Fatal [] <$> e))) (Ok <$> a2) k2)
+            (\_ ->
+              yield2 (CommaList <$> (reverse <$> acc) <*> (Just <$> a1)) k1))
+  in
+    loop True (pure [])
+  where
+    add as a = liftA2 (flip (:)) as a
+
+    tryComma :: (DiagnosticWriter Token -> ParserState -> b) -> (DiagnosticWriter Diagnostic -> ParserState -> b) -> ParserState -> b
+    tryComma ok throw s =
+      case parserStep s of
+        Right (t @ Token { tokenKind = Glyph Comma }, ts) -> ok (pure t) (eatToken t ts s)
+        Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph Comma)) s
+        Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph Comma)) s

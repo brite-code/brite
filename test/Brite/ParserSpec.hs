@@ -1583,10 +1583,11 @@ spec = mapM_ (uncurry runTest)
       \(wrap err)\n"
     )
   , ( "f(😈)"
-    , "(0:2-0:4) We wanted `)` but we found `😈`.\n\
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
       \\n\
       \(call\n\
-      \  (var 0:0-0:1 `f`))\n"
+      \  (var 0:0-0:1 `f`)\n\
+      \  err)\n"
     )
   , ( "f("
     , "(0:2-0:2) We wanted `)` but the file ended.\n\
@@ -1705,5 +1706,33 @@ spec = mapM_ (uncurry runTest)
       \  (var 0:3-0:4 `x`)\n\
       \  block\n\
       \  block)\n"
+    )
+  , ( "let x = y; do { let x = y; 😈 let x = y; } let x = y;"
+    , "(0:27-0:29) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
+      \(do (block\n\
+      \  (bind (var 0:20-0:21 `x`) (var 0:24-0:25 `y`))\n\
+      \  (bind (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))))\n\
+      \(bind (var 0:47-0:48 `x`) (var 0:51-0:52 `y`))\n"
+    )
+  , ( "let x = 😈 let x = y"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(bind (var 0:4-0:5 `x`) err)\n\
+      \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n"
+    )
+  , ( "f(x)"
+    , "(call\n\
+      \  (var 0:0-0:1 `f`)\n\
+      \  (var 0:2-0:3 `x`))\n"
+    )
+  , ( "f\n(x)"
+    , "(var 0:0-0:1 `f`)\n\
+      \(wrap (var 1:1-1:2 `x`))\n"
+    )
+  , ( "f;(x)"
+    , "(var 0:0-0:1 `f`)\n\
+      \(wrap (var 0:3-0:4 `x`))\n"
     )
   ]

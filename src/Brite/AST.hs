@@ -4,6 +4,7 @@ module Brite.AST
   ( Module(..)
   , Name(..)
   , Recover(..)
+  , CommaList(..)
   , Statement(..)
   , Block(..)
   , Constant(..)
@@ -15,7 +16,7 @@ module Brite.AST
   , debugModule
   ) where
 
-import Brite.Parser.Framework (Recover(..))
+import Brite.Parser.Framework (Recover(..), CommaList(..))
 import Brite.Source
 import Data.Monoid (Endo(..))
 import qualified Data.Text.Lazy.Builder as B
@@ -80,7 +81,7 @@ data ExpressionExtension
   -- `E.p`
   = PropertyExpressionExtension Token (Recover Name)
   -- `f(...)`
-  | CallExpressionExtension Token (Recover Token)
+  | CallExpressionExtension Token (CommaList Expression) (Recover Token)
 
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
@@ -103,12 +104,6 @@ type Tokens = Endo [Token]
 singletonToken :: Token -> Tokens
 singletonToken t = Endo (t :)
 
--- Get tokens from a type wrapped in `Recover`.
-recoverTokens :: (a -> Tokens) -> Recover a -> Tokens
-recoverTokens tokens (Ok a) = tokens a
-recoverTokens tokens (Recover ts _ a) = Endo (ts ++) <> tokens a
-recoverTokens _ (Fatal ts _) = Endo (ts ++)
-
 -- Get tokens from a type wrapped in `Maybe`.
 maybeTokens :: (a -> Tokens) -> Maybe a -> Tokens
 maybeTokens tokens (Just a) = tokens a
@@ -117,6 +112,18 @@ maybeTokens _ Nothing = mempty
 -- Get tokens from a name.
 nameTokens :: Name -> Tokens
 nameTokens (Name _ t) = singletonToken t
+
+-- Get tokens from a type wrapped in `Recover`.
+recoverTokens :: (a -> Tokens) -> Recover a -> Tokens
+recoverTokens tokens (Ok a) = tokens a
+recoverTokens tokens (Recover ts _ a) = Endo (ts ++) <> tokens a
+recoverTokens _ (Fatal ts _) = Endo (ts ++)
+
+-- Get tokens from a type wrapped in `CommaList`.
+commaListTokens :: (a -> Tokens) -> CommaList a -> Tokens
+commaListTokens tokens (CommaList as an) =
+  mconcat (map (\(a, c) -> recoverTokens tokens a <> recoverTokens singletonToken c) as)
+    <> maybeTokens (recoverTokens tokens) an
 
 -- Get tokens from a statement.
 statementTokens :: Statement -> Tokens
@@ -164,8 +171,8 @@ conditionalExpressionAlternateTokens (ConditionalExpressionAlternate t b) =
 expressionExtensionTokens :: ExpressionExtension -> Tokens
 expressionExtensionTokens (PropertyExpressionExtension t l) =
   singletonToken t <> recoverTokens nameTokens l
-expressionExtensionTokens (CallExpressionExtension t1 t2) =
-  singletonToken t1 <> recoverTokens singletonToken t2
+expressionExtensionTokens (CallExpressionExtension t1 args t2) =
+  singletonToken t1 <> commaListTokens expressionTokens args <> recoverTokens singletonToken t2
 
 -- Get tokens from a pattern.
 patternTokens :: Pattern -> Tokens
@@ -278,12 +285,17 @@ debugExpressionExtension indentation expression (PropertyExpressionExtension _ l
     <> B.singleton ' '
     <> debugRecover debugName label
     <> B.singleton ')'
-debugExpressionExtension indentation expression (CallExpressionExtension _ _) =
-  let newIndentation = indentation <> B.fromText "  " in
+debugExpressionExtension indentation expression (CallExpressionExtension _ (CommaList args argn) _) =
   B.fromText "(call"
-    <> B.singleton '\n' <> newIndentation
-    <> debugExpression newIndentation expression
+    <> debugArg (Ok expression)
+    <> mconcat (map (debugArg . fst) args)
+    <> maybe mempty debugArg argn
     <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+    debugArg arg =
+      B.singleton '\n' <> newIndentation
+        <> debugRecover (debugExpression newIndentation) arg
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.

@@ -18,7 +18,8 @@ tryStatement =
     <|> unexpected ExpectedStatement
 
 tryExpressionStatement :: TryParser Statement
-tryExpressionStatement = ExpressionStatement <$> tryExpression <&> optional (tryGlyph Semicolon)
+tryExpressionStatement =
+  ExpressionStatement <$> tryFullExpression <&> optional (tryGlyph Semicolon)
 
 tryBindingStatement :: TryParser Statement
 tryBindingStatement =
@@ -42,7 +43,7 @@ tryBooleanFalse :: TryParser Constant
 tryBooleanFalse = BooleanConstant False <$> tryKeyword False_
 
 expression :: Parser (Recover Expression)
-expression = retry (tryExpression <|> unexpected ExpectedExpression)
+expression = retry tryExpression
 
 -- Ordered by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression
@@ -53,8 +54,12 @@ tryPrimaryExpression =
     <|> tryConstantExpression
     <|> tryBlockExpression
 
+tryFullExpression :: TryParser Expression
+tryFullExpression =
+  foldl ExpressionExtension <$> tryPrimaryExpression <&> many tryExpressionExtension
+
 tryExpression :: TryParser Expression
-tryExpression = foldl ExpressionExtension <$> tryPrimaryExpression <&> many tryExpressionExtension
+tryExpression = tryFullExpression <|> unexpected ExpectedExpression
 
 tryConstantExpression :: TryParser Expression
 tryConstantExpression = ConstantExpression <$> tryConstant
@@ -88,7 +93,10 @@ tryPropertyExpressionExtension =
 
 tryCallExpressionExtension :: TryParser ExpressionExtension
 tryCallExpressionExtension =
-  CallExpressionExtension <$> tryGlyphOnSameLine ParenLeft <&> glyph ParenRight
+  CallExpressionExtension
+    <$> tryGlyphOnSameLine ParenLeft
+    <&> commaList tryExpression
+    <&> glyph ParenRight
 
 pattern :: Parser (Recover Pattern)
 pattern = retry $
