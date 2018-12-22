@@ -1594,4 +1594,17 @@ spec = mapM_ (uncurry runTest)
       \(call\n\
       \  (var 0:0-0:1 `f`))\n"
     )
+  , ( "😈.p"
+    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+      \(0:2-0:3) We wanted a statement but we found `.`.\n\
+      \\n\
+      \(var 0:3-0:4 `p`)\n"
+    )
+  , ( "(😈.p)"
+    , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
+      \(0:3-0:4) We wanted `)` but we found `.`.\n\
+      \(0:5-0:6) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(prop (wrap err) (name 0:4-0:5 `p`))\n"
+    )
   ]
