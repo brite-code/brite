@@ -40,19 +40,6 @@ data Statement
   = ExpressionStatement Expression Semicolon
   -- `let x = E;`
   | BindingStatement Token (Recover Pattern) (Recover Token) (Recover Expression) Semicolon
-  -- `return;`, `return E;`
-  --
-  -- We include `return` and `break` statements since Brite’s algebraic effects lend themselves to
-  -- imperative code styles.
-  | ReturnStatement Token (Maybe (Recover Expression)) Semicolon
-  -- `break;`, `break E;`
-  --
-  -- We don’t yet have labeled break or continue statements which may mostly be emulated by other
-  -- means. Strictly speaking, `return` isn’t even necessary. `break` is necessary because we have
-  -- loop expressions, but loop expressions aren’t necessary since we have recursion.
-  --
-  -- We should continue to ask ourselves: do we need the `return` statement or `loop` expressions?
-  | BreakStatement Token (Maybe (Recover Expression)) Semicolon
 
 -- Convenience type alias for an optional semicolon token.
 type Semicolon = Maybe (Recover Token)
@@ -84,20 +71,61 @@ data Constant
 -- some side effects.
 data Expression
   -- `C`
+  --
+  -- Some constant value in the program which never changes.
   = ConstantExpression Constant
+
   -- `x`
+  --
+  -- A reference to a variable binding in the program.
   | VariableExpression Name
+
   -- `fun(...) { ... }`
+  --
+  -- A block of code which is executed whenever the function is called.
   | FunctionExpression Function
+
   -- `if E { ... }`, `if E { ... } else { ... }`
+  --
+  -- Conditionally executes some code.
+  --
+  -- TODO: `else if`
   | ConditionalExpression Token (Recover Expression) Block (Maybe (Recover ConditionalExpressionAlternate))
+
   -- `do { ... }`
+  --
+  -- Introduces a new block scope into the program.
   | BlockExpression Token Block
+
   -- `loop { ... }`
+  --
+  -- Keeps repeatedly executing the block until a break expression is encountered. The argument to
+  -- the break expression is the value returned by the loop.
   | LoopExpression Token Block
+
+  -- `return`, `return E`
+  --
+  -- We include `return` and `break` expressions since Brite’s algebraic effects lend themselves to
+  -- imperative code styles.
+  | ReturnExpression Token (Maybe (Recover Expression)) Semicolon
+
+  -- `break`, `break E`
+  --
+  -- We don’t yet have labeled break or continue statements which may mostly be emulated by other
+  -- means. Strictly speaking, `return` isn’t even necessary. `break` is necessary because we have
+  -- loop expressions, but loop expressions aren’t necessary since we have recursion.
+  --
+  -- We should continue to ask ourselves: do we need the `return` statement or `loop` expressions?
+  | BreakExpression Token (Maybe (Recover Expression)) Semicolon
+
   -- `(E)`
+  --
+  -- An expression wrapped in parentheses. Useful for changing the precedence of operators.
   | WrappedExpression Token (Recover Expression) (Recover Token)
+
   -- `E ...`
+  --
+  -- Any extension on a primary expression.
   | ExpressionExtension Expression (Recover ExpressionExtension)
 
 -- `else { ... }`
@@ -165,14 +193,6 @@ statementTokens (BindingStatement t1 p t2 e t3) =
     <> recoverTokens singletonToken t2
     <> recoverTokens expressionTokens e
     <> maybeTokens (recoverTokens singletonToken) t3
-statementTokens (ReturnStatement t1 e t2) =
-  singletonToken t1
-    <> maybeTokens (recoverTokens expressionTokens) e
-    <> maybeTokens (recoverTokens singletonToken) t2
-statementTokens (BreakStatement t1 e t2) =
-  singletonToken t1
-    <> maybeTokens (recoverTokens expressionTokens) e
-    <> maybeTokens (recoverTokens singletonToken) t2
 
 -- Get tokens from a block.
 blockTokens :: Block -> Tokens
@@ -209,6 +229,14 @@ expressionTokens (ConditionalExpression t e b (Just alt)) =
     <> recoverTokens conditionalExpressionAlternateTokens alt
 expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
 expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
+expressionTokens (ReturnExpression t1 e t2) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens singletonToken) t2
+expressionTokens (BreakExpression t1 e t2) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens singletonToken) t2
 expressionTokens (WrappedExpression t1 e t2) =
   singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
 expressionTokens (ExpressionExtension e ext) =
@@ -262,12 +290,6 @@ debugStatement indentation (BindingStatement _ pattern _ expression _) =
     <> B.singleton ' '
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
-debugStatement _ (ReturnStatement _ Nothing _) = B.fromText "return"
-debugStatement indentation (ReturnStatement _ (Just expression) _) =
-  B.fromText "(return " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
-debugStatement _ (BreakStatement _ Nothing _) = B.fromText "break"
-debugStatement indentation (BreakStatement _ (Just expression) _) =
-  B.fromText "(break " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
 
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
@@ -309,19 +331,16 @@ debugConstant (BooleanConstant False token) =
 -- the structure of the AST node.
 debugExpression :: B.Builder -> Expression -> B.Builder
 debugExpression _ (ConstantExpression constant) = debugConstant constant
+
 debugExpression _ (VariableExpression (Name identifier token)) =
   B.fromText "(var "
     <> debugRange (tokenRange token)
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
+
 debugExpression indentation (FunctionExpression function) = debugFunction indentation function
-debugExpression indentation (ExpressionExtension expression (Ok extension)) =
-  debugExpressionExtension indentation expression extension
-debugExpression indentation (ExpressionExtension expression (Recover _ _ extension)) =
-  debugExpressionExtension indentation expression extension
-debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
-  debugExpression indentation expression
+
 debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
   let newIndentation = indentation <> B.fromText "  " in
   B.fromText "(if"
@@ -330,6 +349,7 @@ debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
     <> B.singleton '\n' <> newIndentation
     <> debugBlock newIndentation consequent
     <> B.singleton ')'
+
 debugExpression indentation (ConditionalExpression _ test consequent (Just alternate)) =
   let newIndentation = indentation <> B.fromText "  " in
   B.fromText "(if"
@@ -340,14 +360,32 @@ debugExpression indentation (ConditionalExpression _ test consequent (Just alter
     <> B.singleton '\n' <> newIndentation
     <> debugRecover (debugConditionalExpressionAlternate newIndentation) alternate
     <> B.singleton ')'
+
 debugExpression indentation (BlockExpression _ block) =
   B.fromText "(do " <> debugBlock indentation block <> B.singleton ')'
+
 debugExpression indentation (LoopExpression _ block) =
   B.fromText "(loop " <> debugBlock indentation block <> B.singleton ')'
+
+debugExpression _ (ReturnExpression _ Nothing _) = B.fromText "return"
+debugExpression indentation (ReturnExpression _ (Just expression) _) =
+  B.fromText "(return " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
+
+debugExpression _ (BreakExpression _ Nothing _) = B.fromText "break"
+debugExpression indentation (BreakExpression _ (Just expression) _) =
+  B.fromText "(break " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
+
 debugExpression indentation (WrappedExpression _ expression _) =
   B.fromText "(wrap "
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
+
+debugExpression indentation (ExpressionExtension expression (Ok extension)) =
+  debugExpressionExtension indentation expression extension
+debugExpression indentation (ExpressionExtension expression (Recover _ _ extension)) =
+  debugExpressionExtension indentation expression extension
+debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
+  debugExpression indentation expression
 
 debugConditionalExpressionAlternate :: B.Builder -> ConditionalExpressionAlternate -> B.Builder
 debugConditionalExpressionAlternate indentation (ConditionalExpressionAlternate _ block) =
