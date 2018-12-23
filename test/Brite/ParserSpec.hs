@@ -3188,4 +3188,380 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(bind (hole 0:4-0:5`) err)\n"
     )
+  , ( "fun() {}"
+    , "(fun\n\
+      \  block)\n"
+    )
+  , ( "fun f() {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun(a) {}"
+    , "(fun\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  block)\n"
+    )
+  , ( "fun(a, b) {}"
+    , "(fun\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  block)\n"
+    )
+  , ( "fun(a, b, c) {}"
+    , "(fun\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(a) {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (var 0:6-0:7 `a`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(a, b) {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (var 0:6-0:7 `a`)\n\
+      \  (var 0:9-0:10 `b`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(a, b, c) {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (var 0:6-0:7 `a`)\n\
+      \  (var 0:9-0:10 `b`)\n\
+      \  (var 0:12-0:13 `c`)\n\
+      \  block)\n"
+    )
+  , ( "fun(a,) {}"
+    , "(fun\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  block)\n"
+    )
+  , ( "fun(a, b,) {}"
+    , "(fun\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  block)\n"
+    )
+  , ( "fun(a, b, c,) {}"
+    , "(fun\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (var 0:10-0:11 `c`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(a,) {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (var 0:6-0:7 `a`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(a, b,) {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (var 0:6-0:7 `a`)\n\
+      \  (var 0:9-0:10 `b`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(a, b, c,) {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (var 0:6-0:7 `a`)\n\
+      \  (var 0:9-0:10 `b`)\n\
+      \  (var 0:12-0:13 `c`)\n\
+      \  block)\n"
+    )
+  , ( "fun() { let x = y; }"
+    , "(fun\n\
+      \  (block\n\
+      \    (bind (var 0:12-0:13 `x`) (var 0:16-0:17 `y`))))\n"
+    )
+  , ( "fun f() { let x = y; }"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (block\n\
+      \    (bind (var 0:14-0:15 `x`) (var 0:18-0:19 `y`))))\n"
+    )
+  , ( "fun() {}()"
+    , "(call\n\
+      \  (fun\n\
+      \    block))\n"
+    )
+  , ( "(fun() {})()"
+    , "(call\n\
+      \  (wrap (fun\n\
+      \    block)))\n"
+    )
+  , ( "let f = fun() {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  block))\n"
+    )
+  , ( "let f = fun f() {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (var 0:12-0:13 `a`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a, b) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (var 0:12-0:13 `a`)\n\
+      \  (var 0:15-0:16 `b`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a, b, c) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (var 0:12-0:13 `a`)\n\
+      \  (var 0:15-0:16 `b`)\n\
+      \  (var 0:18-0:19 `c`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun f(a) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  (var 0:14-0:15 `a`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun f(a, b) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  (var 0:14-0:15 `a`)\n\
+      \  (var 0:17-0:18 `b`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun f(a, b, c) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  (var 0:14-0:15 `a`)\n\
+      \  (var 0:17-0:18 `b`)\n\
+      \  (var 0:20-0:21 `c`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a,) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (var 0:12-0:13 `a`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a, b,) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (var 0:12-0:13 `a`)\n\
+      \  (var 0:15-0:16 `b`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a, b, c,) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (var 0:12-0:13 `a`)\n\
+      \  (var 0:15-0:16 `b`)\n\
+      \  (var 0:18-0:19 `c`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun f(a,) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  (var 0:14-0:15 `a`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun f(a, b,) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  (var 0:14-0:15 `a`)\n\
+      \  (var 0:17-0:18 `b`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun f(a, b, c,) {};"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  (var 0:14-0:15 `a`)\n\
+      \  (var 0:17-0:18 `b`)\n\
+      \  (var 0:20-0:21 `c`)\n\
+      \  block))\n"
+    )
+  , ( "let f = fun() { let x = y; };"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (block\n\
+      \    (bind (var 0:20-0:21 `x`) (var 0:24-0:25 `y`)))))\n"
+    )
+  , ( "let f = fun f() { let x = y; };"
+    , "(bind (var 0:4-0:5 `f`) (fun\n\
+      \  (name 0:12-0:13 `f`)\n\
+      \  (block\n\
+      \    (bind (var 0:22-0:23 `x`) (var 0:26-0:27 `y`)))))\n"
+    )
+  , ( "let f = fun() {}();"
+    , "(bind (var 0:4-0:5 `f`) (call\n\
+      \  (fun\n\
+      \    block)))\n"
+    )
+  , ( "let f = (fun() {})();"
+    , "(bind (var 0:4-0:5 `f`) (call\n\
+      \  (wrap (fun\n\
+      \    block))))\n"
+    )
+  , ( "fun f() {}"
+    , "(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f) {}"
+    , "(0:5-0:6) We wanted `(` but we found `)`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f( {}"
+    , "(0:7-0:8) We wanted `)` but we found `{`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f() }"
+    , "(0:8-0:9) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f() {"
+    , "(0:9-0:9) We wanted `}` but the file ended.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun) {}"
+    , "(0:3-0:4) We wanted `(` but we found `)`.\n\
+      \\n\
+      \(fun\n\
+      \  block)\n"
+    )
+  , ( "fun( {}"
+    , "(0:5-0:6) We wanted `)` but we found `{`.\n\
+      \\n\
+      \(fun\n\
+      \  block)\n"
+    )
+  , ( "fun() }"
+    , "(0:6-0:7) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(fun\n\
+      \  block)\n"
+    )
+  , ( "fun() {"
+    , "(0:7-0:7) We wanted `}` but the file ended.\n\
+      \\n\
+      \(fun\n\
+      \  block)\n"
+    )
+  , ( "fun(a, b let x = y; }"
+    , "(0:9-0:12) We wanted `)` but we found `let`.\n\
+      \(0:9-0:12) We wanted `{` but we found `let`.\n\
+      \\n\
+      \(fun\n\
+      \  (var 0:4-0:5 `a`)\n\
+      \  (var 0:7-0:8 `b`)\n\
+      \  (block\n\
+      \    (bind (var 0:13-0:14 `x`) (var 0:17-0:18 `y`))))\n"
+    )
+  , ( "fun f(a, b let x = y; }"
+    , "(0:11-0:14) We wanted `)` but we found `let`.\n\
+      \(0:11-0:14) We wanted `{` but we found `let`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (var 0:6-0:7 `a`)\n\
+      \  (var 0:9-0:10 `b`)\n\
+      \  (block\n\
+      \    (bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))))\n"
+    )
+  , ( "fun 😈 f() {}"
+    , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:7-0:8 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f😈() {}"
+    , "(0:5-0:7) We wanted `(` but we found `😈`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(😈) {}"
+    , "(0:6-0:8) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  err\n\
+      \  block)\n"
+    )
+  , ( "fun f() 😈 {}"
+    , "(0:8-0:10) We wanted `{` but we found `😈`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f() {😈}"
+    , "(0:9-0:11) We wanted a statement but we found `😈`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (block\n\
+      \    err))\n"
+    )
+  , ( "fun ] f() {}"
+    , "(0:4-0:5) We wanted a variable name but we found `]`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:6-0:7 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f]() {}"
+    , "(0:5-0:6) We wanted `(` but we found `]`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f(]) {}"
+    , "(0:6-0:7) We wanted a variable name but we found `]`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  err\n\
+      \  block)\n"
+    )
+  , ( "fun f() ] {}"
+    , "(0:8-0:9) We wanted `{` but we found `]`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f() {]}"
+    , "(0:9-0:10) We wanted a statement but we found `]`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  (block\n\
+      \    err))\n"
+    )
+  , ( "fun f(,) {}"
+    , "(0:6-0:7) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(fun\n\
+      \  (name 0:4-0:5 `f`)\n\
+      \  err\n\
+      \  block)\n"
+    )
   ]

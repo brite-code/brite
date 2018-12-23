@@ -7,6 +7,7 @@ module Brite.AST
   , CommaList(..)
   , Statement(..)
   , Block(..)
+  , Function(..)
   , Constant(..)
   , Expression(..)
   , ConditionalExpressionAlternate(..)
@@ -51,6 +52,16 @@ data Block = Block
   , blockClose :: Recover Token
   }
 
+-- `fun f(...) { ... }`
+data Function = Function
+  { functionKeyword :: Token
+  , functionName :: Maybe (Recover Name)
+  , functionParamsOpen :: Recover Token
+  , functionParams :: CommaList Pattern
+  , functionParamsClose :: Recover Token
+  , functionBody :: Block
+  }
+
 -- Some constant value in our program.
 data Constant
   -- `true`, `false`
@@ -63,6 +74,8 @@ data Expression
   = ConstantExpression Constant
   -- `x`
   | VariableExpression Name
+  -- `fun(...) { ... }`
+  | FunctionExpression Function
   -- `if E { ... }`, `if E { ... } else { ... }`
   | ConditionalExpression Token (Recover Expression) Block (Maybe (Recover ConditionalExpressionAlternate))
   -- `do { ... }`
@@ -145,6 +158,16 @@ blockTokens (Block t1 ss t2) =
     <> mconcat (map (recoverTokens statementTokens) ss)
     <> recoverTokens singletonToken t2
 
+-- Get tokens from a function.
+functionTokens :: Function -> Tokens
+functionTokens (Function t1 n t2 ps t3 b) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens nameTokens) n
+    <> recoverTokens singletonToken t2
+    <> commaListTokens patternTokens ps
+    <> recoverTokens singletonToken t3
+    <> blockTokens b
+
 -- Get tokens from a constant.
 constantTokens :: Constant -> Tokens
 constantTokens (BooleanConstant _ t) = singletonToken t
@@ -153,6 +176,7 @@ constantTokens (BooleanConstant _ t) = singletonToken t
 expressionTokens :: Expression -> Tokens
 expressionTokens (ConstantExpression constant) = constantTokens constant
 expressionTokens (VariableExpression name) = nameTokens name
+expressionTokens (FunctionExpression function) = functionTokens function
 expressionTokens (ConditionalExpression t e b Nothing) =
   singletonToken t <> recoverTokens expressionTokens e <> blockTokens b
 expressionTokens (ConditionalExpression t e b (Just alt)) =
@@ -228,6 +252,21 @@ debugBlock indentation block =
           <> debugRecover (debugStatement newIndentation) s) (blockStatements block))
     <> B.fromText ")"
 
+-- Debug a function in an S-expression form. This abbreviated format should make it easier to see
+-- the structure of the AST node.
+debugFunction :: B.Builder -> Function -> B.Builder
+debugFunction indentation (Function _ name _ (CommaList params paramn) _ block) =
+  B.fromText "(fun"
+    <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
+    <> mconcat (map (debugParam . fst) params)
+    <> maybe mempty debugParam paramn
+    <> B.singleton '\n' <> newIndentation
+    <> debugBlock newIndentation block
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+    debugParam param = B.singleton '\n' <> newIndentation <> debugRecover debugPattern param
+
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugConstant :: Constant -> B.Builder
@@ -246,6 +285,7 @@ debugExpression _ (VariableExpression (Name identifier token)) =
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
+debugExpression indentation (FunctionExpression function) = debugFunction indentation function
 debugExpression indentation (ExpressionExtension expression (Ok extension)) =
   debugExpressionExtension indentation expression extension
 debugExpression indentation (ExpressionExtension expression (Recover _ _ extension)) =

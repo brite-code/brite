@@ -119,6 +119,7 @@ data Keyword
   | Let
   | If
   | Else
+  | Fun
   | Do
   deriving (Eq)
 
@@ -133,6 +134,7 @@ keyword t =
     "let" -> Just Let
     "if" -> Just If
     "else" -> Just Else
+    "fun" -> Just Fun
     "do" -> Just Do
     _ -> Nothing
 
@@ -144,6 +146,7 @@ keywordText False_ = "false"
 keywordText Let = "let"
 keywordText If = "if"
 keywordText Else = "else"
+keywordText Fun = "fun"
 keywordText Do = "do"
 
 -- A token is a more semantic unit for describing Brite source code documents than a character.

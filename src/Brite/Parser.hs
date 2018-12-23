@@ -11,6 +11,12 @@ import Brite.Source
 parse :: TokenStream -> DiagnosticWriter Module
 parse tokens = uncurry Module <$> runParser (many tryStatement) tokens
 
+name :: Parser (Recover Name)
+name = retry tryName
+
+tryName :: TryParser Name
+tryName = uncurry Name <$> tryIdentifier
+
 tryStatement :: TryParser Statement
 tryStatement =
   tryBindingStatement
@@ -33,6 +39,16 @@ tryBindingStatement =
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
 
+tryFunction :: TryParser Function
+tryFunction =
+  Function
+    <$> tryKeyword Fun
+    <&> optional tryName
+    <&> glyph ParenLeft
+    <&> commaList tryPattern
+    <&> glyph ParenRight
+    <&> block
+
 tryConstant :: TryParser Constant
 tryConstant = tryBooleanTrue <|> tryBooleanFalse
 
@@ -49,6 +65,7 @@ expression = retry tryExpression
 tryPrimaryExpression :: TryParser Expression
 tryPrimaryExpression =
   tryVariableExpression
+    <|> tryFunctionExpression
     <|> tryConditionalExpression
     <|> tryWrappedExpression
     <|> tryConstantExpression
@@ -65,7 +82,10 @@ tryConstantExpression :: TryParser Expression
 tryConstantExpression = ConstantExpression <$> tryConstant
 
 tryVariableExpression :: TryParser Expression
-tryVariableExpression = VariableExpression . uncurry Name <$> tryIdentifier
+tryVariableExpression = VariableExpression <$> tryName
+
+tryFunctionExpression :: TryParser Expression
+tryFunctionExpression = FunctionExpression <$> tryFunction
 
 tryConditionalExpression :: TryParser Expression
 tryConditionalExpression =
@@ -89,7 +109,7 @@ tryExpressionExtension =
 
 tryPropertyExpressionExtension :: TryParser ExpressionExtension
 tryPropertyExpressionExtension =
-  PropertyExpressionExtension <$> tryGlyph Dot <&> (fmap (uncurry Name) <$> identifier)
+  PropertyExpressionExtension <$> tryGlyph Dot <&> name
 
 tryCallExpressionExtension :: TryParser ExpressionExtension
 tryCallExpressionExtension =
@@ -99,13 +119,16 @@ tryCallExpressionExtension =
     <&> glyph ParenRight
 
 pattern :: Parser (Recover Pattern)
-pattern = retry $
+pattern = retry tryPattern
+
+tryPattern :: TryParser Pattern
+tryPattern =
   tryVariablePattern
     <|> tryHolePattern
     <|> unexpected ExpectedPattern
 
 tryVariablePattern :: TryParser Pattern
-tryVariablePattern = VariablePattern . uncurry Name <$> tryIdentifier
+tryVariablePattern = VariablePattern <$> tryName
 
 tryHolePattern :: TryParser Pattern
 tryHolePattern = HolePattern <$> tryKeyword Hole
