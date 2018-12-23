@@ -24,6 +24,7 @@ module Brite.Source
   , tokenStreamPosition
   , tokenStreamText
   , TokenStreamStep
+  , tokenStreamStepPosition
   , tokenize
   , tokenStreamToList
   , nextToken
@@ -119,8 +120,11 @@ data Keyword
   | Let
   | If
   | Else
-  | Fun
   | Do
+  | Fun
+  | Return
+  | Loop
+  | Break
   deriving (Eq)
 
 -- Tries to convert a text value into a keyword. Returns `Just` if the text value is a keyword.
@@ -134,8 +138,11 @@ keyword t =
     "let" -> Just Let
     "if" -> Just If
     "else" -> Just Else
-    "fun" -> Just Fun
     "do" -> Just Do
+    "fun" -> Just Fun
+    "return" -> Just Return
+    "loop" -> Just Loop
+    "break" -> Just Break
     _ -> Nothing
 
 -- Gets the raw text for a keyword.
@@ -146,8 +153,11 @@ keywordText False_ = "false"
 keywordText Let = "let"
 keywordText If = "if"
 keywordText Else = "else"
-keywordText Fun = "fun"
 keywordText Do = "do"
+keywordText Fun = "fun"
+keywordText Return = "return"
+keywordText Loop = "loop"
+keywordText Break = "break"
 
 -- A token is a more semantic unit for describing Brite source code documents than a character.
 -- Through the tokenization of a document we add meaning by parsing low-level code elements like
@@ -248,6 +258,12 @@ data TokenStream = TokenStream
 
 -- One step in the `TokenStream`. Created by calling `nextToken`.
 type TokenStreamStep = Either EndToken (Token, TokenStream)
+
+-- Gets the starting position of a token stream step. Like `tokenStreamPosition` but operates on
+-- a `TokenStreamStep`.
+tokenStreamStepPosition :: TokenStreamStep -> Position
+tokenStreamStepPosition (Right (t, _)) = rangeStart (tokenRange t)
+tokenStreamStepPosition (Left t) = endTokenPosition t
 
 -- Creates a token stream from a text document.
 tokenize :: T.Text -> TokenStream

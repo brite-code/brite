@@ -21,11 +21,13 @@ tryStatement :: TryParser Statement
 tryStatement =
   tryBindingStatement
     <|> tryExpressionStatement
+    <|> tryReturnStatement
+    <|> tryBreakStatement
     <|> unexpected ExpectedStatement
 
 tryExpressionStatement :: TryParser Statement
 tryExpressionStatement =
-  ExpressionStatement <$> tryFullExpression <&> optional (tryGlyph Semicolon)
+  ExpressionStatement <$> tryFullExpression <&> semicolon
 
 tryBindingStatement :: TryParser Statement
 tryBindingStatement =
@@ -34,7 +36,24 @@ tryBindingStatement =
     <&> pattern
     <&> glyph Equals
     <&> expression
-    <&> optional (tryGlyph Semicolon)
+    <&> semicolon
+
+tryReturnStatement :: TryParser Statement
+tryReturnStatement =
+  ReturnStatement
+    <$> tryKeyword Return
+    <&> optionalOnSameLine tryExpression
+    <&> semicolon
+
+tryBreakStatement :: TryParser Statement
+tryBreakStatement =
+  BreakStatement
+    <$> tryKeyword Break
+    <&> optionalOnSameLine tryExpression
+    <&> semicolon
+
+semicolon :: Parser (Maybe (Recover Token))
+semicolon = optional (tryGlyph Semicolon)
 
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
@@ -70,6 +89,7 @@ tryPrimaryExpression =
     <|> tryWrappedExpression
     <|> tryConstantExpression
     <|> tryBlockExpression
+    <|> tryLoopExpression
 
 tryFullExpression :: TryParser Expression
 tryFullExpression =
@@ -97,6 +117,9 @@ tryConditionalExpression =
 
 tryBlockExpression :: TryParser Expression
 tryBlockExpression = BlockExpression <$> tryKeyword Do <&> block
+
+tryLoopExpression :: TryParser Expression
+tryLoopExpression = LoopExpression <$> tryKeyword Loop <&> block
 
 tryWrappedExpression :: TryParser Expression
 tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <&> glyph ParenRight

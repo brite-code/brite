@@ -3564,4 +3564,125 @@ spec = mapM_ (uncurry runTest)
       \  err\n\
       \  block)\n"
     )
+  , ( "return"
+    , "return\n"
+    )
+  , ( "return x"
+    , "(return (var 0:7-0:8 `x`))\n"
+    )
+  , ( "return\nx"
+    , "return\n\
+      \(var 1:0-1:1 `x`)\n"
+    )
+  , ( "return;"
+    , "return\n"
+    )
+  , ( "return;x"
+    , "return\n\
+      \(var 0:7-0:8 `x`)\n"
+    )
+  , ( "return x;"
+    , "(return (var 0:7-0:8 `x`))\n"
+    )
+  , ( "return 😈 x;"
+    , "(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(return (var 0:10-0:11 `x`))\n"
+    )
+  , ( "return\n😈 x;"
+    , "(1:0-1:2) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \return\n\
+      \(var 1:3-1:4 `x`)\n"
+    )
+  , ( "return 😈\nx;"
+    , "(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(return err)\n\
+      \(var 1:0-1:1 `x`)\n"
+    )
+  , ( "return ) x;"
+    , "(0:7-0:8) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(return (var 0:9-0:10 `x`))\n"
+    )
+  , ( "return\n) x;"
+    , "(1:0-1:1) We wanted `;` but we found `)`.\n\
+      \\n\
+      \return\n\
+      \(var 1:2-1:3 `x`)\n"
+    )
+  , ( "return )\nx;"
+    , "(0:7-0:8) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(return err)\n\
+      \(var 1:0-1:1 `x`)\n"
+    )
+  , ( "return 😈) x;"
+    , "(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \(0:9-0:10) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(return (var 0:11-0:12 `x`))\n"
+    )
+  , ( "return\n😈) x;"
+    , "(1:0-1:2) We wanted `;` but we found `😈`.\n\
+      \(1:2-1:3) We wanted `;` but we found `)`.\n\
+      \\n\
+      \return\n\
+      \(var 1:4-1:5 `x`)\n"
+    )
+  , ( "return 😈)\nx;"
+    , "(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \(0:9-0:10) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(return err)\n\
+      \(var 1:0-1:1 `x`)\n"
+    )
+  , ( "return )😈 x;"
+    , "(0:7-0:8) We wanted an expression but we found `)`.\n\
+      \(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(return (var 0:11-0:12 `x`))\n"
+    )
+  , ( "return\n)😈 x;"
+    , "(1:0-1:1) We wanted `;` but we found `)`.\n\
+      \(1:1-1:3) We wanted `;` but we found `😈`.\n\
+      \\n\
+      \return\n\
+      \(var 1:4-1:5 `x`)\n"
+    )
+  , ( "return )😈\nx;"
+    , "(0:7-0:8) We wanted an expression but we found `)`.\n\
+      \(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(return err)\n\
+      \(var 1:0-1:1 `x`)\n"
+    )
+  , ( "break"
+    , "break\n"
+    )
+  , ( "break x"
+    , "(break (var 0:6-0:7 `x`))\n"
+    )
+  , ( "break\nx"
+    , "break\n\
+      \(var 1:0-1:1 `x`)\n"
+    )
+  , ( "break;"
+    , "break\n"
+    )
+  , ( "break;x"
+    , "break\n\
+      \(var 0:6-0:7 `x`)\n"
+    )
+  , ( "break x;"
+    , "(break (var 0:6-0:7 `x`))\n"
+    )
+  , ( "loop {}"
+    , "(loop block)\n"
+    )
+  , ( "loop { let x = y; }"
+    , "(loop (block\n\
+      \  (bind (var 0:11-0:12 `x`) (var 0:15-0:16 `y`))))\n"
+    )
   ]

@@ -10,6 +10,7 @@ module Brite.Parser.Framework
   , unexpected
   , retry
   , optional
+  , optionalOnSameLine
   , many
   , glyph
   , keyword
@@ -279,6 +280,33 @@ optional p = Parser $ \ok yield1 yield2 ->
       (\a -> ok (Just . Ok <$> a))
       (\a -> yield2 (Just . Ok <$> a))
       (\e -> yield1 (pure Nothing) (\t -> recover [t] e))
+
+-- Optionally runs a `TryParser` but only if it is on the same line as our previously parsed token.
+--
+-- We can’t make a general `sameLine` operator since what would we throw from the `sameLine`
+-- operator when we observe the next token will not be on the same line? Unexpected token? What
+-- would we say that we expect?
+optionalOnSameLine :: TryParser a -> Parser (Maybe (Recover a))
+optionalOnSameLine p = Parser $ \ok yield1 yield2 s1 ->
+  let
+    recover ts e1 s2 =
+      if parserLastLine s2 /= positionLine (tokenStreamStepPosition (parserStep s2)) then
+        ok (Just . Fatal (reverse ts) <$> e1) s2
+      else
+        tryParser p
+          (\a -> ok (Just <$> (Recover (reverse ts) <$> e1 <*> a)))
+          (\a -> yield2 (Just <$> (Recover (reverse ts) <$> e1 <*> a)))
+          (\e -> yield1 (Just . Fatal (reverse ts) <$> e1) (\t -> recover (t : ts) (e1 <* e)))
+          s2
+  in
+    if parserLastLine s1 /= positionLine (tokenStreamStepPosition (parserStep s1)) then
+      ok (pure Nothing) s1
+    else
+      tryParser p
+        (\a -> ok (Just . Ok <$> a))
+        (\a -> yield2 (Just . Ok <$> a))
+        (\e -> yield1 (pure Nothing) (\t -> recover [t] e))
+        s1
 
 -- Parses zero or more of a `TryParser`.
 --

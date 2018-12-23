@@ -40,6 +40,19 @@ data Statement
   = ExpressionStatement Expression Semicolon
   -- `let x = E;`
   | BindingStatement Token (Recover Pattern) (Recover Token) (Recover Expression) Semicolon
+  -- `return;`, `return E;`
+  --
+  -- We include `return` and `break` statements since Brite’s algebraic effects lend themselves to
+  -- imperative code styles.
+  | ReturnStatement Token (Maybe (Recover Expression)) Semicolon
+  -- `break;`, `break E;`
+  --
+  -- We don’t yet have labeled break or continue statements which may mostly be emulated by other
+  -- means. Strictly speaking, `return` isn’t even necessary. `break` is necessary because we have
+  -- loop expressions, but loop expressions aren’t necessary since we have recursion.
+  --
+  -- We should continue to ask ourselves: do we need the `return` statement or `loop` expressions?
+  | BreakStatement Token (Maybe (Recover Expression)) Semicolon
 
 -- Convenience type alias for an optional semicolon token.
 type Semicolon = Maybe (Recover Token)
@@ -80,6 +93,8 @@ data Expression
   | ConditionalExpression Token (Recover Expression) Block (Maybe (Recover ConditionalExpressionAlternate))
   -- `do { ... }`
   | BlockExpression Token Block
+  -- `loop { ... }`
+  | LoopExpression Token Block
   -- `(E)`
   | WrappedExpression Token (Recover Expression) (Recover Token)
   -- `E ...`
@@ -150,6 +165,14 @@ statementTokens (BindingStatement t1 p t2 e t3) =
     <> recoverTokens singletonToken t2
     <> recoverTokens expressionTokens e
     <> maybeTokens (recoverTokens singletonToken) t3
+statementTokens (ReturnStatement t1 e t2) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens singletonToken) t2
+statementTokens (BreakStatement t1 e t2) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens singletonToken) t2
 
 -- Get tokens from a block.
 blockTokens :: Block -> Tokens
@@ -185,6 +208,7 @@ expressionTokens (ConditionalExpression t e b (Just alt)) =
     <> blockTokens b
     <> recoverTokens conditionalExpressionAlternateTokens alt
 expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
+expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
 expressionTokens (WrappedExpression t1 e t2) =
   singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
 expressionTokens (ExpressionExtension e ext) =
@@ -238,6 +262,12 @@ debugStatement indentation (BindingStatement _ pattern _ expression _) =
     <> B.singleton ' '
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
+debugStatement _ (ReturnStatement _ Nothing _) = B.fromText "return"
+debugStatement indentation (ReturnStatement _ (Just expression) _) =
+  B.fromText "(return " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
+debugStatement _ (BreakStatement _ Nothing _) = B.fromText "break"
+debugStatement indentation (BreakStatement _ (Just expression) _) =
+  B.fromText "(break " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
 
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
@@ -312,6 +342,8 @@ debugExpression indentation (ConditionalExpression _ test consequent (Just alter
     <> B.singleton ')'
 debugExpression indentation (BlockExpression _ block) =
   B.fromText "(do " <> debugBlock indentation block <> B.singleton ')'
+debugExpression indentation (LoopExpression _ block) =
+  B.fromText "(loop " <> debugBlock indentation block <> B.singleton ')'
 debugExpression indentation (WrappedExpression _ expression _) =
   B.fromText "(wrap "
     <> debugRecover (debugExpression indentation) expression
