@@ -295,10 +295,8 @@ debugRecover _ (Fatal _ _) = B.fromText "err"
 -- Debug a name in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST.
 debugName :: Name -> B.Builder
-debugName (Name identifier token) =
-  B.fromText "(name "
-    <> debugRange (tokenRange token)
-    <> B.fromText " `"
+debugName (Name identifier _) =
+  B.fromText "(name `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
 
@@ -351,20 +349,18 @@ debugFunction indentation (Function _ name _ (CommaList params paramn) _ block) 
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugConstant :: Constant -> B.Builder
-debugConstant (BooleanConstant True token) =
-  B.fromText "(bool " <> debugRange (tokenRange token) <> B.fromText " true)"
-debugConstant (BooleanConstant False token) =
-  B.fromText "(bool " <> debugRange (tokenRange token) <> B.fromText " false)"
+debugConstant (BooleanConstant True _) =
+  B.fromText "(bool true)"
+debugConstant (BooleanConstant False _) =
+  B.fromText "(bool false)"
 
 -- Debug an expression in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugExpression :: B.Builder -> Expression -> B.Builder
 debugExpression _ (ConstantExpression constant) = debugConstant constant
 
-debugExpression _ (VariableExpression (Name identifier token)) =
-  B.fromText "(var "
-    <> debugRange (tokenRange token)
-    <> B.fromText " `"
+debugExpression _ (VariableExpression (Name identifier _)) =
+  B.fromText "(var `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
 
@@ -448,13 +444,9 @@ debugExpressionExtension indentation expression (CallExpressionExtension _ (Comm
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugPattern :: Pattern -> B.Builder
-debugPattern (VariablePattern (Name identifier token)) =
-  B.fromText "(var "
-    <> debugRange (tokenRange token)
-    <> B.fromText " `"
+debugPattern (VariablePattern (Name identifier _)) =
+  B.fromText "(var `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
-debugPattern (HolePattern token) =
-  B.fromText "(hole "
-    <> debugRange (tokenRange token)
-    <> B.fromText "`)"
+debugPattern (HolePattern _) =
+  B.fromText "hole"
