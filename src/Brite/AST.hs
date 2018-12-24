@@ -35,7 +35,14 @@ data Name = Name
   }
 
 -- Represents some imperative action to be carried out.
-data Statement = Statement Expression (Maybe (Recover Token))
+data Statement
+  -- `E;`
+  = ExpressionStatement Expression Semicolon
+  -- `let x = E;`
+  | BindingStatement Token (Recover Pattern) (Recover Token) (Recover Expression) Semicolon
+
+-- Convenience type alias for an optional semicolon token.
+type Semicolon = Maybe (Recover Token)
 
 -- A set of statements scoped in a block. Names declared in this block may only be accessed by code
 -- within the block.
@@ -43,6 +50,16 @@ data Block = Block
   { blockOpen :: Recover Token
   , blockStatements :: [Recover Statement]
   , blockClose :: Recover Token
+  }
+
+-- `fun f(...) { ... }`
+data Function = Function
+  { functionKeyword :: Token
+  , functionName :: Maybe (Recover Name)
+  , functionParamsOpen :: Recover Token
+  , functionParams :: CommaList Pattern
+  , functionParamsClose :: Recover Token
+  , functionBody :: Block
   }
 
 -- Some constant value in our program.
@@ -68,14 +85,6 @@ data Expression
   -- A block of code which is executed whenever the function is called.
   | FunctionExpression Function
 
-  -- `let x = E;`
-  --
-  -- Binds a value to a name in the program.
-  --
-  -- In a conditional binding expressions behave differently. They evaluate to a boolean and bind
-  -- names in the conditional block only.
-  | BindingExpression Token (Recover Pattern) (Recover Token) (Recover Expression)
-
   -- `if E { ... }`, `if E { ... } else { ... }`
   --
   -- Conditionally executes some code.
@@ -98,7 +107,7 @@ data Expression
   --
   -- We include `return` and `break` expressions since Brite’s algebraic effects lend themselves to
   -- imperative code styles.
-  | ReturnExpression Token (Maybe (Recover Expression))
+  | ReturnExpression Token (Maybe (Recover Expression)) Semicolon
 
   -- `break`, `break E`
   --
@@ -107,7 +116,7 @@ data Expression
   -- loop expressions, but loop expressions aren’t necessary since we have recursion.
   --
   -- We should continue to ask ourselves: do we need the `return` statement or `loop` expressions?
-  | BreakExpression Token (Maybe (Recover Expression))
+  | BreakExpression Token (Maybe (Recover Expression)) Semicolon
 
   -- `(E)`
   --
@@ -118,16 +127,6 @@ data Expression
   --
   -- Any extension on a primary expression.
   | ExpressionExtension Expression (Recover ExpressionExtension)
-
--- `fun f(...) { ... }`
-data Function = Function
-  { functionKeyword :: Token
-  , functionName :: Maybe (Recover Name)
-  , functionParamsOpen :: Recover Token
-  , functionParams :: CommaList Pattern
-  , functionParamsClose :: Recover Token
-  , functionBody :: Block
-  }
 
 -- `else { ... }`
 data ConditionalExpressionAlternate = ConditionalExpressionAlternate Token Block
@@ -186,7 +185,14 @@ commaListTokens tokens (CommaList as an) =
 
 -- Get tokens from a statement.
 statementTokens :: Statement -> Tokens
-statementTokens (Statement e t) = expressionTokens e <> maybeTokens (recoverTokens singletonToken) t
+statementTokens (ExpressionStatement e t) =
+  expressionTokens e <> maybeTokens (recoverTokens singletonToken) t
+statementTokens (BindingStatement t1 p t2 e t3) =
+  singletonToken t1
+    <> recoverTokens patternTokens p
+    <> recoverTokens singletonToken t2
+    <> recoverTokens expressionTokens e
+    <> maybeTokens (recoverTokens singletonToken) t3
 
 -- Get tokens from a block.
 blockTokens :: Block -> Tokens
@@ -194,38 +200,6 @@ blockTokens (Block t1 ss t2) =
   recoverTokens singletonToken t1
     <> mconcat (map (recoverTokens statementTokens) ss)
     <> recoverTokens singletonToken t2
-
--- Get tokens from a constant.
-constantTokens :: Constant -> Tokens
-constantTokens (BooleanConstant _ t) = singletonToken t
-
--- Get tokens from an expression.
-expressionTokens :: Expression -> Tokens
-expressionTokens (ConstantExpression constant) = constantTokens constant
-expressionTokens (VariableExpression name) = nameTokens name
-expressionTokens (FunctionExpression function) = functionTokens function
-expressionTokens (BindingExpression t1 p t2 e) =
-  singletonToken t1
-    <> recoverTokens patternTokens p
-    <> recoverTokens singletonToken t2
-    <> recoverTokens expressionTokens e
-expressionTokens (ConditionalExpression t e b Nothing) =
-  singletonToken t <> recoverTokens expressionTokens e <> blockTokens b
-expressionTokens (ConditionalExpression t e b (Just alt)) =
-  singletonToken t
-    <> recoverTokens expressionTokens e
-    <> blockTokens b
-    <> recoverTokens conditionalExpressionAlternateTokens alt
-expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
-expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
-expressionTokens (ReturnExpression t e) =
-  singletonToken t <> maybeTokens (recoverTokens expressionTokens) e
-expressionTokens (BreakExpression t e) =
-  singletonToken t <> maybeTokens (recoverTokens expressionTokens) e
-expressionTokens (WrappedExpression t1 e t2) =
-  singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
-expressionTokens (ExpressionExtension e ext) =
-  expressionTokens e <> recoverTokens expressionExtensionTokens ext
 
 -- Get tokens from a function.
 functionTokens :: Function -> Tokens
@@ -236,6 +210,37 @@ functionTokens (Function t1 n t2 ps t3 b) =
     <> commaListTokens patternTokens ps
     <> recoverTokens singletonToken t3
     <> blockTokens b
+
+-- Get tokens from a constant.
+constantTokens :: Constant -> Tokens
+constantTokens (BooleanConstant _ t) = singletonToken t
+
+-- Get tokens from an expression.
+expressionTokens :: Expression -> Tokens
+expressionTokens (ConstantExpression constant) = constantTokens constant
+expressionTokens (VariableExpression name) = nameTokens name
+expressionTokens (FunctionExpression function) = functionTokens function
+expressionTokens (ConditionalExpression t e b Nothing) =
+  singletonToken t <> recoverTokens expressionTokens e <> blockTokens b
+expressionTokens (ConditionalExpression t e b (Just alt)) =
+  singletonToken t
+    <> recoverTokens expressionTokens e
+    <> blockTokens b
+    <> recoverTokens conditionalExpressionAlternateTokens alt
+expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
+expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
+expressionTokens (ReturnExpression t1 e t2) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens singletonToken) t2
+expressionTokens (BreakExpression t1 e t2) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens singletonToken) t2
+expressionTokens (WrappedExpression t1 e t2) =
+  singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
+expressionTokens (ExpressionExtension e ext) =
+  expressionTokens e <> recoverTokens expressionExtensionTokens ext
 
 conditionalExpressionAlternateTokens :: ConditionalExpressionAlternate -> Tokens
 conditionalExpressionAlternateTokens (ConditionalExpressionAlternate t b) =
@@ -277,7 +282,14 @@ debugName (Name identifier token) =
 -- Debug a statement in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugStatement :: B.Builder -> Statement -> B.Builder
-debugStatement indentation (Statement expression _) = debugExpression indentation expression
+debugStatement indentation (ExpressionStatement expression _) =
+  debugExpression indentation expression
+debugStatement indentation (BindingStatement _ pattern _ expression _) =
+  B.fromText "(bind "
+    <> debugRecover debugPattern pattern
+    <> B.singleton ' '
+    <> debugRecover (debugExpression indentation) expression
+    <> B.fromText ")"
 
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
@@ -291,6 +303,21 @@ debugBlock indentation block =
           <> newIndentation
           <> debugRecover (debugStatement newIndentation) s) (blockStatements block))
     <> B.fromText ")"
+
+-- Debug a function in an S-expression form. This abbreviated format should make it easier to see
+-- the structure of the AST node.
+debugFunction :: B.Builder -> Function -> B.Builder
+debugFunction indentation (Function _ name _ (CommaList params paramn) _ block) =
+  B.fromText "(fun"
+    <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
+    <> mconcat (map (debugParam . fst) params)
+    <> maybe mempty debugParam paramn
+    <> B.singleton '\n' <> newIndentation
+    <> debugBlock newIndentation block
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+    debugParam param = B.singleton '\n' <> newIndentation <> debugRecover debugPattern param
 
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
@@ -313,13 +340,6 @@ debugExpression _ (VariableExpression (Name identifier token)) =
     <> B.fromText "`)"
 
 debugExpression indentation (FunctionExpression function) = debugFunction indentation function
-
-debugExpression indentation (BindingExpression _ pattern _ expression) =
-  B.fromText "(bind "
-    <> debugRecover debugPattern pattern
-    <> B.singleton ' '
-    <> debugRecover (debugExpression indentation) expression
-    <> B.fromText ")"
 
 debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
   let newIndentation = indentation <> B.fromText "  " in
@@ -347,12 +367,12 @@ debugExpression indentation (BlockExpression _ block) =
 debugExpression indentation (LoopExpression _ block) =
   B.fromText "(loop " <> debugBlock indentation block <> B.singleton ')'
 
-debugExpression _ (ReturnExpression _ Nothing) = B.fromText "return"
-debugExpression indentation (ReturnExpression _ (Just expression)) =
+debugExpression _ (ReturnExpression _ Nothing _) = B.fromText "return"
+debugExpression indentation (ReturnExpression _ (Just expression) _) =
   B.fromText "(return " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
 
-debugExpression _ (BreakExpression _ Nothing) = B.fromText "break"
-debugExpression indentation (BreakExpression _ (Just expression)) =
+debugExpression _ (BreakExpression _ Nothing _) = B.fromText "break"
+debugExpression indentation (BreakExpression _ (Just expression) _) =
   B.fromText "(break " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
 
 debugExpression indentation (WrappedExpression _ expression _) =
@@ -366,21 +386,6 @@ debugExpression indentation (ExpressionExtension expression (Recover _ _ extensi
   debugExpressionExtension indentation expression extension
 debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
   debugExpression indentation expression
-
--- Debug a function in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST node.
-debugFunction :: B.Builder -> Function -> B.Builder
-debugFunction indentation (Function _ name _ (CommaList params paramn) _ block) =
-  B.fromText "(fun"
-    <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
-    <> mconcat (map (debugParam . fst) params)
-    <> maybe mempty debugParam paramn
-    <> B.singleton '\n' <> newIndentation
-    <> debugBlock newIndentation block
-    <> B.singleton ')'
-  where
-    newIndentation = indentation <> B.fromText "  "
-    debugParam param = B.singleton '\n' <> newIndentation <> debugRecover debugPattern param
 
 debugConditionalExpressionAlternate :: B.Builder -> ConditionalExpressionAlternate -> B.Builder
 debugConditionalExpressionAlternate indentation (ConditionalExpressionAlternate _ block) =

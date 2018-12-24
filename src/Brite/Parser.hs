@@ -18,10 +18,39 @@ tryName :: TryParser Name
 tryName = uncurry Name <$> tryIdentifier
 
 tryStatement :: TryParser Statement
-tryStatement = Statement <$> tryExpression <&> optional (tryGlyph Semicolon)
+tryStatement =
+  tryBindingStatement
+    <|> tryExpressionStatement
+    <|> unexpected ExpectedStatement
+
+tryExpressionStatement :: TryParser Statement
+tryExpressionStatement =
+  ExpressionStatement <$> tryFullExpression <&> semicolon
+
+tryBindingStatement :: TryParser Statement
+tryBindingStatement =
+  BindingStatement
+    <$> tryKeyword Let
+    <&> pattern
+    <&> glyph Equals
+    <&> expression
+    <&> semicolon
+
+semicolon :: Parser (Maybe (Recover Token))
+semicolon = optional (tryGlyph Semicolon)
 
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
+
+tryFunction :: TryParser Function
+tryFunction =
+  Function
+    <$> tryKeyword Fun
+    <&> optional tryName
+    <&> glyph ParenLeft
+    <&> commaList tryPattern
+    <&> glyph ParenRight
+    <&> block
 
 tryConstant :: TryParser Constant
 tryConstant = tryBooleanTrue <|> tryBooleanFalse
@@ -38,26 +67,22 @@ expression = retry tryExpression
 -- Ordered roughly by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression
 tryPrimaryExpression =
-  foldl ExpressionExtension <$> p <&> many tryPrimaryExpressionExtension
-  where
-    p =
-      tryVariableExpression
-        <|> tryFunctionExpression
-        <|> tryConditionalExpression
-        <|> tryWrappedExpression
-        <|> tryConstantExpression
-        <|> tryBlockExpression
-        <|> tryLoopExpression
-
-tryControlExpression :: TryParser Expression
-tryControlExpression =
-  tryBindingExpression
-    <|> tryPrimaryExpression
+  tryVariableExpression
+    <|> tryFunctionExpression
+    <|> tryConditionalExpression
     <|> tryReturnExpression
+    <|> tryWrappedExpression
+    <|> tryConstantExpression
+    <|> tryBlockExpression
     <|> tryBreakExpression
+    <|> tryLoopExpression
+
+tryFullExpression :: TryParser Expression
+tryFullExpression =
+  foldl ExpressionExtension <$> tryPrimaryExpression <&> many tryExpressionExtension
 
 tryExpression :: TryParser Expression
-tryExpression = tryControlExpression <|> unexpected ExpectedExpression
+tryExpression = tryFullExpression <|> unexpected ExpectedExpression
 
 tryConstantExpression :: TryParser Expression
 tryConstantExpression = ConstantExpression <$> tryConstant
@@ -67,24 +92,6 @@ tryVariableExpression = VariableExpression <$> tryName
 
 tryFunctionExpression :: TryParser Expression
 tryFunctionExpression = FunctionExpression <$> tryFunction
-
-tryFunction :: TryParser Function
-tryFunction =
-  Function
-    <$> tryKeyword Fun
-    <&> optional tryName
-    <&> glyph ParenLeft
-    <&> commaList tryPattern
-    <&> glyph ParenRight
-    <&> block
-
-tryBindingExpression :: TryParser Expression
-tryBindingExpression =
-  BindingExpression
-    <$> tryKeyword Let
-    <&> pattern
-    <&> glyph Equals
-    <&> expression
 
 tryConditionalExpression :: TryParser Expression
 tryConditionalExpression =
@@ -101,16 +108,24 @@ tryLoopExpression :: TryParser Expression
 tryLoopExpression = LoopExpression <$> tryKeyword Loop <&> block
 
 tryReturnExpression :: TryParser Expression
-tryReturnExpression = ReturnExpression <$> tryKeyword Return <&> optionalOnSameLine tryExpression
+tryReturnExpression =
+  ReturnExpression
+    <$> tryKeyword Return
+    <&> optionalOnSameLine tryExpression
+    <&> semicolon
 
 tryBreakExpression :: TryParser Expression
-tryBreakExpression = BreakExpression <$> tryKeyword Break <&> optionalOnSameLine tryExpression
+tryBreakExpression =
+  BreakExpression
+    <$> tryKeyword Break
+    <&> optionalOnSameLine tryExpression
+    <&> semicolon
 
 tryWrappedExpression :: TryParser Expression
 tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <&> glyph ParenRight
 
-tryPrimaryExpressionExtension :: TryParser ExpressionExtension
-tryPrimaryExpressionExtension =
+tryExpressionExtension :: TryParser ExpressionExtension
+tryExpressionExtension =
   tryPropertyExpressionExtension
     <|> tryCallExpressionExtension
     <|> unexpected ExpectedExpression
