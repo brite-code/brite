@@ -38,14 +38,23 @@ data Name = Name
 data Statement
   -- `E;`
   = ExpressionStatement Expression Semicolon
+
   -- `let x = E;`
+  --
+  -- Binds a value to a name in the program.
   | BindingStatement Token (Recover Pattern) (Recover Token) (Recover Expression) Semicolon
+
   -- `return;`, `return E;`
+  --
+  -- Immediately returns a value from a function. No other code in the function runs.
   --
   -- We include `return` and `break` statements since Brite’s algebraic effects lend themselves to
   -- imperative code styles.
   | ReturnStatement Token (Maybe (Recover Expression)) Semicolon
+
   -- `break;`, `break E;`
+  --
+  -- Immediately breaks out of a loop with a value. No other code in the loop runs.
   --
   -- We don’t yet have labeled break or continue statements which may mostly be emulated by other
   -- means. Strictly speaking, `return` isn’t even necessary. `break` is necessary because we have
@@ -84,20 +93,47 @@ data Constant
 -- some side effects.
 data Expression
   -- `C`
+  --
+  -- Some constant value in the program which never changes.
   = ConstantExpression Constant
+
   -- `x`
+  --
+  -- A reference to a variable binding in the program.
   | VariableExpression Name
+
   -- `fun(...) { ... }`
+  --
+  -- A block of code which is executed whenever the function is called.
   | FunctionExpression Function
+
   -- `if E { ... }`, `if E { ... } else { ... }`
+  --
+  -- Conditionally executes some code.
+  --
+  -- TODO: `else if`
   | ConditionalExpression Token (Recover Expression) Block (Maybe (Recover ConditionalExpressionAlternate))
+
   -- `do { ... }`
+  --
+  -- Introduces a new block scope into the program.
   | BlockExpression Token Block
+
   -- `loop { ... }`
+  --
+  -- Keeps repeatedly executing the block until a break statement is encountered. The argument to
+  -- the break statement is the value returned by the loop.
   | LoopExpression Token Block
+
   -- `(E)`
+  --
+  -- An expression wrapped in parentheses. Useful for changing the precedence of operators.
   | WrappedExpression Token (Recover Expression) (Recover Token)
+
   -- `E ...`
+  --
+  -- Any extension on a primary expression. Including property expressions, function calls,
+  -- and more.
   | ExpressionExtension Expression (Recover ExpressionExtension)
 
 -- `else { ... }`
