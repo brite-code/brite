@@ -21,6 +21,8 @@ tryStatement :: TryParser Statement
 tryStatement =
   tryBindingStatement
     <|> tryExpressionStatement
+    <|> tryReturnStatement
+    <|> tryBreakStatement
     <|> unexpected ExpectedStatement
 
 tryExpressionStatement :: TryParser Statement
@@ -34,6 +36,20 @@ tryBindingStatement =
     <&> pattern
     <&> glyph Equals
     <&> expression
+    <&> semicolon
+
+tryReturnStatement :: TryParser Statement
+tryReturnStatement =
+  ReturnStatement
+    <$> tryKeyword Return
+    <&> optionalOnSameLine tryExpression
+    <&> semicolon
+
+tryBreakStatement :: TryParser Statement
+tryBreakStatement =
+  BreakStatement
+    <$> tryKeyword Break
+    <&> optionalOnSameLine tryExpression
     <&> semicolon
 
 semicolon :: Parser (Maybe (Recover Token))
@@ -64,17 +80,15 @@ tryBooleanFalse = BooleanConstant False <$> tryKeyword False_
 expression :: Parser (Recover Expression)
 expression = retry tryExpression
 
--- Ordered roughly by frequency. Parsers that are more likely to match go first.
+-- Ordered by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression
 tryPrimaryExpression =
   tryVariableExpression
     <|> tryFunctionExpression
     <|> tryConditionalExpression
-    <|> tryReturnExpression
     <|> tryWrappedExpression
     <|> tryConstantExpression
     <|> tryBlockExpression
-    <|> tryBreakExpression
     <|> tryLoopExpression
 
 tryFullExpression :: TryParser Expression
@@ -106,20 +120,6 @@ tryBlockExpression = BlockExpression <$> tryKeyword Do <&> block
 
 tryLoopExpression :: TryParser Expression
 tryLoopExpression = LoopExpression <$> tryKeyword Loop <&> block
-
-tryReturnExpression :: TryParser Expression
-tryReturnExpression =
-  ReturnExpression
-    <$> tryKeyword Return
-    <&> optionalOnSameLine tryExpression
-    <&> semicolon
-
-tryBreakExpression :: TryParser Expression
-tryBreakExpression =
-  BreakExpression
-    <$> tryKeyword Break
-    <&> optionalOnSameLine tryExpression
-    <&> semicolon
 
 tryWrappedExpression :: TryParser Expression
 tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <&> glyph ParenRight
