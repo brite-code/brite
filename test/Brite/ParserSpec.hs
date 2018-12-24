@@ -102,7 +102,7 @@ spec = mapM_ (uncurry runTest)
       \(bind err err)\n"
     )
   , ( "😈 let x = y;"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n"
     )
@@ -127,7 +127,7 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "let x = y; 😈"
-    , "(0:11-0:13) We wanted a statement but we found `😈`.\n\
+    , "(0:11-0:13) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \err\n"
@@ -138,7 +138,7 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( ") let x = y;"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:6-0:7 `x`) (var 0:10-0:11 `y`))\n"
     )
@@ -163,7 +163,7 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( "let x = y; )"
-    , "(0:11-0:12) We wanted a statement but we found `)`.\n\
+    , "(0:11-0:12) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \err\n"
@@ -274,7 +274,7 @@ spec = mapM_ (uncurry runTest)
     , "(var 0:0-0:1 `x`)\n"
     )
   , ( "😈 x"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
       \\n\
       \(var 0:3-0:4 `x`)\n"
     )
@@ -284,7 +284,7 @@ spec = mapM_ (uncurry runTest)
       \(var 0:0-0:1 `x`)\n"
     )
   , ( "😈 x;"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
       \\n\
       \(var 0:3-0:4 `x`)\n"
     )
@@ -294,28 +294,28 @@ spec = mapM_ (uncurry runTest)
       \(var 0:0-0:1 `x`)\n"
     )
   , ( "x; 😈"
-    , "(0:3-0:5) We wanted a statement but we found `😈`.\n\
+    , "(0:3-0:5) We wanted an expression but we found `😈`.\n\
       \\n\
       \(var 0:0-0:1 `x`)\n\
       \err\n"
     )
   , ( "="
-    , "(0:0-0:1) We wanted a statement but we found `=`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `=`.\n\
       \\n\
       \err\n"
     )
   , ( "😈"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
       \\n\
       \err\n"
     )
   , ( ")"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
       \\n\
       \err\n"
     )
   , ( ";"
-    , "(0:0-0:1) We wanted a statement but we found `;`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `;`.\n\
       \\n\
       \err\n"
     )
@@ -408,28 +408,28 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 3:4-3:5 `x`) (var 3:8-3:9 `y`))\n"
       )
   , ( "😈 let x = y; let x = y; let x = y;"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n\
       \(bind (var 0:18-0:19 `x`) (var 0:22-0:23 `y`))\n\
       \(bind (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))\n"
     )
   , ( "let x = y; 😈 let x = y; let x = y;"
-    , "(0:11-0:13) We wanted a statement but we found `😈`.\n\
+    , "(0:11-0:13) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \(bind (var 0:18-0:19 `x`) (var 0:22-0:23 `y`))\n\
       \(bind (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))\n"
     )
   , ( "let x = y; let x = y; 😈 let x = y;"
-    , "(0:22-0:24) We wanted a statement but we found `😈`.\n\
+    , "(0:22-0:24) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
       \(bind (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))\n"
     )
   , ( "let x = y; let x = y; let x = y; 😈"
-    , "(0:33-0:35) We wanted a statement but we found `😈`.\n\
+    , "(0:33-0:35) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
@@ -437,7 +437,7 @@ spec = mapM_ (uncurry runTest)
       \err\n"
     )
   , ( "😈 let x = y let x = y let x = y"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:7-0:8 `x`) (var 0:11-0:12 `y`))\n\
       \(bind (var 0:17-0:18 `x`) (var 0:21-0:22 `y`))\n\
@@ -465,28 +465,28 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 0:24-0:25 `x`) (var 0:28-0:29 `y`))\n"
     )
   , ( ") let x = y; let x = y; let x = y;"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:6-0:7 `x`) (var 0:10-0:11 `y`))\n\
       \(bind (var 0:17-0:18 `x`) (var 0:21-0:22 `y`))\n\
       \(bind (var 0:28-0:29 `x`) (var 0:32-0:33 `y`))\n"
     )
   , ( "let x = y; ) let x = y; let x = y;"
-    , "(0:11-0:12) We wanted a statement but we found `)`.\n\
+    , "(0:11-0:12) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \(bind (var 0:17-0:18 `x`) (var 0:21-0:22 `y`))\n\
       \(bind (var 0:28-0:29 `x`) (var 0:32-0:33 `y`))\n"
     )
   , ( "let x = y; let x = y; ) let x = y;"
-    , "(0:22-0:23) We wanted a statement but we found `)`.\n\
+    , "(0:22-0:23) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
       \(bind (var 0:28-0:29 `x`) (var 0:32-0:33 `y`))\n"
     )
   , ( "let x = y; let x = y; let x = y; )"
-    , "(0:33-0:34) We wanted a statement but we found `)`.\n\
+    , "(0:33-0:34) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \(bind (var 0:15-0:16 `x`) (var 0:19-0:20 `y`))\n\
@@ -494,7 +494,7 @@ spec = mapM_ (uncurry runTest)
       \err\n"
     )
   , ( ") let x = y let x = y let x = y"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:6-0:7 `x`) (var 0:10-0:11 `y`))\n\
       \(bind (var 0:16-0:17 `x`) (var 0:20-0:21 `y`))\n\
@@ -692,7 +692,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 3:4-3:5 `x`) (var 3:8-3:9 `y`))))\n"
     )
   , ( "do { 😈 let x = y; let x = y; let x = y; }"
-    , "(0:5-0:7) We wanted a statement but we found `😈`.\n\
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:12-0:13 `x`) (var 0:16-0:17 `y`))\n\
@@ -700,7 +700,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))))\n"
     )
   , ( "do { let x = y; 😈 let x = y; let x = y; }"
-    , "(0:16-0:18) We wanted a statement but we found `😈`.\n\
+    , "(0:16-0:18) We wanted an expression but we found `😈`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
@@ -708,7 +708,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; 😈 let x = y; }"
-    , "(0:27-0:29) We wanted a statement but we found `😈`.\n\
+    , "(0:27-0:29) We wanted an expression but we found `😈`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
@@ -716,7 +716,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 0:34-0:35 `x`) (var 0:38-0:39 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; let x = y; 😈 }"
-    , "(0:38-0:40) We wanted a statement but we found `😈`.\n\
+    , "(0:38-0:40) We wanted an expression but we found `😈`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
@@ -725,7 +725,7 @@ spec = mapM_ (uncurry runTest)
       \  err))\n"
     )
   , ( "do { 😈 let x = y let x = y let x = y }"
-    , "(0:5-0:7) We wanted a statement but we found `😈`.\n\
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:12-0:13 `x`) (var 0:16-0:17 `y`))\n\
@@ -757,7 +757,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 0:29-0:30 `x`) (var 0:33-0:34 `y`))))\n"
     )
   , ( "do { ) let x = y; let x = y; let x = y; }"
-    , "(0:5-0:6) We wanted a statement but we found `)`.\n\
+    , "(0:5-0:6) We wanted an expression but we found `)`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:11-0:12 `x`) (var 0:15-0:16 `y`))\n\
@@ -765,7 +765,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 0:33-0:34 `x`) (var 0:37-0:38 `y`))))\n"
     )
   , ( "do { let x = y; ) let x = y; let x = y; }"
-    , "(0:16-0:17) We wanted a statement but we found `)`.\n\
+    , "(0:16-0:17) We wanted an expression but we found `)`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
@@ -773,7 +773,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 0:33-0:34 `x`) (var 0:37-0:38 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; ) let x = y; }"
-    , "(0:27-0:28) We wanted a statement but we found `)`.\n\
+    , "(0:27-0:28) We wanted an expression but we found `)`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
@@ -781,7 +781,7 @@ spec = mapM_ (uncurry runTest)
       \  (bind (var 0:33-0:34 `x`) (var 0:37-0:38 `y`))))\n"
     )
   , ( "do { let x = y; let x = y; let x = y; ) }"
-    , "(0:38-0:39) We wanted a statement but we found `)`.\n\
+    , "(0:38-0:39) We wanted an expression but we found `)`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:9-0:10 `x`) (var 0:13-0:14 `y`))\n\
@@ -790,7 +790,7 @@ spec = mapM_ (uncurry runTest)
       \  err))\n"
     )
   , ( "do { ) let x = y let x = y let x = y }"
-    , "(0:5-0:6) We wanted a statement but we found `)`.\n\
+    , "(0:5-0:6) We wanted an expression but we found `)`.\n\
       \\n\
       \(do (block\n\
       \  (bind (var 0:11-0:12 `x`) (var 0:15-0:16 `y`))\n\
@@ -835,7 +835,7 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 0:4-0:5 `x`) err)\n"
     )
   , ( ") let x = )"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
       \(0:10-0:11) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:6-0:7 `x`) err)\n"
@@ -1022,7 +1022,7 @@ spec = mapM_ (uncurry runTest)
       \  err)\n"
     )
   , ( "if x { {}"
-    , "(0:7-0:8) We wanted a statement but we found `{`.\n\
+    , "(0:7-0:8) We wanted an expression but we found `{`.\n\
       \\n\
       \(if\n\
       \  (var 0:3-0:4 `x`)\n\
@@ -1031,7 +1031,7 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "if { {}"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
-      \(0:5-0:6) We wanted a statement but we found `{`.\n\
+      \(0:5-0:6) We wanted an expression but we found `{`.\n\
       \\n\
       \(if\n\
       \  err\n\
@@ -1245,7 +1245,7 @@ spec = mapM_ (uncurry runTest)
       \  err)\n"
     )
   , ( "if x { {"
-    , "(0:7-0:8) We wanted a statement but we found `{`.\n\
+    , "(0:7-0:8) We wanted an expression but we found `{`.\n\
       \(0:8-0:8) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
@@ -1262,7 +1262,7 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "if { {"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
-      \(0:5-0:6) We wanted a statement but we found `{`.\n\
+      \(0:5-0:6) We wanted an expression but we found `{`.\n\
       \(0:6-0:6) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
@@ -1352,14 +1352,14 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 0:8-0:9 `x`) (var 0:12-0:13 `y`))\n"
     )
   , ( "😈 😈"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
-      \(0:3-0:5) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
+      \(0:3-0:5) We wanted an expression but we found `😈`.\n\
       \\n\
       \err\n"
     )
   , ( ") )"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
-      \(0:2-0:3) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
+      \(0:2-0:3) We wanted an expression but we found `)`.\n\
       \\n\
       \err\n"
     )
@@ -1596,8 +1596,8 @@ spec = mapM_ (uncurry runTest)
       \  (var 0:0-0:1 `f`))\n"
     )
   , ( "😈.p"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
-      \(0:2-0:3) We wanted a statement but we found `.`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
+      \(0:2-0:3) We wanted an expression but we found `.`.\n\
       \\n\
       \(var 0:3-0:4 `p`)\n"
     )
@@ -1645,40 +1645,40 @@ spec = mapM_ (uncurry runTest)
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n"
     )
   , ( ")😈 let x = y;"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
-      \(0:1-0:3) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
+      \(0:1-0:3) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:8-0:9 `x`) (var 0:12-0:13 `y`))\n"
     )
   , ( "😈) let x = y;"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
-      \(0:2-0:3) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
+      \(0:2-0:3) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:8-0:9 `x`) (var 0:12-0:13 `y`))\n"
     )
   , ( "let x = y; )😈"
-    , "(0:11-0:12) We wanted a statement but we found `)`.\n\
-      \(0:12-0:14) We wanted a statement but we found `😈`.\n\
+    , "(0:11-0:12) We wanted an expression but we found `)`.\n\
+      \(0:12-0:14) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \err\n"
     )
   , ( "let x = y; 😈)"
-    , "(0:11-0:13) We wanted a statement but we found `😈`.\n\
-      \(0:13-0:14) We wanted a statement but we found `)`.\n\
+    , "(0:11-0:13) We wanted an expression but we found `😈`.\n\
+      \(0:13-0:14) We wanted an expression but we found `)`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \err\n"
     )
   , ( ")😈"
-    , "(0:0-0:1) We wanted a statement but we found `)`.\n\
-      \(0:1-0:3) We wanted a statement but we found `😈`.\n\
+    , "(0:0-0:1) We wanted an expression but we found `)`.\n\
+      \(0:1-0:3) We wanted an expression but we found `😈`.\n\
       \\n\
       \err\n"
     )
   , ( "😈)"
-    , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
-      \(0:2-0:3) We wanted a statement but we found `)`.\n\
+    , "(0:0-0:2) We wanted an expression but we found `😈`.\n\
+      \(0:2-0:3) We wanted an expression but we found `)`.\n\
       \\n\
       \err\n"
     )
@@ -1708,7 +1708,7 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "let x = y; do { let x = y; 😈 let x = y; } let x = y;"
-    , "(0:27-0:29) We wanted a statement but we found `😈`.\n\
+    , "(0:27-0:29) We wanted an expression but we found `😈`.\n\
       \\n\
       \(bind (var 0:4-0:5 `x`) (var 0:8-0:9 `y`))\n\
       \(do (block\n\
@@ -3512,7 +3512,7 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun f() {😈}"
-    , "(0:9-0:11) We wanted a statement but we found `😈`.\n\
+    , "(0:9-0:11) We wanted an expression but we found `😈`.\n\
       \\n\
       \(fun\n\
       \  (name 0:4-0:5 `f`)\n\
@@ -3549,7 +3549,7 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun f() {]}"
-    , "(0:9-0:10) We wanted a statement but we found `]`.\n\
+    , "(0:9-0:10) We wanted an expression but we found `]`.\n\
       \\n\
       \(fun\n\
       \  (name 0:4-0:5 `f`)\n\
@@ -3684,5 +3684,32 @@ spec = mapM_ (uncurry runTest)
   , ( "loop { let x = y; }"
     , "(loop (block\n\
       \  (bind (var 0:11-0:12 `x`) (var 0:15-0:16 `y`))))\n"
+    )
+  , ( "(let x = y)"
+    , ""
+    )
+  , ( "(return)"
+    , ""
+    )
+  , ( "(break)"
+    , ""
+    )
+  , ( "(let x = y.p)"
+    , ""
+    )
+  , ( "(return x.p)"
+    , ""
+    )
+  , ( "(break x.p)"
+    , ""
+    )
+  , ( "(return.p)"
+    , ""
+    )
+  , ( "(break.p)"
+    , ""
+    )
+  , ( "if let x = y {}"
+    , ""
     )
   ]
