@@ -10,6 +10,7 @@ module Brite.AST
   , Function(..)
   , Constant(..)
   , Expression(..)
+  , UnaryOperator(..)
   , ConditionalExpressionAlternate(..)
   , ExpressionExtension(..)
   , Pattern(..)
@@ -107,6 +108,11 @@ data Expression
   -- A block of code which is executed whenever the function is called.
   | FunctionExpression Function
 
+  -- `!E`, `-E`
+  --
+  -- An operation on a single expression.
+  | UnaryExpression UnaryOperator Token (Recover Expression)
+
   -- `if E { ... }`, `if E { ... } else { ... }`
   --
   -- Conditionally executes some code.
@@ -135,6 +141,14 @@ data Expression
   -- Any extension on a primary expression. Including property expressions, function calls,
   -- and more.
   | ExpressionExtension Expression (Recover ExpressionExtension)
+
+data UnaryOperator
+  -- `!`
+  = Not
+  -- `-`
+  | Negative
+  -- `+`
+  | Positive
 
 -- `else { ... }`
 data ConditionalExpressionAlternate = ConditionalExpressionAlternate Token Block
@@ -236,6 +250,7 @@ expressionTokens :: Expression -> Tokens
 expressionTokens (ConstantExpression constant) = constantTokens constant
 expressionTokens (VariableExpression name) = nameTokens name
 expressionTokens (FunctionExpression function) = functionTokens function
+expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 expressionTokens (ConditionalExpression t e b Nothing) =
   singletonToken t <> recoverTokens expressionTokens e <> blockTokens b
 expressionTokens (ConditionalExpression t e b (Just alt)) =
@@ -345,19 +360,30 @@ debugConstant (BooleanConstant False token) =
 -- the structure of the AST node.
 debugExpression :: B.Builder -> Expression -> B.Builder
 debugExpression _ (ConstantExpression constant) = debugConstant constant
+
 debugExpression _ (VariableExpression (Name identifier token)) =
   B.fromText "(var "
     <> debugRange (tokenRange token)
     <> B.fromText " `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
-debugExpression indentation (FunctionExpression function) = debugFunction indentation function
-debugExpression indentation (ExpressionExtension expression (Ok extension)) =
-  debugExpressionExtension indentation expression extension
-debugExpression indentation (ExpressionExtension expression (Recover _ _ extension)) =
-  debugExpressionExtension indentation expression extension
-debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
-  debugExpression indentation expression
+
+debugExpression indentation (FunctionExpression function) =
+  debugFunction indentation function
+
+debugExpression indentation (UnaryExpression operator _ expression) =
+  B.singleton '('
+    <> B.fromText operatorDescription
+    <> B.singleton ' '
+    <> debugRecover (debugExpression indentation) expression
+    <> B.singleton ')'
+  where
+    operatorDescription =
+      case operator of
+        Not -> "not"
+        Positive -> "pos"
+        Negative -> "neg"
+
 debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
   let newIndentation = indentation <> B.fromText "  " in
   B.fromText "(if"
@@ -366,6 +392,7 @@ debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
     <> B.singleton '\n' <> newIndentation
     <> debugBlock newIndentation consequent
     <> B.singleton ')'
+
 debugExpression indentation (ConditionalExpression _ test consequent (Just alternate)) =
   let newIndentation = indentation <> B.fromText "  " in
   B.fromText "(if"
@@ -376,14 +403,24 @@ debugExpression indentation (ConditionalExpression _ test consequent (Just alter
     <> B.singleton '\n' <> newIndentation
     <> debugRecover (debugConditionalExpressionAlternate newIndentation) alternate
     <> B.singleton ')'
+
 debugExpression indentation (BlockExpression _ block) =
   B.fromText "(do " <> debugBlock indentation block <> B.singleton ')'
+
 debugExpression indentation (LoopExpression _ block) =
   B.fromText "(loop " <> debugBlock indentation block <> B.singleton ')'
+
 debugExpression indentation (WrappedExpression _ expression _) =
   B.fromText "(wrap "
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
+
+debugExpression indentation (ExpressionExtension expression (Ok extension)) =
+  debugExpressionExtension indentation expression extension
+debugExpression indentation (ExpressionExtension expression (Recover _ _ extension)) =
+  debugExpressionExtension indentation expression extension
+debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
+  debugExpression indentation expression
 
 debugConditionalExpressionAlternate :: B.Builder -> ConditionalExpressionAlternate -> B.Builder
 debugConditionalExpressionAlternate indentation (ConditionalExpressionAlternate _ block) =

@@ -3685,4 +3685,61 @@ spec = mapM_ (uncurry runTest)
     , "(loop (block\n\
       \  (bind (var 0:11-0:12 `x`) (var 0:15-0:16 `y`))))\n"
     )
+  , ( "!x"
+    , "(not (var 0:1-0:2 `x`))\n"
+    )
+  , ( "+x"
+    , "(pos (var 0:1-0:2 `x`))\n"
+    )
+  , ( "-x"
+    , "(neg (var 0:1-0:2 `x`))\n"
+    )
+  , ( "!x.p"
+    , "(not (prop (var 0:1-0:2 `x`) (name 0:3-0:4 `p`)))\n"
+    )
+  , ( "!x()"
+    , "(not (call\n  (var 0:1-0:2 `x`)))\n"
+    )
+  , ( "!"
+    , "(0:1-0:1) We wanted an expression but the file ended.\n\
+      \\n\
+      \(not err)\n"
+    )
+  , ( "!😈x"
+    , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(not (var 0:3-0:4 `x`))\n"
+    )
+  , ( "!)x"
+    , "(0:1-0:2) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(not (var 0:2-0:3 `x`))\n"
+    )
+  , ( "!😈)x"
+    , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
+      \(0:3-0:4) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(not (var 0:4-0:5 `x`))\n"
+    )
+  , ( "!)😈x"
+    , "(0:1-0:2) We wanted an expression but we found `)`.\n\
+      \(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(not (var 0:4-0:5 `x`))\n"
+    )
+  , ( "!!x"
+    , "(not (not (var 0:2-0:3 `x`)))\n"
+    )
+  , ( "++x"
+    , "(pos (pos (var 0:2-0:3 `x`)))\n"
+    )
+  , ( "--x"
+    , "(neg (neg (var 0:2-0:3 `x`)))\n"
+    )
+  , ( "+-x"
+    , "(pos (neg (var 0:2-0:3 `x`)))\n"
+    )
+  , ( "-+x"
+    , "(neg (pos (var 0:2-0:3 `x`)))\n"
+    )
   ]

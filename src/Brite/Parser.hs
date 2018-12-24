@@ -93,9 +93,17 @@ tryPrimaryExpression =
         <|> tryConstantExpression
         <|> tryBlockExpression
         <|> tryLoopExpression
+        <|> unexpected ExpectedExpression
+
+tryUnaryExpression :: TryParser Expression
+tryUnaryExpression =
+  (UnaryExpression Not) <$> tryGlyph Bang <&> (retry tryUnaryExpression)
+    <|> (UnaryExpression Negative) <$> tryGlyph Minus <&> (retry tryUnaryExpression)
+    <|> (UnaryExpression Positive) <$> tryGlyph Plus <&> (retry tryUnaryExpression)
+    <|> tryPrimaryExpression
 
 tryExpression :: TryParser Expression
-tryExpression = tryPrimaryExpression <|> unexpected ExpectedExpression
+tryExpression = tryUnaryExpression
 
 tryConstantExpression :: TryParser Expression
 tryConstantExpression = ConstantExpression <$> tryConstant
