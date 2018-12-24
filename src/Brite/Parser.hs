@@ -27,7 +27,7 @@ tryStatement =
 
 tryExpressionStatement :: TryParser Statement
 tryExpressionStatement =
-  ExpressionStatement <$> tryFullExpression <&> semicolon
+  ExpressionStatement <$> tryExpression <&> semicolon
 
 tryBindingStatement :: TryParser Statement
 tryBindingStatement =
@@ -80,23 +80,22 @@ tryBooleanFalse = BooleanConstant False <$> tryKeyword False_
 expression :: Parser (Recover Expression)
 expression = retry tryExpression
 
--- Ordered by frequency. Parsers that are more likely to match go first.
+-- Ordered roughly by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression
 tryPrimaryExpression =
-  tryVariableExpression
-    <|> tryFunctionExpression
-    <|> tryConditionalExpression
-    <|> tryWrappedExpression
-    <|> tryConstantExpression
-    <|> tryBlockExpression
-    <|> tryLoopExpression
-
-tryFullExpression :: TryParser Expression
-tryFullExpression =
-  foldl ExpressionExtension <$> tryPrimaryExpression <&> many tryExpressionExtension
+  foldl ExpressionExtension <$> balanced <&> many tryPrimaryExpressionExtension
+  where
+    balanced =
+      tryVariableExpression
+        <|> tryFunctionExpression
+        <|> tryConditionalExpression
+        <|> tryWrappedExpression
+        <|> tryConstantExpression
+        <|> tryBlockExpression
+        <|> tryLoopExpression
 
 tryExpression :: TryParser Expression
-tryExpression = tryFullExpression <|> unexpected ExpectedExpression
+tryExpression = tryPrimaryExpression <|> unexpected ExpectedExpression
 
 tryConstantExpression :: TryParser Expression
 tryConstantExpression = ConstantExpression <$> tryConstant
@@ -124,8 +123,8 @@ tryLoopExpression = LoopExpression <$> tryKeyword Loop <&> block
 tryWrappedExpression :: TryParser Expression
 tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <&> glyph ParenRight
 
-tryExpressionExtension :: TryParser ExpressionExtension
-tryExpressionExtension =
+tryPrimaryExpressionExtension :: TryParser ExpressionExtension
+tryPrimaryExpressionExtension =
   tryPropertyExpressionExtension
     <|> tryCallExpressionExtension
     <|> unexpected ExpectedExpression
