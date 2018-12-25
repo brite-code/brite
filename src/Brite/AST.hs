@@ -11,6 +11,8 @@ module Brite.AST
   , Constant(..)
   , Expression(..)
   , UnaryOperator(..)
+  , BinaryExpressionExtension(..)
+  , BinaryOperator(..)
   , ConditionalExpressionAlternate(..)
   , ExpressionExtension(..)
   , Pattern(..)
@@ -113,6 +115,14 @@ data Expression
   -- An operation on a single expression.
   | UnaryExpression UnaryOperator Token (Recover Expression)
 
+  -- `E + E`, `E - E`, `E * E`, `E / E`
+  --
+  -- An operation on two expressions.
+  --
+  -- Unlike `ExpressionExtension` in that the first expression must be `Recover` since binary
+  -- expressions are parsed differently.
+  | BinaryExpression (Recover Expression) (Recover BinaryExpressionExtension)
+
   -- `if E { ... }`, `if E { ... } else { ... }`
   --
   -- Conditionally executes some code.
@@ -136,7 +146,7 @@ data Expression
   -- An expression wrapped in parentheses. Useful for changing the precedence of operators.
   | WrappedExpression Token (Recover Expression) (Recover Token)
 
-  -- `E ...`
+  -- `E.p`, `E()`
   --
   -- Any extension on a primary expression. Including property expressions, function calls,
   -- and more.
@@ -149,6 +159,36 @@ data UnaryOperator
   | Negative
   -- `+`
   | Positive
+
+-- The extension for a binary expression.
+data BinaryExpressionExtension =
+  BinaryExpressionExtension BinaryOperator Token (Recover Expression)
+
+data BinaryOperator
+  -- `+`
+  = Add
+  -- `-`
+  | Subtract
+  -- `*`
+  | Multiply
+  -- `/`
+  | Divide
+  -- `%`
+  | Remainder
+  -- `^`
+  | Exponent
+  -- `==`
+  | Equals
+  -- `!=`
+  | NotEquals
+  -- `<`
+  | LessThan
+  -- `<=`
+  | LessThanOrEqual
+  -- `>`
+  | GreaterThan
+  -- `>=`
+  | GreaterThanOrEqual
 
 -- `else { ... }`
 data ConditionalExpressionAlternate = ConditionalExpressionAlternate Token Block
@@ -251,6 +291,8 @@ expressionTokens (ConstantExpression constant) = constantTokens constant
 expressionTokens (VariableExpression name) = nameTokens name
 expressionTokens (FunctionExpression function) = functionTokens function
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
+expressionTokens (BinaryExpression e ext) =
+  recoverTokens expressionTokens e <> recoverTokens binaryExpressionExtensionTokens ext
 expressionTokens (ConditionalExpression t e b Nothing) =
   singletonToken t <> recoverTokens expressionTokens e <> blockTokens b
 expressionTokens (ConditionalExpression t e b (Just alt)) =
@@ -264,6 +306,10 @@ expressionTokens (WrappedExpression t1 e t2) =
   singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
 expressionTokens (ExpressionExtension e ext) =
   expressionTokens e <> recoverTokens expressionExtensionTokens ext
+
+binaryExpressionExtensionTokens :: BinaryExpressionExtension -> Tokens
+binaryExpressionExtensionTokens (BinaryExpressionExtension _ t e) =
+  singletonToken t <> recoverTokens expressionTokens e
 
 conditionalExpressionAlternateTokens :: ConditionalExpressionAlternate -> Tokens
 conditionalExpressionAlternateTokens (ConditionalExpressionAlternate t b) =
@@ -334,11 +380,11 @@ debugBlock indentation block =
 -- Debug a function in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugFunction :: B.Builder -> Function -> B.Builder
-debugFunction indentation (Function _ name _ (CommaList params paramn) _ block) =
+debugFunction indentation (Function _ name _ (CommaList params paramN) _ block) =
   B.fromText "(fun"
     <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
     <> mconcat (map (debugParam . fst) params)
-    <> maybe mempty debugParam paramn
+    <> maybe mempty debugParam paramN
     <> B.singleton '\n' <> newIndentation
     <> debugBlock newIndentation block
     <> B.singleton ')'
@@ -380,6 +426,9 @@ debugExpression indentation (UnaryExpression operator _ expression) =
         Positive -> "pos"
         Negative -> "neg"
 
+debugExpression indentation (BinaryExpression expression extension) =
+  debugRecover (debugBinaryExpressionExtension indentation expression) extension
+
 debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
   let newIndentation = indentation <> B.fromText "  " in
   B.fromText "(if"
@@ -418,6 +467,31 @@ debugExpression indentation (ExpressionExtension expression (Recover _ _ extensi
 debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
   debugExpression indentation expression
 
+debugBinaryExpressionExtension :: B.Builder -> Recover Expression -> BinaryExpressionExtension -> B.Builder
+debugBinaryExpressionExtension indentation left (BinaryExpressionExtension operator _ right) =
+  B.singleton '('
+    <> B.fromText operatorDescription
+    <> B.singleton ' '
+    <> debugRecover (debugExpression indentation) left
+    <> B.singleton ' '
+    <> debugRecover (debugExpression indentation) right
+    <> B.singleton ')'
+  where
+    operatorDescription =
+      case operator of
+        Add -> "add"
+        Subtract -> "sub"
+        Multiply -> "mul"
+        Divide -> "div"
+        Remainder -> "rem"
+        Exponent -> "pow"
+        Equals -> "eq"
+        NotEquals -> "neq"
+        LessThan -> "lt"
+        LessThanOrEqual -> "lte"
+        GreaterThan -> "gt"
+        GreaterThanOrEqual -> "gte"
+
 debugConditionalExpressionAlternate :: B.Builder -> ConditionalExpressionAlternate -> B.Builder
 debugConditionalExpressionAlternate indentation (ConditionalExpressionAlternate _ block) =
   debugBlock indentation block
@@ -429,11 +503,15 @@ debugExpressionExtension indentation expression (PropertyExpressionExtension _ l
     <> B.singleton ' '
     <> debugRecover debugName label
     <> B.singleton ')'
-debugExpressionExtension indentation expression (CallExpressionExtension _ (CommaList args argn) _) =
+
+debugExpressionExtension indentation expression (CallExpressionExtension _ (CommaList [] Nothing) _) =
+  B.fromText "(call " <> debugExpression indentation expression <> B.singleton ')'
+
+debugExpressionExtension indentation expression (CallExpressionExtension _ (CommaList args argN) _) =
   B.fromText "(call"
     <> debugArg (Ok expression)
     <> mconcat (map (debugArg . fst) args)
-    <> maybe mempty debugArg argn
+    <> maybe mempty debugArg argN
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "

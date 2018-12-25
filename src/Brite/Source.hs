@@ -189,24 +189,42 @@ endTokenRange (EndToken { endTokenPosition = p }) = Range p p
 -- A glyph represents some constant sequence of characters that is used in Brite syntax.
 data Glyph
   = Keyword Keyword
+  -- `*`
+  | Asterisk
   -- `!`
   | Bang
   -- `{`
   | BraceLeft
   -- `}`
   | BraceRight
+  -- `^`
+  | Caret
   -- `,`
   | Comma
   -- `.`
   | Dot
   -- `=`
-  | Equals
+  | Equals_
+  -- `==`
+  | EqualsDouble
+  -- `!=`
+  | EqualsNot
+  -- `>`
+  | GreaterThan_
+  -- `>=`
+  | GreaterThanOrEqual_
+  -- `<`
+  | LessThan_
+  -- `<=`
+  | LessThanOrEqual_
   -- `-`
   | Minus
   -- `(`
   | ParenLeft
   -- `)`
   | ParenRight
+  -- `%`
+  | Percent
   -- `+`
   | Plus
   -- `;`
@@ -218,15 +236,24 @@ data Glyph
 -- Gets the text representation of a glyph.
 glyphText :: Glyph -> T.Text
 glyphText (Keyword k) = keywordText k
+glyphText Asterisk = "*"
 glyphText Bang = "!"
 glyphText BraceLeft = "{"
 glyphText BraceRight = "}"
+glyphText Caret = "^"
 glyphText Comma = ","
 glyphText Dot = "."
-glyphText Equals = "="
+glyphText Equals_ = "="
+glyphText EqualsDouble = "=="
+glyphText EqualsNot = "!="
+glyphText GreaterThan_ = ">"
+glyphText GreaterThanOrEqual_ = ">="
+glyphText LessThan_ = "<"
+glyphText LessThanOrEqual_ = "<="
 glyphText Minus = "-"
 glyphText ParenLeft = "("
 glyphText ParenRight = ")"
+glyphText Percent = "%"
 glyphText Plus = "+"
 glyphText Semicolon = ";"
 glyphText Slash = "/"
@@ -296,18 +323,29 @@ nextToken (TokenStream p0 t0) =
     Nothing -> Left (EndToken p1 leadingTrivia)
 
     -- Single character glyphs
-    Just ('!', t2) -> token (Glyph Bang) 1 t2
+    Just ('*', t2) -> token (Glyph Asterisk) 1 t2
     Just ('{', t2) -> token (Glyph BraceLeft) 1 t2
     Just ('}', t2) -> token (Glyph BraceRight) 1 t2
+    Just ('^', t2) -> token (Glyph Caret) 1 t2
     Just (',', t2) -> token (Glyph Comma) 1 t2
     Just ('.', t2) -> token (Glyph Dot) 1 t2
-    Just ('=', t2) -> token (Glyph Equals) 1 t2
     Just ('-', t2) -> token (Glyph Minus) 1 t2
     Just ('(', t2) -> token (Glyph ParenLeft) 1 t2
     Just (')', t2) -> token (Glyph ParenRight) 1 t2
+    Just ('%', t2) -> token (Glyph Percent) 1 t2
     Just ('+', t2) -> token (Glyph Plus) 1 t2
     Just (';', t2) -> token (Glyph Semicolon) 1 t2
     Just ('/', t2) -> token (Glyph Slash) 1 t2
+
+    -- Multi-character glyphs.
+    Just ('=', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsDouble) 2 (T.tail t2)
+    Just ('=', t2) -> token (Glyph Equals_) 1 t2
+    Just ('!', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsNot) 2 (T.tail t2)
+    Just ('!', t2) -> token (Glyph Bang) 1 t2
+    Just ('>', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph GreaterThanOrEqual_) 2 (T.tail t2)
+    Just ('>', t2) -> token (Glyph GreaterThan_) 1 t2
+    Just ('<', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph LessThanOrEqual_) 2 (T.tail t2)
+    Just ('<', t2) -> token (Glyph LessThan_) 1 t2
 
     -- Identifier
     Just (c, _) | isIdentifierStart c ->

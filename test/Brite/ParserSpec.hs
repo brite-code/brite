@@ -1523,24 +1523,20 @@ spec = mapM_ (uncurry runTest)
       \  block) (name `p`))\n"
     )
   , ( "f()"
-    , "(call\n\
-      \  (var `f`))\n"
+    , "(call (var `f`))\n"
     )
   , ( "f ()"
-    , "(call\n\
-      \  (var `f`))\n"
+    , "(call (var `f`))\n"
     )
   , ( "f😈()"
     , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
       \\n\
-      \(call\n\
-      \  (var `f`))\n"
+      \(call (var `f`))\n"
     )
   , ( "f)()"
     , "(0:1-0:2) We wanted an expression but we found `)`.\n\
       \\n\
-      \(call\n\
-      \  (var `f`))\n"
+      \(call (var `f`))\n"
     )
   , ( "f\n()"
     , "(1:1-1:2) We wanted an expression but we found `)`.\n\
@@ -1592,8 +1588,7 @@ spec = mapM_ (uncurry runTest)
   , ( "f("
     , "(0:2-0:2) We wanted `)` but the file ended.\n\
       \\n\
-      \(call\n\
-      \  (var `f`))\n"
+      \(call (var `f`))\n"
     )
   , ( "😈.p"
     , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
@@ -3136,8 +3131,7 @@ spec = mapM_ (uncurry runTest)
       \  err)\n"
     )
   , ( "f()"
-    , "(call\n\
-      \  (var `f`))\n"
+    , "(call (var `f`))\n"
     )
   , ( "f(a)"
     , "(call\n\
@@ -3287,14 +3281,12 @@ spec = mapM_ (uncurry runTest)
       \    (bind (var `x`) (var `y`))))\n"
     )
   , ( "fun() {}()"
-    , "(call\n\
-      \  (fun\n\
-      \    block))\n"
+    , "(call (fun\n\
+      \  block))\n"
     )
   , ( "(fun() {})()"
-    , "(call\n\
-      \  (wrap (fun\n\
-      \    block)))\n"
+    , "(call (wrap (fun\n\
+      \  block)))\n"
     )
   , ( "let f = fun() {};"
     , "(bind (var `f`) (fun\n\
@@ -3395,14 +3387,12 @@ spec = mapM_ (uncurry runTest)
       \    (bind (var `x`) (var `y`)))))\n"
     )
   , ( "let f = fun() {}();"
-    , "(bind (var `f`) (call\n\
-      \  (fun\n\
-      \    block)))\n"
+    , "(bind (var `f`) (call (fun\n\
+      \  block)))\n"
     )
   , ( "let f = (fun() {})();"
-    , "(bind (var `f`) (call\n\
-      \  (wrap (fun\n\
-      \    block))))\n"
+    , "(bind (var `f`) (call (wrap (fun\n\
+      \  block))))\n"
     )
   , ( "fun f() {}"
     , "(fun\n\
@@ -3698,7 +3688,7 @@ spec = mapM_ (uncurry runTest)
     , "(not (prop (var `x`) (name `p`)))\n"
     )
   , ( "!x()"
-    , "(not (call\n  (var `x`)))\n"
+    , "(not (call (var `x`)))\n"
     )
   , ( "!"
     , "(0:1-0:1) We wanted an expression but the file ended.\n\
@@ -3741,5 +3731,297 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "-+x"
     , "(neg (pos (var `x`)))\n"
+    )
+  , ( "a + b"
+    , "(add (var `a`) (var `b`))\n"
+    )
+  , ( "a + b + c"
+    , "(add (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a - b"
+    , "(sub (var `a`) (var `b`))\n"
+    )
+  , ( "a - b - c"
+    , "(sub (sub (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a * b"
+    , "(mul (var `a`) (var `b`))\n"
+    )
+  , ( "a * b * c"
+    , "(mul (mul (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a / b"
+    , "(div (var `a`) (var `b`))\n"
+    )
+  , ( "a / b / c"
+    , "(div (div (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a % b"
+    , "(rem (var `a`) (var `b`))\n"
+    )
+  , ( "a % b % c"
+    , "(rem (rem (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a == b"
+    , "(eq (var `a`) (var `b`))\n"
+    )
+  , ( "a == b == c"
+    , "(eq (eq (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a != b"
+    , "(neq (var `a`) (var `b`))\n"
+    )
+  , ( "a != b != c"
+    , "(neq (neq (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a < b"
+    , "(lt (var `a`) (var `b`))\n"
+    )
+  , ( "a < b < c"
+    , "(lt (lt (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a <= b"
+    , "(lte (var `a`) (var `b`))\n"
+    )
+  , ( "a <= b <= c"
+    , "(lte (lte (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a > b"
+    , "(gt (var `a`) (var `b`))\n"
+    )
+  , ( "a > b > c"
+    , "(gt (gt (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a >= b"
+    , "(gte (var `a`) (var `b`))\n"
+    )
+  , ( "a >= b >= c"
+    , "(gte (gte (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b - c"
+    , "(sub (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a - b + c"
+    , "(add (sub (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b * c"
+    , "(add (var `a`) (mul (var `b`) (var `c`)))\n"
+    )
+  , ( "a * b + c"
+    , "(add (mul (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b / c"
+    , "(add (var `a`) (div (var `b`) (var `c`)))\n"
+    )
+  , ( "a / b + c"
+    , "(add (div (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a * b / c"
+    , "(div (mul (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a / b * c"
+    , "(mul (div (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b * c + d"
+    , "(add (add (var `a`) (mul (var `b`) (var `c`))) (var `d`))\n"
+    )
+  , ( "a * b + c * d"
+    , "(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a ^ b + c"
+    , "(add (pow (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b ^ c"
+    , "(add (var `a`) (pow (var `b`) (var `c`)))\n"
+    )
+  , ( "a ^ b * c"
+    , "(mul (pow (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a * b ^ c"
+    , "(mul (var `a`) (pow (var `b`) (var `c`)))\n"
+    )
+  , ( "a > b + c"
+    , "(gt (var `a`) (add (var `b`) (var `c`)))\n"
+    )
+  , ( "a + b > c"
+    , "(gt (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a < b + c"
+    , "(lt (var `a`) (add (var `b`) (var `c`)))\n"
+    )
+  , ( "a + b < c"
+    , "(lt (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a >= b + c"
+    , "(gte (var `a`) (add (var `b`) (var `c`)))\n"
+    )
+  , ( "a + b >= c"
+    , "(gte (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a <= b + c"
+    , "(lte (var `a`) (add (var `b`) (var `c`)))\n"
+    )
+  , ( "a + b <= c"
+    , "(lte (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b == c"
+    , "(eq (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a == b + c"
+    , "(eq (var `a`) (add (var `b`) (var `c`)))\n"
+    )
+  , ( "a + b != c"
+    , "(neq (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a != b + c"
+    , "(neq (var `a`) (add (var `b`) (var `c`)))\n"
+    )
+  , ( "a =="
+    , "(0:4-0:4) We wanted an expression but the file ended.\n\
+      \\n\
+      \(eq (var `a`) err)\n"
+    )
+  , ( "== b"
+    , "(0:0-0:2) We wanted a statement but we found `==`.\n\
+      \\n\
+      \(var `b`)\n"
+    )
+  , ( "a 😈 == b"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(eq (var `a`) (var `b`))\n"
+    )
+  , ( "a == 😈 b"
+    , "(0:5-0:7) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(eq (var `a`) (var `b`))\n"
+    )
+  , ( "a == b 😈"
+    , "(0:7-0:9) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(eq (var `a`) (var `b`))\n"
+    )
+  , ( "a ) == b"
+    , "(0:2-0:3) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(eq (var `a`) (var `b`))\n"
+    )
+  , ( "a == ) b"
+    , "(0:5-0:6) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(eq (var `a`) (var `b`))\n"
+    )
+  , ( "a.p + b.q"
+    , "(add (prop (var `a`) (name `p`)) (prop (var `b`) (name `q`)))\n"
+    )
+  , ( "!a + !b"
+    , "(add (not (var `a`)) (not (var `b`)))\n"
+    )
+  , ( "a() + b()"
+    , "(add (call (var `a`)) (call (var `b`)))\n"
+    )
+  , ( "a + b +"
+    , "(0:7-0:7) We wanted an expression but the file ended.\n\
+      \\n\
+      \(add (add (var `a`) (var `b`)) err)\n"
+    )
+  , ( "a + b + c +"
+    , "(0:11-0:11) We wanted an expression but the file ended.\n\
+      \\n\
+      \(add (add (add (var `a`) (var `b`)) (var `c`)) err)\n"
+    )
+  , ( "a 😈 + b + c"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + 😈 b + c"
+    , "(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b 😈 + c"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b + 😈 c"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + b + c 😈"
+    , "(0:10-0:12) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (add (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "^ b * c ^ d"
+    , "(0:0-0:1) We wanted a statement but we found `^`.\n\
+      \\n\
+      \(mul (var `b`) (pow (var `c`) (var `d`)))\n"
+    )
+  , ( "a ^ * c ^ d"
+    , "(0:4-0:5) We wanted an expression but we found `*`.\n\
+      \\n\
+      \(mul (pow (var `a`) err) (pow (var `c`) (var `d`)))\n"
+    )
+  , ( "a ^ b * ^ d"
+    , "(0:8-0:9) We wanted an expression but we found `^`.\n\
+      \\n\
+      \(mul (pow (var `a`) (var `b`)) (pow err (var `d`)))\n"
+    )
+  , ( "a * ^ c * d"
+    , "(0:4-0:5) We wanted an expression but we found `^`.\n\
+      \\n\
+      \(mul (mul (var `a`) (pow err (var `c`))) (var `d`))\n"
+    )
+  , ( "a * b ^ * d"
+    , "(0:8-0:9) We wanted an expression but we found `*`.\n\
+      \\n\
+      \(mul (mul (var `a`) (pow (var `b`) err)) (var `d`))\n"
+    )
+  , ( "a ^ b * c ^"
+    , "(0:11-0:11) We wanted an expression but the file ended.\n\n(mul (pow (var `a`) (var `b`)) (pow (var `c`) err))\n"
+    )
+  , ( "a 😈 * b + c * d"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a * 😈 b + c * d"
+    , "(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a * b 😈 + c * d"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a * b + 😈 c * d"
+    , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a * b + c 😈 * d"
+    , "(0:10-0:12) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a * b + c * 😈 d"
+    , "(0:12-0:14) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a * b + c * d 😈"
+    , "(0:14-0:16) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(add (mul (var `a`) (var `b`)) (mul (var `c`) (var `d`)))\n"
+    )
+  , ( "a - b + c"
+    , "(add (sub (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a + -b + c"
+    , "(add (add (var `a`) (neg (var `b`))) (var `c`))\n"
     )
   ]

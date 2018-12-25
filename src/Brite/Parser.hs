@@ -34,7 +34,7 @@ tryBindingStatement =
   BindingStatement
     <$> tryKeyword Let
     <&> pattern
-    <&> glyph Equals
+    <&> glyph Equals_
     <&> expression
     <&> semicolon
 
@@ -83,27 +83,14 @@ expression = retry tryExpression
 -- Ordered roughly by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression
 tryPrimaryExpression =
-  foldl ExpressionExtension <$> balanced <&> many tryPrimaryExpressionExtension
-  where
-    balanced =
-      tryVariableExpression
-        <|> tryFunctionExpression
-        <|> tryConditionalExpression
-        <|> tryWrappedExpression
-        <|> tryConstantExpression
-        <|> tryBlockExpression
-        <|> tryLoopExpression
-        <|> unexpected ExpectedExpression
-
-tryUnaryExpression :: TryParser Expression
-tryUnaryExpression =
-  (UnaryExpression Not) <$> tryGlyph Bang <&> (retry tryUnaryExpression)
-    <|> (UnaryExpression Negative) <$> tryGlyph Minus <&> (retry tryUnaryExpression)
-    <|> (UnaryExpression Positive) <$> tryGlyph Plus <&> (retry tryUnaryExpression)
-    <|> tryPrimaryExpression
-
-tryExpression :: TryParser Expression
-tryExpression = tryUnaryExpression
+  tryVariableExpression
+    <|> tryFunctionExpression
+    <|> tryConditionalExpression
+    <|> tryWrappedExpression
+    <|> tryConstantExpression
+    <|> tryBlockExpression
+    <|> tryLoopExpression
+    <|> unexpected ExpectedExpression
 
 tryConstantExpression :: TryParser Expression
 tryConstantExpression = ConstantExpression <$> tryConstant
@@ -131,8 +118,12 @@ tryLoopExpression = LoopExpression <$> tryKeyword Loop <&> block
 tryWrappedExpression :: TryParser Expression
 tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <&> glyph ParenRight
 
-tryPrimaryExpressionExtension :: TryParser ExpressionExtension
-tryPrimaryExpressionExtension =
+trySecondaryExpression :: TryParser Expression
+trySecondaryExpression =
+  foldl ExpressionExtension <$> tryPrimaryExpression <&> many trySecondaryExpressionExtension
+
+trySecondaryExpressionExtension :: TryParser ExpressionExtension
+trySecondaryExpressionExtension =
   tryPropertyExpressionExtension
     <|> tryCallExpressionExtension
     <|> unexpected ExpectedExpression
@@ -147,6 +138,105 @@ tryCallExpressionExtension =
     <$> tryGlyphOnSameLine ParenLeft
     <&> commaList tryExpression
     <&> glyph ParenRight
+
+tryUnaryExpression :: TryParser Expression
+tryUnaryExpression =
+  not_
+    <|> negative
+    <|> positive
+    <|> trySecondaryExpression
+  where
+    operand = retry tryUnaryExpression
+    not_ = (UnaryExpression Not) <$> tryGlyph Bang <&> operand
+    negative = (UnaryExpression Negative) <$> tryGlyph Minus <&> operand
+    positive = (UnaryExpression Positive) <$> tryGlyph Plus <&> operand
+
+tryBinaryExpression :: TryParser Expression
+tryBinaryExpression = build <$> tryBinaryExpressionOperand <&> many tryBinaryExpressionExtension
+  where
+    build x [] = x
+    build x (ext : exts) =
+      let p = binaryExpressionExtensionPrecedence ext in
+        build (insert x p ext) exts
+
+    insert x p ext =
+      case x of
+        BinaryExpression l1 (Ok (BinaryExpressionExtension op t l2)) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Ok (BinaryExpressionExtension op t
+            (Ok (BinaryExpression l2 ext))))
+        BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t l2)) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t
+            (Ok (BinaryExpression l2 ext))))
+        _ ->
+          BinaryExpression (Ok x) ext
+
+tryBinaryExpressionOperand :: TryParser Expression
+tryBinaryExpressionOperand = tryUnaryExpression
+
+tryBinaryExpressionExtension :: TryParser BinaryExpressionExtension
+tryBinaryExpressionExtension =
+  add
+    <|> subtract_
+    <|> multiply
+    <|> divide
+    <|> remainder
+    <|> exponent_
+    <|> equals
+    <|> notEquals
+    <|> lessThan
+    <|> lessThanOrEqual
+    <|> greaterThan
+    <|> greaterThanOrEqual
+    <|> unexpected ExpectedExpression
+  where
+    make = BinaryExpressionExtension
+    operand = retry tryBinaryExpressionOperand
+    add = make Add <$> tryGlyph Plus <&> operand
+    subtract_ = make Subtract <$> tryGlyph Minus <&> operand
+    multiply = make Multiply <$> tryGlyph Asterisk <&> operand
+    divide = make Divide <$> tryGlyph Slash <&> operand
+    remainder = make Remainder <$> tryGlyph Percent <&> operand
+    exponent_ = make Exponent <$> tryGlyph Caret <&> operand
+    equals = make Equals <$> tryGlyph EqualsDouble <&> operand
+    notEquals = make NotEquals <$> tryGlyph EqualsNot <&> operand
+    lessThan = make LessThan <$> tryGlyph LessThan_ <&> operand
+    lessThanOrEqual = make LessThanOrEqual <$> tryGlyph LessThanOrEqual_ <&> operand
+    greaterThan = make GreaterThan <$> tryGlyph GreaterThan_ <&> operand
+    greaterThanOrEqual = make GreaterThanOrEqual <$> tryGlyph GreaterThanOrEqual_ <&> operand
+
+-- The precedence level of an operator.
+data Precedence
+  = FatalPrecedence
+  | Exponentiation
+  | Multiplicative
+  | Additive
+  | Relational
+  | Equality
+  deriving (Eq, Ord)
+
+-- Gets the precedence level of a binary operator.
+binaryOperatorPrecedence :: BinaryOperator -> Precedence
+binaryOperatorPrecedence Exponent = Exponentiation
+binaryOperatorPrecedence Multiply = Multiplicative
+binaryOperatorPrecedence Divide = Multiplicative
+binaryOperatorPrecedence Remainder = Multiplicative
+binaryOperatorPrecedence Add = Additive
+binaryOperatorPrecedence Subtract = Additive
+binaryOperatorPrecedence LessThan = Relational
+binaryOperatorPrecedence LessThanOrEqual = Relational
+binaryOperatorPrecedence GreaterThan = Relational
+binaryOperatorPrecedence GreaterThanOrEqual = Relational
+binaryOperatorPrecedence Equals = Equality
+binaryOperatorPrecedence NotEquals = Equality
+
+-- Gets the precedence level of a binary expression extension.
+binaryExpressionExtensionPrecedence :: Recover BinaryExpressionExtension -> Precedence
+binaryExpressionExtensionPrecedence (Ok (BinaryExpressionExtension op _ _)) = binaryOperatorPrecedence op
+binaryExpressionExtensionPrecedence (Recover _ _ (BinaryExpressionExtension op _ _)) = binaryOperatorPrecedence op
+binaryExpressionExtensionPrecedence (Fatal _ _) = FatalPrecedence
+
+tryExpression :: TryParser Expression
+tryExpression = tryBinaryExpression
 
 pattern :: Parser (Recover Pattern)
 pattern = retry tryPattern
