@@ -4075,7 +4075,7 @@ spec = mapM_ (uncurry runTest)
       \    block))\n"
     )
   , ( "if x {} else 😈 if y {}"
-    , "(0:13-0:15) We wanted `{` but we found `\128520`.\n\
+    , "(0:13-0:15) We wanted `{` but we found `😈`.\n\
       \(0:23-0:23) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
@@ -4087,7 +4087,7 @@ spec = mapM_ (uncurry runTest)
       \      block)))\n"
     )
   , ( "if x {} else 😈 if y + z {}"
-    , "(0:13-0:15) We wanted `{` but we found `\128520`.\n\
+    , "(0:13-0:15) We wanted `{` but we found `😈`.\n\
       \(0:27-0:27) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
@@ -4106,5 +4106,14 @@ spec = mapM_ (uncurry runTest)
       \    (if\n\
       \      (var `y`)\n\
       \      block)))\n"
+    )
+  , ( "a + b * c ^ d"
+    , "(add (var `a`) (mul (var `b`) (pow (var `c`) (var `d`))))\n"
+    )
+  , ( "a 😈 + * b"
+    , "(0:2-0:4) We wanted an expression but we found `😈`.\n\
+      \(0:7-0:8) We wanted an expression but we found `*`.\n\
+      \\n\
+      \(add (var `a`) (mul err (var `b`)))\n"
     )
   ]

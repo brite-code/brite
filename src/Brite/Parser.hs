@@ -172,12 +172,18 @@ tryBinaryExpression = build <$> tryBinaryExpressionOperand <&> many tryBinaryExp
 
     insert x p ext =
       case x of
-        BinaryExpression l1 (Ok (BinaryExpressionExtension op t l2)) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Ok (BinaryExpressionExtension op t
-            (Ok (BinaryExpression l2 ext))))
-        BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t l2)) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t
-            (Ok (BinaryExpression l2 ext))))
+        BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Ok l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Ok (insert l2 p ext))))
+        BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t (Ok l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t (Ok (insert l2 p ext))))
+        BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Recover ts e l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Recover ts e (insert l2 p ext))))
+        BinaryExpression l1 (Recover ts1 e1 (BinaryExpressionExtension op t (Recover ts2 e2 l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Recover ts1 e1 (BinaryExpressionExtension op t (Recover ts2 e2 (insert l2 p ext))))
+        BinaryExpression l1 (Ok (BinaryExpressionExtension op t l2@(Fatal _ _))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Ok (BinaryExpression l2 ext))))
+        BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t l2@(Fatal _ _))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t (Ok (BinaryExpression l2 ext))))
         _ ->
           BinaryExpression (Ok x) ext
 

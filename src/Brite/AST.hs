@@ -19,11 +19,13 @@ module Brite.AST
   , Pattern(..)
   , moduleTokens
   , debugModule
+  , showDebugExpression
   ) where
 
 import Brite.Parser.Framework (Recover(..), CommaList(..))
 import Brite.Source
 import Data.Monoid (Endo(..))
+import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
 
 -- A single Brite file is a module. A module is made up of a list of statements.
@@ -337,6 +339,11 @@ expressionExtensionTokens (CallExpressionExtension t1 args t2) =
 patternTokens :: Pattern -> Tokens
 patternTokens (VariablePattern name) = nameTokens name
 patternTokens (HolePattern token) = singletonToken token
+
+-- Prints an expression in an S-expression form for debugging. This abbreviated format should make
+-- it easier to see the structure of the AST.
+showDebugExpression :: Expression -> String
+showDebugExpression = L.unpack . B.toLazyText . debugExpression ""
 
 -- Debug a module in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST. Each statement in the module is on its own line.
