@@ -18,6 +18,7 @@ module Brite.Parser.Framework
   , tryGlyph
   , tryKeyword
   , tryIdentifier
+  , tryOnce
   , tryGlyphOnSameLine
   , CommaList(..)
   , commaList
@@ -370,6 +371,18 @@ tryIdentifier = TryParser $ \ok _ throw s ->
     Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> ok (pure (i, t)) (eatToken t ts s)
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ExpectedIdentifier) s
     Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) s
+
+-- Tries running the `TryParser` once. If it fails then we defer to the full `Parser`. Remember that
+-- unlike the choice operator (`<|>`) combined with `retry` we won’t retry the `TryParser` in case
+-- we find an unexpected token. All error recovery will be performed by the second
+-- `Parser` argument.
+--
+-- This combinator is useful when you want to recover from errors based on tokens sequenced
+-- in `Parser`.
+tryOnce :: TryParser a -> Parser a -> Parser a
+tryOnce p1 p2 = Parser $ \ok yield1 yield2 ->
+  tryParser p1 ok yield2 (\_ ->
+    parser p2 ok yield1 yield2)
 
 -- Tries to parse a glyph, but only if that glyph is on the _same line_ as the previously
 -- parsed glyph.

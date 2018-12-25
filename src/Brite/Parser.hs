@@ -102,12 +102,23 @@ tryFunctionExpression :: TryParser Expression
 tryFunctionExpression = FunctionExpression <$> tryFunction
 
 tryConditionalExpression :: TryParser Expression
-tryConditionalExpression =
-  ConditionalExpression
+tryConditionalExpression = ConditionalExpression <$> tryConditionalExpressionIf
+
+tryConditionalExpressionIf :: TryParser ConditionalExpressionIf
+tryConditionalExpressionIf =
+  ConditionalExpressionIf
     <$> tryKeyword If
     <&> expression
     <&> block
-    <&> optional (ConditionalExpressionAlternate <$> tryKeyword Else <&> block)
+    <&> optional tryConditionalExpressionElse
+
+tryConditionalExpressionElse :: TryParser ConditionalExpressionElse
+tryConditionalExpressionElse = flip ($) <$> tryKeyword Else <&> elseIf
+  where
+    elseIf =
+      tryOnce
+        (flip ConditionalExpressionElseIf <$> tryConditionalExpressionIf)
+        (flip ConditionalExpressionElse <$> block)
 
 tryBlockExpression :: TryParser Expression
 tryBlockExpression = BlockExpression <$> tryKeyword Do <&> block

@@ -4024,4 +4024,87 @@ spec = mapM_ (uncurry runTest)
   , ( "a + -b + c"
     , "(add (add (var `a`) (neg (var `b`))) (var `c`))\n"
     )
+  , ( "if x {} else if y {}"
+    , "(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (if\n\
+      \    (var `y`)\n\
+      \    block))\n"
+    )
+  , ( "if x {} else if y {} else {}"
+    , "(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (if\n\
+      \    (var `y`)\n\
+      \    block\n\
+      \    block))\n"
+    )
+  , ( "if x {} else if y {} else if z {}"
+    , "(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (if\n\
+      \    (var `y`)\n\
+      \    block\n\
+      \    (if\n\
+      \      (var `z`)\n\
+      \      block)))\n"
+    )
+  , ( "if x {} else if y {} else if z {} else {}"
+    , "(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (if\n\
+      \    (var `y`)\n\
+      \    block\n\
+      \    (if\n\
+      \      (var `z`)\n\
+      \      block\n\
+      \      block)))\n"
+    )
+  , ( "if x {} else if {}"
+    , "(0:16-0:17) We wanted an expression but we found `{`.\n\
+      \\n\
+      \(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (if\n\
+      \    err\n\
+      \    block))\n"
+    )
+  , ( "if x {} else 😈 if y {}"
+    , "(0:13-0:15) We wanted `{` but we found `\128520`.\n\
+      \(0:23-0:23) We wanted `}` but the file ended.\n\
+      \\n\
+      \(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (block\n\
+      \    (if\n\
+      \      (var `y`)\n\
+      \      block)))\n"
+    )
+  , ( "if x {} else 😈 if y + z {}"
+    , "(0:13-0:15) We wanted `{` but we found `\128520`.\n\
+      \(0:27-0:27) We wanted `}` but the file ended.\n\
+      \\n\
+      \(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (block\n\
+      \    (if\n\
+      \      (add (var `y`) (var `z`))\n\
+      \      block)))\n"
+    )
+  , ( "if x {} else { if y {} }"
+    , "(if\n\
+      \  (var `x`)\n\
+      \  block\n\
+      \  (block\n\
+      \    (if\n\
+      \      (var `y`)\n\
+      \      block)))\n"
+    )
   ]

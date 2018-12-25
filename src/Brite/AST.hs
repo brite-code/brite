@@ -13,7 +13,8 @@ module Brite.AST
   , UnaryOperator(..)
   , BinaryExpressionExtension(..)
   , BinaryOperator(..)
-  , ConditionalExpressionAlternate(..)
+  , ConditionalExpressionIf(..)
+  , ConditionalExpressionElse(..)
   , ExpressionExtension(..)
   , Pattern(..)
   , moduleTokens
@@ -123,12 +124,14 @@ data Expression
   -- expressions are parsed differently.
   | BinaryExpression (Recover Expression) (Recover BinaryExpressionExtension)
 
-  -- `if E { ... }`, `if E { ... } else { ... }`
+  -- ```
+  -- if E { ... }
+  -- if E { ... } else { ... }
+  -- if E { ... } else if E { ... } else { ... }
+  -- ```
   --
   -- Conditionally executes some code.
-  --
-  -- TODO: `else if`
-  | ConditionalExpression Token (Recover Expression) Block (Maybe (Recover ConditionalExpressionAlternate))
+  | ConditionalExpression ConditionalExpressionIf
 
   -- `do { ... }`
   --
@@ -190,8 +193,15 @@ data BinaryOperator
   -- `>=`
   | GreaterThanOrEqual
 
--- `else { ... }`
-data ConditionalExpressionAlternate = ConditionalExpressionAlternate Token Block
+-- `if E { ... }`
+data ConditionalExpressionIf =
+  ConditionalExpressionIf Token (Recover Expression) Block (Maybe (Recover ConditionalExpressionElse))
+
+data ConditionalExpressionElse
+  -- `else { ... }`
+  = ConditionalExpressionElse Token Block
+  -- `else if E { ... }`
+  | ConditionalExpressionElseIf Token ConditionalExpressionIf
 
 -- Some extension of an expression. We keep this as a separate data type to match our
 -- parser implementation.
@@ -293,13 +303,7 @@ expressionTokens (FunctionExpression function) = functionTokens function
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 expressionTokens (BinaryExpression e ext) =
   recoverTokens expressionTokens e <> recoverTokens binaryExpressionExtensionTokens ext
-expressionTokens (ConditionalExpression t e b Nothing) =
-  singletonToken t <> recoverTokens expressionTokens e <> blockTokens b
-expressionTokens (ConditionalExpression t e b (Just alt)) =
-  singletonToken t
-    <> recoverTokens expressionTokens e
-    <> blockTokens b
-    <> recoverTokens conditionalExpressionAlternateTokens alt
+expressionTokens (ConditionalExpression i) = conditionalExpressionIfTokens i
 expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
 expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
 expressionTokens (WrappedExpression t1 e t2) =
@@ -311,9 +315,17 @@ binaryExpressionExtensionTokens :: BinaryExpressionExtension -> Tokens
 binaryExpressionExtensionTokens (BinaryExpressionExtension _ t e) =
   singletonToken t <> recoverTokens expressionTokens e
 
-conditionalExpressionAlternateTokens :: ConditionalExpressionAlternate -> Tokens
-conditionalExpressionAlternateTokens (ConditionalExpressionAlternate t b) =
-  singletonToken t <> blockTokens b
+conditionalExpressionIfTokens :: ConditionalExpressionIf -> Tokens
+conditionalExpressionIfTokens (ConditionalExpressionIf t x b e) =
+  singletonToken t
+    <> recoverTokens expressionTokens x
+    <> blockTokens b
+    <> maybeTokens (recoverTokens conditionalExpressionElseTokens) e
+
+conditionalExpressionElseTokens :: ConditionalExpressionElse -> Tokens
+conditionalExpressionElseTokens (ConditionalExpressionElse t b) = singletonToken t <> blockTokens b
+conditionalExpressionElseTokens (ConditionalExpressionElseIf t i) =
+  singletonToken t <> conditionalExpressionIfTokens i
 
 expressionExtensionTokens :: ExpressionExtension -> Tokens
 expressionExtensionTokens (PropertyExpressionExtension t l) =
@@ -429,25 +441,8 @@ debugExpression indentation (UnaryExpression operator _ expression) =
 debugExpression indentation (BinaryExpression expression extension) =
   debugRecover (debugBinaryExpressionExtension indentation expression) extension
 
-debugExpression indentation (ConditionalExpression _ test consequent Nothing) =
-  let newIndentation = indentation <> B.fromText "  " in
-  B.fromText "(if"
-    <> B.singleton '\n' <> newIndentation
-    <> debugRecover (debugExpression newIndentation) test
-    <> B.singleton '\n' <> newIndentation
-    <> debugBlock newIndentation consequent
-    <> B.singleton ')'
-
-debugExpression indentation (ConditionalExpression _ test consequent (Just alternate)) =
-  let newIndentation = indentation <> B.fromText "  " in
-  B.fromText "(if"
-    <> B.singleton '\n' <> newIndentation
-    <> debugRecover (debugExpression newIndentation) test
-    <> B.singleton '\n' <> newIndentation
-    <> debugBlock newIndentation consequent
-    <> B.singleton '\n' <> newIndentation
-    <> debugRecover (debugConditionalExpressionAlternate newIndentation) alternate
-    <> B.singleton ')'
+debugExpression indentation (ConditionalExpression if_) =
+  debugConditionalExpressionIf indentation if_
 
 debugExpression indentation (BlockExpression _ block) =
   B.fromText "(do " <> debugBlock indentation block <> B.singleton ')'
@@ -492,9 +487,31 @@ debugBinaryExpressionExtension indentation left (BinaryExpressionExtension opera
         GreaterThan -> "gt"
         GreaterThanOrEqual -> "gte"
 
-debugConditionalExpressionAlternate :: B.Builder -> ConditionalExpressionAlternate -> B.Builder
-debugConditionalExpressionAlternate indentation (ConditionalExpressionAlternate _ block) =
+debugConditionalExpressionIf :: B.Builder -> ConditionalExpressionIf -> B.Builder
+debugConditionalExpressionIf indentation (ConditionalExpressionIf  _ test consequent Nothing) =
+  let newIndentation = indentation <> B.fromText "  " in
+    B.fromText "(if"
+      <> B.singleton '\n' <> newIndentation
+      <> debugRecover (debugExpression newIndentation) test
+      <> B.singleton '\n' <> newIndentation
+      <> debugBlock newIndentation consequent
+      <> B.singleton ')'
+debugConditionalExpressionIf indentation (ConditionalExpressionIf  _ test consequent (Just alternate)) =
+  let newIndentation = indentation <> B.fromText "  " in
+    B.fromText "(if"
+      <> B.singleton '\n' <> newIndentation
+      <> debugRecover (debugExpression newIndentation) test
+      <> B.singleton '\n' <> newIndentation
+      <> debugBlock newIndentation consequent
+      <> B.singleton '\n' <> newIndentation
+      <> debugRecover (debugConditionalExpressionElse newIndentation) alternate
+      <> B.singleton ')'
+
+debugConditionalExpressionElse :: B.Builder -> ConditionalExpressionElse -> B.Builder
+debugConditionalExpressionElse indentation (ConditionalExpressionElse _ block) =
   debugBlock indentation block
+debugConditionalExpressionElse indentation (ConditionalExpressionElseIf _ if_) =
+  debugConditionalExpressionIf indentation if_
 
 debugExpressionExtension :: B.Builder -> Expression -> ExpressionExtension -> B.Builder
 debugExpressionExtension indentation expression (PropertyExpressionExtension _ label) =
