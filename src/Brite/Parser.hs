@@ -254,6 +254,8 @@ tryBinaryExpressionExtension =
     <|> lessThanOrEqual
     <|> greaterThan
     <|> greaterThanOrEqual
+    <|> and_
+    <|> or_
     <|> unexpected ExpectedExpression
   where
     make = BinaryExpressionExtension
@@ -270,6 +272,8 @@ tryBinaryExpressionExtension =
     lessThanOrEqual = make LessThanOrEqual <$> tryGlyph LessThanOrEqual_ <&> operand
     greaterThan = make GreaterThan <$> tryGlyph GreaterThan_ <&> operand
     greaterThanOrEqual = make GreaterThanOrEqual <$> tryGlyph GreaterThanOrEqual_ <&> operand
+    and_ = make And <$> tryGlyph AmpersandDouble <&> operand
+    or_ = make Or <$> tryGlyph BarDouble <&> operand
 
 -- The precedence level of an operator.
 data Precedence
@@ -279,6 +283,8 @@ data Precedence
   | Additive
   | Relational
   | Equality
+  | LogicalAnd
+  | LogicalOr
   deriving (Eq, Ord)
 
 -- Gets the precedence level of a binary operator.
@@ -295,6 +301,8 @@ binaryOperatorPrecedence GreaterThan = Relational
 binaryOperatorPrecedence GreaterThanOrEqual = Relational
 binaryOperatorPrecedence Equals = Equality
 binaryOperatorPrecedence NotEquals = Equality
+binaryOperatorPrecedence And = LogicalAnd
+binaryOperatorPrecedence Or = LogicalOr
 
 -- Gets the precedence level of a binary expression extension.
 binaryExpressionExtensionPrecedence :: Recover BinaryExpressionExtension -> Precedence

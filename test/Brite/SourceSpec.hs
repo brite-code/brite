@@ -589,4 +589,8 @@ spec = mapM_ (uncurry runTest)
       \0:1-0:2   | Glyph `>`\n\
       \0:2       | End\n"
     )
+  , ( "&&"
+    , "0:0-0:2   | Glyph `&&`\n\
+      \0:2       | End\n"
+    )
   ]

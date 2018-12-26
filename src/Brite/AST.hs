@@ -213,6 +213,16 @@ data BinaryOperator
   | GreaterThan
   -- `>=`
   | GreaterThanOrEqual
+  -- `&&`
+  --
+  -- NOTE: `And` and `Or` will conditionally evaluate the second argument. Don’t assume the second
+  -- argument evaluates like other binary operators.
+  | And
+  -- `||`
+  --
+  -- NOTE: `And` and `Or` will conditionally evaluate the second argument. Don’t assume the second
+  -- argument evaluates like other binary operators.
+  | Or
 
 -- `if E { ... }`
 data ConditionalExpressionIf =
@@ -566,6 +576,8 @@ debugBinaryExpressionExtension indentation left (BinaryExpressionExtension opera
         LessThanOrEqual -> "lte"
         GreaterThan -> "gt"
         GreaterThanOrEqual -> "gte"
+        And -> "and"
+        Or -> "or"
 
 debugConditionalExpressionIf :: B.Builder -> ConditionalExpressionIf -> B.Builder
 debugConditionalExpressionIf indentation (ConditionalExpressionIf  _ test consequent Nothing) =

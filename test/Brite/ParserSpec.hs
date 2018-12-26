@@ -4323,4 +4323,43 @@ spec = mapM_ (uncurry runTest)
       \(object\n\
       \  (prop err))\n"
     )
+  , ( "a && b"
+    , "(and (var `a`) (var `b`))\n"
+    )
+  , ( "a && b && c"
+    , "(and (and (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a || b || c"
+    , "(or (or (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a && b || c"
+    , "(or (and (var `a`) (var `b`)) (var `c`))\n"
+    )
+  , ( "a || b && c"
+    , "(or (var `a`) (and (var `b`) (var `c`)))\n"
+    )
+  , ( "a && b && c && d"
+    , "(and (and (and (var `a`) (var `b`)) (var `c`)) (var `d`))\n"
+    )
+  , ( "a || b && c && d"
+    , "(or (var `a`) (and (and (var `b`) (var `c`)) (var `d`)))\n"
+    )
+  , ( "a && b || c && d"
+    , "(or (and (var `a`) (var `b`)) (and (var `c`) (var `d`)))\n"
+    )
+  , ( "a && b && c || d"
+    , "(or (and (and (var `a`) (var `b`)) (var `c`)) (var `d`))\n"
+    )
+  , ( "a && b || c || d"
+    , "(or (or (and (var `a`) (var `b`)) (var `c`)) (var `d`))\n"
+    )
+  , ( "a || b && c || d"
+    , "(or (or (var `a`) (and (var `b`) (var `c`))) (var `d`))\n"
+    )
+  , ( "a || b || c && d"
+    , "(or (or (var `a`) (var `b`)) (and (var `c`) (var `d`)))\n"
+    )
+  , ( "a || b || c || d"
+    , "(or (or (or (var `a`) (var `b`)) (var `c`)) (var `d`))\n"
+    )
   ]

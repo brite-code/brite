@@ -189,12 +189,18 @@ endTokenRange (EndToken { endTokenPosition = p }) = Range p p
 -- A glyph represents some constant sequence of characters that is used in Brite syntax.
 data Glyph
   = Keyword Keyword
+  -- `&`
+  | Ampersand
+  -- `&&`
+  | AmpersandDouble
   -- `*`
   | Asterisk
   -- `!`
   | Bang
   -- `|`
   | Bar
+  -- `||`
+  | BarDouble
   -- `{`
   | BraceLeft
   -- `}`
@@ -240,9 +246,12 @@ data Glyph
 -- Gets the text representation of a glyph.
 glyphText :: Glyph -> T.Text
 glyphText (Keyword k) = keywordText k
+glyphText Ampersand = "&"
+glyphText AmpersandDouble = "&&"
 glyphText Asterisk = "*"
 glyphText Bang = "!"
 glyphText Bar = "|"
+glyphText BarDouble = "||"
 glyphText BraceLeft = "{"
 glyphText BraceRight = "}"
 glyphText Caret = "^"
@@ -330,7 +339,6 @@ nextToken (TokenStream p0 t0) =
 
     -- Single character glyphs
     Just ('*', t2) -> token (Glyph Asterisk) 1 t2
-    Just ('|', t2) -> token (Glyph Bar) 1 t2
     Just ('{', t2) -> token (Glyph BraceLeft) 1 t2
     Just ('}', t2) -> token (Glyph BraceRight) 1 t2
     Just ('^', t2) -> token (Glyph Caret) 1 t2
@@ -346,6 +354,10 @@ nextToken (TokenStream p0 t0) =
     Just ('/', t2) -> token (Glyph Slash) 1 t2
 
     -- Multi-character glyphs.
+    Just ('&', t2) | not (T.null t2) && T.head t2 == '&' -> token (Glyph AmpersandDouble) 2 (T.tail t2)
+    Just ('&', t2) -> token (Glyph Ampersand) 1 t2
+    Just ('|', t2) | not (T.null t2) && T.head t2 == '|' -> token (Glyph BarDouble) 2 (T.tail t2)
+    Just ('|', t2) -> token (Glyph Bar) 1 t2
     Just ('=', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsDouble) 2 (T.tail t2)
     Just ('=', t2) -> token (Glyph Equals_) 1 t2
     Just ('!', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsNot) 2 (T.tail t2)
