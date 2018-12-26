@@ -5,11 +5,16 @@ module Brite.AST
   , Name(..)
   , Recover(..)
   , CommaList(..)
+  , commaListItems
   , Statement(..)
   , Block(..)
   , Function(..)
   , Constant(..)
   , Expression(..)
+  , ObjectExpressionData(..)
+  , ObjectExpressionProperty(..)
+  , ObjectExpressionPropertyValue(..)
+  , ObjectExpressionExtension(..)
   , UnaryOperator(..)
   , BinaryExpressionExtension(..)
   , BinaryOperator(..)
@@ -22,7 +27,7 @@ module Brite.AST
   , showDebugExpression
   ) where
 
-import Brite.Parser.Framework (Recover(..), CommaList(..))
+import Brite.Parser.Framework (Recover(..), CommaList(..), commaListItems)
 import Brite.Source
 import Data.Monoid (Endo(..))
 import qualified Data.Text.Lazy as L
@@ -113,6 +118,9 @@ data Expression
   -- A block of code which is executed whenever the function is called.
   | FunctionExpression Function
 
+  -- `{p: E, ...}`
+  | ObjectExpression ObjectExpressionData
+
   -- `!E`, `-E`
   --
   -- An operation on a single expression.
@@ -156,6 +164,17 @@ data Expression
   -- Any extension on a primary expression. Including property expressions, function calls,
   -- and more.
   | ExpressionExtension Expression (Recover ExpressionExtension)
+
+data ObjectExpressionData = ObjectExpressionData
+  { objectExpressionOpen :: Token
+  , objectExpressionProperties :: CommaList ObjectExpressionProperty
+  , objectExpressionExtension :: Maybe (Recover ObjectExpressionExtension)
+  , objectExpressionClose :: Recover Token
+  }
+
+data ObjectExpressionProperty = ObjectExpressionProperty Name (Maybe (Recover ObjectExpressionPropertyValue))
+data ObjectExpressionPropertyValue = ObjectExpressionPropertyValue Token (Recover Expression)
+data ObjectExpressionExtension = ObjectExpressionExtension Token (Recover Expression)
 
 data UnaryOperator
   -- `!`
@@ -302,6 +321,11 @@ expressionTokens :: Expression -> Tokens
 expressionTokens (ConstantExpression constant) = constantTokens constant
 expressionTokens (VariableExpression name) = nameTokens name
 expressionTokens (FunctionExpression function) = functionTokens function
+expressionTokens (ObjectExpression (ObjectExpressionData t1 fs ext t2)) =
+  singletonToken t1
+    <> commaListTokens objectExpressionPropertyTokens fs
+    <> maybeTokens (recoverTokens objectExpressionExtensionTokens) ext
+    <> recoverTokens singletonToken t2
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 expressionTokens (BinaryExpression e ext) =
   recoverTokens expressionTokens e <> recoverTokens binaryExpressionExtensionTokens ext
@@ -312,6 +336,18 @@ expressionTokens (WrappedExpression t1 e t2) =
   singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
 expressionTokens (ExpressionExtension e ext) =
   expressionTokens e <> recoverTokens expressionExtensionTokens ext
+
+objectExpressionPropertyTokens :: ObjectExpressionProperty -> Tokens
+objectExpressionPropertyTokens (ObjectExpressionProperty l v) =
+  nameTokens l <> maybeTokens (recoverTokens objectExpressionPropertyValueTokens) v
+
+objectExpressionPropertyValueTokens :: ObjectExpressionPropertyValue -> Tokens
+objectExpressionPropertyValueTokens (ObjectExpressionPropertyValue t e) =
+  singletonToken t <> recoverTokens expressionTokens e
+
+objectExpressionExtensionTokens :: ObjectExpressionExtension -> Tokens
+objectExpressionExtensionTokens (ObjectExpressionExtension t e) =
+  singletonToken t <> recoverTokens expressionTokens e
 
 binaryExpressionExtensionTokens :: BinaryExpressionExtension -> Tokens
 binaryExpressionExtensionTokens (BinaryExpressionExtension _ t e) =
@@ -399,11 +435,10 @@ debugBlock indentation block =
 -- Debug a function in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugFunction :: B.Builder -> Function -> B.Builder
-debugFunction indentation (Function _ name _ (CommaList params paramN) _ block) =
+debugFunction indentation (Function _ name _ params _ block) =
   B.fromText "(fun"
     <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
-    <> mconcat (map (debugParam . fst) params)
-    <> maybe mempty debugParam paramN
+    <> mconcat (map debugParam (commaListItems params))
     <> B.singleton '\n' <> newIndentation
     <> debugBlock newIndentation block
     <> B.singleton ')'
@@ -431,6 +466,44 @@ debugExpression _ (VariableExpression (Name identifier _)) =
 
 debugExpression indentation (FunctionExpression function) =
   debugFunction indentation function
+
+debugExpression _ (ObjectExpression (ObjectExpressionData _ (CommaList [] Nothing) Nothing _)) =
+  B.fromText "object"
+
+debugExpression indentation (ObjectExpression (ObjectExpressionData _ properties extension _)) =
+  B.fromText "(object"
+    <> mconcat (map debugRecoverProperty (commaListItems properties))
+    <> maybe mempty debugRecoverExtension extension
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+
+    debugRecoverProperty (Ok property) = debugProperty property
+    debugRecoverProperty (Recover _ _ property) = debugProperty property
+    debugRecoverProperty (Fatal _ _) = B.singleton '\n' <> newIndentation <> B.fromText "(prop err)"
+
+    debugProperty (ObjectExpressionProperty label Nothing) =
+      B.singleton '\n' <> newIndentation
+        <> B.fromText "(prop "
+        <> debugName label
+        <> B.singleton ')'
+
+    debugProperty (ObjectExpressionProperty label (Just value)) =
+      B.singleton '\n' <> newIndentation
+        <> B.fromText "(prop "
+        <> debugName label
+        <> B.singleton ' '
+        <> debugRecover debugPropertyValue value
+        <> B.singleton ')'
+
+    debugPropertyValue (ObjectExpressionPropertyValue _ value) =
+      debugRecover (debugExpression newIndentation) value
+
+    debugRecoverExtension =
+      (B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugExtension
+
+    debugExtension (ObjectExpressionExtension _ value) =
+      debugRecover (debugExpression newIndentation) value
 
 debugExpression indentation (UnaryExpression operator _ expression) =
   B.singleton '('
@@ -531,11 +604,10 @@ debugExpressionExtension indentation expression (PropertyExpressionExtension _ l
 debugExpressionExtension indentation expression (CallExpressionExtension _ (CommaList [] Nothing) _) =
   B.fromText "(call " <> debugExpression indentation expression <> B.singleton ')'
 
-debugExpressionExtension indentation expression (CallExpressionExtension _ (CommaList args argN) _) =
+debugExpressionExtension indentation expression (CallExpressionExtension _ args _) =
   B.fromText "(call"
     <> debugArg (Ok expression)
-    <> mconcat (map (debugArg . fst) args)
-    <> maybe mempty debugArg argN
+    <> mconcat (map debugArg (commaListItems args))
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "

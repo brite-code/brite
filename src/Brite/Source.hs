@@ -193,12 +193,16 @@ data Glyph
   | Asterisk
   -- `!`
   | Bang
+  -- `|`
+  | Bar
   -- `{`
   | BraceLeft
   -- `}`
   | BraceRight
   -- `^`
   | Caret
+  -- `:`
+  | Colon
   -- `,`
   | Comma
   -- `.`
@@ -238,9 +242,11 @@ glyphText :: Glyph -> T.Text
 glyphText (Keyword k) = keywordText k
 glyphText Asterisk = "*"
 glyphText Bang = "!"
+glyphText Bar = "|"
 glyphText BraceLeft = "{"
 glyphText BraceRight = "}"
 glyphText Caret = "^"
+glyphText Colon = ":"
 glyphText Comma = ","
 glyphText Dot = "."
 glyphText Equals_ = "="
@@ -324,9 +330,11 @@ nextToken (TokenStream p0 t0) =
 
     -- Single character glyphs
     Just ('*', t2) -> token (Glyph Asterisk) 1 t2
+    Just ('|', t2) -> token (Glyph Bar) 1 t2
     Just ('{', t2) -> token (Glyph BraceLeft) 1 t2
     Just ('}', t2) -> token (Glyph BraceRight) 1 t2
     Just ('^', t2) -> token (Glyph Caret) 1 t2
+    Just (':', t2) -> token (Glyph Colon) 1 t2
     Just (',', t2) -> token (Glyph Comma) 1 t2
     Just ('.', t2) -> token (Glyph Dot) 1 t2
     Just ('-', t2) -> token (Glyph Minus) 1 t2

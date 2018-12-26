@@ -905,6 +905,14 @@ spec = mapM_ (uncurry runTest)
       \  (block\n\
       \    (var `z`)))\n"
     )
+  , ( "if { let x = y }"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \\n\
+      \(if\n\
+      \  err\n\
+      \  (block\n\
+      \    (bind (var `x`) (var `y`))))\n"
+    )
   , ( "if {}"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
       \\n\
@@ -1003,51 +1011,45 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "if {} {}"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
-      \(0:6-0:7) We wanted `else` but we found `{`.\n\
-      \(0:7-0:8) We wanted `else` but we found `}`.\n\
       \\n\
       \(if\n\
       \  err\n\
-      \  block\n\
-      \  err)\n"
+      \  block)\n\
+      \object\n"
     )
   , ( "if x } {}"
     , "(0:5-0:6) We wanted `{` but we found `}`.\n\
-      \(0:7-0:8) We wanted `else` but we found `{`.\n\
-      \(0:8-0:9) We wanted `else` but we found `}`.\n\
       \\n\
       \(if\n\
       \  (var `x`)\n\
-      \  block\n\
-      \  err)\n"
+      \  block)\n\
+      \object\n"
     )
   , ( "if x { {}"
-    , "(0:7-0:8) We wanted a statement but we found `{`.\n\
+    , "(0:9-0:9) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
       \  (var `x`)\n\
       \  (block\n\
-      \    err))\n"
+      \    object))\n"
     )
   , ( "if { {}"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
-      \(0:5-0:6) We wanted a statement but we found `{`.\n\
+      \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
       \  err\n\
       \  (block\n\
-      \    err))\n"
+      \    object))\n"
     )
   , ( "if } {}"
     , "(0:3-0:4) We wanted an expression but we found `}`.\n\
       \(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:5-0:6) We wanted `else` but we found `{`.\n\
-      \(0:6-0:7) We wanted `else` but we found `}`.\n\
       \\n\
       \(if\n\
       \  err\n\
-      \  block\n\
-      \  err)\n"
+      \  block)\n\
+      \object\n"
     )
   , ( "if {} else }"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
@@ -1228,30 +1230,30 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "if {} {"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
-      \(0:6-0:7) We wanted `else` but we found `{`.\n\
+      \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
       \  err\n\
-      \  block\n\
-      \  err)\n"
+      \  block)\n\
+      \object\n"
     )
   , ( "if x } {"
     , "(0:5-0:6) We wanted `{` but we found `}`.\n\
-      \(0:7-0:8) We wanted `else` but we found `{`.\n\
+      \(0:8-0:8) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
       \  (var `x`)\n\
-      \  block\n\
-      \  err)\n"
+      \  block)\n\
+      \object\n"
     )
   , ( "if x { {"
-    , "(0:7-0:8) We wanted a statement but we found `{`.\n\
+    , "(0:8-0:8) We wanted `}` but the file ended.\n\
       \(0:8-0:8) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
       \  (var `x`)\n\
       \  (block\n\
-      \    err))\n"
+      \    object))\n"
     )
   , ( "if x {"
     , "(0:6-0:6) We wanted `}` but the file ended.\n\
@@ -1262,23 +1264,23 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "if { {"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
-      \(0:5-0:6) We wanted a statement but we found `{`.\n\
+      \(0:6-0:6) We wanted `}` but the file ended.\n\
       \(0:6-0:6) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
       \  err\n\
       \  (block\n\
-      \    err))\n"
+      \    object))\n"
     )
   , ( "if } {"
     , "(0:3-0:4) We wanted an expression but we found `}`.\n\
       \(0:3-0:4) We wanted `{` but we found `}`.\n\
-      \(0:5-0:6) We wanted `else` but we found `{`.\n\
+      \(0:6-0:6) We wanted `}` but the file ended.\n\
       \\n\
       \(if\n\
       \  err\n\
-      \  block\n\
-      \  err)\n"
+      \  block)\n\
+      \object\n"
     )
   , ( "if {} }"
     , "(0:3-0:4) We wanted an expression but we found `{`.\n\
@@ -1364,13 +1366,13 @@ spec = mapM_ (uncurry runTest)
       \err\n"
     )
   , ( "if x {} { let y = z }"
-    , "(0:8-0:9) We wanted `else` but we found `{`.\n\
+    , "(0:10-0:13) We wanted `}` but we found `let`.\n\
       \(0:20-0:21) We wanted an expression but we found `}`.\n\
       \\n\
       \(if\n\
       \  (var `x`)\n\
-      \  block\n\
-      \  err)\n\
+      \  block)\n\
+      \object\n\
       \(bind (var `y`) (var `z`))\n"
     )
   , ( "o.p"
@@ -4115,5 +4117,210 @@ spec = mapM_ (uncurry runTest)
       \(0:7-0:8) We wanted an expression but we found `*`.\n\
       \\n\
       \(add (var `a`) (mul err (var `b`)))\n"
+    )
+  , ( "{}"
+    , "object\n"
+    )
+  , ( "{p: a}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`)))\n"
+    )
+  , ( "{p: a, q: b}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{,}"
+    , "(0:1-0:2) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(object\n\
+      \  (prop err))\n"
+    )
+  , ( "{p: a,}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`)))\n"
+    )
+  , ( "{p: a, q: b,}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{p: a q: b}"
+    , "(0:6-0:7) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{p: a,, q: b}"
+    , "(0:6-0:7) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop err)\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{p: a, q: b,,}"
+    , "(0:12-0:13) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop (name `q`) (var `b`))\n\
+      \  (prop err))\n"
+    )
+  , ( "{p: a q: b,}"
+    , "(0:6-0:7) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{| o}"
+    , "(object\n\
+      \  (var `o`))\n"
+    )
+  , ( "{p: a | o}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (var `o`))\n"
+    )
+  , ( "{p: a, q: b | o}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop (name `q`) (var `b`))\n\
+      \  (var `o`))\n"
+    )
+  , ( "{p: a | {q: b}}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (object\n\
+      \    (prop (name `q`) (var `b`))))\n"
+    )
+  , ( "{p: a | {q: b | {}}}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (object\n\
+      \    (prop (name `q`) (var `b`))\n\
+      \    object))\n"
+    )
+  , ( "{p: a | {q: b | o}}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (object\n\
+      \    (prop (name `q`) (var `b`))\n\
+      \    (var `o`)))\n"
+    )
+  , ( "{: a}"
+    , "(0:1-0:2) We wanted a variable name but we found `:`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `a`)))\n"
+    )
+  , ( "{p a}"
+    , "(0:3-0:4) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`))\n\
+      \  (prop (name `a`)))\n"
+    )
+  , ( "{p: }"
+    , "(0:4-0:5) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) err))\n"
+    )
+  , ( "{: a, q: b}"
+    , "(0:1-0:2) We wanted a variable name but we found `:`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{p a, q: b}"
+    , "(0:3-0:4) We wanted `,` but we found a variable name.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`))\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{p: , q: b}"
+    , "(0:4-0:5) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) err)\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "{p}"
+    , "(object\n\
+      \  (prop (name `p`)))\n"
+    )
+  , ( "{p, q}"
+    , "(object\n\
+      \  (prop (name `p`))\n\
+      \  (prop (name `q`)))\n"
+    )
+  , ( "{p: a, q}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (prop (name `q`)))\n"
+    )
+  , ( "{p, q: b}"
+    , "(object\n\
+      \  (prop (name `p`))\n\
+      \  (prop (name `q`) (var `b`)))\n"
+    )
+  , ( "if {} {}"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \\n\
+      \(if\n\
+      \  err\n\
+      \  block)\n\
+      \object\n"
+    )
+  , ( "if {p: a}.p {}"
+    , "(0:3-0:4) We wanted an expression but we found `{`.\n\
+      \(0:5-0:6) We wanted an expression but we found `:`.\n\
+      \\n\
+      \(prop (if\n\
+      \  err\n\
+      \  (block\n\
+      \    (var `p`)\n\
+      \    (var `a`))) (name `p`))\n\
+      \object\n"
+    )
+  , ( "{p: a}.p"
+    , "(prop (object\n\
+      \  (prop (name `p`) (var `a`))) (name `p`))\n"
+    )
+  , ( "{😈 p: a}"
+    , "(0:1-0:3) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`)))\n"
+    )
+  , ( "{p 😈 : a}"
+    , "(0:3-0:5) We wanted `:` but we found `😈`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`)))\n"
+    )
+  , ( "{p: 😈 a}"
+    , "(0:4-0:6) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`)))\n"
+    )
+  , ( "{p: a 😈}"
+    , "(0:6-0:8) We wanted an expression but we found `😈`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `p`) (var `a`)))\n"
+    )
+  , ( "{😈}"
+    , "(0:1-0:3) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(object\n\
+      \  (prop err))\n"
     )
   ]

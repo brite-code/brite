@@ -77,13 +77,11 @@ tryBooleanTrue = BooleanConstant True <$> tryKeyword True_
 tryBooleanFalse :: TryParser Constant
 tryBooleanFalse = BooleanConstant False <$> tryKeyword False_
 
-expression :: Parser (Recover Expression)
-expression = retry tryExpression
-
 -- Ordered roughly by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression
 tryPrimaryExpression =
   tryVariableExpression
+    <|> tryObjectExpression
     <|> tryFunctionExpression
     <|> tryConditionalExpression
     <|> tryWrappedExpression
@@ -101,6 +99,29 @@ tryVariableExpression = VariableExpression <$> tryName
 tryFunctionExpression :: TryParser Expression
 tryFunctionExpression = FunctionExpression <$> tryFunction
 
+tryObjectExpression :: TryParser Expression
+tryObjectExpression =
+  fmap ObjectExpression $ ObjectExpressionData
+    <$> tryGlyph BraceLeft
+    <&> commaList tryObjectExpressionProperty
+    <&> optional tryObjectExpressionExtension
+    <&> glyph BraceRight
+
+tryObjectExpressionProperty :: TryParser ObjectExpressionProperty
+tryObjectExpressionProperty =
+  ObjectExpressionProperty
+    <$> tryName
+    <&> optional tryObjectExpressionPropertyValue
+
+tryObjectExpressionPropertyValue :: TryParser ObjectExpressionPropertyValue
+tryObjectExpressionPropertyValue = ObjectExpressionPropertyValue <$> tryGlyph Colon <&> expression
+
+tryObjectExpressionExtension :: TryParser ObjectExpressionExtension
+tryObjectExpressionExtension =
+  ObjectExpressionExtension
+    <$> tryGlyph Bar
+    <&> expression
+
 tryConditionalExpression :: TryParser Expression
 tryConditionalExpression = ConditionalExpression <$> tryConditionalExpressionIf
 
@@ -108,9 +129,38 @@ tryConditionalExpressionIf :: TryParser ConditionalExpressionIf
 tryConditionalExpressionIf =
   ConditionalExpressionIf
     <$> tryKeyword If
-    <&> expression
+    <&> testExpression
     <&> block
     <&> optional tryConditionalExpressionElse
+  where
+    -- For the conditional expression’s test (`if test {}`) we disallow all expressions that start
+    -- with a left brace (`{`). This includes object literal expressions (`{p: E}`) or any
+    -- expression that extends an object literal expression (like `{p: E}.p`). Notably this does not
+    -- include wrapped object literal expressions (`({p: E})`).
+    --
+    -- Why do we do this? Why do we disallow perfectly valid syntax? To improve error recovery
+    -- behavior. If we allow object literals in the test expression then `if {}` is interpreted as
+    -- a conditional testing an object literal instead of a conditional with no test expression.
+    --
+    -- We believe that a user writing the invalid syntax `if {}` is _significantly_ more common then
+    -- the a user writing valid syntax with an object literal test expression `if {} {}`.
+    --
+    -- If we ever decide that this was a bad tradeoff then we can remove this special case without
+    -- breaking any valid code. Which is nice. But on the other hand, we would never be able to
+    -- add this special case without breaking valid code.
+    --
+    -- NOTE: If this ever confuses people we can improve the error message to suggest wrapping an
+    -- object test expression.
+    --
+    -- NOTE: This special case is an argument _against_ adding a pipeline operator. Since a pipeline
+    -- operator might encourage test expressions that start with `{`. For example:
+    -- `if {p: E} |> doSomething() {}`.
+    --
+    -- NOTE: Rust makes a very similar tradeoff when it comes to structs in conditionals. Consider:
+    -- `if Foo { i: 42 } { ... }`. Rust assumes that `{ i: 42 }` is a block and not struct
+    -- properties. The programmer must wrap their struct for the expression to make sense:
+    -- `if (Foo { i: 42 }) { ... }`.
+    testExpression = retry (unexpectedGlyph ExpectedExpression BraceLeft tryExpression)
 
 tryConditionalExpressionElse :: TryParser ConditionalExpressionElse
 tryConditionalExpressionElse = flip ($) <$> tryKeyword Else <&> elseIf
@@ -254,6 +304,9 @@ binaryExpressionExtensionPrecedence (Fatal _ _) = FatalPrecedence
 
 tryExpression :: TryParser Expression
 tryExpression = tryBinaryExpression
+
+expression :: Parser (Recover Expression)
+expression = retry tryExpression
 
 pattern :: Parser (Recover Pattern)
 pattern = retry tryPattern

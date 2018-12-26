@@ -7,7 +7,6 @@ module Brite.Parser.Framework
   , runParser
   , (<&>)
   , (<|>)
-  , unexpected
   , retry
   , optional
   , optionalOnSameLine
@@ -20,13 +19,17 @@ module Brite.Parser.Framework
   , tryIdentifier
   , tryOnce
   , tryGlyphOnSameLine
+  , unexpected
+  , unexpectedGlyph
   , CommaList(..)
+  , commaListItems
   , commaList
   ) where
 
 import Brite.Diagnostics
 import Brite.Source
 import Control.Applicative (liftA2)
+import Data.Maybe (maybeToList)
 
 -- The Brite parser turns a tokens into the AST of a Brite program.
 --
@@ -238,14 +241,6 @@ p1 <|> p2 = TryParser $ \ok yield2 throw ->
   tryParser p1 ok yield2 (\_ ->
     tryParser p2 ok yield2 throw)
 
--- Always reports an unexpected token diagnostic. Typically used at the end of a choice operator
--- chain to customize the error message.
-unexpected :: ExpectedToken -> TryParser a
-unexpected ex = TryParser $ \_ _ throw s ->
-  case parserStep s of
-    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) s
-    Left t -> throw (unexpectedEnding (endTokenRange t) ex) s
-
 -- Keeps retrying a `TryParser` when it throws until one of the following happens:
 --
 -- 1. A parser we are sequenced with succeeds on the token we failed to parse.
@@ -394,12 +389,34 @@ tryGlyphOnSameLine g = TryParser $ \ok _ throw s ->
     Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
+-- Always reports an unexpected token diagnostic. Typically used at the end of a choice operator
+-- chain to customize the error message.
+unexpected :: ExpectedToken -> TryParser a
+unexpected ex = TryParser $ \_ _ throw s ->
+  case parserStep s of
+    Right (t, _) -> throw (unexpectedToken (tokenRange t) (tokenKind t) ex) s
+    Left t -> throw (unexpectedEnding (endTokenRange t) ex) s
+
+-- Always throws an unexpected token error if we see the provided glyph. Otherwise we run the
+-- provided parser. This is used to exclude certain tokens from a parser.
+unexpectedGlyph :: ExpectedToken -> Glyph -> TryParser a -> TryParser a
+unexpectedGlyph ex g p = TryParser $ \ok yield throw s ->
+  case parserStep s of
+    Right (t @ Token { tokenKind = Glyph g' }, _) | g == g' ->
+      throw (unexpectedToken (tokenRange t) (tokenKind t) ex) s
+    _ ->
+      tryParser p ok yield throw s
+
 -- A comma separated list of values which may optionally have a trailing comma. If there is a
 -- trailing comma then `commaListLastItem` will be `Nothing`.
 data CommaList a = CommaList
-  { commaListItems :: [(Recover a, Recover Token)]
+  { commaListInitialItems :: [(Recover a, Recover Token)]
   , commaListLastItem :: Maybe (Recover a)
   }
+
+-- Converts a `CommaList` into a list of items. The list does not include comma tokens.
+commaListItems :: CommaList a -> [Recover a]
+commaListItems (CommaList ns n) = foldr ((:) . fst) (maybeToList n) ns
 
 -- Parses a comma separated list of values which may optionally have a trailing comma.
 --
