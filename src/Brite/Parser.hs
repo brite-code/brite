@@ -84,8 +84,9 @@ tryPrimaryExpression =
     <|> tryObjectExpression
     <|> tryFunctionExpression
     <|> tryConditionalExpression
-    <|> tryWrappedExpression
     <|> tryConstantExpression
+    <|> tryWrappedExpression
+    <|> tryVariantExpression
     <|> tryBlockExpression
     <|> tryLoopExpression
     <|> unexpected ExpectedExpression
@@ -101,7 +102,7 @@ tryFunctionExpression = FunctionExpression <$> tryFunction
 
 tryObjectExpression :: TryParser Expression
 tryObjectExpression =
-  fmap ObjectExpression $ ObjectExpressionData
+  ObjectExpression
     <$> tryGlyph BraceLeft
     <&> commaList tryObjectExpressionProperty
     <&> optional tryObjectExpressionExtension
@@ -121,6 +122,20 @@ tryObjectExpressionExtension =
   ObjectExpressionExtension
     <$> tryGlyph Bar
     <&> expression
+
+tryVariantExpression :: TryParser Expression
+tryVariantExpression =
+  VariantExpression
+    <$> tryGlyph Dot
+    <&> name
+    <&> optional tryVariantExpressionElements
+
+tryVariantExpressionElements :: TryParser VariantExpressionElements
+tryVariantExpressionElements =
+  VariantExpressionElements
+    <$> tryGlyph ParenLeft
+    <&> commaList tryExpression
+    <&> glyph ParenRight
 
 tryConditionalExpression :: TryParser Expression
 tryConditionalExpression = ConditionalExpression <$> tryConditionalExpressionIf

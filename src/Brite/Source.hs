@@ -205,6 +205,10 @@ data Glyph
   | BraceLeft
   -- `}`
   | BraceRight
+  -- `[`
+  | BracketLeft
+  -- `]`
+  | BracketRight
   -- `^`
   | Caret
   -- `:`
@@ -254,6 +258,8 @@ glyphText Bar = "|"
 glyphText BarDouble = "||"
 glyphText BraceLeft = "{"
 glyphText BraceRight = "}"
+glyphText BracketLeft = "["
+glyphText BracketRight = "]"
 glyphText Caret = "^"
 glyphText Colon = ":"
 glyphText Comma = ","
@@ -341,6 +347,8 @@ nextToken (TokenStream p0 t0) =
     Just ('*', t2) -> token (Glyph Asterisk) 1 t2
     Just ('{', t2) -> token (Glyph BraceLeft) 1 t2
     Just ('}', t2) -> token (Glyph BraceRight) 1 t2
+    Just ('[', t2) -> token (Glyph BracketLeft) 1 t2
+    Just (']', t2) -> token (Glyph BracketRight) 1 t2
     Just ('^', t2) -> token (Glyph Caret) 1 t2
     Just (':', t2) -> token (Glyph Colon) 1 t2
     Just (',', t2) -> token (Glyph Comma) 1 t2

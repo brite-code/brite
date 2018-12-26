@@ -1594,16 +1594,13 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "😈.p"
     , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
-      \(0:2-0:3) We wanted a statement but we found `.`.\n\
       \\n\
-      \(var `p`)\n"
+      \(variant (name `p`))\n"
     )
   , ( "(😈.p)"
     , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
-      \(0:3-0:4) We wanted `)` but we found `.`.\n\
-      \(0:5-0:6) We wanted an expression but we found `)`.\n\
       \\n\
-      \(prop (wrap err) (name `p`))\n"
+      \(wrap (variant (name `p`)))\n"
     )
   , ( "let 😈) = y;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
@@ -4361,5 +4358,82 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "a || b || c || d"
     , "(or (or (or (var `a`) (var `b`)) (var `c`)) (var `d`))\n"
+    )
+  , ( ".V"
+    , "(variant (name `V`))\n"
+    )
+  , ( ".V()"
+    , "(variant (name `V`))\n"
+    )
+  , ( ".V(a)"
+    , "(variant (name `V`)\n\
+      \  (var `a`))\n"
+    )
+  , ( ".V(a, b)"
+    , "(variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`))\n"
+    )
+  , ( ".V(a, b, c)"
+    , "(variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  (var `c`))\n"
+    )
+  , ( ".V(,)"
+    , "(0:3-0:4) We wanted an expression but we found `,`.\n\
+      \\n\
+      \(variant (name `V`)\n\
+      \  err)\n"
+    )
+  , ( ".V(a,)"
+    , "(variant (name `V`)\n\
+      \  (var `a`))\n"
+    )
+  , ( ".V(a, b,)"
+    , "(variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`))\n"
+    )
+  , ( ".V(a, b, c,)"
+    , "(variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  (var `c`))\n"
+    )
+  , ( "."
+    , "(0:1-0:1) We wanted a variable name but the file ended.\n\
+      \\n\
+      \(variant err)\n"
+    )
+  , ( ".V"
+    , "(variant (name `V`))\n"
+    )
+  , ( ".V("
+    , "(0:3-0:3) We wanted `)` but the file ended.\n\
+      \\n\
+      \(variant (name `V`))\n"
+    )
+  , ( ".V)"
+    , "(0:2-0:3) We wanted `(` but we found `)`.\n\
+      \\n\
+      \(variant (name `V`)err)\n"
+    )
+  , ( ".()"
+    , "(0:1-0:2) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(variant err)\n"
+    )
+  , ( ".(a)"
+    , "(0:1-0:2) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(variant err\n\
+      \  (var `a`))\n"
+    )
+  , ( ".😈(a)"
+    , "(0:1-0:3) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(variant err\n\
+      \  (var `a`))\n"
     )
   ]

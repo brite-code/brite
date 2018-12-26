@@ -11,10 +11,10 @@ module Brite.AST
   , Function(..)
   , Constant(..)
   , Expression(..)
-  , ObjectExpressionData(..)
   , ObjectExpressionProperty(..)
   , ObjectExpressionPropertyValue(..)
   , ObjectExpressionExtension(..)
+  , VariantExpressionElements(..)
   , UnaryOperator(..)
   , BinaryExpressionExtension(..)
   , BinaryOperator(..)
@@ -119,7 +119,18 @@ data Expression
   | FunctionExpression Function
 
   -- `{p: E, ...}`
-  | ObjectExpression ObjectExpressionData
+  --
+  -- A collection of labeled data.
+  | ObjectExpression
+      Token
+      (CommaList ObjectExpressionProperty)
+      (Maybe (Recover ObjectExpressionExtension))
+      (Recover Token)
+
+  -- `.V`, `.V(E)`
+  --
+  -- Data with an associated label.
+  | VariantExpression Token (Recover Name) (Maybe (Recover VariantExpressionElements))
 
   -- `!E`, `-E`
   --
@@ -165,16 +176,27 @@ data Expression
   -- and more.
   | ExpressionExtension Expression (Recover ExpressionExtension)
 
-data ObjectExpressionData = ObjectExpressionData
-  { objectExpressionOpen :: Token
-  , objectExpressionProperties :: CommaList ObjectExpressionProperty
-  , objectExpressionExtension :: Maybe (Recover ObjectExpressionExtension)
-  , objectExpressionClose :: Recover Token
-  }
+-- `p: E`
+--
+-- A single object expression property.
+data ObjectExpressionProperty =
+  ObjectExpressionProperty Name (Maybe (Recover ObjectExpressionPropertyValue))
 
-data ObjectExpressionProperty = ObjectExpressionProperty Name (Maybe (Recover ObjectExpressionPropertyValue))
+-- `: E`
+--
+-- The value of a single object extension property.
 data ObjectExpressionPropertyValue = ObjectExpressionPropertyValue Token (Recover Expression)
+
+-- `| E`
+--
+-- An extension operation on an object.
 data ObjectExpressionExtension = ObjectExpressionExtension Token (Recover Expression)
+
+-- `(...)`
+--
+-- The elements of a variant expression.
+data VariantExpressionElements =
+  VariantExpressionElements Token (CommaList Expression) (Recover Token)
 
 data UnaryOperator
   -- `!`
@@ -226,7 +248,11 @@ data BinaryOperator
 
 -- `if E { ... }`
 data ConditionalExpressionIf =
-  ConditionalExpressionIf Token (Recover Expression) Block (Maybe (Recover ConditionalExpressionElse))
+  ConditionalExpressionIf
+    Token
+    (Recover Expression)
+    Block
+    (Maybe (Recover ConditionalExpressionElse))
 
 data ConditionalExpressionElse
   -- `else { ... }`
@@ -331,11 +357,15 @@ expressionTokens :: Expression -> Tokens
 expressionTokens (ConstantExpression constant) = constantTokens constant
 expressionTokens (VariableExpression name) = nameTokens name
 expressionTokens (FunctionExpression function) = functionTokens function
-expressionTokens (ObjectExpression (ObjectExpressionData t1 fs ext t2)) =
+expressionTokens (ObjectExpression t1 fs ext t2) =
   singletonToken t1
     <> commaListTokens objectExpressionPropertyTokens fs
     <> maybeTokens (recoverTokens objectExpressionExtensionTokens) ext
     <> recoverTokens singletonToken t2
+expressionTokens (VariantExpression t n es) =
+  singletonToken t
+    <> recoverTokens nameTokens n
+    <> maybeTokens (recoverTokens variantExpressionElementsTokens) es
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 expressionTokens (BinaryExpression e ext) =
   recoverTokens expressionTokens e <> recoverTokens binaryExpressionExtensionTokens ext
@@ -358,6 +388,10 @@ objectExpressionPropertyValueTokens (ObjectExpressionPropertyValue t e) =
 objectExpressionExtensionTokens :: ObjectExpressionExtension -> Tokens
 objectExpressionExtensionTokens (ObjectExpressionExtension t e) =
   singletonToken t <> recoverTokens expressionTokens e
+
+variantExpressionElementsTokens :: VariantExpressionElements -> Tokens
+variantExpressionElementsTokens (VariantExpressionElements t1 xs t2) =
+  singletonToken t1 <> commaListTokens expressionTokens xs <> recoverTokens singletonToken t2
 
 binaryExpressionExtensionTokens :: BinaryExpressionExtension -> Tokens
 binaryExpressionExtensionTokens (BinaryExpressionExtension _ t e) =
@@ -397,6 +431,10 @@ debugModule :: Module -> B.Builder
 debugModule (Module [] _) = B.fromText "empty\n"
 debugModule (Module statements _) =
   mconcat $ map (\s -> debugRecover (debugStatement "") s <> B.singleton '\n') statements
+
+debugMaybe :: (a -> B.Builder) -> Maybe a -> B.Builder
+debugMaybe _ Nothing = mempty
+debugMaybe debug (Just a) = debug a
 
 debugRecover :: (a -> B.Builder) -> Recover a -> B.Builder
 debugRecover debug (Ok a) = debug a
@@ -477,10 +515,10 @@ debugExpression _ (VariableExpression (Name identifier _)) =
 debugExpression indentation (FunctionExpression function) =
   debugFunction indentation function
 
-debugExpression _ (ObjectExpression (ObjectExpressionData _ (CommaList [] Nothing) Nothing _)) =
+debugExpression _ (ObjectExpression _ (CommaList [] Nothing) Nothing _) =
   B.fromText "object"
 
-debugExpression indentation (ObjectExpression (ObjectExpressionData _ properties extension _)) =
+debugExpression indentation (ObjectExpression _ properties extension _) =
   B.fromText "(object"
     <> mconcat (map debugRecoverProperty (commaListItems properties))
     <> maybe mempty debugRecoverExtension extension
@@ -514,6 +552,19 @@ debugExpression indentation (ObjectExpression (ObjectExpressionData _ properties
 
     debugExtension (ObjectExpressionExtension _ value) =
       debugRecover (debugExpression newIndentation) value
+
+debugExpression indentation (VariantExpression _ n es') =
+  B.fromText "(variant "
+    <> debugRecover debugName n
+    <> debugMaybe (debugRecover debugElements) es'
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+
+    debugElements (VariantExpressionElements _ es _) =
+      mconcat $ map
+        ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover (debugExpression newIndentation))
+        (commaListItems es)
 
 debugExpression indentation (UnaryExpression operator _ expression) =
   B.singleton '('
