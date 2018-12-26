@@ -338,7 +338,11 @@ tryPattern :: TryParser Pattern
 tryPattern =
   tryVariablePattern
     <|> tryHolePattern
+    <|> tryConstantPattern
     <|> unexpected ExpectedPattern
+
+tryConstantPattern :: TryParser Pattern
+tryConstantPattern = ConstantPattern <$> tryConstant
 
 tryVariablePattern :: TryParser Pattern
 tryVariablePattern = VariablePattern <$> tryName

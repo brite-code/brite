@@ -271,8 +271,10 @@ data ExpressionExtension
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
 data Pattern
+  -- `C`
+  = ConstantPattern Constant
   -- `x`
-  = VariablePattern Name
+  | VariablePattern Name
   -- `_`
   | HolePattern Token
 
@@ -417,6 +419,7 @@ expressionExtensionTokens (CallExpressionExtension t1 args t2) =
 
 -- Get tokens from a pattern.
 patternTokens :: Pattern -> Tokens
+patternTokens (ConstantPattern constant) = constantTokens constant
 patternTokens (VariablePattern name) = nameTokens name
 patternTokens (HolePattern token) = singletonToken token
 
@@ -681,6 +684,7 @@ debugExpressionExtension indentation expression (CallExpressionExtension _ args 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugPattern :: Pattern -> B.Builder
+debugPattern (ConstantPattern constant) = debugConstant constant
 debugPattern (VariablePattern (Name identifier _)) =
   B.fromText "(var `"
     <> B.fromText (identifierText identifier)

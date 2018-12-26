@@ -4436,4 +4436,7 @@ spec = mapM_ (uncurry runTest)
       \(variant err\n\
       \  (var `a`))\n"
     )
+  , ( "let true = x"
+    , "(bind (bool true) (var `x`))\n"
+    )
   ]
