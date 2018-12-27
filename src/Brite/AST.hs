@@ -25,6 +25,7 @@ module Brite.AST
   , ObjectPatternProperty(..)
   , ObjectPatternPropertyValue(..)
   , ObjectPatternExtension(..)
+  , VariantPatternElements(..)
   , moduleTokens
   , debugModule
   , showDebugExpression
@@ -289,6 +290,9 @@ data Pattern
       (Maybe (Recover ObjectPatternExtension))
       (Recover Token)
 
+  -- `.V`, `.V(E)`
+  | VariantPattern Token (Recover Name) (Maybe (Recover VariantPatternElements))
+
 -- `p: P`
 --
 -- A single object property.
@@ -304,6 +308,12 @@ data ObjectPatternPropertyValue = ObjectPatternPropertyValue Token (Recover Patt
 --
 -- An extension operation on an object.
 data ObjectPatternExtension = ObjectPatternExtension Token (Recover Pattern)
+
+-- `(...)`
+--
+-- The elements of a variant.
+data VariantPatternElements =
+  VariantPatternElements Token (CommaList Pattern) (Recover Token)
 
 -- Get all the tokens that make up a module. Printing these tokens to source should result in the
 -- exact source code of the document we parsed to produce this module.
@@ -404,10 +414,13 @@ expressionTokens (ObjectExpression t1 ps ext t2) =
     extensionTokens (ObjectExpressionExtension t3 e) =
       singletonToken t3 <> recoverTokens expressionTokens e
 
-expressionTokens (VariantExpression t n es) =
-  singletonToken t
+expressionTokens (VariantExpression t1 n els) =
+  singletonToken t1
     <> recoverTokens nameTokens n
-    <> maybeTokens (recoverTokens variantExpressionElementsTokens) es
+    <> maybeTokens (recoverTokens elementTokens) els
+  where
+    elementTokens (VariantExpressionElements t2 es t3) =
+      singletonToken t2 <> commaListTokens expressionTokens es <> recoverTokens singletonToken t3
 
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 
@@ -425,10 +438,6 @@ expressionTokens (WrappedExpression t1 e t2) =
 
 expressionTokens (ExpressionExtra e ext) =
   expressionTokens e <> recoverTokens expressionExtraTokens ext
-
-variantExpressionElementsTokens :: VariantExpressionElements -> Tokens
-variantExpressionElementsTokens (VariantExpressionElements t1 xs t2) =
-  singletonToken t1 <> commaListTokens expressionTokens xs <> recoverTokens singletonToken t2
 
 binaryExpressionExtraTokens :: BinaryExpressionExtra -> Tokens
 binaryExpressionExtraTokens (BinaryExpressionExtra _ t e) =
@@ -473,6 +482,14 @@ patternTokens (ObjectPattern t1 ps ext t2) =
     extensionTokens (ObjectPatternExtension t3 e) =
       singletonToken t3 <> recoverTokens patternTokens e
 
+patternTokens (VariantPattern t1 n els) =
+  singletonToken t1
+    <> recoverTokens nameTokens n
+    <> maybeTokens (recoverTokens elementTokens) els
+  where
+    elementTokens (VariantPatternElements t2 es t3) =
+      singletonToken t2 <> commaListTokens patternTokens es <> recoverTokens singletonToken t3
+
 -- Prints an expression in an S-expression form for debugging. This abbreviated format should make
 -- it easier to see the structure of the AST.
 showDebugExpression :: Expression -> String
@@ -484,10 +501,6 @@ debugModule :: Module -> B.Builder
 debugModule (Module [] _) = B.fromText "empty\n"
 debugModule (Module statements _) =
   mconcat $ map (\s -> debugRecover (debugStatement "") s <> B.singleton '\n') statements
-
-debugMaybe :: (a -> B.Builder) -> Maybe a -> B.Builder
-debugMaybe _ Nothing = mempty
-debugMaybe debug (Just a) = debug a
 
 debugRecover :: (a -> B.Builder) -> Recover a -> B.Builder
 debugRecover debug (Ok a) = debug a
@@ -596,18 +609,20 @@ debugExpression indentation (ObjectExpression _ properties extension _) =
     debugExtension (ObjectExpressionExtension _ expression) =
       debugRecover (debugExpression newIndentation) expression
 
-debugExpression indentation (VariantExpression _ n es') =
+debugExpression indentation (VariantExpression _ label elements) =
   B.fromText "(variant "
-    <> debugRecover debugName n
-    <> debugMaybe (debugRecover debugElements) es'
+    <> debugRecover debugName label
+    <> maybe mempty (debugRecover debugElements) elements
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
 
-    debugElements (VariantExpressionElements _ es _) =
-      mconcat $ map
-        ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover (debugExpression newIndentation))
-        (commaListItems es)
+    debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
+
+    debugElements (VariantExpressionElements _ patterns _) =
+      mconcat $
+        map (debugNewline (debugRecover (debugExpression indentation))) $
+          commaListItems patterns
 
 debugExpression indentation (UnaryExpression operator _ expression) =
   B.singleton '('
@@ -759,3 +774,18 @@ debugPattern indentation (ObjectPattern _ properties extension _) =
 
     debugExtension (ObjectPatternExtension _ pattern) =
       debugRecover (debugPattern newIndentation) pattern
+
+debugPattern indentation (VariantPattern _ label elements) =
+  B.fromText "(variant "
+    <> debugRecover debugName label
+    <> maybe mempty (debugRecover debugElements) elements
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+
+    debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
+
+    debugElements (VariantPatternElements _ patterns _) =
+      mconcat $
+        map (debugNewline (debugRecover (debugPattern indentation))) $
+          commaListItems patterns

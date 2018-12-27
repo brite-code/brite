@@ -4598,4 +4598,46 @@ spec = mapM_ (uncurry runTest)
       \  (prop (name `a`)))\n\
       \(bool true)\n"
     )
+  , ( "let .V = x"
+    , "(bind (variant (name `V`)) (var `x`))\n"
+    )
+  , ( "let .V() = x"
+    , "(bind (variant (name `V`)) (var `x`))\n"
+    )
+  , ( "let .V(a) = x"
+    , "(bind (variant (name `V`)\n\
+      \  (var `a`)) (var `x`))\n"
+    )
+  , ( "let .V(a, b) = x"
+    , "(bind (variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`)) (var `x`))\n"
+    )
+  , ( "let .V(a, b, c) = x"
+    , "(bind (variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  (var `c`)) (var `x`))\n"
+    )
+  , ( "let .V(,) = x"
+    , "(0:7-0:8) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(bind (variant (name `V`)\n\
+      \  err) (var `x`))\n"
+    )
+  , ( "let .V(a,) = x"
+    , "(bind (variant (name `V`)\n\
+      \  (var `a`)) (var `x`))\n"
+    )
+  , ( "let .V(a, b,) = x"
+    , "(bind (variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`)) (var `x`))\n"
+    )
+  , ( "let .V(a, b, c,) = x"
+    , "(bind (variant (name `V`)\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  (var `c`)) (var `x`))\n"
+    )
   ]

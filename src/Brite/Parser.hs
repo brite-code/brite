@@ -337,6 +337,7 @@ tryPattern :: TryParser Pattern
 tryPattern =
   tryVariablePattern
     <|> tryObjectPattern
+    <|> tryVariantPattern
     <|> tryHolePattern
     <|> tryConstantPattern
     <|> unexpected ExpectedPattern
@@ -372,3 +373,17 @@ tryObjectPatternExtension =
   ObjectPatternExtension
     <$> tryGlyph Bar
     <&> pattern
+
+tryVariantPattern :: TryParser Pattern
+tryVariantPattern =
+  VariantPattern
+    <$> tryGlyph Dot
+    <&> name
+    <&> optional tryVariantPatternElements
+
+tryVariantPatternElements :: TryParser VariantPatternElements
+tryVariantPatternElements =
+  VariantPatternElements
+    <$> tryGlyph ParenLeft
+    <&> commaList tryPattern
+    <&> glyph ParenRight
