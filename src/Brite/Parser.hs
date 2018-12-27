@@ -336,6 +336,7 @@ pattern = retry tryPattern
 tryPattern :: TryParser Pattern
 tryPattern =
   tryVariablePattern
+    <|> tryObjectPattern
     <|> tryHolePattern
     <|> tryConstantPattern
     <|> unexpected ExpectedPattern
@@ -348,3 +349,26 @@ tryVariablePattern = VariablePattern <$> tryName
 
 tryHolePattern :: TryParser Pattern
 tryHolePattern = HolePattern <$> tryKeyword Hole
+
+tryObjectPattern :: TryParser Pattern
+tryObjectPattern =
+  ObjectPattern
+    <$> tryGlyph BraceLeft
+    <&> commaList tryObjectPatternProperty
+    <&> optional tryObjectPatternExtension
+    <&> glyph BraceRight
+
+tryObjectPatternProperty :: TryParser ObjectPatternProperty
+tryObjectPatternProperty =
+  ObjectPatternProperty
+    <$> tryName
+    <&> optional tryObjectPatternPropertyValue
+
+tryObjectPatternPropertyValue :: TryParser ObjectPatternPropertyValue
+tryObjectPatternPropertyValue = ObjectPatternPropertyValue <$> tryGlyph Colon <&> pattern
+
+tryObjectPatternExtension :: TryParser ObjectPatternExtension
+tryObjectPatternExtension =
+  ObjectPatternExtension
+    <$> tryGlyph Bar
+    <&> pattern

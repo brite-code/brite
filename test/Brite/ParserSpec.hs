@@ -3406,11 +3406,25 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun f( {}"
-    , "(0:7-0:8) We wanted `)` but we found `{`.\n\
+    , "(0:9-0:9) We wanted `)` but the file ended.\n\
+      \(0:9-0:9) We wanted `{` but the file ended.\n\
+      \(0:9-0:9) We wanted `}` but the file ended.\n\
       \\n\
       \(fun\n\
       \  (name `f`)\n\
+      \  object\n\
       \  block)\n"
+    )
+  , ( "fun f( { let x = y }"
+    , "(0:9-0:12) We wanted `}` but we found `let`.\n\
+      \(0:9-0:12) We wanted `)` but we found `let`.\n\
+      \(0:9-0:12) We wanted `{` but we found `let`.\n\
+      \\n\
+      \(fun\n\
+      \  (name `f`)\n\
+      \  object\n\
+      \  (block\n\
+      \    (bind (var `x`) (var `y`))))\n"
     )
   , ( "fun f() }"
     , "(0:8-0:9) We wanted `{` but we found `}`.\n\
@@ -3433,9 +3447,12 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun( {}"
-    , "(0:5-0:6) We wanted `)` but we found `{`.\n\
+    , "(0:7-0:7) We wanted `)` but the file ended.\n\
+      \(0:7-0:7) We wanted `{` but the file ended.\n\
+      \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
       \(fun\n\
+      \  object\n\
       \  block)\n"
     )
   , ( "fun() }"
@@ -4181,6 +4198,11 @@ spec = mapM_ (uncurry runTest)
       \  (prop (name `p`) (var `a`))\n\
       \  (var `o`))\n"
     )
+  , ( "{p: a, | o}"
+    , "(object\n\
+      \  (prop (name `p`) (var `a`))\n\
+      \  (var `o`))\n"
+    )
   , ( "{p: a, q: b | o}"
     , "(object\n\
       \  (prop (name `p`) (var `a`))\n\
@@ -4438,5 +4460,142 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "let true = x"
     , "(bind (bool true) (var `x`))\n"
+    )
+  , ( "let {} = o"
+    , "(bind object (var `o`))\n"
+    )
+  , ( "let {a} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))) (var `o`))\n"
+    )
+  , ( "let {a, b} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `b`))) (var `o`))\n"
+    )
+  , ( "let {a, b, c} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `b`))\n\
+      \  (prop (name `c`))) (var `o`))\n"
+    )
+  , ( "let {,} = o"
+    , "(0:5-0:6) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(bind (object\n\
+      \  (prop err)) (var `o`))\n"
+    )
+  , ( "let {a,} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))) (var `o`))\n"
+    )
+  , ( "let {a, b,} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `b`))) (var `o`))\n"
+    )
+  , ( "let {a, b, c,} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `b`))\n\
+      \  (prop (name `c`))) (var `o`))\n"
+    )
+  , ( "let {a: a2} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`) (var `a2`))) (var `o`))\n"
+    )
+  , ( "let {a: a2, b: b2} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`) (var `a2`))\n\
+      \  (prop (name `b`) (var `b2`))) (var `o`))\n"
+    )
+  , ( "let {a: a2, b: b2, c: c2} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`) (var `a2`))\n\
+      \  (prop (name `b`) (var `b2`))\n\
+      \  (prop (name `c`) (var `c2`))) (var `o`))\n"
+    )
+  , ( "let {a: a2, b} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`) (var `a2`))\n\
+      \  (prop (name `b`))) (var `o`))\n"
+    )
+  , ( "let {a, b: b2} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `b`) (var `b2`))) (var `o`))\n"
+    )
+  , ( "let {| o} = o"
+    , "(bind (object\n\
+      \  (var `o`)) (var `o`))\n"
+    )
+  , ( "let {a | o} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (var `o`)) (var `o`))\n"
+    )
+  , ( "let {a, | o} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (var `o`)) (var `o`))\n"
+    )
+  , ( "let {a, b | o} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `b`))\n\
+      \  (var `o`)) (var `o`))\n"
+    )
+  , ( "let {a, b, c | o} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (prop (name `b`))\n\
+      \  (prop (name `c`))\n\
+      \  (var `o`)) (var `o`))\n"
+    )
+  , ( "let {a | {b | o}} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (object\n\
+      \    (prop (name `b`))\n\
+      \    (var `o`))) (var `o`))\n"
+    )
+  , ( "let {a | {b | {c | o}}} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (object\n\
+      \    (prop (name `b`))\n\
+      \    (object\n\
+      \      (prop (name `c`))\n\
+      \      (var `o`)))) (var `o`))\n"
+    )
+  , ( "let {a | {b | {c | {}}}} = o"
+    , "(bind (object\n\
+      \  (prop (name `a`))\n\
+      \  (object\n\
+      \    (prop (name `b`))\n\
+      \    (object\n\
+      \      (prop (name `c`))\n\
+      \      object))) (var `o`))\n"
+    )
+  , ( "{a: {b: c}}"
+    , "(object\n\
+      \  (prop (name `a`) (object\n\
+      \    (prop (name `b`) (var `c`)))))\n"
+    )
+  , ( "{a {}}"
+    , "(0:3-0:4) We wanted `}` but we found `{`.\n\
+      \(0:5-0:6) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `a`)))\n\
+      \object\n"
+    )
+  , ( "{a true}"
+    , "(0:3-0:7) We wanted `}` but we found `true`.\n\
+      \(0:7-0:8) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(object\n\
+      \  (prop (name `a`)))\n\
+      \(bool true)\n"
     )
   ]
