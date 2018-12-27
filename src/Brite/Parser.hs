@@ -20,6 +20,7 @@ tryName = uncurry Name <$> tryIdentifier
 tryStatement :: TryParser Statement
 tryStatement =
   tryBindingStatement
+    <|> tryDeclaration
     <|> tryExpressionStatement
     <|> tryReturnStatement
     <|> tryBreakStatement
@@ -55,18 +56,23 @@ tryBreakStatement =
 semicolon :: Parser (Maybe (Recover Token))
 semicolon = optional (tryGlyph Semicolon)
 
-block :: Parser Block
-block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
+tryDeclaration :: TryParser Statement
+tryDeclaration =
+  Declaration
+    <$> tryFunctionDeclaration
 
-tryFunction :: TryParser Function
-tryFunction =
-  Function
+tryFunctionDeclaration :: TryParser Declaration
+tryFunctionDeclaration =
+  FunctionDeclaration
     <$> tryKeyword Fun
-    <&> optional tryName
+    <&> name
     <&> glyph ParenLeft
     <&> commaList tryPattern
     <&> glyph ParenRight
     <&> block
+
+block :: Parser Block
+block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
 
 tryConstant :: TryParser Constant
 tryConstant = tryBooleanTrue <|> tryBooleanFalse
@@ -99,7 +105,14 @@ tryVariableExpression :: TryParser Expression
 tryVariableExpression = VariableExpression <$> tryName
 
 tryFunctionExpression :: TryParser Expression
-tryFunctionExpression = FunctionExpression <$> tryFunction
+tryFunctionExpression =
+  FunctionExpression
+    <$> tryKeyword Fun
+    <&> optional tryName
+    <&> glyph ParenLeft
+    <&> commaList tryPattern
+    <&> glyph ParenRight
+    <&> block
 
 tryObjectExpression :: TryParser Expression
 tryObjectExpression =

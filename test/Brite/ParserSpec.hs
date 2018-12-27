@@ -3182,8 +3182,15 @@ spec = mapM_ (uncurry runTest)
       \(bind hole err)\n"
     )
   , ( "fun() {}"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  block)\n"
+    )
+  , ( "(fun() {})"
+    , "(wrap (fun\n\
+      \  block))\n"
     )
   , ( "fun f() {}"
     , "(fun\n\
@@ -3191,22 +3198,49 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun(a) {}"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  (var `a`)\n\
       \  block)\n"
     )
+  , ( "(fun(a) {})"
+    , "(wrap (fun\n\
+      \  (var `a`)\n\
+      \  block))\n"
+    )
   , ( "fun(a, b) {}"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  block)\n"
     )
   , ( "fun(a, b, c) {}"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`)\n\
       \  block)\n"
+    )
+  , ( "(fun(a, b) {})"
+    , "(wrap (fun\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  block))\n"
+    )
+  , ( "(fun(a, b, c) {})"
+    , "(wrap (fun\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  (var `c`)\n\
+      \  block))\n"
     )
   , ( "fun f(a) {}"
     , "(fun\n\
@@ -3230,22 +3264,49 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun(a,) {}"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  (var `a`)\n\
       \  block)\n"
     )
   , ( "fun(a, b,) {}"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  block)\n"
     )
   , ( "fun(a, b, c,) {}"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`)\n\
       \  block)\n"
+    )
+  , ( "(fun(a,) {})"
+    , "(wrap (fun\n\
+      \  (var `a`)\n\
+      \  block))\n"
+    )
+  , ( "(fun(a, b,) {})"
+    , "(wrap (fun\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  block))\n"
+    )
+  , ( "(fun(a, b, c,) {})"
+    , "(wrap (fun\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  (var `c`)\n\
+      \  block))\n"
     )
   , ( "fun f(a,) {}"
     , "(fun\n\
@@ -3269,9 +3330,17 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun() { let x = y; }"
-    , "(fun\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
       \  (block\n\
       \    (bind (var `x`) (var `y`))))\n"
+    )
+  , ( "(fun() { let x = y; })"
+    , "(wrap (fun\n\
+      \  (block\n\
+      \    (bind (var `x`) (var `y`)))))\n"
     )
   , ( "fun f() { let x = y; }"
     , "(fun\n\
@@ -3280,8 +3349,17 @@ spec = mapM_ (uncurry runTest)
       \    (bind (var `x`) (var `y`))))\n"
     )
   , ( "fun() {}()"
-    , "(call (fun\n\
-      \  block))\n"
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \(0:9-0:10) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(fun\n\
+      \  err\n\
+      \  block)\n\
+      \(wrap err)\n"
+    )
+  , ( "(fun() {}())"
+    , "(wrap (call (fun\n\
+      \  block)))\n"
     )
   , ( "(fun() {})()"
     , "(call (wrap (fun\n\
@@ -3441,41 +3519,88 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun) {}"
-    , "(0:3-0:4) We wanted `(` but we found `)`.\n\
+    , "(0:3-0:4) We wanted a variable name but we found `)`.\n\
+      \(0:3-0:4) We wanted `(` but we found `)`.\n\
       \\n\
       \(fun\n\
+      \  err\n\
       \  block)\n"
     )
   , ( "fun( {}"
-    , "(0:7-0:7) We wanted `)` but the file ended.\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \(0:7-0:7) We wanted `)` but the file ended.\n\
       \(0:7-0:7) We wanted `{` but the file ended.\n\
       \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
       \(fun\n\
+      \  err\n\
       \  object\n\
       \  block)\n"
     )
   , ( "fun() }"
-    , "(0:6-0:7) We wanted `{` but we found `}`.\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \(0:6-0:7) We wanted `{` but we found `}`.\n\
       \\n\
       \(fun\n\
+      \  err\n\
       \  block)\n"
     )
   , ( "fun() {"
-    , "(0:7-0:7) We wanted `}` but the file ended.\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \(0:7-0:7) We wanted `}` but the file ended.\n\
       \\n\
       \(fun\n\
+      \  err\n\
       \  block)\n"
     )
   , ( "fun(a, b let x = y; }"
-    , "(0:9-0:12) We wanted `)` but we found `let`.\n\
+    , "(0:3-0:4) We wanted a variable name but we found `(`.\n\
+      \(0:9-0:12) We wanted `)` but we found `let`.\n\
       \(0:9-0:12) We wanted `{` but we found `let`.\n\
       \\n\
       \(fun\n\
+      \  err\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (block\n\
       \    (bind (var `x`) (var `y`))))\n"
+    )
+  , ( "(fun) {})"
+    , "(0:4-0:5) We wanted `(` but we found `)`.\n\
+      \\n\
+      \(wrap (fun\n\
+      \  block))\n"
+    )
+  , ( "(fun( {})"
+    , "(0:9-0:9) We wanted `{` but the file ended.\n\
+      \(0:9-0:9) We wanted `}` but the file ended.\n\
+      \(0:9-0:9) We wanted `)` but the file ended.\n\
+      \\n\
+      \(wrap (fun\n\
+      \  object\n\
+      \  block))\n"
+    )
+  , ( "(fun() })"
+    , "(0:7-0:8) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(wrap (fun\n\
+      \  block))\n"
+    )
+  , ( "(fun() {)"
+    , "(0:8-0:9) We wanted `}` but we found `)`.\n\
+      \\n\
+      \(wrap (fun\n\
+      \  block))\n"
+    )
+  , ( "(fun(a, b let x = y; })"
+    , "(0:10-0:13) We wanted `)` but we found `let`.\n\
+      \(0:10-0:13) We wanted `{` but we found `let`.\n\
+      \\n\
+      \(wrap (fun\n\
+      \  (var `a`)\n\
+      \  (var `b`)\n\
+      \  (block\n\
+      \    (bind (var `x`) (var `y`)))))\n"
     )
   , ( "fun f(a, b let x = y; }"
     , "(0:11-0:14) We wanted `)` but we found `let`.\n\
