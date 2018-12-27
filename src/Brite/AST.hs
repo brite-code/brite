@@ -16,11 +16,11 @@ module Brite.AST
   , ObjectExpressionExtension(..)
   , VariantExpressionElements(..)
   , UnaryOperator(..)
-  , BinaryExpressionExtension(..)
+  , BinaryExpressionExtra(..)
   , BinaryOperator(..)
   , ConditionalExpressionIf(..)
   , ConditionalExpressionElse(..)
-  , ExpressionExtension(..)
+  , ExpressionExtra(..)
   , Pattern(..)
   , moduleTokens
   , debugModule
@@ -141,9 +141,9 @@ data Expression
   --
   -- An operation on two expressions.
   --
-  -- Unlike `ExpressionExtension` in that the first expression must be `Recover` since binary
+  -- Unlike `ExpressionExtra` in that the first expression must be `Recover` since binary
   -- expressions are parsed differently.
-  | BinaryExpression (Recover Expression) (Recover BinaryExpressionExtension)
+  | BinaryExpression (Recover Expression) (Recover BinaryExpressionExtra)
 
   -- ```
   -- if E { ... }
@@ -172,19 +172,19 @@ data Expression
 
   -- `E.p`, `E()`
   --
-  -- Any extension on a primary expression. Including property expressions, function calls,
+  -- Any extra syntax on a primary expression. Including property expressions, function calls,
   -- and more.
-  | ExpressionExtension Expression (Recover ExpressionExtension)
+  | ExpressionExtra Expression (Recover ExpressionExtra)
 
 -- `p: E`
 --
--- A single object expression property.
+-- A single object property.
 data ObjectExpressionProperty =
   ObjectExpressionProperty Name (Maybe (Recover ObjectExpressionPropertyValue))
 
 -- `: E`
 --
--- The value of a single object extension property.
+-- The value of a single object property.
 data ObjectExpressionPropertyValue = ObjectExpressionPropertyValue Token (Recover Expression)
 
 -- `| E`
@@ -194,7 +194,7 @@ data ObjectExpressionExtension = ObjectExpressionExtension Token (Recover Expres
 
 -- `(...)`
 --
--- The elements of a variant expression.
+-- The elements of a variant.
 data VariantExpressionElements =
   VariantExpressionElements Token (CommaList Expression) (Recover Token)
 
@@ -206,9 +206,8 @@ data UnaryOperator
   -- `+`
   | Positive
 
--- The extension for a binary expression.
-data BinaryExpressionExtension =
-  BinaryExpressionExtension BinaryOperator Token (Recover Expression)
+data BinaryExpressionExtra =
+  BinaryExpressionExtra BinaryOperator Token (Recover Expression)
 
 data BinaryOperator
   -- `+`
@@ -260,13 +259,13 @@ data ConditionalExpressionElse
   -- `else if E { ... }`
   | ConditionalExpressionElseIf Token ConditionalExpressionIf
 
--- Some extension of an expression. We keep this as a separate data type to match our
+-- Some extra syntax of an expression. We keep this as a separate data type to match our
 -- parser implementation.
-data ExpressionExtension
+data ExpressionExtra
   -- `E.p`
-  = PropertyExpressionExtension Token (Recover Name)
+  = PropertyExpressionExtra Token (Recover Name)
   -- `f(...)`
-  | CallExpressionExtension Token (CommaList Expression) (Recover Token)
+  | CallExpressionExtra Token (CommaList Expression) (Recover Token)
 
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
@@ -370,14 +369,14 @@ expressionTokens (VariantExpression t n es) =
     <> maybeTokens (recoverTokens variantExpressionElementsTokens) es
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 expressionTokens (BinaryExpression e ext) =
-  recoverTokens expressionTokens e <> recoverTokens binaryExpressionExtensionTokens ext
+  recoverTokens expressionTokens e <> recoverTokens binaryExpressionExtraTokens ext
 expressionTokens (ConditionalExpression i) = conditionalExpressionIfTokens i
 expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
 expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
 expressionTokens (WrappedExpression t1 e t2) =
   singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
-expressionTokens (ExpressionExtension e ext) =
-  expressionTokens e <> recoverTokens expressionExtensionTokens ext
+expressionTokens (ExpressionExtra e ext) =
+  expressionTokens e <> recoverTokens expressionExtraTokens ext
 
 objectExpressionPropertyTokens :: ObjectExpressionProperty -> Tokens
 objectExpressionPropertyTokens (ObjectExpressionProperty l v) =
@@ -395,8 +394,8 @@ variantExpressionElementsTokens :: VariantExpressionElements -> Tokens
 variantExpressionElementsTokens (VariantExpressionElements t1 xs t2) =
   singletonToken t1 <> commaListTokens expressionTokens xs <> recoverTokens singletonToken t2
 
-binaryExpressionExtensionTokens :: BinaryExpressionExtension -> Tokens
-binaryExpressionExtensionTokens (BinaryExpressionExtension _ t e) =
+binaryExpressionExtraTokens :: BinaryExpressionExtra -> Tokens
+binaryExpressionExtraTokens (BinaryExpressionExtra _ t e) =
   singletonToken t <> recoverTokens expressionTokens e
 
 conditionalExpressionIfTokens :: ConditionalExpressionIf -> Tokens
@@ -411,10 +410,10 @@ conditionalExpressionElseTokens (ConditionalExpressionElse t b) = singletonToken
 conditionalExpressionElseTokens (ConditionalExpressionElseIf t i) =
   singletonToken t <> conditionalExpressionIfTokens i
 
-expressionExtensionTokens :: ExpressionExtension -> Tokens
-expressionExtensionTokens (PropertyExpressionExtension t l) =
+expressionExtraTokens :: ExpressionExtra -> Tokens
+expressionExtraTokens (PropertyExpressionExtra t l) =
   singletonToken t <> recoverTokens nameTokens l
-expressionExtensionTokens (CallExpressionExtension t1 args t2) =
+expressionExtraTokens (CallExpressionExtra t1 args t2) =
   singletonToken t1 <> commaListTokens expressionTokens args <> recoverTokens singletonToken t2
 
 -- Get tokens from a pattern.
@@ -582,8 +581,8 @@ debugExpression indentation (UnaryExpression operator _ expression) =
         Positive -> "pos"
         Negative -> "neg"
 
-debugExpression indentation (BinaryExpression expression extension) =
-  debugRecover (debugBinaryExpressionExtension indentation expression) extension
+debugExpression indentation (BinaryExpression expression extra) =
+  debugRecover (debugBinaryExpressionExtra indentation expression) extra
 
 debugExpression indentation (ConditionalExpression if_) =
   debugConditionalExpressionIf indentation if_
@@ -599,15 +598,15 @@ debugExpression indentation (WrappedExpression _ expression _) =
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
 
-debugExpression indentation (ExpressionExtension expression (Ok extension)) =
-  debugExpressionExtension indentation expression extension
-debugExpression indentation (ExpressionExtension expression (Recover _ _ extension)) =
-  debugExpressionExtension indentation expression extension
-debugExpression indentation (ExpressionExtension expression (Fatal _ _)) =
+debugExpression indentation (ExpressionExtra expression (Ok extra)) =
+  debugExpressionExtra indentation expression extra
+debugExpression indentation (ExpressionExtra expression (Recover _ _ extra)) =
+  debugExpressionExtra indentation expression extra
+debugExpression indentation (ExpressionExtra expression (Fatal _ _)) =
   debugExpression indentation expression
 
-debugBinaryExpressionExtension :: B.Builder -> Recover Expression -> BinaryExpressionExtension -> B.Builder
-debugBinaryExpressionExtension indentation left (BinaryExpressionExtension operator _ right) =
+debugBinaryExpressionExtra :: B.Builder -> Recover Expression -> BinaryExpressionExtra -> B.Builder
+debugBinaryExpressionExtra indentation left (BinaryExpressionExtra operator _ right) =
   B.singleton '('
     <> B.fromText operatorDescription
     <> B.singleton ' '
@@ -659,18 +658,18 @@ debugConditionalExpressionElse indentation (ConditionalExpressionElse _ block) =
 debugConditionalExpressionElse indentation (ConditionalExpressionElseIf _ if_) =
   debugConditionalExpressionIf indentation if_
 
-debugExpressionExtension :: B.Builder -> Expression -> ExpressionExtension -> B.Builder
-debugExpressionExtension indentation expression (PropertyExpressionExtension _ label) =
+debugExpressionExtra :: B.Builder -> Expression -> ExpressionExtra -> B.Builder
+debugExpressionExtra indentation expression (PropertyExpressionExtra _ label) =
   B.fromText "(prop "
     <> debugExpression indentation expression
     <> B.singleton ' '
     <> debugRecover debugName label
     <> B.singleton ')'
 
-debugExpressionExtension indentation expression (CallExpressionExtension _ (CommaList [] Nothing) _) =
+debugExpressionExtra indentation expression (CallExpressionExtra _ (CommaList [] Nothing) _) =
   B.fromText "(call " <> debugExpression indentation expression <> B.singleton ')'
 
-debugExpressionExtension indentation expression (CallExpressionExtension _ args _) =
+debugExpressionExtra indentation expression (CallExpressionExtra _ args _) =
   B.fromText "(call"
     <> debugArg (Ok expression)
     <> mconcat (map debugArg (commaListItems args))

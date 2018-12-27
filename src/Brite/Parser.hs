@@ -196,21 +196,21 @@ tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <
 
 trySecondaryExpression :: TryParser Expression
 trySecondaryExpression =
-  foldl ExpressionExtension <$> tryPrimaryExpression <&> many trySecondaryExpressionExtension
+  foldl ExpressionExtra <$> tryPrimaryExpression <&> many trySecondaryExpressionExtra
 
-trySecondaryExpressionExtension :: TryParser ExpressionExtension
-trySecondaryExpressionExtension =
-  tryPropertyExpressionExtension
-    <|> tryCallExpressionExtension
+trySecondaryExpressionExtra :: TryParser ExpressionExtra
+trySecondaryExpressionExtra =
+  tryPropertyExpressionExtra
+    <|> tryCallExpressionExtra
     <|> unexpected ExpectedExpression
 
-tryPropertyExpressionExtension :: TryParser ExpressionExtension
-tryPropertyExpressionExtension =
-  PropertyExpressionExtension <$> tryGlyph Dot <&> name
+tryPropertyExpressionExtra :: TryParser ExpressionExtra
+tryPropertyExpressionExtra =
+  PropertyExpressionExtra <$> tryGlyph Dot <&> name
 
-tryCallExpressionExtension :: TryParser ExpressionExtension
-tryCallExpressionExtension =
-  CallExpressionExtension
+tryCallExpressionExtra :: TryParser ExpressionExtra
+tryCallExpressionExtra =
+  CallExpressionExtra
     <$> tryGlyphOnSameLine ParenLeft
     <&> commaList tryExpression
     <&> glyph ParenRight
@@ -228,35 +228,35 @@ tryUnaryExpression =
     positive = (UnaryExpression Positive) <$> tryGlyph Plus <&> operand
 
 tryBinaryExpression :: TryParser Expression
-tryBinaryExpression = build <$> tryBinaryExpressionOperand <&> many tryBinaryExpressionExtension
+tryBinaryExpression = build <$> tryBinaryExpressionOperand <&> many tryBinaryExpressionExtra
   where
     build x [] = x
     build x (ext : exts) =
-      let p = binaryExpressionExtensionPrecedence ext in
+      let p = binaryExpressionExtraPrecedence ext in
         build (insert x p ext) exts
 
     insert x p ext =
       case x of
-        BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Ok l2))) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Ok (insert l2 p ext))))
-        BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t (Ok l2))) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t (Ok (insert l2 p ext))))
-        BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Recover ts e l2))) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Recover ts e (insert l2 p ext))))
-        BinaryExpression l1 (Recover ts1 e1 (BinaryExpressionExtension op t (Recover ts2 e2 l2))) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Recover ts1 e1 (BinaryExpressionExtension op t (Recover ts2 e2 (insert l2 p ext))))
-        BinaryExpression l1 (Ok (BinaryExpressionExtension op t l2@(Fatal _ _))) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Ok (BinaryExpressionExtension op t (Ok (BinaryExpression l2 ext))))
-        BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t l2@(Fatal _ _))) | p < binaryOperatorPrecedence op ->
-          BinaryExpression l1 (Recover ts e (BinaryExpressionExtension op t (Ok (BinaryExpression l2 ext))))
+        BinaryExpression l1 (Ok (BinaryExpressionExtra op t (Ok l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Ok (BinaryExpressionExtra op t (Ok (insert l2 p ext))))
+        BinaryExpression l1 (Recover ts e (BinaryExpressionExtra op t (Ok l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Recover ts e (BinaryExpressionExtra op t (Ok (insert l2 p ext))))
+        BinaryExpression l1 (Ok (BinaryExpressionExtra op t (Recover ts e l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Ok (BinaryExpressionExtra op t (Recover ts e (insert l2 p ext))))
+        BinaryExpression l1 (Recover ts1 e1 (BinaryExpressionExtra op t (Recover ts2 e2 l2))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Recover ts1 e1 (BinaryExpressionExtra op t (Recover ts2 e2 (insert l2 p ext))))
+        BinaryExpression l1 (Ok (BinaryExpressionExtra op t l2@(Fatal _ _))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Ok (BinaryExpressionExtra op t (Ok (BinaryExpression l2 ext))))
+        BinaryExpression l1 (Recover ts e (BinaryExpressionExtra op t l2@(Fatal _ _))) | p < binaryOperatorPrecedence op ->
+          BinaryExpression l1 (Recover ts e (BinaryExpressionExtra op t (Ok (BinaryExpression l2 ext))))
         _ ->
           BinaryExpression (Ok x) ext
 
 tryBinaryExpressionOperand :: TryParser Expression
 tryBinaryExpressionOperand = tryUnaryExpression
 
-tryBinaryExpressionExtension :: TryParser BinaryExpressionExtension
-tryBinaryExpressionExtension =
+tryBinaryExpressionExtra :: TryParser BinaryExpressionExtra
+tryBinaryExpressionExtra =
   add
     <|> subtract_
     <|> multiply
@@ -273,7 +273,7 @@ tryBinaryExpressionExtension =
     <|> or_
     <|> unexpected ExpectedExpression
   where
-    make = BinaryExpressionExtension
+    make = BinaryExpressionExtra
     operand = retry tryBinaryExpressionOperand
     add = make Add <$> tryGlyph Plus <&> operand
     subtract_ = make Subtract <$> tryGlyph Minus <&> operand
@@ -319,11 +319,10 @@ binaryOperatorPrecedence NotEquals = Equality
 binaryOperatorPrecedence And = LogicalAnd
 binaryOperatorPrecedence Or = LogicalOr
 
--- Gets the precedence level of a binary expression extension.
-binaryExpressionExtensionPrecedence :: Recover BinaryExpressionExtension -> Precedence
-binaryExpressionExtensionPrecedence (Ok (BinaryExpressionExtension op _ _)) = binaryOperatorPrecedence op
-binaryExpressionExtensionPrecedence (Recover _ _ (BinaryExpressionExtension op _ _)) = binaryOperatorPrecedence op
-binaryExpressionExtensionPrecedence (Fatal _ _) = FatalPrecedence
+binaryExpressionExtraPrecedence :: Recover BinaryExpressionExtra -> Precedence
+binaryExpressionExtraPrecedence (Ok (BinaryExpressionExtra op _ _)) = binaryOperatorPrecedence op
+binaryExpressionExtraPrecedence (Recover _ _ (BinaryExpressionExtra op _ _)) = binaryOperatorPrecedence op
+binaryExpressionExtraPrecedence (Fatal _ _) = FatalPrecedence
 
 tryExpression :: TryParser Expression
 tryExpression = tryBinaryExpression
