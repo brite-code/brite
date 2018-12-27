@@ -593,4 +593,14 @@ spec = mapM_ (uncurry runTest)
     , "0:0-0:2   | Glyph `&&`\n\
       \0:2       | End\n"
     )
+  , ( "- >"
+    , "0:0-0:1   | Glyph `-`\n\
+      \-         | Spaces 1\n\
+      \0:2-0:3   | Glyph `>`\n\
+      \0:3       | End\n"
+    )
+  , ( "->"
+    , "0:0-0:2   | Glyph `->`\n\
+      \0:2       | End\n"
+    )
   ]

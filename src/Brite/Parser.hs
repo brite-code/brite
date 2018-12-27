@@ -87,6 +87,7 @@ tryPrimaryExpression =
     <|> tryConstantExpression
     <|> tryWrappedExpression
     <|> tryVariantExpression
+    <|> tryMatchExpression
     <|> tryBlockExpression
     <|> tryLoopExpression
     <|> unexpected ExpectedExpression
@@ -184,6 +185,22 @@ tryConditionalExpressionElse = flip ($) <$> tryKeyword Else <&> elseIf
       tryOnce
         (flip ConditionalExpressionElseIf <$> tryConditionalExpressionIf)
         (flip ConditionalExpressionElse <$> block)
+
+tryMatchExpression :: TryParser Expression
+tryMatchExpression =
+  MatchExpression
+    <$> tryKeyword Match
+    <&> expression
+    <&> glyph BraceLeft
+    <&> many tryMatchExpressionCase
+    <&> glyph BraceRight
+
+tryMatchExpressionCase :: TryParser MatchExpressionCase
+tryMatchExpressionCase =
+  MatchExpressionCase
+    <$> tryPattern
+    <&> glyph Arrow
+    <&> block
 
 tryBlockExpression :: TryParser Expression
 tryBlockExpression = BlockExpression <$> tryKeyword Do <&> block

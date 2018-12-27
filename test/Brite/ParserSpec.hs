@@ -4640,4 +4640,145 @@ spec = mapM_ (uncurry runTest)
       \  (var `b`)\n\
       \  (var `c`)) (var `x`))\n"
     )
+  , ( "match x { y -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "match x { y -> {} z -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block)\n\
+      \  (case (var `z`) block))\n"
+    )
+  , ( "match x { .Red -> {} .Green -> {} .Blue -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (variant (name `Red`)) block)\n\
+      \  (case (variant (name `Green`)) block)\n\
+      \  (case (variant (name `Blue`)) block))\n"
+    )
+  , ( "match x {\n\
+      \  y -> {}\n\
+      \  z -> {}\n\
+      \}"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block)\n\
+      \  (case (var `z`) block))\n"
+    )
+  , ( "match x {\n\
+      \  .Red -> {}\n\
+      \  .Green -> {}\n\
+      \  .Blue -> {}\n\
+      \}"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (variant (name `Red`)) block)\n\
+      \  (case (variant (name `Green`)) block)\n\
+      \  (case (variant (name `Blue`)) block))\n"
+    )
+  , ( "match {} {}"
+    , "(match\n\
+      \  object)\n"
+    )
+  , ( "match {}"
+    , "(0:8-0:8) We wanted `{` but the file ended.\n\
+      \(0:8-0:8) We wanted `}` but the file ended.\n\
+      \\n\
+      \(match\n\
+      \  object)\n"
+    )
+  , ( "match { y -> {} }"
+    , "(0:10-0:12) We wanted `:` but we found `->`.\n\
+      \(0:13-0:14) We wanted `}` but we found `{`.\n\
+      \(0:16-0:17) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(match\n\
+      \  (object\n\
+      \    (prop (name `y`) err)))\n"
+    )
+  , ( "match x y -> {} }"
+    , "(0:8-0:9) We wanted `{` but we found a variable name.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "match x { y -> {}"
+    , "(0:17-0:17) We wanted `}` but the file ended.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "match x { -> {} }"
+    , "(0:10-0:12) We wanted a variable name but we found `->`.\n\
+      \(0:16-0:17) We wanted `->` but we found `}`.\n\
+      \(0:16-0:17) We wanted `{` but we found `}`.\n\
+      \(0:17-0:17) We wanted `}` but the file ended.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case object block))\n"
+    )
+  , ( "match x { -> { let a = b } }"
+    , "(0:10-0:12) We wanted a variable name but we found `->`.\n\
+      \(0:15-0:18) We wanted `}` but we found `let`.\n\
+      \(0:15-0:18) We wanted `->` but we found `let`.\n\
+      \(0:15-0:18) We wanted `{` but we found `let`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case object (block\n\
+      \    (bind (var `a`) (var `b`)))))\n"
+    )
+  , ( "match x { y {} }"
+    , "(0:12-0:13) We wanted `->` but we found `{`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "match x { y -> } }"
+    , "(0:15-0:16) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "match x { y -> { }"
+    , "(0:18-0:18) We wanted `}` but the file ended.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "match x { y -> {} let a = b }"
+    , "(0:18-0:21) We wanted `}` but we found `let`.\n\
+      \(0:28-0:29) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n\
+      \(bind (var `a`) (var `b`))\n"
+    )
+  , ( "match x { y -> {} let a = b z -> {} }"
+    , "(0:18-0:21) We wanted `}` but we found `let`.\n\
+      \(0:30-0:32) We wanted an expression but we found `->`.\n\
+      \(0:36-0:37) We wanted an expression but we found `}`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n\
+      \(bind (var `a`) (var `b`))\n\
+      \(var `z`)\n\
+      \object\n"
+    )
+  , ( "match x { y -> { let a = b } }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) (block\n\
+      \    (bind (var `a`) (var `b`)))))\n"
+    )
   ]

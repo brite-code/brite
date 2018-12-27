@@ -120,6 +120,7 @@ data Keyword
   | Let
   | If
   | Else
+  | Match
   | Do
   | Fun
   | Return
@@ -138,6 +139,7 @@ keyword t =
     "let" -> Just Let
     "if" -> Just If
     "else" -> Just Else
+    "match" -> Just Match
     "do" -> Just Do
     "fun" -> Just Fun
     "return" -> Just Return
@@ -153,6 +155,7 @@ keywordText False_ = "false"
 keywordText Let = "let"
 keywordText If = "if"
 keywordText Else = "else"
+keywordText Match = "match"
 keywordText Do = "do"
 keywordText Fun = "fun"
 keywordText Return = "return"
@@ -193,6 +196,8 @@ data Glyph
   | Ampersand
   -- `&&`
   | AmpersandDouble
+  -- `->`
+  | Arrow
   -- `*`
   | Asterisk
   -- `!`
@@ -252,6 +257,7 @@ glyphText :: Glyph -> T.Text
 glyphText (Keyword k) = keywordText k
 glyphText Ampersand = "&"
 glyphText AmpersandDouble = "&&"
+glyphText Arrow = "->"
 glyphText Asterisk = "*"
 glyphText Bang = "!"
 glyphText Bar = "|"
@@ -353,7 +359,6 @@ nextToken (TokenStream p0 t0) =
     Just (':', t2) -> token (Glyph Colon) 1 t2
     Just (',', t2) -> token (Glyph Comma) 1 t2
     Just ('.', t2) -> token (Glyph Dot) 1 t2
-    Just ('-', t2) -> token (Glyph Minus) 1 t2
     Just ('(', t2) -> token (Glyph ParenLeft) 1 t2
     Just (')', t2) -> token (Glyph ParenRight) 1 t2
     Just ('%', t2) -> token (Glyph Percent) 1 t2
@@ -374,6 +379,8 @@ nextToken (TokenStream p0 t0) =
     Just ('>', t2) -> token (Glyph GreaterThan_) 1 t2
     Just ('<', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph LessThanOrEqual_) 2 (T.tail t2)
     Just ('<', t2) -> token (Glyph LessThan_) 1 t2
+    Just ('-', t2) | not (T.null t2) && T.head t2 == '>' -> token (Glyph Arrow) 2 (T.tail t2)
+    Just ('-', t2) -> token (Glyph Minus) 1 t2
 
     -- Identifier
     Just (c, _) | isIdentifierStart c ->

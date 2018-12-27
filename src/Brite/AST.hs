@@ -20,6 +20,7 @@ module Brite.AST
   , BinaryOperator(..)
   , ConditionalExpressionIf(..)
   , ConditionalExpressionElse(..)
+  , MatchExpressionCase(..)
   , ExpressionExtra(..)
   , Pattern(..)
   , ObjectPatternProperty(..)
@@ -158,6 +159,16 @@ data Expression
   -- Conditionally executes some code.
   | ConditionalExpression ConditionalExpressionIf
 
+  -- `match E { P -> { ... } }`
+  --
+  -- Matches an expression against the first valid pattern.
+  | MatchExpression
+      Token
+      (Recover Expression)
+      (Recover Token)
+      [Recover MatchExpressionCase]
+      (Recover Token)
+
   -- `do { ... }`
   --
   -- Introduces a new block scope into the program.
@@ -262,6 +273,9 @@ data ConditionalExpressionElse
   = ConditionalExpressionElse Token Block
   -- `else if E { ... }`
   | ConditionalExpressionElseIf Token ConditionalExpressionIf
+
+-- `P -> { ... }`
+data MatchExpressionCase = MatchExpressionCase Pattern (Recover Token) Block
 
 -- Some extra syntax of an expression. We keep this as a separate data type to match our
 -- parser implementation.
@@ -424,10 +438,35 @@ expressionTokens (VariantExpression t1 n els) =
 
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 
-expressionTokens (BinaryExpression e ext) =
-  recoverTokens expressionTokens e <> recoverTokens binaryExpressionExtraTokens ext
+expressionTokens (BinaryExpression e1 ext) =
+  recoverTokens expressionTokens e1 <> recoverTokens extraTokens ext
+  where
+    extraTokens (BinaryExpressionExtra _ t e2) =
+      singletonToken t <> recoverTokens expressionTokens e2
 
-expressionTokens (ConditionalExpression i) = conditionalExpressionIfTokens i
+expressionTokens (ConditionalExpression i') =
+  ifTokens i'
+  where
+    ifTokens (ConditionalExpressionIf t x b e) =
+      singletonToken t
+        <> recoverTokens expressionTokens x
+        <> blockTokens b
+        <> maybeTokens (recoverTokens elseTokens) e
+
+    elseTokens (ConditionalExpressionElse t b) = singletonToken t <> blockTokens b
+    elseTokens (ConditionalExpressionElseIf t i) = singletonToken t <> ifTokens i
+
+expressionTokens (MatchExpression t1 e t2 cs t3) =
+  singletonToken t1
+    <> recoverTokens expressionTokens e
+    <> recoverTokens singletonToken t2
+    <> mconcat (map (recoverTokens caseTokens) cs)
+    <> recoverTokens singletonToken t3
+  where
+    caseTokens (MatchExpressionCase p t4 b) =
+      patternTokens p
+        <> recoverTokens singletonToken t4
+        <> blockTokens b
 
 expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
 
@@ -437,29 +476,12 @@ expressionTokens (WrappedExpression t1 e t2) =
   singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
 
 expressionTokens (ExpressionExtra e ext) =
-  expressionTokens e <> recoverTokens expressionExtraTokens ext
-
-binaryExpressionExtraTokens :: BinaryExpressionExtra -> Tokens
-binaryExpressionExtraTokens (BinaryExpressionExtra _ t e) =
-  singletonToken t <> recoverTokens expressionTokens e
-
-conditionalExpressionIfTokens :: ConditionalExpressionIf -> Tokens
-conditionalExpressionIfTokens (ConditionalExpressionIf t x b e) =
-  singletonToken t
-    <> recoverTokens expressionTokens x
-    <> blockTokens b
-    <> maybeTokens (recoverTokens conditionalExpressionElseTokens) e
-
-conditionalExpressionElseTokens :: ConditionalExpressionElse -> Tokens
-conditionalExpressionElseTokens (ConditionalExpressionElse t b) = singletonToken t <> blockTokens b
-conditionalExpressionElseTokens (ConditionalExpressionElseIf t i) =
-  singletonToken t <> conditionalExpressionIfTokens i
-
-expressionExtraTokens :: ExpressionExtra -> Tokens
-expressionExtraTokens (PropertyExpressionExtra t l) =
-  singletonToken t <> recoverTokens nameTokens l
-expressionExtraTokens (CallExpressionExtra t1 args t2) =
-  singletonToken t1 <> commaListTokens expressionTokens args <> recoverTokens singletonToken t2
+  expressionTokens e <> recoverTokens extraTokens ext
+  where
+    extraTokens (PropertyExpressionExtra t l) =
+      singletonToken t <> recoverTokens nameTokens l
+    extraTokens (CallExpressionExtra t1 args t2) =
+      singletonToken t1 <> commaListTokens expressionTokens args <> recoverTokens singletonToken t2
 
 -- Get tokens from a pattern.
 patternTokens :: Pattern -> Tokens
@@ -588,15 +610,14 @@ debugExpression _ (ObjectExpression _ (CommaList [] Nothing) Nothing _) =
 
 debugExpression indentation (ObjectExpression _ properties extension _) =
   B.fromText "(object"
-    <> mconcat (map (debugNewline (debugProp (debugRecover debugProperty))) (commaListItems properties))
+    <> mconcat (map (debugNewline (debugPropertyWrapper (debugRecover debugProperty))) (commaListItems properties))
     <> maybe mempty (debugNewline (debugRecover debugExtension)) extension
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
-
     debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
 
-    debugProp debug a =
+    debugPropertyWrapper debug a =
       B.fromText "(prop " <> debug a <> B.singleton ')'
 
     debugProperty (ObjectExpressionProperty label Nothing) = debugName label
@@ -616,7 +637,6 @@ debugExpression indentation (VariantExpression _ label elements) =
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
-
     debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
 
     debugElements (VariantExpressionElements _ patterns _) =
@@ -637,11 +657,78 @@ debugExpression indentation (UnaryExpression operator _ expression) =
         Positive -> "pos"
         Negative -> "neg"
 
-debugExpression indentation (BinaryExpression expression extra) =
-  debugRecover (debugBinaryExpressionExtra indentation expression) extra
+debugExpression indentation (BinaryExpression left extra) =
+  debugRecover debugExtra extra
+  where
+    debugExtra (BinaryExpressionExtra operator _ right) =
+      B.singleton '('
+        <> B.fromText operatorDescription
+        <> B.singleton ' '
+        <> debugRecover (debugExpression indentation) left
+        <> B.singleton ' '
+        <> debugRecover (debugExpression indentation) right
+        <> B.singleton ')'
+      where
+        operatorDescription =
+          case operator of
+            Add -> "add"
+            Subtract -> "sub"
+            Multiply -> "mul"
+            Divide -> "div"
+            Remainder -> "rem"
+            Exponent -> "pow"
+            Equals -> "eq"
+            NotEquals -> "neq"
+            LessThan -> "lt"
+            LessThanOrEqual -> "lte"
+            GreaterThan -> "gt"
+            GreaterThanOrEqual -> "gte"
+            And -> "and"
+            Or -> "or"
 
-debugExpression indentation (ConditionalExpression if_) =
-  debugConditionalExpressionIf indentation if_
+debugExpression indentation' (ConditionalExpression if') =
+  debugIf indentation' if'
+  where
+    debugIf indentation (ConditionalExpressionIf  _ test consequent Nothing) =
+      let newIndentation = indentation <> B.fromText "  " in
+        B.fromText "(if"
+          <> B.singleton '\n' <> newIndentation
+          <> debugRecover (debugExpression newIndentation) test
+          <> B.singleton '\n' <> newIndentation
+          <> debugBlock newIndentation consequent
+          <> B.singleton ')'
+    debugIf indentation (ConditionalExpressionIf  _ test consequent (Just alternate)) =
+      let newIndentation = indentation <> B.fromText "  " in
+        B.fromText "(if"
+          <> B.singleton '\n' <> newIndentation
+          <> debugRecover (debugExpression newIndentation) test
+          <> B.singleton '\n' <> newIndentation
+          <> debugBlock newIndentation consequent
+          <> B.singleton '\n' <> newIndentation
+          <> debugRecover (debugElse newIndentation) alternate
+          <> B.singleton ')'
+
+    debugElse indentation (ConditionalExpressionElse _ block) =
+      debugBlock indentation block
+    debugElse indentation (ConditionalExpressionElseIf _ if_) =
+      debugIf indentation if_
+
+debugExpression indentation (MatchExpression _ expression _ cases _) =
+  B.fromText "(match"
+    <> debugNewline (debugRecover (debugExpression newIndentation)) expression
+    <> mconcat (map (debugNewline (debugCaseWrapper (debugRecover debugCase))) cases)
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+    debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
+
+    debugCaseWrapper debug a =
+      B.fromText "(case " <> debug a <> B.singleton ')'
+
+    debugCase (MatchExpressionCase pattern _ block) =
+      debugPattern newIndentation pattern
+        <> B.singleton ' '
+        <> debugBlock newIndentation block
 
 debugExpression indentation (BlockExpression _ block) =
   B.fromText "(do " <> debugBlock indentation block <> B.singleton ')'
@@ -654,87 +741,32 @@ debugExpression indentation (WrappedExpression _ expression _) =
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
 
-debugExpression indentation (ExpressionExtra expression (Ok extra)) =
-  debugExpressionExtra indentation expression extra
-debugExpression indentation (ExpressionExtra expression (Recover _ _ extra)) =
-  debugExpressionExtra indentation expression extra
-debugExpression indentation (ExpressionExtra expression (Fatal _ _)) =
-  debugExpression indentation expression
-
-debugBinaryExpressionExtra :: B.Builder -> Recover Expression -> BinaryExpressionExtra -> B.Builder
-debugBinaryExpressionExtra indentation left (BinaryExpressionExtra operator _ right) =
-  B.singleton '('
-    <> B.fromText operatorDescription
-    <> B.singleton ' '
-    <> debugRecover (debugExpression indentation) left
-    <> B.singleton ' '
-    <> debugRecover (debugExpression indentation) right
-    <> B.singleton ')'
+debugExpression indentation (ExpressionExtra expression extra') =
+  case extra' of
+    Ok extra -> debugExtra extra
+    Recover _ _ extra -> debugExtra extra
+    Fatal _ _ -> debugExpression indentation expression
   where
-    operatorDescription =
-      case operator of
-        Add -> "add"
-        Subtract -> "sub"
-        Multiply -> "mul"
-        Divide -> "div"
-        Remainder -> "rem"
-        Exponent -> "pow"
-        Equals -> "eq"
-        NotEquals -> "neq"
-        LessThan -> "lt"
-        LessThanOrEqual -> "lte"
-        GreaterThan -> "gt"
-        GreaterThanOrEqual -> "gte"
-        And -> "and"
-        Or -> "or"
+    debugExtra (PropertyExpressionExtra _ label) =
+      B.fromText "(prop "
+        <> debugExpression indentation expression
+        <> B.singleton ' '
+        <> debugRecover debugName label
+        <> B.singleton ')'
 
-debugConditionalExpressionIf :: B.Builder -> ConditionalExpressionIf -> B.Builder
-debugConditionalExpressionIf indentation (ConditionalExpressionIf  _ test consequent Nothing) =
-  let newIndentation = indentation <> B.fromText "  " in
-    B.fromText "(if"
-      <> B.singleton '\n' <> newIndentation
-      <> debugRecover (debugExpression newIndentation) test
-      <> B.singleton '\n' <> newIndentation
-      <> debugBlock newIndentation consequent
-      <> B.singleton ')'
-debugConditionalExpressionIf indentation (ConditionalExpressionIf  _ test consequent (Just alternate)) =
-  let newIndentation = indentation <> B.fromText "  " in
-    B.fromText "(if"
-      <> B.singleton '\n' <> newIndentation
-      <> debugRecover (debugExpression newIndentation) test
-      <> B.singleton '\n' <> newIndentation
-      <> debugBlock newIndentation consequent
-      <> B.singleton '\n' <> newIndentation
-      <> debugRecover (debugConditionalExpressionElse newIndentation) alternate
-      <> B.singleton ')'
+    debugExtra (CallExpressionExtra _ (CommaList [] Nothing) _) =
+      B.fromText "(call " <> debugExpression indentation expression <> B.singleton ')'
 
-debugConditionalExpressionElse :: B.Builder -> ConditionalExpressionElse -> B.Builder
-debugConditionalExpressionElse indentation (ConditionalExpressionElse _ block) =
-  debugBlock indentation block
-debugConditionalExpressionElse indentation (ConditionalExpressionElseIf _ if_) =
-  debugConditionalExpressionIf indentation if_
-
-debugExpressionExtra :: B.Builder -> Expression -> ExpressionExtra -> B.Builder
-debugExpressionExtra indentation expression (PropertyExpressionExtra _ label) =
-  B.fromText "(prop "
-    <> debugExpression indentation expression
-    <> B.singleton ' '
-    <> debugRecover debugName label
-    <> B.singleton ')'
-
-debugExpressionExtra indentation expression (CallExpressionExtra _ (CommaList [] Nothing) _) =
-  B.fromText "(call " <> debugExpression indentation expression <> B.singleton ')'
-
-debugExpressionExtra indentation expression (CallExpressionExtra _ args _) =
-  B.fromText "(call"
-    <> debugArg (Ok expression)
-    <> mconcat (map debugArg (commaListItems args))
-    <> B.singleton ')'
-  where
-    newIndentation = indentation <> B.fromText "  "
-    debugArg arg =
-      B.singleton '\n' <> newIndentation
-        <> debugRecover (debugExpression newIndentation) arg
+    debugExtra (CallExpressionExtra _ args _) =
+      B.fromText "(call"
+        <> debugArg (Ok expression)
+        <> mconcat (map debugArg (commaListItems args))
+        <> B.singleton ')'
+      where
+        newIndentation = indentation <> B.fromText "  "
+        debugArg arg =
+          B.singleton '\n' <> newIndentation
+            <> debugRecover (debugExpression newIndentation) arg
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
@@ -754,15 +786,14 @@ debugPattern _ (ObjectPattern _ (CommaList [] Nothing) Nothing _) =
 
 debugPattern indentation (ObjectPattern _ properties extension _) =
   B.fromText "(object"
-    <> mconcat (map (debugNewline (debugProp (debugRecover debugProperty))) (commaListItems properties))
+    <> mconcat (map (debugNewline (debugPropertyWrapper (debugRecover debugProperty))) (commaListItems properties))
     <> maybe mempty (debugNewline (debugRecover debugExtension)) extension
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
-
     debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
 
-    debugProp debug a =
+    debugPropertyWrapper debug a =
       B.fromText "(prop " <> debug a <> B.singleton ')'
 
     debugProperty (ObjectPatternProperty label Nothing) = debugName label
@@ -782,7 +813,6 @@ debugPattern indentation (VariantPattern _ label elements) =
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
-
     debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
 
     debugElements (VariantPatternElements _ patterns _) =
