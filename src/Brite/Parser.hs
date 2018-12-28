@@ -72,7 +72,7 @@ tryFunctionDeclaration =
 function :: Parser Function
 function =
   Function
-    <$> glyph ParenLeft
+    <$> skipIdentifier (glyph ParenLeft)
     <*> commaList tryPattern
     <*> glyph ParenRight
     <*> block
@@ -114,7 +114,6 @@ tryFunctionExpression :: TryParser Expression
 tryFunctionExpression =
   FunctionExpression
     <$> tryKeyword Fun
-    <&> optional tryName
     <&> function
 
 tryObjectExpression :: TryParser Expression

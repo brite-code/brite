@@ -150,10 +150,14 @@ data Expression
   -- fun(...) { ... }
   -- ```
   --
-  -- A block of code which is executed whenever the function is called.
+  -- A block of code which is executed whenever the function is called. Shares a lot of syntax with
+  -- function declarations.
   --
-  -- TODO: `FunctionExpression` should not have a name.
-  | FunctionExpression Token (Maybe (Recover Name)) Function
+  -- Function expressions are never named. Unlike function declarations which are always named. In
+  -- JavaScript function expressions are optionally named. We choose to never name function
+  -- expressions because that would cause confusion with function declarations. It’s easy to see the
+  -- difference between a function expression and declaration when expressions are never named.
+  | FunctionExpression Token Function
 
   -- ```
   -- {p: E, ...}
@@ -487,8 +491,8 @@ expressionTokens (ConstantExpression constant) = constantTokens constant
 
 expressionTokens (VariableExpression name) = nameTokens name
 
-expressionTokens (FunctionExpression t n f) =
-  singletonToken t <> maybeTokens (recoverTokens nameTokens) n <> functionTokens f
+expressionTokens (FunctionExpression t f) =
+  singletonToken t <> functionTokens f
 
 expressionTokens (ObjectExpression t1 ps ext t2) =
   singletonToken t1
@@ -703,8 +707,8 @@ debugExpression _ (VariableExpression (Name identifier _)) =
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
 
-debugExpression indentation (FunctionExpression _ name function) =
-  debugFunction indentation name function
+debugExpression indentation (FunctionExpression _ function) =
+  debugFunction indentation Nothing function
 
 debugExpression _ (ObjectExpression _ (CommaList [] Nothing) Nothing _) =
   B.fromText "object"

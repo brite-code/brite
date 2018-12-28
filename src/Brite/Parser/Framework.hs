@@ -21,6 +21,7 @@ module Brite.Parser.Framework
   , tryGlyphOnSameLine
   , unexpected
   , unexpectedGlyph
+  , skipIdentifier
   , CommaList(..)
   , commaListItems
   , commaList
@@ -406,6 +407,21 @@ unexpectedGlyph ex g p = TryParser $ \ok yield throw s ->
       throw (unexpectedToken (tokenRange t) (tokenKind t) ex) s
     _ ->
       tryParser p ok yield throw s
+
+-- If the parser yields without consuming any tokens and the token we yielded on was an identifier
+-- then we skip the token instead of yielding.
+--
+-- This is useful when we want a parser to try again after an identifier instead of letting a parent
+-- parser take the identifier.
+skipIdentifier :: Parser a -> Parser a
+skipIdentifier p = Parser $ \ok yield1 yield2 ->
+  parser p
+    ok
+    (\a k s ->
+      case parserStep s of
+        Right (t @ Token { tokenKind = IdentifierToken _ }, ts) -> k t (skipToken ts s)
+        _ -> yield1 a k s)
+    yield2
 
 -- A comma separated list of values which may optionally have a trailing comma. If there is a
 -- trailing comma then `commaListLastItem` will be `Nothing`.

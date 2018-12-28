@@ -3374,8 +3374,9 @@ spec = mapM_ (uncurry runTest)
       \  block))\n"
     )
   , ( "let f = fun f() {};"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  block))\n"
     )
   , ( "let f = fun(a) {};"
@@ -3397,21 +3398,24 @@ spec = mapM_ (uncurry runTest)
       \  block))\n"
     )
   , ( "let f = fun f(a) {};"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  (var `a`)\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b) {};"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b, c) {};"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`)\n\
@@ -3436,21 +3440,24 @@ spec = mapM_ (uncurry runTest)
       \  block))\n"
     )
   , ( "let f = fun f(a,) {};"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  (var `a`)\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b,) {};"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b, c,) {};"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`)\n\
@@ -3462,8 +3469,9 @@ spec = mapM_ (uncurry runTest)
       \    (bind (var `x`) (var `y`)))))\n"
     )
   , ( "let f = fun f() { let x = y; };"
-    , "(bind (var `f`) (fun\n\
-      \  (name `f`)\n\
+    , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(bind (var `f`) (fun\n\
       \  (block\n\
       \    (bind (var `x`) (var `y`)))))\n"
     )
@@ -4939,5 +4947,12 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(wrap (var `x`))\n\
       \(var `T`)\n"
+    )
+  , ( "fun f g() {}"
+    , "(0:6-0:7) We wanted `(` but we found a variable name.\n\
+      \\n\
+      \(fun\n\
+      \  (name `f`)\n\
+      \  block)\n"
     )
   ]
