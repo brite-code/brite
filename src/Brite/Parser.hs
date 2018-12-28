@@ -223,7 +223,12 @@ tryLoopExpression :: TryParser Expression
 tryLoopExpression = LoopExpression <$> tryKeyword Loop <&> block
 
 tryWrappedExpression :: TryParser Expression
-tryWrappedExpression = WrappedExpression <$> tryGlyph ParenLeft <&> expression <&> glyph ParenRight
+tryWrappedExpression =
+  WrappedExpression
+    <$> tryGlyph ParenLeft
+    <&> expression
+    <&> optional tryTypeAnnotation
+    <&> glyph ParenRight
 
 trySecondaryExpression :: TryParser Expression
 trySecondaryExpression =

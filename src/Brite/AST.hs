@@ -124,17 +124,23 @@ data Constant
 -- Some instructions our programming language interprets to return a value and possibly perform
 -- some side effects.
 data Expression
-  -- `C`
+  -- ```
+  -- C
+  -- ```
   --
   -- Some constant value in the program which never changes.
   = ConstantExpression Constant
 
-  -- `x`
+  -- ```
+  -- x
+  -- ```
   --
   -- A reference to a variable binding in the program.
   | VariableExpression Name
 
-  -- `fun(...) { ... }`
+  -- ```
+  -- fun(...) { ... }
+  -- ```
   --
   -- A block of code which is executed whenever the function is called.
   | FunctionExpression
@@ -145,7 +151,9 @@ data Expression
       (Recover Token)
       Block
 
-  -- `{p: E, ...}`
+  -- ```
+  -- {p: E, ...}
+  -- ```
   --
   -- A collection of labeled data.
   | ObjectExpression
@@ -154,17 +162,29 @@ data Expression
       (Maybe (Recover ObjectExpressionExtension))
       (Recover Token)
 
-  -- `.V`, `.V(E)`
+  -- ```
+  -- .V
+  -- .V(E)
+  -- ```
   --
   -- Data with an associated label.
   | VariantExpression Token (Recover Name) (Maybe (Recover VariantExpressionElements))
 
-  -- `!E`, `-E`
+  -- ```
+  -- !E
+  -- -E
+  -- +E
+  -- ``
   --
   -- An operation on a single expression.
   | UnaryExpression UnaryOperator Token (Recover Expression)
 
-  -- `E + E`, `E - E`, `E * E`, `E / E`
+  -- ```
+  -- E + E
+  -- E - E
+  -- E * E
+  -- E / E
+  -- ```
   --
   -- An operation on two expressions.
   --
@@ -181,7 +201,9 @@ data Expression
   -- Conditionally executes some code.
   | ConditionalExpression ConditionalExpressionIf
 
-  -- `match E { P -> { ... } }`
+  -- ```
+  -- match E { P -> { ... } }
+  -- ``
   --
   -- Matches an expression against the first valid pattern.
   | MatchExpression
@@ -191,23 +213,37 @@ data Expression
       [Recover MatchExpressionCase]
       (Recover Token)
 
-  -- `do { ... }`
+  -- ```
+  -- do { ... }
+  -- ``
   --
   -- Introduces a new block scope into the program.
   | BlockExpression Token Block
 
-  -- `loop { ... }`
+  -- ```
+  -- loop { ... }
+  -- ``
   --
   -- Keeps repeatedly executing the block until a break statement is encountered. The argument to
   -- the break statement is the value returned by the loop.
   | LoopExpression Token Block
 
-  -- `(E)`
+  -- ```
+  -- (E)
+  -- (E: T)
+  -- ``
   --
   -- An expression wrapped in parentheses. Useful for changing the precedence of operators.
-  | WrappedExpression Token (Recover Expression) (Recover Token)
+  | WrappedExpression
+      Token
+      (Recover Expression)
+      (Maybe (Recover TypeAnnotation))
+      (Recover Token)
 
-  -- `E.p`, `E()`
+  -- ```
+  -- E.p
+  -- E()
+  -- ``
   --
   -- Any extra syntax on a primary expression. Including property expressions, function calls,
   -- and more.
@@ -512,8 +548,11 @@ expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
 
 expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
 
-expressionTokens (WrappedExpression t1 e t2) =
-  singletonToken t1 <> recoverTokens expressionTokens e <> recoverTokens singletonToken t2
+expressionTokens (WrappedExpression t1 e a t2) =
+  singletonToken t1
+    <> recoverTokens expressionTokens e
+    <> maybeTokens (recoverTokens typeAnnotationTokens) a
+    <> recoverTokens singletonToken t2
 
 expressionTokens (ExpressionExtra e ext) =
   expressionTokens e <> recoverTokens extraTokens ext
@@ -804,10 +843,17 @@ debugExpression indentation (BlockExpression _ block) =
 debugExpression indentation (LoopExpression _ block) =
   B.fromText "(loop " <> debugBlock indentation block <> B.singleton ')'
 
-debugExpression indentation (WrappedExpression _ expression _) =
+debugExpression indentation (WrappedExpression _ expression Nothing _) =
   B.fromText "(wrap "
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
+
+debugExpression indentation (WrappedExpression _ expression (Just typeAnnotation) _) =
+  B.fromText "(wrap "
+    <> debugRecover (debugExpression indentation) expression
+    <> B.fromText " (type "
+    <> debugRecover debugTypeAnnotation typeAnnotation
+    <> B.fromText "))"
 
 debugExpression indentation (ExpressionExtra expression extra') =
   case extra' of

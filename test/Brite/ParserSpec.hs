@@ -4925,4 +4925,19 @@ spec = mapM_ (uncurry runTest)
       \(bind (var `x`) (var `T`))\n\
       \(var `y`)\n"
     )
+  , ( "(x: T)"
+    , "(wrap (var `x`) (type (var `T`)))\n"
+    )
+  , ( "(x:)"
+    , "(0:3-0:4) We wanted a type but we found `)`.\n\
+      \\n\
+      \(wrap (var `x`) (type err))\n"
+    )
+  , ( "(x T)"
+    , "(0:3-0:4) We wanted `)` but we found a variable name.\n\
+      \(0:4-0:5) We wanted an expression but we found `)`.\n\
+      \\n\
+      \(wrap (var `x`))\n\
+      \(var `T`)\n"
+    )
   ]
