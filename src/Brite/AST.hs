@@ -31,6 +31,10 @@ module Brite.AST
   , ObjectPatternExtension(..)
   , VariantPatternElements(..)
   , Type(..)
+  , QuantifierList(..)
+  , Quantifier(..)
+  , QuantifierBound(..)
+  , QuantifierBoundKind(..)
   , TypeAnnotation(..)
   , moduleTokens
   , debugModule
@@ -111,6 +115,7 @@ data Declaration
   -- ```
   -- fun f(...) { ... }
   -- fun f(...) -> T { ... }
+  -- fun f<T>(...) { ... }
   -- ```
   --
   -- `FunctionDeclaration` syntax overlaps significantly with `FunctionExpression`. We separate the
@@ -122,12 +127,14 @@ data Declaration
 -- ```
 -- (...) { ... }
 -- (...) -> T { ... }
+-- <T>(...) { ... }
 -- ```
 --
 -- The data necessary for creating a function. Excluding the function keyword and optional
 -- function name.
 data Function = Function
-  { functionParamsOpen :: Recover Token
+  { functionQuantifiers :: Maybe (Recover QuantifierList)
+  , functionParamsOpen :: Recover Token
   , functionParams :: CommaList FunctionParameter
   , functionParamsClose :: Recover Token
   , functionReturn :: Maybe (Recover FunctionReturn)
@@ -177,6 +184,7 @@ data Expression
   -- ```
   -- fun(...) { ... }
   -- fun(...) -> T { ... }
+  -- fun<T>(...) { ... }
   -- ```
   --
   -- A block of code which is executed whenever the function is called. Shares a lot of syntax with
@@ -435,6 +443,36 @@ data Type
   -- NOTE: Are we sure we want this as the syntax for bottom types?
   | BottomType Token
 
+  -- ```
+  -- <x> T
+  -- <x: T> U
+  -- <x = T> U
+  -- ```
+  | QuantifiedType QuantifierList (Recover Type)
+
+-- ```
+-- <x>
+-- <x: T>
+-- <x = T>
+-- ```
+data QuantifierList = QuantifierList Token (CommaList Quantifier) (Recover Token)
+
+-- ```
+-- x
+-- x: T
+-- x = T
+-- ```
+data Quantifier = Quantifier Name (Maybe (Recover QuantifierBound))
+
+-- ```
+-- : T
+-- = T
+-- ```
+data QuantifierBound = QuantifierBound QuantifierBoundKind Token (Recover Type)
+
+-- `:` or `=`
+data QuantifierBoundKind = Rigid | Flexible
+
 -- `: T`
 data TypeAnnotation = TypeAnnotation Token (Recover Type)
 
@@ -502,8 +540,9 @@ declarationTokens (FunctionDeclaration t n f) =
   singletonToken t <> recoverTokens nameTokens n <> functionTokens f
 
 functionTokens :: Function -> Tokens
-functionTokens (Function t1 ps t2 r b) =
-  recoverTokens singletonToken t1
+functionTokens (Function qs t1 ps t2 r b) =
+  maybeTokens (recoverTokens quantifierListTokens) qs
+    <> recoverTokens singletonToken t1
     <> commaListTokens functionParameterTokens ps
     <> recoverTokens singletonToken t2
     <> maybeTokens (recoverTokens functionReturnTokens) r
@@ -642,6 +681,14 @@ patternTokens (VariantPattern t1 n els) =
 typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
 typeTokens (BottomType t) = singletonToken t
+typeTokens (QuantifiedType qs t) = quantifierListTokens qs <> recoverTokens typeTokens t
+
+quantifierListTokens :: QuantifierList -> Tokens
+quantifierListTokens (QuantifierList t1 qs t2) =
+  singletonToken t1 <> commaListTokens quantifierTokens qs <> recoverTokens singletonToken t2
+  where
+    quantifierTokens (Quantifier n b) = nameTokens n <> maybeTokens (recoverTokens boundTokens) b
+    boundTokens (QuantifierBound _ t a) = singletonToken t <> recoverTokens typeTokens a
 
 typeAnnotationTokens :: TypeAnnotation -> Tokens
 typeAnnotationTokens (TypeAnnotation t1 t2) =
@@ -687,7 +734,7 @@ debugStatement indentation (BindingStatement _ pattern (Just type_) _ expression
   B.fromText "(bind "
     <> debugRecover (debugPattern indentation) pattern
     <> B.fromText " (type "
-    <> debugRecover debugTypeAnnotation type_
+    <> debugRecover (debugTypeAnnotation indentation) type_
     <> B.fromText ") "
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
@@ -707,9 +754,10 @@ debugDeclaration indentation (FunctionDeclaration _ name function) =
   debugFunction indentation (Just name) function
 
 debugFunction :: B.Builder -> Maybe (Recover Name) -> Function -> B.Builder
-debugFunction indentation name (Function _ params _ return_ block) =
+debugFunction indentation name (Function qs _ params _ return_ block) =
   B.fromText "(fun"
     <> maybe mempty (debugNewline (debugRecover debugName)) name
+    <> debugRecoverMaybe (debugQuantifierList newIndentation) qs
     <> mconcat (map (debugNewline (debugParamWrapper (debugRecover debugParam))) (commaListItems params))
     <> maybe mempty (debugNewline (debugReturnWrapper (debugRecover debugReturn))) return_
     <> debugNewline (debugBlock newIndentation) block
@@ -718,6 +766,11 @@ debugFunction indentation name (Function _ params _ return_ block) =
     newIndentation = indentation <> B.fromText "  "
     debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
 
+    debugRecoverMaybe _ Nothing = mempty
+    debugRecoverMaybe _ (Just (Fatal _ _)) = mempty
+    debugRecoverMaybe debug (Just (Recover _ _ a)) = debug a
+    debugRecoverMaybe debug (Just (Ok a)) = debug a
+
     debugParamWrapper debug a =
       B.fromText "(param " <> debug a <> B.singleton ')'
 
@@ -725,7 +778,7 @@ debugFunction indentation name (Function _ params _ return_ block) =
     debugParam (FunctionParameter pattern (Just typeAnnotation)) =
       debugPattern newIndentation pattern
         <> B.fromText " (type "
-        <> debugRecover debugTypeAnnotation typeAnnotation
+        <> debugRecover (debugTypeAnnotation newIndentation) typeAnnotation
         <> B.singleton ')'
 
     debugReturnWrapper debug a =
@@ -733,7 +786,7 @@ debugFunction indentation name (Function _ params _ return_ block) =
 
     debugReturn (FunctionReturn _ type_) =
       B.fromText "(type "
-        <> debugRecover debugType type_
+        <> debugRecover (debugType newIndentation) type_
         <> B.singleton ')'
 
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
@@ -910,7 +963,7 @@ debugExpression indentation (WrappedExpression _ expression (Just typeAnnotation
   B.fromText "(wrap "
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText " (type "
-    <> debugRecover debugTypeAnnotation typeAnnotation
+    <> debugRecover (debugTypeAnnotation indentation) typeAnnotation
     <> B.fromText "))"
 
 debugExpression indentation (ExpressionExtra expression extra') =
@@ -992,13 +1045,42 @@ debugPattern indentation (VariantPattern _ label elements) =
         map (debugNewline (debugRecover (debugPattern indentation))) $
           commaListItems patterns
 
-debugType :: Type -> B.Builder
-debugType (VariableType (Name identifier _)) =
+debugType :: B.Builder -> Type -> B.Builder
+debugType _ (VariableType (Name identifier _)) =
   B.fromText "(var `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
 
-debugType (BottomType _) = B.fromText "bottom"
+debugType _ (BottomType _) = B.fromText "bottom"
 
-debugTypeAnnotation :: TypeAnnotation -> B.Builder
-debugTypeAnnotation (TypeAnnotation _ t) = debugRecover debugType t
+debugType indentation (QuantifiedType qs t) =
+  B.fromText "(quantify"
+    <> debugQuantifierList newIndentation qs
+    <> B.singleton '\n' <> newIndentation
+    <> debugRecover (debugType newIndentation) t
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+
+debugQuantifierList :: B.Builder -> QuantifierList -> B.Builder
+debugQuantifierList indentation (QuantifierList _ qs _) =
+  mconcat $
+    map (debugNewline (debugQuantifierWrapper (debugRecover debugQuantifier))) $
+      commaListItems qs
+  where
+    debugNewline debug a = B.singleton '\n' <> indentation <> debug a
+
+    debugQuantifierWrapper debug a =
+      B.fromText "(forall " <> debug a <> B.singleton ')'
+
+    debugQuantifier (Quantifier n Nothing) = debugName n
+    debugQuantifier (Quantifier n (Just b)) =
+      debugName n <> B.singleton ' ' <> debugRecover debugBound b
+
+    debugBound (QuantifierBound Flexible _ t) =
+      B.fromText "flex " <> debugRecover (debugType indentation) t
+    debugBound (QuantifierBound Rigid _ t) =
+      B.fromText "rigid " <> debugRecover (debugType indentation) t
+
+debugTypeAnnotation :: B.Builder -> TypeAnnotation -> B.Builder
+debugTypeAnnotation indentation (TypeAnnotation _ t) = debugRecover (debugType indentation) t

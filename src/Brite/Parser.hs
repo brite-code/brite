@@ -72,7 +72,8 @@ tryFunctionDeclaration =
 function :: Parser Function
 function =
   Function
-    <$> skipIdentifier (glyph ParenLeft)
+    <$> optional (tryQuantifierList <|> unexpected (ExpectedGlyph ParenLeft))
+    <*> skipIdentifier (glyph ParenLeft)
     <*> commaList tryFunctionParameter
     <*> glyph ParenRight
     <*> optional tryFunctionReturn
@@ -435,6 +436,7 @@ tryVariantPatternElements =
 tryType :: TryParser Type
 tryType =
   tryVariableType
+    <|> tryQuantifiedType
     <|> tryBottomType
     <|> unexpected ExpectedType
 
@@ -446,6 +448,23 @@ tryVariableType = VariableType <$> tryName
 
 tryBottomType :: TryParser Type
 tryBottomType = BottomType <$> tryGlyph Bang
+
+tryQuantifiedType :: TryParser Type
+tryQuantifiedType = QuantifiedType <$> tryQuantifierList <&> type_
+
+tryQuantifierList :: TryParser QuantifierList
+tryQuantifierList =
+  QuantifierList
+    <$> tryGlyph LessThan_
+    <&> commaList tryQuantifier
+    <&> glyph GreaterThan_
+
+tryQuantifier :: TryParser Quantifier
+tryQuantifier = Quantifier <$> tryName <&> optional tryBound
+  where
+    tryBound =
+      (QuantifierBound Flexible <$> tryGlyph Colon <&> type_)
+        <|> (QuantifierBound Rigid <$> tryGlyph Equals_ <&> type_)
 
 tryTypeAnnotation :: TryParser TypeAnnotation
 tryTypeAnnotation =

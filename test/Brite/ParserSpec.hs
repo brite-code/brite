@@ -5049,4 +5049,202 @@ spec = mapM_ (uncurry runTest)
   , ( "(x: !)"
     , "(wrap (var `x`) (type bottom))\n"
     )
+  , ( "(x: <> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T: A> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T = A> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T, U> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T: A, U: B> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  (forall (name `U`) flex (var `B`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T = A, U = B> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  (forall (name `U`) rigid (var `B`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T = A, U: B> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  (forall (name `U`) flex (var `B`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T: A, U = B> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  (forall (name `U`) rigid (var `B`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T, U: B> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`) flex (var `B`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T: A, U> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  (forall (name `U`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T, U = B> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`) rigid (var `B`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T = A, U> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  (forall (name `U`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <,> X)"
+    , "(0:5-0:6) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(wrap (var `x`) (type (quantify\n\
+      \  (forall err)\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T,> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "(x: <T, U,> X)"
+    , "(wrap (var `x`) (type (quantify\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`))\n\
+      \  (var `X`))))\n"
+    )
+  , ( "fun f<>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  block)\n"
+    )
+  , ( "fun f<T>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T: A>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T = A>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T, U>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T: A, U: B>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  (forall (name `U`) flex (var `B`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T = A, U = B>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  (forall (name `U`) rigid (var `B`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T = A, U: B>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  (forall (name `U`) flex (var `B`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T: A, U = B>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  (forall (name `U`) rigid (var `B`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T, U: B>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`) flex (var `B`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T: A, U>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) flex (var `A`))\n\
+      \  (forall (name `U`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T, U = B>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`) rigid (var `B`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T = A, U>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`) rigid (var `A`))\n\
+      \  (forall (name `U`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<,>() {}"
+    , "(0:6-0:7) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(fun\n\
+      \  (name `f`)\n\
+      \  (forall err)\n\
+      \  block)\n"
+    )
+  , ( "fun f<T,>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`))\n\
+      \  block)\n"
+    )
+  , ( "fun f<T, U,>() {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (forall (name `T`))\n\
+      \  (forall (name `U`))\n\
+      \  block)\n"
+    )
   ]
