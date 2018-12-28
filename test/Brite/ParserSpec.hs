@@ -1598,13 +1598,16 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "😈.p"
     , "(0:0-0:2) We wanted a statement but we found `😈`.\n\
+      \(0:2-0:3) We wanted a statement but we found `.`.\n\
       \\n\
-      \(variant (name `p`))\n"
+      \(var `p`)\n"
     )
   , ( "(😈.p)"
     , "(0:1-0:3) We wanted an expression but we found `😈`.\n\
+      \(0:3-0:4) We wanted `)` but we found `.`.\n\
+      \(0:5-0:6) We wanted an expression but we found `)`.\n\
       \\n\
-      \(wrap (variant (name `p`)))\n"
+      \(prop (wrap err) (name `p`))\n"
     )
   , ( "let 😈) = y;"
     , "(0:4-0:6) We wanted a variable name but we found `😈`.\n\
@@ -4520,79 +4523,79 @@ spec = mapM_ (uncurry runTest)
   , ( "a || b || c || d"
     , "(or (or (or (var `a`) (var `b`)) (var `c`)) (var `d`))\n"
     )
-  , ( ".V"
+  , ( "case V"
     , "(variant (name `V`))\n"
     )
-  , ( ".V()"
+  , ( "case V()"
     , "(variant (name `V`))\n"
     )
-  , ( ".V(a)"
+  , ( "case V(a)"
     , "(variant (name `V`)\n\
       \  (var `a`))\n"
     )
-  , ( ".V(a, b)"
+  , ( "case V(a, b)"
     , "(variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`))\n"
     )
-  , ( ".V(a, b, c)"
+  , ( "case V(a, b, c)"
     , "(variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`))\n"
     )
-  , ( ".V(,)"
-    , "(0:3-0:4) We wanted an expression but we found `,`.\n\
+  , ( "case V(,)"
+    , "(0:7-0:8) We wanted an expression but we found `,`.\n\
       \\n\
       \(variant (name `V`)\n\
       \  err)\n"
     )
-  , ( ".V(a,)"
+  , ( "case V(a,)"
     , "(variant (name `V`)\n\
       \  (var `a`))\n"
     )
-  , ( ".V(a, b,)"
+  , ( "case V(a, b,)"
     , "(variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`))\n"
     )
-  , ( ".V(a, b, c,)"
+  , ( "case V(a, b, c,)"
     , "(variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`))\n"
     )
-  , ( "."
-    , "(0:1-0:1) We wanted a variable name but the file ended.\n\
+  , ( "case"
+    , "(0:4-0:4) We wanted a variable name but the file ended.\n\
       \\n\
       \(variant err)\n"
     )
-  , ( ".V"
+  , ( "case V"
     , "(variant (name `V`))\n"
     )
-  , ( ".V("
-    , "(0:3-0:3) We wanted `)` but the file ended.\n\
+  , ( "case V("
+    , "(0:7-0:7) We wanted `)` but the file ended.\n\
       \\n\
       \(variant (name `V`))\n"
     )
-  , ( ".V)"
-    , "(0:2-0:3) We wanted `(` but we found `)`.\n\
+  , ( "case V)"
+    , "(0:6-0:7) We wanted `(` but we found `)`.\n\
       \\n\
       \(variant (name `V`)err)\n"
     )
-  , ( ".()"
-    , "(0:1-0:2) We wanted a variable name but we found `(`.\n\
+  , ( "case ()"
+    , "(0:5-0:6) We wanted a variable name but we found `(`.\n\
       \\n\
       \(variant err)\n"
     )
-  , ( ".(a)"
-    , "(0:1-0:2) We wanted a variable name but we found `(`.\n\
+  , ( "case (a)"
+    , "(0:5-0:6) We wanted a variable name but we found `(`.\n\
       \\n\
       \(variant err\n\
       \  (var `a`))\n"
     )
-  , ( ".😈(a)"
-    , "(0:1-0:3) We wanted a variable name but we found `😈`.\n\
+  , ( "case 😈(a)"
+    , "(0:5-0:7) We wanted a variable name but we found `😈`.\n\
       \\n\
       \(variant err\n\
       \  (var `a`))\n"
@@ -4737,67 +4740,67 @@ spec = mapM_ (uncurry runTest)
       \  (prop (name `a`)))\n\
       \(bool true)\n"
     )
-  , ( "let .V = x"
+  , ( "let case V = x"
     , "(bind (variant (name `V`)) (var `x`))\n"
     )
-  , ( "let .V() = x"
+  , ( "let case V() = x"
     , "(bind (variant (name `V`)) (var `x`))\n"
     )
-  , ( "let .V(a) = x"
+  , ( "let case V(a) = x"
     , "(bind (variant (name `V`)\n\
       \  (var `a`)) (var `x`))\n"
     )
-  , ( "let .V(a, b) = x"
+  , ( "let case V(a, b) = x"
     , "(bind (variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`)) (var `x`))\n"
     )
-  , ( "let .V(a, b, c) = x"
+  , ( "let case V(a, b, c) = x"
     , "(bind (variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`)) (var `x`))\n"
     )
-  , ( "let .V(,) = x"
-    , "(0:7-0:8) We wanted a variable name but we found `,`.\n\
+  , ( "let case V(,) = x"
+    , "(0:11-0:12) We wanted a variable name but we found `,`.\n\
       \\n\
       \(bind (variant (name `V`)\n\
       \  err) (var `x`))\n"
     )
-  , ( "let .V(a,) = x"
+  , ( "let case V(a,) = x"
     , "(bind (variant (name `V`)\n\
       \  (var `a`)) (var `x`))\n"
     )
-  , ( "let .V(a, b,) = x"
+  , ( "let case V(a, b,) = x"
     , "(bind (variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`)) (var `x`))\n"
     )
-  , ( "let .V(a, b, c,) = x"
+  , ( "let case V(a, b, c,) = x"
     , "(bind (variant (name `V`)\n\
       \  (var `a`)\n\
       \  (var `b`)\n\
       \  (var `c`)) (var `x`))\n"
     )
-  , ( "match x { y -> {} }"
+  , ( "switch x { y -> {} }"
     , "(match\n\
       \  (var `x`)\n\
       \  (case (var `y`) block))\n"
     )
-  , ( "match x { y -> {} z -> {} }"
+  , ( "switch x { y -> {} z -> {} }"
     , "(match\n\
       \  (var `x`)\n\
       \  (case (var `y`) block)\n\
       \  (case (var `z`) block))\n"
     )
-  , ( "match x { .Red -> {} .Green -> {} .Blue -> {} }"
+  , ( "switch x { case Red -> {} case Green -> {} case Blue -> {} }"
     , "(match\n\
       \  (var `x`)\n\
       \  (case (variant (name `Red`)) block)\n\
       \  (case (variant (name `Green`)) block)\n\
       \  (case (variant (name `Blue`)) block))\n"
     )
-  , ( "match x {\n\
+  , ( "switch x {\n\
       \  y -> {}\n\
       \  z -> {}\n\
       \}"
@@ -4806,10 +4809,10 @@ spec = mapM_ (uncurry runTest)
       \  (case (var `y`) block)\n\
       \  (case (var `z`) block))\n"
     )
-  , ( "match x {\n\
-      \  .Red -> {}\n\
-      \  .Green -> {}\n\
-      \  .Blue -> {}\n\
+  , ( "switch x {\n\
+      \  case Red -> {}\n\
+      \  case Green -> {}\n\
+      \  case Blue -> {}\n\
       \}"
     , "(match\n\
       \  (var `x`)\n\
@@ -4817,95 +4820,95 @@ spec = mapM_ (uncurry runTest)
       \  (case (variant (name `Green`)) block)\n\
       \  (case (variant (name `Blue`)) block))\n"
     )
-  , ( "match {} {}"
+  , ( "switch {} {}"
     , "(match\n\
       \  object)\n"
     )
-  , ( "match {}"
-    , "(0:8-0:8) We wanted `{` but the file ended.\n\
-      \(0:8-0:8) We wanted `}` but the file ended.\n\
+  , ( "switch {}"
+    , "(0:9-0:9) We wanted `{` but the file ended.\n\
+      \(0:9-0:9) We wanted `}` but the file ended.\n\
       \\n\
       \(match\n\
       \  object)\n"
     )
-  , ( "match { y -> {} }"
-    , "(0:10-0:12) We wanted `:` but we found `->`.\n\
-      \(0:13-0:14) We wanted `}` but we found `{`.\n\
-      \(0:16-0:17) We wanted an expression but we found `}`.\n\
+  , ( "switch { y -> {} }"
+    , "(0:11-0:13) We wanted `:` but we found `->`.\n\
+      \(0:14-0:15) We wanted `}` but we found `{`.\n\
+      \(0:17-0:18) We wanted an expression but we found `}`.\n\
       \\n\
       \(match\n\
       \  (object\n\
       \    (prop (name `y`) err)))\n"
     )
-  , ( "match x y -> {} }"
-    , "(0:8-0:9) We wanted `{` but we found a variable name.\n\
+  , ( "switch x y -> {} }"
+    , "(0:9-0:10) We wanted `{` but we found a variable name.\n\
       \\n\
       \(match\n\
       \  (var `x`)\n\
       \  (case (var `y`) block))\n"
     )
-  , ( "match x { y -> {}"
-    , "(0:17-0:17) We wanted `}` but the file ended.\n\
-      \\n\
-      \(match\n\
-      \  (var `x`)\n\
-      \  (case (var `y`) block))\n"
-    )
-  , ( "match x { -> {} }"
-    , "(0:10-0:12) We wanted a variable name but we found `->`.\n\
-      \(0:16-0:17) We wanted `->` but we found `}`.\n\
-      \(0:16-0:17) We wanted `{` but we found `}`.\n\
-      \(0:17-0:17) We wanted `}` but the file ended.\n\
-      \\n\
-      \(match\n\
-      \  (var `x`)\n\
-      \  (case object block))\n"
-    )
-  , ( "match x { -> { let a = b } }"
-    , "(0:10-0:12) We wanted a variable name but we found `->`.\n\
-      \(0:15-0:18) We wanted `}` but we found `let`.\n\
-      \(0:15-0:18) We wanted `->` but we found `let`.\n\
-      \(0:15-0:18) We wanted `{` but we found `let`.\n\
-      \\n\
-      \(match\n\
-      \  (var `x`)\n\
-      \  (case object (block\n\
-      \    (bind (var `a`) (var `b`)))))\n"
-    )
-  , ( "match x { y {} }"
-    , "(0:12-0:13) We wanted `->` but we found `{`.\n\
-      \\n\
-      \(match\n\
-      \  (var `x`)\n\
-      \  (case (var `y`) block))\n"
-    )
-  , ( "match x { y -> } }"
-    , "(0:15-0:16) We wanted `{` but we found `}`.\n\
-      \\n\
-      \(match\n\
-      \  (var `x`)\n\
-      \  (case (var `y`) block))\n"
-    )
-  , ( "match x { y -> { }"
+  , ( "switch x { y -> {}"
     , "(0:18-0:18) We wanted `}` but the file ended.\n\
       \\n\
       \(match\n\
       \  (var `x`)\n\
       \  (case (var `y`) block))\n"
     )
-  , ( "match x { y -> {} let a = b }"
-    , "(0:18-0:21) We wanted `}` but we found `let`.\n\
-      \(0:28-0:29) We wanted an expression but we found `}`.\n\
+  , ( "switch x { -> {} }"
+    , "(0:11-0:13) We wanted a variable name but we found `->`.\n\
+      \(0:17-0:18) We wanted `->` but we found `}`.\n\
+      \(0:17-0:18) We wanted `{` but we found `}`.\n\
+      \(0:18-0:18) We wanted `}` but the file ended.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case object block))\n"
+    )
+  , ( "switch x { -> { let a = b } }"
+    , "(0:11-0:13) We wanted a variable name but we found `->`.\n\
+      \(0:16-0:19) We wanted `}` but we found `let`.\n\
+      \(0:16-0:19) We wanted `->` but we found `let`.\n\
+      \(0:16-0:19) We wanted `{` but we found `let`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case object (block\n\
+      \    (bind (var `a`) (var `b`)))))\n"
+    )
+  , ( "switch x { y {} }"
+    , "(0:13-0:14) We wanted `->` but we found `{`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "switch x { y -> } }"
+    , "(0:16-0:17) We wanted `{` but we found `}`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "switch x { y -> { }"
+    , "(0:19-0:19) We wanted `}` but the file ended.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (var `y`) block))\n"
+    )
+  , ( "switch x { y -> {} let a = b }"
+    , "(0:19-0:22) We wanted `}` but we found `let`.\n\
+      \(0:29-0:30) We wanted an expression but we found `}`.\n\
       \\n\
       \(match\n\
       \  (var `x`)\n\
       \  (case (var `y`) block))\n\
       \(bind (var `a`) (var `b`))\n"
     )
-  , ( "match x { y -> {} let a = b z -> {} }"
-    , "(0:18-0:21) We wanted `}` but we found `let`.\n\
-      \(0:30-0:32) We wanted an expression but we found `->`.\n\
-      \(0:36-0:37) We wanted an expression but we found `}`.\n\
+  , ( "switch x { y -> {} let a = b z -> {} }"
+    , "(0:19-0:22) We wanted `}` but we found `let`.\n\
+      \(0:31-0:33) We wanted an expression but we found `->`.\n\
+      \(0:37-0:38) We wanted an expression but we found `}`.\n\
       \\n\
       \(match\n\
       \  (var `x`)\n\
@@ -4914,7 +4917,7 @@ spec = mapM_ (uncurry runTest)
       \(var `z`)\n\
       \object\n"
     )
-  , ( "match x { y -> { let a = b } }"
+  , ( "switch x { y -> { let a = b } }"
     , "(match\n\
       \  (var `x`)\n\
       \  (case (var `y`) (block\n\
@@ -5358,7 +5361,9 @@ spec = mapM_ (uncurry runTest)
     , "(prop (var `x`) (name `Foo`))\n"
     )
   , ( "x;\n.Foo;"
-    , "(var `x`)\n\
-      \(variant (name `Foo`))\n"
+    , "(1:0-1:1) We wanted a statement but we found `.`.\n\
+      \\n\
+      \(var `x`)\n\
+      \(var `Foo`)\n"
     )
   ]

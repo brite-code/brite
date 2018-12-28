@@ -150,7 +150,7 @@ tryObjectExpressionExtension =
 tryVariantExpression :: TryParser Expression
 tryVariantExpression =
   VariantExpression
-    <$> tryGlyph Dot
+    <$> tryKeyword Case
     <&> name
     <&> optional tryVariantExpressionElements
 
@@ -212,7 +212,7 @@ tryConditionalExpressionElse = flip ($) <$> tryKeyword Else <&> elseIf
 tryMatchExpression :: TryParser Expression
 tryMatchExpression =
   MatchExpression
-    <$> tryKeyword Match
+    <$> tryKeyword Switch
     <&> expression
     <&> glyph BraceLeft
     <&> many tryMatchExpressionCase
@@ -422,7 +422,7 @@ tryObjectPatternExtension =
 tryVariantPattern :: TryParser Pattern
 tryVariantPattern =
   VariantPattern
-    <$> tryGlyph Dot
+    <$> tryKeyword Case
     <&> name
     <&> optional tryVariantPatternElements
 

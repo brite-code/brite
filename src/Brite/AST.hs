@@ -210,8 +210,8 @@ data Expression
       (Recover Token)
 
   -- ```
-  -- .V
-  -- .V(E)
+  -- case V
+  -- case V(E)
   -- ```
   --
   -- Data with an associated label.
@@ -409,7 +409,10 @@ data Pattern
       (Maybe (Recover ObjectPatternExtension))
       (Recover Token)
 
-  -- `.V`, `.V(P)`
+  -- ```
+  -- case V
+  -- case V(P)
+  -- ```
   | VariantPattern Token (Recover Name) (Maybe (Recover VariantPatternElements))
 
 -- `p: P`
