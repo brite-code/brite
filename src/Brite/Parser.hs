@@ -435,6 +435,7 @@ tryVariantPatternElements =
 tryType :: TryParser Type
 tryType =
   tryVariableType
+    <|> tryBottomType
     <|> unexpected ExpectedType
 
 type_ :: Parser (Recover Type)
@@ -442,6 +443,9 @@ type_ = retry tryType
 
 tryVariableType :: TryParser Type
 tryVariableType = VariableType <$> tryName
+
+tryBottomType :: TryParser Type
+tryBottomType = BottomType <$> tryGlyph Bang
 
 tryTypeAnnotation :: TryParser TypeAnnotation
 tryTypeAnnotation =

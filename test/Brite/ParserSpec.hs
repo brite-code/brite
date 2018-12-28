@@ -5046,4 +5046,7 @@ spec = mapM_ (uncurry runTest)
       \    (var `T`)\n\
       \    object))\n"
     )
+  , ( "(x: !)"
+    , "(wrap (var `x`) (type bottom))\n"
+    )
   ]

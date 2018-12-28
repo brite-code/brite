@@ -430,6 +430,11 @@ data Type
   -- `x`
   = VariableType Name
 
+  -- `!`
+  --
+  -- NOTE: Are we sure we want this as the syntax for bottom types?
+  | BottomType Token
+
 -- `: T`
 data TypeAnnotation = TypeAnnotation Token (Recover Type)
 
@@ -636,6 +641,7 @@ patternTokens (VariantPattern t1 n els) =
 
 typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
+typeTokens (BottomType t) = singletonToken t
 
 typeAnnotationTokens :: TypeAnnotation -> Tokens
 typeAnnotationTokens (TypeAnnotation t1 t2) =
@@ -991,6 +997,8 @@ debugType (VariableType (Name identifier _)) =
   B.fromText "(var `"
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
+
+debugType (BottomType _) = B.fromText "bottom"
 
 debugTypeAnnotation :: TypeAnnotation -> B.Builder
 debugTypeAnnotation (TypeAnnotation _ t) = debugRecover debugType t
