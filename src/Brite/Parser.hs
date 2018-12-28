@@ -75,10 +75,14 @@ function =
     <$> skipIdentifier (glyph ParenLeft)
     <*> commaList tryFunctionParameter
     <*> glyph ParenRight
+    <*> optional tryFunctionReturn
     <*> block
 
 tryFunctionParameter :: TryParser FunctionParameter
 tryFunctionParameter = FunctionParameter <$> tryPattern <&> optional tryTypeAnnotation
+
+tryFunctionReturn :: TryParser FunctionReturn
+tryFunctionReturn = FunctionReturn <$> tryGlyph Arrow <&> type_
 
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight

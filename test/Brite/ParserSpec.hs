@@ -3648,10 +3648,11 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun f() 😈 {}"
-    , "(0:8-0:10) We wanted `{` but we found `😈`.\n\
+    , "(0:8-0:10) We wanted `->` but we found `😈`.\n\
       \\n\
       \(fun\n\
       \  (name `f`)\n\
+      \  (ret err)\n\
       \  block)\n"
     )
   , ( "fun f() {😈}"
@@ -3685,10 +3686,11 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun f() ] {}"
-    , "(0:8-0:9) We wanted `{` but we found `]`.\n\
+    , "(0:8-0:9) We wanted `->` but we found `]`.\n\
       \\n\
       \(fun\n\
       \  (name `f`)\n\
+      \  (ret err)\n\
       \  block)\n"
     )
   , ( "fun f() {]}"
@@ -5019,5 +5021,29 @@ spec = mapM_ (uncurry runTest)
       \  (param (var `b`) (type (var `U`)))\n\
       \  (param (var `c`) (type (var `V`)))\n\
       \  block))\n"
+    )
+  , ( "fun f() -> T {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (ret (type (var `T`)))\n\
+      \  block)\n"
+    )
+  , ( "fun f() -> {}"
+    , "(0:11-0:12) We wanted a type but we found `{`.\n\
+      \\n\
+      \(fun\n\
+      \  (name `f`)\n\
+      \  (ret (type err))\n\
+      \  block)\n"
+    )
+  , ( "fun f() T {}"
+    , "(0:8-0:9) We wanted `{` but we found a variable name.\n\
+      \(0:12-0:12) We wanted `}` but the file ended.\n\
+      \\n\
+      \(fun\n\
+      \  (name `f`)\n\
+      \  (block\n\
+      \    (var `T`)\n\
+      \    object))\n"
     )
   ]

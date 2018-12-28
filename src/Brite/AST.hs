@@ -10,6 +10,7 @@ module Brite.AST
   , Declaration(..)
   , Function(..)
   , FunctionParameter(..)
+  , FunctionReturn(..)
   , Block(..)
   , Constant(..)
   , Expression(..)
@@ -114,15 +115,19 @@ data Function = Function
   { functionParamsOpen :: Recover Token
   , functionParams :: CommaList FunctionParameter
   , functionParamsClose :: Recover Token
+  , functionReturn :: Maybe (Recover FunctionReturn)
   , functionBody :: Block
   }
 
--- ```
--- P: T
--- ```
+-- `P: T`
 --
 -- A single function parameter with an optional type annotation.
 data FunctionParameter = FunctionParameter Pattern (Maybe (Recover TypeAnnotation))
+
+-- `-> T`
+--
+-- Type annotation for the value returned by the function.
+data FunctionReturn = FunctionReturn Token (Recover Type)
 
 -- A set of statements scoped in a block. Names declared in this block may only be accessed by code
 -- within the block.
@@ -476,15 +481,20 @@ declarationTokens (FunctionDeclaration t n f) =
   singletonToken t <> recoverTokens nameTokens n <> functionTokens f
 
 functionTokens :: Function -> Tokens
-functionTokens (Function t1 ps t2 b) =
+functionTokens (Function t1 ps t2 r b) =
   recoverTokens singletonToken t1
     <> commaListTokens functionParameterTokens ps
     <> recoverTokens singletonToken t2
+    <> maybeTokens (recoverTokens functionReturnTokens) r
     <> blockTokens b
 
 functionParameterTokens :: FunctionParameter -> Tokens
 functionParameterTokens (FunctionParameter p a) =
   patternTokens p <> maybeTokens (recoverTokens typeAnnotationTokens) a
+
+functionReturnTokens :: FunctionReturn -> Tokens
+functionReturnTokens (FunctionReturn t a) =
+  singletonToken t <> recoverTokens typeTokens a
 
 -- Get tokens from a block.
 blockTokens :: Block -> Tokens
@@ -675,10 +685,11 @@ debugDeclaration indentation (FunctionDeclaration _ name function) =
   debugFunction indentation (Just name) function
 
 debugFunction :: B.Builder -> Maybe (Recover Name) -> Function -> B.Builder
-debugFunction indentation name (Function _ params _ block) =
+debugFunction indentation name (Function _ params _ return_ block) =
   B.fromText "(fun"
     <> maybe mempty (debugNewline (debugRecover debugName)) name
     <> mconcat (map (debugNewline (debugParamWrapper (debugRecover debugParam))) (commaListItems params))
+    <> maybe mempty (debugNewline (debugReturnWrapper (debugRecover debugReturn))) return_
     <> debugNewline (debugBlock newIndentation) block
     <> B.singleton ')'
   where
@@ -693,6 +704,14 @@ debugFunction indentation name (Function _ params _ block) =
       debugPattern newIndentation pattern
         <> B.fromText " (type "
         <> debugRecover debugTypeAnnotation typeAnnotation
+        <> B.singleton ')'
+
+    debugReturnWrapper debug a =
+      B.fromText "(ret " <> debug a <> B.singleton ')'
+
+    debugReturn (FunctionReturn _ type_) =
+      B.fromText "(type "
+        <> debugRecover debugType type_
         <> B.singleton ')'
 
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
