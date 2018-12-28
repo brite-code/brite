@@ -5354,4 +5354,11 @@ spec = mapM_ (uncurry runTest)
       \    (prop (name `b`) (var `U`))\n\
       \    (object)))))\n"
     )
+  , ( "x\n.Foo"
+    , "(prop (var `x`) (name `Foo`))\n"
+    )
+  , ( "x;\n.Foo;"
+    , "(var `x`)\n\
+      \(variant (name `Foo`))\n"
+    )
   ]
