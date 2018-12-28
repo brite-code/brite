@@ -436,6 +436,7 @@ tryVariantPatternElements =
 tryType :: TryParser Type
 tryType =
   tryVariableType
+    <|> tryObjectType
     <|> tryQuantifiedType
     <|> tryBottomType
     <|> unexpected ExpectedType
@@ -465,6 +466,27 @@ tryQuantifier = Quantifier <$> tryName <&> optional tryBound
     tryBound =
       (QuantifierBound Flexible <$> tryGlyph Colon <&> type_)
         <|> (QuantifierBound Rigid <$> tryGlyph Equals_ <&> type_)
+
+tryObjectType :: TryParser Type
+tryObjectType =
+  ObjectType
+    <$> tryGlyph BraceLeft
+    <&> commaList tryObjectTypeProperty
+    <&> optional tryObjectTypeExtension
+    <&> glyph BraceRight
+
+tryObjectTypeProperty :: TryParser ObjectTypeProperty
+tryObjectTypeProperty =
+  ObjectTypeProperty
+    <$> tryName
+    <&> glyph Colon
+    <&> type_
+
+tryObjectTypeExtension :: TryParser ObjectTypeExtension
+tryObjectTypeExtension =
+  ObjectTypeExtension
+    <$> tryGlyph Bar
+    <&> type_
 
 tryTypeAnnotation :: TryParser TypeAnnotation
 tryTypeAnnotation =

@@ -35,6 +35,8 @@ module Brite.AST
   , Quantifier(..)
   , QuantifierBound(..)
   , QuantifierBoundKind(..)
+  , ObjectTypeProperty(..)
+  , ObjectTypeExtension(..)
   , TypeAnnotation(..)
   , moduleTokens
   , debugModule
@@ -400,14 +402,14 @@ data Pattern
   -- `_`
   | HolePattern Token
 
-  -- `{p: E, ...}`
+  -- `{p: P, ...}`
   | ObjectPattern
       Token
       (CommaList ObjectPatternProperty)
       (Maybe (Recover ObjectPatternExtension))
       (Recover Token)
 
-  -- `.V`, `.V(E)`
+  -- `.V`, `.V(P)`
   | VariantPattern Token (Recover Name) (Maybe (Recover VariantPatternElements))
 
 -- `p: P`
@@ -450,6 +452,15 @@ data Type
   -- ```
   | QuantifiedType QuantifierList (Recover Type)
 
+  -- ```
+  -- {p: T, ...}
+  -- ```
+  | ObjectType
+      Token
+      (CommaList ObjectTypeProperty)
+      (Maybe (Recover ObjectTypeExtension))
+      (Recover Token)
+
 -- ```
 -- <x>
 -- <x: T>
@@ -472,6 +483,16 @@ data QuantifierBound = QuantifierBound QuantifierBoundKind Token (Recover Type)
 
 -- `:` or `=`
 data QuantifierBoundKind = Rigid | Flexible
+
+-- `p: T`
+--
+-- A single object property.
+data ObjectTypeProperty = ObjectTypeProperty Name (Recover Token) (Recover Type)
+
+-- `| T`
+--
+-- An extension operation on an object.
+data ObjectTypeExtension = ObjectTypeExtension Token (Recover Type)
 
 -- `: T`
 data TypeAnnotation = TypeAnnotation Token (Recover Type)
@@ -682,6 +703,18 @@ typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
 typeTokens (BottomType t) = singletonToken t
 typeTokens (QuantifiedType qs t) = quantifierListTokens qs <> recoverTokens typeTokens t
+
+typeTokens (ObjectType t1 ps ext t2) =
+  singletonToken t1
+    <> commaListTokens propertyTokens ps
+    <> maybeTokens (recoverTokens extensionTokens) ext
+    <> recoverTokens singletonToken t2
+  where
+    propertyTokens (ObjectTypeProperty n t a) =
+      nameTokens n <> recoverTokens singletonToken t <> recoverTokens typeTokens a
+
+    extensionTokens (ObjectTypeExtension t3 e) =
+      singletonToken t3 <> recoverTokens typeTokens e
 
 quantifierListTokens :: QuantifierList -> Tokens
 quantifierListTokens (QuantifierList t1 qs t2) =
@@ -1061,6 +1094,24 @@ debugType indentation (QuantifiedType qs t) =
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
+
+debugType indentation (ObjectType _ properties extension _) =
+  B.fromText "(object"
+    <> mconcat (map (debugNewline (debugPropertyWrapper (debugRecover debugProperty))) (commaListItems properties))
+    <> maybe mempty (debugNewline (debugRecover debugExtension)) extension
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+    debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
+
+    debugPropertyWrapper debug a =
+      B.fromText "(prop " <> debug a <> B.singleton ')'
+
+    debugProperty (ObjectTypeProperty label _ type_) =
+      debugName label <> B.singleton ' ' <> debugRecover (debugType newIndentation) type_
+
+    debugExtension (ObjectTypeExtension _ type_) =
+      debugRecover (debugType newIndentation) type_
 
 debugQuantifierList :: B.Builder -> QuantifierList -> B.Builder
 debugQuantifierList indentation (QuantifierList _ qs _) =

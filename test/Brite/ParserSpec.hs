@@ -5029,11 +5029,12 @@ spec = mapM_ (uncurry runTest)
       \  block)\n"
     )
   , ( "fun f() -> {}"
-    , "(0:11-0:12) We wanted a type but we found `{`.\n\
+    , "(0:13-0:13) We wanted `{` but the file ended.\n\
+      \(0:13-0:13) We wanted `}` but the file ended.\n\
       \\n\
       \(fun\n\
       \  (name `f`)\n\
-      \  (ret (type err))\n\
+      \  (ret (type (object)))\n\
       \  block)\n"
     )
   , ( "fun f() T {}"
@@ -5045,6 +5046,12 @@ spec = mapM_ (uncurry runTest)
       \  (block\n\
       \    (var `T`)\n\
       \    object))\n"
+    )
+  , ( "fun f() -> {} {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (ret (type (object)))\n\
+      \  block)\n"
     )
   , ( "(x: !)"
     , "(wrap (var `x`) (type bottom))\n"
@@ -5246,5 +5253,105 @@ spec = mapM_ (uncurry runTest)
       \  (forall (name `T`))\n\
       \  (forall (name `U`))\n\
       \  block)\n"
+    )
+  , ( "(x: {})"
+    , "(wrap (var `x`) (type (object)))\n"
+    )
+  , ( "(x: {a: T})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`)))))\n"
+    )
+  , ( "(x: {a: T, b: U})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (prop (name `b`) (var `U`)))))\n"
+    )
+  , ( "(x: {,})"
+    , "(0:5-0:6) We wanted a variable name but we found `,`.\n\
+      \\n\
+      \(wrap (var `x`) (type (object\n\
+      \  (prop err))))\n"
+    )
+  , ( "(x: {a: T,})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`)))))\n"
+    )
+  , ( "(x: {a: T, b: U,})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (prop (name `b`) (var `U`)))))\n"
+    )
+  , ( "(x: {a})"
+    , "(0:6-0:7) We wanted `:` but we found `}`.\n\
+      \(0:6-0:7) We wanted a type but we found `}`.\n\
+      \\n\
+      \(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) err))))\n"
+    )
+  , ( "(x: {a, b})"
+    , "(0:6-0:7) We wanted `:` but we found `,`.\n\
+      \(0:6-0:7) We wanted a type but we found `,`.\n\
+      \(0:9-0:10) We wanted `:` but we found `}`.\n\
+      \(0:9-0:10) We wanted a type but we found `}`.\n\
+      \\n\
+      \(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) err)\n\
+      \  (prop (name `b`) err))))\n"
+    )
+  , ( "(x: {a: T, b})"
+    , "(0:12-0:13) We wanted `:` but we found `}`.\n\
+      \(0:12-0:13) We wanted a type but we found `}`.\n\
+      \\n\
+      \(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (prop (name `b`) err))))\n"
+    )
+  , ( "(x: {a, b: U})"
+    , "(0:6-0:7) We wanted `:` but we found `,`.\n\
+      \(0:6-0:7) We wanted a type but we found `,`.\n\
+      \\n\
+      \(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) err)\n\
+      \  (prop (name `b`) (var `U`)))))\n"
+    )
+  , ( "(x: {| O})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (var `O`))))\n"
+    )
+  , ( "(x: {a: T | O})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (var `O`))))\n"
+    )
+  , ( "(x: {a: T, | O})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (var `O`))))\n"
+    )
+  , ( "(x: {a: T, b: U | O})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (prop (name `b`) (var `U`))\n\
+      \  (var `O`))))\n"
+    )
+  , ( "(x: {a: T, b: U, | O})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (prop (name `b`) (var `U`))\n\
+      \  (var `O`))))\n"
+    )
+  , ( "(x: {a: T | {b: U | O}})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (object\n\
+      \    (prop (name `b`) (var `U`))\n\
+      \    (var `O`)))))\n"
+    )
+  , ( "(x: {a: T | {b: U | {}}})"
+    , "(wrap (var `x`) (type (object\n\
+      \  (prop (name `a`) (var `T`))\n\
+      \  (object\n\
+      \    (prop (name `b`) (var `U`))\n\
+      \    (object)))))\n"
     )
   ]
