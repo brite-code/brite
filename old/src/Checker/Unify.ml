@@ -127,16 +127,95 @@ let rec unify prefix type1 type2 =
     let result1 = unify prefix parameter1 parameter2 in
     let result2 = unify prefix body1 body2 in
     match result1, result2 with
-    | Error error, _ -> Error error
-    | Ok (), Error error -> Error error
-    | Ok (), Ok () -> Ok ()
+    | Error _, _ -> result1
+    | Ok (), Error _ -> result2
+    | Ok (), Ok () -> result2
   )
 
-  (* TODO *)
-  | RowEmpty, RowEmpty -> failwith "TODO"
+  (* Empty rows unify with each other. *)
+  | RowEmpty, RowEmpty -> Ok ()
+
+  (* Unify two extensions by unifying common entries and then unifying the
+   * extensions with any remaining entries. *)
   | RowExtension { entries = entries1; extension = extension1 },
-    RowExtension { entries = entries2; extension = extension2 } ->
-    failwith "TODO"
+    RowExtension { entries = entries2; extension = extension2 } -> (
+    (* Merge the row entries into pairs. Overflow row entries are also returned. *)
+    let (pairs, entries1, entries2) = Type.merge_rows entries1 entries2 in
+    (* Use the last error in the list as the result since `pairs` is in
+     * reverse order. *)
+    let result1 = List.fold_left (fun result (_, type1, type2) -> (
+      match unify prefix type1 type2 with
+      | Error _ as result -> result
+      | Ok () -> result
+    )) (Ok ()) pairs in
+    (* If the two extensions are the same by some shallow check then we process
+     * our row extension differently. *)
+    let same = match extension1, extension2 with
+    | None, None -> true
+    (* NOTE: This is an important check to ensure the unification algorithm
+     * terminates! If both extensions are variables of the same name we must
+     * terminate early instead of recursing. Otherwise, we will create a new
+     * type variable and perform a unification of the same form. More notes on
+     * this later. *)
+    | Some { monotype_description = Variable { name = name1 } },
+      Some { monotype_description = Variable { name = name2 } } ->
+      String.equal name1 name2
+    | _ -> false
+    in
+    if same then (
+      (* If there are no more remaining entries we are ok. Otherwise we have
+       * two incompatible types so report an error. *)
+      if entries1 = [] && entries2 = [] then (
+        Ok ()
+      ) else (
+        let type1 = Printer.print_monotype (Type.try_row_extension entries1 extension1) in
+        let type2 = Printer.print_monotype (Type.try_row_extension entries2 extension2) in
+        let result2 = Error (Diagnostics.report_error (IncompatibleTypes { type1; type2 })) in
+        match result1, result2 with
+        | Error _, _ -> result1
+        | Ok (), Error _ -> result2
+        | Ok (), Ok () -> result2
+      )
+    ) else (
+      (* Convert non-existent extensions into empty rows. *)
+      let extension1 = match extension1 with Some t -> t | None -> Type.row_empty in
+      let extension2 = match extension2 with Some t -> t | None -> Type.row_empty in
+      (* We will create some type variables so perform the following in a new
+       * level. The type variables we create may escape through updates. *)
+      Prefix.level prefix (fun () -> (
+        (* Create a new type variable. Every time we create a type variable we
+         * risk introducing non-termination into our algorithm. In this case
+         * we guard against the non-termination above where we early return
+         * if the extension are two variables with the same name. Here’s why
+         * that case would fail to terminate otherwise.
+         *
+         * 1. Say we are unifying `(| p: a | r |)` and `(| q: b | r |)`.
+         * 2. We create a new type variable `t1` and unify `r` with
+         *    `(| q: b | t1 |)` according to the code below.
+         * 3. Then we unify `(| p: a | t1 |)` with `r` according to the
+         *    code below.
+         * 4. Because `r` was unified earlier we now unify `(| p: a | t1 |)` and
+         *    `(| q: b | t1 |)`. This is of the same form as step 1. If we
+         *    repeat these steps we recurse forever.
+         *
+         * We mitigate this non-termination by returning early when both
+         * extensions are the same variable. *)
+        let extension = Prefix.fresh_with_bound prefix Type.unbounded_row in
+        (* Add our extra entries to the fresh extension. *)
+        let type1 = Type.try_row_extension entries1 (Some extension) in
+        let type2 = Type.try_row_extension entries2 (Some extension) in
+        (* Unify our actual extension with the expected types. *)
+        let result2 = unify prefix extension1 type2 in
+        let result3 = unify prefix type1 extension2 in
+        (* Pick our first error and return that. *)
+        match result1, result2, result3 with
+        | Error _, _, _ -> result1
+        | Ok (), Error _, _ -> result2
+        | Ok (), Ok (), Error _ -> result3
+        | Ok (), Ok (), Ok () -> result3
+      ))
+    )
+  )
 
   (* Exhaustive match for failure case. Don’t use `_` since if we add a new type
    * we want an error telling us to add a case for that type to unification. *)

@@ -1,6 +1,0 @@
-# Build Artifacts
-_build
-*.native
-
-# Local Environment
-local

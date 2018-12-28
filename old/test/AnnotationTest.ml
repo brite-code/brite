@@ -14,7 +14,7 @@ let run () = suite "Annotation" (fun () -> (
     ("(||) → number", "%error → number", ["Incompatible kinds row and value."]);
     ("number → (||)", "number → %error", ["Incompatible kinds row and value."]);
     ("(| a: number |)", "(| a: number |)", []);
-    ("(| a: number | (||) |)", "(| a: number |)", []);
+    ("(| a: number | (||) |)", "(| a: number | (||) |)", []);
     ("(| a: number, b: number |)", "(| a: number, b: number |)", []);
     ("(| a: number | x |)", "(| a: number | %error |)", ["Unbound variable `x`."]);
     ("(| a: number | number |)", "(| a: number | %error |)", ["Incompatible kinds value and row."]);

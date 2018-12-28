@@ -18,6 +18,7 @@ let test name f =
     f ();
     Ok ()
   ) with
+  | Stack_overflow -> Error "Stack_overflow"
   | Not_found -> Error "Not_found"
   | Failure reason -> Error (Printf.sprintf "Failure(%S)" reason)
   | Invalid_argument reason -> Error (Printf.sprintf "Invalid_argument(%S)" reason)

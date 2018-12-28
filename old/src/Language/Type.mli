@@ -9,7 +9,7 @@ and 'k monotype_description = private
   | Number
   | Function of { parameter: 'k base_monotype; body: 'k base_monotype }
   | RowEmpty
-  | RowExtension of { entries: (string * ('k base_monotype)) Nel.t; extension: 'k base_monotype }
+  | RowExtension of { entries: (string * ('k base_monotype)) Nel.t; extension: 'k base_monotype option }
   | Error of { kind: 'k; error: Diagnostics.t }
 
 type bound_flexibility = Flexible | Rigid
@@ -43,13 +43,15 @@ val boolean: 'k base_monotype
 val number: 'k base_monotype
 val function_: 'k base_monotype -> 'k base_monotype -> 'k base_monotype
 val row_empty: 'k base_monotype
-val row_extension: (string * ('k base_monotype)) Nel.t -> 'k base_monotype -> 'k base_monotype
+val row_extension: (string * ('k base_monotype)) Nel.t -> 'k base_monotype option -> 'k base_monotype
+val try_row_extension: (string * ('k base_monotype)) list -> 'k base_monotype option -> 'k base_monotype
 val to_polytype: 'k base_monotype -> 'k base_polytype
 val bottom: parse_polytype
 val bottom_with_kind: Kind.t -> polytype
 val bound: bound_flexibility -> 'k base_polytype -> 'k base_bound
 val unbounded: parse_bound
 val unbounded_value: bound
+val unbounded_row: bound
 val quantify: (string * ('k base_bound)) Nel.t -> 'k base_monotype -> 'k base_polytype
 val error: Kind.t -> Diagnostics.t -> monotype
 val monotype_kind: monotype -> Kind.t
@@ -59,6 +61,6 @@ val substitute_polytype: monotype StringMap.t -> polytype -> polytype option
 val normal: polytype -> polytype option
 
 val merge_rows:
-  (string * monotype) list ->
-  (string * monotype) list ->
+  (string * monotype) Nel.t ->
+  (string * monotype) Nel.t ->
   ((string * monotype * monotype) list * (string * monotype) list * (string * monotype) list)

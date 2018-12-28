@@ -186,8 +186,8 @@ and parse_unwrapped_monotype tokens =
     ) else (
       let entries = parse_comma_nel tokens parse_row_entry in
       let extension = match Stream.peek tokens with
-      | Some (Glyph Bar) -> Stream.junk tokens; parse_monotype tokens
-      | _ -> Type.row_empty
+      | Some (Glyph Bar) -> Stream.junk tokens; Some (parse_monotype tokens)
+      | _ -> None
       in
       parse_glyph tokens ParenthesesBarRight;
       Type.row_extension entries extension

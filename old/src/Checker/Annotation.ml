@@ -31,7 +31,7 @@ let rec check_monotype context kind t =
    * things like “numbers” or “booleans” in a row extension. *)
   | RowExtension { entries; extension } ->
     let entries = Nel.map (fun (label, type_) -> (label, check_monotype context Kind.value type_)) entries in
-    let extension = check_monotype context Kind.row extension in
+    let extension = match extension with Some t -> Some (check_monotype context Kind.row t) | None -> None in
     Type.row_extension entries extension
 
   (* Use the provided kind for error types. *)

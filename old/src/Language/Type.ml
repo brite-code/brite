@@ -19,8 +19,14 @@ and 'k monotype_description =
   (* `(||)` *)
   | RowEmpty
 
-  (* `(| l: T1 | T2 |)` *)
-  | RowExtension of { entries: (string * 'k base_monotype) Nel.t; extension: 'k base_monotype }
+  (* `(| l: T1 | T2 |)`
+   *
+   * If the extension is `None` that is the same as saying the extension
+   * is `RowEmpty`.
+   *
+   * TODO: Efficient implementation. Currently property lookups are O(n). Which
+   * means `o.p` must perform an O(n) lookup. *)
+  | RowExtension of { entries: (string * 'k base_monotype) Nel.t; extension: 'k base_monotype option }
 
   (* When the programmer writes a syntactically correct type, but the type is
    * semantically incorrect (for example, it references a type that does not
@@ -134,13 +140,22 @@ let row_empty =
 let row_extension entries extension =
   {
     monotype_free_variables = lazy (
-      let free = Lazy.force extension.monotype_free_variables in
+      let free = match extension with Some t -> Lazy.force t.monotype_free_variables | None -> StringSet.empty in
       Nel.fold_left (fun free (_, type_) -> (
         StringSet.union free (Lazy.force type_.monotype_free_variables)
       )) free entries
     );
     monotype_description = RowExtension { entries; extension };
   }
+
+(* Tries to create a row extension monotype with a possibly empty list of
+ * entries. The extension is returned if the list is empty. *)
+let try_row_extension entries extension =
+  if entries = [] then (
+    match extension with None -> row_empty | Some t -> t
+  ) else (
+    row_extension (Nel.from_list entries) extension
+  )
 
 (* Converts a monotype into a polytype. *)
 let to_polytype t =
@@ -174,6 +189,9 @@ let unbounded = bound Flexible bottom
 
 (* A flexible bottom bound with a value kind. *)
 let unbounded_value = bound Flexible (bottom_with_kind Kind.value)
+
+(* A flexible bottom bound with a row kind. *)
+let unbounded_row = bound Flexible (bottom_with_kind Kind.row)
 
 (* Quantifies a monotype by some bounds. The free type variables of quantified
  * types will not include the free type variables of unused bounds. This is to
@@ -257,7 +275,10 @@ let rec substitute_monotype substitutions t =
       | Some type_ -> (label, type_)
       | None -> entry
     )) entries in
-    let extension = match substitute_monotype substitutions extension with Some t -> t | None -> t in
+    let extension = match extension with
+    | Some t -> (match substitute_monotype substitutions t with Some t -> Some t | None -> extension)
+    | None -> extension
+    in
     Some (row_extension entries extension)
 
 (* Substitutes the free variables of the provided type with a substitution if
@@ -447,9 +468,8 @@ let rec normal (t: polytype) =
  * 2. A list of the remaining entries of `entries1`. (In alphabetical order.)
  * 3. A list of the remaining entries of `entries2`. (In alphabetical order.) *)
 let merge_rows entries1 entries2 =
-  if entries1 = [] || entries2 = [] then ([], entries1, entries2) else
-  let entries1 = List.stable_sort (fun (a, _) (b, _) -> String.compare a b) entries1 in
-  let entries2 = List.stable_sort (fun (a, _) (b, _) -> String.compare a b) entries2 in
+  let entries1 = List.stable_sort (fun (a, _) (b, _) -> String.compare a b) (Nel.to_list entries1) in
+  let entries2 = List.stable_sort (fun (a, _) (b, _) -> String.compare a b) (Nel.to_list entries2) in
   let rec loop pairs rev_entries1 rev_entries2 entries1 entries2 =
     match entries1, entries2 with
     | [], _ -> (pairs, List.rev rev_entries1, List.rev_append rev_entries2 entries2)
