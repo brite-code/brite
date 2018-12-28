@@ -450,6 +450,7 @@ tryType :: TryParser Type
 tryType =
   tryVariableType
     <|> tryObjectType
+    <|> tryVariantUnionType
     <|> tryQuantifiedType
     <|> tryBottomType
     <|> unexpected ExpectedType
@@ -500,6 +501,33 @@ tryObjectTypeExtension =
   ObjectTypeExtension
     <$> tryGlyph Bar
     <&> type_
+
+tryVariantUnionType :: TryParser Type
+tryVariantUnionType =
+  ((VariantUnionType Nothing <$> tryVariantType)
+    <|> (VariantUnionType <$> (Just <$> tryGlyph Bar) <&> variantType))
+    <&> many ((,) <$> tryGlyph Bar <&> variantType)
+
+tryVariantType :: TryParser VariantType
+tryVariantType =
+  VariantType
+    <$> (Ok <$> tryKeyword Case)
+    <&> name
+    <&> optional tryVariantTypeElements
+
+variantType :: Parser VariantType
+variantType =
+  VariantType
+    <$> keyword Case
+    <*> name
+    <*> optional tryVariantTypeElements
+
+tryVariantTypeElements :: TryParser VariantTypeElements
+tryVariantTypeElements =
+  VariantTypeElements
+    <$> tryGlyph ParenLeft
+    <&> commaList tryType
+    <&> glyph ParenRight
 
 tryTypeAnnotation :: TryParser TypeAnnotation
 tryTypeAnnotation =

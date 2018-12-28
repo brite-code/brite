@@ -5487,4 +5487,118 @@ spec = mapM_ (uncurry runTest)
       \  (variant (name `V`))\n\
       \  (variant (name `W`))) (var `x`))\n"
     )
+  , ( "let case V | | case W = x;"
+    , "(0:13-0:14) We wanted `case` but we found `|`.\n\
+      \(0:13-0:14) We wanted a variable name but we found `|`.\n\
+      \\n\
+      \(bind (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant err)\n\
+      \  (variant (name `W`))) (var `x`))\n"
+    )
+  , ( "(x: case V)"
+    , "(wrap (var `x`) (type (variant (name `V`))))\n"
+    )
+  , ( "(x: case V | case W)"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`)))))\n"
+    )
+  , ( "(x: case V | case W | case X)"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`))\n\
+      \  (variant (name `X`)))))\n"
+    )
+  , ( "(x: | case V)"
+    , "(wrap (var `x`) (type (variant (name `V`))))\n"
+    )
+  , ( "(x: | case V | case W)"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`)))))\n"
+    )
+  , ( "(x: | case V | case W | case X)"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`))\n\
+      \  (variant (name `X`)))))\n"
+    )
+  , ( "(x: case V(A))"
+    , "(wrap (var `x`) (type (variant (name `V`)\n\
+      \  (var `A`))))\n"
+    )
+  , ( "(x: case V(A) | case W(B))"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`)\n\
+      \    (var `A`))\n\
+      \  (variant (name `W`)\n\
+      \    (var `B`)))))\n"
+    )
+  , ( "(x: case V(A) | case W(B) | case X(C))"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`)\n\
+      \    (var `A`))\n\
+      \  (variant (name `W`)\n\
+      \    (var `B`))\n\
+      \  (variant (name `X`)\n\
+      \    (var `C`)))))\n"
+    )
+  , ( "(x: | case V(A))"
+    , "(wrap (var `x`) (type (variant (name `V`)\n\
+      \  (var `A`))))\n"
+    )
+  , ( "(x: | case V(A) | case W(B))"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`)\n\
+      \    (var `A`))\n\
+      \  (variant (name `W`)\n\
+      \    (var `B`)))))\n"
+    )
+  , ( "(x: | case V(A) | case W(B) | case X(C))"
+    , "(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`)\n\
+      \    (var `A`))\n\
+      \  (variant (name `W`)\n\
+      \    (var `B`))\n\
+      \  (variant (name `X`)\n\
+      \    (var `C`)))))\n"
+    )
+  , ( "(x: case V | | case W)"
+    , "(0:13-0:14) We wanted `case` but we found `|`.\n\
+      \(0:13-0:14) We wanted a variable name but we found `|`.\n\
+      \\n\
+      \(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant err)\n\
+      \  (variant (name `W`)))))\n"
+    )
+  , ( "(x: 😈 case V | case W)"
+    , "(0:4-0:6) We wanted a type but we found `😈`.\n\
+      \\n\
+      \(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`)))))\n"
+    )
+  , ( "(x: | 😈 case V | case W)"
+    , "(0:6-0:8) We wanted `case` but we found `😈`.\n\
+      \\n\
+      \(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`)))))\n"
+    )
+  , ( "(x: | case V 😈 | case W)"
+    , "(0:13-0:15) We wanted `(` but we found `😈`.\n\
+      \\n\
+      \(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`)err)\n\
+      \  (variant (name `W`)))))\n"
+    )
+  , ( "(x: | case V | 😈 case W)"
+    , "(0:15-0:17) We wanted `case` but we found `😈`.\n\
+      \\n\
+      \(wrap (var `x`) (type (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`)))))\n"
+    )
   ]

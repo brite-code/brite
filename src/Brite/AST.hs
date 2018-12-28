@@ -38,6 +38,8 @@ module Brite.AST
   , QuantifierBoundKind(..)
   , ObjectTypeProperty(..)
   , ObjectTypeExtension(..)
+  , VariantType(..)
+  , VariantTypeElements(..)
   , TypeAnnotation(..)
   , moduleTokens
   , debugModule
@@ -423,7 +425,10 @@ data Pattern
   -- case V(P)
   -- case V | case W
   -- ```
-  | VariantUnionPattern (Maybe Token) VariantPattern [Recover (Token, VariantPattern)]
+  | VariantUnionPattern
+      (Maybe Token)
+      VariantPattern
+      [Recover (Token, VariantPattern)]
 
 -- `p: P`
 --
@@ -481,6 +486,22 @@ data Type
       (Maybe (Recover ObjectTypeExtension))
       (Recover Token)
 
+  -- ```
+  -- case V
+  -- case V(T)
+  -- case V | case W
+  -- case V | case W | T
+  -- ```
+  --
+  -- A variant may form a union with any other type. However, only certain type kinds are acceptable
+  -- as the extension of a variant union type.
+  --
+  -- TODO: Extension
+  | VariantUnionType
+      (Maybe Token)
+      VariantType
+      [Recover (Token, VariantType)]
+
 -- ```
 -- <x>
 -- <x: T>
@@ -513,6 +534,19 @@ data ObjectTypeProperty = ObjectTypeProperty Name (Recover Token) (Recover Type)
 --
 -- An extension operation on an object.
 data ObjectTypeExtension = ObjectTypeExtension Token (Recover Type)
+
+-- ```
+-- case V
+-- case V(T)
+-- ```
+data VariantType =
+  VariantType (Recover Token) (Recover Name) (Maybe (Recover VariantTypeElements))
+
+-- `(...)`
+--
+-- The elements of a variant.
+data VariantTypeElements =
+  VariantTypeElements Token (CommaList Type) (Recover Token)
 
 -- `: T`
 data TypeAnnotation = TypeAnnotation Token (Recover Type)
@@ -740,6 +774,19 @@ typeTokens (ObjectType t1 ps ext t2) =
 
     extensionTokens (ObjectTypeExtension t3 e) =
       singletonToken t3 <> recoverTokens typeTokens e
+
+typeTokens (VariantUnionType t1 v1 vs) =
+  maybeTokens singletonToken t1
+    <> variantTokens v1
+    <> mconcat (map (recoverTokens (\(t2, v) -> singletonToken t2 <> variantTokens v)) vs)
+  where
+    variantTokens (VariantType t2 n els) =
+      recoverTokens singletonToken t2
+        <> recoverTokens nameTokens n
+        <> maybeTokens (recoverTokens elementTokens) els
+
+    elementTokens (VariantTypeElements t2 es t3) =
+      singletonToken t2 <> commaListTokens typeTokens es <> recoverTokens singletonToken t3
 
 quantifierListTokens :: QuantifierList -> Tokens
 quantifierListTokens (QuantifierList t1 qs t2) =
@@ -1149,6 +1196,32 @@ debugType indentation (ObjectType _ properties extension _) =
 
     debugExtension (ObjectTypeExtension _ type_) =
       debugRecover (debugType newIndentation) type_
+
+debugType indentation0 (VariantUnionType _ v1 vs) =
+  if null vs then
+    debugVariant (indentation0 <> B.fromText "  ") v1
+  else
+    B.fromText "(union"
+      <> mconcat
+        (map
+          (debugNewline
+            (indentation0 <> B.fromText "  ")
+            (debugRecover (debugVariant (indentation0 <> B.fromText "    "))))
+          (Ok v1 : map (fmap snd) vs))
+      <> B.singleton ')'
+  where
+    debugNewline indentation debug a = B.singleton '\n' <> indentation <> debug a
+
+    debugVariant indentation (VariantType _ label elements) =
+      B.fromText "(variant "
+        <> debugRecover debugName label
+        <> maybe mempty (debugRecover (debugElements indentation)) elements
+        <> B.singleton ')'
+
+    debugElements indentation (VariantTypeElements _ patterns _) =
+      mconcat $
+        map (debugNewline indentation (debugRecover (debugType indentation))) $
+          commaListItems patterns
 
 debugQuantifierList :: B.Builder -> QuantifierList -> B.Builder
 debugQuantifierList indentation (QuantifierList _ qs _) =
