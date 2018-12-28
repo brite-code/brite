@@ -8,6 +8,7 @@ module Brite.AST
   , commaListItems
   , Statement(..)
   , Declaration(..)
+  , Function(..)
   , Block(..)
   , Constant(..)
   , Expression(..)
@@ -100,13 +101,20 @@ data Declaration
   -- two because function declarations are mutually recursive among all function declarations.
   -- Function declarations require the name to be present and don’t allow expression “extra”s like
   -- a function call.
-  = FunctionDeclaration
-      Token
-      (Recover Name)
-      (Recover Token)
-      (CommaList Pattern)
-      (Recover Token)
-      Block
+  = FunctionDeclaration Token (Recover Name) Function
+
+-- ```
+-- (...) { ... }
+-- ```
+--
+-- The data necessary for creating a function. Excluding the function keyword and optional
+-- function name.
+data Function = Function
+  { functionParamsOpen :: Recover Token
+  , functionParams :: CommaList Pattern
+  , functionParamsClose :: Recover Token
+  , functionBody :: Block
+  }
 
 -- A set of statements scoped in a block. Names declared in this block may only be accessed by code
 -- within the block.
@@ -143,13 +151,9 @@ data Expression
   -- ```
   --
   -- A block of code which is executed whenever the function is called.
-  | FunctionExpression
-      Token
-      (Maybe (Recover Name))
-      (Recover Token)
-      (CommaList Pattern)
-      (Recover Token)
-      Block
+  --
+  -- TODO: `FunctionExpression` should not have a name.
+  | FunctionExpression Token (Maybe (Recover Name)) Function
 
   -- ```
   -- {p: E, ...}
@@ -456,12 +460,14 @@ statementTokens (Declaration d) =
 
 -- Get tokens from a declaration.
 declarationTokens :: Declaration -> Tokens
-declarationTokens (FunctionDeclaration t1 n t2 ps t3 b) =
-  singletonToken t1
-    <> recoverTokens nameTokens n
-    <> recoverTokens singletonToken t2
+declarationTokens (FunctionDeclaration t n f) =
+  singletonToken t <> recoverTokens nameTokens n <> functionTokens f
+
+functionTokens :: Function -> Tokens
+functionTokens (Function t1 ps t2 b) =
+  recoverTokens singletonToken t1
     <> commaListTokens patternTokens ps
-    <> recoverTokens singletonToken t3
+    <> recoverTokens singletonToken t2
     <> blockTokens b
 
 -- Get tokens from a block.
@@ -481,13 +487,8 @@ expressionTokens (ConstantExpression constant) = constantTokens constant
 
 expressionTokens (VariableExpression name) = nameTokens name
 
-expressionTokens (FunctionExpression t1 n t2 ps t3 b) =
-  singletonToken t1
-    <> maybeTokens (recoverTokens nameTokens) n
-    <> recoverTokens singletonToken t2
-    <> commaListTokens patternTokens ps
-    <> recoverTokens singletonToken t3
-    <> blockTokens b
+expressionTokens (FunctionExpression t n f) =
+  singletonToken t <> maybeTokens (recoverTokens nameTokens) n <> functionTokens f
 
 expressionTokens (ObjectExpression t1 ps ext t2) =
   singletonToken t1
@@ -654,10 +655,13 @@ debugStatement indentation (Declaration declaration) =
 -- Debug a declaration in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.
 debugDeclaration :: B.Builder -> Declaration -> B.Builder
-debugDeclaration indentation (FunctionDeclaration _ name _ params _ block) =
+debugDeclaration indentation (FunctionDeclaration _ name function) =
+  debugFunction indentation (Just name) function
+
+debugFunction :: B.Builder -> Maybe (Recover Name) -> Function -> B.Builder
+debugFunction indentation name (Function _ params _ block) =
   B.fromText "(fun"
-    <> B.singleton '\n' <> newIndentation
-    <> debugRecover debugName name
+    <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
     <> mconcat (map debugParam (commaListItems params))
     <> B.singleton '\n' <> newIndentation
     <> debugBlock newIndentation block
@@ -699,18 +703,8 @@ debugExpression _ (VariableExpression (Name identifier _)) =
     <> B.fromText (identifierText identifier)
     <> B.fromText "`)"
 
-debugExpression indentation (FunctionExpression _ name _ params _ block) =
-  B.fromText "(fun"
-    <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
-    <> mconcat (map debugParam (commaListItems params))
-    <> B.singleton '\n' <> newIndentation
-    <> debugBlock newIndentation block
-    <> B.singleton ')'
-  where
-    newIndentation = indentation <> B.fromText "  "
-    debugParam param =
-      B.singleton '\n' <> newIndentation
-        <> debugRecover (debugPattern indentation) param
+debugExpression indentation (FunctionExpression _ name function) =
+  debugFunction indentation name function
 
 debugExpression _ (ObjectExpression _ (CommaList [] Nothing) Nothing _) =
   B.fromText "object"

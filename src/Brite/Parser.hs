@@ -67,10 +67,15 @@ tryFunctionDeclaration =
   FunctionDeclaration
     <$> tryKeyword Fun
     <&> name
-    <&> glyph ParenLeft
-    <&> commaList tryPattern
-    <&> glyph ParenRight
-    <&> block
+    <&> function
+
+function :: Parser Function
+function =
+  Function
+    <$> glyph ParenLeft
+    <*> commaList tryPattern
+    <*> glyph ParenRight
+    <*> block
 
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
@@ -110,10 +115,7 @@ tryFunctionExpression =
   FunctionExpression
     <$> tryKeyword Fun
     <&> optional tryName
-    <&> glyph ParenLeft
-    <&> commaList tryPattern
-    <&> glyph ParenRight
-    <&> block
+    <&> function
 
 tryObjectExpression :: TryParser Expression
 tryObjectExpression =
