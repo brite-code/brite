@@ -5366,4 +5366,125 @@ spec = mapM_ (uncurry runTest)
       \(var `x`)\n\
       \(var `Foo`)\n"
     )
+  , ( "switch x { case V😈 -> {} }"
+    , "(0:17-0:19) We wanted `(` but we found `😈`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (variant (name `V`)err) block))\n"
+    )
+  , ( "switch x { | case V -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (variant (name `V`)) block))\n"
+    )
+  , ( "switch x { |😈 -> {} }"
+    , "(0:12-0:14) We wanted `case` but we found `😈`.\n\
+      \(0:15-0:17) We wanted a variable name but we found `->`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (variant err) block))\n"
+    )
+  , ( "switch x { |😈 case V -> {} }"
+    , "(0:12-0:14) We wanted `case` but we found `😈`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (variant (name `V`)) block))\n"
+    )
+  , ( "switch x { case V | 😈 -> {} }"
+    , "(0:20-0:22) We wanted `case` but we found `😈`.\n\
+      \(0:23-0:25) We wanted a variable name but we found `->`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`))\n\
+      \    (variant err)) block))\n"
+    )
+  , ( "switch x { case V | case 😈 -> {} }"
+    , "(0:25-0:27) We wanted a variable name but we found `😈`.\n\
+      \\n\
+      \(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`))\n\
+      \    (variant err)) block))\n"
+    )
+  , ( "switch x { case V | case W -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`))\n\
+      \    (variant (name `W`))) block))\n"
+    )
+  , ( "switch x { case V | case W | case X -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`))\n\
+      \    (variant (name `W`))\n\
+      \    (variant (name `X`))) block))\n"
+    )
+  , ( "switch x { | case V | case W -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`))\n\
+      \    (variant (name `W`))) block))\n"
+    )
+  , ( "switch x { | case V | case W | case X -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`))\n\
+      \    (variant (name `W`))\n\
+      \    (variant (name `X`))) block))\n"
+    )
+  , ( "switch x { case V(y) | case W(y) -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`)\n\
+      \      (var `y`))\n\
+      \    (variant (name `W`)\n\
+      \      (var `y`))) block))\n"
+    )
+  , ( "switch x { case V(y) | case W(y) | case X(y) -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`)\n\
+      \      (var `y`))\n\
+      \    (variant (name `W`)\n\
+      \      (var `y`))\n\
+      \    (variant (name `X`)\n\
+      \      (var `y`))) block))\n"
+    )
+  , ( "switch x { | case V(y) | case W(y) -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`)\n\
+      \      (var `y`))\n\
+      \    (variant (name `W`)\n\
+      \      (var `y`))) block))\n"
+    )
+  , ( "switch x { | case V(y) | case W(y) | case X(y) -> {} }"
+    , "(match\n\
+      \  (var `x`)\n\
+      \  (case (union\n\
+      \    (variant (name `V`)\n\
+      \      (var `y`))\n\
+      \    (variant (name `W`)\n\
+      \      (var `y`))\n\
+      \    (variant (name `X`)\n\
+      \      (var `y`))) block))\n"
+    )
+  , ( "let case V | case W = x;"
+    , "(bind (union\n\
+      \  (variant (name `V`))\n\
+      \  (variant (name `W`))) (var `x`))\n"
+    )
   ]

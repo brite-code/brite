@@ -29,6 +29,7 @@ module Brite.AST
   , ObjectPatternProperty(..)
   , ObjectPatternPropertyValue(..)
   , ObjectPatternExtension(..)
+  , VariantPattern(..)
   , VariantPatternElements(..)
   , Type(..)
   , QuantifierList(..)
@@ -393,16 +394,24 @@ data ExpressionExtra
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
 data Pattern
-  -- `C`
+  -- ```
+  -- C
+  -- ```
   = ConstantPattern Constant
 
-  -- `x`
+  -- ```
+  -- x
+  -- ```
   | VariablePattern Name
 
-  -- `_`
+  -- ```
+  -- _
+  -- ```
   | HolePattern Token
 
-  -- `{p: P, ...}`
+  -- ```
+  -- {p: P, ...}
+  -- ```
   | ObjectPattern
       Token
       (CommaList ObjectPatternProperty)
@@ -412,8 +421,9 @@ data Pattern
   -- ```
   -- case V
   -- case V(P)
+  -- case V | case W
   -- ```
-  | VariantPattern Token (Recover Name) (Maybe (Recover VariantPatternElements))
+  | VariantUnionPattern (Maybe Token) VariantPattern [Recover (Token, VariantPattern)]
 
 -- `p: P`
 --
@@ -430,6 +440,13 @@ data ObjectPatternPropertyValue = ObjectPatternPropertyValue Token (Recover Patt
 --
 -- An extension operation on an object.
 data ObjectPatternExtension = ObjectPatternExtension Token (Recover Pattern)
+
+-- ```
+-- case V
+-- case V(P)
+-- ```
+data VariantPattern =
+  VariantPattern (Recover Token) (Recover Name) (Maybe (Recover VariantPatternElements))
 
 -- `(...)`
 --
@@ -694,11 +711,16 @@ patternTokens (ObjectPattern t1 ps ext t2) =
     extensionTokens (ObjectPatternExtension t3 e) =
       singletonToken t3 <> recoverTokens patternTokens e
 
-patternTokens (VariantPattern t1 n els) =
-  singletonToken t1
-    <> recoverTokens nameTokens n
-    <> maybeTokens (recoverTokens elementTokens) els
+patternTokens (VariantUnionPattern t1 v1 vs) =
+  maybeTokens singletonToken t1
+    <> variantTokens v1
+    <> mconcat (map (recoverTokens (\(t2, v) -> singletonToken t2 <> variantTokens v)) vs)
   where
+    variantTokens (VariantPattern t2 n els) =
+      recoverTokens singletonToken t2
+        <> recoverTokens nameTokens n
+        <> maybeTokens (recoverTokens elementTokens) els
+
     elementTokens (VariantPatternElements t2 es t3) =
       singletonToken t2 <> commaListTokens patternTokens es <> recoverTokens singletonToken t3
 
@@ -1067,18 +1089,30 @@ debugPattern indentation (ObjectPattern _ properties extension _) =
     debugExtension (ObjectPatternExtension _ pattern) =
       debugRecover (debugPattern newIndentation) pattern
 
-debugPattern indentation (VariantPattern _ label elements) =
-  B.fromText "(variant "
-    <> debugRecover debugName label
-    <> maybe mempty (debugRecover debugElements) elements
-    <> B.singleton ')'
+debugPattern indentation0 (VariantUnionPattern _ v1 vs) =
+  if null vs then
+    debugVariant (indentation0 <> B.fromText "  ") v1
+  else
+    B.fromText "(union"
+      <> mconcat
+        (map
+          (debugNewline
+            (indentation0 <> B.fromText "  ")
+            (debugRecover (debugVariant (indentation0 <> B.fromText "    "))))
+          (Ok v1 : map (fmap snd) vs))
+      <> B.singleton ')'
   where
-    newIndentation = indentation <> B.fromText "  "
-    debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
+    debugNewline indentation debug a = B.singleton '\n' <> indentation <> debug a
 
-    debugElements (VariantPatternElements _ patterns _) =
+    debugVariant indentation (VariantPattern _ label elements) =
+      B.fromText "(variant "
+        <> debugRecover debugName label
+        <> maybe mempty (debugRecover (debugElements indentation)) elements
+        <> B.singleton ')'
+
+    debugElements indentation (VariantPatternElements _ patterns _) =
       mconcat $
-        map (debugNewline (debugRecover (debugPattern indentation))) $
+        map (debugNewline indentation (debugRecover (debugPattern indentation))) $
           commaListItems patterns
 
 debugType :: B.Builder -> Type -> B.Builder

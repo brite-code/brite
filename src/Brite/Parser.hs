@@ -382,7 +382,7 @@ tryPattern :: TryParser Pattern
 tryPattern =
   tryVariablePattern
     <|> tryObjectPattern
-    <|> tryVariantPattern
+    <|> tryVariantUnionPattern
     <|> tryHolePattern
     <|> tryConstantPattern
     <|> unexpected ExpectedPattern
@@ -419,12 +419,25 @@ tryObjectPatternExtension =
     <$> tryGlyph Bar
     <&> pattern
 
-tryVariantPattern :: TryParser Pattern
+tryVariantUnionPattern :: TryParser Pattern
+tryVariantUnionPattern =
+  ((VariantUnionPattern Nothing <$> tryVariantPattern)
+    <|> (VariantUnionPattern <$> (Just <$> tryGlyph Bar) <&> variantPattern))
+    <&> many ((,) <$> tryGlyph Bar <&> variantPattern)
+
+tryVariantPattern :: TryParser VariantPattern
 tryVariantPattern =
   VariantPattern
-    <$> tryKeyword Case
+    <$> (Ok <$> tryKeyword Case)
     <&> name
     <&> optional tryVariantPatternElements
+
+variantPattern :: Parser VariantPattern
+variantPattern =
+  VariantPattern
+    <$> keyword Case
+    <*> name
+    <*> optional tryVariantPatternElements
 
 tryVariantPatternElements :: TryParser VariantPatternElements
 tryVariantPatternElements =
