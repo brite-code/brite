@@ -147,6 +147,7 @@ data ExpectedToken
   | ExpectedStatement
   | ExpectedExpression
   | ExpectedPattern
+  | ExpectedType
 
 -- The parser ran into a token it did not recognize.
 unexpectedToken :: DiagnosticMonad m => Range -> TokenKind -> ExpectedToken -> m Diagnostic
@@ -217,6 +218,7 @@ expectedTokenDescription ExpectedEnd = M.plain "nothing more"
 expectedTokenDescription ExpectedStatement = M.plain "a statement"
 expectedTokenDescription ExpectedExpression = M.plain "an expression"
 expectedTokenDescription ExpectedPattern = M.plain "a variable name"
+expectedTokenDescription ExpectedType = M.plain "a type"
 
 -- Prints a diagnostic for debugging purposes.
 debugDiagnostic :: Diagnostic -> B.Builder

@@ -35,6 +35,7 @@ tryBindingStatement =
   BindingStatement
     <$> tryKeyword Let
     <&> pattern
+    <&> optional tryTypeAnnotation
     <&> glyph Equals_
     <&> expression
     <&> semicolon
@@ -417,3 +418,20 @@ tryVariantPatternElements =
     <$> tryGlyph ParenLeft
     <&> commaList tryPattern
     <&> glyph ParenRight
+
+tryType :: TryParser Type
+tryType =
+  tryVariableType
+    <|> unexpected ExpectedType
+
+type_ :: Parser (Recover Type)
+type_ = retry tryType
+
+tryVariableType :: TryParser Type
+tryVariableType = VariableType <$> tryName
+
+tryTypeAnnotation :: TryParser TypeAnnotation
+tryTypeAnnotation =
+  TypeAnnotation
+    <$> tryGlyph Colon
+    <&> type_

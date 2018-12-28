@@ -112,9 +112,9 @@ spec = mapM_ (uncurry runTest)
       \(bind (var `x`) (var `y`))\n"
     )
   , ( "let x 😈 = y;"
-    , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
+    , "(0:6-0:8) We wanted `:` but we found `😈`.\n\
       \\n\
-      \(bind (var `x`) (var `y`))\n"
+      \(bind (var `x`) (type err) (var `y`))\n"
     )
   , ( "let x = 😈 y;"
     , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
@@ -148,9 +148,9 @@ spec = mapM_ (uncurry runTest)
       \(bind (var `x`) (var `y`))\n"
     )
   , ( "let x ) = y;"
-    , "(0:6-0:7) We wanted `=` but we found `)`.\n\
+    , "(0:6-0:7) We wanted `:` but we found `)`.\n\
       \\n\
-      \(bind (var `x`) (var `y`))\n"
+      \(bind (var `x`) (type err) (var `y`))\n"
       )
   , ( "let x = ) y;"
     , "(0:8-0:9) We wanted an expression but we found `)`.\n\
@@ -179,9 +179,10 @@ spec = mapM_ (uncurry runTest)
       \(bind err (var `y`))\n"
     )
   , ( "let x 😈 y;"
-    , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
+    , "(0:6-0:8) We wanted `:` but we found `😈`.\n\
+      \(0:9-0:10) We wanted `=` but we found a variable name.\n\
       \\n\
-      \(bind (var `x`) (var `y`))\n"
+      \(bind (var `x`) (type err) (var `y`))\n"
     )
   , ( "let x = 😈;"
     , "(0:8-0:10) We wanted an expression but we found `😈`.\n\
@@ -202,10 +203,11 @@ spec = mapM_ (uncurry runTest)
       \(bind err err)\n"
     )
   , ( "let x 😈;"
-    , "(0:6-0:8) We wanted `=` but we found `😈`.\n\
+    , "(0:6-0:8) We wanted `:` but we found `😈`.\n\
+      \(0:8-0:9) We wanted `=` but we found `;`.\n\
       \(0:8-0:9) We wanted an expression but we found `;`.\n\
       \\n\
-      \(bind (var `x`) err)\n"
+      \(bind (var `x`) (type err) err)\n"
     )
   , ( "let = 😈;"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
@@ -226,9 +228,10 @@ spec = mapM_ (uncurry runTest)
       \(bind err (var `y`))\n"
     )
   , ( "let x ) y;"
-    , "(0:6-0:7) We wanted `=` but we found `)`.\n\
+    , "(0:6-0:7) We wanted `:` but we found `)`.\n\
+      \(0:8-0:9) We wanted `=` but we found a variable name.\n\
       \\n\
-      \(bind (var `x`) (var `y`))\n"
+      \(bind (var `x`) (type err) (var `y`))\n"
     )
   , ( "let x = );"
     , "(0:8-0:9) We wanted an expression but we found `)`.\n\
@@ -249,10 +252,11 @@ spec = mapM_ (uncurry runTest)
       \(bind err err)\n"
     )
   , ( "let x );"
-    , "(0:6-0:7) We wanted `=` but we found `)`.\n\
+    , "(0:6-0:7) We wanted `:` but we found `)`.\n\
+      \(0:7-0:8) We wanted `=` but we found `;`.\n\
       \(0:7-0:8) We wanted an expression but we found `;`.\n\
       \\n\
-      \(bind (var `x`) err)\n"
+      \(bind (var `x`) (type err) err)\n"
     )
   , ( "let = );"
     , "(0:4-0:5) We wanted a variable name but we found `=`.\n\
@@ -4905,5 +4909,20 @@ spec = mapM_ (uncurry runTest)
       \  (var `x`)\n\
       \  (case (var `y`) (block\n\
       \    (bind (var `a`) (var `b`)))))\n"
+    )
+  , ( "let x: T = y;"
+    , "(bind (var `x`) (type (var `T`)) (var `y`))\n"
+    )
+  , ( "let x: = y;"
+    , "(0:7-0:8) We wanted a type but we found `=`.\n\
+      \\n\
+      \(bind (var `x`) (type err) (var `y`))\n"
+    )
+  , ( "let x T = y;"
+    , "(0:6-0:7) We wanted `=` but we found a variable name.\n\
+      \(0:8-0:9) We wanted an expression but we found `=`.\n\
+      \\n\
+      \(bind (var `x`) (var `T`))\n\
+      \(var `y`)\n"
     )
   ]

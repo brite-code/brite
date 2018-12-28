@@ -27,6 +27,8 @@ module Brite.AST
   , ObjectPatternPropertyValue(..)
   , ObjectPatternExtension(..)
   , VariantPatternElements(..)
+  , Type(..)
+  , TypeAnnotation(..)
   , moduleTokens
   , debugModule
   , showDebugExpression
@@ -58,7 +60,13 @@ data Statement
   -- `let x = E;`
   --
   -- Binds a value to a name in the program.
-  | BindingStatement Token (Recover Pattern) (Recover Token) (Recover Expression) Semicolon
+  | BindingStatement
+      Token
+      (Recover Pattern)
+      (Maybe (Recover TypeAnnotation))
+      (Recover Token)
+      (Recover Expression)
+      Semicolon
 
   -- `return;`, `return E;`
   --
@@ -343,6 +351,15 @@ data ObjectPatternExtension = ObjectPatternExtension Token (Recover Pattern)
 data VariantPatternElements =
   VariantPatternElements Token (CommaList Pattern) (Recover Token)
 
+-- Statically describes properties of a value at runtime. Through extensive domain modeling with
+-- types a user can reduce the possibilities for bugs in their systems.
+data Type
+  -- `x`
+  = VariableType Name
+
+-- `: T`
+data TypeAnnotation = TypeAnnotation Token (Recover Type)
+
 -- Get all the tokens that make up a module. Printing these tokens to source should result in the
 -- exact source code of the document we parsed to produce this module.
 moduleTokens :: Module -> ([Token], EndToken)
@@ -383,9 +400,10 @@ commaListTokens tokens (CommaList as an) =
 statementTokens :: Statement -> Tokens
 statementTokens (ExpressionStatement e t) =
   expressionTokens e <> maybeTokens (recoverTokens singletonToken) t
-statementTokens (BindingStatement t1 p t2 e t3) =
+statementTokens (BindingStatement t1 p a t2 e t3) =
   singletonToken t1
     <> recoverTokens patternTokens p
+    <> maybeTokens (recoverTokens typeAnnotationTokens) a
     <> recoverTokens singletonToken t2
     <> recoverTokens expressionTokens e
     <> maybeTokens (recoverTokens singletonToken) t3
@@ -534,6 +552,13 @@ patternTokens (VariantPattern t1 n els) =
     elementTokens (VariantPatternElements t2 es t3) =
       singletonToken t2 <> commaListTokens patternTokens es <> recoverTokens singletonToken t3
 
+typeTokens :: Type -> Tokens
+typeTokens (VariableType name) = nameTokens name
+
+typeAnnotationTokens :: TypeAnnotation -> Tokens
+typeAnnotationTokens (TypeAnnotation t1 t2) =
+  singletonToken t1 <> recoverTokens typeTokens t2
+
 -- Prints an expression in an S-expression form for debugging. This abbreviated format should make
 -- it easier to see the structure of the AST.
 showDebugExpression :: Expression -> String
@@ -564,10 +589,18 @@ debugName (Name identifier _) =
 debugStatement :: B.Builder -> Statement -> B.Builder
 debugStatement indentation (ExpressionStatement expression _) =
   debugExpression indentation expression
-debugStatement indentation (BindingStatement _ pattern _ expression _) =
+debugStatement indentation (BindingStatement _ pattern Nothing _ expression _) =
   B.fromText "(bind "
     <> debugRecover (debugPattern indentation) pattern
     <> B.singleton ' '
+    <> debugRecover (debugExpression indentation) expression
+    <> B.fromText ")"
+debugStatement indentation (BindingStatement _ pattern (Just type_) _ expression _) =
+  B.fromText "(bind "
+    <> debugRecover (debugPattern indentation) pattern
+    <> B.fromText " (type "
+    <> debugRecover debugTypeAnnotation type_
+    <> B.fromText ") "
     <> debugRecover (debugExpression indentation) expression
     <> B.fromText ")"
 debugStatement _ (ReturnStatement _ Nothing _) = B.fromText "return"
@@ -854,3 +887,12 @@ debugPattern indentation (VariantPattern _ label elements) =
       mconcat $
         map (debugNewline (debugRecover (debugPattern indentation))) $
           commaListItems patterns
+
+debugType :: Type -> B.Builder
+debugType (VariableType (Name identifier _)) =
+  B.fromText "(var `"
+    <> B.fromText (identifierText identifier)
+    <> B.fromText "`)"
+
+debugTypeAnnotation :: TypeAnnotation -> B.Builder
+debugTypeAnnotation (TypeAnnotation _ t) = debugRecover debugType t
