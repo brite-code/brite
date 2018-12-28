@@ -3206,12 +3206,12 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block)\n"
     )
   , ( "(fun(a) {})"
     , "(wrap (fun\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block))\n"
     )
   , ( "fun(a, b) {}"
@@ -3219,8 +3219,8 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block)\n"
     )
   , ( "fun(a, b, c) {}"
@@ -3228,43 +3228,43 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block)\n"
     )
   , ( "(fun(a, b) {})"
     , "(wrap (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block))\n"
     )
   , ( "(fun(a, b, c) {})"
     , "(wrap (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block))\n"
     )
   , ( "fun f(a) {}"
     , "(fun\n\
       \  (name `f`)\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block)\n"
     )
   , ( "fun f(a, b) {}"
     , "(fun\n\
       \  (name `f`)\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block)\n"
     )
   , ( "fun f(a, b, c) {}"
     , "(fun\n\
       \  (name `f`)\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block)\n"
     )
   , ( "fun(a,) {}"
@@ -3272,7 +3272,7 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block)\n"
     )
   , ( "fun(a, b,) {}"
@@ -3280,8 +3280,8 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block)\n"
     )
   , ( "fun(a, b, c,) {}"
@@ -3289,48 +3289,48 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block)\n"
     )
   , ( "(fun(a,) {})"
     , "(wrap (fun\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block))\n"
     )
   , ( "(fun(a, b,) {})"
     , "(wrap (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block))\n"
     )
   , ( "(fun(a, b, c,) {})"
     , "(wrap (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block))\n"
     )
   , ( "fun f(a,) {}"
     , "(fun\n\
       \  (name `f`)\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block)\n"
     )
   , ( "fun f(a, b,) {}"
     , "(fun\n\
       \  (name `f`)\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block)\n"
     )
   , ( "fun f(a, b, c,) {}"
     , "(fun\n\
       \  (name `f`)\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block)\n"
     )
   , ( "fun() { let x = y; }"
@@ -3381,86 +3381,86 @@ spec = mapM_ (uncurry runTest)
     )
   , ( "let f = fun(a) {};"
     , "(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block))\n"
     )
   , ( "let f = fun(a, b) {};"
     , "(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block))\n"
     )
   , ( "let f = fun(a, b, c) {};"
     , "(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block))\n"
     )
   , ( "let f = fun f(a) {};"
     , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
       \\n\
       \(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b) {};"
     , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
       \\n\
       \(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b, c) {};"
     , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
       \\n\
       \(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block))\n"
     )
   , ( "let f = fun(a,) {};"
     , "(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block))\n"
     )
   , ( "let f = fun(a, b,) {};"
     , "(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block))\n"
     )
   , ( "let f = fun(a, b, c,) {};"
     , "(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block))\n"
     )
   , ( "let f = fun f(a,) {};"
     , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
       \\n\
       \(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
+      \  (param (var `a`))\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b,) {};"
     , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
       \\n\
       \(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  block))\n"
     )
   , ( "let f = fun f(a, b, c,) {};"
     , "(0:12-0:13) We wanted `(` but we found a variable name.\n\
       \\n\
       \(bind (var `f`) (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
-      \  (var `c`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
+      \  (param (var `c`))\n\
       \  block))\n"
     )
   , ( "let f = fun() { let x = y; };"
@@ -3502,7 +3502,7 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  (name `f`)\n\
-      \  object\n\
+      \  (param object)\n\
       \  block)\n"
     )
   , ( "fun f( { let x = y }"
@@ -3512,7 +3512,7 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  (name `f`)\n\
-      \  object\n\
+      \  (param object)\n\
       \  (block\n\
       \    (bind (var `x`) (var `y`))))\n"
     )
@@ -3546,7 +3546,7 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  object\n\
+      \  (param object)\n\
       \  block)\n"
     )
   , ( "fun() }"
@@ -3572,8 +3572,8 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  err\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  (block\n\
       \    (bind (var `x`) (var `y`))))\n"
     )
@@ -3589,7 +3589,7 @@ spec = mapM_ (uncurry runTest)
       \(0:9-0:9) We wanted `)` but the file ended.\n\
       \\n\
       \(wrap (fun\n\
-      \  object\n\
+      \  (param object)\n\
       \  block))\n"
     )
   , ( "(fun() })"
@@ -3609,8 +3609,8 @@ spec = mapM_ (uncurry runTest)
       \(0:10-0:13) We wanted `{` but we found `let`.\n\
       \\n\
       \(wrap (fun\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  (block\n\
       \    (bind (var `x`) (var `y`)))))\n"
     )
@@ -3620,8 +3620,8 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  (name `f`)\n\
-      \  (var `a`)\n\
-      \  (var `b`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`))\n\
       \  (block\n\
       \    (bind (var `x`) (var `y`))))\n"
     )
@@ -3644,7 +3644,7 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  (name `f`)\n\
-      \  err\n\
+      \  (param err)\n\
       \  block)\n"
     )
   , ( "fun f() 😈 {}"
@@ -3681,7 +3681,7 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  (name `f`)\n\
-      \  err\n\
+      \  (param err)\n\
       \  block)\n"
     )
   , ( "fun f() ] {}"
@@ -3704,7 +3704,7 @@ spec = mapM_ (uncurry runTest)
       \\n\
       \(fun\n\
       \  (name `f`)\n\
-      \  err\n\
+      \  (param err)\n\
       \  block)\n"
     )
   , ( "return"
@@ -4954,5 +4954,70 @@ spec = mapM_ (uncurry runTest)
       \(fun\n\
       \  (name `f`)\n\
       \  block)\n"
+    )
+  , ( "fun f(a: T) {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  block)\n"
+    )
+  , ( "fun f(a: T, b: U) {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  (param (var `b`) (type (var `U`)))\n\
+      \  block)\n"
+    )
+  , ( "fun f(a, b: U) {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`) (type (var `U`)))\n\
+      \  block)\n"
+    )
+  , ( "fun f(a: T, b) {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  (param (var `b`))\n\
+      \  block)\n"
+    )
+  , ( "fun f(a: T, b: U, c: V) {}"
+    , "(fun\n\
+      \  (name `f`)\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  (param (var `b`) (type (var `U`)))\n\
+      \  (param (var `c`) (type (var `V`)))\n\
+      \  block)\n"
+    )
+  , ( "let f = fun(a: T) {};"
+    , "(bind (var `f`) (fun\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a: T, b: U) {};"
+    , "(bind (var `f`) (fun\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  (param (var `b`) (type (var `U`)))\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a, b: U) {};"
+    , "(bind (var `f`) (fun\n\
+      \  (param (var `a`))\n\
+      \  (param (var `b`) (type (var `U`)))\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a: T, b) {};"
+    , "(bind (var `f`) (fun\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  (param (var `b`))\n\
+      \  block))\n"
+    )
+  , ( "let f = fun(a: T, b: U, c: V) {};"
+    , "(bind (var `f`) (fun\n\
+      \  (param (var `a`) (type (var `T`)))\n\
+      \  (param (var `b`) (type (var `U`)))\n\
+      \  (param (var `c`) (type (var `V`)))\n\
+      \  block))\n"
     )
   ]

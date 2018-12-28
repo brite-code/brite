@@ -9,6 +9,7 @@ module Brite.AST
   , Statement(..)
   , Declaration(..)
   , Function(..)
+  , FunctionParameter(..)
   , Block(..)
   , Constant(..)
   , Expression(..)
@@ -111,10 +112,17 @@ data Declaration
 -- function name.
 data Function = Function
   { functionParamsOpen :: Recover Token
-  , functionParams :: CommaList Pattern
+  , functionParams :: CommaList FunctionParameter
   , functionParamsClose :: Recover Token
   , functionBody :: Block
   }
+
+-- ```
+-- P: T
+-- ```
+--
+-- A single function parameter with an optional type annotation.
+data FunctionParameter = FunctionParameter Pattern (Maybe (Recover TypeAnnotation))
 
 -- A set of statements scoped in a block. Names declared in this block may only be accessed by code
 -- within the block.
@@ -470,9 +478,13 @@ declarationTokens (FunctionDeclaration t n f) =
 functionTokens :: Function -> Tokens
 functionTokens (Function t1 ps t2 b) =
   recoverTokens singletonToken t1
-    <> commaListTokens patternTokens ps
+    <> commaListTokens functionParameterTokens ps
     <> recoverTokens singletonToken t2
     <> blockTokens b
+
+functionParameterTokens :: FunctionParameter -> Tokens
+functionParameterTokens (FunctionParameter p a) =
+  patternTokens p <> maybeTokens (recoverTokens typeAnnotationTokens) a
 
 -- Get tokens from a block.
 blockTokens :: Block -> Tokens
@@ -665,16 +677,23 @@ debugDeclaration indentation (FunctionDeclaration _ name function) =
 debugFunction :: B.Builder -> Maybe (Recover Name) -> Function -> B.Builder
 debugFunction indentation name (Function _ params _ block) =
   B.fromText "(fun"
-    <> maybe mempty ((B.singleton '\n' <>) . (newIndentation <>) . debugRecover debugName) name
-    <> mconcat (map debugParam (commaListItems params))
-    <> B.singleton '\n' <> newIndentation
-    <> debugBlock newIndentation block
+    <> maybe mempty (debugNewline (debugRecover debugName)) name
+    <> mconcat (map (debugNewline (debugParamWrapper (debugRecover debugParam))) (commaListItems params))
+    <> debugNewline (debugBlock newIndentation) block
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
-    debugParam param =
-      B.singleton '\n' <> newIndentation
-        <> debugRecover (debugPattern indentation) param
+    debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
+
+    debugParamWrapper debug a =
+      B.fromText "(param " <> debug a <> B.singleton ')'
+
+    debugParam (FunctionParameter pattern Nothing) = debugPattern newIndentation pattern
+    debugParam (FunctionParameter pattern (Just typeAnnotation)) =
+      debugPattern newIndentation pattern
+        <> B.fromText " (type "
+        <> debugRecover debugTypeAnnotation typeAnnotation
+        <> B.singleton ')'
 
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the AST node.

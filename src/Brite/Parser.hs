@@ -73,9 +73,12 @@ function :: Parser Function
 function =
   Function
     <$> skipIdentifier (glyph ParenLeft)
-    <*> commaList tryPattern
+    <*> commaList tryFunctionParameter
     <*> glyph ParenRight
     <*> block
+
+tryFunctionParameter :: TryParser FunctionParameter
+tryFunctionParameter = FunctionParameter <$> tryPattern <&> optional tryTypeAnnotation
 
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
