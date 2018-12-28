@@ -10,32 +10,11 @@ import Brite.Source
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
+import System.IO
 import Test.Hspec
 
-runTest :: T.Text -> T.Text -> Spec
-runTest input expected =
-  it (T.unpack (escape input)) $
-    let
-      (module_, diagnostics) = runDiagnosticWriter (parse (tokenize input))
-      actual = L.toStrict $ B.toLazyText $
-        (if null diagnostics then "" else
-          mconcat (map debugDiagnostic diagnostics) <> B.singleton '\n')
-        <> debugModule module_
-      input2 = L.toStrict (B.toLazyText (uncurry printSource (moduleTokens module_)))
-    in do
-      actual `shouldBe` expected
-      input2 `shouldBe` input
-
-escape :: T.Text -> T.Text
-escape = T.concatMap
-  (\c ->
-    case c of
-      '\n' -> "\\n"
-      '\r' -> "\\r"
-      _ -> T.singleton c)
-
-spec :: Spec
-spec = mapM_ (uncurry runTest)
+testData :: [(T.Text, T.Text)]
+testData =
   [ ( "let x = y;"
     , "(bind (var `x`) (var `y`))\n"
     )
@@ -396,16 +375,16 @@ spec = mapM_ (uncurry runTest)
       \(bind (var `x`) (var `y`))\n\
       \(bind (var `x`) (var `y`))\n"
     )
-  , ( "let x = y\nlet x = y\n"
+  , ( "let x = y\nlet x = y"
     , "(bind (var `x`) (var `y`))\n\
       \(bind (var `x`) (var `y`))\n"
     )
-  , ( "let x = y\nlet x = y\nlet x = y\n"
+  , ( "let x = y\nlet x = y\nlet x = y"
     , "(bind (var `x`) (var `y`))\n\
       \(bind (var `x`) (var `y`))\n\
       \(bind (var `x`) (var `y`))\n"
     )
-  , ( "let x = y\nlet x = y\nlet x = y\nlet x = y\n"
+  , ( "let x = y\nlet x = y\nlet x = y\nlet x = y"
     , "(bind (var `x`) (var `y`))\n\
       \(bind (var `x`) (var `y`))\n\
       \(bind (var `x`) (var `y`))\n\
@@ -5602,3 +5581,50 @@ spec = mapM_ (uncurry runTest)
       \  (variant (name `W`)))))\n"
     )
   ]
+
+openSnapshotFile :: IO Handle
+openSnapshotFile = do
+  h <- openFile "test/Brite/ParserSpecSnapshot.md" WriteMode
+  hPutStrLn h "# ParserSpecSnapshot"
+  return h
+
+closeSnapshotFile :: Handle -> IO ()
+closeSnapshotFile h = do
+  hPutStrLn h ""
+  hPutStrLn h (replicate 80 '-')
+  hClose h
+
+spec :: Spec
+spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
+  flip mapM_ testData $ \(source, _) ->
+    it (T.unpack (escape source)) $ \h ->
+      let
+        (module_, diagnostics) = runDiagnosticWriter (parse (tokenize source))
+        rebuiltSource = L.toStrict (B.toLazyText (uncurry printSource (moduleTokens module_)))
+      in do
+        hPutStrLn h ""
+        hPutStrLn h (replicate 80 '-')
+        hPutStrLn h ""
+        hPutStrLn h "### Source"
+        hPutStrLn h "```ite"
+        hPutStrLn h (T.unpack source)
+        hPutStrLn h "```"
+        hPutStrLn h ""
+        hPutStrLn h "### AST"
+        hPutStrLn h "```"
+        hPutStr h (L.unpack (B.toLazyText (debugModule module_)))
+        hPutStrLn h "```"
+        if null diagnostics then return () else (do
+          hPutStrLn h ""
+          hPutStrLn h "### Errors"
+          flip mapM_ diagnostics (\diagnostic ->
+            hPutStrLn h (L.unpack (B.toLazyText (B.fromText "- " <> debugDiagnostic diagnostic)))))
+        rebuiltSource `shouldBe` source
+
+escape :: T.Text -> T.Text
+escape = T.concatMap
+  (\c ->
+    case c of
+      '\n' -> "\\n"
+      '\r' -> "\\r"
+      _ -> T.singleton c)

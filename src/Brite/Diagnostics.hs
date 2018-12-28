@@ -227,4 +227,3 @@ debugDiagnostic diagnostic =
     <> debugRange (diagnosticRange diagnostic)
     <> B.fromText ") "
     <> M.toBuilder (diagnosticMessage diagnostic)
-    <> B.singleton '\n'
