@@ -93,7 +93,7 @@ newtype Parser a = Parser
 -- Unlike `Parser` which is `Applicative`, `TryParser` does not implement `Applicative`. We only
 -- allow sequencing `TryParser` with `Parser`. This is because if two `TryParser`s were sequenced
 -- together and the second one threw we’d have to backtrack our parser and re-parse which
--- is innefficient!
+-- is inefficient!
 newtype TryParser a = TryParser
   { tryParser :: forall b.
          (DiagnosticWriter a -> ParserState -> b)                                -- ok
@@ -263,7 +263,7 @@ retry p = Parser $ \ok yield1 yield2 ->
 
 -- Optionally runs a `TryParser`.
 --
--- If there are tokens no parser recongizes we skip the tokens and try to run our parser again.
+-- If there are tokens no parser recognizes we skip the tokens and try to run our parser again.
 optional :: TryParser a -> Parser (Maybe (Recover a))
 optional p = Parser $ \ok yield1 yield2 ->
   let
@@ -307,7 +307,7 @@ optionalOnSameLine p = Parser $ \ok yield1 yield2 s1 ->
 
 -- Parses zero or more of a `TryParser`.
 --
--- If there are tokens no parser recongizes we skip the tokens and try to run our parser again.
+-- If there are tokens no parser recognizes we skip the tokens and try to run our parser again.
 many :: TryParser a -> Parser [Recover a]
 many p = Parser $ \_ yield1 yield2 ->
   let
@@ -317,14 +317,14 @@ many p = Parser $ \_ yield1 yield2 ->
           tryParser p
             (\a -> loopOk False (add as (Recover (reverse ts) <$> e1 <*> a)))
             (\a -> loopYield (add as (Recover (reverse ts) <$> e1 <*> a)))
-            (\e -> yieldn (reverse <$> add as (Fatal (reverse ts) <$> e1)) (\t -> recover (t : ts) (e1 <* e)))
+            (\e -> yieldN (reverse <$> add as (Fatal (reverse ts) <$> e1)) (\t -> recover (t : ts) (e1 <* e)))
       in
         tryParser p
           (\a -> loopOk False (add as (Ok <$> a)))
           (\a -> loopYield (add as (Ok <$> a)))
-          (\e -> yieldn (reverse <$> as) (\t -> recover [t] e))
+          (\e -> yieldN (reverse <$> as) (\t -> recover [t] e))
       where
-        yieldn = if first then yield1 else yield2
+        yieldN = if first then yield1 else yield2
 
     loopYield as k1 =
       tryParser p
@@ -436,7 +436,7 @@ commaListItems (CommaList ns n) = foldr ((:) . fst) (maybeToList n) ns
 
 -- Parses a comma separated list of values which may optionally have a trailing comma.
 --
--- I’ll be the first to admit it. The implementation of this combinator is a bit monsterous. Why do
+-- I’ll be the first to admit it. The implementation of this combinator is a bit monstrous. Why do
 -- we implement `commaList` directly instead of building it up from parser combinators? What makes
 -- a comma list so hard to parse? A couple of things:
 --
@@ -468,7 +468,7 @@ commaList p = Parser $ \_ yield1 yield2 ->
           tryComma
             (\b -> loop False (add acc ((,) <$> (Fatal [] <$> e) <*> (Ok <$> b))))
             (\_ ->
-              yieldn
+              yieldN
                 (CommaList <$> (reverse <$> acc) <*> pure Nothing)
                 (\t -> recover [t] e)))
       where
@@ -480,11 +480,11 @@ commaList p = Parser $ \_ yield1 yield2 ->
               tryComma
                 (\b -> loop False (add acc ((,) <$> (Fatal (reverse ts) <$> e1) <*> (Ok <$> b))))
                 (\_ ->
-                  yieldn
+                  yieldN
                     (CommaList <$> (reverse <$> acc) <*> (Just . Fatal (reverse ts) <$> e1))
                     (\t -> recover (t : ts) (e1 <* e))))
 
-        yieldn = if empty then yield1 else yield2
+        yieldN = if empty then yield1 else yield2
 
     -- When we successfully parse an item then we call this function:
     itemOk acc a1 =
