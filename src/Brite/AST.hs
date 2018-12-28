@@ -57,10 +57,15 @@ data Name = Name
 
 -- Represents some imperative action to be carried out.
 data Statement
-  -- `E;`
+  -- ```
+  -- E;
+  -- ```
   = ExpressionStatement Expression Semicolon
 
-  -- `let x = E;`
+  -- ```
+  -- let x = E;
+  -- let x: T = E;
+  -- ```
   --
   -- Binds a value to a name in the program.
   | BindingStatement
@@ -71,7 +76,10 @@ data Statement
       (Recover Expression)
       Semicolon
 
-  -- `return;`, `return E;`
+  -- ```
+  -- return;
+  -- return E;
+  -- ```
   --
   -- Immediately returns a value from a function. No other code in the function runs.
   --
@@ -79,7 +87,10 @@ data Statement
   -- imperative code styles.
   | ReturnStatement Token (Maybe (Recover Expression)) Semicolon
 
-  -- `break;`, `break E;`
+  -- ```
+  -- break;
+  -- break E;
+  -- ```
   --
   -- Immediately breaks out of a loop with a value. No other code in the loop runs.
   --
@@ -97,7 +108,10 @@ data Statement
 type Semicolon = Maybe (Recover Token)
 
 data Declaration
-  -- `fun f(...) { ... }`
+  -- ```
+  -- fun f(...) { ... }
+  -- fun f(...) -> T { ... }
+  -- ```
   --
   -- `FunctionDeclaration` syntax overlaps significantly with `FunctionExpression`. We separate the
   -- two because function declarations are mutually recursive among all function declarations.
@@ -107,6 +121,7 @@ data Declaration
 
 -- ```
 -- (...) { ... }
+-- (...) -> T { ... }
 -- ```
 --
 -- The data necessary for creating a function. Excluding the function keyword and optional
@@ -119,7 +134,7 @@ data Function = Function
   , functionBody :: Block
   }
 
--- `P: T`
+-- `x: T`
 --
 -- A single function parameter with an optional type annotation.
 data FunctionParameter = FunctionParameter Pattern (Maybe (Recover TypeAnnotation))
@@ -161,6 +176,7 @@ data Expression
 
   -- ```
   -- fun(...) { ... }
+  -- fun(...) -> T { ... }
   -- ```
   --
   -- A block of code which is executed whenever the function is called. Shares a lot of syntax with
@@ -224,7 +240,7 @@ data Expression
 
   -- ```
   -- match E { P -> { ... } }
-  -- ``
+  -- ```
   --
   -- Matches an expression against the first valid pattern.
   | MatchExpression
