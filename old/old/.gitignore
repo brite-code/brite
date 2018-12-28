@@ -1,5 +1,6 @@
-# Package Managers
-node_modules/
+# Build Artifacts
+_build
+*.native
 
-# Operating Systems
-.DS_Store
+# Local Environment
+local

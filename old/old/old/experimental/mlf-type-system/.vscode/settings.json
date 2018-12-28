@@ -9,17 +9,22 @@
   "files.exclude": {
     "**/.git": true,
     "**/.DS_Store": true,
-    "**/target": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
     "**/node_modules": true,
-    "Cargo.lock": true
+    "**/build": true
   },
   "html.format.endWithNewline": true,
   "[markdown]": {
     "editor.wordWrap": "wordWrapColumn",
     "editor.wordWrapColumn": 80
   },
-  "[rust]": {
-    "editor.tabSize": 4,
-    "editor.rulers": [100]
-  }
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "es5",
+  "prettier.proseWrap": "always",
+  "prettier.bracketSpacing": false,
+  "tslint.jsEnable": true,
+  "tslint.alwaysShowRuleFailuresAsWarnings": true,
+  "tslint.autoFixOnSave": true
 }

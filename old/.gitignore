@@ -1,6 +1,9 @@
-# Build Artifacts
-_build
-*.native
+# OS
+**/.DS_Store
 
-# Local Environment
-local
+# Playground
+/.play
+
+# Rust
+/target
+**/*.rs.bk
