@@ -8,35 +8,10 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
 import Test.Hspec
+import System.IO
 
-runTest :: T.Text -> T.Text -> Spec
-runTest input expected =
-  it (T.unpack (escape input)) $
-    let
-      (tokens, endToken) = tokenStreamToList (tokenize input)
-      actual = L.toStrict (B.toLazyText (debugTokens tokens endToken))
-      input2 = L.toStrict (B.toLazyText (printSource tokens endToken))
-    in do
-      actual `shouldBe` expected
-      input2 `shouldBe` input
-
-escape :: T.Text -> T.Text
-escape = T.concatMap
-  (\c ->
-    case c of
-      '\n' -> "\\n"
-      '\r' -> "\\r"
-      '\t' -> "\\t"
-      '\f' -> "\\f"
-      '\v' -> "\\v"
-      '\x00A0' -> "\\x00A0"
-      '\x2002' -> "\\x2002"
-      '\x2003' -> "\\x2003"
-      '\x2009' -> "\\x2009"
-      _ -> T.singleton c)
-
-spec :: Spec
-spec = mapM_ (uncurry runTest)
+testData :: [(T.Text, T.Text)]
+testData =
   [ ( "{},.=();/"
     , "0:0-0:1   | Glyph `{`\n\
       \0:1-0:2   | Glyph `}`\n\
@@ -604,3 +579,52 @@ spec = mapM_ (uncurry runTest)
       \0:2       | End\n"
     )
   ]
+
+openSnapshotFile :: IO Handle
+openSnapshotFile = do
+  h <- openFile "test/Brite/SourceSpecSnapshot.md" WriteMode
+  hPutStrLn h "# SourceSpecSnapshot"
+  return h
+
+closeSnapshotFile :: Handle -> IO ()
+closeSnapshotFile h = do
+  hPutStrLn h ""
+  hPutStrLn h (replicate 80 '-')
+  hClose h
+
+spec :: Spec
+spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
+  flip mapM_ testData $ \(source, _) ->
+    it (T.unpack (escape source)) $ \h ->
+      let
+        (tokens, endToken) = tokenStreamToList (tokenize source)
+        rebuiltSource = L.toStrict (B.toLazyText (printSource tokens endToken))
+      in do
+        hPutStrLn h ""
+        hPutStrLn h (replicate 80 '-')
+        hPutStrLn h ""
+        hPutStrLn h "### Source"
+        hPutStrLn h "```ite"
+        hPutStrLn h (T.unpack source)
+        hPutStrLn h "```"
+        hPutStrLn h ""
+        hPutStrLn h "### Tokens"
+        hPutStrLn h "```"
+        hPutStr h (L.unpack (B.toLazyText (debugTokens tokens endToken)))
+        hPutStrLn h "```"
+        rebuiltSource `shouldBe` source
+
+escape :: T.Text -> T.Text
+escape = T.concatMap
+  (\c ->
+    case c of
+      '\n' -> "\\n"
+      '\r' -> "\\r"
+      '\t' -> "\\t"
+      '\f' -> "\\f"
+      '\v' -> "\\v"
+      '\x00A0' -> "\\x00A0"
+      '\x2002' -> "\\x2002"
+      '\x2003' -> "\\x2003"
+      '\x2009' -> "\\x2009"
+      _ -> T.singleton c)
