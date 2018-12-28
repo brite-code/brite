@@ -1,0 +1,2 @@
+test!(binding);
+test!(empty);

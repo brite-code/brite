@@ -1,0 +1,44 @@
+property.ite(4,4): We found `😈` when we wanted a variable name.
+property.ite(5,2): We found `😈` when we wanted an expression.
+property.ite(6,2): We found `😈` when we wanted an expression.
+property.ite(6,5): We found `😈` when we wanted a variable name.
+property.ite(8,2): We found `😈` when we wanted an expression.
+property.ite(9,4): We found `😈` when we wanted a variable name.
+property.ite(10,6): We found `😈` when we wanted a variable name.
+property.ite(12,4): We found `😈` when we wanted a variable name.
+property.ite(12,7): We found `😈` when we wanted a variable name.
+property.ite(13,2): We found `😈` when we wanted an expression.
+property.ite(13,5): We found `😈` when we wanted a variable name.
+property.ite(14,2): We found `😈` when we wanted an expression.
+property.ite(14,7): We found `😈` when we wanted a variable name.
+property.ite(15,2): We found `😈` when we wanted an expression.
+property.ite(15,5): We found `😈` when we wanted a variable name.
+property.ite(15,8): We found `😈` when we wanted a variable name.
+property.ite(17,4): We found `)` when we wanted a variable name.
+property.ite(18,2): We found `.` when we wanted an expression.
+property.ite(20,3): We found `;` when we wanted a variable name.
+property.ite(21,1): We found `.` when we wanted a statement.
+property.ite(25,2): We found `.` when we wanted an expression.
+property.ite(26,4): We found `.` when we wanted a variable name.
+property.ite(27,6): We found `)` when we wanted a variable name.
+property.ite(29,4): We found `.` when we wanted a variable name.
+property.ite(29,5): We found `)` when we wanted a variable name.
+property.ite(30,2): We found `.` when we wanted an expression.
+property.ite(30,5): We found `)` when we wanted a variable name.
+property.ite(31,2): We found `.` when we wanted an expression.
+property.ite(31,3): We found `.` when we wanted a variable name.
+property.ite(33,2): We found `😈` when we wanted an expression.
+property.ite(34,3): We found `😈` when we wanted `)`.
+property.ite(34,7): We found `)` when we wanted a statement.
+property.ite(35,4): We found `😈` when we wanted a variable name.
+property.ite(36,5): We found `😈` when we wanted `)`.
+property.ite(38,2): We found `😈` when we wanted an expression.
+property.ite(39,3): We found `😈` when we wanted `)`.
+property.ite(39,9): We found `)` when we wanted a statement.
+property.ite(40,4): We found `😈` when we wanted a variable name.
+property.ite(41,5): We found `😈` when we wanted `)`.
+property.ite(41,9): We found `)` when we wanted a statement.
+property.ite(42,6): We found `😈` when we wanted a variable name.
+property.ite(43,7): We found `😈` when we wanted `)`.
+property.ite(56,3): We found `.` when we wanted a variable name.
+property.ite(58,4): We found `)` when we wanted a variable name.

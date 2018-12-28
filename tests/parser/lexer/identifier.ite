@@ -1,0 +1,5 @@
+x;
+Θ;
+
+(42 x); // Error: Unexpected identifier.
+(42 Θ); // Error: Unexpected identifier.
