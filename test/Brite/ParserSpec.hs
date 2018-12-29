@@ -890,6 +890,11 @@ testData =
   , "(x: fun<A, B,>() -> C)"
   , "(x: fun<A, B, C,>() -> D)"
   , "(x: fun<A, B>(C, D) -> E)"
+  , "(x: <A, B> fun<C, D>(E, F) -> G)"
+  , "let (x) = y;"
+  , "(x: (T));"
+  , "(x: <A> (<B> T));"
+  , "(x: <A> <B> T);"
   ]
 
 openSnapshotFile :: IO Handle

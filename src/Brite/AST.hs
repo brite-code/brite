@@ -430,6 +430,16 @@ data Pattern
       VariantPattern
       [Recover (Token, VariantPattern)]
 
+  -- ```
+  -- (P)
+  -- ```
+  --
+  -- A pattern wrapped in parentheses.
+  | WrappedPattern
+      Token
+      (Recover Pattern)
+      (Recover Token)
+
 -- `p: P`
 --
 -- A single object property.
@@ -517,6 +527,16 @@ data Type
   -- <x = T> U
   -- ```
   | QuantifiedType QuantifierList (Recover Type)
+
+  -- ```
+  -- (T)
+  -- ```
+  --
+  -- A type wrapped in parentheses.
+  | WrappedType
+      Token
+      (Recover Type)
+      (Recover Token)
 
 -- `p: T`
 --
@@ -774,6 +794,11 @@ patternTokens (VariantUnionPattern t1 v1 vs) =
     elementTokens (VariantPatternElements t2 es t3) =
       singletonToken t2 <> commaListTokens patternTokens es <> recoverTokens singletonToken t3
 
+patternTokens (WrappedPattern t1 p t2) =
+  singletonToken t1
+    <> recoverTokens patternTokens p
+    <> recoverTokens singletonToken t2
+
 typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
 typeTokens (BottomType t) = singletonToken t
@@ -813,6 +838,11 @@ typeTokens (VariantUnionType t1 v1 vs) =
       singletonToken t2 <> commaListTokens typeTokens es <> recoverTokens singletonToken t3
 
 typeTokens (QuantifiedType qs t) = quantifierListTokens qs <> recoverTokens typeTokens t
+
+typeTokens (WrappedType t1 a t2) =
+  singletonToken t1
+    <> recoverTokens typeTokens a
+    <> recoverTokens singletonToken t2
 
 quantifierListTokens :: QuantifierList -> Tokens
 quantifierListTokens (QuantifierList t1 qs t2) =
@@ -1188,6 +1218,11 @@ debugPattern indentation0 (VariantUnionPattern _ v1 vs) =
         map (debugNewline indentation (debugRecover (debugPattern indentation))) $
           commaListItems patterns
 
+debugPattern indentation (WrappedPattern _ pattern _) =
+  B.fromText "(wrap "
+    <> debugRecover (debugPattern indentation) pattern
+    <> B.fromText ")"
+
 debugType :: B.Builder -> Type -> B.Builder
 debugType _ (VariableType (Name identifier _)) =
   B.fromText "(var `"
@@ -1266,6 +1301,11 @@ debugType indentation (QuantifiedType qs t) =
     <> B.singleton ')'
   where
     newIndentation = indentation <> B.fromText "  "
+
+debugType indentation (WrappedType _ type_ _) =
+  B.fromText "(wrap "
+    <> debugRecover (debugType indentation) type_
+    <> B.fromText ")"
 
 debugQuantifierList :: B.Builder -> QuantifierList -> B.Builder
 debugQuantifierList indentation (QuantifierList _ qs _) =

@@ -385,6 +385,7 @@ tryPattern =
     <|> tryVariantUnionPattern
     <|> tryHolePattern
     <|> tryConstantPattern
+    <|> tryWrappedPattern
     <|> unexpected ExpectedPattern
 
 tryConstantPattern :: TryParser Pattern
@@ -446,6 +447,13 @@ tryVariantPatternElements =
     <&> commaList tryPattern
     <&> glyph ParenRight
 
+tryWrappedPattern :: TryParser Pattern
+tryWrappedPattern =
+  WrappedPattern
+    <$> tryGlyph ParenLeft
+    <&> pattern
+    <&> glyph ParenRight
+
 tryType :: TryParser Type
 tryType =
   tryVariableType
@@ -454,6 +462,7 @@ tryType =
     <|> tryVariantUnionType
     <|> tryQuantifiedType
     <|> tryBottomType
+    <|> tryWrappedType
     <|> unexpected ExpectedType
 
 type_ :: Parser (Recover Type)
@@ -540,6 +549,13 @@ tryQuantifier = Quantifier <$> tryName <&> optional tryBound
     tryBound =
       (QuantifierBound Flexible <$> tryGlyph Colon <&> type_)
         <|> (QuantifierBound Rigid <$> tryGlyph Equals_ <&> type_)
+
+tryWrappedType :: TryParser Type
+tryWrappedType =
+  WrappedType
+    <$> tryGlyph ParenLeft
+    <&> type_
+    <&> glyph ParenRight
 
 tryTypeAnnotation :: TryParser TypeAnnotation
 tryTypeAnnotation =
