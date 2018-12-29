@@ -1,11 +1,11 @@
-module Brite.Parser
+module Brite.Syntax.Parser
   ( parse
   ) where
 
-import Brite.CST
-import Brite.Parser.Framework
 import Brite.Diagnostics
-import Brite.Source
+import Brite.Syntax.CST
+import Brite.Syntax.ParserFramework
+import Brite.Syntax.Tokens
 
 -- Parses a Brite module from a stream of tokens.
 parse :: TokenStream -> DiagnosticWriter Module

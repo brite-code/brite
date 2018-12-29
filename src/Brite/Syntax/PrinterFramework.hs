@@ -16,7 +16,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Printer.Framework
+module Brite.Syntax.PrinterFramework
   ( Document
   , nest
   , text

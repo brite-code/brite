@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.ParserSpec (spec) where
+module Brite.Syntax.ParserSpec (spec) where
 
-import Brite.CST
 import Brite.Diagnostics
-import Brite.Parser
-import Brite.Parser.Framework
-import Brite.Source
+import Brite.Syntax.CST
+import Brite.Syntax.Parser
+import Brite.Syntax.ParserFramework
+import Brite.Syntax.Tokens
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
@@ -899,7 +899,7 @@ testData =
 
 openSnapshotFile :: IO Handle
 openSnapshotFile = do
-  h <- openFile "test/Brite/ParserSpecSnapshot.md" WriteMode
+  h <- openFile "test/Brite/Syntax/ParserSpecSnapshot.md" WriteMode
   hPutStrLn h "# ParserSpecSnapshot"
   return h
 

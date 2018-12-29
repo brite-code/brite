@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Brite.Parser.Framework
+module Brite.Syntax.ParserFramework
   ( Parser
   , TryParser
   , Recover(..)
@@ -28,7 +28,7 @@ module Brite.Parser.Framework
   ) where
 
 import Brite.Diagnostics
-import Brite.Source
+import Brite.Syntax.Tokens
 import Control.Applicative (liftA2)
 import Data.Maybe (maybeToList)
 

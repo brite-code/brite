@@ -3,7 +3,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Source
+module Brite.Syntax.Tokens
   ( Position(..)
   , initialPosition
   , Range(..)

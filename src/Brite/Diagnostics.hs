@@ -58,8 +58,8 @@ module Brite.Diagnostics
   , debugDiagnostic
   ) where
 
-import qualified Brite.Diagnostics.Markup as M
-import Brite.Source
+import qualified Brite.DiagnosticsMarkup as M
+import Brite.Syntax.Tokens (Range, debugRange, TokenKind(..), Glyph, glyphText)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy.Builder as B
 

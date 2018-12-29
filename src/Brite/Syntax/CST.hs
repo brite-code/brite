@@ -13,7 +13,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.CST
+module Brite.Syntax.CST
   ( Module(..)
   , Name(..)
   , Recover(..)
@@ -59,8 +59,8 @@ module Brite.CST
   , showDebugExpression
   ) where
 
-import Brite.Parser.Framework (Recover(..), CommaList(..), commaListItems)
-import Brite.Source
+import Brite.Syntax.ParserFramework (Recover(..), CommaList(..), commaListItems)
+import Brite.Syntax.Tokens
 import Data.Monoid (Endo(..))
 import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
