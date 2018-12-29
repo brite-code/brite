@@ -483,7 +483,7 @@ data Type
   -- case V
   -- case V(T)
   -- case V | case W
-  -- case V | case W | T
+  -- case V | case W | else T
   -- ```
   --
   -- A variant may form a union with any other type. However, only certain type kinds are acceptable
