@@ -32,14 +32,14 @@ module Brite.AST
   , VariantPattern(..)
   , VariantPatternElements(..)
   , Type(..)
-  , QuantifierList(..)
-  , Quantifier(..)
-  , QuantifierBound(..)
-  , QuantifierBoundKind(..)
   , ObjectTypeProperty(..)
   , ObjectTypeExtension(..)
   , VariantType(..)
   , VariantTypeElements(..)
+  , QuantifierList(..)
+  , Quantifier(..)
+  , QuantifierBound(..)
+  , QuantifierBoundKind(..)
   , TypeAnnotation(..)
   , moduleTokens
   , debugModule
@@ -471,13 +471,6 @@ data Type
   | BottomType Token
 
   -- ```
-  -- <x> T
-  -- <x: T> U
-  -- <x = T> U
-  -- ```
-  | QuantifiedType QuantifierList (Recover Type)
-
-  -- ```
   -- {p: T, ...}
   -- ```
   | ObjectType
@@ -502,28 +495,12 @@ data Type
       VariantType
       [Recover (Token, VariantType)]
 
--- ```
--- <x>
--- <x: T>
--- <x = T>
--- ```
-data QuantifierList = QuantifierList Token (CommaList Quantifier) (Recover Token)
-
--- ```
--- x
--- x: T
--- x = T
--- ```
-data Quantifier = Quantifier Name (Maybe (Recover QuantifierBound))
-
--- ```
--- : T
--- = T
--- ```
-data QuantifierBound = QuantifierBound QuantifierBoundKind Token (Recover Type)
-
--- `:` or `=`
-data QuantifierBoundKind = Rigid | Flexible
+  -- ```
+  -- <x> T
+  -- <x: T> U
+  -- <x = T> U
+  -- ```
+  | QuantifiedType QuantifierList (Recover Type)
 
 -- `p: T`
 --
@@ -547,6 +524,29 @@ data VariantType =
 -- The elements of a variant.
 data VariantTypeElements =
   VariantTypeElements Token (CommaList Type) (Recover Token)
+
+-- ```
+-- <x>
+-- <x: T>
+-- <x = T>
+-- ```
+data QuantifierList = QuantifierList Token (CommaList Quantifier) (Recover Token)
+
+-- ```
+-- x
+-- x: T
+-- x = T
+-- ```
+data Quantifier = Quantifier Name (Maybe (Recover QuantifierBound))
+
+-- ```
+-- : T
+-- = T
+-- ```
+data QuantifierBound = QuantifierBound QuantifierBoundKind Token (Recover Type)
+
+-- `:` or `=`
+data QuantifierBoundKind = Rigid | Flexible
 
 -- `: T`
 data TypeAnnotation = TypeAnnotation Token (Recover Type)
@@ -761,7 +761,6 @@ patternTokens (VariantUnionPattern t1 v1 vs) =
 typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
 typeTokens (BottomType t) = singletonToken t
-typeTokens (QuantifiedType qs t) = quantifierListTokens qs <> recoverTokens typeTokens t
 
 typeTokens (ObjectType t1 ps ext t2) =
   singletonToken t1
@@ -787,6 +786,8 @@ typeTokens (VariantUnionType t1 v1 vs) =
 
     elementTokens (VariantTypeElements t2 es t3) =
       singletonToken t2 <> commaListTokens typeTokens es <> recoverTokens singletonToken t3
+
+typeTokens (QuantifiedType qs t) = quantifierListTokens qs <> recoverTokens typeTokens t
 
 quantifierListTokens :: QuantifierList -> Tokens
 quantifierListTokens (QuantifierList t1 qs t2) =
@@ -1170,15 +1171,6 @@ debugType _ (VariableType (Name identifier _)) =
 
 debugType _ (BottomType _) = B.fromText "bottom"
 
-debugType indentation (QuantifiedType qs t) =
-  B.fromText "(quantify"
-    <> debugQuantifierList newIndentation qs
-    <> B.singleton '\n' <> newIndentation
-    <> debugRecover (debugType newIndentation) t
-    <> B.singleton ')'
-  where
-    newIndentation = indentation <> B.fromText "  "
-
 debugType indentation (ObjectType _ properties extension _) =
   B.fromText "(object"
     <> mconcat (map (debugNewline (debugPropertyWrapper (debugRecover debugProperty))) (commaListItems properties))
@@ -1222,6 +1214,15 @@ debugType indentation0 (VariantUnionType _ v1 vs) =
       mconcat $
         map (debugNewline indentation (debugRecover (debugType indentation))) $
           commaListItems patterns
+
+debugType indentation (QuantifiedType qs t) =
+  B.fromText "(quantify"
+    <> debugQuantifierList newIndentation qs
+    <> B.singleton '\n' <> newIndentation
+    <> debugRecover (debugType newIndentation) t
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
 
 debugQuantifierList :: B.Builder -> QuantifierList -> B.Builder
 debugQuantifierList indentation (QuantifierList _ qs _) =

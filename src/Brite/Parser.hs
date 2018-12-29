@@ -464,23 +464,6 @@ tryVariableType = VariableType <$> tryName
 tryBottomType :: TryParser Type
 tryBottomType = BottomType <$> tryGlyph Bang
 
-tryQuantifiedType :: TryParser Type
-tryQuantifiedType = QuantifiedType <$> tryQuantifierList <&> type_
-
-tryQuantifierList :: TryParser QuantifierList
-tryQuantifierList =
-  QuantifierList
-    <$> tryGlyph LessThan_
-    <&> commaList tryQuantifier
-    <&> glyph GreaterThan_
-
-tryQuantifier :: TryParser Quantifier
-tryQuantifier = Quantifier <$> tryName <&> optional tryBound
-  where
-    tryBound =
-      (QuantifierBound Flexible <$> tryGlyph Colon <&> type_)
-        <|> (QuantifierBound Rigid <$> tryGlyph Equals_ <&> type_)
-
 tryObjectType :: TryParser Type
 tryObjectType =
   ObjectType
@@ -528,6 +511,23 @@ tryVariantTypeElements =
     <$> tryGlyph ParenLeft
     <&> commaList tryType
     <&> glyph ParenRight
+
+tryQuantifiedType :: TryParser Type
+tryQuantifiedType = QuantifiedType <$> tryQuantifierList <&> type_
+
+tryQuantifierList :: TryParser QuantifierList
+tryQuantifierList =
+  QuantifierList
+    <$> tryGlyph LessThan_
+    <&> commaList tryQuantifier
+    <&> glyph GreaterThan_
+
+tryQuantifier :: TryParser Quantifier
+tryQuantifier = Quantifier <$> tryName <&> optional tryBound
+  where
+    tryBound =
+      (QuantifierBound Flexible <$> tryGlyph Colon <&> type_)
+        <|> (QuantifierBound Rigid <$> tryGlyph Equals_ <&> type_)
 
 tryTypeAnnotation :: TryParser TypeAnnotation
 tryTypeAnnotation =
