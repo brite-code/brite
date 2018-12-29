@@ -2,7 +2,7 @@
 
 module Brite.ParserSpec (spec) where
 
-import Brite.AST
+import Brite.CST
 import Brite.Diagnostics
 import Brite.Parser
 import Brite.Parser.Framework

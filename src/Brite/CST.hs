@@ -1,6 +1,19 @@
+-- The Concrete Syntax Tree (CST) represents a parsed Brite program including every detail from the
+-- source file. A CST may trivially be converted back into the source code it was parsed from. In
+-- that way the CST is unlike an Abstract Syntax Tree (AST) which usually is not printable into the
+-- exact source code it was parsed from.
+--
+-- What makes the Brite CST even more interesting is that our parser supports error recovery. This
+-- means our CST contains not only all the expected tokens for a Brite program but also all the
+-- unexpected tokens. Even with a bunch of unexpected tokens we still preserve the ability to print
+-- the CST back into the exact source code it was parsed from.
+--
+-- We don’t expect the CST to be used when implementing Brite semantics. For that we have an
+-- Abstract Syntax Tree (AST) with which we smooth over some of the pedantic nature of the CST.
+
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.AST
+module Brite.CST
   ( Module(..)
   , Name(..)
   , Recover(..)
@@ -856,12 +869,12 @@ typeAnnotationTokens (TypeAnnotation t1 t2) =
   singletonToken t1 <> recoverTokens typeTokens t2
 
 -- Prints an expression in an S-expression form for debugging. This abbreviated format should make
--- it easier to see the structure of the AST.
+-- it easier to see the structure of the CST.
 showDebugExpression :: Expression -> String
 showDebugExpression = L.unpack . B.toLazyText . debugExpression ""
 
 -- Debug a module in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST. Each statement in the module is on its own line.
+-- the structure of the CST. Each statement in the module is on its own line.
 debugModule :: Module -> B.Builder
 debugModule (Module [] _) = B.fromText "empty\n"
 debugModule (Module statements _) =
@@ -873,7 +886,7 @@ debugRecover debug (Recover _ _ a) = debug a
 debugRecover _ (Fatal _ _) = B.fromText "err"
 
 -- Debug a name in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST.
+-- the structure of the CST.
 debugName :: Name -> B.Builder
 debugName (Name identifier _) =
   B.fromText "(name `"
@@ -881,7 +894,7 @@ debugName (Name identifier _) =
     <> B.fromText "`)"
 
 -- Debug a statement in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST node.
+-- the structure of the CST node.
 debugStatement :: B.Builder -> Statement -> B.Builder
 debugStatement indentation (ExpressionStatement expression _) =
   debugExpression indentation expression
@@ -909,7 +922,7 @@ debugStatement indentation (Declaration declaration) =
   debugDeclaration indentation declaration
 
 -- Debug a declaration in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST node.
+-- the structure of the CST node.
 debugDeclaration :: B.Builder -> Declaration -> B.Builder
 debugDeclaration indentation (FunctionDeclaration _ name function) =
   debugFunction indentation (Just name) function
@@ -951,7 +964,7 @@ debugFunction indentation name (Function qs _ params _ return_ block) =
         <> B.singleton ')'
 
 -- Debug a block in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST node.
+-- the structure of the CST node.
 debugBlock :: B.Builder -> Block -> B.Builder
 debugBlock _ (Block _ [] _) = B.fromText "block"
 debugBlock indentation block =
@@ -964,7 +977,7 @@ debugBlock indentation block =
     <> B.fromText ")"
 
 -- Debug a constant in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST node.
+-- the structure of the CST node.
 debugConstant :: Constant -> B.Builder
 debugConstant (BooleanConstant True _) =
   B.fromText "(bool true)"
@@ -972,7 +985,7 @@ debugConstant (BooleanConstant False _) =
   B.fromText "(bool false)"
 
 -- Debug an expression in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST node.
+-- the structure of the CST node.
 debugExpression :: B.Builder -> Expression -> B.Builder
 debugExpression _ (ConstantExpression constant) = debugConstant constant
 
@@ -1155,7 +1168,7 @@ debugExpression indentation (ExpressionExtra expression extra') =
             <> debugRecover (debugExpression newIndentation) arg
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
--- the structure of the AST node.
+-- the structure of the CST node.
 debugPattern :: B.Builder -> Pattern -> B.Builder
 debugPattern _ (ConstantPattern constant) = debugConstant constant
 

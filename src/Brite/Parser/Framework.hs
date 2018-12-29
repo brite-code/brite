@@ -32,7 +32,7 @@ import Brite.Source
 import Control.Applicative (liftA2)
 import Data.Maybe (maybeToList)
 
--- The Brite parser turns a tokens into the AST of a Brite program.
+-- The Brite parser turns a stream of tokens into a Brite program.
 --
 -- The Brite parser is built from a parser combinator framework, much like Parsec. We don’t use
 -- Parsec because we want to implement error recovery. Also it is more convenient to use our own
