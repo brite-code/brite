@@ -13743,3 +13743,332 @@ let case V | | case W = x;
 - (0:15-0:17) We wanted `case` but we found `😈`.
 
 --------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  err)))
+```
+
+### Errors
+- (0:7-0:8) We wanted `(` but we found `)`.
+- (0:8-0:8) We wanted `->` but the file ended.
+- (0:8-0:8) We wanted a type but the file ended.
+- (0:8-0:8) We wanted `)` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun😈)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  err)))
+```
+
+### Errors
+- (0:7-0:9) We wanted `(` but we found `😈`.
+- (0:9-0:10) We wanted `(` but we found `)`.
+- (0:10-0:10) We wanted `->` but the file ended.
+- (0:10-0:10) We wanted a type but the file ended.
+- (0:10-0:10) We wanted `)` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun())
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  err)))
+```
+
+### Errors
+- (0:9-0:10) We wanted `->` but we found `)`.
+- (0:9-0:10) We wanted a type but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun() ->)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  err)))
+```
+
+### Errors
+- (0:12-0:13) We wanted a type but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun() -> A)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (var `A`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun(A) -> B)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (param (var `A`))
+  (var `B`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun(A, B) -> C)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (param (var `A`))
+  (param (var `B`))
+  (var `C`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun(A, B, C) -> D)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (param (var `A`))
+  (param (var `B`))
+  (param (var `C`))
+  (var `D`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun(,) -> A)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (param err)
+  (var `A`))))
+```
+
+### Errors
+- (0:8-0:9) We wanted a type but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun(A,) -> B)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (param (var `A`))
+  (var `B`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun(A, B,) -> C)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (param (var `A`))
+  (param (var `B`))
+  (var `C`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun(A, B, C,) -> D)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (param (var `A`))
+  (param (var `B`))
+  (param (var `C`))
+  (var `D`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<>() -> A)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (var `A`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<A>() -> B)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall (name `A`))
+  (var `B`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<A, B>() -> C)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall (name `A`))
+  (forall (name `B`))
+  (var `C`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<A, B, C>() -> D)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall (name `A`))
+  (forall (name `B`))
+  (forall (name `C`))
+  (var `D`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<,>() -> A)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall err)
+  (var `A`))))
+```
+
+### Errors
+- (0:8-0:9) We wanted a variable name but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<A,>() -> B)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall (name `A`))
+  (var `B`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<A, B,>() -> C)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall (name `A`))
+  (forall (name `B`))
+  (var `C`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<A, B, C,>() -> D)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall (name `A`))
+  (forall (name `B`))
+  (forall (name `C`))
+  (var `D`))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: fun<A, B>(C, D) -> E)
+```
+
+### AST
+```
+(wrap (var `x`) (type (fun
+  (forall (name `A`))
+  (forall (name `B`))
+  (param (var `C`))
+  (param (var `D`))
+  (var `E`))))
+```
+
+--------------------------------------------------------------------------------

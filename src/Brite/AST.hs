@@ -471,6 +471,22 @@ data Type
   | BottomType Token
 
   -- ```
+  -- fun(...) -> T
+  -- fun<T>(...) -> U
+  -- ```
+  --
+  -- A quantifier list included with the function type is the same as a quantified function type.
+  -- So `fun<T>() -> void` is the same as `<T> fun() -> void`.
+  | FunctionType
+      Token                            -- `fun`
+      (Maybe (Recover QuantifierList)) -- Type parameters
+      (Recover Token)                  -- `(`
+      (CommaList Type)                 -- Parameters
+      (Recover Token)                  -- `)`
+      (Recover Token)                  -- `->`
+      (Recover Type)                   -- Return
+
+  -- ```
   -- {p: T, ...}
   -- ```
   | ObjectType
@@ -761,6 +777,15 @@ patternTokens (VariantUnionPattern t1 v1 vs) =
 typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
 typeTokens (BottomType t) = singletonToken t
+
+typeTokens (FunctionType t1 qs t2 ps t3 t4 r) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens quantifierListTokens) qs
+    <> recoverTokens singletonToken t2
+    <> commaListTokens typeTokens ps
+    <> recoverTokens singletonToken t3
+    <> recoverTokens singletonToken t4
+    <> recoverTokens typeTokens r
 
 typeTokens (ObjectType t1 ps ext t2) =
   singletonToken t1
@@ -1170,6 +1195,24 @@ debugType _ (VariableType (Name identifier _)) =
     <> B.fromText "`)"
 
 debugType _ (BottomType _) = B.fromText "bottom"
+
+debugType indentation (FunctionType _ quantifiers _ params _ _ return_) =
+  B.fromText "(fun"
+    <> debugRecoverMaybe (debugQuantifierList newIndentation) quantifiers
+    <> mconcat (map (debugNewline (debugParamWrapper (debugRecover (debugType newIndentation)))) (commaListItems params))
+    <> debugNewline (debugRecover (debugType newIndentation)) return_
+    <> B.singleton ')'
+  where
+    newIndentation = indentation <> B.fromText "  "
+    debugNewline debug a = B.singleton '\n' <> newIndentation <> debug a
+
+    debugRecoverMaybe _ Nothing = mempty
+    debugRecoverMaybe _ (Just (Fatal _ _)) = mempty
+    debugRecoverMaybe debug (Just (Recover _ _ a)) = debug a
+    debugRecoverMaybe debug (Just (Ok a)) = debug a
+
+    debugParamWrapper debug a =
+      B.fromText "(param " <> debug a <> B.singleton ')'
 
 debugType indentation (ObjectType _ properties extension _) =
   B.fromText "(object"

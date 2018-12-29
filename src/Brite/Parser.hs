@@ -450,6 +450,7 @@ tryType :: TryParser Type
 tryType =
   tryVariableType
     <|> tryObjectType
+    <|> tryFunctionType
     <|> tryVariantUnionType
     <|> tryQuantifiedType
     <|> tryBottomType
@@ -463,6 +464,17 @@ tryVariableType = VariableType <$> tryName
 
 tryBottomType :: TryParser Type
 tryBottomType = BottomType <$> tryGlyph Bang
+
+tryFunctionType :: TryParser Type
+tryFunctionType =
+  FunctionType
+    <$> tryKeyword Fun
+    <&> optional (tryQuantifierList <|> unexpected (ExpectedGlyph ParenLeft))
+    <&> glyph ParenLeft
+    <&> commaList tryType
+    <&> glyph ParenRight
+    <&> glyph Arrow
+    <&> type_
 
 tryObjectType :: TryParser Type
 tryObjectType =
