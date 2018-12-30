@@ -99,6 +99,9 @@ testData =
   , "true //\n\n"
   , "true //\n\n\n"
   , "true //\nfalse"
+  , "x"
+  , "x y"
+  , "x y z"
   ]
 
 openSnapshotFile :: IO Handle

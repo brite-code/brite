@@ -36,14 +36,18 @@ maxWidth = 80
 nest :: Document -> Document
 nest = Brite.Syntax.PrinterFramework.nest 2
 
--- Pretty prints a Brite AST module.
+-- Pretty prints a Brite module.
 module_ :: Module -> Document
 module_ (Module ss t) =
   mconcat (map (recover statement) ss)
 
--- Pretty prints a recovered AST node.
+-- Pretty prints a recovered value.
 recover :: (a -> Document) -> Recover a -> Document
 recover f (Ok a) = f a
+
+-- Pretty prints a name.
+name :: Name -> Document
+name = token . nameToken
 
 -- Pretty prints a token.
 --
@@ -53,7 +57,8 @@ token (Token _ k _ _) = text (tokenKindSource k)
 
 -- Pretty prints a statement.
 statement :: Statement -> Document
-statement (ExpressionStatement e Nothing) = expression e <> text ";" <> hardline
+statement (ExpressionStatement e t) =
+  expression e <> maybe (text ";") (recover token) t <> hardline
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
@@ -62,5 +67,6 @@ constant (BooleanConstant _ t) = token t
 -- Pretty prints an expression.
 expression :: Expression -> Document
 expression (ConstantExpression c) = constant c
-expression (WrappedExpression t1 (Ok e) a t2) =
-  group (text "(" <> nest (expression e) <> text ")")
+expression (VariableExpression n) = name n
+expression (WrappedExpression t1 e a t2) =
+  group (token t1 <> nest (recover expression e) <> recover token t2)
