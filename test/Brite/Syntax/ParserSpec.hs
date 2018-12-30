@@ -914,7 +914,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
   flip mapM_ testData $ \source ->
     it (T.unpack (escape source)) $ \h ->
       let
-        (module_, diagnostics) = runDiagnosticWriter (parse (tokenize source))
+        (module_, diagnostics) = runDiagnosticWriter (parseModule (tokenize source))
         rebuiltSource = L.toStrict (B.toLazyText (uncurry printSource (moduleTokens module_)))
       in do
         hPutStrLn h ""

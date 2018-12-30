@@ -1,5 +1,5 @@
 module Brite.Syntax.Parser
-  ( parse
+  ( parseModule
   ) where
 
 import Brite.Diagnostics
@@ -8,8 +8,8 @@ import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
 
 -- Parses a Brite module from a stream of tokens.
-parse :: TokenStream -> DiagnosticWriter Module
-parse tokens = uncurry Module <$> runParser (many tryStatement) tokens
+parseModule :: TokenStream -> DiagnosticWriter Module
+parseModule tokens = uncurry Module <$> runParser (many tryStatement) tokens
 
 name :: Parser (Recover Name)
 name = retry tryName
