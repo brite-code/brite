@@ -10,12 +10,12 @@ module Brite.Syntax.Printer
 
 import Brite.Syntax.CST
 import Brite.Syntax.PrinterFramework
+import Brite.Syntax.Tokens
 import qualified Data.Text.Lazy.Builder as B
 
 -- Pretty prints a Brite module.
 printModule :: Module -> B.Builder
-printModule m =
-  printDocument maxWidth (module_ m) <> B.singleton '\n'
+printModule = printDocument maxWidth . module_
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
 -- GitHub, Terminals. It is also the best for plain text comments.
@@ -38,8 +38,11 @@ module_ (Module ss t) =
 recover :: (a -> Document) -> Recover a -> Document
 recover f (Ok a) = f a
 
+trivia :: [Trivia] -> Document
+trivia = error "unimplemented"
+
 statement :: Statement -> Document
-statement (ExpressionStatement e Nothing) = expression e
+statement (ExpressionStatement e Nothing) = expression e <> text ";" <> hardline
 
 constant :: Constant -> Document
 constant (BooleanConstant True t) = text "true"

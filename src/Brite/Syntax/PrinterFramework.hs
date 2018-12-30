@@ -21,6 +21,7 @@ module Brite.Syntax.PrinterFramework
   , nest
   , text
   , line
+  , hardline
   , group
   , printDocument
   ) where
@@ -38,8 +39,12 @@ data Document
   | Nest Int Document
   -- Raw text in the document.
   | Text T.Text
-  -- Either a line or a space if we can fit the document on one line.
+  -- Specify a line break. If an expression fits on one line, the line break will be replaced with a
+  -- space. Line breaks always indent the next line with the current level of indentation.
   | Line
+  -- Specify a line break that is always included in the output, no matter if the expression fits on
+  -- one line or not.
+  | Hardline
   -- Tries to fit the document on one line.
   | Group Document
 
@@ -59,12 +64,18 @@ nest = Nest
 text :: T.Text -> Document
 text = Text
 
--- Adds a newline to the document. Becomes a single space when flattened.
+-- Specify a line break. If an expression fits on one line, the line break will be replaced with a
+-- space. Line breaks always indent the next line with the current level of indentation.
 line :: Document
 line = Line
 
--- Tries to fit the document on one line. If that fails then we print the document on
--- multiple lines.
+-- Specify a line break that is always included in the output, no matter if the expression fits on
+-- one line or not.
+hardline :: Document
+hardline = Hardline
+
+-- Mark a group of items which the printer should try to fit on one line. If the printer can’t fit
+-- the document on one line then
 group :: Document -> Document
 group x = Group x
 
@@ -75,6 +86,7 @@ flatten (Concat x y) = Concat (flatten x) (flatten y)
 flatten (Nest i x) = Nest i (flatten x)
 flatten x@(Text _) = x
 flatten Line = Text " "
+flatten Hardline = Hardline
 flatten (Group x) = flatten x
 
 -- The layout of a document prepared for printing.
@@ -113,11 +125,12 @@ be w k ((_, Text t) : z) = LayoutText t (be w (k + T.length t) z)
 -- Lines are added to the layout and we continue with the execution stack setting the current line
 -- length to the amount of indentation.
 be w _ ((i, Line) : z) = LayoutLine i (be w i z)
+be w _ ((i, Hardline) : z) = LayoutLine i (be w i z)
 -- Tries to layout the grouped document on one line. If that fails then we layout group on
 -- multiple lines.
 --
--- NOTE: This will be inefficient in strict code. It depends on laziness to short-circuit full
--- iteration of `z` twice.
+-- NOTE: This will be inefficient in strict code. It depends on laziness to stop evaluation when we
+-- know the first iteration won’t fit on our line.
 be w k ((i, Group x) : z) =
   better w k
     (be w k ((i, flatten x) : z))
@@ -134,7 +147,7 @@ fits :: Int -> Layout -> Bool
 fits w _ | w < 0 = False
 fits _ LayoutEmpty = True
 fits w (LayoutText t x) = fits (w - T.length t) x
-fits _ (LayoutLine _ _) = True
+fits _ (LayoutLine _ _) = False
 
 -- Prints the document at the specified width.
 printDocument :: Int -> Document -> B.Builder
