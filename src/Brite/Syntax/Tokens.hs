@@ -31,6 +31,7 @@ module Brite.Syntax.Tokens
   , tokenStreamToList
   , nextToken
   , tokenSource
+  , tokenKindSource
   , endTokenSource
   , triviaSource
   , debugPosition
@@ -543,15 +544,15 @@ nextTrivia side acc p0 t0 =
 -- Gets the source code that a token was parsed from.
 tokenSource :: Token -> B.Builder
 tokenSource token =
-  let
-    content = case tokenKind token of
-      Glyph g -> B.fromText (glyphText g)
-      IdentifierToken (Identifier ident) -> B.fromText ident
-      UnexpectedChar c -> B.singleton c
-  in
-    mconcat (map triviaSource (tokenLeadingTrivia token))
-      <> content
-      <> mconcat (map triviaSource (tokenTrailingTrivia token))
+  mconcat (map triviaSource (tokenLeadingTrivia token))
+    <> B.fromText (tokenKindSource (tokenKind token))
+    <> mconcat (map triviaSource (tokenTrailingTrivia token))
+
+-- Gets the source code that a token kind was parsed from.
+tokenKindSource :: TokenKind -> T.Text
+tokenKindSource (Glyph g) = glyphText g
+tokenKindSource (IdentifierToken i) = identifierText i
+tokenKindSource (UnexpectedChar c) = T.singleton c
 
 -- Gets the source code that an end token was parsed from.
 endTokenSource :: EndToken -> B.Builder

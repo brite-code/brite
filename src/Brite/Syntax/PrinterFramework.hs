@@ -21,12 +21,17 @@ module Brite.Syntax.PrinterFramework
   , nest
   , text
   , line
+  , softline
   , hardline
+  , ensureHardline
+  , trivia
+  , insertBeforeTrivia
   , group
   , printDocument
   ) where
 
 import Brite.Syntax.Tokens (utf16Length)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T -- NOTE: We use `T.unsnoc` to count the length. The strict version is much more efficient.
 import qualified Data.Text.Lazy.Builder as B
 
@@ -43,9 +48,14 @@ data Document
   -- Specify a line break. If an expression fits on one line, the line break will be replaced with a
   -- space. Line breaks always indent the next line with the current level of indentation.
   | Line
+  -- Specify a line break. The difference from `line` is that if the expression fits on one line, it
+  -- will be replaced with nothing.
+  | Softline
   -- Specify a line break that is always included in the output, no matter if the expression fits on
   -- one line or not.
   | Hardline
+  -- Marker for document which contains trivial content.
+  | Trivia Document
   -- Tries to fit the document on one line.
   | Group Document
 
@@ -70,10 +80,55 @@ text = Text
 line :: Document
 line = Line
 
+-- Specify a line break. The difference from `line` is that if the expression fits on one line, it
+-- will be replaced with nothing.
+softline :: Document
+softline = Softline
+
 -- Specify a line break that is always included in the output, no matter if the expression fits on
 -- one line or not.
 hardline :: Document
 hardline = Hardline
+
+-- Ensures that there is at least one hardline at the end of the document. If the document already
+-- ends in a hardline we do nothing. If the document ends in a line or a softline then we replace
+-- that with a hardline.
+ensureHardline :: Document -> Document
+ensureHardline a =
+  case try a of
+    Left False -> Concat a Hardline
+    Left True -> a
+    Right a' -> a'
+  where
+    try Empty = Left False
+    try (Concat x y) = Concat x <$> try y
+    try (Nest i x) = Nest i <$> try x
+    try (Text _) = Left False
+    try Line = Right Hardline
+    try Softline = Right Hardline
+    try Hardline = Left True
+    try (Trivia x) = Trivia <$> try x
+    try (Group x) = Group <$> try x
+
+-- Marker for document which contains trivial content.
+trivia :: Document -> Document
+trivia Empty = Empty
+trivia x = Trivia x
+
+-- If the right-most content of document is marked as trivial then we insert our document right
+-- before that. Otherwise we insert our document at the very end.
+insertBeforeTrivia :: Document -> Document -> Document
+insertBeforeTrivia a b = fromMaybe (Concat a b) (try a)
+  where
+    try Empty = Nothing
+    try (Concat x y) = Concat x <$> try y
+    try (Nest i x) = Nest i <$> try x
+    try (Text _) = Nothing
+    try Line = Nothing
+    try Softline = Nothing
+    try Hardline = Nothing
+    try x@(Trivia _) = Just (Concat b x)
+    try (Group x) = Group <$> try x
 
 -- Mark a group of items which the printer should try to fit on one line. If the printer can’t fit
 -- the document on one line then
@@ -84,11 +139,13 @@ group x = Group x
 flatten :: Document -> Document
 flatten Empty = Empty
 flatten (Concat x y) = Concat (flatten x) (flatten y)
-flatten (Nest i x) = Nest i (flatten x)
+flatten (Nest _ x) = flatten x
 flatten x@(Text _) = x
 flatten Line = Text " "
+flatten Softline = Text ""
 flatten Hardline = Hardline
 flatten (Group x) = flatten x
+flatten (Trivia x) = flatten x
 
 -- The layout of a document prepared for printing.
 data Layout
@@ -126,7 +183,10 @@ be w k ((_, Text t) : z) = LayoutText t (be w (k + lastLineLength t) z)
 -- Lines are added to the layout and we continue with the execution stack setting the current line
 -- length to the amount of indentation.
 be w _ ((i, Line) : z) = LayoutLine i (be w i z)
+be w _ ((i, Softline) : z) = LayoutLine i (be w i z)
 be w _ ((i, Hardline) : z) = LayoutLine i (be w i z)
+-- Forward trivia document.
+be w k ((i, Trivia x) : z) = be w k ((i, x) : z)
 -- Tries to layout the grouped document on one line. If that fails then we layout group on
 -- multiple lines.
 --
