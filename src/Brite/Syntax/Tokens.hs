@@ -20,6 +20,7 @@ module Brite.Syntax.Tokens
   , Trivia(..)
   , Newline(..)
   , Comment(..)
+  , isUnterminatedBlockComment
   , TokenStream
   , tokenStreamPosition
   , tokenStreamText
@@ -312,9 +313,13 @@ data Comment
   = LineComment T.Text
   -- `/* ... */` does include the `/*` and `*/` characters.
   --
-  -- NOTE: `/*/` is an acceptable block comment. Also, we don’t report a syntax error for
-  -- unterminated block comments.
-  | BlockComment T.Text
+  -- If the boolean is true then we reached the end of the file before finding `*/`.
+  | BlockComment T.Text Bool
+
+-- Is this trivia an unterminated block comment?
+isUnterminatedBlockComment :: Trivia -> Bool
+isUnterminatedBlockComment (Comment (BlockComment _ False)) = True
+isUnterminatedBlockComment _ = False
 
 -- A stream of tokens. Call `nextToken` to advance the stream.
 data TokenStream = TokenStream
@@ -479,8 +484,8 @@ nextTrivia side acc p0 t0 =
         -- Collect the comment and number of characters captured.
         (comment, n, t2) =
           T.spanWithState
-            (\n' c -> if c == '\n' || c == '\r' then Nothing else Just (n' + utf16Length c)) 0
-            t0
+            (\n' c -> if c == '\n' || c == '\r' then Nothing else Just (n' + utf16Length c)) 2
+            (T.tail t1)
 
         p2 = nextPosition n p0
       in
@@ -490,7 +495,7 @@ nextTrivia side acc p0 t0 =
     Just ('/', t1) | not (T.null t1) && T.head t1 == '*' ->
       let
         -- Collect the comment and the position after the comment.
-        (comment, (_, p2), t2) =
+        (comment, (finalState, p2), t2) =
           T.spanWithState
             (\(state, p1) c ->
               case c of
@@ -506,11 +511,17 @@ nextTrivia side acc p0 t0 =
 
                 -- Add the character’s UTF-16 length to the position and continue.
                 _ -> Just (0, nextPosition (utf16Length c) p1))
-            ((0 :: Int), p0)
-            t0
+            ((0 :: Int), nextPosition 2 p0)
+            (T.tail t1)
+
+        -- Drop `*/` from the comment text.
+        blockComment =
+          case finalState of
+            2 -> BlockComment (T.dropEnd 2 comment) True
+            _ -> BlockComment comment False
 
         -- Create the new `acc` value.
-        acc2 = Comment (BlockComment comment) : acc
+        acc2 = Comment blockComment : acc
       in
         -- If we are on the trailing side and the block comment spans multiple lines then stop
         -- parsing trivia.
@@ -553,8 +564,9 @@ printTriviaSource (Tabs n) = B.fromText (T.replicate n "\t")
 printTriviaSource (Newlines LF n) = B.fromText (T.replicate n "\n")
 printTriviaSource (Newlines CR n) = B.fromText (T.replicate n "\r")
 printTriviaSource (Newlines CRLF n) = B.fromText (T.replicate n "\r\n")
-printTriviaSource (Comment (LineComment comment)) = B.fromText comment
-printTriviaSource (Comment (BlockComment comment)) = B.fromText comment
+printTriviaSource (Comment (LineComment comment)) = B.fromText "//" <> B.fromText comment
+printTriviaSource (Comment (BlockComment comment True)) = B.fromText "/*" <> B.fromText comment <> B.fromText "*/"
+printTriviaSource (Comment (BlockComment comment False)) = B.fromText "/*" <> B.fromText comment
 printTriviaSource (OtherWhitespace c) = B.singleton c
 
 -- Debug a position.
@@ -607,5 +619,6 @@ debugTrivia side trivia =
         Newlines CR n -> B.fromText "Newlines CR " <> B.decimal n
         Newlines CRLF n -> B.fromText "Newlines CRLF " <> B.decimal n
         Comment (LineComment _) -> B.fromText "LineComment"
-        Comment (BlockComment _) -> B.fromText "BlockComment"
+        Comment (BlockComment _ True) -> B.fromText "BlockComment"
+        Comment (BlockComment _ False) -> B.fromText "BlockComment (unterminated)"
         OtherWhitespace c -> B.fromText "OtherWhitespace `" <> B.singleton c <> B.singleton '`'

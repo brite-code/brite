@@ -819,7 +819,7 @@ x
 
 ### Tokens
 ```
-+         | BlockComment
++         | BlockComment (unterminated)
 0:2       | End
 ```
 
@@ -832,7 +832,7 @@ x
 
 ### Tokens
 ```
-+         | BlockComment
++         | BlockComment (unterminated)
 0:3       | End
 ```
 
@@ -845,7 +845,7 @@ x
 
 ### Tokens
 ```
-+         | BlockComment
++         | BlockComment (unterminated)
 0:4       | End
 ```
 
@@ -858,7 +858,7 @@ x
 
 ### Tokens
 ```
-+         | BlockComment
++         | BlockComment (unterminated)
 0:4       | End
 ```
 
@@ -884,7 +884,7 @@ x
 
 ### Tokens
 ```
-+         | BlockComment
++         | BlockComment (unterminated)
 0:5       | End
 ```
 
@@ -1102,9 +1102,7 @@ x
 
 ### Tokens
 ```
-+         | BlockComment
-+         | Spaces 1
-0:4-0:5   | Identifier `x`
++         | BlockComment (unterminated)
 0:5       | End
 ```
 
