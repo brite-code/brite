@@ -12,6 +12,7 @@ import Brite.Syntax.CST
 import Brite.Syntax.PrinterFramework hiding (nest)
 import qualified Brite.Syntax.PrinterFramework (nest)
 import Brite.Syntax.Tokens
+import Data.Functor.Identity
 import qualified Data.Text.Lazy.Builder as B
 
 -- Pretty prints a Brite module.
@@ -43,7 +44,11 @@ module_ (Module ss t) =
 
 -- Pretty prints a recovered value.
 recover :: (a -> Document) -> Recover a -> Document
-recover f (Ok a) = f a
+recover f = runIdentity . recoverM (Identity . f)
+
+-- Pretty prints a recovered value when the provided function returns a functor.
+recoverM :: Functor f => (a -> f Document) -> Recover a -> f Document
+recoverM f (Ok a) = f a
 
 -- Pretty prints a name.
 name :: Name -> Document
@@ -58,15 +63,65 @@ token (Token _ k _ _) = text (tokenKindSource k)
 -- Pretty prints a statement.
 statement :: Statement -> Document
 statement (ExpressionStatement e t) =
-  expression e <> maybe (text ";") (recover token) t <> hardline
+  neverWrap (expression e) <> maybe (text ";") (recover token) t <> hardline
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
 constant (BooleanConstant _ t) = token t
 
+-- The precedence level of an expression.
+data Precedence
+  = Primary
+  | Exponentiation
+  | Multiplicative
+  | Additive
+  | Relational
+  | Equality
+  | LogicalAnd
+  | LogicalOr
+  deriving (Eq, Ord)
+
+-- Small tuple shortcut.
+pair :: a -> b -> (a, b)
+pair = (,)
+{-# INLINE pair #-}
+
+-- Never wrap the expression in parentheses.
+neverWrap :: (Precedence, Document) -> Document
+neverWrap (_, e) = e
+
+-- Wrap expressions at a precedence level higher than the one provided.
+wrap :: Precedence -> (Precedence, Document) -> Document
+wrap p1 (p2, e) | p2 > p1 = text "(" <> e <> text ")"
+wrap _ (_, e) = e
+
 -- Pretty prints an expression.
-expression :: Expression -> Document
-expression (ConstantExpression c) = constant c
-expression (VariableExpression n) = name n
-expression (WrappedExpression t1 e a t2) =
-  group (token t1 <> nest (recover expression e) <> recover token t2)
+expression :: Expression -> (Precedence, Document)
+expression (ConstantExpression c) = pair Primary $ constant c
+expression (VariableExpression n) = pair Primary $ name n
+expression (UnaryExpression _ t e) = pair Primary $
+  token t <> wrap Primary (recoverM expression e)
+expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair precedence $
+  wrap precedence (recoverM expression l)
+    <> text " "
+    <> token t
+    <> text " "
+    <> wrap precedence (recoverM expression r)
+  where
+    precedence = case op of
+      Add -> Additive
+      Subtract -> Additive
+      Multiply -> Multiplicative
+      Divide -> Multiplicative
+      Remainder -> Multiplicative
+      Exponent -> Exponentiation
+      Equals -> Equality
+      NotEquals -> Equality
+      LessThan -> Relational
+      LessThanOrEqual -> Relational
+      GreaterThan -> Relational
+      GreaterThanOrEqual -> Relational
+      And -> LogicalAnd
+      Or -> LogicalOr
+expression (WrappedExpression _ e Nothing _) =
+  recoverM expression e
