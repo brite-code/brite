@@ -12,8 +12,6 @@ import Brite.Syntax.CST
 import Brite.Syntax.PrinterFramework hiding (nest)
 import qualified Brite.Syntax.PrinterFramework (nest)
 import Brite.Syntax.Tokens
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as L
 import qualified Data.Text.Lazy.Builder as B
 
 -- Pretty prints a Brite module.
@@ -48,79 +46,14 @@ recover :: (a -> Document) -> Recover a -> Document
 recover f (Ok a) = f a
 
 -- Pretty prints a token.
+--
+-- TODO: Trivia!!!
 token :: Token -> Document
-token (Token _ k ts1 ts2) =
-  leadingTrivia ts1
-    <> text (tokenKindSource k)
-    <> trailingTrivia ts2
-
--- Pretty prints some leading trivia.
-leadingTrivia :: [Trivia] -> Document
-leadingTrivia = trivia . loop0
-  where
-    raw = text . L.toStrict . B.toLazyText . triviaSource
-
-    loop0 [] = mempty
-    loop0 (Spaces _ : ts) = loop0 ts
-    loop0 (Tabs _ : ts) = loop0 ts
-    loop0 (Newlines _ _ : ts) = loop0 ts
-    loop0 (OtherWhitespace _ : ts) = loop0 ts
-    loop0 (t@(Comment _) : ts) = raw t <> loop1 PrettySpace ts
-
-    loop1 acc [] = prettyTriviaText acc
-    loop1 acc (Spaces _ : ts) = loop1 (prettyTriviaMerge acc PrettySpace) ts
-    loop1 acc (Tabs _ : ts) = loop1 (prettyTriviaMerge acc PrettySpace) ts
-    loop1 acc (Newlines _ n : ts) = loop1 (prettyTriviaMerge acc (PrettyNewlines n)) ts
-    loop1 acc (OtherWhitespace _ : ts) = loop1 (prettyTriviaMerge acc PrettySpace) ts
-    loop1 acc (t@(Comment _) : ts) = prettyTriviaText acc <> raw t <> loop1 PrettySpace ts
-
--- Pretty prints some trailing trivia.
-trailingTrivia :: [Trivia] -> Document
-trailingTrivia = trivia . loop0 . reverse
-  where
-    raw = text . L.toStrict . B.toLazyText . triviaSource
-
-    loop0 [] = mempty
-    loop0 (Spaces _ : ts) = loop0 ts
-    loop0 (Tabs _ : ts) = loop0 ts
-    loop0 (Newlines _ _ : ts) = loop0 ts
-    loop0 (OtherWhitespace _ : ts) = loop0 ts
-    loop0 (t@(Comment (LineComment _)) : ts) = loop1 PrettySpace ts <> raw t <> hardline
-    loop0 (t@(Comment _) : ts) = loop1 PrettySpace ts <> raw t
-
-    loop1 acc [] = prettyTriviaText acc
-    loop1 acc (Spaces _ : ts) = loop1 (prettyTriviaMerge acc PrettySpace) ts
-    loop1 acc (Tabs _ : ts) = loop1 (prettyTriviaMerge acc PrettySpace) ts
-    loop1 acc (Newlines _ n : ts) = loop1 (prettyTriviaMerge acc (PrettyNewlines n)) ts
-    loop1 acc (OtherWhitespace _ : ts) = loop1 (prettyTriviaMerge acc PrettySpace) ts
-    loop1 acc (t@(Comment _) : ts) = loop1 PrettySpace ts <> raw t <> prettyTriviaText acc
-
--- Intermediate Representation of pretty printed trivia.
-data PrettyTrivia
-  = PrettyEmpty
-  | PrettySpace
-  | PrettyNewlines Int
-
--- Merges two pretty printed trivia together.
-prettyTriviaMerge :: PrettyTrivia -> PrettyTrivia -> PrettyTrivia
-prettyTriviaMerge (PrettyNewlines n) (PrettyNewlines m) = PrettyNewlines (n + m)
-prettyTriviaMerge (PrettyNewlines n) _ = PrettyNewlines n
-prettyTriviaMerge _ (PrettyNewlines n) = PrettyNewlines n
-prettyTriviaMerge PrettySpace _ = PrettySpace
-prettyTriviaMerge _ PrettySpace = PrettySpace
-prettyTriviaMerge PrettyEmpty PrettyEmpty = PrettyEmpty
-
--- Gets the document for pretty printed trivia.
-prettyTriviaText :: PrettyTrivia -> Document
-prettyTriviaText PrettyEmpty = mempty
-prettyTriviaText PrettySpace = text " "
-prettyTriviaText (PrettyNewlines n) | n > 1 = hardline <> hardline
-prettyTriviaText (PrettyNewlines _) = hardline
+token (Token _ k _ _) = text (tokenKindSource k)
 
 -- Pretty prints a statement.
 statement :: Statement -> Document
-statement (ExpressionStatement e Nothing) =
-  ensureHardline (insertBeforeTrivia (expression e) (text ";"))
+statement (ExpressionStatement e Nothing) = expression e <> text ";" <> hardline
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
