@@ -55,6 +55,7 @@ module Brite.Syntax.CST
   , QuantifierBoundKind(..)
   , TypeAnnotation(..)
   , moduleTokens
+  , moduleSource
   , debugModule
   , showDebugExpression
   ) where
@@ -607,6 +608,13 @@ moduleTokens (Module statements end) =
   ( appEndo (mconcat (map (recoverTokens statementTokens) statements)) []
   , end
   )
+
+-- Rebuild the source code that the module was parsed from. Does not return the exact same text
+-- reference but rather a rebuilt text document.
+moduleSource :: Module -> B.Builder
+moduleSource m =
+  let (tokens, endToken) = moduleTokens m in
+    mconcat (map tokenSource tokens) <> endTokenSource endToken
 
 -- Use a “difference list” trick to more efficiently build token lists.
 type Tokens = Endo [Token]

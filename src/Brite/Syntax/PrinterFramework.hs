@@ -26,7 +26,8 @@ module Brite.Syntax.PrinterFramework
   , printDocument
   ) where
 
-import qualified Data.Text as T
+import Brite.Syntax.Tokens (utf16Length)
+import qualified Data.Text as T -- NOTE: We use `T.unsnoc` to count the length. The strict version is much more efficient.
 import qualified Data.Text.Lazy.Builder as B
 
 -- The document data structure is a tree which will be pretty printed at a specified text width.
@@ -121,7 +122,7 @@ be w k ((i, Concat x y) : z) = be w k ((i, x) : (i, y) : z)
 -- only matters for newlines.
 be w k ((i, Nest j x) : z) = be w k ((i + j, x) : z)
 -- Text is added to the layout and increases the current line length.
-be w k ((_, Text t) : z) = LayoutText t (be w (k + T.length t) z)
+be w k ((_, Text t) : z) = LayoutText t (be w (k + lastLineLength t) z)
 -- Lines are added to the layout and we continue with the execution stack setting the current line
 -- length to the amount of indentation.
 be w _ ((i, Line) : z) = LayoutLine i (be w i z)
@@ -148,6 +149,21 @@ fits w _ | w < 0 = False
 fits _ LayoutEmpty = True
 fits w (LayoutText t x) = fits (w - T.length t) x
 fits _ (LayoutLine _ _) = False
+
+-- Gets the number of characters in the last line of text. We use the same method of counting as we
+-- do for ranges. (UTF-16 character length which is specified by the [LSP][1].)
+--
+-- [1]: https://microsoft.github.io/language-server-protocol/specification
+lastLineLength :: T.Text -> Int
+lastLineLength = loop 0
+  where
+    -- Iterate over the text in reverse since we want to stop at the last line.
+    loop n t1 =
+      case T.unsnoc t1 of
+        Nothing -> n
+        Just (_, '\n') -> n
+        Just (_, '\r') -> n
+        Just (t2, c) -> loop (n + utf16Length c) t2
 
 -- Prints the document at the specified width.
 printDocument :: Int -> Document -> B.Builder

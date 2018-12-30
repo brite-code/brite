@@ -6,6 +6,7 @@
 module Brite.Syntax.Tokens
   ( Position(..)
   , initialPosition
+  , utf16Length
   , Range(..)
   , Identifier
   , identifierText
@@ -29,7 +30,9 @@ module Brite.Syntax.Tokens
   , tokenize
   , tokenStreamToList
   , nextToken
-  , printSource
+  , tokenSource
+  , endTokenSource
+  , triviaSource
   , debugPosition
   , debugRange
   , debugTokens
@@ -537,37 +540,34 @@ nextTrivia side acc p0 t0 =
     -- Return trivia if there isn’t more.
     _ -> (reverse acc, p0, t0)
 
--- Takes a list of tokens and prints the source document. This function exercises the invariant that
--- we must always be able to rebuild the source document from our token stream.
-printSource :: [Token] -> EndToken -> B.Builder
-printSource tokens endToken =
-  mconcat (map printTokenSource tokens)
-    <> mconcat (map printTriviaSource (endTokenTrivia endToken))
-
--- Prints a token into the source code it was parsed from.
-printTokenSource :: Token -> B.Builder
-printTokenSource token =
+-- Gets the source code that a token was parsed from.
+tokenSource :: Token -> B.Builder
+tokenSource token =
   let
     content = case tokenKind token of
       Glyph g -> B.fromText (glyphText g)
       IdentifierToken (Identifier ident) -> B.fromText ident
       UnexpectedChar c -> B.singleton c
   in
-    mconcat (map printTriviaSource (tokenLeadingTrivia token))
+    mconcat (map triviaSource (tokenLeadingTrivia token))
       <> content
-      <> mconcat (map printTriviaSource (tokenTrailingTrivia token))
+      <> mconcat (map triviaSource (tokenTrailingTrivia token))
 
--- Prints some trivia into the source code it was parsed from.
-printTriviaSource :: Trivia -> B.Builder
-printTriviaSource (Spaces n) = B.fromText (T.replicate n " ")
-printTriviaSource (Tabs n) = B.fromText (T.replicate n "\t")
-printTriviaSource (Newlines LF n) = B.fromText (T.replicate n "\n")
-printTriviaSource (Newlines CR n) = B.fromText (T.replicate n "\r")
-printTriviaSource (Newlines CRLF n) = B.fromText (T.replicate n "\r\n")
-printTriviaSource (Comment (LineComment comment)) = B.fromText "//" <> B.fromText comment
-printTriviaSource (Comment (BlockComment comment True)) = B.fromText "/*" <> B.fromText comment <> B.fromText "*/"
-printTriviaSource (Comment (BlockComment comment False)) = B.fromText "/*" <> B.fromText comment
-printTriviaSource (OtherWhitespace c) = B.singleton c
+-- Gets the source code that an end token was parsed from.
+endTokenSource :: EndToken -> B.Builder
+endTokenSource endToken = mconcat (map triviaSource (endTokenTrivia endToken))
+
+-- Gets the source code that a trivia was parsed from.
+triviaSource :: Trivia -> B.Builder
+triviaSource (Spaces n) = B.fromText (T.replicate n " ")
+triviaSource (Tabs n) = B.fromText (T.replicate n "\t")
+triviaSource (Newlines LF n) = B.fromText (T.replicate n "\n")
+triviaSource (Newlines CR n) = B.fromText (T.replicate n "\r")
+triviaSource (Newlines CRLF n) = B.fromText (T.replicate n "\r\n")
+triviaSource (Comment (LineComment comment)) = B.fromText "//" <> B.fromText comment
+triviaSource (Comment (BlockComment comment True)) = B.fromText "/*" <> B.fromText comment <> B.fromText "*/"
+triviaSource (Comment (BlockComment comment False)) = B.fromText "/*" <> B.fromText comment
+triviaSource (OtherWhitespace c) = B.singleton c
 
 -- Debug a position.
 debugPosition :: Position -> B.Builder

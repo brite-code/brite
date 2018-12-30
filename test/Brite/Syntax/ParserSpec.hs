@@ -931,7 +931,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
     it (T.unpack (escape source)) $ \h ->
       let
         (module_, diagnostics) = runDiagnosticWriter (parseModule (tokenize source))
-        rebuiltSource = L.toStrict (B.toLazyText (uncurry printSource (moduleTokens module_)))
+        rebuiltSource = L.toStrict (B.toLazyText (moduleSource module_))
       in do
         hPutStrLn h ""
         hPutStrLn h (replicate 80 '-')

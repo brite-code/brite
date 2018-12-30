@@ -143,7 +143,8 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
     it (T.unpack (escape source)) $ \h ->
       let
         (tokens, endToken) = tokenStreamToList (tokenize source)
-        rebuiltSource = L.toStrict (B.toLazyText (printSource tokens endToken))
+        rebuiltSource = L.toStrict $ B.toLazyText $
+          mconcat (map tokenSource tokens) <> endTokenSource endToken
       in do
         hPutStrLn h ""
         hPutStrLn h (replicate 80 '-')
