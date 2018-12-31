@@ -911,6 +911,7 @@ testData =
   , "/* * / x"
   , "/* */ x"
   , "/* **/ x"
+  , "a + b + c + (d * e)"
   ]
 
 openSnapshotFile :: IO Handle

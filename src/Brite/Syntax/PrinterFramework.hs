@@ -24,6 +24,7 @@ module Brite.Syntax.PrinterFramework
   , softline
   , hardline
   , group
+  , shamefullyUngroup
   , printDocument
   ) where
 
@@ -50,6 +51,8 @@ data Document
   -- Specify a line break that is always included in the output, no matter if the expression fits on
   -- one line or not.
   | Hardline
+  -- Fails the layout “fit” function. Used by hardline to force the group onto multiple lines.
+  | FailFit
   -- Tries to fit the document on one line.
   | Group Document
 
@@ -89,6 +92,14 @@ hardline = Hardline
 group :: Document -> Document
 group x = Group x
 
+-- If the provided document is immediately grouped then we remove the group. Otherwise we return the
+-- document. Usually this is not a good idea! Which is why the name is prefixed with “shamefully”.
+-- Calling this function breaks the group abstraction. Preferably one wouldn’t need to ungroup and
+-- instead only group once where needed.
+shamefullyUngroup :: Document -> Document
+shamefullyUngroup (Group x) = x
+shamefullyUngroup x = x
+
 -- Flattens the document by removing newlines.
 flatten :: Document -> Document
 flatten Empty = Empty
@@ -97,7 +108,7 @@ flatten (Nest _ x) = flatten x
 flatten x@(Text _) = x
 flatten Line = Text " "
 flatten Softline = Text ""
-flatten Hardline = Hardline
+flatten Hardline = FailFit
 flatten (Group x) = flatten x
 
 -- The layout of a document prepared for printing.
@@ -105,12 +116,14 @@ data Layout
   = LayoutEmpty
   | LayoutText T.Text Layout
   | LayoutLine Int Layout
+  | LayoutFailFit
 
 -- Prints our document to a text builder.
 layout :: Layout -> B.Builder
 layout LayoutEmpty = mempty
 layout (LayoutText t x) = B.fromText t <> layout x
 layout (LayoutLine i x) = B.singleton '\n' <> B.fromText (T.replicate i " ") <> layout x
+layout LayoutFailFit = mempty
 
 -- Picks the best layout for a document.
 best :: Int -> Int -> Document -> Layout
@@ -138,6 +151,8 @@ be w k ((_, Text t) : z) = LayoutText t (be w (k + lastLineLength t) z)
 be w _ ((i, Line) : z) = LayoutLine i (be w i z)
 be w _ ((i, Softline) : z) = LayoutLine i (be w i z)
 be w _ ((i, Hardline) : z) = LayoutLine i (be w i z)
+-- Fails the layout fitting.
+be _ _ ((_, FailFit) : _) = LayoutFailFit
 -- Tries to layout the grouped document on one line. If that fails then we layout group on
 -- multiple lines.
 --
@@ -158,8 +173,22 @@ better w k x y =
 fits :: Int -> Layout -> Bool
 fits w _ | w < 0 = False
 fits _ LayoutEmpty = True
-fits w (LayoutText t x) = fits (w - T.length t) x
-fits _ (LayoutLine _ _) = False
+fits w (LayoutText t x) = fitsText w t x
+fits _ (LayoutLine _ _) = True
+fits _ LayoutFailFit = False
+
+-- Checks to see if the text fits in the provided space. We use the same method of counting as we do
+-- for ranges. (UTF-16 character length which is specified by the [LSP][1].)
+--
+-- [1]: https://microsoft.github.io/language-server-protocol/specification
+fitsText :: Int -> T.Text -> Layout -> Bool
+fitsText w _ _ | w < 0 = False
+fitsText w t1 z =
+  case T.uncons t1 of
+    Just ('\n', _) -> True
+    Just ('\r', _) -> True
+    Just (c, t2) -> fitsText (w - utf16Length c) t2 z
+    Nothing -> fits w z
 
 -- Gets the number of characters in the last line of text. We use the same method of counting as we
 -- do for ranges. (UTF-16 character length which is specified by the [LSP][1].)

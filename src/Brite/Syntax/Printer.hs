@@ -101,13 +101,21 @@ expression (ConstantExpression c) = pair Primary $ constant c
 expression (VariableExpression n) = pair Primary $ name n
 expression (UnaryExpression _ t e) = pair Primary $
   token t <> wrap Primary (recoverM expression e)
-expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair precedence $
-  wrap precedence (recoverM expression l)
+expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair precedence $ group $
+  wrapOperand (recoverM expression l)
     <> text " "
     <> token t
-    <> text " "
-    <> wrap precedence (recoverM expression r)
+    <> line
+    <> wrapOperand (recoverM expression r)
   where
+    -- If our operand is at a greater precedence then we need to wrap it up.
+    wrapOperand (p, e) | p > precedence = text "(" <> e <> text ")"
+    -- If our operand is at a lesser precedence then we want to leave it grouped.
+    wrapOperand (p, e) | p < precedence = e
+    -- If our operand is at the same precedence then we want to inline it into our group. Only other
+    -- binary expressions should be at the same precedence.
+    wrapOperand (_, e) = shamefullyUngroup e
+
     precedence = case op of
       Add -> Additive
       Subtract -> Additive
