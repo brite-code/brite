@@ -60,10 +60,20 @@ name = token . nameToken
 token :: Token -> Document
 token (Token _ k _ _) = text (tokenKindSource k)
 
--- Pretty prints a statement.
+-- Pretty prints a statement. Always inserts a semicolon after every statement.
 statement :: Statement -> Document
 statement (ExpressionStatement e t) =
   neverWrap (expression e) <> maybe (text ";") (recover token) t <> hardline
+statement (BindingStatement t1 p Nothing t2 e t3) =
+  token t1
+    <> text " "
+    <> recover pattern p
+    <> text " "
+    <> recover token t2
+    <> text " "
+    <> neverWrap (recoverM expression e)
+    <> maybe (text ";") (recover token) t3
+    <> hardline
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
@@ -144,3 +154,7 @@ expression (WrappedExpression _ e Nothing _) =
 -- Group a property expression and nest its property on a newline if the group breaks.
 expression (ExpressionExtra e (Ok (PropertyExpressionExtra t n))) = pair Primary $ group $
   wrap Primary (expression e) <> nest (softline <> token t <> recover name n)
+
+-- Pretty prints a pattern.
+pattern :: Pattern -> Document
+pattern (VariablePattern n) = name n

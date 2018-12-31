@@ -190,6 +190,10 @@ testData =
   , "reallyReallyReallyReallyReallyReallyReallyLong.p.reallyReallyReallyReallyReallyReallyReallyLong.q"
   , "foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit"
   , "(a + b).c"
+  , "let x = y"
+  , "let x = y;"
+  , "let    x    =    y;"
+  , "let\nx\n=\ny;"
   ]
 
 openSnapshotFile :: IO Handle
