@@ -55,10 +55,21 @@ name :: Name -> Document
 name = token . nameToken
 
 -- Pretty prints a token.
---
--- TODO: Trivia!!!
 token :: Token -> Document
-token (Token _ k _ _) = text (tokenKindSource k)
+token (Token _ k lt tt) =
+  text (tokenKindSource k) <> trailingTrivia tt
+
+-- Pretty prints some trivia.
+trailingTrivia :: [Trivia] -> Document
+trailingTrivia = loop
+  where
+    loop [] = mempty
+    loop (Spaces _ : ts) = loop ts
+    loop (Tabs _ : ts) = loop ts
+    loop (Newlines _ _ : ts) = loop ts
+    loop (Comment (LineComment comment) : ts) = lineSuffix (text " //" <> text comment) <> loop ts
+    loop (Comment (BlockComment _ _) : ts) = loop ts -- TODO: Block comments!!!
+    loop (OtherWhitespace _ : ts) = loop ts
 
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
 statement :: Statement -> Document

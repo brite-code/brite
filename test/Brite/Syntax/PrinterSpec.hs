@@ -194,6 +194,7 @@ testData =
   , "let x = y;"
   , "let    x    =    y;"
   , "let\nx\n=\ny;"
+  , "a // a\n+ // +\nb // b"
   ]
 
 openSnapshotFile :: IO Handle
@@ -213,8 +214,10 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
   flip mapM_ testData $ \input ->
     it (T.unpack (escape input)) $ \h ->
       let
-        (module_, _) = runDiagnosticWriter (parseModule (tokenize input))
-        output = printModule module_
+        (inputModule, _) = runDiagnosticWriter (parseModule (tokenize input))
+        output = L.toStrict (B.toLazyText (printModule inputModule))
+        (outputModule, _) = runDiagnosticWriter (parseModule (tokenize output))
+        reprintedOutput = L.toStrict (B.toLazyText (printModule outputModule))
       in do
         hPutStrLn h ""
         hPutStrLn h (replicate 80 '-')
@@ -226,8 +229,9 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h ""
         hPutStrLn h "### Output"
         hPutStrLn h "```"
-        hPutStr h (L.unpack (B.toLazyText output))
+        hPutStr h (T.unpack output)
         hPutStrLn h "```"
+        reprintedOutput `shouldBe` output
 
 escape :: T.Text -> T.Text
 escape = T.concatMap
