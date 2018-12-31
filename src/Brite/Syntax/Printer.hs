@@ -72,6 +72,7 @@ constant (BooleanConstant _ t) = token t
 -- The precedence level of an expression.
 data Precedence
   = Primary
+  | Unary
   | Exponentiation
   | Multiplicative
   | Additive
@@ -99,8 +100,12 @@ wrap _ (_, e) = e
 expression :: Expression -> (Precedence, Document)
 expression (ConstantExpression c) = pair Primary $ constant c
 expression (VariableExpression n) = pair Primary $ name n
-expression (UnaryExpression _ t e) = pair Primary $
-  token t <> wrap Primary (recoverM expression e)
+
+-- Unary expressions are printed as expected.
+expression (UnaryExpression _ t e) = pair Unary $
+  token t <> wrap Unary (recoverM expression e)
+
+-- Binary expressions of the same precedence level are placed in a single group.
 expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair precedence $ group $
   wrapOperand (recoverM expression l)
     <> text " "
@@ -131,5 +136,11 @@ expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair prece
       GreaterThanOrEqual -> Relational
       And -> LogicalAnd
       Or -> LogicalOr
+
+-- Always remove unnecessary parentheses.
 expression (WrappedExpression _ e Nothing _) =
   recoverM expression e
+
+-- Group a property expression and nest its property on a newline if the group breaks.
+expression (ExpressionExtra e (Ok (PropertyExpressionExtra t n))) = pair Primary $ group $
+  wrap Primary (expression e) <> nest (softline <> token t <> recover name n)

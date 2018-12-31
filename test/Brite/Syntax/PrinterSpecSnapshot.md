@@ -1970,3 +1970,299 @@ reallyReallyReallyReallyReallyReallyReallyLong;
 ```
 
 --------------------------------------------------------------------------------
+
+### Input
+```ite
+--x
+```
+
+### Output
+```
+--x;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+-(-x)
+```
+
+### Output
+```
+--x;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+-+x
+```
+
+### Output
+```
+-+x;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+-(+x)
+```
+
+### Output
+```
+-+x;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+!!x
+```
+
+### Output
+```
+!!x;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+!(!x)
+```
+
+### Output
+```
+!!x;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+!o.p
+```
+
+### Output
+```
+!o.p;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(!o).p
+```
+
+### Output
+```
+(!o).p;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+o  .  p
+```
+
+### Output
+```
+o.p;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+o
+.p
+```
+
+### Output
+```
+o.p;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+o.
+p
+```
+
+### Output
+```
+o.p;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+o.p.q
+```
+
+### Output
+```
+o.p.q;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong.reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong
+  .reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong.reallyReallyReallyReallyReallyReallyReallyLong.reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong
+  .reallyReallyReallyReallyReallyReallyReallyLong
+  .reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong.p
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong.p;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong.p.q
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong.p.q;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong.reallyReallyReallyReallyReallyReallyReallyLong.p
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong
+  .reallyReallyReallyReallyReallyReallyReallyLong
+  .p;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong.reallyReallyReallyReallyReallyReallyReallyLong.p.q
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong
+  .reallyReallyReallyReallyReallyReallyReallyLong
+  .p
+  .q;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong.p.reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong.p
+  .reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong.p.q.reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong.p.q
+  .reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong.p.reallyReallyReallyReallyReallyReallyReallyLong.q
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong.p
+  .reallyReallyReallyReallyReallyReallyReallyLong
+  .q;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit
+```
+
+### Output
+```
+foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit.foo.bar.qux.lit
+  .foo
+  .bar
+  .qux
+  .lit;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a + b).c
+```
+
+### Output
+```
+(a + b).c;
+```
+
+--------------------------------------------------------------------------------
