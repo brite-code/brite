@@ -54,11 +54,6 @@ recoverM f (Ok a) = f a
 name :: Name -> Document
 name = token . nameToken
 
--- Pretty prints a token.
-token :: Token -> Document
-token (Token _ k lt tt) =
-  leadingTrivia lt <> text (tokenKindSource k) <> trailingTrivia tt
-
 ----------------------------------------------------------------------------------------------------
 -- # Comment Aesthetics
 --
@@ -125,29 +120,9 @@ token (Token _ k lt tt) =
 -- stay attached.
 ----------------------------------------------------------------------------------------------------
 
--- Pretty prints some leading trivia.
-leadingTrivia :: [Trivia] -> Document
-leadingTrivia = loop
-  where
-    loop [] = mempty
-    loop (Spaces _ : ts) = loop ts
-    loop (Tabs _ : ts) = loop ts
-    loop (Newlines _ _ : ts) = loop ts
-    loop (Comment (LineComment _) : ts) = loop ts -- TODO: Line comments!!
-    loop (Comment (BlockComment comment _) : ts) = text "/*" <> text comment <> text "*/ " <> loop ts
-    loop (OtherWhitespace _ : ts) = loop ts
-
--- Pretty prints some trailing trivia. Trailing trivia has at most one new line.
-trailingTrivia :: [Trivia] -> Document
-trailingTrivia = loop
-  where
-    loop [] = mempty
-    loop (Spaces _ : ts) = loop ts
-    loop (Tabs _ : ts) = loop ts
-    loop (Newlines _ _ : ts) = loop ts
-    loop (Comment (LineComment comment) : ts) = lineSuffix (text " //" <> text comment) <> loop ts
-    loop (Comment (BlockComment comment _) : ts) = text " /*" <> text comment <> text "*/" <> loop ts
-    loop (OtherWhitespace _ : ts) = loop ts
+-- Pretty prints a token.
+token :: Token -> Document
+token (Token _ k lt tt) = text (tokenKindSource k)
 
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
 statement :: Statement -> Document
