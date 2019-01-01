@@ -122,7 +122,42 @@ name = token . nameToken
 
 -- Pretty prints a token.
 token :: Token -> Document
-token (Token _ k lt tt) = text (tokenKindSource k)
+token (Token _ k ts1 ts2) =
+  leading Nothing ts1
+    <> text (tokenKindSource k)
+    <> trailing ts2
+  where
+    leading ls [] = newlines ls
+    leading ls (Spaces _ : ts) = leading ls ts
+    leading ls (Tabs _ : ts) = leading ls ts
+    leading ls (Newlines _ n : ts) = leading ((n +) <$> ls) ts
+    leading ls (OtherWhitespace _ : ts) = leading ls ts
+
+    -- We know, for sure, that no code comes before a leading line comment. Code will eat a line
+    -- comment that comes after it as trailing trivia. See the `trailing` function below. Line
+    -- comments with no preceding code insert at most one empty new line.
+    leading ls (Comment (LineComment c) : ts) =
+      newlines ls <> text "//" <> text c <> leading (Just 0) ts
+
+    leading ls (Comment (BlockComment _ _) : ts) = leading ls ts -- TODO
+
+    newlines Nothing = mempty
+    newlines (Just n) | n > 1 = hardline <> hardline
+    newlines (Just _) = hardline
+
+    trailing [] = mempty
+    trailing (Spaces _ : ts) = trailing ts
+    trailing (Tabs _ : ts) = trailing ts
+    trailing (Newlines _ _ : ts) = trailing ts
+    trailing (OtherWhitespace _ : ts) = trailing ts
+
+    -- We know that some code always comes before a trailing line comment. Defer printing the
+    -- comment until the printer inserts a new line. This way the printer maintains the opportunity
+    -- to format code as it pleases.
+    trailing (Comment (LineComment c) : ts) =
+      lineSuffix (text " //" <> text c) <> trailing ts
+
+    trailing (Comment (BlockComment _ _) : ts) = trailing ts -- TODO
 
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
 statement :: Statement -> Document
