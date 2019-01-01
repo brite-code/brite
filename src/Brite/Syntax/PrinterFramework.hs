@@ -115,6 +115,7 @@ flatten (Line Space) = Text " "
 flatten (Line NoSpace) = Text ""
 flatten (Line Hard) = FailFit
 flatten (LineSuffix x) = LineSuffix x
+flatten FailFit = FailFit
 flatten (Group x) = flatten x
 
 -- The layout of a document prepared for printing.
@@ -167,6 +168,8 @@ be w k stack@((i, Line _) : _) suffix = be w k (reverseAppend (map ((,) i) suffi
     reverseAppend (a : l1) l2 = reverseAppend l1 (a : l2)
 -- Add a line suffix document to our line suffix stack.
 be w k ((_, LineSuffix x) : stack) suffix = be w k stack (x : suffix)
+-- If we reach a `FailFit` document then stop layout and return `LayoutFailFit`.
+be _ _ ((_, FailFit) : _) _ = LayoutFailFit
 -- Tries to layout the grouped document on one line. If that fails then we layout group on
 -- multiple lines.
 --
@@ -199,9 +202,13 @@ fitsText :: Int -> T.Text -> Layout -> Bool
 fitsText w _ _ | w < 0 = False
 fitsText w t1 z =
   case T.uncons t1 of
-    Just ('\n', _) -> True
-    Just ('\r', _) -> True
+    -- We only really run into new lines here in a block comment. Always fail the fit function when
+    -- we find one.
+    Just ('\n', _) -> False
+    Just ('\r', _) -> False
+    -- Subtract the UTF-16 length of this character as that’s what’s specified by the LSP spec.
     Just (c, t2) -> fitsText (w - utf16Length c) t2 z
+    -- Yay! We’ve reached the end of the text and we still fit. Continue by recursing into `fits`.
     Nothing -> fits w z
 
 -- Gets the number of characters in the last line of text. We use the same method of counting as we
@@ -211,13 +218,23 @@ fitsText w t1 z =
 lastLineLength :: T.Text -> Int
 lastLineLength = loop 0
   where
-    -- Iterate over the text in reverse since we want to stop at the last line.
+    -- Start by looping forwards. `T.uncons` is more efficiently implemented then `T.unsnoc`. If we
+    -- hit a new line then instead try again but loop backwards this time.
     loop n t1 =
-      case T.unsnoc t1 of
+      case T.uncons t1 of
+        Just ('\n', t2) -> loopBack 0 t2
+        Just ('\r', t2) -> loopBack 0 t2
+        Just (c, t2) -> loop (n + utf16Length c) t2
         Nothing -> n
+
+    -- We discovered that our text is multiple lines long, but we only want the length of the last
+    -- line. So loop backwards from the end of text to the last new line.
+    loopBack n t1 =
+      case T.unsnoc t1 of
         Just (_, '\n') -> n
         Just (_, '\r') -> n
-        Just (t2, c) -> loop (n + utf16Length c) t2
+        Just (t2, c) -> loopBack (n + utf16Length c) t2
+        Nothing -> n
 
 -- Prints the document at the specified width.
 printDocument :: Int -> Document -> B.Builder

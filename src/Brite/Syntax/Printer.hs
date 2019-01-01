@@ -57,9 +57,87 @@ name = token . nameToken
 -- Pretty prints a token.
 token :: Token -> Document
 token (Token _ k lt tt) =
-  text (tokenKindSource k) <> trailingTrivia tt
+  leadingTrivia lt <> text (tokenKindSource k) <> trailingTrivia tt
 
--- Pretty prints some trivia.
+----------------------------------------------------------------------------------------------------
+-- # Comment Aesthetics
+--
+-- We need to answer the question: How are we going to pretty print comments? A programmer may put
+-- a comment anywhere in their source code which might seriously disrupt the printer. First, to
+-- understand what a “pretty” print involving comments might look like, let’s consider the aesthetic
+-- of comments.
+--
+-- ## Line Comment Aesthetic
+--
+-- Line comments are used in Brite to document code. Programs are read left-to-right (sorry rtl
+-- readers...) so the only thing which will end a line comment is a new line. No code may come after
+-- a line comment on the same line. This makes the printing of line comments extra challenging.
+--
+-- The aesthetic for line comments we will say is “fluid decoration”. Line comments should not
+-- impede the pretty printing of your code. They should not make your code less aesthetically
+-- pleasing. After all, they are decorations. We are also free to move line comments around as we
+-- please since part of their aesthetic is “fluid”. Just not too far from the author’s
+-- original location.
+--
+-- There are two states a line comment might be in:
+--
+-- 1. Preceded by code: `a // ...`
+-- 2. Not preceded by code: `// ...`
+--
+-- This makes the printing rules rather straightforward:
+--
+-- * A line comment that is preceded by code will stay on the same line as that code, but will be
+--   printed at the end of the line the code was formatted onto. So if we have `a // ...` and `b`
+--   and the printer chooses to put `a` and `b` on the same line the comment will move to the end of
+--   the line like so `a b // ...`. This also means that if `b` has a line comment then both line
+--   comments will be moved to the end of the line like so `a b // ... // ...`.
+-- * A line comment that is not preceded by code will stay that way with at most one empty line
+--   between the comment and whatever is next.
+--
+-- A line comment that is not preceded by code will break the group it was placed in. Simply because
+-- it must considering we can’t put code after a line comment on the same line.
+--
+-- ## Block Comment Aesthetic
+--
+-- Block comments are included in Brite almost only to quickly hide some code. The programmer merely
+-- needs to add `/*` at the start and `*/` at the end of the code they want to go bye-bye. Block
+-- comments are not used for documentation as they are more difficult to type.
+--
+-- As such, the aesthetic for block comments can most succinctly be described as “quick and dirty”.
+-- A block comment is used by a programmer who needs a quick and dirty comment.
+--
+-- There are four states a block comment might be in:
+--
+-- 1. Surrounded by code on both sides: `a /* */ b` (this comment is considered “attached”)
+-- 2. Surrounded by code on the left: `a /* */` (this comment is considered “attached”)
+-- 3. Surrounded by code on the right: `/* */ b` (this comment is considered “attached”)
+-- 4. Surrounded by code on neither side: `/* */` (this comment is considered “detached”)
+--
+-- The printing rules for block comments are as follows:
+--
+-- * A block comment that is “attached” to a token (only spaces, not lines, between the comment and
+--   the token) will be printed attached to the very same token.
+-- * A block comment that is detached will continue to be detached. There may be at most one empty
+--   line between the block comment and the next token.
+--
+-- In all these states a block comment can also contain a new line. If a block comment has a new
+-- line it will automatically fail to fit its group on one line. However, the block comment will
+-- stay attached.
+----------------------------------------------------------------------------------------------------
+
+-- Pretty prints some leading trivia.
+leadingTrivia :: [Trivia] -> Document
+leadingTrivia = loop
+  where
+    loop [] = mempty
+    loop (Spaces _ : ts) = loop ts
+    loop (Tabs _ : ts) = loop ts
+    loop (Newlines _ _ : ts) = loop ts
+    loop (Comment (LineComment _) : ts) = loop ts -- TODO: Line comments!!
+    loop (Comment (BlockComment comment _) : ts) = text "/*" <> text comment <> text "*/ " <> loop ts
+    loop (OtherWhitespace _ : ts) = loop ts
+
+-- Pretty prints some trailing trivia. Trailing trivia has at most one new line.
 trailingTrivia :: [Trivia] -> Document
 trailingTrivia = loop
   where
@@ -68,7 +146,7 @@ trailingTrivia = loop
     loop (Tabs _ : ts) = loop ts
     loop (Newlines _ _ : ts) = loop ts
     loop (Comment (LineComment comment) : ts) = lineSuffix (text " //" <> text comment) <> loop ts
-    loop (Comment (BlockComment _ _) : ts) = loop ts -- TODO: Block comments!!!
+    loop (Comment (BlockComment comment _) : ts) = text " /*" <> text comment <> text "*/" <> loop ts
     loop (OtherWhitespace _ : ts) = loop ts
 
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
