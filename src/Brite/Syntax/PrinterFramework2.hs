@@ -1,3 +1,20 @@
+-- Framework for printing tree like data structures. There are a number of places where we might
+-- need a printing framework such as:
+--
+-- * For the Brite AST itself.
+-- * For debugging various internal data structures.
+-- * For compiled JavaScript code.
+--
+-- As such we maintain a printing framework which uses the same algorithm popularized by the
+-- [JavaScript framework Prettier][1] which in turn was taken from [Phillip Wadler’s paper “A
+-- prettier printer”][2].
+--
+-- A lot of this implementation is either inspired or directly lifted from [Prettier][1] or
+-- [Wadler’s paper][2]. Particularly a lot of the command names are taken from [Prettier][1].
+--
+-- [1]: https://prettier.io
+-- [2]: http://homepages.inf.ed.ac.uk/wadler/papers/prettier/prettier.pdf
+
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Syntax.PrinterFramework2
