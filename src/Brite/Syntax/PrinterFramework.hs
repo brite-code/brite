@@ -26,6 +26,7 @@ module Brite.Syntax.PrinterFramework
   , softline
   , hardline
   , lineSuffix
+  , linePrefix
   , shamefullyUngroup
   , printDocument
   ) where
@@ -44,6 +45,7 @@ data Document
   | Indent Document
   | Line
   | LineSuffix Document
+  | LinePrefix Document
 
 -- Documents may be added to each other.
 instance Semigroup Document where
@@ -87,6 +89,11 @@ hardline = Line
 lineSuffix :: Document -> Document
 lineSuffix = LineSuffix
 
+-- Prints the document either on the current line if it just started or the beginning of the next
+-- new line.
+linePrefix :: Document -> Document
+linePrefix = LinePrefix
+
 -- If we are printing in flat mode then the first document will be used. If we are printing in break
 -- mode then the second document will be used.
 ifFlat :: Document -> Document -> Document
@@ -111,7 +118,9 @@ printDocument maxWidth rootDocument =
     initialState = LayoutState
       { layoutMaxWidth = maxWidth
       , layoutWidth = 0
+      , layoutLineStart = True
       , layoutLineSuffix = []
+      , layoutLinePrefix = []
       }
 
 data LayoutState = LayoutState
@@ -120,8 +129,14 @@ data LayoutState = LayoutState
   -- The current character position measured in UTF-16 encoded code units as specified
   -- by the LSP.
   , layoutWidth :: Int
-  -- Line suffix documents. This list is reverse ordered.
+  -- Is this the start of a new line? Does not consider indentation.
+  , layoutLineStart :: Bool
+  -- Line suffix documents which will be rendered before the next new line. This list is
+  -- reverse ordered.
   , layoutLineSuffix :: [Document]
+  -- Line prefix documents which will be rendered after the next new line. This list is
+  -- reverse ordered.
+  , layoutLinePrefix :: [Document]
   }
 
 -- Responsible for laying out a document. Takes as parameters:
@@ -168,7 +183,7 @@ layout s ((Break, i, Group x) : stack) =
 -- character widths by the Language Server Protocol (LSP) specification.
 layout s ((_, _, Text t0) : stack) =
   let k = loop (layoutWidth s) t0 in
-    B.fromText t0 <> layout (s { layoutWidth = k }) stack
+    B.fromText t0 <> layout (s { layoutWidth = k, layoutLineStart = False }) stack
   where
     -- Measure the length of our text until we either reach the text’s end or a new line. If we
     -- reach a new line then use `loopBack` to measure the length of the last line.
@@ -193,9 +208,18 @@ layout s ((m, i, Indent x) : stack) = layout s ((m, i + 2, x) : stack)
 
 -- Add a new line at the current level of indentation. If there are some line suffix documents then
 -- add them to the execution stack and process them.
-layout s@(LayoutState { layoutLineSuffix = [] }) ((_, i, Line) : stack) =
-  let s' = s { layoutWidth = i, layoutLineSuffix = [] } in
-    B.singleton '\n' <> B.fromText (T.replicate i " ") <> layout s' stack
+layout oldState@(LayoutState { layoutLineSuffix = [] }) ((m, i, Line) : stack) =
+  let
+    newState = oldState
+      { layoutLineStart = True
+      , layoutWidth = i
+      , layoutLineSuffix = []
+      , layoutLinePrefix = []
+      }
+    newStack = foldl (flip (:)) stack (map ((,,) m i) (layoutLinePrefix oldState))
+  in
+    B.singleton '\n' <> B.fromText (T.replicate i " ") <> layout newState newStack
+-- If there are line suffix documents then process them.
 layout s stack@((m, i, Line) : _) =
   layout (s { layoutLineSuffix = [] }) $
     foldl (flip (:)) stack (map ((,,) m i) (layoutLineSuffix s))
@@ -203,6 +227,14 @@ layout s stack@((m, i, Line) : _) =
 -- Add line suffix documents to the suffix stack.
 layout s ((_, _, LineSuffix x) : stack) =
   layout (s { layoutLineSuffix = x : layoutLineSuffix s }) stack
+
+-- If we have just started a new line then immediately render the line prefix document. If we have
+-- already added content to this line then add the document to our line prefix stack.
+layout s ((m, i, LinePrefix x) : stack) =
+  if layoutLineStart s then
+    layout s ((m, i, x) : stack)
+  else
+    layout (s { layoutLinePrefix = x : layoutLinePrefix s }) stack
 
 -- Attempts to layout a flat mode document.
 --
@@ -248,7 +280,7 @@ tryLayout s ((m, _, Text t0) : stack) =
     loop k t1 =
       case T.uncons t1 of
         _ | k > layoutMaxWidth s -> Nothing -- Optimization: Stop iterating if we’ve surpassed the max width.
-        Nothing -> tryLayout (s { layoutWidth = k }) stack
+        Nothing -> tryLayout (s { layoutWidth = k, layoutLineStart = False }) stack
         Just ('\n', t2) -> case m of { Flat -> Nothing; Break -> loopBack 0 t2 }
         Just ('\r', t2) -> case m of { Flat -> Nothing; Break -> loopBack 0 t2 }
         Just (c, t2) -> loop (k + utf16Length c) t2
@@ -257,9 +289,9 @@ tryLayout s ((m, _, Text t0) : stack) =
     -- of the last line.
     loopBack k t1 =
       case T.unsnoc t1 of
-        Nothing -> Just (layout (s { layoutWidth = k }) stack)
-        Just (_, '\n') -> Just (layout (s { layoutWidth = k }) stack)
-        Just (_, '\r') -> Just (layout (s { layoutWidth = k }) stack)
+        Nothing -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
+        Just (_, '\n') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
+        Just (_, '\r') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
         Just (t2, c) -> loopBack (k + utf16Length c) t2
 
 -- Add some indentation.
@@ -274,3 +306,11 @@ tryLayout s stack@((Break, _, Line) : _) = Just (layout s stack)
 -- Add line suffix documents to the suffix stack.
 tryLayout s ((_, _, LineSuffix x) : stack) =
   tryLayout (s { layoutLineSuffix = x : layoutLineSuffix s }) stack
+
+-- If we have just started a new line then immediately render the line prefix document. If we have
+-- already added content to this line then add the document to our line prefix stack.
+tryLayout s ((m, i, LinePrefix x) : stack) =
+  if layoutLineStart s then
+    tryLayout s ((m, i, x) : stack)
+  else
+    tryLayout (s { layoutLinePrefix = x : layoutLinePrefix s }) stack
