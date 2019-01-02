@@ -17,7 +17,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Syntax.PrinterFramework2
+module Brite.Syntax.PrinterFramework
   ( Document
   , group
   , text

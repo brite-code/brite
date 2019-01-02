@@ -9,7 +9,7 @@ module Brite.Syntax.Printer
   ) where
 
 import Brite.Syntax.CST
-import Brite.Syntax.PrinterFramework2
+import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
 import Data.Functor.Identity
 import qualified Data.Text.Lazy.Builder as B
