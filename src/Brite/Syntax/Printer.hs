@@ -134,7 +134,7 @@ token (Token _ k ts1 ts2) =
     leading (Comment (LineComment c) : ts) =
       let (ls, ts') = newlines 0 ts in
         linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
-          <> break_
+          <> hard
           <> leading ts'
 
     leading (Comment (BlockComment _ _) : ts) = leading ts -- TODO
