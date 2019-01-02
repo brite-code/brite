@@ -118,27 +118,33 @@ name = token . nameToken
 -- Pretty prints a token.
 token :: Token -> Document
 token (Token _ k ts1 ts2) =
-  leading Nothing ts1
+  leading ts1
     <> text (tokenKindSource k)
     <> trailing ts2
   where
-    leading ls [] = newlines ls
-    leading ls (Spaces _ : ts) = leading ls ts
-    leading ls (Tabs _ : ts) = leading ls ts
-    leading ls (Newlines _ n : ts) = leading ((n +) <$> ls) ts
-    leading ls (OtherWhitespace _ : ts) = leading ls ts
+    leading [] = mempty
+    leading (Spaces _ : ts) = leading ts
+    leading (Tabs _ : ts) = leading ts
+    leading (Newlines _ _ : ts) = leading ts
+    leading (OtherWhitespace _ : ts) = leading ts
 
     -- We know, for sure, that no code comes before a leading line comment. Code will eat a line
     -- comment that comes after it as trailing trivia. See the `trailing` function below. Line
     -- comments with no preceding code insert at most one empty new line.
-    leading ls (Comment (LineComment c) : ts) =
-      newlines ls <> text "//" <> text c <> leading (Just 0) ts
+    leading (Comment (LineComment c) : ts) =
+      let (ls, ts') = newlines 0 ts in
+        linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
+          <> break_
+          <> leading ts'
 
-    leading ls (Comment (BlockComment _ _) : ts) = leading ls ts -- TODO
+    leading (Comment (BlockComment _ _) : ts) = leading ts -- TODO
 
-    newlines Nothing = mempty
-    newlines (Just n) | n > 1 = hardline <> hardline
-    newlines (Just _) = hardline
+    newlines n [] = (n, [])
+    newlines n (Spaces _ : ts) = newlines n ts
+    newlines n (Tabs _ : ts) = newlines n ts
+    newlines n (Newlines _ m : ts) = newlines (n + m) ts
+    newlines n (OtherWhitespace _ : ts) = newlines n ts
+    newlines n ts@(Comment _ : _) = (n, ts)
 
     trailing [] = mempty
     trailing (Spaces _ : ts) = trailing ts
