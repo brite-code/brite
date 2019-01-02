@@ -8,6 +8,7 @@ module Brite.Syntax.PrinterFramework2
   , line
   , softline
   , hardline
+  , shamefullyUngroup
   , printDocument
   ) where
 
@@ -67,6 +68,14 @@ hardline = Line
 -- mode then the second document will be used.
 ifFlat :: Document -> Document -> Document
 ifFlat = Choice
+
+-- If the provided document is immediately grouped then we remove the group. Otherwise we return the
+-- document. Usually this is not a good idea! Which is why the name is prefixed with “shamefully”.
+-- Calling this function breaks the group abstraction. Preferably one wouldn’t need to ungroup and
+-- instead only group once where needed.
+shamefullyUngroup :: Document -> Document
+shamefullyUngroup (Group x) = x
+shamefullyUngroup x = x
 
 -- The current mode in which a document is being printed.
 data Mode = Flat | Break
