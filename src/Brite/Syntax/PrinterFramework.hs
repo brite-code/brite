@@ -20,6 +20,7 @@
 module Brite.Syntax.PrinterFramework
   ( Document
   , group
+  , break_
   , text
   , indent
   , line
@@ -41,6 +42,7 @@ data Document
   | Concat Document Document
   | Choice Document Document
   | Group Document
+  | Break
   | Text T.Text
   | Indent Document
   | Line
@@ -62,6 +64,11 @@ instance Monoid Document where
 group :: Document -> Document
 group = Group
 
+-- Always forces the group to break. If this command is inside of a group it will never fit on
+-- one line.
+break_ :: Document
+break_ = Break
+
 -- Adds some raw text to the document.
 text :: T.Text -> Document
 text = Text
@@ -73,12 +80,12 @@ indent = Indent
 -- Adds a new line to the document. If we are attempting to print the document on one line then we
 -- convert this to a single space.
 line :: Document
-line = ifFlat (Text " ") Line
+line = tryFlat (Text " ") Line
 
 -- Adds a new line to the document. If we are attempting to print the document on one line then we
 -- convert this to an empty document.
 softline :: Document
-softline = ifFlat Empty Line
+softline = tryFlat Empty Line
 
 -- Adds a new line to the document. This will prevent any group it is in from being printed on
 -- one line.
@@ -96,8 +103,8 @@ linePrefix = LinePrefix
 
 -- If we are printing in flat mode then the first document will be used. If we are printing in break
 -- mode then the second document will be used.
-ifFlat :: Document -> Document -> Document
-ifFlat = Choice
+tryFlat :: Document -> Document -> Document
+tryFlat = Choice
 
 -- If the provided document is immediately grouped then we remove the group. Otherwise we return the
 -- document. Usually this is not a good idea! Which is why the name is prefixed with “shamefully”.
@@ -108,12 +115,12 @@ shamefullyUngroup (Group x) = x
 shamefullyUngroup x = x
 
 -- The current mode in which a document is being printed.
-data Mode = Flat | Break
+data Mode = Normal | Flat
 
 -- Prints the document at the specified maximum width.
 printDocument :: Int -> Document -> B.Builder
 printDocument maxWidth rootDocument =
-  layout initialState [(Break, 0, rootDocument)]
+  layout initialState [(Normal, 0, rootDocument)]
   where
     initialState = LayoutState
       { layoutMaxWidth = maxWidth
@@ -152,7 +159,7 @@ layout (LayoutState { layoutLineSuffix = [] }) [] = mempty
 
 -- If there are some line suffix documents remaining add them to our stack and process them.
 layout s [] =
-  layout (s { layoutLineSuffix = [] }) (map ((,,) Break 0) (reverse (layoutLineSuffix s)))
+  layout (s { layoutLineSuffix = [] }) (map ((,,) Normal 0) (reverse (layoutLineSuffix s)))
 
 -- Skip empty documents in the stack.
 layout s ((_, _, Empty) : stack) = layout s stack
@@ -160,20 +167,23 @@ layout s ((_, _, Empty) : stack) = layout s stack
 -- Add both documents of a concatenation to the stack.
 layout s ((m, i, Concat x y) : stack) = layout s ((m, i, x) : (m, i, y) : stack)
 
--- Make a choice depending on the mode. `Flat` chooses the left and `Break` chooses the right.
+-- Make a choice depending on the mode. `Flat` chooses the left and `Normal` chooses the right.
 layout s ((Flat, i, Choice x _) : stack) = layout s ((Flat, i, x) : stack)
-layout s ((Break, i, Choice _ y) : stack) = layout s ((Break, i, y) : stack)
+layout s ((Normal, i, Choice _ y) : stack) = layout s ((Normal, i, y) : stack)
 
 -- Flat groups continue to flatten their document. It is break groups which are interesting.
--- Break mode groups attempt to flatten their document.
+-- Normal mode groups attempt to flatten their document.
 layout s ((Flat, i, Group x) : stack) = layout s ((Flat, i, x) : stack)
 
 -- A break mode group attempts to flatten its document using the `tryLayout` function to see if it
 -- will fit on one line. If it does not then we layout the group using our break mode.
-layout s ((Break, i, Group x) : stack) =
+layout s ((Normal, i, Group x) : stack) =
   case tryLayout s ((Flat, i, x) : stack) of
     Just t -> t
-    Nothing -> layout s ((Break, i, x) : stack)
+    Nothing -> layout s ((Normal, i, x) : stack)
+
+-- Skip break documents in the stack.
+layout s ((_, _, Break) : stack) = layout s stack
 
 -- Add text to the document. If the text is a single line then we add the UTF-16 encoded code point
 -- length to the position to get our new position. If the text is multiple lines we set the new
@@ -255,13 +265,18 @@ tryLayout s ((_, _, Empty) : stack) = tryLayout s stack
 -- Add both documents of a concatenation to the stack.
 tryLayout s ((m, i, Concat x y) : stack) = tryLayout s ((m, i, x) : (m, i, y) : stack)
 
--- Make a choice depending on the mode. `Flat` chooses the left and `Break` chooses the right.
+-- Make a choice depending on the mode. `Flat` chooses the left and `Normal` chooses the right.
 tryLayout s ((Flat, i, Choice x _) : stack) = tryLayout s ((Flat, i, x) : stack)
-tryLayout s ((Break, i, Choice _ y) : stack) = tryLayout s ((Break, i, y) : stack)
+tryLayout s ((Normal, i, Choice _ y) : stack) = tryLayout s ((Normal, i, y) : stack)
 
 -- Attempt to layout a group in the current specified mode. We don’t attempt to flatten break mode
 -- documents. Instead we lay them out as-is.
 tryLayout s ((m, i, Group x) : stack) = tryLayout s ((m, i, x) : stack)
+
+-- Skip normal mode break commands in the stack. However, flat mode break commands will immediately
+-- fail `tryLayout`.
+tryLayout _ ((Flat, _, Break) : _) = Nothing
+tryLayout s ((Normal, _, Break) : stack) = tryLayout s stack
 
 -- Add text to the document. If the document is a single-line we make sure it does not exceed the
 -- maximum width. If it does then we return `Nothing`. If the document is multi-line and we are in
@@ -281,8 +296,8 @@ tryLayout s ((m, _, Text t0) : stack) =
       case T.uncons t1 of
         _ | k > layoutMaxWidth s -> Nothing -- Optimization: Stop iterating if we’ve surpassed the max width.
         Nothing -> tryLayout (s { layoutWidth = k, layoutLineStart = False }) stack
-        Just ('\n', t2) -> case m of { Flat -> Nothing; Break -> loopBack 0 t2 }
-        Just ('\r', t2) -> case m of { Flat -> Nothing; Break -> loopBack 0 t2 }
+        Just ('\n', t2) -> case m of { Flat -> Nothing; Normal -> loopBack 0 t2 }
+        Just ('\r', t2) -> case m of { Flat -> Nothing; Normal -> loopBack 0 t2 }
         Just (c, t2) -> loop (k + utf16Length c) t2
 
     -- Iterate in reverse through the text until we reach the first new line to measure the length
@@ -301,7 +316,7 @@ tryLayout s ((m, i, Indent x) : stack) = tryLayout s ((m, i + 2, x) : stack)
 -- may not have new lines in flat mode. If we are in break mode then add a new line and return
 -- `Just` since our line that we are attempting to layout did not exceed the max width!
 tryLayout _ ((Flat, _, Line) : _) = Nothing
-tryLayout s stack@((Break, _, Line) : _) = Just (layout s stack)
+tryLayout s stack@((Normal, _, Line) : _) = Just (layout s stack)
 
 -- Add line suffix documents to the suffix stack.
 tryLayout s ((_, _, LineSuffix x) : stack) =
