@@ -20,7 +20,7 @@
 module Brite.Syntax.PrinterFramework
   ( Document
   , group
-  , hard
+  , forceBreak
   , text
   , indent
   , line
@@ -42,7 +42,7 @@ data Document
   | Concat Document Document
   | Choice Document Document
   | Group Document
-  | Hard
+  | ForceBreak
   | Text T.Text
   | Indent Document
   | Line
@@ -66,8 +66,8 @@ group = Group
 
 -- Always forces the group to break. If this command is inside of a group it will never fit on
 -- one line.
-hard :: Document
-hard = Hard
+forceBreak :: Document
+forceBreak = ForceBreak
 
 -- Adds some raw text to the document.
 text :: T.Text -> Document
@@ -183,7 +183,7 @@ layout s ((Break, i, Group x) : stack) =
     Nothing -> layout s ((Break, i, x) : stack)
 
 -- Skip break documents in the stack.
-layout s ((_, _, Hard) : stack) = layout s stack
+layout s ((_, _, ForceBreak) : stack) = layout s stack
 
 -- Add text to the document. If the text is a single line then we add the UTF-16 encoded code point
 -- length to the position to get our new position. If the text is multiple lines we set the new
@@ -275,8 +275,8 @@ tryLayout s ((m, i, Group x) : stack) = tryLayout s ((m, i, x) : stack)
 
 -- Skip normal mode break commands in the stack. However, flat mode break commands will immediately
 -- fail `tryLayout`.
-tryLayout _ ((Flat, _, Hard) : _) = Nothing
-tryLayout s ((Break, _, Hard) : stack) = tryLayout s stack
+tryLayout _ ((Flat, _, ForceBreak) : _) = Nothing
+tryLayout s ((Break, _, ForceBreak) : stack) = tryLayout s stack
 
 -- Add text to the document. If the document is a single-line we make sure it does not exceed the
 -- maximum width. If it does then we return `Nothing`. If the document is multi-line and we are in
