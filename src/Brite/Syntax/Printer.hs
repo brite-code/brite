@@ -9,8 +9,7 @@ module Brite.Syntax.Printer
   ) where
 
 import Brite.Syntax.CST
-import Brite.Syntax.PrinterFramework hiding (nest)
-import qualified Brite.Syntax.PrinterFramework (nest)
+import Brite.Syntax.PrinterFramework2
 import Brite.Syntax.Tokens
 import Data.Functor.Identity
 import qualified Data.Text.Lazy.Builder as B
@@ -32,10 +31,6 @@ printModule = printDocument maxWidth . module_
 --   Often times multiple declarations like `fn`s in `impl`s.
 maxWidth :: Int
 maxWidth = 80
-
--- Adds indentation to the document. Uses the default indentation level.
-nest :: Document -> Document
-nest = Brite.Syntax.PrinterFramework.nest 2
 
 -- Pretty prints a Brite module.
 module_ :: Module -> Document
@@ -250,9 +245,9 @@ expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair prece
 expression (WrappedExpression _ e Nothing _) =
   recoverM expression e
 
--- Group a property expression and nest its property on a newline if the group breaks.
+-- Group a property expression and indent its property on a newline if the group breaks.
 expression (ExpressionExtra e (Ok (PropertyExpressionExtra t n))) = pair Primary $ group $
-  wrap Primary (expression e) <> nest (softline <> token t <> recover name n)
+  wrap Primary (expression e) <> indent (softline <> token t <> recover name n)
 
 -- Pretty prints a pattern.
 pattern :: Pattern -> Document
