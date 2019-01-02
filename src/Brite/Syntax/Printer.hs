@@ -249,6 +249,11 @@ expression (WrappedExpression _ e Nothing _) =
 expression (ExpressionExtra e (Ok (PropertyExpressionExtra t n))) = pair Primary $ group $
   wrap Primary (expression e) <> indent (softline <> token t <> recover name n)
 
+-- TODO: Finish call expressions
+expression (ExpressionExtra e (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg))) t2))) = pair Primary $
+  wrap Primary (expression e) <> group
+    (token t1 <> indent (softline <> neverWrap (expression arg)) <> softline <> recover token t2)
+
 -- Pretty prints a pattern.
 pattern :: Pattern -> Document
 pattern (VariablePattern n) = name n

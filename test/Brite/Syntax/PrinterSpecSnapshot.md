@@ -2859,6 +2859,8 @@ f(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa);
 
 ### Output
 ```
+f(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa);
+```
 
 --------------------------------------------------------------------------------
 
@@ -2868,6 +2870,10 @@ f(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)
 ```
 
 ### Output
+```
+f(
+  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+);
 ```
 
 --------------------------------------------------------------------------------
@@ -2879,6 +2885,10 @@ f(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
 ### Output
 ```
+f(
+  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+);
+```
 
 --------------------------------------------------------------------------------
 
@@ -2888,6 +2898,10 @@ f(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 ```
 
 ### Output
+```
+f(
+  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+);
 ```
 
 --------------------------------------------------------------------------------
@@ -2899,6 +2913,8 @@ f(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷�
 
 ### Output
 ```
+f(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷);
+```
 
 --------------------------------------------------------------------------------
 
@@ -2908,6 +2924,10 @@ f(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷�
 ```
 
 ### Output
+```
+f(
+  𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷a
+);
 ```
 
 --------------------------------------------------------------------------------
@@ -2919,6 +2939,10 @@ f(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷�
 
 ### Output
 ```
+f(
+  𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷
+);
+```
 
 --------------------------------------------------------------------------------
 
@@ -2929,6 +2953,10 @@ f(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷�
 
 ### Output
 ```
+f(
+  𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷a
+);
+```
 
 --------------------------------------------------------------------------------
 
@@ -2938,6 +2966,8 @@ f(a /**/);
 ```
 
 ### Output
+```
+f(a);
 ```
 
 --------------------------------------------------------------------------------
@@ -2950,6 +2980,8 @@ f(a /*
 
 ### Output
 ```
+f(a);
+```
 
 --------------------------------------------------------------------------------
 
@@ -2960,6 +2992,8 @@ f(a) /*
 ```
 
 ### Output
+```
+f(a);
 ```
 
 --------------------------------------------------------------------------------
