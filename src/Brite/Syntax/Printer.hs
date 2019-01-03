@@ -11,6 +11,7 @@ module Brite.Syntax.Printer
 import Brite.Syntax.CST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
+import Control.Applicative
 import Data.Functor.Identity
 import qualified Data.Text.Lazy.Builder as B
 
@@ -35,15 +36,44 @@ maxWidth = 80
 -- Pretty prints a Brite module.
 module_ :: Module -> Document
 module_ (Module ss t) =
-  mconcat (map (recover statement) ss)
+  mconcat (map (fromJust . (>>= statement) . recover) ss)
+  where
+    fromJust (Panic (Just a)) = a
+    fromJust (Panic Nothing) = error "fromJust"
 
--- Pretty prints a recovered value.
-recover :: (a -> Document) -> Recover a -> Document
-recover f = runIdentity . recoverM (Identity . f)
+-- A monad around `Maybe` that provides a fine-tuned interface for panicking an operation. We use a
+-- `newtype` to help reduce confusion and to rename operations.
+newtype Panic a = Panic { panicToMaybe :: Maybe a }
 
--- Pretty prints a recovered value when the provided function returns a functor.
-recoverM :: Functor f => (a -> f Document) -> Recover a -> f Document
-recoverM f (Ok a) = f a
+instance Functor Panic where
+  fmap f (Panic a) = Panic (fmap f a)
+
+instance Applicative Panic where
+  pure a = Panic (pure a)
+  Panic a <*> Panic b = Panic (a <*> b)
+  liftA2 f (Panic a) (Panic b) = Panic (liftA2 f a b)
+
+instance Alternative Panic where
+  empty = Panic empty
+  Panic a <|> Panic b = Panic (a <|> b)
+
+instance Monad Panic where
+  Panic a >>= f = Panic (a >>= panicToMaybe . f)
+  Panic a >> Panic b = Panic (a >> b)
+
+-- Recovers a value from a `Recover a` type. We only successfully recover if the `Recover` is `Ok`.
+recover :: Recover a -> Panic a
+recover (Ok a) = pure a
+recover (Recover _ _ _) = empty
+recover (Fatal _ _) = empty
+
+-- Recovers an optional value from a `Maybe (Recover a)` type. We only successfully recover if the
+-- `Recover` is `Ok`.
+recoverMaybe :: Maybe (Recover a) -> Panic (Maybe a)
+recoverMaybe Nothing = pure Nothing
+recoverMaybe (Just (Ok a)) = pure (Just a)
+recoverMaybe (Just (Recover _ _ _)) = empty
+recoverMaybe (Just (Fatal _ _)) = empty
 
 -- Pretty prints a name.
 name :: Name -> Document
@@ -181,19 +211,27 @@ token (Token _ k ts1 ts2) =
       text " /*" <> text c <> text "*/" <> trailing ts
 
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
-statement :: Statement -> Document
-statement (ExpressionStatement e t) =
-  neverWrap (expression e) <> maybe (text ";") (recover token) t <> hardline
-statement (BindingStatement t1 p Nothing t2 e t3) =
-  token t1
-    <> text " "
-    <> recover pattern p
-    <> text " "
-    <> recover token t2
-    <> text " "
-    <> neverWrap (recoverM expression e)
-    <> maybe (text ";") (recover token) t3
-    <> hardline
+--
+-- Returns `Nothing` if there was a parsing error anywhere in this statement.
+statement :: Statement -> Panic Document
+
+-- Pretty print an expression statement. Always print the semicolon! Even if the semicolon was
+-- not included.
+statement (ExpressionStatement e' t') = do
+  e <- expression e'
+  t <- recoverMaybe t'
+  return $ neverWrap e <> maybe (text ";") token t <> hardline
+
+-- Pretty print a binding  statement. Always print the semicolon! Even if the semicolon was
+-- not included.
+statement (BindingStatement t1 p' Nothing t2' e' t3') = do
+  p <- recover p' >>= pattern
+  t2 <- recover t2'
+  e <- recover e' >>= expression
+  t3 <- recoverMaybe t3'
+  return $
+    token t1 <> text " " <> p <> text " " <> token t2 <> text " " <> neverWrap e
+      <> maybe (text ";") token t3 <> hardline
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
@@ -227,21 +265,26 @@ wrap p1 (p2, e) | p2 > p1 = text "(" <> e <> text ")"
 wrap _ (_, e) = e
 
 -- Pretty prints an expression.
-expression :: Expression -> (Precedence, Document)
-expression (ConstantExpression c) = pair Primary $ constant c
-expression (VariableExpression n) = pair Primary $ name n
+--
+-- Returns `Nothing` if there was a parsing error anywhere in this expression.
+expression :: Expression -> Panic (Precedence, Document)
+
+-- Print a constant expression.
+expression (ConstantExpression c) = return $ pair Primary $ constant c
+
+-- Print a variable expression.
+expression (VariableExpression n) = return $ pair Primary $ name n
 
 -- Unary expressions are printed as expected.
-expression (UnaryExpression _ t e) = pair Unary $
-  token t <> wrap Unary (recoverM expression e)
+expression (UnaryExpression _ t e) =
+  pair Unary . (token t <>) . wrap Unary <$> (recover e >>= expression)
 
 -- Binary expressions of the same precedence level are placed in a single group.
-expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair precedence $ group $
-  wrapOperand (recoverM expression l)
-    <> text " "
-    <> token t
-    <> line
-    <> wrapOperand (recoverM expression r)
+expression (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
+  l <- recover l' >>= expression
+  r <- recover r' >>= expression
+  return $ pair precedence $ group $
+    wrapOperand l <> text " " <> token t <> line <> wrapOperand r
   where
     -- If our operand is at a greater precedence then we need to wrap it up.
     wrapOperand (p, e) | p > precedence = text "(" <> e <> text ")"
@@ -268,21 +311,29 @@ expression (BinaryExpression l (Ok (BinaryExpressionExtra op t r))) = pair prece
       Or -> LogicalOr
 
 -- Always remove unnecessary parentheses.
-expression (WrappedExpression _ e Nothing _) =
-  recoverM expression e
+expression (WrappedExpression _ e Nothing _) = recover e >>= expression
 
 -- Group a property expression and indent its property on a newline if the group breaks.
-expression (ExpressionExtra e (Ok (PropertyExpressionExtra t n))) = pair Primary $ group $
-  wrap Primary (expression e) <> indent (softline <> token t <> recover name n)
+expression (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
+  e <- expression e'
+  n <- recover n'
+  return $ pair Primary $ group $
+    wrap Primary e <> indent (softline <> token t <> name n)
 
 -- TODO: Finish call expressions
-expression (ExpressionExtra e (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg))) t2))) = pair Primary $
-  wrap Primary (expression e) <> group
-    (token t1
-      <> indent (softline <> neverWrap (expression arg))
-      <> lineSuffixFlush
-      <> recover token t2)
+expression (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg'))) t2'))) = do
+  e <- expression e'
+  arg <- expression arg'
+  t2 <- recover t2'
+  return $ pair Primary $
+    wrap Primary e <> group
+      (token t1
+        <> indent (softline <> neverWrap arg)
+        <> lineSuffixFlush
+        <> token t2)
 
 -- Pretty prints a pattern.
-pattern :: Pattern -> Document
-pattern (VariablePattern n) = name n
+--
+-- Returns `Nothing` if there was a parsing error anywhere in this expression.
+pattern :: Pattern -> Panic Document
+pattern (VariablePattern n) = return $ name n
