@@ -43,7 +43,7 @@ module_ (Module ss t) =
 
 -- A monad around `Maybe` that provides a fine-tuned interface for panicking an operation. We use a
 -- `newtype` to help reduce confusion and to rename operations.
-newtype Panic a = Panic { panicToMaybe :: Maybe a }
+newtype Panic a = Panic { toMaybe :: Maybe a }
 
 instance Functor Panic where
   fmap f (Panic a) = Panic (fmap f a)
@@ -58,7 +58,7 @@ instance Alternative Panic where
   Panic a <|> Panic b = Panic (a <|> b)
 
 instance Monad Panic where
-  Panic a >>= f = Panic (a >>= panicToMaybe . f)
+  Panic a >>= f = Panic (a >>= toMaybe . f)
   Panic a >> Panic b = Panic (a >> b)
 
 -- Recovers a value from a `Recover a` type. We only successfully recover if the `Recover` is `Ok`.
