@@ -34,7 +34,7 @@ maxWidth = 80
 
 -- Pretty prints a Brite module.
 module_ :: Module -> Document
-module_ (Module ss t) = statementList ss
+module_ (Module ss t) = statementList ss <> endTrivia (endTokenTrivia t)
 
 -- A monad around `Maybe` that provides a fine-tuned interface for panicking an operation. We use a
 -- `newtype` to help reduce confusion and to rename operations.
@@ -279,57 +279,61 @@ token (Token _ k ts1 ts2) =
     <> text (tokenKindSource k)
     <> trailing ts2
   where
-    leading [] = mempty
-    leading (Spaces _ : ts) = leading ts
-    leading (Tabs _ : ts) = leading ts
-    leading (Newlines _ _ : ts) = leading ts
-    leading (OtherWhitespace _ : ts) = leading ts
-
-    -- We know, for sure, that no code comes before a leading line comment. Code will eat a line
-    -- comment that comes after it as trailing trivia. See the `trailing` function below. Line
-    -- comments with no preceding code insert at most one empty new line.
-    leading (Comment (LineComment c) : ts) =
-      let (ls, ts') = newlines 0 ts in
-        linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
-          <> forceBreak
-          <> leading ts'
-
-    -- We know that there will never be any code before a leading block comment. We can also tell
-    -- whether or not there is code after a leading block comment by counting the newlines which
-    -- come after it.
-    leading (Comment (BlockComment c _) : ts) =
-      let
-        (ls, ts') = newlines 0 ts
-        sep = case ls of
-          0 -> text " "
-          1 -> hardline
-          _ -> hardline <> hardline
-      in
-        text "/*" <> text c <> text "*/" <> sep <> leading ts'
-
-    newlines n [] = (n, [])
-    newlines n (Spaces _ : ts) = newlines n ts
-    newlines n (Tabs _ : ts) = newlines n ts
-    newlines n (Newlines _ m : ts) = newlines (n + m) ts
-    newlines n (OtherWhitespace _ : ts) = newlines n ts
-    newlines n ts@(Comment _ : _) = (n, ts)
+    leading ts = let (_, cs) = triviaToComments ts in comments cs
+      where
+        comments [] = mempty
+        comments ((BlockComment c1 _, 0) : (LineComment c2, ls) : cs) =
+          text "/*" <> text c1 <> text "*/ //" <> text c2
+            <> (if ls > 1 then hardline <> hardline else hardline)
+            <> comments cs
+        comments ((LineComment c, ls) : cs) =
+          linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
+            <> forceBreak
+            <> comments cs
+        comments ((BlockComment c _, ls) : cs) =
+          text "/*" <> text c <> text "*/"
+            <> case ls of { 0 -> text " "; 1 -> hardline; _ -> hardline <> hardline }
+            <> comments cs
 
     trailing [] = mempty
     trailing (Spaces _ : ts) = trailing ts
     trailing (Tabs _ : ts) = trailing ts
     trailing (Newlines _ _ : ts) = trailing ts
     trailing (OtherWhitespace _ : ts) = trailing ts
+    trailing (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text c) <> trailing ts
+    trailing (Comment (BlockComment c _) : ts) = text " /*" <> text c <> text "*/" <> trailing ts
 
-    -- We know that some code always comes before a trailing line comment. Defer printing the
-    -- comment until the printer inserts a new line. This way the printer maintains the opportunity
-    -- to format code as it pleases.
-    trailing (Comment (LineComment c) : ts) =
-      lineSuffix (text " //" <> text c) <> trailing ts
+-- Converts a list of trivia to a list of comments and the number of new lines in between
+-- each comment.
+triviaToComments :: [Trivia] -> (Int, [(Comment, Int)])
+triviaToComments [] = (0, [])
+triviaToComments (Spaces _ : ts) = triviaToComments ts
+triviaToComments (Tabs _ : ts) = triviaToComments ts
+triviaToComments (Newlines _ n : ts) = let (ls, cs) = triviaToComments ts in (ls + n, cs)
+triviaToComments (OtherWhitespace _ : ts) = triviaToComments ts
+triviaToComments (Comment c : ts) = let (ls, cs) = triviaToComments ts in (0, (c, ls) : cs)
 
-    -- We know that some code always comes before a trailing block comment. Add a space before the
-    -- block comment to separate us from that code.
-    --
-    -- However, there is no way to tell whether or not there is code that comes after this
-    -- block comment.
-    trailing (Comment (BlockComment c _) : ts) =
-      text " /*" <> text c <> text "*/" <> trailing ts
+-- Prints the trivia at the very end of a document.
+endTrivia :: [Trivia] -> Document
+endTrivia ts =
+  let (ls, cs) = triviaToComments ts in
+    if null cs then
+      mempty
+    else
+      (if ls > 0 then hardline else mempty) <> comments cs
+  where
+    comments [] = mempty
+    comments [(LineComment c, _)] = linePrefix (text "//" <> text c <> hardline)
+    comments [(BlockComment c _, _)] = text "/*" <> text c <> text "*/" <> hardline
+    comments ((BlockComment c1 _, 0) : (LineComment c2, ls) : cs) =
+      text "/*" <> text c1 <> text "*/ //" <> text c2
+        <> (if ls > 1 && not (null cs) then hardline <> hardline else hardline)
+        <> comments cs
+    comments ((LineComment c, ls) : cs) =
+      linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
+        <> comments cs
+    comments ((BlockComment c _, ls) : cs) =
+      text "/*" <> text c <> text "*/"
+        <> case ls of { 0 -> text " "; 1 -> hardline; _ -> hardline <> hardline }
+        <> comments cs
+
