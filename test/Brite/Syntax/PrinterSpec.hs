@@ -245,6 +245,8 @@ testData =
   , "f(a + // b\nb)"
   , "f(a +\n// b\nb)"
   , "f(\na + b // blah blah blah\n)"
+  , "f(/**/a)"
+  , "f(a/**///\n)"
   ]
 
 openSnapshotFile :: IO Handle
