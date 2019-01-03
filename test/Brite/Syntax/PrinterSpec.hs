@@ -307,6 +307,13 @@ testData =
   , "let x = y;\n/**/ /**/\n"
   , "let x = y;\n/**/ /**/\n\n"
   , "let x = y;\n/**/ /**/\n\n\n"
+  , "let x = y;\n😈 let x = y;"
+  , "let x = y;\n\n😈 let x = y;"
+  , "let x = y;\n\n\n😈 let x = y;"
+  , "let x = y;\n😈"
+  , "let x = y;\n\n😈"
+  , "let x = y;\n\n\n😈"
+  , "let x = y;\n😈\n\n\n\n\nlet x = y;"
   ]
 
 openSnapshotFile :: IO Handle

@@ -57,6 +57,7 @@ module Brite.Syntax.CST
   , moduleTokens
   , moduleSource
   , statementTrimmedSource
+  , recoverStatementLeadingTrivia
   , debugModule
   , showDebugExpression
   ) where
@@ -637,6 +638,49 @@ statementTrimmedSource statement =
     source [] = mempty
     source [t] = tokenSource (trimEnd t)
     source (t : ts) = tokenSource t <> source ts
+
+-- Gets the leading trivia for a `Recover Statement`.
+--
+-- If the `Recover` is `Fatal` with no skipped tokens then we return an empty list.
+recoverStatementLeadingTrivia :: Recover Statement -> [Trivia]
+recoverStatementLeadingTrivia = recoverLeadingTrivia statementLeadingTrivia
+
+-- Gets the leading trivia for a CST node wrapped in `Recover`. If the node is `Fatal` with no
+-- skipped tokens then we return an empty list.
+recoverLeadingTrivia :: (a -> [Trivia]) -> Recover a -> [Trivia]
+recoverLeadingTrivia f (Ok a) = f a
+recoverLeadingTrivia f (Recover [] _ a) = f a
+recoverLeadingTrivia _ (Recover (t : _) _ _) = tokenLeadingTrivia t
+recoverLeadingTrivia _ (Fatal [] _) = []
+recoverLeadingTrivia _ (Fatal (t : _) _) = tokenLeadingTrivia t
+
+-- Gets the leading trivia for a statement.
+statementLeadingTrivia :: Statement -> [Trivia]
+statementLeadingTrivia (ExpressionStatement e _) = expressionLeadingTrivia e
+statementLeadingTrivia (BindingStatement t _ _ _ _ _) = tokenLeadingTrivia t
+statementLeadingTrivia (ReturnStatement t _ _) = tokenLeadingTrivia t
+statementLeadingTrivia (BreakStatement t _ _) = tokenLeadingTrivia t
+statementLeadingTrivia (Declaration (FunctionDeclaration t _ _)) = tokenLeadingTrivia t
+
+-- Gets the leading trivia for an expression.
+expressionLeadingTrivia :: Expression -> [Trivia]
+expressionLeadingTrivia (ConstantExpression (BooleanConstant _ t)) = tokenLeadingTrivia t
+expressionLeadingTrivia (VariableExpression (Name _ t)) = tokenLeadingTrivia t
+expressionLeadingTrivia (FunctionExpression t _) = tokenLeadingTrivia t
+expressionLeadingTrivia (ObjectExpression t _ _ _) = tokenLeadingTrivia t
+expressionLeadingTrivia (VariantExpression t _ _) = tokenLeadingTrivia t
+expressionLeadingTrivia (UnaryExpression _ t _) = tokenLeadingTrivia t
+-- NOTE: Technically in a `BinaryExpression` the left `e` might be `Fatal` without any skipped
+-- tokens but we could still use the binary operator. This usually doesn’t matter since we won’t
+-- produce a binary expression statement without a left expression and this function is only ever
+-- called through `statementLeadingTrivia`.
+expressionLeadingTrivia (BinaryExpression e _) = recoverLeadingTrivia expressionLeadingTrivia e
+expressionLeadingTrivia (ConditionalExpression (ConditionalExpressionIf t _ _ _)) = tokenLeadingTrivia t
+expressionLeadingTrivia (MatchExpression t _ _ _ _) = tokenLeadingTrivia t
+expressionLeadingTrivia (BlockExpression t _) = tokenLeadingTrivia t
+expressionLeadingTrivia (LoopExpression t _) = tokenLeadingTrivia t
+expressionLeadingTrivia (WrappedExpression t _ _ _) = tokenLeadingTrivia t
+expressionLeadingTrivia (ExpressionExtra e _) = expressionLeadingTrivia e
 
 -- Use a “difference list” trick to more efficiently build token lists.
 type Tokens = Endo [Token]

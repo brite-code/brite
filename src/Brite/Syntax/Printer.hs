@@ -76,7 +76,25 @@ name = token . nameToken
 -- Pretty prints a list of statements either from a block or a module. If we panic when printing a
 -- statement then this function catches that panic and prints the statement source instead.
 statementList :: [Recover Statement] -> Document
-statementList = (mconcat .) $ map $ \s ->
+statementList [] = mempty
+statementList [s] = statementListItem s
+statementList (s1 : ss@(s2 : _)) =
+  statementListItem s1
+    <> (if hasLeadingLine (recoverStatementLeadingTrivia s2) then hardline else mempty)
+    <> statementList ss
+  where
+    hasLeadingLine [] = False
+    hasLeadingLine (Spaces _ : ts) = hasLeadingLine ts
+    hasLeadingLine (Tabs _ : ts) = hasLeadingLine ts
+    hasLeadingLine (Newlines _ _ : _) = True
+    hasLeadingLine (OtherWhitespace _ : ts) = hasLeadingLine ts
+    hasLeadingLine (Comment _ : _) = False
+
+-- Prints a single statement in a list of statements. If the statement has a parse error then this
+-- function catches the parse error and prints the statement source instead of panicking. Always
+-- prints a new line at the end of the statement.
+statementListItem :: Recover Statement -> Document
+statementListItem s =
   case toMaybe (recover s >>= statement) of
     Just t -> t <> hardline
     Nothing -> rawText (statementTrimmedSource s)
