@@ -40,6 +40,7 @@ maxWidth = 80
 
 -- Pretty prints a Brite module.
 module_ :: Module -> Document
+module_ (Module [] t) = endTrivia (dropWhile isTriviaWhitespace (endTokenTrivia t))
 module_ (Module ss t) = statementList ss <> endTrivia (endTokenTrivia t)
 
 -- A monad around `Maybe` that provides a fine-tuned interface for panicking an operation. We use a
