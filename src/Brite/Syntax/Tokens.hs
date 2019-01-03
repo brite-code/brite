@@ -325,6 +325,11 @@ data Comment
   -- `/* ... */` does include the `/*` and `*/` characters.
   --
   -- If the boolean is true then we reached the end of the file before finding `*/`.
+  --
+  -- NOTE: Maybe we should remove support for block comments? They complicate printing and parsing
+  -- and are not used for documentation. At least warn when we see a block comment?
+  --
+  -- TODO: Make a decision on keeping or removing block comments.
   | BlockComment T.Text Bool
 
 -- Is this trivia an unterminated block comment?

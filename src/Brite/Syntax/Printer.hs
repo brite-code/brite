@@ -140,7 +140,18 @@ token (Token _ k ts1 ts2) =
           <> forceBreak
           <> leading ts'
 
-    leading (Comment (BlockComment _ _) : ts) = leading ts -- TODO
+    -- We know that there will never be any code before a leading block comment. We can also tell
+    -- whether or not there is code after a leading block comment by counting the newlines which
+    -- come after it.
+    leading (Comment (BlockComment c _) : ts) =
+      let
+        (ls, ts') = newlines 0 ts
+        sep = case ls of
+          0 -> text " "
+          1 -> hardline
+          _ -> hardline <> hardline
+      in
+        text "/*" <> text c <> text "*/" <> sep <> leading ts'
 
     newlines n [] = (n, [])
     newlines n (Spaces _ : ts) = newlines n ts
@@ -163,6 +174,9 @@ token (Token _ k ts1 ts2) =
 
     -- We know that some code always comes before a trailing block comment. Add a space before the
     -- block comment to separate us from that code.
+    --
+    -- However, there is no way to tell whether or not there is code that comes after this
+    -- block comment.
     trailing (Comment (BlockComment c _) : ts) =
       text " /*" <> text c <> text "*/" <> trailing ts
 
