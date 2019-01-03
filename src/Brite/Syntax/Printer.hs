@@ -112,24 +112,44 @@ statement :: Statement -> Panic Document
 -- Pretty print an expression statement. Always print the semicolon! Even if the semicolon was
 -- not included.
 statement (ExpressionStatement e' t') = do
-  e <- expression e'
+  e <- expression Standalone e'
   t <- recoverMaybe t'
-  return $ neverWrap e <> maybe (text ";") token t
+  return $ e <> maybe (text ";") token t
 
--- Pretty print a binding  statement. Always print the semicolon! Even if the semicolon was
+-- Pretty print a binding statement. Always print the semicolon! Even if the semicolon was
 -- not included.
 statement (BindingStatement t1 p' Nothing t2' e' t3') = do
   p <- recover p' >>= pattern
   t2 <- recover t2'
-  e <- recover e' >>= expression
+  e <- recover e' >>= (expression AssignmentValue)
   t3 <- recoverMaybe t3'
   return $
-    token t1 <> text " " <> p <> text " " <> token t2 <> text " " <> neverWrap e
+    token t1 <> text " " <> p <> text " " <> token t2 <> text " " <> e
       <> maybe (text ";") token t3
+
+-- Pretty print a return statement. Always print the semicolon! Even if the semicolon was
+-- not included.
+statement (ReturnStatement t1 e' t2') = do
+  e <- recoverMaybe e' >>= sequence . fmap (expression KeywordArgument)
+  t2 <- recoverMaybe t2'
+  return $ token t1 <> maybe mempty (text " " <>) e <> maybe (text ";") token t2
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
 constant (BooleanConstant _ t) = token t
+
+-- A description of the location in which an expression is printed. Some expression printing rules
+-- depend on context to pick the best print.
+data ExpressionLocation
+  -- There is no immediate surrounding code. For example `E;` or `f(E)`.
+  = Standalone
+  -- The value being assign in an assignment. For example `let x = E;` or `x = E;`
+  | AssignmentValue
+  -- An argument to some code coming after a keyword. For example `return E` or `if E {}`.
+  | KeywordArgument
+  -- Some part of an operation expression. Operation expressions have different precedence levels
+  -- which we include here. For example `E + E` or `!E`.
+  | Operand Precedence
 
 -- The precedence level of an expression.
 data Precedence
@@ -144,48 +164,51 @@ data Precedence
   | LogicalOr
   deriving (Eq, Ord)
 
--- Small tuple shortcut.
-pair :: a -> b -> (a, b)
-pair = (,)
-{-# INLINE pair #-}
-
--- Never wrap the expression in parentheses.
-neverWrap :: (Precedence, Document) -> Document
-neverWrap (_, e) = e
-
 -- Wrap expressions at a precedence level higher than the one provided.
-wrap :: Precedence -> (Precedence, Document) -> Document
-wrap p1 (p2, e) | p2 > p1 = text "(" <> e <> text ")"
-wrap _ (_, e) = e
+wrap :: Precedence -> ExpressionLocation -> Document -> Document
+wrap p1 (Operand p2) e | p2 < p1 = text "(" <> e <> text ")"
+wrap _ _ e = e
 
 -- Pretty prints an expression.
-expression :: Expression -> Panic (Precedence, Document)
+expression :: ExpressionLocation -> Expression -> Panic Document
 
 -- Print a constant expression.
-expression (ConstantExpression c) = return $ pair Primary $ constant c
+expression _ (ConstantExpression c) = return (constant c)
 
 -- Print a variable expression.
-expression (VariableExpression n) = return $ pair Primary $ name n
+expression _ (VariableExpression n) = return (name n)
 
--- Unary expressions are printed as expected.
-expression (UnaryExpression _ t e) =
-  pair Unary . (token t <>) . wrap Unary <$> (recover e >>= expression)
+-- Print a unary expression.
+expression loc (UnaryExpression _ t e') = wrap Unary loc <$> do
+  e <- recover e' >>= expression (Operand Unary)
+  return (token t <> e)
 
 -- Binary expressions of the same precedence level are placed in a single group.
-expression (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
-  l <- recover l' >>= expression
-  r <- recover r' >>= expression
-  return $ pair precedence $ group $
-    wrapOperand l <> text " " <> token t <> line <> wrapOperand r
+expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
+  l <- recover l' >>= expression (Operand precedence)
+  r <- recover r' >>= expression (Operand precedence)
+  return $ case loc of
+    -- If our operation is at a greater precedence then we need to wrap it up.
+    Operand p | p < precedence ->
+      group (text "(" <> l <> text " " <> token t <> indent1 (line <> r) <> text ")")
+    -- If our operation is at a lower precedence then we want to group it in case we can fit the
+    -- operation on one line.
+    Operand p | p > precedence -> group (l <> text " " <> token t <> line <> r)
+    -- If our operation is at the same precedence then we want to inline it into the
+    -- parent operation.
+    Operand _ -> l <> text " " <> token t <> line <> r
+    -- Don’t indent or anything at the top level.
+    Standalone -> group (l <> text " " <> token t <> line <> r)
+    -- In an assignment value indent but don’t wrap.
+    AssignmentValue -> group (indent (softline <> l <> text " " <> token t <> line <> r))
+    -- In a keyword argument both indent _and_ wrap.
+    KeywordArgument ->
+      group
+        (text "("
+          <> indent (softline <> l <> text " " <> token t <> line <> r)
+          <> softline
+          <> text ")")
   where
-    -- If our operand is at a greater precedence then we need to wrap it up.
-    wrapOperand (p, e) | p > precedence = text "(" <> e <> text ")"
-    -- If our operand is at a lesser precedence then we want to leave it grouped.
-    wrapOperand (p, e) | p < precedence = e
-    -- If our operand is at the same precedence then we want to inline it into our group. Only other
-    -- binary expressions should be at the same precedence.
-    wrapOperand (_, e) = shamefullyUngroup e
-
     precedence = case op of
       Add -> Additive
       Subtract -> Additive
@@ -203,26 +226,24 @@ expression (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
       Or -> LogicalOr
 
 -- Always remove unnecessary parentheses.
-expression (WrappedExpression _ e Nothing t) = recover t *> recover e >>= expression
+expression loc (WrappedExpression _ e Nothing t) = recover t *> recover e >>= expression loc
 
 -- Group a property expression and indent its property on a newline if the group breaks.
-expression (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
-  e <- expression e'
+expression _ (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
+  e <- expression (Operand Primary) e'
   n <- recover n'
-  return $ pair Primary $ group $
-    wrap Primary e <> indent (softline <> token t <> name n)
+  return $ group $ (e <> indent (softline <> token t <> name n))
 
 -- TODO: Finish call expressions
-expression (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg'))) t2'))) = do
-  e <- expression e'
-  arg <- expression arg'
+expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg'))) t2'))) = do
+  e <- expression (Operand Primary) e'
+  arg <- expression Standalone arg'
   t2 <- recover t2'
-  return $ pair Primary $
-    wrap Primary e <> group
-      (token t1
-        <> indent (softline <> neverWrap arg)
-        <> lineSuffixFlush
-        <> token t2)
+  return $ e <> group
+    (token t1
+      <> indent (softline <> arg)
+      <> lineSuffixFlush
+      <> token t2)
 
 -- Pretty prints a pattern.
 pattern :: Pattern -> Panic Document

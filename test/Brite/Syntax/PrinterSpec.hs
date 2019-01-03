@@ -175,6 +175,11 @@ testData =
   , "reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong"
   , "(reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong) * (reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong)"
   , "reallyReallyReallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyReallyReallyLong"
+  , "reallyReallyReallyReallyReallyReallyReallyLong * (reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong) * reallyReallyReallyReallyReallyReallyReallyLong"
+  , "reallyReallyReallyReallyReallyReallyReallyLong && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && reallyReallyReallyReallyReallyReallyReallyLong"
+  , "f(reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong)"
+  , "(reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong)"
+  , "return (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong)"
   , "--x"
   , "-(-x)"
   , "-+x"
@@ -314,6 +319,10 @@ testData =
   , "let x = y;\n\n😈"
   , "let x = y;\n\n\n😈"
   , "let x = y;\n😈\n\n\n\n\nlet x = y;"
+  , "let x = a +\n//\nb"
+  , "return"
+  , "return; //"
+  , "return a +\n//\nb"
   ]
 
 openSnapshotFile :: IO Handle

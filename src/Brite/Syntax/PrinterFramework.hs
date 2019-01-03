@@ -24,13 +24,13 @@ module Brite.Syntax.PrinterFramework
   , text
   , rawText
   , indent
+  , indent1
   , line
   , softline
   , hardline
   , lineSuffix
   , linePrefix
   , lineSuffixFlush
-  , shamefullyUngroup
   , printDocument
   ) where
 
@@ -47,7 +47,7 @@ data Document
   | ForceBreak
   | Text T.Text
   | RawText B.Builder
-  | Indent Document
+  | Indent Int Document
   | Line
   | LineSuffix Document
   | LinePrefix Document
@@ -82,9 +82,13 @@ text = Text
 rawText :: B.Builder -> Document
 rawText = RawText
 
--- Adds a level of indentation to the document.
+-- Adds a level of indentation to the document. (Two spaces.)
 indent :: Document -> Document
-indent = Indent
+indent = Indent 2
+
+-- Adds one space of indentation to the document.
+indent1 :: Document -> Document
+indent1 = Indent 1
 
 -- Adds a new line to the document. If we are attempting to print the document on one line then we
 -- convert this to a single space.
@@ -119,14 +123,6 @@ lineSuffixFlush = LineSuffixFlush
 -- mode then the second document will be used.
 tryFlat :: Document -> Document -> Document
 tryFlat = Choice
-
--- If the provided document is immediately grouped then we remove the group. Otherwise we return the
--- document. Usually this is not a good idea! Which is why the name is prefixed with “shamefully”.
--- Calling this function breaks the group abstraction. Preferably one wouldn’t need to ungroup and
--- instead only group once where needed.
-shamefullyUngroup :: Document -> Document
-shamefullyUngroup (Group x) = x
-shamefullyUngroup x = x
 
 -- The current mode in which a document is being printed.
 data Mode = Break | Flat
@@ -234,7 +230,7 @@ layout s ((m, i, RawText t) : stack) =
   t <> layout (s { layoutWidth = 0 }) ((m, i, Line) : stack)
 
 -- Add some indentation.
-layout s ((m, i, Indent x) : stack) = layout s ((m, i + 2, x) : stack)
+layout s ((m, i, Indent n x) : stack) = layout s ((m, i + n, x) : stack)
 
 -- Add a new line at the current level of indentation. If there are some line suffix documents then
 -- add them to the execution stack and process them.
@@ -340,7 +336,7 @@ tryLayout _ ((Flat, _, RawText _) : _) = Nothing
 tryLayout s stack@((Break, _, RawText _) : _) = Just (layout s stack)
 
 -- Add some indentation.
-tryLayout s ((m, i, Indent x) : stack) = tryLayout s ((m, i + 2, x) : stack)
+tryLayout s ((m, i, Indent n x) : stack) = tryLayout s ((m, i + n, x) : stack)
 
 -- If we are in flat mode and we find a new line then fail `tryLayout` by returning `Nothing`. We
 -- may not have new lines in flat mode. If we are in break mode then add a new line and return

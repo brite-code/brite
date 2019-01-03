@@ -2196,6 +2196,83 @@ reallyReallyReallyReallyReallyReallyReallyLong;
 
 ### Input
 ```ite
+reallyReallyReallyReallyReallyReallyReallyLong * (reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong) * reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong *
+(reallyReallyReallyReallyReallyReallyReallyLong +
+ reallyReallyReallyReallyReallyReallyReallyLong) *
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong &&
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ reallyReallyReallyReallyReallyReallyReallyLong) &&
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+f(reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+f(
+  reallyReallyReallyReallyReallyReallyReallyLong +
+  reallyReallyReallyReallyReallyReallyReallyLong
+);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ reallyReallyReallyReallyReallyReallyReallyLong) &&
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ reallyReallyReallyReallyReallyReallyReallyLong);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+return (
+  (reallyReallyReallyReallyReallyReallyReallyLong ||
+   reallyReallyReallyReallyReallyReallyReallyLong) &&
+  (reallyReallyReallyReallyReallyReallyReallyLong ||
+   reallyReallyReallyReallyReallyReallyReallyLong)
+);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
 --x
 ```
 
@@ -4278,5 +4355,64 @@ let x = y;
 
 ### Errors
 - (1:0-1:2) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+let x = a +
+//
+b
+```
+
+### Output
+```
+let x = 
+  a +
+  //
+  b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return
+```
+
+### Output
+```
+return;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return; //
+```
+
+### Output
+```
+return; //
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return a +
+//
+b
+```
+
+### Output
+```
+return (
+  a +
+  //
+  b
+);
+```
 
 --------------------------------------------------------------------------------
