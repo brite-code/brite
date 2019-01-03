@@ -28,6 +28,7 @@ module Brite.Syntax.PrinterFramework
   , hardline
   , lineSuffix
   , linePrefix
+  , lineSuffixFlush
   , shamefullyUngroup
   , printDocument
   ) where
@@ -48,6 +49,7 @@ data Document
   | Line
   | LineSuffix Document
   | LinePrefix Document
+  | LineSuffixFlush
 
 -- Documents may be added to each other.
 instance Semigroup Document where
@@ -100,6 +102,11 @@ lineSuffix = LineSuffix
 -- new line.
 linePrefix :: Document -> Document
 linePrefix = LinePrefix
+
+-- If there are any buffered line suffix documents then this command will output those documents and
+-- insert a new line breaking the group.
+lineSuffixFlush :: Document
+lineSuffixFlush = LineSuffixFlush
 
 -- If we are printing in flat mode then the first document will be used. If we are printing in break
 -- mode then the second document will be used.
@@ -246,6 +253,11 @@ layout s ((m, i, LinePrefix x) : stack) =
   else
     layout (s { layoutLinePrefix = x : layoutLinePrefix s }) stack
 
+-- If there are any buffered line suffix items then let’s flush them!
+layout s ((m, i, LineSuffixFlush) : stack) =
+  layout (s { layoutLineSuffix = [] }) $
+    foldl (flip (:)) ((m, i, Line) : stack) (map ((,,) m i) (layoutLineSuffix s))
+
 -- Attempts to layout a flat mode document.
 --
 -- * Returns `Nothing` if `k` exceeds the layout max width.
@@ -329,3 +341,9 @@ tryLayout s ((m, i, LinePrefix x) : stack) =
     tryLayout s ((m, i, x) : stack)
   else
     tryLayout (s { layoutLinePrefix = x : layoutLinePrefix s }) stack
+
+-- If there are any buffered line suffix items then let’s flush them! This will also return `Just`
+-- which means we accept the layout being attempted. If we are in flat mode, then fail the layout.
+tryLayout s@(LayoutState { layoutLineSuffix = [] }) ((_, _, LineSuffixFlush) : stack) = tryLayout s stack
+tryLayout _ ((Flat, _, LineSuffixFlush) : _) = Nothing
+tryLayout s stack@((_, _, LineSuffixFlush) : _) = Just (layout s stack)
