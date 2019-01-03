@@ -161,7 +161,10 @@ token (Token _ k ts1 ts2) =
     trailing (Comment (LineComment c) : ts) =
       lineSuffix (text " //" <> text c) <> trailing ts
 
-    trailing (Comment (BlockComment _ _) : ts) = trailing ts -- TODO
+    -- We know that some code always comes before a trailing block comment. Add a space before the
+    -- block comment to separate us from that code.
+    trailing (Comment (BlockComment c _) : ts) =
+      text " /*" <> text c <> text "*/" <> trailing ts
 
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
 statement :: Statement -> Document
