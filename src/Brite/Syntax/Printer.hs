@@ -81,8 +81,11 @@ name = token . nameToken
 --   and the printer chooses to put `a` and `b` on the same line the comment will move to the end of
 --   the line like so `a b // ...`. This also means that if `b` has a line comment then both line
 --   comments will be moved to the end of the line like so `a b // ... // ...`.
--- * A line comment that is not preceded by code will stay that way with at most one empty line
---   between the comment and whatever is next.
+-- * A line comment that is not preceded by code will either stay on the line where it was written
+--   or it will be moved to the next new line if the printer removes the line the comment was
+--   sitting on. Ideally, we’d move the line _up_ to the previous line instead of down to the next
+--   line, but this is a relatively uncommon case and moving comments down is easier to implement.
+--   Users can manually move the comment back up if they like.
 --
 -- A line comment that is not preceded by code will break the group it was placed in. Simply because
 -- it must considering we can’t put code after a line comment on the same line.
