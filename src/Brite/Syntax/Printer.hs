@@ -79,6 +79,134 @@ recoverMaybe (Just (Fatal _ _)) = empty
 name :: Name -> Document
 name = token . nameToken
 
+-- Pretty prints a statement. Always inserts a semicolon after every statement.
+--
+-- Returns `Nothing` if there was a parsing error anywhere in this statement.
+statement :: Statement -> Panic Document
+
+-- Pretty print an expression statement. Always print the semicolon! Even if the semicolon was
+-- not included.
+statement (ExpressionStatement e' t') = do
+  e <- expression e'
+  t <- recoverMaybe t'
+  return $ neverWrap e <> maybe (text ";") token t <> hardline
+
+-- Pretty print a binding  statement. Always print the semicolon! Even if the semicolon was
+-- not included.
+statement (BindingStatement t1 p' Nothing t2' e' t3') = do
+  p <- recover p' >>= pattern
+  t2 <- recover t2'
+  e <- recover e' >>= expression
+  t3 <- recoverMaybe t3'
+  return $
+    token t1 <> text " " <> p <> text " " <> token t2 <> text " " <> neverWrap e
+      <> maybe (text ";") token t3 <> hardline
+
+-- Pretty prints a constant.
+constant :: Constant -> Document
+constant (BooleanConstant _ t) = token t
+
+-- The precedence level of an expression.
+data Precedence
+  = Primary
+  | Unary
+  | Exponentiation
+  | Multiplicative
+  | Additive
+  | Relational
+  | Equality
+  | LogicalAnd
+  | LogicalOr
+  deriving (Eq, Ord)
+
+-- Small tuple shortcut.
+pair :: a -> b -> (a, b)
+pair = (,)
+{-# INLINE pair #-}
+
+-- Never wrap the expression in parentheses.
+neverWrap :: (Precedence, Document) -> Document
+neverWrap (_, e) = e
+
+-- Wrap expressions at a precedence level higher than the one provided.
+wrap :: Precedence -> (Precedence, Document) -> Document
+wrap p1 (p2, e) | p2 > p1 = text "(" <> e <> text ")"
+wrap _ (_, e) = e
+
+-- Pretty prints an expression.
+--
+-- Returns `Nothing` if there was a parsing error anywhere in this expression.
+expression :: Expression -> Panic (Precedence, Document)
+
+-- Print a constant expression.
+expression (ConstantExpression c) = return $ pair Primary $ constant c
+
+-- Print a variable expression.
+expression (VariableExpression n) = return $ pair Primary $ name n
+
+-- Unary expressions are printed as expected.
+expression (UnaryExpression _ t e) =
+  pair Unary . (token t <>) . wrap Unary <$> (recover e >>= expression)
+
+-- Binary expressions of the same precedence level are placed in a single group.
+expression (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
+  l <- recover l' >>= expression
+  r <- recover r' >>= expression
+  return $ pair precedence $ group $
+    wrapOperand l <> text " " <> token t <> line <> wrapOperand r
+  where
+    -- If our operand is at a greater precedence then we need to wrap it up.
+    wrapOperand (p, e) | p > precedence = text "(" <> e <> text ")"
+    -- If our operand is at a lesser precedence then we want to leave it grouped.
+    wrapOperand (p, e) | p < precedence = e
+    -- If our operand is at the same precedence then we want to inline it into our group. Only other
+    -- binary expressions should be at the same precedence.
+    wrapOperand (_, e) = shamefullyUngroup e
+
+    precedence = case op of
+      Add -> Additive
+      Subtract -> Additive
+      Multiply -> Multiplicative
+      Divide -> Multiplicative
+      Remainder -> Multiplicative
+      Exponent -> Exponentiation
+      Equals -> Equality
+      NotEquals -> Equality
+      LessThan -> Relational
+      LessThanOrEqual -> Relational
+      GreaterThan -> Relational
+      GreaterThanOrEqual -> Relational
+      And -> LogicalAnd
+      Or -> LogicalOr
+
+-- Always remove unnecessary parentheses.
+expression (WrappedExpression _ e Nothing _) = recover e >>= expression
+
+-- Group a property expression and indent its property on a newline if the group breaks.
+expression (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
+  e <- expression e'
+  n <- recover n'
+  return $ pair Primary $ group $
+    wrap Primary e <> indent (softline <> token t <> name n)
+
+-- TODO: Finish call expressions
+expression (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg'))) t2'))) = do
+  e <- expression e'
+  arg <- expression arg'
+  t2 <- recover t2'
+  return $ pair Primary $
+    wrap Primary e <> group
+      (token t1
+        <> indent (softline <> neverWrap arg)
+        <> lineSuffixFlush
+        <> token t2)
+
+-- Pretty prints a pattern.
+--
+-- Returns `Nothing` if there was a parsing error anywhere in this expression.
+pattern :: Pattern -> Panic Document
+pattern (VariablePattern n) = return $ name n
+
 ----------------------------------------------------------------------------------------------------
 -- # Comment Aesthetics
 --
@@ -209,131 +337,3 @@ token (Token _ k ts1 ts2) =
     -- block comment.
     trailing (Comment (BlockComment c _) : ts) =
       text " /*" <> text c <> text "*/" <> trailing ts
-
--- Pretty prints a statement. Always inserts a semicolon after every statement.
---
--- Returns `Nothing` if there was a parsing error anywhere in this statement.
-statement :: Statement -> Panic Document
-
--- Pretty print an expression statement. Always print the semicolon! Even if the semicolon was
--- not included.
-statement (ExpressionStatement e' t') = do
-  e <- expression e'
-  t <- recoverMaybe t'
-  return $ neverWrap e <> maybe (text ";") token t <> hardline
-
--- Pretty print a binding  statement. Always print the semicolon! Even if the semicolon was
--- not included.
-statement (BindingStatement t1 p' Nothing t2' e' t3') = do
-  p <- recover p' >>= pattern
-  t2 <- recover t2'
-  e <- recover e' >>= expression
-  t3 <- recoverMaybe t3'
-  return $
-    token t1 <> text " " <> p <> text " " <> token t2 <> text " " <> neverWrap e
-      <> maybe (text ";") token t3 <> hardline
-
--- Pretty prints a constant.
-constant :: Constant -> Document
-constant (BooleanConstant _ t) = token t
-
--- The precedence level of an expression.
-data Precedence
-  = Primary
-  | Unary
-  | Exponentiation
-  | Multiplicative
-  | Additive
-  | Relational
-  | Equality
-  | LogicalAnd
-  | LogicalOr
-  deriving (Eq, Ord)
-
--- Small tuple shortcut.
-pair :: a -> b -> (a, b)
-pair = (,)
-{-# INLINE pair #-}
-
--- Never wrap the expression in parentheses.
-neverWrap :: (Precedence, Document) -> Document
-neverWrap (_, e) = e
-
--- Wrap expressions at a precedence level higher than the one provided.
-wrap :: Precedence -> (Precedence, Document) -> Document
-wrap p1 (p2, e) | p2 > p1 = text "(" <> e <> text ")"
-wrap _ (_, e) = e
-
--- Pretty prints an expression.
---
--- Returns `Nothing` if there was a parsing error anywhere in this expression.
-expression :: Expression -> Panic (Precedence, Document)
-
--- Print a constant expression.
-expression (ConstantExpression c) = return $ pair Primary $ constant c
-
--- Print a variable expression.
-expression (VariableExpression n) = return $ pair Primary $ name n
-
--- Unary expressions are printed as expected.
-expression (UnaryExpression _ t e) =
-  pair Unary . (token t <>) . wrap Unary <$> (recover e >>= expression)
-
--- Binary expressions of the same precedence level are placed in a single group.
-expression (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
-  l <- recover l' >>= expression
-  r <- recover r' >>= expression
-  return $ pair precedence $ group $
-    wrapOperand l <> text " " <> token t <> line <> wrapOperand r
-  where
-    -- If our operand is at a greater precedence then we need to wrap it up.
-    wrapOperand (p, e) | p > precedence = text "(" <> e <> text ")"
-    -- If our operand is at a lesser precedence then we want to leave it grouped.
-    wrapOperand (p, e) | p < precedence = e
-    -- If our operand is at the same precedence then we want to inline it into our group. Only other
-    -- binary expressions should be at the same precedence.
-    wrapOperand (_, e) = shamefullyUngroup e
-
-    precedence = case op of
-      Add -> Additive
-      Subtract -> Additive
-      Multiply -> Multiplicative
-      Divide -> Multiplicative
-      Remainder -> Multiplicative
-      Exponent -> Exponentiation
-      Equals -> Equality
-      NotEquals -> Equality
-      LessThan -> Relational
-      LessThanOrEqual -> Relational
-      GreaterThan -> Relational
-      GreaterThanOrEqual -> Relational
-      And -> LogicalAnd
-      Or -> LogicalOr
-
--- Always remove unnecessary parentheses.
-expression (WrappedExpression _ e Nothing _) = recover e >>= expression
-
--- Group a property expression and indent its property on a newline if the group breaks.
-expression (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
-  e <- expression e'
-  n <- recover n'
-  return $ pair Primary $ group $
-    wrap Primary e <> indent (softline <> token t <> name n)
-
--- TODO: Finish call expressions
-expression (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg'))) t2'))) = do
-  e <- expression e'
-  arg <- expression arg'
-  t2 <- recover t2'
-  return $ pair Primary $
-    wrap Primary e <> group
-      (token t1
-        <> indent (softline <> neverWrap arg)
-        <> lineSuffixFlush
-        <> token t2)
-
--- Pretty prints a pattern.
---
--- Returns `Nothing` if there was a parsing error anywhere in this expression.
-pattern :: Pattern -> Panic Document
-pattern (VariablePattern n) = return $ name n
