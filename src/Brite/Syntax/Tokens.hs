@@ -21,6 +21,7 @@ module Brite.Syntax.Tokens
   , Trivia(..)
   , Newline(..)
   , Comment(..)
+  , isTriviaWhitespace
   , isUnterminatedBlockComment
   , TokenStream
   , tokenStreamPosition
@@ -331,6 +332,14 @@ data Comment
   --
   -- TODO: Make a decision on keeping or removing block comments.
   | BlockComment T.Text Bool
+
+-- Is this trivia whitespace?
+isTriviaWhitespace :: Trivia -> Bool
+isTriviaWhitespace (Spaces _) = True
+isTriviaWhitespace (Tabs _) = True
+isTriviaWhitespace (Newlines _ _) = True
+isTriviaWhitespace (Comment _) = False
+isTriviaWhitespace (OtherWhitespace _) = True
 
 -- Is this trivia an unterminated block comment?
 isUnterminatedBlockComment :: Trivia -> Bool

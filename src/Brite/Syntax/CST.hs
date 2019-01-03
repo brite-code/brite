@@ -56,6 +56,7 @@ module Brite.Syntax.CST
   , TypeAnnotation(..)
   , moduleTokens
   , moduleSource
+  , statementTrimmedSource
   , debugModule
   , showDebugExpression
   ) where
@@ -615,6 +616,27 @@ moduleSource :: Module -> B.Builder
 moduleSource m =
   let (tokens, endToken) = moduleTokens m in
     mconcat (map tokenSource tokens) <> endTokenSource endToken
+
+-- Get the source code for this statement while trimming all whitespace from the beginning
+-- and ending.
+statementTrimmedSource :: Recover Statement -> B.Builder
+statementTrimmedSource statement =
+  sourceStart (appEndo ((recoverTokens statementTokens) statement) [])
+  where
+    trimStart t =
+      let trivia = dropWhile isTriviaWhitespace (tokenLeadingTrivia t) in
+        t { tokenLeadingTrivia = trivia }
+
+    trimEnd t =
+      let trivia = reverse (dropWhile isTriviaWhitespace (reverse (tokenTrailingTrivia t))) in
+        t { tokenTrailingTrivia = trivia }
+
+    sourceStart [] = source []
+    sourceStart (t : ts) = source (trimStart t : ts)
+
+    source [] = mempty
+    source [t] = tokenSource (trimEnd t)
+    source (t : ts) = tokenSource t <> source ts
 
 -- Use a “difference list” trick to more efficiently build token lists.
 type Tokens = Endo [Token]

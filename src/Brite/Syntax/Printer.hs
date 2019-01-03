@@ -12,7 +12,6 @@ import Brite.Syntax.CST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
 import Control.Applicative
-import Data.Functor.Identity
 import qualified Data.Text.Lazy.Builder as B
 
 -- Pretty prints a Brite module.
@@ -35,11 +34,7 @@ maxWidth = 80
 
 -- Pretty prints a Brite module.
 module_ :: Module -> Document
-module_ (Module ss t) =
-  mconcat (map (fromJust . (>>= statement) . recover) ss)
-  where
-    fromJust (Panic (Just a)) = a
-    fromJust (Panic Nothing) = error "fromJust"
+module_ (Module ss t) = statementList ss
 
 -- A monad around `Maybe` that provides a fine-tuned interface for panicking an operation. We use a
 -- `newtype` to help reduce confusion and to rename operations.
@@ -59,7 +54,6 @@ instance Alternative Panic where
 
 instance Monad Panic where
   Panic a >>= f = Panic (a >>= toMaybe . f)
-  Panic a >> Panic b = Panic (a >> b)
 
 -- Recovers a value from a `Recover a` type. We only successfully recover if the `Recover` is `Ok`.
 recover :: Recover a -> Panic a
@@ -79,9 +73,15 @@ recoverMaybe (Just (Fatal _ _)) = empty
 name :: Name -> Document
 name = token . nameToken
 
+-- Pretty prints a list of statements either from a block or a module. If we panic when printing a
+-- statement then this function catches that panic and prints the statement source instead.
+statementList :: [Recover Statement] -> Document
+statementList = (mconcat .) $ map $ \s ->
+  case toMaybe (recover s >>= statement) of
+    Just t -> t <> hardline
+    Nothing -> rawText (statementTrimmedSource s)
+
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
---
--- Returns `Nothing` if there was a parsing error anywhere in this statement.
 statement :: Statement -> Panic Document
 
 -- Pretty print an expression statement. Always print the semicolon! Even if the semicolon was
@@ -89,7 +89,7 @@ statement :: Statement -> Panic Document
 statement (ExpressionStatement e' t') = do
   e <- expression e'
   t <- recoverMaybe t'
-  return $ neverWrap e <> maybe (text ";") token t <> hardline
+  return $ neverWrap e <> maybe (text ";") token t
 
 -- Pretty print a binding  statement. Always print the semicolon! Even if the semicolon was
 -- not included.
@@ -100,7 +100,7 @@ statement (BindingStatement t1 p' Nothing t2' e' t3') = do
   t3 <- recoverMaybe t3'
   return $
     token t1 <> text " " <> p <> text " " <> token t2 <> text " " <> neverWrap e
-      <> maybe (text ";") token t3 <> hardline
+      <> maybe (text ";") token t3
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
@@ -134,8 +134,6 @@ wrap p1 (p2, e) | p2 > p1 = text "(" <> e <> text ")"
 wrap _ (_, e) = e
 
 -- Pretty prints an expression.
---
--- Returns `Nothing` if there was a parsing error anywhere in this expression.
 expression :: Expression -> Panic (Precedence, Document)
 
 -- Print a constant expression.
@@ -180,7 +178,7 @@ expression (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
       Or -> LogicalOr
 
 -- Always remove unnecessary parentheses.
-expression (WrappedExpression _ e Nothing _) = recover e >>= expression
+expression (WrappedExpression _ e Nothing t) = recover t *> recover e >>= expression
 
 -- Group a property expression and indent its property on a newline if the group breaks.
 expression (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
@@ -202,8 +200,6 @@ expression (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just (
         <> token t2)
 
 -- Pretty prints a pattern.
---
--- Returns `Nothing` if there was a parsing error anywhere in this expression.
 pattern :: Pattern -> Panic Document
 pattern (VariablePattern n) = return $ name n
 

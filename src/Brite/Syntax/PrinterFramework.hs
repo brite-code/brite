@@ -22,6 +22,7 @@ module Brite.Syntax.PrinterFramework
   , group
   , forceBreak
   , text
+  , rawText
   , indent
   , line
   , softline
@@ -45,6 +46,7 @@ data Document
   | Group Document
   | ForceBreak
   | Text T.Text
+  | RawText B.Builder
   | Indent Document
   | Line
   | LineSuffix Document
@@ -74,6 +76,11 @@ forceBreak = ForceBreak
 -- Adds some raw text to the document.
 text :: T.Text -> Document
 text = Text
+
+-- Inserts some raw text into the document. Always inserts a new line afterwards so we don’t have to
+-- measure the text.
+rawText :: B.Builder -> Document
+rawText = RawText
 
 -- Adds a level of indentation to the document.
 indent :: Document -> Document
@@ -220,6 +227,12 @@ layout s ((_, _, Text t0) : stack) =
         Just (_, '\r') -> k
         Just (t2, c) -> loopBack (k + utf16Length c) t2
 
+-- Adds the raw text to the document without measuring the length and insert a new line. The raw
+-- text is represented as a text builder. There is no way we could measure that data type without
+-- converting it to text.
+layout s ((m, i, RawText t) : stack) =
+  t <> layout (s { layoutWidth = 0 }) ((m, i, Line) : stack)
+
 -- Add some indentation.
 layout s ((m, i, Indent x) : stack) = layout s ((m, i + 2, x) : stack)
 
@@ -320,6 +333,11 @@ tryLayout s ((m, _, Text t0) : stack) =
         Just (_, '\n') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
         Just (_, '\r') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
         Just (t2, c) -> loopBack (k + utf16Length c) t2
+
+-- Raw text always is ended with a new line so we fail `tryLayout` when raw text is in flat mode.
+-- Otherwise we succeed and add the raw text to our document.
+tryLayout _ ((Flat, _, RawText _) : _) = Nothing
+tryLayout s stack@((Break, _, RawText _) : _) = Just (layout s stack)
 
 -- Add some indentation.
 tryLayout s ((m, i, Indent x) : stack) = tryLayout s ((m, i + 2, x) : stack)

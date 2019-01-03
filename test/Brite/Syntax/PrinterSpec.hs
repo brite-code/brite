@@ -251,6 +251,13 @@ testData =
   , "f(\na + b // blah blah blah\n)"
   , "f(/**/a)"
   , "f(a/**///\n)"
+  , "let x = 😈"
+  , "let x =\n  😈"
+  , "let x =\n\n\n😈"
+  , "let x =     \n😈"
+  , "let   x y; let   x=y;"
+  , "let   x=y; let   x y;"
+  , "(a + b let x = y;"
   ]
 
 openSnapshotFile :: IO Handle
@@ -270,7 +277,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
   flip mapM_ testData $ \input ->
     it (T.unpack (escape input)) $ \h ->
       let
-        (inputModule, _) = runDiagnosticWriter (parseModule (tokenize input))
+        (inputModule, diagnostics) = runDiagnosticWriter (parseModule (tokenize input))
         output = L.toStrict (B.toLazyText (printModule inputModule))
         (outputModule, _) = runDiagnosticWriter (parseModule (tokenize output))
         reprintedOutput = L.toStrict (B.toLazyText (printModule outputModule))
@@ -287,6 +294,11 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h "```"
         hPutStr h (T.unpack output)
         hPutStrLn h "```"
+        if null diagnostics then return () else (do
+          hPutStrLn h ""
+          hPutStrLn h "### Errors"
+          flip mapM_ diagnostics (\diagnostic ->
+            hPutStrLn h (L.unpack (B.toLazyText (B.fromText "- " <> debugDiagnostic diagnostic)))))
         reprintedOutput `shouldBe` output
 
 escape :: T.Text -> T.Text
