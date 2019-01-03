@@ -1,4 +1,6 @@
 name: brite
+license: AllRightsReserved
+license-file: LICENSE
 
 dependencies:
   - base >= 4.7 && < 5
