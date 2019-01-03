@@ -26,7 +26,6 @@ module Brite.Syntax.PrinterFramework
   , line
   , softline
   , hardline
-  , space
   , lineSuffix
   , linePrefix
   , lineSuffixFlush
@@ -48,7 +47,6 @@ data Document
   | Text T.Text
   | Indent Document
   | Line
-  | Space
   | LineSuffix Document
   | LinePrefix Document
   | LineSuffixFlush
@@ -84,7 +82,7 @@ indent = Indent
 -- Adds a new line to the document. If we are attempting to print the document on one line then we
 -- convert this to a single space.
 line :: Document
-line = tryFlat Space Line
+line = tryFlat (Text " ") Line
 
 -- Adds a new line to the document. If we are attempting to print the document on one line then we
 -- convert this to an empty document.
@@ -95,11 +93,6 @@ softline = tryFlat Empty Line
 -- one line.
 hardline :: Document
 hardline = Line
-
--- Adds a space to the document. There will never be two spaces next to each other. `space <> space`
--- is the same as `space`. There also won’t be a space before a new line.
-space :: Document
-space = Space
 
 -- Prints the document at the end of the very next line.
 lineSuffix :: Document -> Document
@@ -139,7 +132,6 @@ printDocument maxWidth rootDocument =
     initialState = LayoutState
       { layoutMaxWidth = maxWidth
       , layoutWidth = 0
-      , layoutSpace = False
       , layoutLineStart = True
       , layoutLineSuffix = []
       , layoutLinePrefix = []
@@ -153,8 +145,6 @@ data LayoutState = LayoutState
   , layoutWidth :: Int
   -- Is this the start of a new line? Does not consider indentation.
   , layoutLineStart :: Bool
-  -- Should we add a space before our next text block?
-  , layoutSpace :: Bool
   -- Line suffix documents which will be rendered before the next new line. This list is
   -- reverse ordered.
   , layoutLineSuffix :: [Document]
@@ -202,10 +192,6 @@ layout s ((Break, i, Group x) : stack) =
 -- Skip break documents in the stack.
 layout s ((_, _, ForceBreak) : stack) = layout s stack
 
--- If we wanted to add a space then do that now.
-layout s@(LayoutState { layoutSpace = True }) stack@((_, _, Text _) : _) =
-  B.singleton ' ' <> layout (s { layoutSpace = False, layoutWidth = layoutWidth s + 1 }) stack
-
 -- Add text to the document. If the text is a single line then we add the UTF-16 encoded code point
 -- length to the position to get our new position. If the text is multiple lines we set the new
 -- position to the UTF-16 length of the last line.
@@ -244,7 +230,6 @@ layout oldState@(LayoutState { layoutLineSuffix = [] }) ((m, i, Line) : stack) =
     newState = oldState
       { layoutLineStart = True
       , layoutWidth = i
-      , layoutSpace = False
       , layoutLineSuffix = []
       , layoutLinePrefix = []
       }
@@ -255,9 +240,6 @@ layout oldState@(LayoutState { layoutLineSuffix = [] }) ((m, i, Line) : stack) =
 layout s stack@((m, i, Line) : _) =
   layout (s { layoutLineSuffix = [] }) $
     foldl (flip (:)) stack (map ((,,) m i) (layoutLineSuffix s))
-
--- Set `layoutSpace` to true in our state. We will add the space right before the next text.
-layout s ((_, _, Space) : stack) = layout (s { layoutSpace = True }) stack
 
 -- Add line suffix documents to the suffix stack.
 layout s ((_, _, LineSuffix x) : stack) =
@@ -308,10 +290,6 @@ tryLayout s ((m, i, Group x) : stack) = tryLayout s ((m, i, x) : stack)
 tryLayout _ ((Flat, _, ForceBreak) : _) = Nothing
 tryLayout s ((Break, _, ForceBreak) : stack) = tryLayout s stack
 
--- If we wanted to add a space then do that now.
-tryLayout s@(LayoutState { layoutSpace = True }) stack@((_, _, Text _) : _) =
-  (B.singleton ' ' <>) <$> tryLayout (s { layoutSpace = False, layoutWidth = layoutWidth s + 1 }) stack
-
 -- Add text to the document. If the document is a single-line we make sure it does not exceed the
 -- maximum width. If it does then we return `Nothing`. If the document is multi-line and we are in
 -- flat mode we return `Nothing` since new lines are not allowed in flat mode. If the document is
@@ -351,9 +329,6 @@ tryLayout s ((m, i, Indent x) : stack) = tryLayout s ((m, i + 2, x) : stack)
 -- `Just` since our line that we are attempting to layout did not exceed the max width!
 tryLayout _ ((Flat, _, Line) : _) = Nothing
 tryLayout s stack@((Break, _, Line) : _) = Just (layout s stack)
-
--- Set `layoutSpace` to true in our state. We will add the space right before the next text.
-tryLayout s ((_, _, Space) : stack) = tryLayout (s { layoutSpace = True }) stack
 
 -- Add line suffix documents to the suffix stack.
 tryLayout s ((_, _, LineSuffix x) : stack) =
