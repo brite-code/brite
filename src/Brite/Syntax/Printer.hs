@@ -15,7 +15,7 @@ module Brite.Syntax.Printer
   ) where
 
 import Brite.Syntax.CST
-import Brite.Syntax.PrinterFramework3
+import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
 import Control.Applicative
 import qualified Data.Text.Lazy.Builder as Text (Builder)

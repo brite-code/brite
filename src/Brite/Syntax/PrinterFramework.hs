@@ -28,9 +28,8 @@ module Brite.Syntax.PrinterFramework
   , line
   , softline
   , hardline
-  , lineSuffix
   , linePrefix
-  , lineSuffixFlush
+  , lineSuffix
   , printDocument
   ) where
 
@@ -46,14 +45,12 @@ data Document
   | Concat Document Document
   | Choice Document Document
   | Group Document
-  | ForceBreak
   | Text Text
   | RawText Text.Builder
   | Indent Int Document
   | Line
-  | LineSuffix Document
   | LinePrefix Document
-  | LineSuffixFlush
+  | LineSuffix Document
 
 -- Documents may be added to each other.
 instance Semigroup Document where
@@ -73,7 +70,7 @@ group = Group
 -- Always forces the group to break. If this command is inside of a group it will never fit on
 -- one line.
 forceBreak :: Document
-forceBreak = ForceBreak
+forceBreak = tryFlat Line Empty
 
 -- Adds some raw text to the document.
 text :: Text -> Document
@@ -107,19 +104,17 @@ softline = tryFlat Empty Line
 hardline :: Document
 hardline = Line
 
--- Prints the document at the end of the very next line.
-lineSuffix :: Document -> Document
-lineSuffix = LineSuffix
-
 -- Prints the document either on the current line if it just started or the beginning of the next
 -- new line.
+--
+-- Line prefixes are always followed by a new line. This is so we don’t have to layout the text
+-- before this command again.
 linePrefix :: Document -> Document
 linePrefix = LinePrefix
 
--- If there are any buffered line suffix documents then this command will output those documents and
--- insert a new line breaking the group.
-lineSuffixFlush :: Document
-lineSuffixFlush = LineSuffixFlush
+-- Prints the document at the end of the very next line.
+lineSuffix :: Document -> Document
+lineSuffix = LineSuffix
 
 -- If we are printing in flat mode then the first document will be used. If we are printing in break
 -- mode then the second document will be used.
@@ -129,241 +124,149 @@ tryFlat = Choice
 -- The current mode in which a document is being printed.
 data Mode = Break | Flat
 
+-- Produces the best possible layout for a document where all groups which can fit on a single line
+-- are indeed put together on a single line. The parameters are:
+--
+-- * `w` which represents the desired maximum width of our finished document. If a flattened group
+--   exceeds this width it will not be flattened and instead will be broken onto multiple lines.
+-- * `k` which represents the current length of the line we are laying out.
+-- * `stack` which represents our execution stack. As long as this stack is not empty we will have
+--   more document to process. The stack items contain the layout mode, the current level of
+--   indentation, and the document to be rendered.
+layout :: Int -> Int -> [(Mode, Int, Document)] -> Layout
+layout _ _ [] = EmptyLayout
+layout w k ((_, _, Empty) : z) = layout w k z
+
+-- Add both documents in a concatenation to our execution stack.
+layout w k ((m, i, Concat x y) : z) = layout w k ((m, i, x) : (m, i, y) : z)
+
+-- Choose one of the two documents based on our printing mode.
+layout w k ((Flat, i, Choice x _) : z) = layout w k ((Flat, i, x) : z)
+layout w k ((Break, i, Choice _ y) : z) = layout w k ((Break, i, y) : z)
+
+-- Groups in break mode attempt to layout their document on a single line using flat mode. If the
+-- grouped document does not fit on a single line then we render the group in break mode.
+--
+-- If there is a new line in the flattened group then it automatically fails to fit in a single
+-- line. However, when we see a new line outside of the flattened group we know to accept the
+-- flattened layout.
+layout w k ((Flat, i, Group x) : z) = layout w k ((Flat, i, x) : z)
+layout w k ((Break, i, Group x) : z) =
+  let l1 = layout w k ((Flat, i, x) : z) in
+    if fits (w - k) l1 then l1 else layout w k ((Break, i, x) : z)
+  where
+    -- Of course empty fits!
+    fits _ EmptyLayout = True
+    -- Measure the length of the text to determine if it fits on this line.
+    fits r (TextLayout m t l) = fitsText r m t l
+    -- If there is a new line in flat mode we can’t fit the document. Otherwise we’ve reached the
+    -- end of the line and our flattened document fits!
+    fits _ (LineLayout Flat _ _) = False
+    fits _ (LineLayout Break _ _) = True
+    -- Raw text always ends in a new line so behave like a new line. We do this so we can avoid
+    -- measuring the raw text data. That way raw text can be represented as an opaque `Text.Builder`
+    -- instead of strict `Text`.
+    fits _ (RawTextLayout Flat _ _ _) = False
+    fits _ (RawTextLayout Break _ _ _) = True
+    -- Line prefix and line suffix layouts don’t affect our measurements.
+    fits r (LinePrefixLayout _ l) = fits r l
+    fits r (LineSuffixLayout _ l) = fits r l
+
+    -- Iterate through the text to see if it fits on one line.
+    --
+    -- Remember that we use UTF-16 to measure length because that is the encoding specified for
+    -- character widths by the Language Server Protocol (LSP) specification.
+    fitsText r m t0 l =
+      case Text.uncons t0 of
+        -- If `r` is less than 0 we’ve run out of space. Our text does not fit.
+        _ | r < 0 -> False
+        -- If there is a new line in the text then whether or not we fit depends on the mode.
+        Just ('\n', _) -> case m of { Flat -> False; Break -> True }
+        Just ('\r', _) -> case m of { Flat -> False; Break -> True }
+        -- Subtract the character length and continue.
+        Just (c, t1) -> fitsText (r - utf16Length c) m t1 l
+        -- This text fits, but there’s still more layout to measure.
+        Nothing -> fits r l
+
+-- Add text to the document. To compute the new position:
+--
+-- * If the text is one line add the length of our text to the current position.
+-- * If the text is multiple lines set the current position to the length of our last line.
+--
+-- Remember that we use UTF-16 to measure length because that is the encoding specified for
+-- character widths by the Language Server Protocol (LSP) specification.
+layout w k0 ((m, _, Text t0) : z) = TextLayout m t0 (layout w (measure k0 t0) z)
+  where
+    -- Measure the length of our text until we either reach the text’s end or a new line. If we
+    -- reach a new line then use `measureBackwards` to measure the length of the last line.
+    measure k1 t1 =
+      case Text.uncons t1 of
+        Nothing -> k1
+        Just ('\n', t2) -> measureBackwards 0 t2
+        Just ('\r', t2) -> measureBackwards 0 t2
+        Just (c, t2) -> measure (k1 + utf16Length c) t2
+
+    -- Iterate in reverse through the text until we reach the first new line to measure the length
+    -- of the last line.
+    measureBackwards k1 t1 =
+      case Text.unsnoc t1 of
+        Nothing -> k1
+        Just (_, '\n') -> k1
+        Just (_, '\r') -> k1
+        Just (t2, c) -> measureBackwards (k1 + utf16Length c) t2
+
+-- Add raw text to the document. Raw text always ends in a new line. Which is important because it
+-- means we don’t need to measure the text. Set the current character length to the line
+-- indentation level.
+layout w _ ((m, i, RawText t) : z) = RawTextLayout m t i (layout w i z)
+
+-- Add some indentation to the document.
+layout w k ((m, i, Indent n x) : z) = layout w k ((m, i + n, x) : z)
+
+-- Add a line to the document. Set the current character length to the line indentation level.
+layout w _ ((m, i, Line) : z) = LineLayout m i (layout w i z)
+
+-- Layout the line prefix independently of the rest of our document execution stack. Set the
+-- current character and current indentation both to 0. In `printLayout` we will add the proper
+-- indentation level to our line prefix. Always layout the line prefix in flat mode since we don’t
+-- have a proper current character value.
+layout w k ((_, _, LinePrefix x) : z) = LinePrefixLayout (layout w 0 [(Flat, 0, x)]) (layout w k z)
+
+-- Layout the line suffix independently of the rest of our document execution stack. Set the
+-- current character and current indentation both to 0. In `printLayout` we will add the proper
+-- indentation level to our line suffix. Always layout the line suffix in flat mode since we don’t
+-- have a proper current character value.
+layout w k ((_, _, LineSuffix x) : z) = LineSuffixLayout (layout w 0 [(Flat, 0, x)]) (layout w k z)
+
+-- An intermediate representation of the document we are printing. Whereas `Document` is a tree,
+-- `Layout` is a linked list which makes it linear. All groups and indentation levels have already
+-- been resolved. All that’s left is to print the layout to text.
+data Layout
+  = EmptyLayout
+  | TextLayout Mode Text Layout
+  | RawTextLayout Mode Text.Builder Int Layout
+  | LineLayout Mode Int Layout
+  | LinePrefixLayout Layout Layout
+  | LineSuffixLayout Layout Layout
+
+-- Prints the layout out to text.
+printLayout :: Layout -> Text.Builder
+printLayout = loop 0 (0, mempty) mempty mempty
+  where
+    loop _ (j, t1) t2 t3 EmptyLayout = t1 <> t2 <> t3 j
+    loop i t1 t2 t3 (TextLayout _ t l) = loop i t1 (t2 <> Text.Builder.fromText t) t3 l
+    loop i t1 t2 t3 (RawTextLayout m t j l) = loop i t1 (t2 <> t) t3 (LineLayout m j l)
+    loop i (_, t1) t2 t3 (LineLayout _ j l) =
+      t1 <> t2 <> t3 j <> printLine (i + j) <> loop i (j, mempty) mempty (\_ -> mempty) l
+    loop i (j, t1) t2 t3 (LinePrefixLayout l1 l2) =
+      loop i (j, t1 <> loop (i + j) (0, mempty) mempty mempty l1 <> printLine (i + j)) t2 t3 l2
+    loop i t1 t2 t3 (LineSuffixLayout l1 l2) =
+      loop i t1 t2 (\j -> t3 j <> loop (i + j) (0, mempty) mempty mempty l1) l2
+
+-- Prints a single line at the current level of indentation.
+printLine :: Int -> Text.Builder
+printLine i = Text.Builder.singleton '\n' <> Text.Builder.fromText (Text.replicate i " ")
+
 -- Prints the document at the specified maximum width.
 printDocument :: Int -> Document -> Text.Builder
-printDocument maxWidth rootDocument =
-  layout initialState [(Break, 0, rootDocument)]
-  where
-    initialState = LayoutState
-      { layoutMaxWidth = maxWidth
-      , layoutWidth = 0
-      , layoutLineStart = True
-      , layoutLineSuffix = []
-      , layoutLinePrefix = []
-      }
-
-data LayoutState = LayoutState
-  -- The maximum width our layout may use for placing a document on a single line.
-  { layoutMaxWidth :: Int
-  -- The current character position measured in UTF-16 encoded code units as specified
-  -- by the LSP.
-  , layoutWidth :: Int
-  -- Is this the start of a new line? Does not consider indentation.
-  , layoutLineStart :: Bool
-  -- Line suffix documents which will be rendered before the next new line. This list is
-  -- reverse ordered.
-  , layoutLineSuffix :: [Document]
-  -- Line prefix documents which will be rendered after the next new line. This list is
-  -- reverse ordered. Each prefix document always ends with a new line.
-  , layoutLinePrefix :: [Document]
-  }
-
--- Responsible for laying out a document. Takes as parameters:
---
--- * State for our layout process.
--- * An execution stack of documents. We build our document by processing every item on the stack.
---   Each stack item contains the mode in which we print the document, the current level of
---   indentation, and the document to be printed.
-layout :: LayoutState -> [(Mode, Int, Document)] -> Text.Builder
-
--- We are done processing our stack!
-layout (LayoutState { layoutLineSuffix = [] }) [] = mempty
-
--- If there are some line suffix documents remaining add them to our stack and process them.
-layout s [] =
-  layout (s { layoutLineSuffix = [] }) (map ((,,) Break 0) (reverse (layoutLineSuffix s)))
-
--- Skip empty documents in the stack.
-layout s ((_, _, Empty) : stack) = layout s stack
-
--- Add both documents of a concatenation to the stack.
-layout s ((m, i, Concat x y) : stack) = layout s ((m, i, x) : (m, i, y) : stack)
-
--- Make a choice depending on the mode. `Flat` chooses the left and `Break` chooses the right.
-layout s ((Flat, i, Choice x _) : stack) = layout s ((Flat, i, x) : stack)
-layout s ((Break, i, Choice _ y) : stack) = layout s ((Break, i, y) : stack)
-
--- Flat groups continue to flatten their document. It is break groups which are interesting.
--- Break mode groups attempt to flatten their document.
-layout s ((Flat, i, Group x) : stack) = layout s ((Flat, i, x) : stack)
-
--- A break mode group attempts to flatten its document using the `tryLayout` function to see if it
--- will fit on one line. If it does not then we layout the group using our break mode.
-layout s ((Break, i, Group x) : stack) =
-  case tryLayout s ((Flat, i, x) : stack) of
-    Just t -> t
-    Nothing -> layout s ((Break, i, x) : stack)
-
--- Skip break documents in the stack.
-layout s ((_, _, ForceBreak) : stack) = layout s stack
-
--- Add text to the document. If the text is a single line then we add the UTF-16 encoded code point
--- length to the position to get our new position. If the text is multiple lines we set the new
--- position to the UTF-16 length of the last line.
---
--- Remember that we use UTF-16 to measure length because that is the encoding specified for
--- character widths by the Language Server Protocol (LSP) specification.
-layout s ((_, _, Text t0) : stack) =
-  let k = loop (layoutWidth s) t0 in
-    Text.Builder.fromText t0 <> layout (s { layoutWidth = k, layoutLineStart = False }) stack
-  where
-    -- Measure the length of our text until we either reach the text’s end or a new line. If we
-    -- reach a new line then use `loopBack` to measure the length of the last line.
-    loop k t1 =
-      case Text.uncons t1 of
-        Nothing -> k
-        Just ('\n', t2) -> loopBack 0 t2
-        Just ('\r', t2) -> loopBack 0 t2
-        Just (c, t2) -> loop (k + utf16Length c) t2
-
-    -- Iterate in reverse through the text until we reach the first new line to measure the length
-    -- of the last line.
-    loopBack k t1 =
-      case Text.unsnoc t1 of
-        Nothing -> k
-        Just (_, '\n') -> k
-        Just (_, '\r') -> k
-        Just (t2, c) -> loopBack (k + utf16Length c) t2
-
--- Adds the raw text to the document without measuring the length and insert a new line. The raw
--- text is represented as a text builder. There is no way we could measure that data type without
--- converting it to text.
-layout s ((m, i, RawText t) : stack) =
-  t <> layout (s { layoutWidth = 0 }) ((m, i, Line) : stack)
-
--- Add some indentation.
-layout s ((m, i, Indent n x) : stack) = layout s ((m, i + n, x) : stack)
-
--- Add a new line at the current level of indentation. If there are some line suffix documents then
--- add them to the execution stack and process them.
-layout oldState@(LayoutState { layoutLineSuffix = [] }) ((m, i, Line) : stack) =
-  let
-    newState = oldState
-      { layoutLineStart = True
-      , layoutWidth = i
-      , layoutLineSuffix = []
-      , layoutLinePrefix = []
-      }
-    newStack = foldl (flip (:)) stack (map ((,,) m i) (layoutLinePrefix oldState))
-  in
-    Text.Builder.singleton '\n'
-      <> Text.Builder.fromText (Text.replicate i " ")
-      <> layout newState newStack
--- If there are line suffix documents then process them.
-layout s stack@((m, i, Line) : _) =
-  layout (s { layoutLineSuffix = [] }) $
-    foldl (flip (:)) stack (map ((,,) m i) (layoutLineSuffix s))
-
--- Add line suffix documents to the suffix stack.
-layout s ((_, _, LineSuffix x) : stack) =
-  layout (s { layoutLineSuffix = x : layoutLineSuffix s }) stack
-
--- If we have just started a new line then immediately render the line prefix document. If we have
--- already added content to this line then add the document to our line prefix stack.
-layout s ((m, i, LinePrefix x) : stack) =
-  if layoutLineStart s then
-    layout s ((m, i, x) : stack)
-  else
-    layout (s { layoutLinePrefix = x : layoutLinePrefix s }) stack
-
--- If there are any buffered line suffix items then let’s flush them!
-layout s ((m, i, LineSuffixFlush) : stack) =
-  layout (s { layoutLineSuffix = [] }) $
-    foldl (flip (:)) ((m, i, Line) : stack) (map ((,,) m i) (layoutLineSuffix s))
-
--- Attempts to layout a flat mode document.
---
--- * Returns `Nothing` if `k` exceeds the layout max width.
--- * Returns `Nothing` if we find a new line in a flat mode document.
--- * Returns `Just` if the first line fits in the layout max width.
-tryLayout :: LayoutState -> [(Mode, Int, Document)] -> Maybe Text.Builder
-
--- If our line has exceeded the max width return `Nothing`.
-tryLayout s _ | layoutWidth s > layoutMaxWidth s = Nothing
-
--- If we have reached the end of the stack we’re ok!
-tryLayout s [] = Just (layout s [])
-
--- Skip empty documents in the stack.
-tryLayout s ((_, _, Empty) : stack) = tryLayout s stack
-
--- Add both documents of a concatenation to the stack.
-tryLayout s ((m, i, Concat x y) : stack) = tryLayout s ((m, i, x) : (m, i, y) : stack)
-
--- Make a choice depending on the mode. `Flat` chooses the left and `Break` chooses the right.
-tryLayout s ((Flat, i, Choice x _) : stack) = tryLayout s ((Flat, i, x) : stack)
-tryLayout s ((Break, i, Choice _ y) : stack) = tryLayout s ((Break, i, y) : stack)
-
--- Attempt to layout a group in the current specified mode. We don’t attempt to flatten break mode
--- documents. Instead we lay them out as-is.
-tryLayout s ((m, i, Group x) : stack) = tryLayout s ((m, i, x) : stack)
-
--- Skip normal mode break commands in the stack. However, flat mode break commands will immediately
--- fail `tryLayout`.
-tryLayout _ ((Flat, _, ForceBreak) : _) = Nothing
-tryLayout s ((Break, _, ForceBreak) : stack) = tryLayout s stack
-
--- Add text to the document. If the document is a single-line we make sure it does not exceed the
--- maximum width. If it does then we return `Nothing`. If the document is multi-line and we are in
--- flat mode we return `Nothing` since new lines are not allowed in flat mode. If the document is
--- multi-line and we are in break mode then return `Just` and continue the layout since our
--- document fits!
---
--- Remember that we use UTF-16 to measure length because that is the encoding specified for
--- character widths by the Language Server Protocol (LSP) specification.
-tryLayout s ((m, _, Text t0) : stack) =
-  (Text.Builder.fromText t0 <>) <$> loop (layoutWidth s) t0
-  where
-    -- Measure the length of our text until we either reach the text’s end or a new line. If we
-    -- reach a new line and we are in break mode then use `loopBack` to measure the length of
-    -- the last line.
-    loop k t1 =
-      case Text.uncons t1 of
-        _ | k > layoutMaxWidth s -> Nothing -- Optimization: Stop iterating if we’ve surpassed the max width.
-        Nothing -> tryLayout (s { layoutWidth = k, layoutLineStart = False }) stack
-        Just ('\n', t2) -> case m of { Flat -> Nothing; Break -> loopBack 0 t2 }
-        Just ('\r', t2) -> case m of { Flat -> Nothing; Break -> loopBack 0 t2 }
-        Just (c, t2) -> loop (k + utf16Length c) t2
-
-    -- Iterate in reverse through the text until we reach the first new line to measure the length
-    -- of the last line.
-    loopBack k t1 =
-      case Text.unsnoc t1 of
-        Nothing -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
-        Just (_, '\n') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
-        Just (_, '\r') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
-        Just (t2, c) -> loopBack (k + utf16Length c) t2
-
--- Raw text always is ended with a new line so we fail `tryLayout` when raw text is in flat mode.
--- Otherwise we succeed and add the raw text to our document.
-tryLayout _ ((Flat, _, RawText _) : _) = Nothing
-tryLayout s stack@((Break, _, RawText _) : _) = Just (layout s stack)
-
--- Add some indentation.
-tryLayout s ((m, i, Indent n x) : stack) = tryLayout s ((m, i + n, x) : stack)
-
--- If we are in flat mode and we find a new line then fail `tryLayout` by returning `Nothing`. We
--- may not have new lines in flat mode. If we are in break mode then add a new line and return
--- `Just` since our line that we are attempting to layout did not exceed the max width!
-tryLayout _ ((Flat, _, Line) : _) = Nothing
-tryLayout s stack@((Break, _, Line) : _) = Just (layout s stack)
-
--- Add line suffix documents to the suffix stack.
-tryLayout s ((_, _, LineSuffix x) : stack) =
-  tryLayout (s { layoutLineSuffix = x : layoutLineSuffix s }) stack
-
--- If we have just started a new line then immediately render the line prefix document. If we have
--- already added content to this line then add the document to our line prefix stack.
-tryLayout s ((m, i, LinePrefix x) : stack) =
-  if layoutLineStart s then
-    tryLayout s ((m, i, x) : stack)
-  else
-    tryLayout (s { layoutLinePrefix = x : layoutLinePrefix s }) stack
-
--- If there are any buffered line suffix items then let’s flush them! This will also return `Just`
--- which means we accept the layout being attempted. If we are in flat mode and there are some line
--- suffix items, then fail the layout. If we are in flat mode and there are no line suffix items,
--- then render nothing.
-tryLayout s@(LayoutState { layoutLineSuffix = [] }) ((_, _, LineSuffixFlush) : stack) = tryLayout s stack
-tryLayout _ ((Flat, _, LineSuffixFlush) : _) = Nothing
-tryLayout s stack@((_, _, LineSuffixFlush) : _) = Just (layout s stack)
+printDocument maxWidth rootDocument = printLayout (layout maxWidth 0 [(Break, 0, rootDocument)])
