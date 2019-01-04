@@ -204,10 +204,10 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
     -- In a keyword argument both indent _and_ wrap.
     KeywordArgument ->
       group
-        (text "("
+        (ifBreak (text "(")
           <> indent (softline <> l <> text " " <> token t <> line <> r)
           <> softline
-          <> text ")")
+          <> ifBreak (text ")"))
   where
     precedence = case op of
       Add -> Additive

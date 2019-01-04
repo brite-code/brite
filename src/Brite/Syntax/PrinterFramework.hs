@@ -30,6 +30,7 @@ module Brite.Syntax.PrinterFramework
   , hardline
   , linePrefix
   , lineSuffix
+  , ifBreak
   , printDocument
   ) where
 
@@ -120,6 +121,10 @@ lineSuffix = LineSuffix
 -- mode then the second document will be used.
 tryFlat :: Document -> Document -> Document
 tryFlat = Choice
+
+-- Only renders the document if we are rendering in break mode.
+ifBreak :: Document -> Document
+ifBreak x = Choice Empty x
 
 -- The current mode in which a document is being printed.
 data Mode = Break | Flat
