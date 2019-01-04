@@ -80,6 +80,27 @@ recoverMaybe (Just (Fatal _ _)) = empty
 name :: Name -> Document
 name = token . nameToken
 
+-- Pretty prints a comma list. Always inserts a trailing comma if the list is broken onto
+-- multiple lines.
+commaList :: (a -> Panic Document) -> CommaList a -> Panic Document
+commaList _ (CommaList [] Nothing) = return mempty
+commaList f (CommaList as0 an0) = do
+  x <- loop as0 an0
+  return $ indent (softline <> x) <> softline
+  where
+    loop [] Nothing = return mempty
+    loop [(a', t')] Nothing = do
+      a <- recover a' >>= f
+      t <- recover t'
+      return $ a <> ifBreakElse (token t) (removeToken t)
+    loop [] (Just an') = do
+      an <- recover an' >>= f
+      return $ an <> ifBreak (text ",")
+    loop ((a', t') : as) an = do
+      a <- recover a' >>= f
+      t <- recover t'
+      (a <>) . (token t <>) . (line <>) <$> loop as an
+
 -- Pretty prints a list of statements either from a block or a module. If we panic when printing a
 -- statement then this function catches that panic and prints the statement source instead.
 statementList :: [Recover Statement] -> Document
@@ -234,16 +255,49 @@ expression _ (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
   n <- recover n'
   return $ group $ (e <> indent (softline <> token t <> name n))
 
--- TODO: Finish call expressions
-expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just (Ok arg'))) t2'))) = do
+-- Call expressions with a single argument never add a trailing comma. This was a pet-peeve of mine
+-- (Caleb) in the JavaScript pretty printing library [Prettier][1]. One of the primary reasons for
+-- trailing commas is to improve differences in the programmer’s source control manager (like git).
+-- Adding a new line to a trailing comma list only changes one line. It does not also change the
+-- line above it by adding a comma. It is also easy to copy/paste a new item in a trailing comma
+-- list since you don’t need to worry about adding a new comma.
+--
+-- However, functions usually don’t have a variable number of arguments. Most of the time the number
+-- of function arguments never changes so the convenience of a trailing comma list is not relevant.
+-- Trailing commas in function calls with a single item do actively look worse (in my opinion),
+-- though. Especially in JavaScript when you’d have an arrow function (`(x, y) => x + y`) and you’d
+-- have to put a trailing comma after it.
+--
+-- This is my pretty printing framework now, so I get to call the shots.
+--
+-- [1]: https://prettier.io
+expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just arg')) t3'))) = do
   e <- expression (Operand Primary) e'
-  arg <- expression Standalone arg'
-  t2 <- recover t2'
+  arg <- recover arg' >>= expression Standalone
+  t3 <- recover t3'
   return $ e <> group
     (token t1
       <> indent (softline <> arg)
       <> softline
-      <> token t2)
+      <> token t3)
+expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [(arg', t2')] Nothing) t3'))) = do
+  e <- expression (Operand Primary) e'
+  arg <- recover arg' >>= expression Standalone
+  t2 <- recover t2'
+  t3 <- recover t3'
+  return $ e <> group
+    (token t1
+      <> indent (softline <> arg <> removeToken t2)
+      <> softline
+      <> token t3)
+
+-- For call expressions with more then one argument use the `commaList` helper function to print the
+-- argument list. This will always add a trailing comma when the list is broken onto multiple lines.
+expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 args' t3'))) = do
+  e <- expression (Operand Primary) e'
+  args <- commaList (expression Standalone) args'
+  t3 <- recover t3'
+  return $ e <> group (token t1 <> args <> token t3)
 
 -- Panic for all the other parse errors in expression extensions.
 expression _ (BinaryExpression _ (Recover _ _ _)) = empty
@@ -365,14 +419,27 @@ triviaToComments (Newlines _ n : ts) = let (ls, cs) = triviaToComments ts in (ls
 triviaToComments (OtherWhitespace _ : ts) = triviaToComments ts
 triviaToComments (Comment c : ts) = let (ls, cs) = triviaToComments ts in (0, (c, ls) : cs)
 
+-- Does not print the token but does preserve the token’s trivia.
+removeToken :: Token -> Document
+removeToken (Token _ _ ts1 ts2) =
+  let (_, cs) = triviaToComments (ts1 ++ ts2) in
+    comments cs
+  where
+    comments [] = mempty
+    comments ((LineComment c, ls) : cs) =
+      linePrefix (text "//" <> text c <> (if ls > 1 && not (null cs) then hardline else mempty))
+        <> forceBreak
+        <> comments cs
+    comments ((BlockComment c _, ls) : cs) =
+      linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 && not (null cs) then hardline else mempty))
+        <> forceBreak
+        <> comments cs
+
 -- Prints the trivia at the very end of a document.
 endTrivia :: [Trivia] -> Document
 endTrivia ts =
   let (ls, cs) = triviaToComments ts in
-    if null cs then
-      mempty
-    else
-      (if ls > 0 then hardline else mempty) <> comments cs
+    (if ls > 0 && not (null cs) then hardline else mempty) <> comments cs
   where
     comments [] = mempty
     comments ((LineComment c, ls) : cs) =

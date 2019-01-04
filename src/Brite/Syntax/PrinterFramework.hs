@@ -31,6 +31,7 @@ module Brite.Syntax.PrinterFramework
   , linePrefix
   , lineSuffix
   , ifBreak
+  , ifBreakElse
   , printDocument
   ) where
 
@@ -125,6 +126,11 @@ tryFlat = Choice
 -- Only renders the document if we are rendering in break mode.
 ifBreak :: Document -> Document
 ifBreak x = Choice Empty x
+
+-- Only renders the document if we are rendering in break mode. If we are in flat mode then we
+-- render the second document.
+ifBreakElse :: Document -> Document -> Document
+ifBreakElse x y = Choice y x
 
 -- The current mode in which a document is being printed.
 data Mode = Break | Flat
