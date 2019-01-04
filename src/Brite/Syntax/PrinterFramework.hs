@@ -35,8 +35,10 @@ module Brite.Syntax.PrinterFramework
   ) where
 
 import Brite.Syntax.Tokens (utf16Length)
-import qualified Data.Text as T
-import qualified Data.Text.Lazy.Builder as B
+import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Lazy.Builder as Text (Builder)
+import qualified Data.Text.Lazy.Builder as Text.Builder
 
 -- A text document with the ability to be pretty-printed.
 data Document
@@ -45,8 +47,8 @@ data Document
   | Choice Document Document
   | Group Document
   | ForceBreak
-  | Text T.Text
-  | RawText B.Builder
+  | Text Text
+  | RawText Text.Builder
   | Indent Int Document
   | Line
   | LineSuffix Document
@@ -74,12 +76,12 @@ forceBreak :: Document
 forceBreak = ForceBreak
 
 -- Adds some raw text to the document.
-text :: T.Text -> Document
+text :: Text -> Document
 text = Text
 
 -- Inserts some raw text into the document. Always inserts a new line afterwards so we don’t have to
 -- measure the text.
-rawText :: B.Builder -> Document
+rawText :: Text.Builder -> Document
 rawText = RawText
 
 -- Adds a level of indentation to the document. (Two spaces.)
@@ -128,7 +130,7 @@ tryFlat = Choice
 data Mode = Break | Flat
 
 -- Prints the document at the specified maximum width.
-printDocument :: Int -> Document -> B.Builder
+printDocument :: Int -> Document -> Text.Builder
 printDocument maxWidth rootDocument =
   layout initialState [(Break, 0, rootDocument)]
   where
@@ -152,7 +154,7 @@ data LayoutState = LayoutState
   -- reverse ordered.
   , layoutLineSuffix :: [Document]
   -- Line prefix documents which will be rendered after the next new line. This list is
-  -- reverse ordered.
+  -- reverse ordered. Each prefix document always ends with a new line.
   , layoutLinePrefix :: [Document]
   }
 
@@ -162,7 +164,7 @@ data LayoutState = LayoutState
 -- * An execution stack of documents. We build our document by processing every item on the stack.
 --   Each stack item contains the mode in which we print the document, the current level of
 --   indentation, and the document to be printed.
-layout :: LayoutState -> [(Mode, Int, Document)] -> B.Builder
+layout :: LayoutState -> [(Mode, Int, Document)] -> Text.Builder
 
 -- We are done processing our stack!
 layout (LayoutState { layoutLineSuffix = [] }) [] = mempty
@@ -203,12 +205,12 @@ layout s ((_, _, ForceBreak) : stack) = layout s stack
 -- character widths by the Language Server Protocol (LSP) specification.
 layout s ((_, _, Text t0) : stack) =
   let k = loop (layoutWidth s) t0 in
-    B.fromText t0 <> layout (s { layoutWidth = k, layoutLineStart = False }) stack
+    Text.Builder.fromText t0 <> layout (s { layoutWidth = k, layoutLineStart = False }) stack
   where
     -- Measure the length of our text until we either reach the text’s end or a new line. If we
     -- reach a new line then use `loopBack` to measure the length of the last line.
     loop k t1 =
-      case T.uncons t1 of
+      case Text.uncons t1 of
         Nothing -> k
         Just ('\n', t2) -> loopBack 0 t2
         Just ('\r', t2) -> loopBack 0 t2
@@ -217,7 +219,7 @@ layout s ((_, _, Text t0) : stack) =
     -- Iterate in reverse through the text until we reach the first new line to measure the length
     -- of the last line.
     loopBack k t1 =
-      case T.unsnoc t1 of
+      case Text.unsnoc t1 of
         Nothing -> k
         Just (_, '\n') -> k
         Just (_, '\r') -> k
@@ -244,7 +246,9 @@ layout oldState@(LayoutState { layoutLineSuffix = [] }) ((m, i, Line) : stack) =
       }
     newStack = foldl (flip (:)) stack (map ((,,) m i) (layoutLinePrefix oldState))
   in
-    B.singleton '\n' <> B.fromText (T.replicate i " ") <> layout newState newStack
+    Text.Builder.singleton '\n'
+      <> Text.Builder.fromText (Text.replicate i " ")
+      <> layout newState newStack
 -- If there are line suffix documents then process them.
 layout s stack@((m, i, Line) : _) =
   layout (s { layoutLineSuffix = [] }) $
@@ -272,7 +276,7 @@ layout s ((m, i, LineSuffixFlush) : stack) =
 -- * Returns `Nothing` if `k` exceeds the layout max width.
 -- * Returns `Nothing` if we find a new line in a flat mode document.
 -- * Returns `Just` if the first line fits in the layout max width.
-tryLayout :: LayoutState -> [(Mode, Int, Document)] -> Maybe B.Builder
+tryLayout :: LayoutState -> [(Mode, Int, Document)] -> Maybe Text.Builder
 
 -- If our line has exceeded the max width return `Nothing`.
 tryLayout s _ | layoutWidth s > layoutMaxWidth s = Nothing
@@ -308,13 +312,13 @@ tryLayout s ((Break, _, ForceBreak) : stack) = tryLayout s stack
 -- Remember that we use UTF-16 to measure length because that is the encoding specified for
 -- character widths by the Language Server Protocol (LSP) specification.
 tryLayout s ((m, _, Text t0) : stack) =
-  (B.fromText t0 <>) <$> loop (layoutWidth s) t0
+  (Text.Builder.fromText t0 <>) <$> loop (layoutWidth s) t0
   where
     -- Measure the length of our text until we either reach the text’s end or a new line. If we
     -- reach a new line and we are in break mode then use `loopBack` to measure the length of
     -- the last line.
     loop k t1 =
-      case T.uncons t1 of
+      case Text.uncons t1 of
         _ | k > layoutMaxWidth s -> Nothing -- Optimization: Stop iterating if we’ve surpassed the max width.
         Nothing -> tryLayout (s { layoutWidth = k, layoutLineStart = False }) stack
         Just ('\n', t2) -> case m of { Flat -> Nothing; Break -> loopBack 0 t2 }
@@ -324,7 +328,7 @@ tryLayout s ((m, _, Text t0) : stack) =
     -- Iterate in reverse through the text until we reach the first new line to measure the length
     -- of the last line.
     loopBack k t1 =
-      case T.unsnoc t1 of
+      case Text.unsnoc t1 of
         Nothing -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
         Just (_, '\n') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
         Just (_, '\r') -> Just (layout (s { layoutWidth = k, layoutLineStart = False }) stack)
@@ -357,7 +361,9 @@ tryLayout s ((m, i, LinePrefix x) : stack) =
     tryLayout (s { layoutLinePrefix = x : layoutLinePrefix s }) stack
 
 -- If there are any buffered line suffix items then let’s flush them! This will also return `Just`
--- which means we accept the layout being attempted. If we are in flat mode, then fail the layout.
+-- which means we accept the layout being attempted. If we are in flat mode and there are some line
+-- suffix items, then fail the layout. If we are in flat mode and there are no line suffix items,
+-- then render nothing.
 tryLayout s@(LayoutState { layoutLineSuffix = [] }) ((_, _, LineSuffixFlush) : stack) = tryLayout s stack
 tryLayout _ ((Flat, _, LineSuffixFlush) : _) = Nothing
 tryLayout s stack@((_, _, LineSuffixFlush) : _) = Just (layout s stack)

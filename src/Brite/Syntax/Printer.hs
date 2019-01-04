@@ -18,10 +18,10 @@ import Brite.Syntax.CST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
 import Control.Applicative
-import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text.Lazy.Builder as Text (Builder)
 
 -- Pretty prints a Brite module.
-printModule :: Module -> B.Builder
+printModule :: Module -> Text.Builder
 printModule = printDocument maxWidth . module_
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
@@ -326,34 +326,35 @@ pattern (VariablePattern n) = return $ name n
 
 -- Pretty prints a token.
 token :: Token -> Document
-token (Token _ k ts1 ts2) =
-  leading ts1
-    <> text (tokenKindSource k)
-    <> trailing ts2
-  where
-    leading ts = let (_, cs) = triviaToComments ts in comments cs
-      where
-        comments [] = mempty
-        comments ((BlockComment c1 _, 0) : (LineComment c2, ls) : cs) =
-          text "/*" <> text c1 <> text "*/ //" <> text c2
-            <> (if ls > 1 then hardline <> hardline else hardline)
-            <> comments cs
-        comments ((LineComment c, ls) : cs) =
-          linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
-            <> forceBreak
-            <> comments cs
-        comments ((BlockComment c _, ls) : cs) =
-          text "/*" <> text c <> text "*/"
-            <> case ls of { 0 -> text " "; 1 -> hardline; _ -> hardline <> hardline }
-            <> comments cs
+token (Token _ k ts1 ts2) = leadingTrivia ts1 <> text (tokenKindSource k) <> trailingTrivia ts2
 
-    trailing [] = mempty
-    trailing (Spaces _ : ts) = trailing ts
-    trailing (Tabs _ : ts) = trailing ts
-    trailing (Newlines _ _ : ts) = trailing ts
-    trailing (OtherWhitespace _ : ts) = trailing ts
-    trailing (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text c) <> trailing ts
-    trailing (Comment (BlockComment c _) : ts) = text " /*" <> text c <> text "*/" <> trailing ts
+-- Pretty prints the leading trivia of a token.
+leadingTrivia :: [Trivia] -> Document
+leadingTrivia ts = let (_, cs) = triviaToComments ts in comments cs
+  where
+    comments [] = mempty
+    comments ((BlockComment c1 _, 0) : (LineComment c2, ls) : cs) =
+      text "/*" <> text c1 <> text "*/ //" <> text c2
+        <> (if ls > 1 then hardline <> hardline else hardline)
+        <> comments cs
+    comments ((LineComment c, ls) : cs) =
+      linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
+        <> forceBreak
+        <> comments cs
+    comments ((BlockComment c _, ls) : cs) =
+      text "/*" <> text c <> text "*/"
+        <> case ls of { 0 -> text " "; 1 -> hardline; _ -> hardline <> hardline }
+        <> comments cs
+
+-- Pretty prints the trailing trivia of a token.
+trailingTrivia :: [Trivia] -> Document
+trailingTrivia [] = mempty
+trailingTrivia (Spaces _ : ts) = trailingTrivia ts
+trailingTrivia (Tabs _ : ts) = trailingTrivia ts
+trailingTrivia (Newlines _ _ : ts) = trailingTrivia ts
+trailingTrivia (OtherWhitespace _ : ts) = trailingTrivia ts
+trailingTrivia (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text c) <> trailingTrivia ts
+trailingTrivia (Comment (BlockComment c _) : ts) = text " /*" <> text c <> text "*/" <> trailingTrivia ts
 
 -- Converts a list of trivia to a list of comments and the number of new lines in between
 -- each comment.

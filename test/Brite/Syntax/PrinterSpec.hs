@@ -6,13 +6,14 @@ import Brite.Diagnostics
 import Brite.Syntax.Parser
 import Brite.Syntax.Printer
 import Brite.Syntax.Tokens
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as L
-import qualified Data.Text.Lazy.Builder as B
+import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Lazy as Text.Lazy
+import qualified Data.Text.Lazy.Builder as Text.Builder
 import Test.Hspec
 import System.IO
 
-testData :: [T.Text]
+testData :: [Text]
 testData =
   [ "true"
   , "false"
@@ -209,6 +210,8 @@ testData =
   , "let\nx\n=\ny;"
   , "a // a\n+ // +\nb // b"
   , "// a\na\n// +\n+\n// b\nb"
+  , "// a\na\n/**/ // +\n+\n// b\nb"
+  , "// a\na\n// +\n\n+\n// b\nb"
   , "a /* a */ + /* + */ b /* b */"
   , "/* a */ a\n/* + */ +\n/* b */ b"
   , "a /* a\n */ + /* +\n */ b /* b\n */"
@@ -323,6 +326,9 @@ testData =
   , "return"
   , "return; //"
   , "return a +\n//\nb"
+  , "let x = y\n//\n;"
+  , "let x = y\n//\n\n;"
+  , "return a + b"
   ]
 
 openSnapshotFile :: IO Handle
@@ -340,37 +346,38 @@ closeSnapshotFile h = do
 spec :: Spec
 spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
   flip mapM_ testData $ \input ->
-    it (T.unpack (escape input)) $ \h ->
+    it (Text.unpack (escape input)) $ \h ->
       let
         (inputModule, diagnostics) = runDiagnosticWriter (parseModule (tokenize input))
-        output = L.toStrict (B.toLazyText (printModule inputModule))
+        output = Text.Lazy.toStrict (Text.Builder.toLazyText (printModule inputModule))
         (outputModule, _) = runDiagnosticWriter (parseModule (tokenize output))
-        reprintedOutput = L.toStrict (B.toLazyText (printModule outputModule))
+        reprintedOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printModule outputModule))
       in do
         hPutStrLn h ""
         hPutStrLn h (replicate 80 '-')
         hPutStrLn h ""
         hPutStrLn h "### Input"
         hPutStrLn h "```ite"
-        hPutStrLn h (T.unpack input)
+        hPutStrLn h (Text.unpack input)
         hPutStrLn h "```"
         hPutStrLn h ""
         hPutStrLn h "### Output"
         hPutStrLn h "```"
-        hPutStr h (T.unpack output)
+        hPutStr h (Text.unpack output)
         hPutStrLn h "```"
         if null diagnostics then return () else (do
           hPutStrLn h ""
           hPutStrLn h "### Errors"
           flip mapM_ diagnostics (\diagnostic ->
-            hPutStrLn h (L.unpack (B.toLazyText (B.fromText "- " <> debugDiagnostic diagnostic)))))
+            hPutStrLn h (Text.Lazy.unpack (Text.Builder.toLazyText
+              (Text.Builder.fromText "- " <> debugDiagnostic diagnostic)))))
         reprintedOutput `shouldBe` output
 
-escape :: T.Text -> T.Text
-escape = T.concatMap
+escape :: Text -> Text
+escape = Text.concatMap
   (\c ->
     case c of
       '\n' -> "\\n"
       '\r' -> "\\r"
       '\t' -> "\\t"
-      _ -> T.singleton c)
+      _ -> Text.singleton c)
