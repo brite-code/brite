@@ -245,6 +245,12 @@ expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just
       <> lineSuffixFlush
       <> token t2)
 
+-- Panic for all the other parse errors in expression extensions.
+expression _ (BinaryExpression _ (Recover _ _ _)) = empty
+expression _ (BinaryExpression _ (Fatal _ _)) = empty
+expression _ (ExpressionExtra _ (Recover _ _ _)) = empty
+expression _ (ExpressionExtra _ (Fatal _ _)) = empty
+
 -- Pretty prints a pattern.
 pattern :: Pattern -> Panic Document
 pattern (VariablePattern n) = return $ name n
