@@ -106,6 +106,9 @@ hardline = Line
 
 -- Prints the document either on the current line if it just started or the beginning of the next
 -- new line.
+--
+-- Line prefixes are always followed by a new line. This is so we don’t have to layout the text
+-- before this command again.
 linePrefix :: Document -> Document
 linePrefix = LinePrefix
 
@@ -250,16 +253,15 @@ data Layout
 printLayout :: Layout -> Text.Builder
 printLayout = loop 0 (0, mempty) mempty mempty
   where
-    loop i (j, t1) t2 t3 EmptyLayout = t1 <> t2 <> t3 (i + j)
+    loop _ (j, t1) t2 t3 EmptyLayout = t1 <> t2 <> t3 j
     loop i t1 t2 t3 (TextLayout _ t l) = loop i t1 (t2 <> Text.Builder.fromText t) t3 l
     loop i t1 t2 t3 (RawTextLayout m t j l) = loop i t1 (t2 <> t) t3 (LineLayout m j l)
     loop i (_, t1) t2 t3 (LineLayout _ j l) =
-      let k = i + j in
-        t1 <> t2 <> t3 k <> printLine k <> loop i (k, mempty) mempty (\_ -> mempty) l
+      t1 <> t2 <> t3 j <> printLine (i + j) <> loop i (j, mempty) mempty (\_ -> mempty) l
     loop i (j, t1) t2 t3 (LinePrefixLayout l1 l2) =
-      loop i (j, t1 <> loop j (0, mempty) mempty mempty l1) t2 t3 l2
+      loop i (j, t1 <> loop (i + j) (0, mempty) mempty mempty l1 <> printLine (i + j)) t2 t3 l2
     loop i t1 t2 t3 (LineSuffixLayout l1 l2) =
-      loop i t1 t2 (\j -> t3 j <> loop j (0, mempty) mempty mempty l1) l2
+      loop i t1 t2 (\j -> t3 j <> loop (i + j) (0, mempty) mempty mempty l1) l2
 
 -- Prints a single line at the current level of indentation.
 printLine :: Int -> Text.Builder

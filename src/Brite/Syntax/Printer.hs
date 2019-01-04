@@ -15,7 +15,7 @@ module Brite.Syntax.Printer
   ) where
 
 import Brite.Syntax.CST
-import Brite.Syntax.PrinterFramework
+import Brite.Syntax.PrinterFramework3
 import Brite.Syntax.Tokens
 import Control.Applicative
 import qualified Data.Text.Lazy.Builder as Text (Builder)
@@ -242,7 +242,7 @@ expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just
   return $ e <> group
     (token t1
       <> indent (softline <> arg)
-      <> lineSuffixFlush
+      <> softline
       <> token t2)
 
 -- Panic for all the other parse errors in expression extensions.
@@ -330,21 +330,20 @@ token (Token _ k ts1 ts2) = leadingTrivia ts1 <> text (tokenKindSource k) <> tra
 
 -- Pretty prints the leading trivia of a token.
 leadingTrivia :: [Trivia] -> Document
-leadingTrivia ts = let (_, cs) = triviaToComments ts in comments cs
+leadingTrivia ts = let (_, cs) = triviaToComments ts in comments True (reverse cs)
   where
-    comments [] = mempty
-    comments ((BlockComment c1 _, 0) : (LineComment c2, ls) : cs) =
-      text "/*" <> text c1 <> text "*/ //" <> text c2
-        <> (if ls > 1 then hardline <> hardline else hardline)
-        <> comments cs
-    comments ((LineComment c, ls) : cs) =
-      linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
+    comments _ [] = mempty
+    comments _ ((LineComment c, ls) : cs) =
+      comments False cs
+        <> linePrefix (text "//" <> text c <> (if ls > 1 then hardline else mempty))
         <> forceBreak
-        <> comments cs
-    comments ((BlockComment c _, ls) : cs) =
-      text "/*" <> text c <> text "*/"
-        <> case ls of { 0 -> text " "; 1 -> hardline; _ -> hardline <> hardline }
-        <> comments cs
+    comments True ((BlockComment c _, 0) : cs) =
+      comments True cs
+        <> text "/*" <> text c <> text "*/ "
+    comments _ ((BlockComment c _, ls) : cs) =
+      comments False cs
+        <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 then hardline else mempty))
+        <> forceBreak
 
 -- Pretty prints the trailing trivia of a token.
 trailingTrivia :: [Trivia] -> Document
@@ -376,16 +375,11 @@ endTrivia ts =
       (if ls > 0 then hardline else mempty) <> comments cs
   where
     comments [] = mempty
-    comments [(LineComment c, _)] = linePrefix (text "//" <> text c <> hardline)
-    comments [(BlockComment c _, _)] = text "/*" <> text c <> text "*/" <> hardline
-    comments ((BlockComment c1 _, 0) : (LineComment c2, ls) : cs) =
-      text "/*" <> text c1 <> text "*/ //" <> text c2
-        <> (if ls > 1 && not (null cs) then hardline <> hardline else hardline)
-        <> comments cs
     comments ((LineComment c, ls) : cs) =
-      linePrefix (text "//" <> text c <> (if ls > 1 then hardline <> hardline else hardline))
+      text "//" <> text c
+        <> (if ls > 1 && not (null cs) then hardline <> hardline else hardline)
         <> comments cs
     comments ((BlockComment c _, ls) : cs) =
       text "/*" <> text c <> text "*/"
-        <> case ls of { 0 -> text " "; 1 -> hardline; _ -> hardline <> hardline }
+        <> (if ls > 1 && not (null cs) then hardline <> hardline else hardline)
         <> comments cs
