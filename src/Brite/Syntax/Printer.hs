@@ -103,20 +103,43 @@ commaList f (CommaList as0 an0) = do
 
 -- Pretty prints a list of statements either from a block or a module. If we panic when printing a
 -- statement then this function catches that panic and prints the statement source instead.
+--
+-- Empty statements get special handling since we are removing them from the source.
 statementList :: [Recover Statement] -> Document
+
+-- An empty statement between two other statements should do the `triviaHasLeadingLine` check for
+-- both of them and insert an extra new line.
+statementList (s1 : Ok (EmptyStatement t) : ss@(s2 : _)) =
+  statementListItem s1
+    <> (if extra then hardline else mempty)
+    <> removeToken t
+    <> statementList ss
+  where
+    extra =
+      triviaHasLeadingLine (tokenLeadingTrivia t) ||
+      triviaHasLeadingLine (recoverStatementLeadingTrivia s2)
+
+-- Empty statements do not get trailing new lines or extra lines for extra spaces. We are removing
+-- empty statements so two empty lines after re-printing will be collapsed to one empty line.
+statementList (Ok (EmptyStatement t) : ss) = removeToken t <> statementList ss
+statementList [s1, Ok (EmptyStatement t)] = statementListItem s1 <> removeToken t
+
+-- Insert an extra new line between statements who in source have one empty line between them.
 statementList [] = mempty
 statementList [s] = statementListItem s
 statementList (s1 : ss@(s2 : _)) =
   statementListItem s1
-    <> (if hasLeadingLine (recoverStatementLeadingTrivia s2) then hardline else mempty)
+    <> (if triviaHasLeadingLine (recoverStatementLeadingTrivia s2) then hardline else mempty)
     <> statementList ss
-  where
-    hasLeadingLine [] = False
-    hasLeadingLine (Spaces _ : ts) = hasLeadingLine ts
-    hasLeadingLine (Tabs _ : ts) = hasLeadingLine ts
-    hasLeadingLine (Newlines _ _ : _) = True
-    hasLeadingLine (OtherWhitespace _ : ts) = hasLeadingLine ts
-    hasLeadingLine (Comment _ : _) = False
+
+-- Does this trivia list have a leading new line?
+triviaHasLeadingLine :: [Trivia] -> Bool
+triviaHasLeadingLine [] = False
+triviaHasLeadingLine (Spaces _ : ts) = triviaHasLeadingLine ts
+triviaHasLeadingLine (Tabs _ : ts) = triviaHasLeadingLine ts
+triviaHasLeadingLine (Newlines _ _ : _) = True
+triviaHasLeadingLine (OtherWhitespace _ : ts) = triviaHasLeadingLine ts
+triviaHasLeadingLine (Comment _ : _) = False
 
 -- Prints a single statement in a list of statements. If the statement has a parse error then this
 -- function catches the parse error and prints the statement source instead of panicking. Always
@@ -154,6 +177,34 @@ statement (ReturnStatement t1 e' t2') = do
   e <- recoverMaybe e' >>= sequence . fmap (expression KeywordArgument)
   t2 <- recoverMaybe t2'
   return $ token t1 <> maybe mempty (text " " <>) e <> maybe (text ";") token t2
+
+-- To print an empty statement we remove the single semicolon token which comprised the
+-- empty statement.
+statement (EmptyStatement t) = return $ removeToken t
+
+-- Pretty prints a block.
+--
+-- NOTE: Does not group the block! The caller needs to make sure they group their block.
+block :: Block -> Panic Document
+block (Block t1' [Ok (ExpressionStatement e' Nothing)] t2') = do
+  t1 <- recover t1'
+  e <- expression Standalone e'
+  t2 <- recover t2'
+  return $ token t1 <> indent (line <> e) <> line <> token t2
+block (Block t1' [Ok (ExpressionStatement e' (Just t2'))] t3') = do
+  t1 <- recover t1'
+  e <- expression Standalone e'
+  t2 <- recover t2'
+  t3 <- recover t3'
+  return $ token t1 <> indent (line <> e <> removeToken t2) <> line <> token t3
+block (Block t1' [] t2') = do
+  t1 <- recover t1'
+  t2 <- recover t2'
+  return $ token t1 <> indent softline <> token t2
+block (Block t1' ss t2') = do
+  t1 <- recover t1'
+  t2 <- recover t2'
+  return $ token t1 <> indent (hardline <> statementList ss) <> token t2
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
@@ -245,6 +296,11 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
       GreaterThanOrEqual -> Relational
       And -> LogicalAnd
       Or -> LogicalOr
+
+-- Render block expressions.
+expression _ (BlockExpression t b') = do
+  b <- block b'
+  return $ group (token t <> text " " <> b)
 
 -- Always remove unnecessary parentheses.
 expression loc (WrappedExpression _ e Nothing t) = recover t *> recover e >>= expression loc
