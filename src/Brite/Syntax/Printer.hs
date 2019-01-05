@@ -41,7 +41,7 @@ maxWidth = 80
 -- Pretty prints a Brite module.
 module_ :: Module -> Document
 module_ (Module [] t) = endTrivia (dropWhile isTriviaWhitespace (endTokenTrivia t))
-module_ (Module ss t) = statementList ss <> endTrivia (endTokenTrivia t)
+module_ (Module ss t) = statementSequence ss <> endTrivia (endTokenTrivia t)
 
 -- A monad around `Maybe` that provides a fine-tuned interface for panicking an operation. We use a
 -- `newtype` to help reduce confusion and to rename operations.
@@ -105,15 +105,15 @@ commaList f (CommaList as0 an0) = do
 -- statement then this function catches that panic and prints the statement source instead.
 --
 -- Empty statements get special handling since we are removing them from the source.
-statementList :: [Recover Statement] -> Document
+statementSequence :: [Recover Statement] -> Document
 
 -- An empty statement between two other statements should do the `triviaHasLeadingLine` check for
 -- both of them and insert an extra new line.
-statementList (s1 : Ok (EmptyStatement t) : ss@(s2 : _)) =
+statementSequence (s1 : Ok (EmptyStatement t) : ss@(s2 : _)) =
   statementListItem s1
     <> (if extra then hardline else mempty)
     <> removeToken t
-    <> statementList ss
+    <> statementSequence ss
   where
     extra =
       triviaHasLeadingLine (tokenLeadingTrivia t) ||
@@ -121,16 +121,16 @@ statementList (s1 : Ok (EmptyStatement t) : ss@(s2 : _)) =
 
 -- Empty statements do not get trailing new lines or extra lines for extra spaces. We are removing
 -- empty statements so two empty lines after re-printing will be collapsed to one empty line.
-statementList (Ok (EmptyStatement t) : ss) = removeToken t <> statementList ss
-statementList [s1, Ok (EmptyStatement t)] = statementListItem s1 <> removeToken t
+statementSequence (Ok (EmptyStatement t) : ss) = removeToken t <> statementSequence ss
+statementSequence [s1, Ok (EmptyStatement t)] = statementListItem s1 <> removeToken t
 
 -- Insert an extra new line between statements who in source have one empty line between them.
-statementList [] = mempty
-statementList [s] = statementListItem s
-statementList (s1 : ss@(s2 : _)) =
+statementSequence [] = mempty
+statementSequence [s] = statementListItem s
+statementSequence (s1 : ss@(s2 : _)) =
   statementListItem s1
     <> (if triviaHasLeadingLine (recoverStatementLeadingTrivia s2) then hardline else mempty)
-    <> statementList ss
+    <> statementSequence ss
 
 -- Does this trivia list have a leading new line?
 triviaHasLeadingLine :: [Trivia] -> Bool
@@ -204,7 +204,7 @@ block (Block t1' [] t2') = do
 block (Block t1' ss t2') = do
   t1 <- recover t1'
   t2 <- recover t2'
-  return $ token t1 <> indent (hardline <> statementList ss) <> token t2
+  return $ token t1 <> indent (hardline <> statementSequence ss) <> token t2
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
