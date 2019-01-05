@@ -31,6 +31,7 @@ tryStatement =
     <|> tryExpressionStatement
     <|> tryReturnStatement
     <|> tryBreakStatement
+    <|> tryEmptyStatement
     <|> unexpected ExpectedStatement
 
 tryExpressionStatement :: TryParser Statement
@@ -60,6 +61,9 @@ tryBreakStatement =
     <$> tryKeyword Break
     <&> optionalOnSameLine tryExpression
     <&> semicolon
+
+tryEmptyStatement :: TryParser Statement
+tryEmptyStatement = EmptyStatement <$> tryGlyph Semicolon
 
 semicolon :: Parser (Maybe (Recover Token))
 semicolon = optional (tryGlyph Semicolon)

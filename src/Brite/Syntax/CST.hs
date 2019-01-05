@@ -126,6 +126,14 @@ data Statement
   -- We should continue to ask ourselves: do we need the `return` statement or `loop` expressions?
   | BreakStatement Token (Maybe (Recover Expression)) Semicolon
 
+  -- ```
+  -- ;
+  -- ```
+  --
+  -- An empty statement is only a semicolon. Aids in error recovery but otherwise has no
+  -- practical use.
+  | EmptyStatement Token
+
   -- Some declaration which is not order dependent unlike all statements.
   | Declaration Declaration
 
@@ -660,6 +668,7 @@ statementLeadingTrivia (ExpressionStatement e _) = expressionLeadingTrivia e
 statementLeadingTrivia (BindingStatement t _ _ _ _ _) = tokenLeadingTrivia t
 statementLeadingTrivia (ReturnStatement t _ _) = tokenLeadingTrivia t
 statementLeadingTrivia (BreakStatement t _ _) = tokenLeadingTrivia t
+statementLeadingTrivia (EmptyStatement t) = tokenLeadingTrivia t
 statementLeadingTrivia (Declaration (FunctionDeclaration t _ _)) = tokenLeadingTrivia t
 
 -- Gets the leading trivia for an expression.
@@ -729,6 +738,7 @@ statementTokens (BreakStatement t1 e t2) =
   singletonToken t1
     <> maybeTokens (recoverTokens expressionTokens) e
     <> maybeTokens (recoverTokens singletonToken) t2
+statementTokens (EmptyStatement t) = singletonToken t
 statementTokens (Declaration d) =
   declarationTokens d
 
@@ -992,6 +1002,7 @@ debugStatement indentation (ReturnStatement _ (Just expression) _) =
 debugStatement _ (BreakStatement _ Nothing _) = B.fromText "break"
 debugStatement indentation (BreakStatement _ (Just expression) _) =
   B.fromText "(break " <> debugRecover (debugExpression indentation) expression <> B.singleton ')'
+debugStatement _ (EmptyStatement _) = B.fromText "empty"
 debugStatement indentation (Declaration declaration) =
   debugDeclaration indentation declaration
 
