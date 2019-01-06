@@ -255,6 +255,8 @@ data ExpressionLocation
   | AssignmentValue
   -- An argument to some code coming after a keyword. For example `return E` or `if E {}`.
   | KeywordArgument
+  -- The expression was wrapped in parentheses. For example `(E)`.
+  | Wrapped
   -- Some part of an operation expression. Operation expressions have different precedence levels
   -- which we include here. For example `E + E` or `!E`.
   | Operand Precedence
@@ -271,6 +273,23 @@ data Precedence
   | LogicalAnd
   | LogicalOr
   deriving (Eq, Ord)
+
+-- The precedence of a binary operator.
+binaryOperatorPrecedence :: BinaryOperator -> Precedence
+binaryOperatorPrecedence Add = Additive
+binaryOperatorPrecedence Subtract = Additive
+binaryOperatorPrecedence Multiply = Multiplicative
+binaryOperatorPrecedence Divide = Multiplicative
+binaryOperatorPrecedence Remainder = Multiplicative
+binaryOperatorPrecedence Exponent = Exponentiation
+binaryOperatorPrecedence Equals = Equality
+binaryOperatorPrecedence NotEquals = Equality
+binaryOperatorPrecedence LessThan = Relational
+binaryOperatorPrecedence LessThanOrEqual = Relational
+binaryOperatorPrecedence GreaterThan = Relational
+binaryOperatorPrecedence GreaterThanOrEqual = Relational
+binaryOperatorPrecedence And = LogicalAnd
+binaryOperatorPrecedence Or = LogicalOr
 
 -- Wrap expressions at a precedence level higher than the one provided.
 wrap :: Precedence -> ExpressionLocation -> Document -> Document
@@ -305,6 +324,9 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
     -- If our operation is at the same precedence then we want to inline it into the
     -- parent operation.
     Operand _ -> l <> text " " <> token t <> line <> r
+    -- Wrapped gets the same behavior as the case where we wrap the expression ourselves except we
+    -- don’t add parentheses.
+    Wrapped -> group (l <> text " " <> token t <> indent1 (line <> r))
     -- Don’t indent or anything at the top level.
     Standalone -> group (l <> text " " <> token t <> line <> r)
     -- In an assignment value indent but don’t wrap.
@@ -316,29 +338,28 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
           <> indent (softline <> l <> text " " <> token t <> line <> r <> softline)
           <> ifBreak (text ")"))
   where
-    precedence = case op of
-      Add -> Additive
-      Subtract -> Additive
-      Multiply -> Multiplicative
-      Divide -> Multiplicative
-      Remainder -> Multiplicative
-      Exponent -> Exponentiation
-      Equals -> Equality
-      NotEquals -> Equality
-      LessThan -> Relational
-      LessThanOrEqual -> Relational
-      GreaterThan -> Relational
-      GreaterThanOrEqual -> Relational
-      And -> LogicalAnd
-      Or -> LogicalOr
+    precedence = binaryOperatorPrecedence op
 
 -- Render block expressions.
 expression _ (BlockExpression t b') = do
   b <- block b'
   return $ token t <> text " " <> b
 
--- Always remove unnecessary parentheses.
-expression loc (WrappedExpression _ e Nothing t) = recover t *> recover e >>= expression loc
+-- Remove unnecessary parentheses and keep parentheses which are needed.
+expression loc (WrappedExpression t1 e' Nothing t2') = do
+  e <- recover e'
+  t2 <- recover t2'
+  if needsWrapping loc e then do
+    wrapped <- expression Wrapped e
+    return $ token t1 <> wrapped <> token t2
+  else do
+    wrapped <- expression loc e
+    return $ removeToken t1 <> wrapped <> removeToken t2
+  where
+    needsWrapping (Operand p) (BinaryExpression _ (Ok (BinaryExpressionExtra op _ _))) =
+      p < binaryOperatorPrecedence op
+    needsWrapping loc (WrappedExpression _ (Ok e) Nothing _) = needsWrapping loc e
+    needsWrapping _ _ = False
 
 -- Group a property expression and indent its property on a newline if the group breaks.
 expression _ (ExpressionExtra e' (Ok (PropertyExpressionExtra t n'))) = do
@@ -469,34 +490,31 @@ pattern (VariablePattern n) = return $ name n
 
 -- Pretty prints a token.
 token :: Token -> Document
-token (Token _ k ts1 ts2) = leadingTrivia ts1 <> text (tokenKindSource k) <> trailingTrivia ts2
-
--- Pretty prints the leading trivia of a token.
-leadingTrivia :: [Trivia] -> Document
-leadingTrivia ts = let (_, cs) = triviaToComments ts in comments True (reverse cs)
+token (Token _ k ts1 ts2) =
+  leading ts1 <> text (tokenKindSource k) <> trailing ts2
   where
-    comments _ [] = mempty
-    comments _ ((LineComment c, ls) : cs) =
-      comments False cs
-        <> forceBreak
-        <> linePrefix (text "//" <> text (trimTrailingWhitespace c) <> (if ls > 1 then hardline else mempty))
-    comments True ((BlockComment c _, 0) : cs) =
-      comments True cs
-        <> text "/*" <> text c <> text "*/ "
-    comments _ ((BlockComment c _, ls) : cs) =
-      comments False cs
-        <> forceBreak
-        <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 then hardline else mempty))
+    leading ts = let (_, cs) = triviaToComments ts in comments True (reverse cs)
+      where
+        comments _ [] = mempty
+        comments _ ((LineComment c, ls) : cs) =
+          comments False cs
+            <> forceBreak
+            <> linePrefix (text "//" <> text (trimTrailingWhitespace c) <> (if ls > 1 then hardline else mempty))
+        comments True ((BlockComment c _, 0) : cs) =
+          comments True cs
+            <> text "/*" <> text c <> text "*/ "
+        comments _ ((BlockComment c _, ls) : cs) =
+          comments False cs
+            <> forceBreak
+            <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 then hardline else mempty))
 
--- Pretty prints the trailing trivia of a token.
-trailingTrivia :: [Trivia] -> Document
-trailingTrivia [] = mempty
-trailingTrivia (Spaces _ : ts) = trailingTrivia ts
-trailingTrivia (Tabs _ : ts) = trailingTrivia ts
-trailingTrivia (Newlines _ _ : ts) = trailingTrivia ts
-trailingTrivia (OtherWhitespace _ : ts) = trailingTrivia ts
-trailingTrivia (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text (trimTrailingWhitespace c)) <> trailingTrivia ts
-trailingTrivia (Comment (BlockComment c _) : ts) = text " /*" <> text c <> text "*/" <> trailingTrivia ts
+    trailing [] = mempty
+    trailing (Spaces _ : ts) = trailing ts
+    trailing (Tabs _ : ts) = trailing ts
+    trailing (Newlines _ _ : ts) = trailing ts
+    trailing (OtherWhitespace _ : ts) = trailing ts
+    trailing (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text (trimTrailingWhitespace c)) <> trailing ts
+    trailing (Comment (BlockComment c _) : ts) = text " /*" <> text c <> text "*/" <> trailing ts
 
 -- Converts a list of trivia to a list of comments and the number of new lines in between
 -- each comment.

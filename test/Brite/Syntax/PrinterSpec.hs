@@ -455,6 +455,14 @@ testData =
   , "//\ndo {}"
   , "let x = f(\n//\n);"
   , "(do {});"
+  , "//\n(a + b) * c;"
+  , "//\n\n(a + b) * c;"
+  , "(a + b) //\n * c;"
+  , "//\n((a + b)) * c;"
+  , "//\n\n((a + b)) * c;"
+  , "((a + b)) //\n * c;"
+  , "//\na + b"
+  , "(a +\n//\nb) * c"
   ]
 
 openSnapshotFile :: IO Handle
