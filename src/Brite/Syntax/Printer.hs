@@ -196,8 +196,7 @@ statement (BindingStatement t1 p' Nothing t2' e' t3') = do
       <> bind
       <> text " "
       <> token t2
-      <> (if breaksOnNextLine e then ifFlat (text " ") else text " ")
-      <> value
+      <> group ((if breaksOnNextLine e then ifFlat (text " ") else text " ") <> value)
       <> maybe (text ";") token t3
   where
     breaksOnNextLine (BinaryExpression _ _) = True
@@ -329,14 +328,14 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
     Wrapped -> group (l <> text " " <> token t <> indent1 (line <> r))
     -- Don’t indent or anything at the top level.
     Standalone -> group (l <> text " " <> token t <> line <> r)
-    -- In an assignment value indent but don’t wrap.
-    AssignmentValue -> group (indent (softline <> l <> text " " <> token t <> line <> r))
+    -- In an assignment value indent but don’t wrap. Also, don’t group the entire thing. The caller
+    -- is responsible for grouping.
+    AssignmentValue -> indent (softline <> group (l <> text " " <> token t <> line <> r))
     -- In a keyword argument both indent _and_ wrap.
-    KeywordArgument ->
-      group
-        (ifBreak (text "(")
-          <> indent (softline <> l <> text " " <> token t <> line <> r <> softline)
-          <> ifBreak (text ")"))
+    KeywordArgument -> group $
+      (ifBreak (text "(")
+        <> indent (softline <> group (l <> text " " <> token t <> line <> r) <> softline)
+        <> ifBreak (text ")"))
   where
     precedence = binaryOperatorPrecedence op
 
@@ -358,7 +357,7 @@ expression loc (WrappedExpression t1 e' Nothing t2') = do
   where
     needsWrapping (Operand p) (BinaryExpression _ (Ok (BinaryExpressionExtra op _ _))) =
       p < binaryOperatorPrecedence op
-    needsWrapping loc (WrappedExpression _ (Ok e) Nothing _) = needsWrapping loc e
+    needsWrapping l (WrappedExpression _ (Ok e) Nothing _) = needsWrapping l e
     needsWrapping _ _ = False
 
 -- Group a property expression and indent its property on a newline if the group breaks.

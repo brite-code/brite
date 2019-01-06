@@ -344,7 +344,10 @@ testData =
   , "//\n/**/\nlet x = y;"
   , "/**/\n\n//\n\nlet x = y;"
   , "//\n\n/**/\n\nlet x = y;"
-  , "a\n/**/\n + b"
+  , "a\n/**/\n+ b"
+  , "a +\n/**/\nb"
+  , "a\n//\n+ b"
+  , "a +\n//\nb"
   , "/**/ /**/\nlet x = y;"
   , "f()"
   , "f(/**/)"
@@ -463,6 +466,13 @@ testData =
   , "((a + b)) //\n * c;"
   , "//\na + b"
   , "(a +\n//\nb) * c"
+  , "let x = a + b;"
+  , "let x =\n//\na + b;"
+  , "let x = a +\n//\nb;"
+  , "return (\n//\na + b);"
+  , "return (a +\n//\nb);"
+  , "a + b +\n//\nc + d"
+  , "//\na + b + c + d"
   ]
 
 openSnapshotFile :: IO Handle

@@ -72,10 +72,12 @@ instance Monoid Document where
 group :: Document -> Document
 group = Group
 
--- Always forces the group to break. If this command is inside of a group it will never fit on
--- one line.
+-- Always forces the group to break when breaking means a new line would come before this command.
+-- That is `group (forceBreak <> line)` will not break the group, but `group (line <> forceBreak)`
+-- will. This is a choice not based on principles, but rather based on aesthetics given that
+-- `forceBreak` is mostly used to introduce new lines for comments to sit on.
 forceBreak :: Document
-forceBreak = Choice ForceBreak Empty
+forceBreak = ForceBreak
 
 -- Adds some raw text to the document.
 text :: Text -> Document
@@ -164,6 +166,17 @@ data LayoutState = LayoutState
   --
   -- We implement this as a function so line prefixes and suffixes can also be deferred.
   , layoutDeferredLine :: Maybe (Int -> Layout -> Layout)
+  -- Does the alternate choice have a new line?
+  , layoutAlternateHasLine :: Bool
+  }
+
+-- The initial layout state.
+initialState :: Int -> LayoutState
+initialState maxWidth = LayoutState
+  { layoutMaxWidth = maxWidth
+  , layoutWidth = 0
+  , layoutDeferredLine = Nothing
+  , layoutAlternateHasLine = False
   }
 
 -- Produces the best possible layout for a document where all groups which can fit on a single line
@@ -186,6 +199,14 @@ layout state ((_, _, Empty) : stack) = layout state stack
 -- Add both documents in a concatenation to our execution stack.
 layout state ((m, i, Concat x y) : stack) = layout state ((m, i, x) : (m, i, y) : stack)
 
+-- Choose the left side in flat mode. If the right side is a line then update our state so that we
+-- know that picking the alternate route means we’d have a new line.
+--
+-- NOTE: This is a rather dumb check. We could go crazy and search in `Concat`s and what not, but
+-- this gets the job done if you’re using `line` or `softline`.
+layout state ((Flat, i, Choice x Line) : stack) =
+  layout (state { layoutAlternateHasLine = True }) ((Flat, i, x) : stack)
+
 -- Choose one of the two documents based on our printing mode.
 layout state ((Flat, i, Choice x _) : stack) = layout state ((Flat, i, x) : stack)
 layout state ((Break, i, Choice _ y) : stack) = layout state ((Break, i, y) : stack)
@@ -201,7 +222,7 @@ layout state ((Break, i, Choice _ y) : stack) = layout state ((Break, i, y) : st
 -- correctly measure the grouped content.
 layout state ((Flat, i, Group x) : stack) = layout state ((Flat, i, x) : stack)
 layout state@(LayoutState { layoutDeferredLine = Nothing }) ((Break, i, Group x) : stack) =
-  let l1 = layout state ((Flat, i, x) : stack) in
+  let l1 = layout (state { layoutAlternateHasLine = False }) ((Flat, i, x) : stack) in
     if fits (layoutMaxWidth state - layoutWidth state) l1 then l1
     else layout state ((Break, i, x) : stack)
   where
@@ -293,10 +314,7 @@ layout oldState@(LayoutState { layoutDeferredLine = Just f }) ((m, i, Line) : st
 -- `printLayout` we will add the proper indentation level to our line prefix. Always layout the line
 -- prefix in flat mode since we don’t have a proper current character value.
 layout state ((_, _, LinePrefix x) : stack) =
-  let
-    prefixState = LayoutState { layoutMaxWidth = layoutMaxWidth state, layoutWidth = 0, layoutDeferredLine = Nothing }
-    prefix = LinePrefixLayout (layout prefixState [(Flat, 0, x)])
-  in
+  let prefix = LinePrefixLayout (layout (initialState (layoutMaxWidth state)) [(Flat, 0, x)]) in
     case layoutDeferredLine state of
       Nothing -> prefix (layout state stack)
       Just f ->
@@ -307,19 +325,17 @@ layout state ((_, _, LinePrefix x) : stack) =
 -- `printLayout` we will add the proper indentation level to our line suffix. Always layout the line
 -- suffix in flat mode since we don’t have a proper current character value.
 layout state ((_, _, LineSuffix x) : stack) =
-  let
-    suffixState = LayoutState { layoutMaxWidth = layoutMaxWidth state, layoutWidth = 0, layoutDeferredLine = Nothing }
-    suffix = LineSuffixLayout (layout suffixState [(Flat, 0, x)])
-  in
+  let suffix = LineSuffixLayout (layout (initialState (layoutMaxWidth state)) [(Flat, 0, x)]) in
     case layoutDeferredLine state of
       Nothing -> suffix (layout state stack)
       Just f ->
         let newState = state { layoutDeferredLine = Just (\i y -> f i (suffix y)) } in
           layout newState stack
 
--- Add a force break layout in flat mode.
-layout state ((Flat, _, ForceBreak) : stack) = ForceBreakLayout (layout state stack)
-layout state ((Break, _, ForceBreak) : stack) = layout state stack
+-- Add a force break layout in flat mode, but only if the alternate layout has a new line before
+-- this point.
+layout state ((Flat, _, ForceBreak) : stack) | layoutAlternateHasLine state = ForceBreakLayout (layout state stack)
+layout state ((_, _, ForceBreak) : stack) = layout state stack
 
 -- If we forced our deferred line to be added (like in the `Text` match above) then we add that
 -- line here.
@@ -456,10 +472,4 @@ printLayout = loop 0 (0, 0, mempty) mempty (\_ -> mempty)
 -- Prints the document at the specified maximum width.
 printDocument :: Int -> Document -> Text.Builder
 printDocument maxWidth rootDocument =
-  printLayout (layout initialState [(Break, 0, rootDocument)])
-  where
-    initialState = LayoutState
-      { layoutMaxWidth = maxWidth
-      , layoutWidth = 0
-      , layoutDeferredLine = Nothing
-      }
+  printLayout (layout (initialState maxWidth) [(Break, 0, rootDocument)])
