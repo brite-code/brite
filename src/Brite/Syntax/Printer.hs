@@ -158,7 +158,25 @@ statement :: Statement -> Panic Document
 statement (ExpressionStatement e' t') = do
   e <- expression Standalone e'
   t <- recoverMaybe t'
-  return $ e <> maybe (text ";") token t
+  if semicolon then
+    return $ e <> maybe (text ";") token t
+  else
+    return $ e <> maybe mempty removeToken t
+  where
+    semicolon = case e' of
+      ConstantExpression _ -> True
+      VariableExpression _ -> True
+      FunctionExpression _ _ -> True
+      ObjectExpression _ _ _ _ -> True
+      VariantExpression _ _ _ -> True
+      UnaryExpression _ _ _ -> True
+      BinaryExpression _ _ -> True
+      ConditionalExpression _ -> False
+      MatchExpression _ _ _ _ _ -> False
+      BlockExpression _ _ -> False
+      LoopExpression _ _ -> False
+      WrappedExpression _ _ _ _ -> True
+      ExpressionExtra _ _ -> True
 
 -- Pretty print a binding statement. Always print the semicolon! Even if the semicolon was
 -- not included.
@@ -185,26 +203,30 @@ statement (EmptyStatement t) = return $ removeToken t
 -- Pretty prints a block.
 --
 -- NOTE: Does not group the block! The caller needs to make sure they group their block.
-block :: Block -> Panic Document
-block (Block t1' [Ok (ExpressionStatement e' Nothing)] t2') = do
+ungroupedBlock :: Block -> Panic Document
+ungroupedBlock (Block t1' [Ok (ExpressionStatement e' Nothing)] t2') = do
   t1 <- recover t1'
   e <- expression Standalone e'
   t2 <- recover t2'
   return $ token t1 <> indent (line <> e <> line) <> token t2
-block (Block t1' [Ok (ExpressionStatement e' (Just t2'))] t3') = do
+ungroupedBlock (Block t1' [Ok (ExpressionStatement e' (Just t2'))] t3') = do
   t1 <- recover t1'
   e <- expression Standalone e'
   t2 <- recover t2'
   t3 <- recover t3'
   return $ token t1 <> indent (line <> e <> removeToken t2 <> line) <> token t3
-block (Block t1' [] t2') = do
+ungroupedBlock (Block t1' [] t2') = do
   t1 <- recover t1'
   t2 <- recover t2'
   return $ token t1 <> indent softline <> token t2
-block (Block t1' ss t2') = do
+ungroupedBlock (Block t1' ss t2') = do
   t1 <- recover t1'
   t2 <- recover t2'
   return $ token t1 <> indent (hardline <> statementSequence ss) <> token t2
+
+-- Pretty prints a block.
+block :: Block -> Panic Document
+block = fmap group . ungroupedBlock
 
 -- Pretty prints a constant.
 constant :: Constant -> Document
@@ -299,7 +321,7 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
 -- Render block expressions.
 expression _ (BlockExpression t b') = do
   b <- block b'
-  return $ group (token t <> text " " <> b)
+  return $ token t <> text " " <> b
 
 -- Always remove unnecessary parentheses.
 expression loc (WrappedExpression _ e Nothing t) = recover t *> recover e >>= expression loc
