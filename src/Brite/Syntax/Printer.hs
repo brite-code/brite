@@ -83,10 +83,10 @@ name = token . nameToken
 -- Pretty prints a comma list. Always inserts a trailing comma if the list is broken onto
 -- multiple lines.
 commaList :: (a -> Panic Document) -> CommaList a -> Panic Document
-commaList _ (CommaList [] Nothing) = return mempty
+commaList _ (CommaList [] Nothing) = return (indent softline)
 commaList f (CommaList as0 an0) = do
   x <- loop as0 an0
-  return $ indent (softline <> x) <> softline
+  return $ indent (softline <> x <> softline)
   where
     loop [] Nothing = return mempty
     loop [(a', t')] Nothing = do
@@ -190,13 +190,13 @@ block (Block t1' [Ok (ExpressionStatement e' Nothing)] t2') = do
   t1 <- recover t1'
   e <- expression Standalone e'
   t2 <- recover t2'
-  return $ token t1 <> indent (line <> e) <> line <> token t2
+  return $ token t1 <> indent (line <> e <> line) <> token t2
 block (Block t1' [Ok (ExpressionStatement e' (Just t2'))] t3') = do
   t1 <- recover t1'
   e <- expression Standalone e'
   t2 <- recover t2'
   t3 <- recover t3'
-  return $ token t1 <> indent (line <> e <> removeToken t2) <> line <> token t3
+  return $ token t1 <> indent (line <> e <> removeToken t2 <> line) <> token t3
 block (Block t1' [] t2') = do
   t1 <- recover t1'
   t2 <- recover t2'
@@ -277,8 +277,7 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
     KeywordArgument ->
       group
         (ifBreak (text "(")
-          <> indent (softline <> l <> text " " <> token t <> line <> r)
-          <> softline
+          <> indent (softline <> l <> text " " <> token t <> line <> r <> softline)
           <> ifBreak (text ")"))
   where
     precedence = case op of
@@ -333,8 +332,7 @@ expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [] (Just
   t3 <- recover t3'
   return $ e <> group
     (token t1
-      <> indent (softline <> arg)
-      <> softline
+      <> indent (softline <> arg <> softline)
       <> token t3)
 expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [(arg', t2')] Nothing) t3'))) = do
   e <- expression (Operand Primary) e'
@@ -343,8 +341,7 @@ expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 (CommaList [(arg', 
   t3 <- recover t3'
   return $ e <> group
     (token t1
-      <> indent (softline <> arg <> removeToken t2)
-      <> softline
+      <> indent (softline <> arg <> removeToken t2 <> softline)
       <> token t3)
 
 -- For call expressions with more then one argument use the `commaList` helper function to print the
@@ -445,15 +442,15 @@ leadingTrivia ts = let (_, cs) = triviaToComments ts in comments True (reverse c
     comments _ [] = mempty
     comments _ ((LineComment c, ls) : cs) =
       comments False cs
-        <> linePrefix (text "//" <> text c <> (if ls > 1 then hardline else mempty))
         <> forceBreak
+        <> linePrefix (text "//" <> text c <> (if ls > 1 then hardline else mempty))
     comments True ((BlockComment c _, 0) : cs) =
       comments True cs
         <> text "/*" <> text c <> text "*/ "
     comments _ ((BlockComment c _, ls) : cs) =
       comments False cs
-        <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 then hardline else mempty))
         <> forceBreak
+        <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 then hardline else mempty))
 
 -- Pretty prints the trailing trivia of a token.
 trailingTrivia :: [Trivia] -> Document
@@ -483,12 +480,12 @@ removeToken (Token _ _ ts1 ts2) =
   where
     comments [] = mempty
     comments ((LineComment c, ls) : cs) =
-      linePrefix (text "//" <> text c <> (if ls > 1 && not (null cs) then hardline else mempty))
-        <> forceBreak
+      forceBreak
+        <> linePrefix (text "//" <> text c <> (if ls > 1 && not (null cs) then hardline else mempty))
         <> comments cs
     comments ((BlockComment c _, ls) : cs) =
-      linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 && not (null cs) then hardline else mempty))
-        <> forceBreak
+      forceBreak
+        <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 && not (null cs) then hardline else mempty))
         <> comments cs
 
 -- Prints the trivia at the very end of a document.

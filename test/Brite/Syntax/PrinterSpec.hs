@@ -410,6 +410,44 @@ testData =
   , "// Hello, world!\n\n;\nlet x = y;"
   , "// Hello, world!\n\n;\n\nlet x = y;"
   , "do {\n//\n}"
+  , "do {\n//\n//\n}"
+  , "do {\n//\n\n//\n}"
+  , "do {\n//\n\n//\n\n}"
+  , "do {\n//\n//\n\n}"
+  , "do {\n\n//\n//\n}"
+  , "do {x\n//\n}"
+  , "do {x\n//\n//\n}"
+  , "do {x\n//\n\n//\n}"
+  , "do {x\n//\n\n//\n\n}"
+  , "do {x\n//\n//\n\n}"
+  , "do {x\n\n//\n//\n}"
+  , "f(\n//\n)"
+  , "f(\n//\n//\n)"
+  , "f(\n//\n\n//\n)"
+  , "f(\n//\n\n//\n\n)"
+  , "f(\n//\n//\n\n)"
+  , "f(\n\n//\n//\n)"
+  , "f(x\n//\n)"
+  , "f(x\n//\n//\n)"
+  , "f(x\n//\n\n//\n)"
+  , "f(x\n//\n\n//\n\n)"
+  , "f(x\n//\n//\n\n)"
+  , "f(x\n\n//\n//\n)"
+  , "do {/**/}"
+  , "do {/**/\n}"
+  , "do {\n/**/\n}"
+  , "do {let x = y;\n\nlet x = y;}"
+  , "f(x,\n//\ng(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)\n);"
+  , "f(x,\n//\ng(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)\n);"
+  , "f(x,\n//\ng(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)\n);"
+  , "f(x,\n//\ng(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)\n);"
+  , "f(x,\n//\ng(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷)\n);"
+  , "f(x,\n//\ng(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷a)\n);"
+  , "f(x,\n//\ng(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷)\n);"
+  , "f(x,\n//\ng(𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷𐐷a)\n);"
+  , "do {\n//\nlet x = y;}"
+  , "do {\n//\n\nlet x = y;}"
+  , "f(\n  // b\n  a + \n  b\n);"
   ]
 
 openSnapshotFile :: IO Handle
@@ -452,7 +490,23 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
           flip mapM_ diagnostics (\diagnostic ->
             hPutStrLn h (Text.Lazy.unpack (Text.Builder.toLazyText
               (Text.Builder.fromText "- " <> debugDiagnostic diagnostic)))))
+
+        -- Test that when we parse and re-print the output we get the same thing.
         reprintedOutput `shouldBe` output
+
+        -- Test to make sure the output has no trailing spaces, but only if there were no
+        -- diagnostics. If there were parse errors then we may print raw text with trailing spaces.
+        if not (null diagnostics) then return () else
+          Text.foldl'
+            (\s c ->
+              case c of
+                '\n' | s -> error "Has trailing spaces."
+                '\r' | s -> error "Has trailing spaces."
+                ' ' -> True
+                _ -> False)
+            False
+            output
+              `shouldBe` False
 
 escape :: Text -> Text
 escape = Text.concatMap

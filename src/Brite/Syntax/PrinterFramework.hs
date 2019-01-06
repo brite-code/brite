@@ -53,6 +53,8 @@ data Document
   | Line
   | LinePrefix Document
   | LineSuffix Document
+  | ForceBreak
+  deriving (Show)
 
 -- Documents may be added to each other.
 instance Semigroup Document where
@@ -72,7 +74,7 @@ group = Group
 -- Always forces the group to break. If this command is inside of a group it will never fit on
 -- one line.
 forceBreak :: Document
-forceBreak = tryFlat Line Empty
+forceBreak = Choice ForceBreak Empty
 
 -- Adds some raw text to the document.
 text :: Text -> Document
@@ -93,16 +95,25 @@ indent1 = Indent 1
 
 -- Adds a new line to the document. If we are attempting to print the document on one line then we
 -- convert this to a single space.
+--
+-- The line will use the indentation level of the very next printed text. Not the current
+-- indentation level of this line’s context.
 line :: Document
-line = tryFlat (Text " ") Line
+line = Choice (Text " ") Line
 
 -- Adds a new line to the document. If we are attempting to print the document on one line then we
 -- convert this to an empty document.
+--
+-- The line will use the indentation level of the very next printed text. Not the current
+-- indentation level of this line’s context.
 softline :: Document
-softline = tryFlat Empty Line
+softline = Choice Empty Line
 
 -- Adds a new line to the document. This will prevent any group it is in from being printed on
 -- one line.
+--
+-- The line will use the indentation level of the very next printed text. Not the current
+-- indentation level of this line’s context.
 hardline :: Document
 hardline = Line
 
@@ -111,17 +122,15 @@ hardline = Line
 --
 -- Line prefixes are always followed by a new line. This is so we don’t have to layout the text
 -- before this command again.
+--
+-- The line prefix will take the indentation level of the line at the location where the line
+-- was printed.
 linePrefix :: Document -> Document
 linePrefix = LinePrefix
 
 -- Prints the document at the end of the very next line.
 lineSuffix :: Document -> Document
 lineSuffix = LineSuffix
-
--- If we are printing in flat mode then the first document will be used. If we are printing in break
--- mode then the second document will be used.
-tryFlat :: Document -> Document -> Document
-tryFlat = Choice
 
 -- Only renders the document if we are rendering in break mode.
 ifBreak :: Document -> Document
@@ -133,27 +142,48 @@ ifBreakElse :: Document -> Document -> Document
 ifBreakElse x y = Choice y x
 
 -- The current mode in which a document is being printed.
-data Mode = Break | Flat
+data Mode = Break | Flat deriving (Show)
+
+-- The state needed for our layout process.
+data LayoutState = LayoutState
+  -- The desired maximum width of our finished document. If a flattened group exceeds this width the
+  -- group will not be flattened and instead  will be broken onto multiple lines. Measured in UTF-16
+  -- encoded code units.
+  { layoutMaxWidth :: Int
+  -- The current length of the line we are laying out. Measured in UTF-16 encoded code units.
+  , layoutWidth :: Int
+  -- When we see a line document we don’t immediately insert a line. Instead we defer the line
+  -- insertion for later. Specifically the first text we see. This is because we want to use the
+  -- indentation level of the first text on our line instead of using the indentation level where
+  -- the line was defined.
+  --
+  -- We implement this as a function so line prefixes and suffixes can also be deferred.
+  , layoutDeferredLine :: Maybe (Int -> Layout -> Layout)
+  }
 
 -- Produces the best possible layout for a document where all groups which can fit on a single line
--- are indeed put together on a single line. The parameters are:
+-- are indeed put together on a single line. Takes some layout state and an execution stack.
 --
--- * `w` which represents the desired maximum width of our finished document. If a flattened group
---   exceeds this width it will not be flattened and instead will be broken onto multiple lines.
--- * `k` which represents the current length of the line we are laying out.
--- * `stack` which represents our execution stack. As long as this stack is not empty we will have
---   more document to process. The stack items contain the layout mode, the current level of
---   indentation, and the document to be rendered.
-layout :: Int -> Int -> [(Mode, Int, Document)] -> Layout
-layout _ _ [] = EmptyLayout
-layout w k ((_, _, Empty) : z) = layout w k z
+--As long as the execution stack is not empty we will have more document to process. The stack items
+-- contain the layout mode, the current level of indentation, and the document to be rendered.
+layout :: LayoutState -> [(Mode, Int, Document)] -> Layout
+
+-- When our execution stack is empty return an empty layout. If we’ve deferred a line add it now
+-- with zero indentation.
+layout (LayoutState { layoutMaxWidth = _, layoutWidth = _, layoutDeferredLine = l }) [] =
+  case l of
+    Nothing -> EmptyLayout
+    Just f -> f 0 EmptyLayout
+
+-- Skip empty documents.
+layout state ((_, _, Empty) : stack) = layout state stack
 
 -- Add both documents in a concatenation to our execution stack.
-layout w k ((m, i, Concat x y) : z) = layout w k ((m, i, x) : (m, i, y) : z)
+layout state ((m, i, Concat x y) : stack) = layout state ((m, i, x) : (m, i, y) : stack)
 
 -- Choose one of the two documents based on our printing mode.
-layout w k ((Flat, i, Choice x _) : z) = layout w k ((Flat, i, x) : z)
-layout w k ((Break, i, Choice _ y) : z) = layout w k ((Break, i, y) : z)
+layout state ((Flat, i, Choice x _) : stack) = layout state ((Flat, i, x) : stack)
+layout state ((Break, i, Choice _ y) : stack) = layout state ((Break, i, y) : stack)
 
 -- Groups in break mode attempt to layout their document on a single line using flat mode. If the
 -- grouped document does not fit on a single line then we render the group in break mode.
@@ -161,43 +191,49 @@ layout w k ((Break, i, Choice _ y) : z) = layout w k ((Break, i, y) : z)
 -- If there is a new line in the flattened group then it automatically fails to fit in a single
 -- line. However, when we see a new line outside of the flattened group we know to accept the
 -- flattened layout.
-layout w k ((Flat, i, Group x) : z) = layout w k ((Flat, i, x) : z)
-layout w k ((Break, i, Group x) : z) =
-  let l1 = layout w k ((Flat, i, x) : z) in
-    if fits (w - k) l1 then l1 else layout w k ((Break, i, x) : z)
+--
+-- Force the deferred line to be added before processing our group. Otherwise we won’t be able to
+-- correctly measure the grouped content.
+layout state ((Flat, i, Group x) : stack) = layout state ((Flat, i, x) : stack)
+layout state@(LayoutState { layoutDeferredLine = Nothing }) ((Break, i, Group x) : stack) =
+  let l1 = layout state ((Flat, i, x) : stack) in
+    if fits (layoutMaxWidth state - layoutWidth state) l1 then l1
+    else layout state ((Break, i, x) : stack)
   where
     -- Of course empty fits!
     fits _ EmptyLayout = True
     -- Measure the length of the text to determine if it fits on this line.
-    fits r (TextLayout m t l) = fitsText r m t l
+    fits k (TextLayout m t l) = fitsText k m t l
     -- If there is a new line in flat mode we can’t fit the document. Otherwise we’ve reached the
     -- end of the line and our flattened document fits!
-    fits _ (LineLayout Flat _ _) = False
-    fits _ (LineLayout Break _ _) = True
+    fits _ (LineLayout Flat _ _ _) = False
+    fits _ (LineLayout Break _ _ _) = True
     -- Raw text always ends in a new line so behave like a new line. We do this so we can avoid
     -- measuring the raw text data. That way raw text can be represented as an opaque `Text.Builder`
     -- instead of strict `Text`.
-    fits _ (RawTextLayout Flat _ _ _) = False
-    fits _ (RawTextLayout Break _ _ _) = True
+    fits _ (RawTextLayout Flat _ _) = False
+    fits _ (RawTextLayout Break _ _) = True
     -- Line prefix and line suffix layouts don’t affect our measurements.
-    fits r (LinePrefixLayout _ l) = fits r l
-    fits r (LineSuffixLayout _ l) = fits r l
+    fits k (LinePrefixLayout _ l) = fits k l
+    fits k (LineSuffixLayout _ l) = fits k l
+    -- Force break layouts never fit.
+    fits _ (ForceBreakLayout _) = False
 
     -- Iterate through the text to see if it fits on one line.
     --
     -- Remember that we use UTF-16 to measure length because that is the encoding specified for
     -- character widths by the Language Server Protocol (LSP) specification.
-    fitsText r m t0 l =
+    fitsText k m t0 l =
       case Text.uncons t0 of
         -- If `r` is less than 0 we’ve run out of space. Our text does not fit.
-        _ | r < 0 -> False
+        _ | k < 0 -> False
         -- If there is a new line in the text then whether or not we fit depends on the mode.
         Just ('\n', _) -> case m of { Flat -> False; Break -> True }
         Just ('\r', _) -> case m of { Flat -> False; Break -> True }
         -- Subtract the character length and continue.
-        Just (c, t1) -> fitsText (r - utf16Length c) m t1 l
+        Just (c, t1) -> fitsText (k - utf16Length c) m t1 l
         -- This text fits, but there’s still more layout to measure.
-        Nothing -> fits r l
+        Nothing -> fits k l
 
 -- Add text to the document. To compute the new position:
 --
@@ -206,7 +242,9 @@ layout w k ((Break, i, Group x) : z) =
 --
 -- Remember that we use UTF-16 to measure length because that is the encoding specified for
 -- character widths by the Language Server Protocol (LSP) specification.
-layout w k0 ((m, _, Text t0) : z) = TextLayout m t0 (layout w (measure k0 t0) z)
+layout oldState@(LayoutState { layoutDeferredLine = Nothing }) ((m, _, Text t0) : stack) =
+  let newState = oldState { layoutWidth = measure (layoutWidth oldState) t0 } in
+    TextLayout m t0 (layout newState stack)
   where
     -- Measure the length of our text until we either reach the text’s end or a new line. If we
     -- reach a new line then use `measureBackwards` to measure the length of the last line.
@@ -227,27 +265,62 @@ layout w k0 ((m, _, Text t0) : z) = TextLayout m t0 (layout w (measure k0 t0) z)
         Just (t2, c) -> measureBackwards (k1 + utf16Length c) t2
 
 -- Add raw text to the document. Raw text always ends in a new line. Which is important because it
--- means we don’t need to measure the text. Set the current character length to the line
--- indentation level.
-layout w _ ((m, i, RawText t) : z) = RawTextLayout m t i (layout w i z)
+-- means we don’t need to measure the text.
+layout oldState@(LayoutState { layoutDeferredLine = Nothing }) ((m, i, RawText t) : stack) =
+  let newState = oldState { layoutWidth = 0, layoutDeferredLine = Just (LineLayout m i) } in
+    RawTextLayout m t (layout newState stack)
 
 -- Add some indentation to the document.
-layout w k ((m, i, Indent n x) : z) = layout w k ((m, i + n, x) : z)
+layout state ((m, i, Indent n x) : stack) = layout state ((m, i + n, x) : stack)
 
 -- Add a line to the document. Set the current character length to the line indentation level.
-layout w _ ((m, i, Line) : z) = LineLayout m i (layout w i z)
+layout oldState@(LayoutState { layoutDeferredLine = Nothing }) ((m, i, Line) : stack) =
+  let newState = oldState { layoutWidth = 0, layoutDeferredLine = Just (LineLayout m i) } in
+    layout newState stack
 
--- Layout the line prefix independently of the rest of our document execution stack. Set the
--- current character and current indentation both to 0. In `printLayout` we will add the proper
--- indentation level to our line prefix. Always layout the line prefix in flat mode since we don’t
--- have a proper current character value.
-layout w k ((_, _, LinePrefix x) : z) = LinePrefixLayout (layout w 0 [(Flat, 0, x)]) (layout w k z)
+-- If there is a deferred line then we want to add it, but the deferred line should have
+-- no indentation since the line will be empty.
+layout oldState@(LayoutState { layoutDeferredLine = Just f }) ((m, i, Line) : stack) =
+  let newState = oldState { layoutWidth = 0, layoutDeferredLine = Just (LineLayout m i) } in
+    f 0 (layout newState stack)
 
--- Layout the line suffix independently of the rest of our document execution stack. Set the
--- current character and current indentation both to 0. In `printLayout` we will add the proper
--- indentation level to our line suffix. Always layout the line suffix in flat mode since we don’t
--- have a proper current character value.
-layout w k ((_, _, LineSuffix x) : z) = LineSuffixLayout (layout w 0 [(Flat, 0, x)]) (layout w k z)
+-- Layout the line prefix independently of the rest of our document execution stack. In
+-- `printLayout` we will add the proper indentation level to our line prefix. Always layout the line
+-- prefix in flat mode since we don’t have a proper current character value.
+layout state ((_, _, LinePrefix x) : stack) =
+  let
+    prefixState = LayoutState { layoutMaxWidth = layoutMaxWidth state, layoutWidth = 0, layoutDeferredLine = Nothing }
+    prefix = LinePrefixLayout (layout prefixState [(Flat, 0, x)])
+  in
+    case layoutDeferredLine state of
+      Nothing -> prefix (layout state stack)
+      Just f ->
+        let newState = state { layoutDeferredLine = Just (\i y -> f i (prefix y)) } in
+          layout newState stack
+
+-- Layout the line suffix independently of the rest of our document execution stack. In
+-- `printLayout` we will add the proper indentation level to our line suffix. Always layout the line
+-- suffix in flat mode since we don’t have a proper current character value.
+layout state ((_, _, LineSuffix x) : stack) =
+  let
+    suffixState = LayoutState { layoutMaxWidth = layoutMaxWidth state, layoutWidth = 0, layoutDeferredLine = Nothing }
+    suffix = LineSuffixLayout (layout suffixState [(Flat, 0, x)])
+  in
+    case layoutDeferredLine state of
+      Nothing -> suffix (layout state stack)
+      Just f ->
+        let newState = state { layoutDeferredLine = Just (\i y -> f i (suffix y)) } in
+          layout newState stack
+
+-- Add a force break layout in flat mode.
+layout state ((Flat, _, ForceBreak) : stack) = ForceBreakLayout (layout state stack)
+layout state ((Break, _, ForceBreak) : stack) = layout state stack
+
+-- If we forced our deferred line to be added (like in the `Text` match above) then we add that
+-- line here.
+layout oldState@(LayoutState { layoutDeferredLine = Just f }) stack@((_, i, _) : _) =
+  let newState = oldState { layoutWidth = i + layoutWidth oldState, layoutDeferredLine = Nothing } in
+    f i (layout newState stack)
 
 -- An intermediate representation of the document we are printing. Whereas `Document` is a tree,
 -- `Layout` is a linked list which makes it linear. All groups and indentation levels have already
@@ -255,29 +328,129 @@ layout w k ((_, _, LineSuffix x) : z) = LineSuffixLayout (layout w 0 [(Flat, 0, 
 data Layout
   = EmptyLayout
   | TextLayout Mode Text Layout
-  | RawTextLayout Mode Text.Builder Int Layout
-  | LineLayout Mode Int Layout
+  | RawTextLayout Mode Text.Builder Layout
+  | LineLayout Mode Int Int Layout
   | LinePrefixLayout Layout Layout
   | LineSuffixLayout Layout Layout
+  | ForceBreakLayout Layout
+  deriving (Show)
 
--- Prints the layout out to text.
+-- Prints the layout to text.
 printLayout :: Layout -> Text.Builder
-printLayout = loop 0 (0, mempty) mempty mempty
+printLayout = loop 0 (0, 0, mempty) mempty (\_ -> mempty)
   where
-    loop _ (j, t1) t2 t3 EmptyLayout = t1 <> t2 <> t3 j
-    loop i t1 t2 t3 (TextLayout _ t l) = loop i t1 (t2 <> Text.Builder.fromText t) t3 l
-    loop i t1 t2 t3 (RawTextLayout m t j l) = loop i t1 (t2 <> t) t3 (LineLayout m j l)
-    loop i (_, t1) t2 t3 (LineLayout _ j l) =
-      t1 <> t2 <> t3 j <> printLine (i + j) <> loop i (j, mempty) mempty (\_ -> mempty) l
-    loop i (j, t1) t2 t3 (LinePrefixLayout l1 l2) =
-      loop i (j, t1 <> loop (i + j) (0, mempty) mempty mempty l1 <> printLine (i + j)) t2 t3 l2
-    loop i t1 t2 t3 (LineSuffixLayout l1 l2) =
-      loop i t1 t2 (\j -> t3 j <> loop (i + j) (0, mempty) mempty mempty l1) l2
+    -- Ok, so I (Caleb) realize that Haskell isn’t the easiest language to read. Especially code
+    -- using advanced Haskell features. But this loop specifically is pretty gnarly. I’m going to
+    -- try my best to explain it. Both to programmers wishing to make bug fixes to this print loop
+    -- and to myself in the future.
+    --
+    -- This function would be pretty straightforward if we didn’t have to deal with line prefixes
+    -- and suffixes. But we do have to deal with prefixes and suffixes so we’re forced to build our
+    -- text line by line and then add the line to our full text.
+    --
+    -- Three `Text.Builder` parameters on this function are dedicated to building the current line.
+    --
+    -- The plain `Text.Builder` (third parameter) is the main content for the line. Every time we
+    -- add plain text it goes here.
+    --
+    -- `(Int, Int, Text.Builder)` builds the line prefix. It holds two integers. Both from
+    -- `LineLayout`. The first is the indentation level where we added the `LineLayout`. The second
+    -- is the indentation level where the first `TextLayout` after the `LineLayout` was added. We
+    -- print the text following a `LineLayout` at the second indentation but we print line prefixes
+    -- at the first indentation. We carry around both integers since we need to compute
+    -- the difference.
+    --
+    -- Here’s the problem we are trying to solve:
+    --
+    -- ```ite
+    -- do {
+    --   // Hello, world!
+    -- }
+    -- ```
+    --
+    -- The above code is printed from the document:
+    --
+    -- ```hs
+    -- text "do {"
+    --   <> indent softline
+    --   <> linePrefix (text "// Hello, world!")
+    --   <> text "}"
+    -- ```
+    --
+    -- We print the line prefix with the comment _outside_ of the `indent`. However, the line we are
+    -- prefixing is inside the `indent`! The `LineLayout` added by our `softline` will be
+    -- `LineLayout Break 2 0`. Since we add the line inside an `indent` we set the first integer to
+    -- two. But the first text we add to the document is `}` with an indentation of zero.
+    --
+    -- `(Int -> Text.Builder)` builds the line suffix. We won’t know the indentation level for our
+    -- line suffix until we add the next line. So we build the line suffix in a function. When we
+    -- add the next line we will call the line suffix function with the correct indentation level.
+    --
+    -- The first parameter which is an `Int` is interesting. Notice how the declaration for
+    -- `LinePrefixLayout` is `LinePrefixLayout Layout Layout`? (Same for `LineSuffixLayout`.) That
+    -- is the line prefix is encoded as a `Layout`. This means to print a line prefix/suffix we need
+    -- to recursively call `printLayout`. However, when we create the prefix/suffix layout in the
+    -- `layout` function above we set the indentation level to zero since we don’t know the
+    -- indentation we’ll want to use until we are here in `printLayout`. So this first parameter is
+    -- the “offset” we’ll add to all our indentations.
 
--- Prints a single line at the current level of indentation.
-printLine :: Int -> Text.Builder
-printLine i = Text.Builder.singleton '\n' <> Text.Builder.fromText (Text.replicate i " ")
+    loop :: Int -> (Int, Int, Text.Builder) -> Text.Builder -> (Int -> Text.Builder) -> Layout -> Text.Builder
+
+    -- If we’ve reached the end of our layout add the current prefix, content, and suffix together.
+    loop _ (_, _, prefix) content suffix EmptyLayout = prefix <> content <> suffix 0
+
+    -- Add text to our current content and recurse.
+    loop offset prefix content suffix (TextLayout _ t l) =
+      loop offset prefix (content <> Text.Builder.fromText t) suffix l
+
+    -- Add raw text to our current content and recurse.
+    loop offset prefix content suffix (RawTextLayout _ t l) =
+      loop offset prefix (content <> t) suffix l
+
+    -- If we’ve reached a new line then add the prefix, content, and suffix we’ve been building to
+    -- the document. The suffix will use the indentation level of the line itself. We create a new
+    -- line with the new indentation level. Recurse with empty builders for prefix, content,
+    -- and suffix.
+    loop offset (_, _, prefix) content suffix (LineLayout _ i1 i2 l) =
+      prefix <> content <> suffix i1
+        <> printLine (offset + i2)
+        <> loop offset (i1, i2, mempty) mempty (\_ -> mempty) l
+
+    -- Layout the new prefix and add it to the current prefix. Then recurse.
+    loop offset (i1, i2, prefix) content suffix (LinePrefixLayout prefixLayout l) =
+      let
+        newPrefix =
+          -- The previous new line was printed with `i2` as the indentation level, but we want this
+          -- line to be printed with `i1` as the indentation level. So take the difference and add
+          -- that many spaces.
+          printSpaces (max 0 (i1 - i2))
+            -- Layout the prefix with an offset of `i1`.
+            <> loop (offset + i1) (0, 0, mempty) mempty mempty prefixLayout
+            -- Add a new line at the level of `i2`.
+            <> printLine (offset + i2)
+      in
+        loop offset (i1, i2, prefix <> newPrefix) content suffix l
+
+    -- Layout the new suffix (when the indentation level is available) and add it to the current
+    -- suffix. Then recurse.
+    loop offset prefix content suffix (LineSuffixLayout suffixLayout l) =
+      loop offset prefix content (\i ->
+        suffix i <> loop (offset + i) (0, 0, mempty) mempty mempty suffixLayout) l
+
+    -- Force breaks don’t affect the printing of layout.
+    loop offset prefix content suffix (ForceBreakLayout l) = loop offset prefix content suffix l
+
+    -- Utilities for printing new lines at the provided level of indentation.
+    printLine i = Text.Builder.singleton '\n' <> printSpaces i
+    printSpaces i = Text.Builder.fromText (Text.replicate i " ")
 
 -- Prints the document at the specified maximum width.
 printDocument :: Int -> Document -> Text.Builder
-printDocument maxWidth rootDocument = printLayout (layout maxWidth 0 [(Break, 0, rootDocument)])
+printDocument maxWidth rootDocument =
+  printLayout (layout initialState [(Break, 0, rootDocument)])
+  where
+    initialState = LayoutState
+      { layoutMaxWidth = maxWidth
+      , layoutWidth = 0
+      , layoutDeferredLine = Nothing
+      }
