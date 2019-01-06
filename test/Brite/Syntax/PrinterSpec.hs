@@ -453,6 +453,8 @@ testData =
   , "do { let x = y; }; //"
   , "do {} //"
   , "//\ndo {}"
+  , "let x = f(\n//\n);"
+  , "(do {});"
   ]
 
 openSnapshotFile :: IO Handle

@@ -161,36 +161,44 @@ statement :: Statement -> Panic Document
 statement (ExpressionStatement e' t') = do
   e <- expression Standalone e'
   t <- recoverMaybe t'
-  if semicolon then
-    return $ e <> maybe (text ";") token t
-  else
-    return $ e <> maybe mempty removeToken t
+  if noSemicolon e' then return $ e <> maybe mempty removeToken t
+  else return $ e <> maybe (text ";") token t
   where
-    semicolon = case e' of
-      ConstantExpression _ -> True
-      VariableExpression _ -> True
-      FunctionExpression _ _ -> True
-      ObjectExpression _ _ _ _ -> True
-      VariantExpression _ _ _ -> True
-      UnaryExpression _ _ _ -> True
-      BinaryExpression _ _ -> True
-      ConditionalExpression _ -> False
-      MatchExpression _ _ _ _ _ -> False
-      BlockExpression _ _ -> False
-      LoopExpression _ _ -> False
-      WrappedExpression _ _ _ _ -> True
-      ExpressionExtra _ _ -> True
+    noSemicolon (ConstantExpression _) = False
+    noSemicolon (VariableExpression _) = False
+    noSemicolon (FunctionExpression _ _) = False
+    noSemicolon (ObjectExpression _ _ _ _) = False
+    noSemicolon (VariantExpression _ _ _) = False
+    noSemicolon (UnaryExpression _ _ _) = False
+    noSemicolon (BinaryExpression _ _) = False
+    noSemicolon (ConditionalExpression _) = True
+    noSemicolon (MatchExpression _ _ _ _ _) = True
+    noSemicolon (BlockExpression _ _) = True
+    noSemicolon (LoopExpression _ _) = True
+    noSemicolon (WrappedExpression _ (Ok e) Nothing _) = noSemicolon e
+    noSemicolon (WrappedExpression _ _ _ _) = False
+    noSemicolon (ExpressionExtra _ _) = False
 
 -- Pretty print a binding statement. Always print the semicolon! Even if the semicolon was
 -- not included.
 statement (BindingStatement t1 p' Nothing t2' e' t3') = do
-  p <- recover p' >>= pattern
+  bind <- recover p' >>= pattern
   t2 <- recover t2'
-  e <- recover e' >>= (expression AssignmentValue)
+  e <- recover e'
+  value <- expression AssignmentValue e
   t3 <- recoverMaybe t3'
   return $
-    token t1 <> text " " <> p <> text " " <> token t2 <> text " " <> e
+    token t1
+      <> text " "
+      <> bind
+      <> text " "
+      <> token t2
+      <> (if breaksOnNextLine e then ifFlat (text " ") else text " ")
+      <> value
       <> maybe (text ";") token t3
+  where
+    breaksOnNextLine (BinaryExpression _ _) = True
+    breaksOnNextLine _ = False
 
 -- Pretty print a return statement. Always print the semicolon! Even if the semicolon was
 -- not included.
