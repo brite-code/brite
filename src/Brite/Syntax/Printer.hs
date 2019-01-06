@@ -7,6 +7,9 @@
 -- small edge case implemented incorrectly in the type system it could open Brite up to security
 -- bugs. It’s fine for the printer to have small edge cases with suboptimal output, though. As long
 -- as these edge cases are uncommon.
+--
+-- NOTE: It would be a good idea to generate Brite programs and make sure that
+-- `print(code) = print(print(code))`. Also that there are never any trailing spaces.
 
 {-# LANGUAGE OverloadedStrings #-}
 
