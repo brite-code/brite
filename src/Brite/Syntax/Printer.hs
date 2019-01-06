@@ -495,17 +495,21 @@ token (Token _ k ts1 ts2) =
     leading ts = let (_, cs) = triviaToComments ts in comments True (reverse cs)
       where
         comments _ [] = mempty
-        comments _ ((LineComment c, ls) : cs) =
+        comments lastComment ((LineComment c, ls) : cs) =
           comments False cs
             <> forceBreak
-            <> linePrefix (text "//" <> text (trimTrailingWhitespace c) <> (if ls > 1 then hardline else mempty))
+            <> linePrefix
+              (text "//" <> text (trimTrailingWhitespace c)
+                <> (if ls > 1 && not (lastComment && noExtraLine k) then hardline else mempty))
         comments True ((BlockComment c _, 0) : cs) =
           comments True cs
             <> text "/*" <> text c <> text "*/ "
-        comments _ ((BlockComment c _, ls) : cs) =
+        comments lastComment ((BlockComment c _, ls) : cs) =
           comments False cs
             <> forceBreak
-            <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 then hardline else mempty))
+            <> linePrefix
+              (text "/*" <> text c <> text "*/"
+                <> (if ls > 1 && not (lastComment && noExtraLine k) then hardline else mempty))
 
     trailing [] = mempty
     trailing (Spaces _ : ts) = trailing ts
@@ -514,6 +518,13 @@ token (Token _ k ts1 ts2) =
     trailing (OtherWhitespace _ : ts) = trailing ts
     trailing (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text (trimTrailingWhitespace c)) <> trailing ts
     trailing (Comment (BlockComment c _) : ts) = text " /*" <> text c <> text "*/" <> trailing ts
+
+    -- Should we trim the extra line after the last leading comment?
+    noExtraLine (Glyph ParenRight) = True
+    noExtraLine (Glyph BraceRight) = True
+    noExtraLine (Glyph BracketRight) = True
+    noExtraLine (Glyph GreaterThan_) = True
+    noExtraLine _ = False
 
 -- Converts a list of trivia to a list of comments and the number of new lines in between
 -- each comment.
@@ -534,11 +545,13 @@ removeToken (Token _ _ ts1 ts2) =
     comments [] = mempty
     comments ((LineComment c, ls) : cs) =
       forceBreak
-        <> linePrefix (text "//" <> text (trimTrailingWhitespace c) <> (if ls > 1 && not (null cs) then hardline else mempty))
+        <> linePrefix (text "//" <> text (trimTrailingWhitespace c)
+          <> (if ls > 1 && not (null cs) then hardline else mempty))
         <> comments cs
     comments ((BlockComment c _, ls) : cs) =
       forceBreak
-        <> linePrefix (text "/*" <> text c <> text "*/" <> (if ls > 1 && not (null cs) then hardline else mempty))
+        <> linePrefix (text "/*" <> text c <> text "*/"
+          <> (if ls > 1 && not (null cs) then hardline else mempty))
         <> comments cs
 
 -- Prints the trivia at the very end of a document.
