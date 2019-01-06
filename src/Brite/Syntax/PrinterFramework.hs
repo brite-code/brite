@@ -413,8 +413,12 @@ printLayout = loop 0 (0, 0, mempty) mempty (\_ -> mempty)
     -- and suffix.
     loop offset (_, _, prefix) content suffix (LineLayout _ i1 i2 l) =
       prefix <> content <> suffix i1
-        <> printLine (offset + i2)
+        <> printLine (if isEmpty l then 0 else offset + i2)
         <> loop offset (i1, i2, mempty) mempty (\_ -> mempty) l
+      where
+        isEmpty (LineLayout _ _ _ _) = True
+        isEmpty EmptyLayout = True
+        isEmpty _ = False
 
     -- Layout the new prefix and add it to the current prefix. Then recurse.
     loop offset (i1, i2, prefix) content suffix (LinePrefixLayout prefixLayout l) =

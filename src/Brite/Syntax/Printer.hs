@@ -18,6 +18,9 @@ import Brite.Syntax.CST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
 import Control.Applicative
+import Data.Char (isSpace)
+import Data.Text (Text)
+import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 
 -- Pretty prints a Brite module.
@@ -465,7 +468,7 @@ leadingTrivia ts = let (_, cs) = triviaToComments ts in comments True (reverse c
     comments _ ((LineComment c, ls) : cs) =
       comments False cs
         <> forceBreak
-        <> linePrefix (text "//" <> text c <> (if ls > 1 then hardline else mempty))
+        <> linePrefix (text "//" <> text (trimTrailingWhitespace c) <> (if ls > 1 then hardline else mempty))
     comments True ((BlockComment c _, 0) : cs) =
       comments True cs
         <> text "/*" <> text c <> text "*/ "
@@ -481,7 +484,7 @@ trailingTrivia (Spaces _ : ts) = trailingTrivia ts
 trailingTrivia (Tabs _ : ts) = trailingTrivia ts
 trailingTrivia (Newlines _ _ : ts) = trailingTrivia ts
 trailingTrivia (OtherWhitespace _ : ts) = trailingTrivia ts
-trailingTrivia (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text c) <> trailingTrivia ts
+trailingTrivia (Comment (LineComment c) : ts) = lineSuffix (text " //" <> text (trimTrailingWhitespace c)) <> trailingTrivia ts
 trailingTrivia (Comment (BlockComment c _) : ts) = text " /*" <> text c <> text "*/" <> trailingTrivia ts
 
 -- Converts a list of trivia to a list of comments and the number of new lines in between
@@ -503,7 +506,7 @@ removeToken (Token _ _ ts1 ts2) =
     comments [] = mempty
     comments ((LineComment c, ls) : cs) =
       forceBreak
-        <> linePrefix (text "//" <> text c <> (if ls > 1 && not (null cs) then hardline else mempty))
+        <> linePrefix (text "//" <> text (trimTrailingWhitespace c) <> (if ls > 1 && not (null cs) then hardline else mempty))
         <> comments cs
     comments ((BlockComment c _, ls) : cs) =
       forceBreak
@@ -518,10 +521,14 @@ endTrivia ts =
   where
     comments [] = mempty
     comments ((LineComment c, ls) : cs) =
-      text "//" <> text c
+      text "//" <> text (trimTrailingWhitespace c)
         <> (if ls > 1 && not (null cs) then hardline <> hardline else hardline)
         <> comments cs
     comments ((BlockComment c _, ls) : cs) =
       text "/*" <> text c <> text "*/"
         <> (if ls > 1 && not (null cs) then hardline <> hardline else hardline)
         <> comments cs
+
+-- Trim whitespace from the end of some text.
+trimTrailingWhitespace :: Text -> Text
+trimTrailingWhitespace = Text.dropWhileEnd isSpace
