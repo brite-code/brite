@@ -121,8 +121,14 @@ data ExpressionNode
   -- `fun() {}`
   | FunctionExpression Function
 
+  -- `f(E)`
+  | CallExpression Expression [Expression]
+
   -- `{p: E}`
   | ObjectExpression [ObjectExpressionProperty] (Maybe Expression)
+
+  -- `E.p`
+  | PropertyExpression Expression Name
 
   -- TODO: | VariantExpression
 
@@ -155,12 +161,6 @@ data ExpressionNode
 
   -- `(E)`, `(E: T)`
   | WrappedExpression Expression (Maybe Type)
-
-  -- `E.p`
-  | PropertyExpression Expression Name
-
-  -- `f(E)`
-  | CallExpression Expression [Expression]
 
   -- Marks the position of some error in the AST. We may or may not have been able to recover from
   -- the error. If we recovered then the AST node will be `Just` otherwise it will be `Nothing`.
