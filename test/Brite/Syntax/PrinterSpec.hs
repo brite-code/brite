@@ -473,6 +473,13 @@ testData =
   , "return (a +\n//\nb);"
   , "a + b +\n//\nc + d"
   , "//\na + b + c + d"
+  , "- // -\nx;"
+  , "- // -\n\nx;"
+  , "- // -\n\n\nx;"
+  -- TODO: This test breaks!!! , "a\n/**/;"
+  , "a\n//\n;"
+  , "a /**/;"
+  , "a //\n;"
   ]
 
 openSnapshotFile :: IO Handle
