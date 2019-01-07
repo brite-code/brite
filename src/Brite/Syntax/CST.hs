@@ -140,6 +140,7 @@ data Statement
 -- Convenience type alias for an optional semicolon token.
 type Semicolon = Maybe (Recover Token)
 
+-- NOTE: Eventually we will also add a `TypeDeclaration`.
 data Declaration
   -- ```
   -- fun f(...) { ... }
