@@ -31,6 +31,7 @@ module Brite.Semantics.AST
   , ObjectTypeProperty(..)
   , Quantifier(..)
   , QuantifierBoundKind(..)
+  , convertExpression
   ) where
 
 import Brite.Diagnostics
@@ -171,14 +172,6 @@ data ExpressionNode
   -- We will panic at runtime if someone attempts to execute this node.
   | ErrorExpression Diagnostic (Maybe ExpressionNode)
 
--- Takes an expression and makes it an error expression. If the expression is already an error
--- expression then we replace the current error with our new one.
---
--- The range of our error expression will be the same as the expression we are annotating.
-errorExpression :: Diagnostic -> Expression -> Expression
-errorExpression e (Expression r (ErrorExpression _ x)) = Expression r (ErrorExpression e x)
-errorExpression e (Expression r x) = Expression r (ErrorExpression e (Just x))
-
 -- `p: E`
 data ObjectExpressionProperty = ObjectExpressionProperty Name (Maybe Expression)
 
@@ -317,6 +310,22 @@ recoverTokenRange (Recover ts e t) = do
     Nothing -> tokenRange t
     Just r -> rangeBetween r (tokenRange t)
 
+-- Takes an expression and makes it an error expression. If the expression is already an error
+-- expression then we replace the current error with our new one.
+--
+-- The range of our error expression will be the same as the expression we are annotating.
+errorExpression :: Diagnostic -> Expression -> Expression
+errorExpression e (Expression r (ErrorExpression _ x)) = Expression r (ErrorExpression e x)
+errorExpression e (Expression r x) = Expression r (ErrorExpression e (Just x))
+
+-- Create an expression from a fatal error. If the token list is not empty then the range will be
+-- between the first and last token range. Otherwise the range will be take from the provided error.
+fatalErrorExpression :: [Token] -> Diagnostic -> Expression
+fatalErrorExpression ts e =
+  Expression
+    (fromMaybe (diagnosticRange e) (tokensRange ts))
+    (ErrorExpression e Nothing)
+
 -- Converts a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Expression
 convertExpression x0 = case x0 of
@@ -349,6 +358,45 @@ convertExpression x0 = case x0 of
       (rangeBetween (tokenRange t1) (fromMaybe (expressionRange x) r2))
       (WrappedExpression x Nothing)
 
+  -- Convert all the binary expression operations in the CST’s list representation of a binary
+  -- expression into our AST representation. We’ll also need to convert some binary expressions into
+  -- logical expressions.
+  CST.ExpressionExtra x' (Ok (CST.BinaryExpressionExtra y' ys')) ->
+    let x = convertExpression x' in
+      foldl
+        (\l y ->
+          case y of
+            -- NOTE: If `Token {}` is ever wrapped in `Recover` then we’ll need to handle the error.
+            Ok (CST.BinaryExpressionOperation op (Token {}) r') ->
+              let r = convertRecoverExpression r' in
+                make (rangeBetween (expressionRange l) (expressionRange r)) l op r
+
+            -- If the binary operation was recovered after skipping some tokens then create our
+            -- binary expression but make sure it is annotated with the error.
+            Recover _ e (CST.BinaryExpressionOperation op (Token {}) r') ->
+              let r = convertRecoverExpression r' in
+                errorExpression e (make (rangeBetween (expressionRange l) (expressionRange r)) l op r)
+
+            -- If we failed to parse a binary expression operation then annotate our left-hand side
+            -- expression with the error.
+            Fatal _ e -> errorExpression e l)
+        x (Ok y' : ys')
+    where
+      make r x CST.Add y = Expression r (BinaryExpression x Add y)
+      make r x CST.Subtract y = Expression r (BinaryExpression x Subtract y)
+      make r x CST.Multiply y = Expression r (BinaryExpression x Multiply y)
+      make r x CST.Divide y = Expression r (BinaryExpression x Divide y)
+      make r x CST.Remainder y = Expression r (BinaryExpression x Remainder y)
+      make r x CST.Exponent y = Expression r (BinaryExpression x Exponent y)
+      make r x CST.Equals y = Expression r (BinaryExpression x Equals y)
+      make r x CST.NotEquals y = Expression r (BinaryExpression x NotEquals y)
+      make r x CST.LessThan y = Expression r (BinaryExpression x LessThan y)
+      make r x CST.LessThanOrEqual y = Expression r (BinaryExpression x LessThanOrEqual y)
+      make r x CST.GreaterThan y = Expression r (BinaryExpression x GreaterThan y)
+      make r x CST.GreaterThanOrEqual y = Expression r (BinaryExpression x GreaterThanOrEqual y)
+      make r x CST.And y = Expression r (LogicalExpression x And y)
+      make r x CST.Or y = Expression r (LogicalExpression x Or y)
+
   -- If we have a completely ok property expression then convert to an AST property expression.
   --
   -- NOTE: If `Token {}` is ever wrapped in `Recover` then we’ll need to handle the error.
@@ -363,7 +411,7 @@ convertExpression x0 = case x0 of
     errorExpression e (convertExpression (CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra t (Ok n)))))
 
   -- Treat a property expression with a fatal property name the same as a fatal `ExpressionExtra`.
-  CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra _ (Fatal _ e))) ->
+  CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra (Token {}) (Fatal _ e))) ->
     errorExpression e (convertExpression x)
 
   -- Add the error from our error recovery and redirect with `Ok`.
@@ -388,7 +436,4 @@ convertExpression x0 = case x0 of
 convertRecoverExpression :: Recover CST.Expression -> Expression
 convertRecoverExpression (Ok x) = convertExpression x
 convertRecoverExpression (Recover _ e x) = errorExpression e (convertExpression x)
-convertRecoverExpression (Fatal ts e) =
-  Expression
-    (fromMaybe (diagnosticRange e) (tokensRange ts))
-    (ErrorExpression e Nothing)
+convertRecoverExpression (Fatal ts e) = fatalErrorExpression ts e
