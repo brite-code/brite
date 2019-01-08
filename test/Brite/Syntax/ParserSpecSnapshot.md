@@ -9488,7 +9488,7 @@ a + b * c + d
 
 ### AST
 ```
-(add (add (var `a`) (mul (var `b`) (var `c`))) (var `d`))
+(add (var `a`) (add (mul (var `b`) (var `c`)) (var `d`)))
 ```
 
 --------------------------------------------------------------------------------
@@ -9845,7 +9845,7 @@ a + b +
 
 ### AST
 ```
-(add (add (var `a`) (var `b`)) err)
+(add (var `a`) (add (var `b`) err))
 ```
 
 ### Errors
@@ -9860,7 +9860,7 @@ a + b + c +
 
 ### AST
 ```
-(add (add (add (var `a`) (var `b`)) (var `c`)) err)
+(add (add (var `a`) (var `b`)) (add (var `c`) err))
 ```
 
 ### Errors
@@ -9980,7 +9980,7 @@ a ^ b * ^ d
 
 ### AST
 ```
-(mul (pow (var `a`) (var `b`)) (pow err (var `d`)))
+(pow (var `a`) (pow (mul (var `b`) err) (var `d`)))
 ```
 
 ### Errors
@@ -9995,7 +9995,7 @@ a * ^ c * d
 
 ### AST
 ```
-(mul (mul (var `a`) (pow err (var `c`))) (var `d`))
+(mul (pow (mul (var `a`) err) (var `c`)) (var `d`))
 ```
 
 ### Errors
@@ -10010,7 +10010,7 @@ a * b ^ * d
 
 ### AST
 ```
-(mul (mul (var `a`) (pow (var `b`) err)) (var `d`))
+(mul (var `a`) (mul (pow (var `b`) err) (var `d`)))
 ```
 
 ### Errors
@@ -10334,12 +10334,89 @@ a + b * c ^ d
 
 ### Source
 ```ite
-a 😈 + * b
+a * ^ b
 ```
 
 ### AST
 ```
-(add (var `a`) (mul err (var `b`)))
+(pow (mul (var `a`) err) (var `b`))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `^`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+a ^ * b
+```
+
+### AST
+```
+(mul (pow (var `a`) err) (var `b`))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `*`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+a * * b
+```
+
+### AST
+```
+(mul (mul (var `a`) err) (var `b`))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `*`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+a 😈 * ^ b
+```
+
+### AST
+```
+(pow (mul (var `a`) err) (var `b`))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+- (0:7-0:8) We wanted an expression but we found `^`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+a 😈 ^ * b
+```
+
+### AST
+```
+(mul (pow (var `a`) err) (var `b`))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+- (0:7-0:8) We wanted an expression but we found `*`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+a 😈 * * b
+```
+
+### AST
+```
+(mul (mul (var `a`) err) (var `b`))
 ```
 
 ### Errors
@@ -11018,7 +11095,7 @@ a || b && c || d
 
 ### AST
 ```
-(or (or (var `a`) (and (var `b`) (var `c`))) (var `d`))
+(or (var `a`) (or (and (var `b`) (var `c`)) (var `d`)))
 ```
 
 --------------------------------------------------------------------------------

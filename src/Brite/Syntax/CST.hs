@@ -32,12 +32,12 @@ module Brite.Syntax.CST
   , ObjectExpressionExtension(..)
   , VariantExpressionElements(..)
   , UnaryOperator(..)
-  , BinaryExpressionExtra(..)
   , BinaryOperator(..)
   , ConditionalExpressionIf(..)
   , ConditionalExpressionElse(..)
   , MatchExpressionCase(..)
   , ExpressionExtra(..)
+  , BinaryExpressionOperation(..)
   , Pattern(..)
   , ObjectPatternProperty(..)
   , ObjectPatternPropertyValue(..)
@@ -255,19 +255,6 @@ data Expression
   | UnaryExpression UnaryOperator Token (Recover Expression)
 
   -- ```
-  -- E + E
-  -- E - E
-  -- E * E
-  -- E / E
-  -- ```
-  --
-  -- An operation on two expressions.
-  --
-  -- Unlike `ExpressionExtra` in that the first expression must be `Recover` since binary
-  -- expressions are parsed differently.
-  | BinaryExpression (Recover Expression) (Recover BinaryExpressionExtra)
-
-  -- ```
   -- if E { ... }
   -- if E { ... } else { ... }
   -- if E { ... } else if E { ... } else { ... }
@@ -316,6 +303,7 @@ data Expression
       (Recover Token)
 
   -- ```
+  -- E + E
   -- E.p
   -- E()
   -- ``
@@ -353,9 +341,6 @@ data UnaryOperator
   | Negative
   -- `+`
   | Positive
-
-data BinaryExpressionExtra =
-  BinaryExpressionExtra BinaryOperator Token (Recover Expression)
 
 data BinaryOperator
   -- `+`
@@ -413,10 +398,19 @@ data MatchExpressionCase = MatchExpressionCase Pattern (Recover Token) Block
 -- Some extra syntax of an expression. We keep this as a separate data type to match our
 -- parser implementation.
 data ExpressionExtra
+  -- `E + E`
+  = BinaryExpressionExtra BinaryExpressionOperation [Recover BinaryExpressionOperation]
   -- `E.p`
-  = PropertyExpressionExtra Token (Recover Name)
+  | PropertyExpressionExtra Token (Recover Name)
   -- `f(...)`
   | CallExpressionExtra Token (CommaList Expression) (Recover Token)
+
+-- `+ E`
+--
+-- We implement binary expressions in such a way that the left-hand side will always exist even when
+-- the right-hand side may not. By parsing binary expressions in this way we guarantee that when
+-- turning an expression into a tokens list the list will _never_ be empty.
+data BinaryExpressionOperation = BinaryExpressionOperation BinaryOperator Token (Recover Expression)
 
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
@@ -652,7 +646,7 @@ statementTrimmedSource statement =
 --
 -- If the `Recover` is `Fatal` with no skipped tokens then we return an empty list.
 recoverStatementLeadingTrivia :: Recover Statement -> [Trivia]
-recoverStatementLeadingTrivia = recoverLeadingTrivia statementLeadingTrivia
+recoverStatementLeadingTrivia = recoverLeadingTrivia (tokenLeadingTrivia . statementFirstToken)
 
 -- Gets the leading trivia for a CST node wrapped in `Recover`. If the node is `Fatal` with no
 -- skipped tokens then we return an empty list.
@@ -664,33 +658,28 @@ recoverLeadingTrivia _ (Fatal [] _) = []
 recoverLeadingTrivia _ (Fatal (t : _) _) = tokenLeadingTrivia t
 
 -- Gets the leading trivia for a statement.
-statementLeadingTrivia :: Statement -> [Trivia]
-statementLeadingTrivia (ExpressionStatement e _) = expressionLeadingTrivia e
-statementLeadingTrivia (BindingStatement t _ _ _ _ _) = tokenLeadingTrivia t
-statementLeadingTrivia (ReturnStatement t _ _) = tokenLeadingTrivia t
-statementLeadingTrivia (BreakStatement t _ _) = tokenLeadingTrivia t
-statementLeadingTrivia (EmptyStatement t) = tokenLeadingTrivia t
-statementLeadingTrivia (Declaration (FunctionDeclaration t _ _)) = tokenLeadingTrivia t
+statementFirstToken :: Statement -> Token
+statementFirstToken (ExpressionStatement e _) = expressionFirstToken e
+statementFirstToken (BindingStatement t _ _ _ _ _) = t
+statementFirstToken (ReturnStatement t _ _) = t
+statementFirstToken (BreakStatement t _ _) = t
+statementFirstToken (EmptyStatement t) = t
+statementFirstToken (Declaration (FunctionDeclaration t _ _)) = t
 
 -- Gets the leading trivia for an expression.
-expressionLeadingTrivia :: Expression -> [Trivia]
-expressionLeadingTrivia (ConstantExpression (BooleanConstant _ t)) = tokenLeadingTrivia t
-expressionLeadingTrivia (VariableExpression (Name _ t)) = tokenLeadingTrivia t
-expressionLeadingTrivia (FunctionExpression t _) = tokenLeadingTrivia t
-expressionLeadingTrivia (ObjectExpression t _ _ _) = tokenLeadingTrivia t
-expressionLeadingTrivia (VariantExpression t _ _) = tokenLeadingTrivia t
-expressionLeadingTrivia (UnaryExpression _ t _) = tokenLeadingTrivia t
--- NOTE: Technically in a `BinaryExpression` the left `e` might be `Fatal` without any skipped
--- tokens but we could still use the binary operator. This usually doesn’t matter since we won’t
--- produce a binary expression statement without a left expression and this function is only ever
--- called through `statementLeadingTrivia`.
-expressionLeadingTrivia (BinaryExpression e _) = recoverLeadingTrivia expressionLeadingTrivia e
-expressionLeadingTrivia (ConditionalExpression (ConditionalExpressionIf t _ _ _)) = tokenLeadingTrivia t
-expressionLeadingTrivia (MatchExpression t _ _ _ _) = tokenLeadingTrivia t
-expressionLeadingTrivia (BlockExpression t _) = tokenLeadingTrivia t
-expressionLeadingTrivia (LoopExpression t _) = tokenLeadingTrivia t
-expressionLeadingTrivia (WrappedExpression t _ _ _) = tokenLeadingTrivia t
-expressionLeadingTrivia (ExpressionExtra e _) = expressionLeadingTrivia e
+expressionFirstToken :: Expression -> Token
+expressionFirstToken (ConstantExpression (BooleanConstant _ t)) = t
+expressionFirstToken (VariableExpression (Name _ t)) = t
+expressionFirstToken (FunctionExpression t _) = t
+expressionFirstToken (ObjectExpression t _ _ _) = t
+expressionFirstToken (VariantExpression t _ _) = t
+expressionFirstToken (UnaryExpression _ t _) = t
+expressionFirstToken (ConditionalExpression (ConditionalExpressionIf t _ _ _)) = t
+expressionFirstToken (MatchExpression t _ _ _ _) = t
+expressionFirstToken (BlockExpression t _) = t
+expressionFirstToken (LoopExpression t _) = t
+expressionFirstToken (WrappedExpression t _ _ _) = t
+expressionFirstToken (ExpressionExtra e _) = expressionFirstToken e
 
 -- Use a “difference list” trick to more efficiently build token lists.
 type Tokens = Endo [Token]
@@ -810,12 +799,6 @@ expressionTokens (VariantExpression t1 n els) =
 
 expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 
-expressionTokens (BinaryExpression e1 ext) =
-  recoverTokens expressionTokens e1 <> recoverTokens extraTokens ext
-  where
-    extraTokens (BinaryExpressionExtra _ t e2) =
-      singletonToken t <> recoverTokens expressionTokens e2
-
 expressionTokens (ConditionalExpression i') =
   ifTokens i'
   where
@@ -853,10 +836,15 @@ expressionTokens (WrappedExpression t1 e a t2) =
 expressionTokens (ExpressionExtra e ext) =
   expressionTokens e <> recoverTokens extraTokens ext
   where
+    extraTokens (BinaryExpressionExtra op ops) =
+      binaryOperation op <> mconcat (map (recoverTokens binaryOperation) ops)
     extraTokens (PropertyExpressionExtra t l) =
       singletonToken t <> recoverTokens nameTokens l
     extraTokens (CallExpressionExtra t1 args t2) =
       singletonToken t1 <> commaListTokens expressionTokens args <> recoverTokens singletonToken t2
+
+    binaryOperation (BinaryExpressionOperation _ t e2) =
+      singletonToken t <> recoverTokens expressionTokens e2
 
 -- Get tokens from a pattern.
 patternTokens :: Pattern -> Tokens
@@ -1135,35 +1123,6 @@ debugExpression indentation (UnaryExpression operator _ expression) =
         Positive -> "pos"
         Negative -> "neg"
 
-debugExpression indentation (BinaryExpression left extra) =
-  debugRecover debugExtra extra
-  where
-    debugExtra (BinaryExpressionExtra operator _ right) =
-      B.singleton '('
-        <> B.fromText operatorDescription
-        <> B.singleton ' '
-        <> debugRecover (debugExpression indentation) left
-        <> B.singleton ' '
-        <> debugRecover (debugExpression indentation) right
-        <> B.singleton ')'
-      where
-        operatorDescription =
-          case operator of
-            Add -> "add"
-            Subtract -> "sub"
-            Multiply -> "mul"
-            Divide -> "div"
-            Remainder -> "rem"
-            Exponent -> "pow"
-            Equals -> "eq"
-            NotEquals -> "neq"
-            LessThan -> "lt"
-            LessThanOrEqual -> "lte"
-            GreaterThan -> "gt"
-            GreaterThanOrEqual -> "gte"
-            And -> "and"
-            Or -> "or"
-
 debugExpression indentation' (ConditionalExpression if') =
   debugIf indentation' if'
   where
@@ -1232,6 +1191,23 @@ debugExpression indentation (ExpressionExtra expression extra') =
     Recover _ _ extra -> debugExtra extra
     Fatal _ _ -> debugExpression indentation expression
   where
+    debugExtra (BinaryExpressionExtra op1 []) = debugBinaryExpression expression op1
+
+    debugExtra (BinaryExpressionExtra op1 (Ok op2 : ops)) =
+      debugExpression indentation
+        (ExpressionExtra
+          (ExpressionExtra expression (Ok (BinaryExpressionExtra op1 [])))
+          (Ok (BinaryExpressionExtra op2 ops)))
+
+    debugExtra (BinaryExpressionExtra op1 (Recover _ _ op2 : ops)) =
+      debugExpression indentation
+        (ExpressionExtra
+          (ExpressionExtra expression (Ok (BinaryExpressionExtra op1 [])))
+          (Ok (BinaryExpressionExtra op2 ops)))
+
+    debugExtra (BinaryExpressionExtra op1 (Fatal _ _ : ops)) =
+      debugExpression indentation (ExpressionExtra expression (Ok (BinaryExpressionExtra op1 ops)))
+
     debugExtra (PropertyExpressionExtra _ label) =
       B.fromText "(prop "
         <> debugExpression indentation expression
@@ -1252,6 +1228,32 @@ debugExpression indentation (ExpressionExtra expression extra') =
         debugArg arg =
           B.singleton '\n' <> newIndentation
             <> debugRecover (debugExpression newIndentation) arg
+
+    debugBinaryExpression left (BinaryExpressionOperation operator _ right) =
+      B.singleton '('
+        <> B.fromText operatorDescription
+        <> B.singleton ' '
+        <> debugExpression indentation left
+        <> B.singleton ' '
+        <> debugRecover (debugExpression indentation) right
+        <> B.singleton ')'
+      where
+        operatorDescription =
+          case operator of
+            Add -> "add"
+            Subtract -> "sub"
+            Multiply -> "mul"
+            Divide -> "div"
+            Remainder -> "rem"
+            Exponent -> "pow"
+            Equals -> "eq"
+            NotEquals -> "neq"
+            LessThan -> "lt"
+            LessThanOrEqual -> "lte"
+            GreaterThan -> "gt"
+            GreaterThanOrEqual -> "gte"
+            And -> "and"
+            Or -> "or"
 
 -- Debug a pattern in an S-expression form. This abbreviated format should make it easier to see
 -- the structure of the CST node.

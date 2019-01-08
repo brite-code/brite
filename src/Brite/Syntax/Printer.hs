@@ -173,7 +173,6 @@ statement (ExpressionStatement e' t') = do
     noSemicolon (ObjectExpression _ _ _ _) = False
     noSemicolon (VariantExpression _ _ _) = False
     noSemicolon (UnaryExpression _ _ _) = False
-    noSemicolon (BinaryExpression _ _) = False
     noSemicolon (ConditionalExpression _) = True
     noSemicolon (MatchExpression _ _ _ _ _) = True
     noSemicolon (BlockExpression _ _) = True
@@ -199,7 +198,7 @@ statement (BindingStatement t1 p' Nothing t2' e' t3') = do
       <> group ((if breaksOnNextLine e then ifFlat (text " ") else text " ") <> value)
       <> maybe (text ";") token t3
   where
-    breaksOnNextLine (BinaryExpression _ _) = True
+    breaksOnNextLine (ExpressionExtra _ (Ok (BinaryExpressionExtra _ _))) = True
     breaksOnNextLine _ = False
 
 -- Pretty print a return statement. Always print the semicolon! Even if the semicolon was
@@ -310,8 +309,8 @@ expression loc (UnaryExpression _ t e') = wrap Unary loc <$> do
   return (token t <> e)
 
 -- Binary expressions of the same precedence level are placed in a single group.
-expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
-  l <- recover l' >>= expression (Operand precedence)
+expression loc (ExpressionExtra l' (Ok (BinaryExpressionExtra (BinaryExpressionOperation op t r') []))) = do
+  l <- expression (Operand precedence) l'
   r <- recover r' >>= expression (Operand precedence)
   return $ case loc of
     -- If our operation is at a greater precedence then we need to wrap it up.
@@ -339,6 +338,15 @@ expression loc (BinaryExpression l' (Ok (BinaryExpressionExtra op t r'))) = do
   where
     precedence = binaryOperatorPrecedence op
 
+-- Transform binary expression back into a tree.
+expression loc (ExpressionExtra l (Ok (BinaryExpressionExtra op1 (Ok op2 : ops)))) =
+  expression loc
+    (ExpressionExtra
+      (ExpressionExtra l (Ok (BinaryExpressionExtra op1 [])))
+      (Ok (BinaryExpressionExtra op2 ops)))
+expression _ (ExpressionExtra _ (Ok (BinaryExpressionExtra _ (Recover _ _ _ : _)))) = empty
+expression _ (ExpressionExtra _ (Ok (BinaryExpressionExtra _ (Fatal _ _ : _)))) = empty
+
 -- Render block expressions.
 expression _ (BlockExpression t b') = do
   b <- block b'
@@ -355,7 +363,7 @@ expression loc (WrappedExpression t1 e' Nothing t2') = do
     wrapped <- expression loc e
     return $ removeToken t1 <> wrapped <> removeToken t2
   where
-    needsWrapping (Operand p) (BinaryExpression _ (Ok (BinaryExpressionExtra op _ _))) =
+    needsWrapping (Operand p) (ExpressionExtra _ (Ok (BinaryExpressionExtra (BinaryExpressionOperation op _ _) _))) =
       p < binaryOperatorPrecedence op
     needsWrapping l (WrappedExpression _ (Ok e) Nothing _) = needsWrapping l e
     needsWrapping _ _ = False
@@ -409,8 +417,6 @@ expression _ (ExpressionExtra e' (Ok (CallExpressionExtra t1 args' t3'))) = do
   return $ e <> group (token t1 <> args <> token t3)
 
 -- Panic for all the other parse errors in expression extensions.
-expression _ (BinaryExpression _ (Recover _ _ _)) = empty
-expression _ (BinaryExpression _ (Fatal _ _)) = empty
 expression _ (ExpressionExtra _ (Recover _ _ _)) = empty
 expression _ (ExpressionExtra _ (Fatal _ _)) = empty
 
