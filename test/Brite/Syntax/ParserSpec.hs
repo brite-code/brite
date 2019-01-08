@@ -3,7 +3,9 @@
 module Brite.Syntax.ParserSpec (spec) where
 
 import Brite.Diagnostics
-import Brite.Syntax.CST
+import qualified Brite.Semantics.AST as AST
+import qualified Brite.Semantics.ASTDebug as AST
+import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
@@ -943,8 +945,9 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
     it (T.unpack (escape source)) $ \h ->
       let
         (module_, diagnostics) = runDiagnosticWriter (parseModule (tokenize source))
-        rebuiltSource = L.toStrict (B.toLazyText (moduleSource module_))
-      in do
+        moduleDebug = AST.debugModule (AST.convertModule module_)
+        rebuiltSource = L.toStrict (B.toLazyText (CST.moduleSource module_))
+      in seq moduleDebug $ do
         hPutStrLn h ""
         hPutStrLn h (replicate 80 '-')
         hPutStrLn h ""
@@ -955,7 +958,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h ""
         hPutStrLn h "### AST"
         hPutStrLn h "```"
-        hPutStr h (L.unpack (B.toLazyText (debugModule module_)))
+        hPutStr h (L.unpack (B.toLazyText moduleDebug))
         hPutStrLn h "```"
         if null diagnostics then return () else (do
           hPutStrLn h ""

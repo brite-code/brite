@@ -8,6 +8,7 @@ module Brite.Semantics.AST
   , Range(..)
   , Identifier
   , Name(..)
+  , Module(..)
   , Statement(..)
   , StatementNode(..)
   , Declaration(..)
@@ -31,6 +32,7 @@ module Brite.Semantics.AST
   , ObjectTypeProperty(..)
   , Quantifier(..)
   , QuantifierBoundKind(..)
+  , convertModule
   , convertExpression
   ) where
 
@@ -49,6 +51,11 @@ data Name = Name
   { nameRange :: Range
   -- The identifier which creates the name.
   , nameIdentifier :: Identifier
+  }
+
+-- A Brite module.
+newtype Module = Module
+  { moduleStatements :: [Statement]
   }
 
 -- While `Statement` currently does not have any common data like `Expression` or `Pattern`, we
@@ -355,6 +362,10 @@ fatalErrorExpression ts e =
   Expression
     (fromMaybe (diagnosticRange e) (tokensRange ts))
     (ErrorExpression e Nothing)
+
+-- Converts a CST module into an AST module.
+convertModule :: CST.Module -> Module
+convertModule = error "unimplemented"
 
 -- Converts a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Expression
