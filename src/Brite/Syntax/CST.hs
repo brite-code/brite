@@ -55,6 +55,7 @@ module Brite.Syntax.CST
   , QuantifierBoundKind(..)
   , TypeAnnotation(..)
   , moduleTokens
+  , expressionTokens
   , moduleSource
   , statementTrimmedSource
   , recoverStatementLeadingTrivia
@@ -277,7 +278,7 @@ data Expression
 
   -- ```
   -- do { ... }
-  -- ``
+  -- ```
   --
   -- Introduces a new block scope into the program.
   | BlockExpression Token Block
@@ -614,6 +615,11 @@ moduleTokens (Module statements end) =
   , end
   )
 
+-- Get the tokens for an expression. Printing these tokens to source should result in the exact
+-- source code of the document we parsed to produce this expression.
+expressionTokens :: Expression -> [Token]
+expressionTokens e = appEndo (expressionTokensM e) []
+
 -- Rebuild the source code that the module was parsed from. Does not return the exact same text
 -- reference but rather a rebuilt text document.
 moduleSource :: Module -> B.Builder
@@ -657,7 +663,7 @@ recoverLeadingTrivia _ (Recover (t : _) _ _) = tokenLeadingTrivia t
 recoverLeadingTrivia _ (Fatal [] _) = []
 recoverLeadingTrivia _ (Fatal (t : _) _) = tokenLeadingTrivia t
 
--- Gets the leading trivia for a statement.
+-- Gets the first token of a statement.
 statementFirstToken :: Statement -> Token
 statementFirstToken (ExpressionStatement e _) = expressionFirstToken e
 statementFirstToken (BindingStatement t _ _ _ _ _) = t
@@ -666,7 +672,7 @@ statementFirstToken (BreakStatement t _ _) = t
 statementFirstToken (EmptyStatement t) = t
 statementFirstToken (Declaration (FunctionDeclaration t _ _)) = t
 
--- Gets the leading trivia for an expression.
+-- Gets the first token of an expression.
 expressionFirstToken :: Expression -> Token
 expressionFirstToken (ConstantExpression (BooleanConstant _ t)) = t
 expressionFirstToken (VariableExpression (Name _ t)) = t
@@ -712,21 +718,21 @@ commaListTokens tokens (CommaList as an) =
 -- Get tokens from a statement.
 statementTokens :: Statement -> Tokens
 statementTokens (ExpressionStatement e t) =
-  expressionTokens e <> maybeTokens (recoverTokens singletonToken) t
+  expressionTokensM e <> maybeTokens (recoverTokens singletonToken) t
 statementTokens (BindingStatement t1 p a t2 e t3) =
   singletonToken t1
     <> recoverTokens patternTokens p
     <> maybeTokens (recoverTokens typeAnnotationTokens) a
     <> recoverTokens singletonToken t2
-    <> recoverTokens expressionTokens e
+    <> recoverTokens expressionTokensM e
     <> maybeTokens (recoverTokens singletonToken) t3
 statementTokens (ReturnStatement t1 e t2) =
   singletonToken t1
-    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens expressionTokensM) e
     <> maybeTokens (recoverTokens singletonToken) t2
 statementTokens (BreakStatement t1 e t2) =
   singletonToken t1
-    <> maybeTokens (recoverTokens expressionTokens) e
+    <> maybeTokens (recoverTokens expressionTokensM) e
     <> maybeTokens (recoverTokens singletonToken) t2
 statementTokens (EmptyStatement t) = singletonToken t
 statementTokens (Declaration d) =
@@ -766,15 +772,17 @@ constantTokens :: Constant -> Tokens
 constantTokens (BooleanConstant _ t) = singletonToken t
 
 -- Get tokens from an expression.
-expressionTokens :: Expression -> Tokens
-expressionTokens (ConstantExpression constant) = constantTokens constant
+--
+-- The `M` at the end stands for “monoid”.
+expressionTokensM :: Expression -> Tokens
+expressionTokensM (ConstantExpression constant) = constantTokens constant
 
-expressionTokens (VariableExpression name) = nameTokens name
+expressionTokensM (VariableExpression name) = nameTokens name
 
-expressionTokens (FunctionExpression t f) =
+expressionTokensM (FunctionExpression t f) =
   singletonToken t <> functionTokens f
 
-expressionTokens (ObjectExpression t1 ps ext t2) =
+expressionTokensM (ObjectExpression t1 ps ext t2) =
   singletonToken t1
     <> commaListTokens propertyTokens ps
     <> maybeTokens (recoverTokens extensionTokens) ext
@@ -784,36 +792,36 @@ expressionTokens (ObjectExpression t1 ps ext t2) =
       nameTokens n <> maybeTokens (recoverTokens propertyValueTokens) v
 
     propertyValueTokens (ObjectExpressionPropertyValue t3 e) =
-      singletonToken t3 <> recoverTokens expressionTokens e
+      singletonToken t3 <> recoverTokens expressionTokensM e
 
     extensionTokens (ObjectExpressionExtension t3 e) =
-      singletonToken t3 <> recoverTokens expressionTokens e
+      singletonToken t3 <> recoverTokens expressionTokensM e
 
-expressionTokens (VariantExpression t1 n els) =
+expressionTokensM (VariantExpression t1 n els) =
   singletonToken t1
     <> recoverTokens nameTokens n
     <> maybeTokens (recoverTokens elementTokens) els
   where
     elementTokens (VariantExpressionElements t2 es t3) =
-      singletonToken t2 <> commaListTokens expressionTokens es <> recoverTokens singletonToken t3
+      singletonToken t2 <> commaListTokens expressionTokensM es <> recoverTokens singletonToken t3
 
-expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
+expressionTokensM (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokensM e
 
-expressionTokens (ConditionalExpression i') =
+expressionTokensM (ConditionalExpression i') =
   ifTokens i'
   where
     ifTokens (ConditionalExpressionIf t x b e) =
       singletonToken t
-        <> recoverTokens expressionTokens x
+        <> recoverTokens expressionTokensM x
         <> blockTokens b
         <> maybeTokens (recoverTokens elseTokens) e
 
     elseTokens (ConditionalExpressionElse t b) = singletonToken t <> blockTokens b
     elseTokens (ConditionalExpressionElseIf t i) = singletonToken t <> ifTokens i
 
-expressionTokens (MatchExpression t1 e t2 cs t3) =
+expressionTokensM (MatchExpression t1 e t2 cs t3) =
   singletonToken t1
-    <> recoverTokens expressionTokens e
+    <> recoverTokens expressionTokensM e
     <> recoverTokens singletonToken t2
     <> mconcat (map (recoverTokens caseTokens) cs)
     <> recoverTokens singletonToken t3
@@ -823,28 +831,28 @@ expressionTokens (MatchExpression t1 e t2 cs t3) =
         <> recoverTokens singletonToken t4
         <> blockTokens b
 
-expressionTokens (BlockExpression t b) = singletonToken t <> blockTokens b
+expressionTokensM (BlockExpression t b) = singletonToken t <> blockTokens b
 
-expressionTokens (LoopExpression t b) = singletonToken t <> blockTokens b
+expressionTokensM (LoopExpression t b) = singletonToken t <> blockTokens b
 
-expressionTokens (WrappedExpression t1 e a t2) =
+expressionTokensM (WrappedExpression t1 e a t2) =
   singletonToken t1
-    <> recoverTokens expressionTokens e
+    <> recoverTokens expressionTokensM e
     <> maybeTokens (recoverTokens typeAnnotationTokens) a
     <> recoverTokens singletonToken t2
 
-expressionTokens (ExpressionExtra e ext) =
-  expressionTokens e <> recoverTokens extraTokens ext
+expressionTokensM (ExpressionExtra e ext) =
+  expressionTokensM e <> recoverTokens extraTokens ext
   where
     extraTokens (BinaryExpressionExtra op ops) =
       binaryOperation op <> mconcat (map (recoverTokens binaryOperation) ops)
     extraTokens (PropertyExpressionExtra t l) =
       singletonToken t <> recoverTokens nameTokens l
     extraTokens (CallExpressionExtra t1 args t2) =
-      singletonToken t1 <> commaListTokens expressionTokens args <> recoverTokens singletonToken t2
+      singletonToken t1 <> commaListTokens expressionTokensM args <> recoverTokens singletonToken t2
 
     binaryOperation (BinaryExpressionOperation _ t e2) =
-      singletonToken t <> recoverTokens expressionTokens e2
+      singletonToken t <> recoverTokens expressionTokensM e2
 
 -- Get tokens from a pattern.
 patternTokens :: Pattern -> Tokens

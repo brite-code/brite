@@ -8,6 +8,7 @@ module Brite.Syntax.Tokens
   , initialPosition
   , utf16Length
   , Range(..)
+  , rangeBetween
   , Identifier
   , identifierText
   , Keyword(..)
@@ -87,6 +88,11 @@ utf16Length c = if n .&. 0xFFFF == n then 1 else 2
 --
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Range = Range { rangeStart :: Position, rangeEnd :: Position }
+
+-- Gets the range between two other ranges. Takes the first position from the first range and the
+-- second position from the second range.
+rangeBetween :: Range -> Range -> Range
+rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 
 -- A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
 -- Specification][1] including the optional underscore (`_`) character.

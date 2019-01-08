@@ -34,9 +34,12 @@ module Brite.Semantics.AST
   ) where
 
 import Brite.Diagnostics
-import Brite.Syntax.CST (UnaryOperator(..), QuantifierBoundKind(..))
+import Brite.Syntax.CST (Recover(..), UnaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
-import Brite.Syntax.Tokens (Position(..), Range(..), Identifier)
+import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, Token(..))
+import Control.Monad.Writer
+import Data.Maybe (fromMaybe)
+import Data.Monoid (Alt(..))
 
 data Name = Name
   -- The range covered by a name in a document.
@@ -73,7 +76,7 @@ data StatementNode
   -- the error. If we recovered then the AST node will be `Just` otherwise it will be `Nothing`.
   --
   -- We will panic at runtime if someone attempts to execute this node.
-  | ErrorStatement Diagnostic (Maybe Statement)
+  | ErrorStatement Diagnostic (Maybe StatementNode)
 
 -- NOTE: Eventually we will also add a `TypeDeclaration`.
 data Declaration
@@ -166,7 +169,15 @@ data ExpressionNode
   -- the error. If we recovered then the AST node will be `Just` otherwise it will be `Nothing`.
   --
   -- We will panic at runtime if someone attempts to execute this node.
-  | ErrorExpression Diagnostic (Maybe Expression)
+  | ErrorExpression Diagnostic (Maybe ExpressionNode)
+
+-- Takes an expression and makes it an error expression. If the expression is already an error
+-- expression then we replace the current error with our new one.
+--
+-- The range of our error expression will be the same as the expression we are annotating.
+errorExpression :: Diagnostic -> Expression -> Expression
+errorExpression e (Expression r (ErrorExpression _ x)) = Expression r (ErrorExpression e x)
+errorExpression e (Expression r x) = Expression r (ErrorExpression e (Just x))
 
 -- `p: E`
 data ObjectExpressionProperty = ObjectExpressionProperty Name (Maybe Expression)
@@ -242,7 +253,7 @@ data PatternNode
   -- the error. If we recovered then the AST node will be `Just` otherwise it will be `Nothing`.
   --
   -- We will panic at runtime if someone attempts to execute this node.
-  | ErrorPattern Diagnostic (Maybe Pattern)
+  | ErrorPattern Diagnostic (Maybe PatternNode)
 
 -- `p: P`
 data ObjectPatternProperty = ObjectPatternProperty Name (Maybe Pattern)
@@ -282,7 +293,7 @@ data TypeNode
   -- the error. If we recovered then the AST node will be `Just` otherwise it will be `Nothing`.
   --
   -- We will panic at runtime if someone attempts to execute this node.
-  | ErrorType Diagnostic (Maybe Type)
+  | ErrorType Diagnostic (Maybe TypeNode)
 
 -- `p: T`
 data ObjectTypeProperty = ObjectTypeProperty Name (Maybe Type)
@@ -290,52 +301,94 @@ data ObjectTypeProperty = ObjectTypeProperty Name (Maybe Type)
 -- `x: T`
 data Quantifier = Quantifier Name (Maybe (QuantifierBoundKind, Type))
 
--- A monad for converting CST nodes to AST nodes in the same form as the CST `Recover` data type. If
--- we recover multiple times then we will use the first error.
-data Recover a
-  = Ok a
-  | Recover Diagnostic a
-  | Fatal Diagnostic
+-- Gets a range from a list of tokens. Returns `Nothing` if there are no tokens.
+tokensRange :: [Token] -> Maybe Range
+tokensRange [] = Nothing
+tokensRange ts = Just (rangeBetween (tokenRange (head ts)) (tokenRange (last ts)))
 
-instance Functor Recover where
-  fmap f (Ok a) = Ok (f a)
-  fmap f (Recover e a) = Recover e (f a)
-  fmap _ (Fatal e) = Fatal e
+-- Takes a `Recover Token` and get the range for that token. If the `Recover` is `Fatal` then there
+-- may not be a range. Also writes a diagnostic if there was a parse error.
+recoverTokenRange :: Recover Token -> Writer (Alt Maybe Diagnostic) (Maybe Range)
+recoverTokenRange (Ok t) = return (Just (tokenRange t))
+recoverTokenRange (Fatal ts e) = tell (pure e) *> return (tokensRange ts)
+recoverTokenRange (Recover ts e t) = do
+  tell (pure e)
+  return $ Just $ case tokensRange ts of
+    Nothing -> tokenRange t
+    Just r -> rangeBetween r (tokenRange t)
 
-instance Applicative Recover where
-  pure a = Ok a
+-- Converts a CST expression into an AST expression.
+convertExpression :: CST.Expression -> Expression
+convertExpression x0 = case x0 of
+  -- Boolean constants are easy since they are a single token.
+  CST.ConstantExpression (CST.BooleanConstant b t) ->
+    Expression (tokenRange t) (ConstantExpression (BooleanConstant b))
 
-  Fatal e <*> _ = Fatal e
-  _ <*> Fatal e = Fatal e
-  Recover e f <*> Recover _ a = Recover e (f a)
-  Recover e f <*> Ok a = Recover e (f a)
-  Ok f <*> Recover e a = Recover e (f a)
-  Ok f <*> Ok a = Ok (f a)
+  -- Variable expressions are easy since they are a single token.
+  CST.VariableExpression (CST.Name n t) ->
+    Expression (tokenRange t) (VariableExpression n)
 
-instance Monad Recover where
-  Ok a >>= f = f a
-  Fatal e >>= _ = Fatal e
-  Recover e a >>= f =
-    case f a of
-      Fatal e2 -> Fatal e2
-      Recover _ b -> Recover e b
-      Ok b -> Recover e b
+  -- Convert the unary expression’s operand and set the range to be between the unary operator and
+  -- the operand.
+  CST.UnaryExpression op t x' ->
+    let x = convertRecoverExpression x' in
+      Expression
+        (rangeBetween (tokenRange t) (expressionRange x))
+        (UnaryExpression op x)
 
--- Converts a CST `Recover` into an AST `Recover`.
-recover :: CST.Recover a -> Recover a
-recover (CST.Fatal _ e) = Fatal e
-recover (CST.Recover _ e a) = Recover e a
-recover (CST.Ok a) = Ok a
+  CST.WrappedExpression t1 x' Nothing t2 -> build $ do
+    let x = convertRecoverExpression x'
+    -- NOTE: If there is an error in `t2` then that error will be attached to the
+    -- `WrappedExpression` and will be thrown first at runtime instead of an error attached to `x`
+    -- which technically came first in the source code.
+    --
+    -- This is acceptable since the error thrown at runtime is indicative not of source order but
+    -- instead of execution order. Technically, the wrapped expression executes first.
+    r2 <- recoverTokenRange t2
+    return $ Expression
+      (rangeBetween (tokenRange t1) (fromMaybe (expressionRange x) r2))
+      (WrappedExpression x Nothing)
 
--- Runs the `Recover` monad and takes an error constructor for the node. The error constructor is
--- called if there is a fatal error or an error recovery.
-runRecover :: (Diagnostic -> Maybe a -> a) -> Recover a -> a
-runRecover f (Fatal e) = f e Nothing
-runRecover f (Recover e a) = f e (Just a)
-runRecover _ (Ok a) = a
+  -- If we have a completely ok property expression then convert to an AST property expression.
+  --
+  -- NOTE: If `Token {}` is ever wrapped in `Recover` then we’ll need to handle the error.
+  CST.ExpressionExtra x' (Ok (CST.PropertyExpressionExtra (Token {}) (Ok (CST.Name n t)))) ->
+    let x = convertExpression x' in
+      Expression
+        (rangeBetween (expressionRange x) (tokenRange t))
+        (PropertyExpression x (Name (tokenRange t) n))
 
--- -- Converts a CST expression into an AST expression.
--- expressionFromCST :: CST.Expression -> Expression
--- expressionFromCST x0 = runRecover build $ case x0 of
---   CST.ConstantExpression (CST.BooleanConstant b t) ->
---     return (Expression (tokenRange t) (ConstantExpression (BooleanConstant b)))
+  -- Redirect property name recovery to `Ok` after attaching an error.
+  CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra t (Recover _ e n))) ->
+    errorExpression e (convertExpression (CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra t (Ok n)))))
+
+  -- Treat a property expression with a fatal property name the same as a fatal `ExpressionExtra`.
+  CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra _ (Fatal _ e))) ->
+    errorExpression e (convertExpression x)
+
+  -- Add the error from our error recovery and redirect with `Ok`.
+  CST.ExpressionExtra x (Recover _ e extra) ->
+    errorExpression e (convertExpression (CST.ExpressionExtra x (Ok extra)))
+
+  -- NOTE: The range of the error does not extend the expression range. This expression will be
+  -- treated by the type system without any extra extensions so extending the range would break
+  -- that intuition.
+  --
+  -- For example, if we have `f(x 😈)` then we will have a fatal `ExpressionExtra`. We want to
+  -- assign a type and in errors point to `x` and not `x 😈`.
+  CST.ExpressionExtra x (Fatal _ e) -> errorExpression e (convertExpression x)
+
+  where
+    -- A small utility for selecting the first error we find if any.
+    build x1 =
+      let (x, e) = runWriter x1 in
+        maybe x (flip errorExpression x) (getAlt e)
+
+-- Converts a CST expression wrapped in `Recover` into an AST expression.
+convertRecoverExpression :: Recover CST.Expression -> Expression
+convertRecoverExpression (Ok x) = convertExpression x
+convertRecoverExpression (Recover _ e x) = errorExpression e (convertExpression x)
+convertRecoverExpression (Fatal ts e) =
+  Expression
+    (fromMaybe (diagnosticRange e) (tokensRange ts))
+    (ErrorExpression e Nothing)
