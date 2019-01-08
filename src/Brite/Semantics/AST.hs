@@ -38,7 +38,9 @@ import Brite.Diagnostics
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, Token(..))
+import Control.Applicative
 import Control.Monad.Writer
+import Data.Foldable (foldlM)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Alt(..))
 
@@ -299,6 +301,12 @@ tokensRange :: [Token] -> Maybe Range
 tokensRange [] = Nothing
 tokensRange ts = Just (rangeBetween (tokenRange (head ts)) (tokenRange (last ts)))
 
+-- Takes a `Recover Token` and writes the error if we encountered a parse error.
+recoverToken :: Recover Token -> Writer (Alt Maybe Diagnostic) ()
+recoverToken (Ok _) = return ()
+recoverToken (Fatal _ e) = tell (pure e)
+recoverToken (Recover _ e _) = tell (pure e)
+
 -- Takes a `Recover Token` and get the range for that token. If the `Recover` is `Fatal` then there
 -- may not be a range. Also writes a diagnostic if there was a parse error.
 recoverTokenRange :: Recover Token -> Writer (Alt Maybe Diagnostic) (Maybe Range)
@@ -309,6 +317,28 @@ recoverTokenRange (Recover ts e t) = do
   return $ Just $ case tokensRange ts of
     Nothing -> tokenRange t
     Just r -> rangeBetween r (tokenRange t)
+
+-- Converts a comma list to a plain list using the provided conversion function. Using the writer
+-- monad we record the first syntax error we find in the comma list.
+convertCommaList :: (a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
+convertCommaList f (CST.CommaList as an) = do
+  bs <- foldlM
+    (\bs (a', t) ->
+      case a' of
+        Ok a -> recoverToken t *> return (f a : bs)
+        -- NOTE: Technically calling `recoverToken` here is a noop since adding the `Recover` and
+        -- `Fatal` error means all other errors will be ignored since `Alt Maybe` uses the first
+        -- error written.
+        Recover _ e a -> tell (Alt (Just e)) *> recoverToken t *> return (f a : bs)
+        Fatal _ e -> tell (Alt (Just e)) *> recoverToken t *> return bs)
+    []
+    as
+  -- Add the last element in the comma list and reverse.
+  case an of
+    Nothing -> return (reverse bs)
+    Just (Ok a) -> return (reverse (f a : bs))
+    Just (Recover _ e a) -> tell (pure e) *> return (reverse (f a : bs))
+    Just (Fatal _ e) -> tell (pure e) *> return (reverse bs)
 
 -- Takes an expression and makes it an error expression. If the expression is already an error
 -- expression then we replace the current error with our new one.
@@ -413,6 +443,21 @@ convertExpression x0 = case x0 of
   -- Treat a property expression with a fatal property name the same as a fatal `ExpressionExtra`.
   CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra (Token {}) (Fatal _ e))) ->
     errorExpression e (convertExpression x)
+
+  -- Convert a CST call expression to an AST call expression..
+  CST.ExpressionExtra x' (Ok (CST.CallExpressionExtra t1 xs' t2)) -> build $ do
+    let x = convertExpression x'
+    xs <- convertCommaList convertExpression xs'
+    r2 <- recoverTokenRange t2
+    return $ Expression
+      (rangeBetween
+        (expressionRange x)
+        -- For the range end use the closing parentheses token, if that doesn’t exist use the last
+        -- argument range, if there are no arguments use the opening parentheses token.
+        (fromMaybe
+          (tokenRange t1)
+          (r2 <|> (if not (null xs) then Just (expressionRange (last xs)) else Nothing))))
+      (CallExpression x xs)
 
   -- Add the error from our error recovery and redirect with `Ok`.
   CST.ExpressionExtra x (Recover _ e extra) ->
