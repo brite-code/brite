@@ -38,6 +38,9 @@ debugExpression x0 = case expressionNode x0 of
 
   VariableExpression ident -> (A "var") `E` (A range) `E` (A (identifierText ident))
 
+  ErrorExpression _ Nothing -> (A "err") `E` (A range)
+  ErrorExpression _ (Just x) -> (A "err") `E` debugExpression (Expression (expressionRange x0) x)
+
   where
     range = Text.Lazy.toStrict (Text.Builder.toLazyText (debugRange (expressionRange x0)))
 
