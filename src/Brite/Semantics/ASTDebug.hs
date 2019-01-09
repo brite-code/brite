@@ -41,6 +41,8 @@ debugStatement s0 = case statementNode s0 of
   BreakStatement Nothing -> (symbol "break")
   BreakStatement (Just x) -> (symbol "break") `E` (debugExpression x)
 
+  EmptyStatement -> (symbol "empty")
+
   FunctionDeclaration n f -> debugFunction (statementRange s0) (Just n) f
 
   ErrorStatement _ Nothing -> (symbol "err")

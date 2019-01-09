@@ -90,6 +90,9 @@ data StatementNode
   -- missing name.
   | FunctionDeclaration (Either Diagnostic Name) Function
 
+  -- `;`
+  | EmptyStatement
+
   -- Marks the position of some error in the AST. We may or may not have been able to recover from
   -- the error. If we recovered then the AST node will be `Just` otherwise it will be `Nothing`.
   --
@@ -464,6 +467,10 @@ convertStatement s0 = case s0 of
     return $ Statement
       (rangeBetweenMaybe (tokenRange t1) (expressionRange <$> x))
       (BreakStatement x)
+
+  -- Convert the empty statement CST into an AST. Easy because the empty statement only has
+  -- one token.
+  CST.EmptyStatement t -> Statement (tokenRange t) EmptyStatement
 
   -- Convert a CST function declaration into an AST declaration statement. What’s interesting here
   -- is that while a name is required for function declarations, if we don’t have a name we still
