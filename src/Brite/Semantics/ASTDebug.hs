@@ -35,6 +35,12 @@ debugStatement s0 = case statementNode s0 of
   BindingStatement p (Just t) x ->
     (A "bind") `E` (debugPattern p) `E` ((A "type") `E` (debugType t)) `E` (debugExpression x)
 
+  ReturnStatement Nothing -> (symbol "return")
+  ReturnStatement (Just x) -> (symbol "return") `E` (debugExpression x)
+
+  BreakStatement Nothing -> (symbol "break")
+  BreakStatement (Just x) -> (symbol "break") `E` (debugExpression x)
+
   FunctionDeclaration n f -> debugFunction (statementRange s0) (Just n) f
 
   ErrorStatement _ Nothing -> (symbol "err")

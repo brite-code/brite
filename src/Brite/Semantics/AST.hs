@@ -47,7 +47,7 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, identifierText, Token(..), EndToken(..))
 import Control.Applicative
 import Control.Monad.Writer
-import Data.Foldable (foldlM)
+import Data.Foldable (foldlM, mapM_)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Alt(..))
 
@@ -448,6 +448,22 @@ convertStatement s0 = case s0 of
     return $ Statement
       (rangeBetween (tokenRange t1) (fromMaybe (expressionRange e) r3))
       (BindingStatement p t e)
+
+  -- Convert the return statement CST into an AST.
+  CST.ReturnStatement t1 x' t2 -> build $ do
+    let x = convertRecoverExpression <$> x'
+    mapM_ recoverToken t2
+    return $ Statement
+      (rangeBetweenMaybe (tokenRange t1) (expressionRange <$> x))
+      (ReturnStatement x)
+
+  -- Convert the break statement CST into an AST.
+  CST.BreakStatement t1 x' t2 -> build $ do
+    let x = convertRecoverExpression <$> x'
+    mapM_ recoverToken t2
+    return $ Statement
+      (rangeBetweenMaybe (tokenRange t1) (expressionRange <$> x))
+      (BreakStatement x)
 
   -- Convert a CST function declaration into an AST declaration statement. What’s interesting here
   -- is that while a name is required for function declarations, if we don’t have a name we still
