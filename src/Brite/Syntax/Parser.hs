@@ -27,7 +27,7 @@ tryName = uncurry Name <$> tryIdentifier
 tryStatement :: TryParser Statement
 tryStatement =
   tryBindingStatement
-    <|> tryDeclaration
+    <|> tryFunctionDeclaration
     <|> tryExpressionStatement
     <|> tryReturnStatement
     <|> tryBreakStatement
@@ -68,12 +68,7 @@ tryEmptyStatement = EmptyStatement <$> tryGlyph Semicolon
 semicolon :: Parser (Maybe (Recover Token))
 semicolon = optional (tryGlyph Semicolon)
 
-tryDeclaration :: TryParser Statement
-tryDeclaration =
-  Declaration
-    <$> tryFunctionDeclaration
-
-tryFunctionDeclaration :: TryParser Declaration
+tryFunctionDeclaration :: TryParser Statement
 tryFunctionDeclaration =
   FunctionDeclaration
     <$> tryKeyword Fun

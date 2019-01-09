@@ -20,7 +20,6 @@ module Brite.Syntax.CST
   , CommaList(..)
   , commaListItems
   , Statement(..)
-  , Declaration(..)
   , Function(..)
   , FunctionParameter(..)
   , FunctionReturn(..)
@@ -126,14 +125,6 @@ data Statement
   -- practical use.
   | EmptyStatement Token
 
-  -- Some declaration which is not order dependent unlike all statements.
-  | Declaration Declaration
-
--- Convenience type alias for an optional semicolon token.
-type Semicolon = Maybe (Recover Token)
-
--- NOTE: Eventually we will also add a `TypeDeclaration`.
-data Declaration
   -- ```
   -- fun f(...) { ... }
   -- fun f(...) -> T { ... }
@@ -144,7 +135,10 @@ data Declaration
   -- two because function declarations are mutually recursive among all function declarations.
   -- Function declarations require the name to be present and don’t allow expression “extra”s like
   -- a function call.
-  = FunctionDeclaration Token (Recover Name) Function
+  | FunctionDeclaration Token (Recover Name) Function
+
+-- Convenience type alias for an optional semicolon token.
+type Semicolon = Maybe (Recover Token)
 
 -- ```
 -- (...) { ... }
@@ -580,7 +574,7 @@ statementFirstToken (BindingStatement t _ _ _ _ _) = t
 statementFirstToken (ReturnStatement t _ _) = t
 statementFirstToken (BreakStatement t _ _) = t
 statementFirstToken (EmptyStatement t) = t
-statementFirstToken (Declaration (FunctionDeclaration t _ _)) = t
+statementFirstToken (FunctionDeclaration t _ _) = t
 
 -- Gets the first token of an expression.
 expressionFirstToken :: Expression -> Token
@@ -643,12 +637,7 @@ statementTokens (BreakStatement t1 e t2) =
     <> maybeTokens (recoverTokens expressionTokensM) e
     <> maybeTokens (recoverTokens singletonToken) t2
 statementTokens (EmptyStatement t) = singletonToken t
-statementTokens (Declaration d) =
-  declarationTokens d
-
--- Get tokens from a declaration.
-declarationTokens :: Declaration -> Tokens
-declarationTokens (FunctionDeclaration t n f) =
+statementTokens (FunctionDeclaration t n f) =
   singletonToken t <> recoverTokens nameTokens n <> functionTokens f
 
 functionTokens :: Function -> Tokens

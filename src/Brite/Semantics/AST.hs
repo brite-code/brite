@@ -17,7 +17,6 @@ module Brite.Semantics.AST
   , Module(..)
   , Statement(..)
   , StatementNode(..)
-  , Declaration(..)
   , Function(..)
   , FunctionParameter(..)
   , Block(..)
@@ -84,23 +83,18 @@ data StatementNode
   -- `break;`
   | BreakStatement (Maybe Expression)
 
-  -- Some declaration which is not order dependent unlike all statements.
-  | Declaration Declaration
+  -- `fun f() {}`
+  --
+  -- If we failed to parse a name for the function then the name will be `Left` instead of `Right`.
+  -- We do this so we don’t have to throw away our entire function declaration just because of a
+  -- missing name.
+  | FunctionDeclaration (Either Diagnostic Name) Function
 
   -- Marks the position of some error in the AST. We may or may not have been able to recover from
   -- the error. If we recovered then the AST node will be `Just` otherwise it will be `Nothing`.
   --
   -- We will panic at runtime if someone attempts to execute this node.
   | ErrorStatement Diagnostic (Maybe StatementNode)
-
--- NOTE: Eventually we will also add a `TypeDeclaration`.
-data Declaration
-  -- `fun f() {}`
-  --
-  -- If we failed to parse a name for the function then the name will be `Left` instead of `Right`.
-  -- We do this so we don’t have to throw away our entire function declaration just because of a
-  -- missing name.
-  = FunctionDeclaration (Either Diagnostic Name) Function
 
 -- `fun() {}`
 data Function = Function
@@ -398,6 +392,10 @@ convertRecoverCommaList f (CST.CommaList as an) = do
 convertModule :: CST.Module -> Module
 convertModule (CST.Module ss (EndToken {})) = Module (convertStatementSequence ss)
 
+-- Converts a CST name into an AST name.
+convertName :: CST.Name -> Name
+convertName (CST.Name n t) = Name (tokenRange t) n
+
 -- Convert a sequence of recover CST statements into a list of AST statements. If any of the CST
 -- statements are recovered parse errors then we insert two statements. One a fatal `ErrorStatement`
 -- and the other the recovered statement.
@@ -450,6 +448,17 @@ convertStatement s0 = case s0 of
     return $ Statement
       (rangeBetween (tokenRange t1) (fromMaybe (expressionRange e) r3))
       (BindingStatement p t e)
+
+  -- Convert a CST function declaration into an AST declaration statement. What’s interesting here
+  -- is that while a name is required for function declarations, if we don’t have a name we still
+  -- return a function declaration but we give it a `Left` name with an error instead of `Right`.
+  CST.FunctionDeclaration t n' f' -> build $ do
+    n <- case n' of
+      Ok n -> return (Right (convertName n))
+      Recover _ e n -> tell (pure e) *> return (Right (convertName n))
+      Fatal _ e -> return (Left e)
+    (r, f) <- convertFunction (tokenRange t) f'
+    return $ Statement r (FunctionDeclaration n f)
 
   where
     -- A small utility for adding the first error to the statement we find if any.
@@ -552,8 +561,8 @@ convertExpression x0 = case x0 of
         (r2 <|> (expressionRange <$> ext) <|> (objectExpressionPropertyRange <$> lastMaybe ps)))
       (ObjectExpression ps ext)
     where
-      convertProperty (CST.ObjectExpressionProperty (CST.Name n t) v) =
-        ObjectExpressionProperty (Name (tokenRange t) n) (convertPropertyValue <$> v)
+      convertProperty (CST.ObjectExpressionProperty n v) =
+        ObjectExpressionProperty (convertName n) (convertPropertyValue <$> v)
 
       convertPropertyValue (Ok (CST.ObjectExpressionPropertyValue (Token {}) v)) =
         convertRecoverExpression v
@@ -680,11 +689,11 @@ convertExpression x0 = case x0 of
   -- If we have a completely ok property expression then convert to an AST property expression.
   --
   -- NOTE: If `Token {}` is ever wrapped in `Recover` then we’ll need to handle the error.
-  CST.ExpressionExtra x' (Ok (CST.PropertyExpressionExtra (Token {}) (Ok (CST.Name n t)))) ->
+  CST.ExpressionExtra x' (Ok (CST.PropertyExpressionExtra (Token {}) (Ok n))) ->
     let x = convertExpression x' in
       Expression
-        (rangeBetween (expressionRange x) (tokenRange t))
-        (PropertyExpression x (Name (tokenRange t) n))
+        (rangeBetween (expressionRange x) (tokenRange (CST.nameToken n)))
+        (PropertyExpression x (convertName n))
 
   -- Redirect property name recovery to `Ok` after attaching an error.
   CST.ExpressionExtra x (Ok (CST.PropertyExpressionExtra t (Recover _ e n))) ->
@@ -776,8 +785,8 @@ convertPattern x0 = case x0 of
         (r2 <|> (patternRange <$> ext) <|> (objectPatternPropertyRange <$> lastMaybe ps)))
       (ObjectPattern ps ext)
     where
-      convertProperty (CST.ObjectPatternProperty (CST.Name n t) v) =
-        ObjectPatternProperty (Name (tokenRange t) n) (convertPropertyValue <$> v)
+      convertProperty (CST.ObjectPatternProperty n v) =
+        ObjectPatternProperty (convertName n) (convertPropertyValue <$> v)
 
       convertPropertyValue (Ok (CST.ObjectPatternPropertyValue (Token {}) v)) =
         convertRecoverPattern v
@@ -872,9 +881,9 @@ convertType x0 = case x0 of
         (r2 <|> (typeRange <$> ext) <|> (objectTypePropertyRange <$> lastMaybe ps)))
       (ObjectType ps ext)
     where
-      convertProperty (CST.ObjectTypeProperty (CST.Name n t3) t4 v) =
-        ObjectTypeProperty (Name (tokenRange t3) n)
-          (build (recoverToken t4 *> return (convertRecoverType v)))
+      convertProperty (CST.ObjectTypeProperty n t3 v) =
+        ObjectTypeProperty (convertName n)
+          (build (recoverToken t3 *> return (convertRecoverType v)))
 
       convertExtension Nothing =
         return Nothing
@@ -935,14 +944,13 @@ convertQuantifierList (CST.QuantifierList t1 qs' t2) = do
     , qs
     )
   where
-    convertQuantifier (CST.Quantifier (CST.Name n t) Nothing) =
-      Quantifier (Name (tokenRange t) n) Nothing
-    convertQuantifier (CST.Quantifier (CST.Name n t) (Just (Ok (CST.QuantifierBound k (Token {}) x)))) =
-      Quantifier (Name (tokenRange t) n) (Just (k, convertRecoverType x))
-    convertQuantifier (CST.Quantifier (CST.Name n t) (Just (Recover _ e (CST.QuantifierBound k (Token {}) x)))) =
-      Quantifier (Name (tokenRange t) n) (Just (k, errorType e (convertRecoverType x)))
-    convertQuantifier (CST.Quantifier (CST.Name n t) (Just (Fatal ts e))) =
-      Quantifier (Name (tokenRange t) n) (Just (Flexible, fatalErrorType ts e))
+    convertQuantifier (CST.Quantifier n Nothing) = Quantifier (convertName n) Nothing
+    convertQuantifier (CST.Quantifier n (Just (Ok (CST.QuantifierBound k (Token {}) x)))) =
+      Quantifier (convertName n) (Just (k, convertRecoverType x))
+    convertQuantifier (CST.Quantifier n (Just (Recover _ e (CST.QuantifierBound k (Token {}) x)))) =
+      Quantifier (convertName n) (Just (k, errorType e (convertRecoverType x)))
+    convertQuantifier (CST.Quantifier n (Just (Fatal ts e))) =
+      Quantifier (convertName n) (Just (Flexible, fatalErrorType ts e))
 
 -- Convert an optional list of quantifiers from the CST to the AST.
 convertOptionalQuantifierList :: Maybe (Recover CST.QuantifierList) -> Conversion [Quantifier]

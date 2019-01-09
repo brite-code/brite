@@ -35,6 +35,8 @@ debugStatement s0 = case statementNode s0 of
   BindingStatement p (Just t) x ->
     (A "bind") `E` (debugPattern p) `E` ((A "type") `E` (debugType t)) `E` (debugExpression x)
 
+  FunctionDeclaration n f -> debugFunction (statementRange s0) (Just n) f
+
   ErrorStatement _ Nothing -> (symbol "err")
   ErrorStatement _ (Just x) -> (A "err") `E` (debugStatement (Statement (statementRange s0) x))
 
@@ -42,11 +44,11 @@ debugStatement s0 = case statementNode s0 of
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (statementRange s0)
 
-debugFunction :: Range -> Maybe Name -> Function -> S
+debugFunction :: Range -> Maybe (Either a Name) -> Function -> S
 debugFunction r n (Function qs ps ret b) =
   let
     s1 = (symbol "fun")
-    s2 = maybe s1 (E s1 . debugName) n
+    s2 = maybe s1 (E s1 . either (const (A "err")) debugName) n
     s3 = foldl (\s q -> s `E` (debugQuantifier q)) s2 qs
     s4 = foldl (\s p -> s `E` (debugFunctionParameter p)) s3 ps
     s5 = maybe s4 (E s4 . E (A "type") . debugType) ret
