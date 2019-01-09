@@ -30,6 +30,9 @@ debugStatement :: Statement -> S
 debugStatement s0 = case statementNode s0 of
   ExpressionStatement x -> debugExpression x
 
+  BindingStatement p Nothing x ->
+    (A "bind") `E` (debugPattern p) `E` (debugExpression x)
+
 debugBlock :: Block -> S
 debugBlock (Block ss) =
   foldl
@@ -135,6 +138,41 @@ debugExpression x0 = case expressionNode x0 of
   where
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (expressionRange x0)
+
+debugPattern :: Pattern -> S
+debugPattern x0 = case patternNode x0 of
+  ConstantPattern (BooleanConstant True) -> (symbol "bool") `E` (A "true")
+  ConstantPattern (BooleanConstant False) -> (symbol "bool") `E` (A "false")
+
+  VariablePattern ident -> (symbol "var") `E` (A (identifierText ident))
+
+  HolePattern -> (symbol "hole")
+
+  ObjectPattern ps ext ->
+    let
+      s2 =
+        foldl
+          (\s1 p -> s1 `E` (debugProperty p))
+          (symbol "object")
+          ps
+    in
+      case ext of
+        Nothing -> s2
+        Just x -> s2 `E` (debugPattern x)
+    where
+      debugProperty (ObjectPatternProperty n Nothing) =
+        (A "prop") `E` (debugName n)
+      debugProperty (ObjectPatternProperty n (Just x)) =
+        (A "prop") `E` (debugName n) `E` (debugPattern x)
+
+  WrappedPattern x -> (symbol "wrap") `E` (debugPattern x)
+
+  ErrorPattern _ Nothing -> symbol "err"
+  ErrorPattern _ (Just x) -> (A "err") `E` (debugPattern (Pattern (patternRange x0) x))
+
+  where
+    symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
+      Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (patternRange x0)
 
 -- An [S-expression][1].
 --

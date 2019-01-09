@@ -933,6 +933,13 @@ testData =
   , "{a"
   , "{a: b,"
   , "{a,"
+  , "let {"
+  , "let {|o"
+  , "let {a: b"
+  , "let {a"
+  , "let {a: b,"
+  , "let {a,"
+  , "let a = b; 😈 let c = d;"
   ]
 
 openSnapshotFile :: IO Handle

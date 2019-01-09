@@ -266,6 +266,12 @@ data PatternNode
 -- `p: P`
 data ObjectPatternProperty = ObjectPatternProperty Name (Maybe Pattern)
 
+-- Gets the range of an object pattern property.
+objectPatternPropertyRange :: ObjectPatternProperty -> Range
+objectPatternPropertyRange (ObjectPatternProperty (Name r _) Nothing) = r
+objectPatternPropertyRange (ObjectPatternProperty (Name r _) (Just x)) =
+  rangeBetween r (patternRange x)
+
 data Type = Type
   -- The range covered by the type in a document.
   { typeRange :: Range
@@ -424,6 +430,17 @@ convertStatement s0 = case s0 of
     return $ Statement
       (rangeBetweenMaybe (expressionRange x) r)
       (ExpressionStatement x)
+
+  -- Convert from a CST binding statement into an AST binding statement. Reporting syntax errors
+  -- from any tokens which may have them.
+  CST.BindingStatement t1 p' Nothing t2 e' t3 -> build $ do
+    let p = convertRecoverPattern p'
+    recoverToken t2
+    let e = convertRecoverExpression e'
+    r3 <- join <$> mapM recoverTokenRange t3
+    return $ Statement
+      (rangeBetween (tokenRange t1) (fromMaybe (expressionRange e) r3))
+      (BindingStatement p Nothing e)
 
   where
     -- A small utility for adding the first error to the statement we find if any.
@@ -670,3 +687,92 @@ convertRecoverExpression :: Recover CST.Expression -> Expression
 convertRecoverExpression (Ok x) = convertExpression x
 convertRecoverExpression (Recover _ e x) = errorExpression e (convertExpression x)
 convertRecoverExpression (Fatal ts e) = fatalErrorExpression ts e
+
+-- Takes a pattern and makes it an error pattern. If the pattern is already an error
+-- pattern then we replace the current error with our new one.
+--
+-- The range of our error pattern will be the same as the pattern we are annotating.
+errorPattern :: Diagnostic -> Pattern -> Pattern
+errorPattern e (Pattern r (ErrorPattern _ x)) = Pattern r (ErrorPattern e x)
+errorPattern e (Pattern r x) = Pattern r (ErrorPattern e (Just x))
+
+-- Create a pattern from a fatal error. If the token list is not empty then the range will be
+-- between the first and last token range. Otherwise the range will be take from the provided error.
+fatalErrorPattern :: [Token] -> Diagnostic -> Pattern
+fatalErrorPattern ts e =
+  Pattern
+    (fromMaybe (diagnosticRange e) (tokensRange ts))
+    (ErrorPattern e Nothing)
+
+-- Converts a CST pattern into an AST pattern.
+convertPattern :: CST.Pattern -> Pattern
+convertPattern x0 = case x0 of
+  -- Boolean constants are easy since they are a single token.
+  CST.ConstantPattern (CST.BooleanConstant b t) ->
+    Pattern (tokenRange t) (ConstantPattern (BooleanConstant b))
+
+  -- Variable patterns are easy since they are a single token.
+  CST.VariablePattern (CST.Name n t) ->
+    Pattern (tokenRange t) (VariablePattern n)
+
+  -- Hole patterns are easy since they are a single token.
+  CST.HolePattern t ->
+    Pattern (tokenRange t) HolePattern
+
+  -- Convert a CST object pattern into an AST object pattern. Any syntax error within the
+  -- object pattern will be used to wrap the object pattern.
+  CST.ObjectPattern t1 ps' ext' t2 -> build $ do
+    ps <- convertRecoverCommaList convertProperty ps'
+    ext <- convertExtension ext'
+    r2 <- recoverTokenRange t2
+    return $ Pattern
+      (rangeBetweenMaybe
+        (tokenRange t1)
+        (r2
+          <|> (patternRange <$> ext)
+          <|> (if not (null ps) then Just (objectPatternPropertyRange (last ps)) else Nothing)))
+      (ObjectPattern ps ext)
+    where
+      convertProperty (CST.ObjectPatternProperty (CST.Name n t) v) =
+        ObjectPatternProperty (Name (tokenRange t) n) (convertPropertyValue <$> v)
+
+      convertPropertyValue (Ok (CST.ObjectPatternPropertyValue (Token {}) v)) =
+        convertRecoverPattern v
+      convertPropertyValue (Recover _ e (CST.ObjectPatternPropertyValue (Token {}) v)) =
+        errorPattern e (convertRecoverPattern v)
+      convertPropertyValue (Fatal ts e) =
+        fatalErrorPattern ts e
+
+      convertExtension Nothing =
+        return Nothing
+      convertExtension (Just (Ok (CST.ObjectPatternExtension (Token {}) v))) =
+        return (Just (convertRecoverPattern v))
+      convertExtension (Just (Recover _ e (CST.ObjectPatternExtension (Token {}) v))) =
+        tell (pure e) *> return (Just (convertRecoverPattern v))
+      convertExtension (Just (Fatal _ e)) =
+        tell (pure e) *> return Nothing
+
+  CST.WrappedPattern t1 x' t2 -> build $ do
+    let x = convertRecoverPattern x'
+    -- NOTE: If there is an error in `t2` then that error will be attached to the
+    -- `WrappedPattern` and will be thrown first at runtime instead of an error attached to `x`
+    -- which technically came first in the source code.
+    --
+    -- This is acceptable since the error thrown at runtime is indicative not of source order but
+    -- instead of execution order. Technically, the wrapped pattern executes first.
+    r2 <- recoverTokenRange t2
+    return $ Pattern
+      (rangeBetween (tokenRange t1) (fromMaybe (patternRange x) r2))
+      (WrappedPattern x)
+
+  where
+    -- A small utility for adding the first error to the pattern we find if any.
+    build x1 =
+      let (x, e) = runWriter x1 in
+        maybe x (flip errorPattern x) (getAlt e)
+
+-- Converts a CST pattern wrapped in `Recover` into an AST pattern.
+convertRecoverPattern :: Recover CST.Pattern -> Pattern
+convertRecoverPattern (Ok x) = convertPattern x
+convertRecoverPattern (Recover _ e x) = errorPattern e (convertPattern x)
+convertRecoverPattern (Fatal ts e) = fatalErrorPattern ts e
