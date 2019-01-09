@@ -328,25 +328,13 @@ recoverTokenRange (Recover ts e t) = do
 
 -- Converts a comma list to a plain list using the provided conversion function. Using the writer
 -- monad we record the first syntax error we find in the comma list.
-convertCommaList :: (a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
+convertCommaList :: (Recover a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
 convertCommaList f (CST.CommaList as an) = do
-  bs <- foldlM
-    (\bs (a', t) ->
-      case a' of
-        Ok a -> recoverToken t *> return (f a : bs)
-        -- NOTE: Technically calling `recoverToken` here is a noop since adding the `Recover` and
-        -- `Fatal` error means all other errors will be ignored since `Alt Maybe` uses the first
-        -- error written.
-        Recover _ e a -> tell (Alt (Just e)) *> recoverToken t *> return (f a : bs)
-        Fatal _ e -> tell (Alt (Just e)) *> recoverToken t *> return bs)
-    []
-    as
+  bs <- foldlM (\bs (a, t) -> recoverToken t *> return (f a : bs)) [] as
   -- Add the last element in the comma list and reverse.
   case an of
     Nothing -> return (reverse bs)
-    Just (Ok a) -> return (reverse (f a : bs))
-    Just (Recover _ e a) -> tell (pure e) *> return (reverse (f a : bs))
-    Just (Fatal _ e) -> tell (pure e) *> return (reverse bs)
+    Just a -> return (reverse (f a : bs))
 
 -- Converts a CST module into an AST module.
 convertModule :: CST.Module -> Module
@@ -498,7 +486,7 @@ convertExpression x0 = case x0 of
   -- Convert a CST call expression to an AST call expression..
   CST.ExpressionExtra x' (Ok (CST.CallExpressionExtra t1 xs' t2)) -> build $ do
     let x = convertExpression x'
-    xs <- convertCommaList convertExpression xs'
+    xs <- convertCommaList convertRecoverExpression xs'
     r2 <- recoverTokenRange t2
     return $ Expression
       (rangeBetween
