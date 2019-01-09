@@ -33,8 +33,10 @@ debugStatement s0 = case statementNode s0 of
 
 debugExpression :: Expression -> S
 debugExpression x0 = case expressionNode x0 of
-  ConstantExpression (BooleanConstant True) ->
-    (A "bool") `E` (A range) `E` (A "true")
+  ConstantExpression (BooleanConstant True) -> (A "bool") `E` (A range) `E` (A "true")
+  ConstantExpression (BooleanConstant False) -> (A "bool") `E` (A range) `E` (A "false")
+
+  VariableExpression ident -> (A "var") `E` (A range) `E` (A (identifierText ident))
 
   where
     range = Text.Lazy.toStrict (Text.Builder.toLazyText (debugRange (expressionRange x0)))

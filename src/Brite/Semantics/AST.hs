@@ -7,6 +7,7 @@ module Brite.Semantics.AST
   ( Position(..)
   , Range(..)
   , Identifier
+  , identifierText
   , Name(..)
   , Module(..)
   , Statement(..)
@@ -39,7 +40,7 @@ module Brite.Semantics.AST
 import Brite.Diagnostics
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
-import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, Token(..), EndToken(..))
+import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, identifierText, Token(..), EndToken(..))
 import Control.Applicative
 import Control.Monad.Writer
 import Data.Foldable (foldlM, mapM_)
