@@ -463,6 +463,60 @@ o.p.)q
 
 ### Source
 ```ite
+f()
+```
+
+### AST
+```
+(call 0:0-0:3 (var 0:0-0:1 f))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f ()
+```
+
+### AST
+```
+(call 0:0-0:4 (var 0:0-0:1 f))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f😈()
+```
+
+### AST
+```
+(err (call 0:0-0:5 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:1-0:3) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f)()
+```
+
+### AST
+```
+(err (call 0:0-0:4 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:1-0:2) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 f
 ()
 ```
@@ -568,6 +622,36 @@ f)
 
 ### Source
 ```ite
+f(😈)
+```
+
+### AST
+```
+(err (call 0:0-0:5 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(
+```
+
+### AST
+```
+(err (call 0:0-0:2 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:2) We wanted `)` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 (😈.p)
 ```
 
@@ -580,6 +664,18 @@ f)
 - (0:1-0:3) We wanted an expression but we found `😈`.
 - (0:3-0:4) We wanted `)` but we found `.`.
 - (0:5-0:6) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(x)
+```
+
+### AST
+```
+(call 0:0-0:4 (var 0:0-0:1 f) (var 0:2-0:3 x))
+```
 
 --------------------------------------------------------------------------------
 
@@ -606,6 +702,2791 @@ f;(x)
 ```
 (var 0:0-0:1 f)
 (wrap 0:2-0:5 (var 0:3-0:4 x))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a)
+```
+
+### AST
+```
+(call 0:0-0:4 (var 0:0-0:1 f) (var 0:2-0:3 a))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈)
+```
+
+### AST
+```
+(call 0:0-0:6 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a})
+```
+
+### AST
+```
+(call 0:0-0:5 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈})
+```
+
+### AST
+```
+(call 0:0-0:7 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}😈)
+```
+
+### AST
+```
+(call 0:0-0:7 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈,)
+```
+
+### AST
+```
+(call 0:0-0:7 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a},)
+```
+
+### AST
+```
+(call 0:0-0:6 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈},)
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}😈,)
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈, b)
+```
+
+### AST
+```
+(call 0:0-0:9 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:7-0:8 b))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}, b)
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:6-0:7 b))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈}, b)
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:8-0:9 b))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}😈, b)
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:8-0:9 b))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈, b.)
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:7-0:8 b)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:9-0:10) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}, b.)
+```
+
+### AST
+```
+(call 0:0-0:9 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:6-0:7 b)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:8-0:9) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈}, b.)
+```
+
+### AST
+```
+(call 0:0-0:11 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:8-0:9 b)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+- (0:10-0:11) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}😈, b.)
+```
+
+### AST
+```
+(call 0:0-0:11 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:8-0:9 b)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+- (0:10-0:11) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈 b)
+```
+
+### AST
+```
+(err (call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:6-0:7 b)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:6-0:7) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a} b)
+```
+
+### AST
+```
+(err (call 0:0-0:7 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:5-0:6) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈} b)
+```
+
+### AST
+```
+(err (call 0:0-0:9 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:7-0:8 b)))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+- (0:7-0:8) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}😈 b)
+```
+
+### AST
+```
+(err (call 0:0-0:9 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:7-0:8 b)))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+- (0:7-0:8) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈 b.)
+```
+
+### AST
+```
+(err (call 0:0-0:9 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:6-0:7 b))))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:6-0:7) We wanted `,` but we found a variable name.
+- (0:8-0:9) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a} b.)
+```
+
+### AST
+```
+(err (call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:5-0:6 b))))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:5-0:6) We wanted `,` but we found a variable name.
+- (0:7-0:8) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈} b.)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:10 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:7-0:8 b))))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+- (0:7-0:8) We wanted `,` but we found a variable name.
+- (0:9-0:10) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}😈 b.)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:10 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (err (var 0:7-0:8 b))))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+- (0:7-0:8) We wanted `,` but we found a variable name.
+- (0:9-0:10) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b)
+```
+
+### AST
+```
+(call 0:0-0:7 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈)
+```
+
+### AST
+```
+(call 0:0-0:9 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b})
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}😈)
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈})
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈,)
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b},)
+```
+
+### AST
+```
+(call 0:0-0:9 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}😈,)
+```
+
+### AST
+```
+(call 0:0-0:11 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈},)
+```
+
+### AST
+```
+(call 0:0-0:11 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈, c)
+```
+
+### AST
+```
+(call 0:0-0:12
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:10-0:11 c))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}, c)
+```
+
+### AST
+```
+(call 0:0-0:11
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:9-0:10 c))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}😈, c)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:11-0:12 c))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈}, c)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:11-0:12 c))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈, c.)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (err (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:12-0:13) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}, c.)
+```
+
+### AST
+```
+(call 0:0-0:12
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (err (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:11-0:12) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}😈, c.)
+```
+
+### AST
+```
+(call 0:0-0:14
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (err (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+- (0:13-0:14) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈}, c.)
+```
+
+### AST
+```
+(call 0:0-0:14
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (err (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+- (0:13-0:14) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈 c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:9-0:10) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b} c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:10
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:8-0:9) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}😈 c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+- (0:10-0:11) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈} c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+- (0:10-0:11) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈 c.)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (err (var 0:9-0:10 c))))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:9-0:10) We wanted `,` but we found a variable name.
+- (0:11-0:12) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b} c.)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (err (var 0:8-0:9 c))))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:8-0:9) We wanted `,` but we found a variable name.
+- (0:10-0:11) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}😈 c.)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (err (var 0:10-0:11 c))))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+- (0:10-0:11) We wanted `,` but we found a variable name.
+- (0:12-0:13) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈} c.)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:5-0:6 b))
+    (err (var 0:10-0:11 c))))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+- (0:10-0:11) We wanted `,` but we found a variable name.
+- (0:12-0:13) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a.)
+```
+
+### AST
+```
+(call 0:0-0:5 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a.,)
+```
+
+### AST
+```
+(call 0:0-0:6 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a., b)
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)) (var 0:6-0:7 b))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a. (b))
+```
+
+### AST
+```
+(call 0:0-0:9
+  (var 0:0-0:1 f)
+  (call 0:2-0:8 (err (var 0:2-0:3 a)) (var 0:6-0:7 b)))
+```
+
+### Errors
+- (0:5-0:6) We wanted a variable name but we found `(`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a. (b).)
+```
+
+### AST
+```
+(call 0:0-0:10
+  (var 0:0-0:1 f)
+  (err (call 0:2-0:8 (err (var 0:2-0:3 a)) (var 0:6-0:7 b))))
+```
+
+### Errors
+- (0:5-0:6) We wanted a variable name but we found `(`.
+- (0:9-0:10) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a.😈)
+```
+
+### AST
+```
+(call 0:0-0:7 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:6) We wanted a variable name but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a.})
+```
+
+### AST
+```
+(call 0:0-0:6 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a.😈})
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:6) We wanted a variable name but we found `😈`.
+- (0:6-0:7) We wanted a variable name but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a.}😈)
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (err (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `}`.
+- (0:5-0:7) We wanted a variable name but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b.)
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:8) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b.,)
+```
+
+### AST
+```
+(call 0:0-0:9 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:8) We wanted a variable name but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b., c)
+```
+
+### AST
+```
+(call 0:0-0:11
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:9-0:10 c))
+```
+
+### Errors
+- (0:7-0:8) We wanted a variable name but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b. (c))
+```
+
+### AST
+```
+(call 0:0-0:12
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (call 0:5-0:11 (err (var 0:5-0:6 b)) (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:8-0:9) We wanted a variable name but we found `(`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b. (c).)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (call 0:5-0:11 (err (var 0:5-0:6 b)) (var 0:9-0:10 c))))
+```
+
+### Errors
+- (0:8-0:9) We wanted a variable name but we found `(`.
+- (0:12-0:13) We wanted a variable name but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b.😈)
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:9) We wanted a variable name but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b.})
+```
+
+### AST
+```
+(call 0:0-0:9 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:8) We wanted a variable name but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b.😈})
+```
+
+### AST
+```
+(call 0:0-0:11 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:9) We wanted a variable name but we found `😈`.
+- (0:9-0:10) We wanted a variable name but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b.}😈)
+```
+
+### AST
+```
+(call 0:0-0:11 (var 0:0-0:1 f) (var 0:2-0:3 a) (err (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:8) We wanted a variable name but we found `}`.
+- (0:8-0:10) We wanted a variable name but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(😈)
+```
+
+### AST
+```
+(err (call 0:0-0:5 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(})
+```
+
+### AST
+```
+(err (call 0:0-0:4 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(😈})
+```
+
+### AST
+```
+(err (call 0:0-0:6 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+- (0:4-0:5) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(}😈)
+```
+
+### AST
+```
+(err (call 0:0-0:6 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `}`.
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, 😈)
+```
+
+### AST
+```
+(err (call 0:0-0:8 (var 0:0-0:1 f) (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, })
+```
+
+### AST
+```
+(err (call 0:0-0:7 (var 0:0-0:1 f) (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, 😈})
+```
+
+### AST
+```
+(err (call 0:0-0:9 (var 0:0-0:1 f) (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+- (0:7-0:8) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, }😈)
+```
+
+### AST
+```
+(err (call 0:0-0:9 (var 0:0-0:1 f) (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `}`.
+- (0:6-0:8) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a b)
+```
+
+### AST
+```
+(err (call 0:0-0:6 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:4-0:5 b)))
+```
+
+### Errors
+- (0:4-0:5) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:9
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:7-0:8 c)))
+```
+
+### Errors
+- (0:7-0:8) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:9
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:4-0:5 b)
+    (var 0:7-0:8 c)))
+```
+
+### Errors
+- (0:4-0:5) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a b c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:8
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:4-0:5 b)
+    (var 0:6-0:7 c)))
+```
+
+### Errors
+- (0:4-0:5) We wanted `,` but we found a variable name.
+- (0:6-0:7) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a b, c, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:4-0:5 b)
+    (var 0:7-0:8 c)
+    (var 0:10-0:11 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b c, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:7-0:8 c)
+    (var 0:10-0:11 d)))
+```
+
+### Errors
+- (0:7-0:8) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:8-0:9 c)
+    (var 0:10-0:11 d)))
+```
+
+### Errors
+- (0:10-0:11) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a b c, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:4-0:5 b)
+    (var 0:6-0:7 c)
+    (var 0:9-0:10 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted `,` but we found a variable name.
+- (0:6-0:7) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b c d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:7-0:8 c)
+    (var 0:9-0:10 d)))
+```
+
+### Errors
+- (0:7-0:8) We wanted `,` but we found a variable name.
+- (0:9-0:10) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a b, c d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:4-0:5 b)
+    (var 0:7-0:8 c)
+    (var 0:9-0:10 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted `,` but we found a variable name.
+- (0:9-0:10) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a b c d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:10
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:4-0:5 b)
+    (var 0:6-0:7 c)
+    (var 0:8-0:9 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted `,` but we found a variable name.
+- (0:6-0:7) We wanted `,` but we found a variable name.
+- (0:8-0:9) We wanted `,` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,, b)
+```
+
+### AST
+```
+(err (call 0:0-0:8 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:6-0:7 b)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:6-0:7 b)
+    (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b,, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:7-0:8) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,, b,, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:6-0:7 b)
+    (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+- (0:8-0:9) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,, b, c, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:14
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:6-0:7 b)
+    (var 0:9-0:10 c)
+    (var 0:12-0:13 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b,, c, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:14
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:9-0:10 c)
+    (var 0:12-0:13 d)))
+```
+
+### Errors
+- (0:7-0:8) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c,, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:14
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:8-0:9 c)
+    (var 0:12-0:13 d)))
+```
+
+### Errors
+- (0:10-0:11) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b,, c,, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:15
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:9-0:10 c)
+    (var 0:13-0:14 d)))
+```
+
+### Errors
+- (0:7-0:8) We wanted an expression but we found `,`.
+- (0:11-0:12) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,, b, c,, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:15
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:6-0:7 b)
+    (var 0:9-0:10 c)
+    (var 0:13-0:14 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+- (0:11-0:12) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,, b,, c, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:15
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:6-0:7 b)
+    (var 0:10-0:11 c)
+    (var 0:13-0:14 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+- (0:8-0:9) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,, b,, c,, d)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:16
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:6-0:7 b)
+    (var 0:10-0:11 c)
+    (var 0:14-0:15 d)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+- (0:8-0:9) We wanted an expression but we found `,`.
+- (0:12-0:13) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c, d,)
+```
+
+### AST
+```
+(call 0:0-0:14
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (var 0:5-0:6 b)
+  (var 0:8-0:9 c)
+  (var 0:11-0:12 d))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c, d,,)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:15
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:8-0:9 c)
+    (var 0:11-0:12 d)))
+```
+
+### Errors
+- (0:13-0:14) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c,,)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:10-0:11) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b,,)
+```
+
+### AST
+```
+(err (call 0:0-0:9 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:8) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,,)
+```
+
+### AST
+```
+(err (call 0:0-0:6 (var 0:0-0:1 f) (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:5) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, 😈, c)
+```
+
+### AST
+```
+(err (call 0:0-0:11 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(😈, b, c)
+```
+
+### AST
+```
+(err (call 0:0-0:11 (var 0:0-0:1 f) (var 0:6-0:7 b) (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, 😈)
+```
+
+### AST
+```
+(err (call 0:0-0:11 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:8-0:10) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, }, c)
+```
+
+### AST
+```
+(err (call 0:0-0:10 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(}, b, c)
+```
+
+### AST
+```
+(err (call 0:0-0:10 (var 0:0-0:1 f) (var 0:5-0:6 b) (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, })
+```
+
+### AST
+```
+(err (call 0:0-0:10 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:8-0:9) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, 😈}, c)
+```
+
+### AST
+```
+(err (call 0:0-0:12 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+- (0:7-0:8) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(😈}, b, c)
+```
+
+### AST
+```
+(err (call 0:0-0:12 (var 0:0-0:1 f) (var 0:7-0:8 b) (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+- (0:4-0:5) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, 😈})
+```
+
+### AST
+```
+(err (call 0:0-0:12 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:8-0:10) We wanted an expression but we found `😈`.
+- (0:10-0:11) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, }😈, c)
+```
+
+### AST
+```
+(err (call 0:0-0:12 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `}`.
+- (0:6-0:8) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(}😈, b, c)
+```
+
+### AST
+```
+(err (call 0:0-0:12 (var 0:0-0:1 f) (var 0:7-0:8 b) (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `}`.
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, }😈)
+```
+
+### AST
+```
+(err (call 0:0-0:12 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:8-0:9) We wanted an expression but we found `}`.
+- (0:9-0:11) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈, c)
+```
+
+### AST
+```
+(call 0:0-0:12
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:10-0:11 c))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈, b, c)
+```
+
+### AST
+```
+(call 0:0-0:12
+  (var 0:0-0:1 f)
+  (err (var 0:2-0:3 a))
+  (var 0:7-0:8 b)
+  (var 0:10-0:11 c))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c😈)
+```
+
+### AST
+```
+(call 0:0-0:12
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (var 0:5-0:6 b)
+  (err (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:9-0:11) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}, c)
+```
+
+### AST
+```
+(call 0:0-0:11
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:9-0:10 c))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}, b, c)
+```
+
+### AST
+```
+(call 0:0-0:11
+  (var 0:0-0:1 f)
+  (err (var 0:2-0:3 a))
+  (var 0:6-0:7 b)
+  (var 0:9-0:10 c))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c})
+```
+
+### AST
+```
+(call 0:0-0:11
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (var 0:5-0:6 b)
+  (err (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:9-0:10) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b😈}, c)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:11-0:12 c))
+```
+
+### Errors
+- (0:6-0:8) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a😈}, b, c)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (err (var 0:2-0:3 a))
+  (var 0:8-0:9 b)
+  (var 0:11-0:12 c))
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c😈})
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (var 0:5-0:6 b)
+  (err (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:9-0:11) We wanted an expression but we found `😈`.
+- (0:11-0:12) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b}😈, c)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (err (var 0:5-0:6 b))
+  (var 0:11-0:12 c))
+```
+
+### Errors
+- (0:6-0:7) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a}😈, b, c)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (err (var 0:2-0:3 a))
+  (var 0:8-0:9 b)
+  (var 0:11-0:12 c))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c}😈)
+```
+
+### AST
+```
+(call 0:0-0:13
+  (var 0:0-0:1 f)
+  (var 0:2-0:3 a)
+  (var 0:5-0:6 b)
+  (err (var 0:8-0:9 c)))
+```
+
+### Errors
+- (0:9-0:10) We wanted an expression but we found `}`.
+- (0:10-0:12) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, 😈b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:7-0:8 b)
+    (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(😈a, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:4-0:5 a)
+    (var 0:7-0:8 b)
+    (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, 😈c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:8-0:10) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, }b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:6-0:7 b)
+    (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(}a, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:3-0:4 a)
+    (var 0:6-0:7 b)
+    (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, }c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:11
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:9-0:10 c)))
+```
+
+### Errors
+- (0:8-0:9) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, 😈}b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:8-0:9 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+- (0:7-0:8) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(😈}a, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:5-0:6 a)
+    (var 0:8-0:9 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+- (0:4-0:5) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, 😈}c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:8-0:10) We wanted an expression but we found `😈`.
+- (0:10-0:11) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, }😈b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:8-0:9 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `}`.
+- (0:6-0:8) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(}😈a, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:5-0:6 a)
+    (var 0:8-0:9 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `}`.
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, }😈c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:8-0:9) We wanted an expression but we found `}`.
+- (0:9-0:11) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, 😈b}, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:7-0:8 b))
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(😈a}, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (err (var 0:4-0:5 a))
+    (var 0:8-0:9 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:2-0:4) We wanted an expression but we found `😈`.
+- (0:5-0:6) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, 😈c})
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (err (var 0:10-0:11 c))))
+```
+
+### Errors
+- (0:8-0:10) We wanted an expression but we found `😈`.
+- (0:11-0:12) We wanted an expression but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, }b😈, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (err (var 0:6-0:7 b))
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `}`.
+- (0:7-0:9) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(}a😈, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (err (var 0:3-0:4 a))
+    (var 0:8-0:9 b)
+    (var 0:11-0:12 c)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `}`.
+- (0:4-0:6) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, }c😈)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:13
+    (var 0:0-0:1 f)
+    (var 0:2-0:3 a)
+    (var 0:5-0:6 b)
+    (err (var 0:9-0:10 c))))
+```
+
+### Errors
+- (0:8-0:9) We wanted an expression but we found `}`.
+- (0:10-0:12) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(, a)
+```
+
+### AST
+```
+(err (call 0:0-0:6 (var 0:0-0:1 f) (var 0:4-0:5 a)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(, a, b)
+```
+
+### AST
+```
+(err (call 0:0-0:9 (var 0:0-0:1 f) (var 0:4-0:5 a) (var 0:7-0:8 b)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(, a, b, c)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:12
+    (var 0:0-0:1 f)
+    (var 0:4-0:5 a)
+    (var 0:7-0:8 b)
+    (var 0:10-0:11 c)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,)
+```
+
+### AST
+```
+(call 0:0-0:5 (var 0:0-0:1 f) (var 0:2-0:3 a))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(,)
+```
+
+### AST
+```
+(err (call 0:0-0:4 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:3) We wanted an expression but we found `,`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f()
+```
+
+### AST
+```
+(call 0:0-0:3 (var 0:0-0:1 f))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a)
+```
+
+### AST
+```
+(call 0:0-0:4 (var 0:0-0:1 f) (var 0:2-0:3 a))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,)
+```
+
+### AST
+```
+(call 0:0-0:5 (var 0:0-0:1 f) (var 0:2-0:3 a))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b)
+```
+
+### AST
+```
+(call 0:0-0:7 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b,)
+```
+
+### AST
+```
+(call 0:0-0:8 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c)
+```
+
+### AST
+```
+(call 0:0-0:10 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b) (var 0:8-0:9 c))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b, c,)
+```
+
+### AST
+```
+(call 0:0-0:11 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b) (var 0:8-0:9 c))
 ```
 
 --------------------------------------------------------------------------------
@@ -654,6 +3535,18 @@ f;(x)
 ### AST
 ```
 (not 0:0-0:4 (prop 0:1-0:4 (var 0:1-0:2 x) (name 0:3-0:4 p)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+!x()
+```
+
+### AST
+```
+(not 0:0-0:4 (call 0:1-0:4 (var 0:1-0:2 x)))
 ```
 
 --------------------------------------------------------------------------------
@@ -1489,6 +4382,18 @@ a.p + b.q
 ### AST
 ```
 (add 0:0-0:7 (not 0:0-0:2 (var 0:1-0:2 a)) (not 0:5-0:7 (var 0:6-0:7 b)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+a() + b()
+```
+
+### AST
+```
+(add 0:0-0:9 (call 0:0-0:3 (var 0:0-0:1 a)) (call 0:6-0:9 (var 0:6-0:7 b)))
 ```
 
 --------------------------------------------------------------------------------
@@ -2381,5 +5286,80 @@ a + b + c + (d * e)
   (add 0:0-0:9 (add 0:0-0:5 (var 0:0-0:1 a) (var 0:4-0:5 b)) (var 0:8-0:9 c))
   (wrap 0:12-0:19 (mul 0:13-0:18 (var 0:13-0:14 d) (var 0:17-0:18 e))))
 ```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(
+```
+
+### AST
+```
+(err (call 0:0-0:2 (var 0:0-0:1 f)))
+```
+
+### Errors
+- (0:2-0:2) We wanted `)` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a
+```
+
+### AST
+```
+(err (call 0:0-0:3 (var 0:0-0:1 f) (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:3-0:3) We wanted `)` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a,
+```
+
+### AST
+```
+(err (call 0:0-0:3 (var 0:0-0:1 f) (var 0:2-0:3 a)))
+```
+
+### Errors
+- (0:4-0:4) We wanted `)` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b
+```
+
+### AST
+```
+(err (call 0:0-0:6 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:6-0:6) We wanted `)` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+f(a, b,
+```
+
+### AST
+```
+(err (call 0:0-0:6 (var 0:0-0:1 f) (var 0:2-0:3 a) (var 0:5-0:6 b)))
+```
+
+### Errors
+- (0:7-0:7) We wanted `)` but the file ended.
 
 --------------------------------------------------------------------------------

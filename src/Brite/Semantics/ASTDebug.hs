@@ -37,6 +37,12 @@ debugExpression x0 = case expressionNode x0 of
 
   VariableExpression ident -> (symbol "var") `E` (A (identifierText ident))
 
+  CallExpression f xs ->
+    foldl
+      (\s x -> s `E` (debugExpression x))
+      ((symbol "call") `E` (debugExpression f))
+      xs
+
   PropertyExpression x n -> (symbol "prop") `E` (debugExpression x) `E` (debugName n)
 
   UnaryExpression op' x ->
