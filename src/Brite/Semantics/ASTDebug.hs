@@ -42,6 +42,25 @@ debugStatement s0 = case statementNode s0 of
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (statementRange s0)
 
+debugFunction :: Range -> Maybe Name -> Function -> S
+debugFunction r n (Function qs ps ret b) =
+  let
+    s1 = (symbol "fun")
+    s2 = maybe s1 (E s1 . debugName) n
+    s3 = foldl (\s q -> s `E` (debugQuantifier q)) s2 qs
+    s4 = foldl (\s p -> s `E` (debugFunctionParameter p)) s3 ps
+    s5 = maybe s4 (E s4 . E (A "type") . debugType) ret
+  in
+    s5 `E` (debugBlock b)
+  where
+    debugFunctionParameter (FunctionParameter p Nothing) =
+      (A "param") `E` (debugPattern p)
+    debugFunctionParameter (FunctionParameter p (Just t)) =
+      (A "param") `E` (debugPattern p) `E` ((A "type") `E` (debugType t))
+
+    symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
+      Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange r
+
 debugBlock :: Block -> S
 debugBlock (Block ss) =
   foldl
@@ -55,6 +74,8 @@ debugExpression x0 = case expressionNode x0 of
   ConstantExpression (BooleanConstant False) -> (symbol "bool") `E` (A "false")
 
   VariableExpression ident -> (symbol "var") `E` (A (identifierText ident))
+
+  FunctionExpression f -> debugFunction (expressionRange x0) Nothing f
 
   CallExpression f xs ->
     foldl

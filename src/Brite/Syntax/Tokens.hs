@@ -95,6 +95,7 @@ data Range = Range { rangeStart :: Position, rangeEnd :: Position }
 -- second position from the second range.
 rangeBetween :: Range -> Range -> Range
 rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
+{-# INLINE rangeBetween #-}
 
 -- A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
 -- Specification][1] including the optional underscore (`_`) character.

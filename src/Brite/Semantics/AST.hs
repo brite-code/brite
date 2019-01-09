@@ -2,6 +2,11 @@
 -- (CST). The AST removes all the pedantic parts of the CST leaving in all the semantically relevant
 -- parts. For instance, the AST removes all comments and `Recover` errors opting to express syntax
 -- errors as `ErrorExpression` wrappers.
+--
+-- The CST to AST conversion is lossy. You lose a lot of the details that the CST provides for the
+-- advantage of only keeping semantically relevant information. The CST warps the form of the syntax
+-- tree for the sake of preserving all syntactic information in a parser with error recovery. The
+-- CST node for binary expressions is a particularly good example of this.
 
 module Brite.Semantics.AST
   ( Position(..)
@@ -107,6 +112,11 @@ data Function = Function
 
 -- `P: T`
 data FunctionParameter = FunctionParameter Pattern (Maybe Type)
+
+-- Gets the range of the function parameter.
+functionParameterRange :: FunctionParameter -> Range
+functionParameterRange (FunctionParameter p Nothing) = patternRange p
+functionParameterRange (FunctionParameter p (Just t)) = rangeBetween (patternRange p) (typeRange t)
 
 -- `{ ... }`
 newtype Block = Block
@@ -447,6 +457,37 @@ convertStatement s0 = case s0 of
       let (s, e) = runWriter s1 in
         maybe s (flip errorStatement s) (getAlt e)
 
+-- Converts a CST function into an AST function. Also returns a range between the provided starting
+-- range and the end range of the function.
+convertFunction :: Range -> CST.Function -> Conversion (Range, Function)
+convertFunction r (CST.Function qs' t1 ps' t2 ret' b') = do
+  qs <- convertOptionalQuantifierList qs'
+  r1 <- recoverTokenRange t1
+  ps <- convertCommaList convertFunctionParameter ps'
+  r2 <- recoverTokenRange t2
+  let ret = convertFunctionReturn <$> ret'
+  (r3, b) <- convertBlock b'
+  return $
+    ( rangeBetweenMaybe r
+        (r3 <|> (typeRange <$> ret) <|> r2 <|> (functionParameterRange <$> lastMaybe ps)
+          <|> r1 <|> (quantifierRange <$> lastMaybe qs))
+    , Function qs ps ret b
+    )
+  where
+    convertFunctionParameter (Ok (CST.FunctionParameter p t)) =
+      FunctionParameter (convertPattern p) (convertRecoverTypeAnnotation <$> t)
+    convertFunctionParameter (Recover _ e (CST.FunctionParameter p t)) =
+      FunctionParameter (errorPattern e (convertPattern p)) (convertRecoverTypeAnnotation <$> t)
+    convertFunctionParameter (Fatal ts e) =
+      FunctionParameter (fatalErrorPattern ts e) Nothing
+
+    convertFunctionReturn (Ok (CST.FunctionReturn (Token {}) t)) =
+      convertRecoverType t
+    convertFunctionReturn (Recover _ e (CST.FunctionReturn (Token {}) t)) =
+      errorType e (convertRecoverType t)
+    convertFunctionReturn (Fatal ts e) =
+      fatalErrorType ts e
+
 -- Converts a CST block into an AST block.
 convertBlock :: CST.Block -> Conversion (Maybe Range, Block)
 convertBlock (CST.Block t1 ss' t2) = do
@@ -492,6 +533,12 @@ convertExpression x0 = case x0 of
   -- Variable expressions are easy since they are a single token.
   CST.VariableExpression (CST.Name n t) ->
     Expression (tokenRange t) (VariableExpression n)
+
+  -- Convert our function expression CST to an AST node. Most of the work is done
+  -- by `convertFunction`.
+  CST.FunctionExpression t f' -> build $ do
+    (r, f) <- convertFunction (tokenRange t) f'
+    return $ Expression r (FunctionExpression f)
 
   -- Convert a CST object expression into an AST object expression. Any syntax error within the
   -- object expression will be used to wrap the object expression.
