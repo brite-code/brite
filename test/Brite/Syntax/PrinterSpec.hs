@@ -480,6 +480,7 @@ testData =
   , "a\n//\n;"
   , "a /**/;"
   , "a //\n;"
+  , "(x T)"
   ]
 
 openSnapshotFile :: IO Handle

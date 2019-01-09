@@ -46,6 +46,8 @@ debugExpression x0 = case expressionNode x0 of
         Negative -> "neg"
         Positive -> "pos"
 
+  WrappedExpression x Nothing -> (A "wrap") `E` (A range) `E` (debugExpression x)
+
   ErrorExpression _ Nothing -> (A "err") `E` (A range)
   ErrorExpression _ (Just x) -> (A "err") `E` (debugExpression (Expression (expressionRange x0) x))
 
