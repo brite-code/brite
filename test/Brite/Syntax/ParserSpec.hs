@@ -72,6 +72,7 @@ testData =
   , ";"
   , "true"
   , "false"
+  , "true true"
   , "("
   , "(x"
   , "()"
@@ -945,7 +946,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
     it (T.unpack (escape source)) $ \h ->
       let
         (module_, diagnostics) = runDiagnosticWriter (parseModule (tokenize source))
-        moduleDebug = AST.debugModule (AST.convertModule module_)
+        moduleDebug = B.toLazyText (AST.debugModule (AST.convertModule module_))
         rebuiltSource = L.toStrict (B.toLazyText (CST.moduleSource module_))
       in seq moduleDebug $ do
         hPutStrLn h ""
@@ -958,7 +959,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h ""
         hPutStrLn h "### AST"
         hPutStrLn h "```"
-        hPutStr h (L.unpack (B.toLazyText moduleDebug))
+        hPutStr h (L.unpack moduleDebug)
         hPutStrLn h "```"
         if null diagnostics then return () else (do
           hPutStrLn h ""

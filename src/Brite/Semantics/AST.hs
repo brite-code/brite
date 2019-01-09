@@ -39,10 +39,10 @@ module Brite.Semantics.AST
 import Brite.Diagnostics
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
-import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, Token(..))
+import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, Token(..), EndToken(..))
 import Control.Applicative
 import Control.Monad.Writer
-import Data.Foldable (foldlM)
+import Data.Foldable (foldlM, mapM_)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Alt(..))
 
@@ -347,6 +347,49 @@ convertCommaList f (CST.CommaList as an) = do
     Just (Recover _ e a) -> tell (pure e) *> return (reverse (f a : bs))
     Just (Fatal _ e) -> tell (pure e) *> return (reverse bs)
 
+-- Converts a CST module into an AST module.
+convertModule :: CST.Module -> Module
+convertModule (CST.Module ss (EndToken {})) = Module (convertStatementSequence ss)
+
+-- Convert a sequence of recover CST statements into a list of AST statements. If any of the CST
+-- statements are recovered parse errors then we insert two statements. One a fatal `ErrorStatement`
+-- and the other the recovered statement.
+convertStatementSequence :: [Recover CST.Statement] -> [Statement]
+convertStatementSequence =
+  foldr
+    (\s' ss ->
+      case s' of
+        Ok s -> convertStatement s : ss
+        Recover _ e s -> fatalErrorStatement e : convertStatement s : ss
+        Fatal _ e -> fatalErrorStatement e : ss)
+    []
+
+-- Converts a CST statement into an AST statement.
+convertStatement :: CST.Statement -> Statement
+convertStatement s0 = case s0 of
+  -- Convert a CST expression statement into an AST expression statement by converting the
+  -- expression and checking if the optional semicolon has errors.
+  CST.ExpressionStatement x' t -> build $ do
+    let x = convertExpression x'
+    mapM_ recoverToken t
+    return $ Statement (ExpressionStatement x)
+
+  where
+    -- A small utility for adding the first error to the statement we find if any.
+    build s1 =
+      let (s, e) = runWriter s1 in
+        maybe s (flip errorStatement s) (getAlt e)
+
+-- Takes a statement and makes it an error statement. If the statement is already an error
+-- statement then we replace the current error with our new one.
+errorStatement :: Diagnostic -> Statement -> Statement
+errorStatement e (Statement (ErrorStatement _ x)) = Statement (ErrorStatement e x)
+errorStatement e (Statement x) = Statement (ErrorStatement e (Just x))
+
+-- Create a statement from a fatal error.
+fatalErrorStatement :: Diagnostic -> Statement
+fatalErrorStatement e = Statement (ErrorStatement e Nothing)
+
 -- Takes an expression and makes it an error expression. If the expression is already an error
 -- expression then we replace the current error with our new one.
 --
@@ -362,10 +405,6 @@ fatalErrorExpression ts e =
   Expression
     (fromMaybe (diagnosticRange e) (tokensRange ts))
     (ErrorExpression e Nothing)
-
--- Converts a CST module into an AST module.
-convertModule :: CST.Module -> Module
-convertModule = error "unimplemented"
 
 -- Converts a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Expression
@@ -483,7 +522,7 @@ convertExpression x0 = case x0 of
   CST.ExpressionExtra x (Fatal _ e) -> errorExpression e (convertExpression x)
 
   where
-    -- A small utility for selecting the first error we find if any.
+    -- A small utility for adding the first error to the expression we find if any.
     build x1 =
       let (x, e) = runWriter x1 in
         maybe x (flip errorExpression x) (getAlt e)
