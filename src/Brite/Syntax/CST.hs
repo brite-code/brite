@@ -30,25 +30,19 @@ module Brite.Syntax.CST
   , ObjectExpressionProperty(..)
   , ObjectExpressionPropertyValue(..)
   , ObjectExpressionExtension(..)
-  , VariantExpressionElements(..)
   , UnaryOperator(..)
   , BinaryOperator(..)
   , ConditionalExpressionIf(..)
   , ConditionalExpressionElse(..)
-  , MatchExpressionCase(..)
   , ExpressionExtra(..)
   , BinaryExpressionOperation(..)
   , Pattern(..)
   , ObjectPatternProperty(..)
   , ObjectPatternPropertyValue(..)
   , ObjectPatternExtension(..)
-  , VariantPattern(..)
-  , VariantPatternElements(..)
   , Type(..)
   , ObjectTypeProperty(..)
   , ObjectTypeExtension(..)
-  , VariantType(..)
-  , VariantTypeElements(..)
   , QuantifierList(..)
   , Quantifier(..)
   , QuantifierBound(..)
@@ -236,14 +230,6 @@ data Expression
       (Recover Token)
 
   -- ```
-  -- case V
-  -- case V(E)
-  -- ```
-  --
-  -- Data with an associated label.
-  | VariantExpression Token (Recover Name) (Maybe (Recover VariantExpressionElements))
-
-  -- ```
   -- !E
   -- -E
   -- +E
@@ -260,18 +246,6 @@ data Expression
   --
   -- Conditionally executes some code.
   | ConditionalExpression ConditionalExpressionIf
-
-  -- ```
-  -- match E { P -> { ... } }
-  -- ```
-  --
-  -- Matches an expression against the first valid pattern.
-  | MatchExpression
-      Token
-      (Recover Expression)
-      (Recover Token)
-      [Recover MatchExpressionCase]
-      (Recover Token)
 
   -- ```
   -- do { ... }
@@ -325,12 +299,6 @@ data ObjectExpressionPropertyValue = ObjectExpressionPropertyValue Token (Recove
 --
 -- An extension operation on an object.
 data ObjectExpressionExtension = ObjectExpressionExtension Token (Recover Expression)
-
--- `(...)`
---
--- The elements of a variant.
-data VariantExpressionElements =
-  VariantExpressionElements Token (CommaList Expression) (Recover Token)
 
 data UnaryOperator
   -- `!`
@@ -390,9 +358,6 @@ data ConditionalExpressionElse
   -- `else if E { ... }`
   | ConditionalExpressionElseIf Token ConditionalExpressionIf
 
--- `P -> { ... }`
-data MatchExpressionCase = MatchExpressionCase Pattern (Recover Token) Block
-
 -- Some extra syntax of an expression. We keep this as a separate data type to match our
 -- parser implementation.
 data ExpressionExtra
@@ -438,16 +403,6 @@ data Pattern
       (Recover Token)
 
   -- ```
-  -- case V
-  -- case V(P)
-  -- case V | case W
-  -- ```
-  | VariantUnionPattern
-      (Maybe Token)
-      VariantPattern
-      [Recover (Token, VariantPattern)]
-
-  -- ```
   -- (P)
   -- ```
   --
@@ -472,19 +427,6 @@ data ObjectPatternPropertyValue = ObjectPatternPropertyValue Token (Recover Patt
 --
 -- An extension operation on an object.
 data ObjectPatternExtension = ObjectPatternExtension Token (Recover Pattern)
-
--- ```
--- case V
--- case V(P)
--- ```
-data VariantPattern =
-  VariantPattern (Recover Token) (Recover Name) (Maybe (Recover VariantPatternElements))
-
--- `(...)`
---
--- The elements of a variant.
-data VariantPatternElements =
-  VariantPatternElements Token (CommaList Pattern) (Recover Token)
 
 -- Statically describes properties of a value at runtime. Through extensive domain modeling with
 -- types a user can reduce the possibilities for bugs in their systems.
@@ -523,22 +465,6 @@ data Type
       (Recover Token)
 
   -- ```
-  -- case V
-  -- case V(T)
-  -- case V | case W
-  -- case V | case W | else T
-  -- ```
-  --
-  -- A variant may form a union with any other type. However, only certain type kinds are acceptable
-  -- as the extension of a variant union type.
-  --
-  -- TODO: Extension
-  | VariantUnionType
-      (Maybe Token)
-      VariantType
-      [Recover (Token, VariantType)]
-
-  -- ```
   -- <x> T
   -- <x: T> U
   -- <x = T> U
@@ -564,19 +490,6 @@ data ObjectTypeProperty = ObjectTypeProperty Name (Recover Token) (Recover Type)
 --
 -- An extension operation on an object.
 data ObjectTypeExtension = ObjectTypeExtension Token (Recover Type)
-
--- ```
--- case V
--- case V(T)
--- ```
-data VariantType =
-  VariantType (Recover Token) (Recover Name) (Maybe (Recover VariantTypeElements))
-
--- `(...)`
---
--- The elements of a variant.
-data VariantTypeElements =
-  VariantTypeElements Token (CommaList Type) (Recover Token)
 
 -- ```
 -- <x>
@@ -675,10 +588,8 @@ expressionFirstToken (ConstantExpression (BooleanConstant _ t)) = t
 expressionFirstToken (VariableExpression (Name _ t)) = t
 expressionFirstToken (FunctionExpression t _) = t
 expressionFirstToken (ObjectExpression t _ _ _) = t
-expressionFirstToken (VariantExpression t _ _) = t
 expressionFirstToken (UnaryExpression _ t _) = t
 expressionFirstToken (ConditionalExpression (ConditionalExpressionIf t _ _ _)) = t
-expressionFirstToken (MatchExpression t _ _ _ _) = t
 expressionFirstToken (BlockExpression t _) = t
 expressionFirstToken (LoopExpression t _) = t
 expressionFirstToken (WrappedExpression t _ _ _) = t
@@ -794,14 +705,6 @@ expressionTokensM (ObjectExpression t1 ps ext t2) =
     extensionTokens (ObjectExpressionExtension t3 e) =
       singletonToken t3 <> recoverTokens expressionTokensM e
 
-expressionTokensM (VariantExpression t1 n els) =
-  singletonToken t1
-    <> recoverTokens nameTokens n
-    <> maybeTokens (recoverTokens elementTokens) els
-  where
-    elementTokens (VariantExpressionElements t2 es t3) =
-      singletonToken t2 <> commaListTokens expressionTokensM es <> recoverTokens singletonToken t3
-
 expressionTokensM (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokensM e
 
 expressionTokensM (ConditionalExpression i') =
@@ -815,18 +718,6 @@ expressionTokensM (ConditionalExpression i') =
 
     elseTokens (ConditionalExpressionElse t b) = singletonToken t <> blockTokens b
     elseTokens (ConditionalExpressionElseIf t i) = singletonToken t <> ifTokens i
-
-expressionTokensM (MatchExpression t1 e t2 cs t3) =
-  singletonToken t1
-    <> recoverTokens expressionTokensM e
-    <> recoverTokens singletonToken t2
-    <> mconcat (map (recoverTokens caseTokens) cs)
-    <> recoverTokens singletonToken t3
-  where
-    caseTokens (MatchExpressionCase p t4 b) =
-      patternTokens p
-        <> recoverTokens singletonToken t4
-        <> blockTokens b
 
 expressionTokensM (BlockExpression t b) = singletonToken t <> blockTokens b
 
@@ -872,19 +763,6 @@ patternTokens (ObjectPattern t1 ps ext t2) =
     extensionTokens (ObjectPatternExtension t3 e) =
       singletonToken t3 <> recoverTokens patternTokens e
 
-patternTokens (VariantUnionPattern t1 v1 vs) =
-  maybeTokens singletonToken t1
-    <> variantTokens v1
-    <> mconcat (map (recoverTokens (\(t2, v) -> singletonToken t2 <> variantTokens v)) vs)
-  where
-    variantTokens (VariantPattern t2 n els) =
-      recoverTokens singletonToken t2
-        <> recoverTokens nameTokens n
-        <> maybeTokens (recoverTokens elementTokens) els
-
-    elementTokens (VariantPatternElements t2 es t3) =
-      singletonToken t2 <> commaListTokens patternTokens es <> recoverTokens singletonToken t3
-
 patternTokens (WrappedPattern t1 p t2) =
   singletonToken t1
     <> recoverTokens patternTokens p
@@ -914,19 +792,6 @@ typeTokens (ObjectType t1 ps ext t2) =
 
     extensionTokens (ObjectTypeExtension t3 e) =
       singletonToken t3 <> recoverTokens typeTokens e
-
-typeTokens (VariantUnionType t1 v1 vs) =
-  maybeTokens singletonToken t1
-    <> variantTokens v1
-    <> mconcat (map (recoverTokens (\(t2, v) -> singletonToken t2 <> variantTokens v)) vs)
-  where
-    variantTokens (VariantType t2 n els) =
-      recoverTokens singletonToken t2
-        <> recoverTokens nameTokens n
-        <> maybeTokens (recoverTokens elementTokens) els
-
-    elementTokens (VariantTypeElements t2 es t3) =
-      singletonToken t2 <> commaListTokens typeTokens es <> recoverTokens singletonToken t3
 
 typeTokens (QuantifiedType qs t) = quantifierListTokens qs <> recoverTokens typeTokens t
 

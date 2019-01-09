@@ -117,8 +117,6 @@ tryPrimaryExpression =
     <|> tryConditionalExpression
     <|> tryConstantExpression
     <|> tryWrappedExpression
-    <|> tryVariantExpression
-    <|> tryMatchExpression
     <|> tryBlockExpression
     <|> tryLoopExpression
     <|> unexpected ExpectedExpression
@@ -157,20 +155,6 @@ tryObjectExpressionExtension =
   ObjectExpressionExtension
     <$> tryGlyph Bar
     <&> expression
-
-tryVariantExpression :: TryParser Expression
-tryVariantExpression =
-  VariantExpression
-    <$> tryKeyword Case
-    <&> name
-    <&> optional tryVariantExpressionElements
-
-tryVariantExpressionElements :: TryParser VariantExpressionElements
-tryVariantExpressionElements =
-  VariantExpressionElements
-    <$> tryGlyph ParenLeft
-    <&> commaList tryExpression
-    <&> glyph ParenRight
 
 tryConditionalExpression :: TryParser Expression
 tryConditionalExpression = ConditionalExpression <$> tryConditionalExpressionIf
@@ -219,22 +203,6 @@ tryConditionalExpressionElse = flip ($) <$> tryKeyword Else <&> elseIf
       tryOnce
         (flip ConditionalExpressionElseIf <$> tryConditionalExpressionIf)
         (flip ConditionalExpressionElse <$> block)
-
-tryMatchExpression :: TryParser Expression
-tryMatchExpression =
-  MatchExpression
-    <$> tryKeyword Switch
-    <&> expression
-    <&> glyph BraceLeft
-    <&> many tryMatchExpressionCase
-    <&> glyph BraceRight
-
-tryMatchExpressionCase :: TryParser MatchExpressionCase
-tryMatchExpressionCase =
-  MatchExpressionCase
-    <$> tryPattern
-    <&> glyph Arrow
-    <&> block
 
 tryBlockExpression :: TryParser Expression
 tryBlockExpression = BlockExpression <$> tryKeyword Do <&> block
@@ -421,7 +389,6 @@ tryPattern :: TryParser Pattern
 tryPattern =
   tryVariablePattern
     <|> tryObjectPattern
-    <|> tryVariantUnionPattern
     <|> tryHolePattern
     <|> tryConstantPattern
     <|> tryWrappedPattern
@@ -459,33 +426,6 @@ tryObjectPatternExtension =
     <$> tryGlyph Bar
     <&> pattern
 
-tryVariantUnionPattern :: TryParser Pattern
-tryVariantUnionPattern =
-  ((VariantUnionPattern Nothing <$> tryVariantPattern)
-    <|> (VariantUnionPattern <$> (Just <$> tryGlyph Bar) <&> variantPattern))
-    <&> many ((,) <$> tryGlyph Bar <&> variantPattern)
-
-tryVariantPattern :: TryParser VariantPattern
-tryVariantPattern =
-  VariantPattern
-    <$> (Ok <$> tryKeyword Case)
-    <&> name
-    <&> optional tryVariantPatternElements
-
-variantPattern :: Parser VariantPattern
-variantPattern =
-  VariantPattern
-    <$> keyword Case
-    <*> name
-    <*> optional tryVariantPatternElements
-
-tryVariantPatternElements :: TryParser VariantPatternElements
-tryVariantPatternElements =
-  VariantPatternElements
-    <$> tryGlyph ParenLeft
-    <&> commaList tryPattern
-    <&> glyph ParenRight
-
 tryWrappedPattern :: TryParser Pattern
 tryWrappedPattern =
   WrappedPattern
@@ -498,7 +438,6 @@ tryType =
   tryVariableType
     <|> tryObjectType
     <|> tryFunctionType
-    <|> tryVariantUnionType
     <|> tryQuantifiedType
     <|> tryBottomType
     <|> tryWrappedType
@@ -544,33 +483,6 @@ tryObjectTypeExtension =
   ObjectTypeExtension
     <$> tryGlyph Bar
     <&> type_
-
-tryVariantUnionType :: TryParser Type
-tryVariantUnionType =
-  ((VariantUnionType Nothing <$> tryVariantType)
-    <|> (VariantUnionType <$> (Just <$> tryGlyph Bar) <&> variantType))
-    <&> many ((,) <$> tryGlyph Bar <&> variantType)
-
-tryVariantType :: TryParser VariantType
-tryVariantType =
-  VariantType
-    <$> (Ok <$> tryKeyword Case)
-    <&> name
-    <&> optional tryVariantTypeElements
-
-variantType :: Parser VariantType
-variantType =
-  VariantType
-    <$> keyword Case
-    <*> name
-    <*> optional tryVariantTypeElements
-
-tryVariantTypeElements :: TryParser VariantTypeElements
-tryVariantTypeElements =
-  VariantTypeElements
-    <$> tryGlyph ParenLeft
-    <&> commaList tryType
-    <&> glyph ParenRight
 
 tryQuantifiedType :: TryParser Type
 tryQuantifiedType = QuantifiedType <$> tryQuantifierList <&> type_

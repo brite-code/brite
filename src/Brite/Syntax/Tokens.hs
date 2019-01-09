@@ -134,8 +134,6 @@ data Keyword
   | Let
   | If
   | Else
-  | Switch
-  | Case
   | Do
   | Fun
   | Return
@@ -154,8 +152,6 @@ keyword t =
     "let" -> Just Let
     "if" -> Just If
     "else" -> Just Else
-    "switch" -> Just Switch
-    "case" -> Just Case
     "do" -> Just Do
     "fun" -> Just Fun
     "return" -> Just Return
@@ -171,8 +167,6 @@ keywordText False_ = "false"
 keywordText Let = "let"
 keywordText If = "if"
 keywordText Else = "else"
-keywordText Switch = "switch"
-keywordText Case = "case"
 keywordText Do = "do"
 keywordText Fun = "fun"
 keywordText Return = "return"
