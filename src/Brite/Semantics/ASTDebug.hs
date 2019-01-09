@@ -20,6 +20,12 @@ debugModule :: Module -> Text.Builder
 debugModule (Module ss) = mconcat $ map
   ((<> Text.Builder.singleton '\n') . printDocument 80 . printS . debugStatement) ss
 
+debugName :: Name -> S
+debugName (Name r n) =
+  (B (Text.Lazy.toStrict (Text.Builder.toLazyText
+    (Text.Builder.fromText "name" <> Text.Builder.singleton ' ' <> debugRange r))))
+    `E` (A (identifierText n))
+
 debugStatement :: Statement -> S
 debugStatement s0 = case statementNode s0 of
   ExpressionStatement x -> debugExpression x
@@ -30,6 +36,8 @@ debugExpression x0 = case expressionNode x0 of
   ConstantExpression (BooleanConstant False) -> (symbol "bool") `E` (A "false")
 
   VariableExpression ident -> (symbol "var") `E` (A (identifierText ident))
+
+  PropertyExpression x n -> (symbol "prop") `E` (debugExpression x) `E` (debugName n)
 
   UnaryExpression op' x ->
     (symbol op) `E` (debugExpression x)
