@@ -310,7 +310,11 @@ data TypeNode
   | ErrorType Diagnostic (Maybe TypeNode)
 
 -- `p: T`
-data ObjectTypeProperty = ObjectTypeProperty Name (Maybe Type)
+data ObjectTypeProperty = ObjectTypeProperty Name Type
+
+-- Gets the range of an object pattern property.
+objectTypePropertyRange :: ObjectTypeProperty -> Range
+objectTypePropertyRange (ObjectTypeProperty (Name r _) x) = rangeBetween r (typeRange x)
 
 -- `x: T`
 data Quantifier = Quantifier Name (Maybe (QuantifierBoundKind, Type))
@@ -433,14 +437,15 @@ convertStatement s0 = case s0 of
 
   -- Convert from a CST binding statement into an AST binding statement. Reporting syntax errors
   -- from any tokens which may have them.
-  CST.BindingStatement t1 p' Nothing t2 e' t3 -> build $ do
+  CST.BindingStatement t1 p' t' t2 e' t3 -> build $ do
     let p = convertRecoverPattern p'
+    let t = convertRecoverTypeAnnotation <$> t'
     recoverToken t2
     let e = convertRecoverExpression e'
     r3 <- join <$> mapM recoverTokenRange t3
     return $ Statement
       (rangeBetween (tokenRange t1) (fromMaybe (expressionRange e) r3))
-      (BindingStatement p Nothing e)
+      (BindingStatement p t e)
 
   where
     -- A small utility for adding the first error to the statement we find if any.
@@ -580,8 +585,9 @@ convertExpression x0 = case x0 of
       (rangeBetweenMaybe (tokenRange t) r)
       (LoopExpression b)
 
-  CST.WrappedExpression t1 x' Nothing t2 -> build $ do
+  CST.WrappedExpression t1 x' t' t2 -> build $ do
     let x = convertRecoverExpression x'
+    let t = convertRecoverTypeAnnotation <$> t'
     -- NOTE: If there is an error in `t2` then that error will be attached to the
     -- `WrappedExpression` and will be thrown first at runtime instead of an error attached to `x`
     -- which technically came first in the source code.
@@ -591,7 +597,7 @@ convertExpression x0 = case x0 of
     r2 <- recoverTokenRange t2
     return $ Expression
       (rangeBetween (tokenRange t1) (fromMaybe (expressionRange x) r2))
-      (WrappedExpression x Nothing)
+      (WrappedExpression x t)
 
   -- Convert all the binary expression operations in the CST’s list representation of a binary
   -- expression into our AST representation. We’ll also need to convert some binary expressions into
@@ -776,3 +782,88 @@ convertRecoverPattern :: Recover CST.Pattern -> Pattern
 convertRecoverPattern (Ok x) = convertPattern x
 convertRecoverPattern (Recover _ e x) = errorPattern e (convertPattern x)
 convertRecoverPattern (Fatal ts e) = fatalErrorPattern ts e
+
+-- Takes a type and makes it an error type. If the type is already an error
+-- type then we replace the current error with our new one.
+--
+-- The range of our error type will be the same as the type we are annotating.
+errorType :: Diagnostic -> Type -> Type
+errorType e (Type r (ErrorType _ x)) = Type r (ErrorType e x)
+errorType e (Type r x) = Type r (ErrorType e (Just x))
+
+-- Create a type from a fatal error. If the token list is not empty then the range will be
+-- between the first and last token range. Otherwise the range will be take from the provided error.
+fatalErrorType :: [Token] -> Diagnostic -> Type
+fatalErrorType ts e =
+  Type
+    (fromMaybe (diagnosticRange e) (tokensRange ts))
+    (ErrorType e Nothing)
+
+-- Converts a CST type into an AST type.
+convertType :: CST.Type -> Type
+convertType x0 = case x0 of
+  -- Variable types are easy since they are a single token.
+  CST.VariableType (CST.Name n t) ->
+    Type (tokenRange t) (VariableType n)
+
+  -- Bottom types are easy since they are a single token.
+  CST.BottomType t ->
+    Type (tokenRange t) BottomType
+
+  -- Convert a CST object type into an AST object type. Any syntax error within the
+  -- object type will be used to wrap the object type.
+  CST.ObjectType t1 ps' ext' t2 -> build $ do
+    ps <- convertRecoverCommaList convertProperty ps'
+    ext <- convertExtension ext'
+    r2 <- recoverTokenRange t2
+    return $ Type
+      (rangeBetweenMaybe
+        (tokenRange t1)
+        (r2
+          <|> (typeRange <$> ext)
+          <|> (if not (null ps) then Just (objectTypePropertyRange (last ps)) else Nothing)))
+      (ObjectType ps ext)
+    where
+      convertProperty (CST.ObjectTypeProperty (CST.Name n t3) t4 v) =
+        ObjectTypeProperty (Name (tokenRange t3) n)
+          (build (recoverToken t4 *> return (convertRecoverType v)))
+
+      convertExtension Nothing =
+        return Nothing
+      convertExtension (Just (Ok (CST.ObjectTypeExtension (Token {}) v))) =
+        return (Just (convertRecoverType v))
+      convertExtension (Just (Recover _ e (CST.ObjectTypeExtension (Token {}) v))) =
+        tell (pure e) *> return (Just (convertRecoverType v))
+      convertExtension (Just (Fatal _ e)) =
+        tell (pure e) *> return Nothing
+
+  CST.WrappedType t1 x' t2 -> build $ do
+    let x = convertRecoverType x'
+    -- NOTE: If there is an error in `t2` then that error will be attached to the
+    -- `WrappedType` and will be thrown first at runtime instead of an error attached to `x`
+    -- which technically came first in the source code.
+    --
+    -- This is acceptable since the error thrown at runtime is indicative not of source order but
+    -- instead of execution order. Technically, the wrapped type executes first.
+    r2 <- recoverTokenRange t2
+    return $ Type
+      (rangeBetween (tokenRange t1) (fromMaybe (typeRange x) r2))
+      (WrappedType x)
+
+  where
+    -- A small utility for adding the first error to the type we find if any.
+    build x1 =
+      let (x, e) = runWriter x1 in
+        maybe x (flip errorType x) (getAlt e)
+
+-- Converts a CST type wrapped in `Recover` into an AST type.
+convertRecoverType :: Recover CST.Type -> Type
+convertRecoverType (Ok x) = convertType x
+convertRecoverType (Recover _ e x) = errorType e (convertType x)
+convertRecoverType (Fatal ts e) = fatalErrorType ts e
+
+-- Converts a CST type annotation wrapped in `Recover` into an AST type.
+convertRecoverTypeAnnotation :: Recover CST.TypeAnnotation -> Type
+convertRecoverTypeAnnotation (Ok (CST.TypeAnnotation (Token {}) t)) = convertRecoverType t
+convertRecoverTypeAnnotation (Recover _ e (CST.TypeAnnotation _ t)) = errorType e (convertRecoverType t)
+convertRecoverTypeAnnotation (Fatal ts e) = fatalErrorType ts e

@@ -32,6 +32,8 @@ debugStatement s0 = case statementNode s0 of
 
   BindingStatement p Nothing x ->
     (A "bind") `E` (debugPattern p) `E` (debugExpression x)
+  BindingStatement p (Just t) x ->
+    (A "bind") `E` (debugPattern p) `E` ((A "type") `E` (debugType t)) `E` (debugExpression x)
 
 debugBlock :: Block -> S
 debugBlock (Block ss) =
@@ -131,6 +133,8 @@ debugExpression x0 = case expressionNode x0 of
       ss
 
   WrappedExpression x Nothing -> (symbol "wrap") `E` (debugExpression x)
+  WrappedExpression x (Just t) ->
+    (symbol "wrap") `E` (debugExpression x) `E` ((A "type") `E` (debugType t))
 
   ErrorExpression _ Nothing -> symbol "err"
   ErrorExpression _ (Just x) -> (A "err") `E` (debugExpression (Expression (expressionRange x0) x))
@@ -173,6 +177,36 @@ debugPattern x0 = case patternNode x0 of
   where
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (patternRange x0)
+
+debugType :: Type -> S
+debugType x0 = case typeNode x0 of
+  VariableType ident -> (symbol "var") `E` (A (identifierText ident))
+
+  BottomType -> (symbol "bottom")
+
+  ObjectType ps ext ->
+    let
+      s2 =
+        foldl
+          (\s1 p -> s1 `E` (debugProperty p))
+          (symbol "object")
+          ps
+    in
+      case ext of
+        Nothing -> s2
+        Just x -> s2 `E` (debugType x)
+    where
+      debugProperty (ObjectTypeProperty n x) =
+        (A "prop") `E` (debugName n) `E` (debugType x)
+
+  WrappedType x -> (symbol "wrap") `E` (debugType x)
+
+  ErrorType _ Nothing -> symbol "err"
+  ErrorType _ (Just x) -> (A "err") `E` (debugType (Type (typeRange x0) x))
+
+  where
+    symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
+      Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (typeRange x0)
 
 -- An [S-expression][1].
 --
