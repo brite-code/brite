@@ -9,9 +9,10 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as L
-import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Lazy as Text.Lazy
+import qualified Data.Text.Lazy.Builder as Text.Builder
 import System.IO
 import Test.Hspec
 
@@ -946,8 +947,8 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
     it (T.unpack (escape source)) $ \h ->
       let
         (module_, diagnostics) = runDiagnosticWriter (parseModule (tokenize source))
-        moduleDebug = L.toStrict (B.toLazyText (AST.debugModule (AST.convertModule module_)))
-        rebuiltSource = L.toStrict (B.toLazyText (CST.moduleSource module_))
+        moduleDebug = Text.Lazy.toStrict (Text.Builder.toLazyText (AST.debugModule (AST.convertModule module_)))
+        rebuiltSource = Text.Lazy.toStrict (Text.Builder.toLazyText (CST.moduleSource module_))
       in seq moduleDebug $ do
         hPutStrLn h ""
         hPutStrLn h (replicate 80 '-')
@@ -965,13 +966,14 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
           hPutStrLn h ""
           hPutStrLn h "### Errors"
           flip mapM_ diagnostics (\diagnostic ->
-            hPutStrLn h (L.unpack (B.toLazyText (B.fromText "- " <> debugDiagnostic diagnostic)))))
+            hPutStrLn h (Text.Lazy.unpack (Text.Builder.toLazyText
+              (Text.Builder.fromText "- " <> debugDiagnostic diagnostic)))))
         rebuiltSource `shouldBe` source
 
-escape :: T.Text -> T.Text
-escape = T.concatMap
+escape :: Text -> Text
+escape = Text.concatMap
   (\c ->
     case c of
       '\n' -> "\\n"
       '\r' -> "\\r"
-      _ -> T.singleton c)
+      _ -> Text.singleton c)

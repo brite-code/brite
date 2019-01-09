@@ -64,7 +64,7 @@ module Brite.Syntax.CST
 import Brite.Syntax.ParserFramework (Recover(..), CommaList(..), commaListItems)
 import Brite.Syntax.Tokens
 import Data.Monoid (Endo(..))
-import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text.Lazy.Builder as Text (Builder)
 
 -- A single Brite file is a module. A module is made up of a list of statements.
 data Module = Module
@@ -619,14 +619,14 @@ expressionTokens e = appEndo (expressionTokensM e) []
 
 -- Rebuild the source code that the module was parsed from. Does not return the exact same text
 -- reference but rather a rebuilt text document.
-moduleSource :: Module -> B.Builder
+moduleSource :: Module -> Text.Builder
 moduleSource m =
   let (tokens, endToken) = moduleTokens m in
     mconcat (map tokenSource tokens) <> endTokenSource endToken
 
 -- Get the source code for this statement while trimming all whitespace from the beginning
 -- and ending.
-statementTrimmedSource :: Recover Statement -> B.Builder
+statementTrimmedSource :: Recover Statement -> Text.Builder
 statementTrimmedSource statement =
   sourceStart (appEndo ((recoverTokens statementTokens) statement) [])
   where

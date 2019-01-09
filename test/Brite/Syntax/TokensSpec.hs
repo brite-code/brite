@@ -4,9 +4,10 @@ module Brite.Syntax.TokensSpec (spec) where
 
 import Brite.Syntax.Tokens
 import Data.Maybe
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as L
-import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Lazy as Text.Lazy
+import qualified Data.Text.Lazy.Builder as Text.Builder
 import Test.Hspec
 import System.IO
 
@@ -143,7 +144,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
     it (T.unpack (escape source)) $ \h ->
       let
         (tokens, endToken) = tokenStreamToList (tokenize source)
-        rebuiltSource = L.toStrict $ B.toLazyText $
+        rebuiltSource = Text.Lazy.toStrict $ Text.Builder.toLazyText $
           mconcat (map tokenSource tokens) <> endTokenSource endToken
       in do
         hPutStrLn h ""
@@ -151,17 +152,17 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h ""
         hPutStrLn h "### Source"
         hPutStrLn h "```ite"
-        hPutStrLn h (T.unpack source)
+        hPutStrLn h (Text.unpack source)
         hPutStrLn h "```"
         hPutStrLn h ""
         hPutStrLn h "### Tokens"
         hPutStrLn h "```"
-        hPutStr h (L.unpack (B.toLazyText (debugTokens tokens endToken)))
+        hPutStr h (Text.Lazy.unpack (Text.Builder.toLazyText (debugTokens tokens endToken)))
         hPutStrLn h "```"
         rebuiltSource `shouldBe` source
 
-escape :: T.Text -> T.Text
-escape = T.concatMap
+escape :: Text -> Text
+escape = Text.concatMap
   (\c ->
     case c of
       '\n' -> "\\n"
@@ -173,4 +174,4 @@ escape = T.concatMap
       '\x2002' -> "\\x2002"
       '\x2003' -> "\\x2003"
       '\x2009' -> "\\x2009"
-      _ -> T.singleton c)
+      _ -> Text.singleton c)

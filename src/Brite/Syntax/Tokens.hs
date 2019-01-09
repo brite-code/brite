@@ -43,9 +43,11 @@ module Brite.Syntax.Tokens
 
 import Data.Bits ((.&.))
 import Data.Char
+import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Custom as T
-import qualified Data.Text.Lazy as L
+import qualified Data.Text.Lazy as Text.Lazy
+import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text.Lazy.Builder.Int as B
 import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
@@ -106,10 +108,10 @@ rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 -- pattern identifiers.
 --
 -- [1]: http://www.unicode.org/reports/tr31
-newtype Identifier = Identifier T.Text
+newtype Identifier = Identifier Text
 
 -- Get the text representation of an identifier.
-identifierText :: Identifier -> T.Text
+identifierText :: Identifier -> Text
 identifierText (Identifier t) = t
 
 -- Is this character the start of an identifier?
@@ -143,7 +145,7 @@ data Keyword
 
 -- Tries to convert a text value into a keyword. Returns `Just` if the text value is a keyword.
 -- Returns `Nothing` if the text value is not a keyword.
-keyword :: T.Text -> Maybe Keyword
+keyword :: Text -> Maybe Keyword
 keyword t =
   case t of
     "_" -> Just Hole
@@ -162,7 +164,7 @@ keyword t =
     _ -> Nothing
 
 -- Gets the raw text for a keyword.
-keywordText :: Keyword -> T.Text
+keywordText :: Keyword -> Text
 keywordText Hole = "_"
 keywordText True_ = "true"
 keywordText False_ = "false"
@@ -275,7 +277,7 @@ data Glyph
   deriving (Eq)
 
 -- Gets the text representation of a glyph.
-glyphText :: Glyph -> T.Text
+glyphText :: Glyph -> Text
 glyphText (Keyword k) = keywordText k
 glyphText Ampersand = "&"
 glyphText AmpersandDouble = "&&"
@@ -328,7 +330,7 @@ data Newline = LF | CR | CRLF
 
 data Comment
   -- `// ...` does not include the newline that ends the comment. Does include the `//` characters.
-  = LineComment T.Text
+  = LineComment Text
   -- `/* ... */` does include the `/*` and `*/` characters.
   --
   -- If the boolean is true then we reached the end of the file before finding `*/`.
@@ -337,7 +339,7 @@ data Comment
   -- and are not used for documentation. At least warn when we see a block comment?
   --
   -- TODO: Make a decision on keeping or removing block comments.
-  | BlockComment T.Text Bool
+  | BlockComment Text Bool
 
 -- Is this trivia whitespace?
 isTriviaWhitespace :: Trivia -> Bool
@@ -355,7 +357,7 @@ isUnterminatedBlockComment _ = False
 -- A stream of tokens. Call `nextToken` to advance the stream.
 data TokenStream = TokenStream
   { tokenStreamPosition :: Position
-  , tokenStreamText :: T.Text
+  , tokenStreamText :: Text
   }
 
 -- One step in the `TokenStream`. Created by calling `nextToken`.
@@ -368,7 +370,7 @@ tokenStreamStepPosition (Right (t, _)) = rangeStart (tokenRange t)
 tokenStreamStepPosition (Left t) = endTokenPosition t
 
 -- Creates a token stream from a text document.
-tokenize :: T.Text -> TokenStream
+tokenize :: Text -> TokenStream
 tokenize text = TokenStream initialPosition text
 
 -- Converts a token stream to a list of tokens and an end token.
@@ -452,7 +454,7 @@ nextToken (TokenStream p0 t0) =
 data TriviaSide = Leading | Trailing
 
 -- Parses some trivia!
-nextTrivia :: TriviaSide -> [Trivia] -> Position -> T.Text -> ([Trivia], Position, T.Text)
+nextTrivia :: TriviaSide -> [Trivia] -> Position -> Text -> ([Trivia], Position, Text)
 nextTrivia side acc p0 t0 =
   case T.uncons t0 of
     -- Spaces
@@ -569,24 +571,24 @@ nextTrivia side acc p0 t0 =
     _ -> (reverse acc, p0, t0)
 
 -- Gets the source code that a token was parsed from.
-tokenSource :: Token -> B.Builder
+tokenSource :: Token -> Text.Builder
 tokenSource token =
   mconcat (map triviaSource (tokenLeadingTrivia token))
     <> B.fromText (tokenKindSource (tokenKind token))
     <> mconcat (map triviaSource (tokenTrailingTrivia token))
 
 -- Gets the source code that a token kind was parsed from.
-tokenKindSource :: TokenKind -> T.Text
+tokenKindSource :: TokenKind -> Text
 tokenKindSource (Glyph g) = glyphText g
 tokenKindSource (IdentifierToken i) = identifierText i
 tokenKindSource (UnexpectedChar c) = T.singleton c
 
 -- Gets the source code that an end token was parsed from.
-endTokenSource :: EndToken -> B.Builder
+endTokenSource :: EndToken -> Text.Builder
 endTokenSource endToken = mconcat (map triviaSource (endTokenTrivia endToken))
 
 -- Gets the source code that a trivia was parsed from.
-triviaSource :: Trivia -> B.Builder
+triviaSource :: Trivia -> Text.Builder
 triviaSource (Spaces n) = B.fromText (T.replicate n " ")
 triviaSource (Tabs n) = B.fromText (T.replicate n "\t")
 triviaSource (Newlines LF n) = B.fromText (T.replicate n "\n")
@@ -598,23 +600,23 @@ triviaSource (Comment (BlockComment comment False)) = B.fromText "/*" <> B.fromT
 triviaSource (OtherWhitespace c) = B.singleton c
 
 -- Debug a position.
-debugPosition :: Position -> B.Builder
+debugPosition :: Position -> Text.Builder
 debugPosition (Position line character) =
   B.decimal line <> B.singleton ':' <> B.decimal character
 
 -- Debug a range of characters.
-debugRange :: Range -> B.Builder
+debugRange :: Range -> Text.Builder
 debugRange (Range start end) =
   debugPosition start <> B.singleton '-' <> debugPosition end
 
 -- Debug a stream of tokens.
-debugTokens :: [Token] -> EndToken -> B.Builder
+debugTokens :: [Token] -> EndToken -> Text.Builder
 debugTokens tokens endToken = mconcat (map debugToken tokens) <> debugEndToken endToken
 
-debugToken :: Token -> B.Builder
+debugToken :: Token -> Text.Builder
 debugToken (Token r k lt tt) =
   mconcat (map (debugTrivia Leading) lt)
-    <> B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
+    <> B.fromLazyText (Text.Lazy.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
     <> B.fromText "| "
     <> B.fromText content
     <> B.singleton '\n'
@@ -625,13 +627,13 @@ debugToken (Token r k lt tt) =
       IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
       UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
 
-debugEndToken :: EndToken -> B.Builder
+debugEndToken :: EndToken -> Text.Builder
 debugEndToken (EndToken p lt) =
   mconcat (map (debugTrivia Leading) lt)
-    <> B.fromLazyText (L.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
+    <> B.fromLazyText (Text.Lazy.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
     <> B.fromText "| End\n"
 
-debugTrivia :: TriviaSide -> Trivia -> B.Builder
+debugTrivia :: TriviaSide -> Trivia -> Text.Builder
 debugTrivia side trivia =
   (case side of { Leading -> "+"; Trailing -> "-" })
     <> B.fromText (T.replicate 9 " ")

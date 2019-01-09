@@ -58,10 +58,11 @@ module Brite.Diagnostics
   , debugDiagnostic
   ) where
 
-import qualified Brite.DiagnosticsMarkup as M
+import Brite.DiagnosticsMarkup
 import Brite.Syntax.Tokens (Range, debugRange, TokenKind(..), Glyph, glyphText)
-import qualified Data.Text as T
-import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text as Text
+import qualified Data.Text.Lazy.Builder as Text (Builder)
+import qualified Data.Text.Lazy.Builder as Text.Builder
 
 -- A diagnostic is some message presented to the user about their program. Diagnostics contain a
 -- range of characters which the diagnostic points to. Diagnostics are only valid in the scope of
@@ -162,14 +163,14 @@ unexpectedEnding range expected = report $ Diagnostic range $ Error $
 
 -- Creates the human readable diagnostic message for a given diagnostic. Remember that this
 -- generates a new message every time it is called instead of fetching a pre-generated message.
-diagnosticMessage :: Diagnostic -> M.Markup
+diagnosticMessage :: Diagnostic -> Markup
 diagnosticMessage diagnostic =
   case diagnosticRawMessage diagnostic of
     Error message -> diagnosticErrorMessage message
     Warning _ -> error "unreachable"
     Info _ -> error "unreachable"
 
-diagnosticErrorMessage :: ErrorDiagnosticMessage -> M.Markup
+diagnosticErrorMessage :: ErrorDiagnosticMessage -> Markup
 
 -- Thought and care that went into this error message:
 --
@@ -192,16 +193,16 @@ diagnosticErrorMessage :: ErrorDiagnosticMessage -> M.Markup
 --   name.” because the word “pattern” is compiler speak. Even though patterns can be more than a
 --   variable name, 80% of the time the programmer will write a variable name.
 diagnosticErrorMessage (UnexpectedToken unexpected expected) =
-  M.plain "We wanted "
+  plain "We wanted "
     <> expectedTokenDescription expected
-    <> M.plain " but we found "
+    <> plain " but we found "
     <> unexpectedDescription
-    <> M.plain "."
+    <> plain "."
   where
     unexpectedDescription = case unexpected of
-      Glyph glyph -> M.code (glyphText glyph)
-      IdentifierToken _ -> M.plain "a variable name"
-      UnexpectedChar c -> M.code (T.singleton c)
+      Glyph glyph -> code (glyphText glyph)
+      IdentifierToken _ -> plain "a variable name"
+      UnexpectedChar c -> code (Text.singleton c)
 
 -- Follows the same format as the unexpected token error. Except instead of saying “we found the end
 -- of the file” we say “We wanted an expression but the file ended.” This is less abstract than
@@ -209,23 +210,23 @@ diagnosticErrorMessage (UnexpectedToken unexpected expected) =
 -- of a file is a bit weird. It makes sense from the perspective of parsing but not from the user’s
 -- perspective which we are designing for.
 diagnosticErrorMessage (UnexpectedEnding expected) =
-  M.plain "We wanted " <> expectedTokenDescription expected <> M.plain " but the file ended."
+  plain "We wanted " <> expectedTokenDescription expected <> plain " but the file ended."
 
 -- Get the description of an expected token.
-expectedTokenDescription :: ExpectedToken -> M.Markup
-expectedTokenDescription (ExpectedGlyph glyph) = M.code (glyphText glyph)
-expectedTokenDescription ExpectedIdentifier = M.plain "a variable name"
-expectedTokenDescription ExpectedEnd = M.plain "nothing more"
-expectedTokenDescription ExpectedBlockCommentEnd = M.code "*/"
-expectedTokenDescription ExpectedStatement = M.plain "a statement"
-expectedTokenDescription ExpectedExpression = M.plain "an expression"
-expectedTokenDescription ExpectedPattern = M.plain "a variable name"
-expectedTokenDescription ExpectedType = M.plain "a type"
+expectedTokenDescription :: ExpectedToken -> Markup
+expectedTokenDescription (ExpectedGlyph glyph) = code (glyphText glyph)
+expectedTokenDescription ExpectedIdentifier = plain "a variable name"
+expectedTokenDescription ExpectedEnd = plain "nothing more"
+expectedTokenDescription ExpectedBlockCommentEnd = code "*/"
+expectedTokenDescription ExpectedStatement = plain "a statement"
+expectedTokenDescription ExpectedExpression = plain "an expression"
+expectedTokenDescription ExpectedPattern = plain "a variable name"
+expectedTokenDescription ExpectedType = plain "a type"
 
 -- Prints a diagnostic for debugging purposes.
-debugDiagnostic :: Diagnostic -> B.Builder
+debugDiagnostic :: Diagnostic -> Text.Builder
 debugDiagnostic diagnostic =
-  B.singleton '('
+  Text.Builder.singleton '('
     <> debugRange (diagnosticRange diagnostic)
-    <> B.fromText ") "
-    <> M.toBuilder (diagnosticMessage diagnostic)
+    <> Text.Builder.fromText ") "
+    <> printMarkup (diagnosticMessage diagnostic)

@@ -5,27 +5,32 @@ module Brite.DiagnosticsMarkup
   ( Markup
   , plain
   , code
-  , toBuilder
+  , printMarkup
   ) where
 
-import qualified Data.Text as T
-import qualified Data.Text.Lazy.Builder as B
+import Data.Text (Text)
+import qualified Data.Text as Text
+import qualified Data.Text.Lazy.Builder as Text (Builder)
+import qualified Data.Text.Lazy.Builder as Text.Builder
 
 -- A simple markup string builder to be used when rendering diagnostic  messages. This is not
 -- intended to be a full markdown parsing and printing framework. Just enough for
 -- diagnostic messages.
-newtype Markup = Markup B.Builder
+newtype Markup = Markup Text.Builder
   deriving (Monoid, Semigroup)
 
 -- Creates a lazy text builder from the provided markup. The builder’s text will be in
 -- markdown form.
-toBuilder :: Markup -> B.Builder
-toBuilder (Markup b) = b
+printMarkup :: Markup -> Text.Builder
+printMarkup (Markup t) = t
 
 -- Some plain text without formatting.
-plain :: T.Text -> Markup
-plain t = Markup (B.fromText (T.replace "`" "\\`" t))
+plain :: Text -> Markup
+plain t = Markup (Text.Builder.fromText (Text.replace "`" "\\`" t))
 
 -- Text formatted as inline code.
-code :: T.Text -> Markup
-code t = Markup (B.singleton '`' <> B.fromText (T.replace "`" "\\`" t) <> B.singleton '`')
+code :: Text -> Markup
+code t = Markup $
+  Text.Builder.singleton '`'
+    <> Text.Builder.fromText (Text.replace "`" "\\`" t)
+    <> Text.Builder.singleton '`'
