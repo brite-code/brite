@@ -28,6 +28,39 @@ let x = y
 
 ### Source
 ```ite
+let
+```
+
+### AST
+```
+(err (bind (err 0:3-0:3) (err 0:3-0:3)))
+```
+
+### Errors
+- (0:3-0:3) We wanted a variable name but the file ended.
+- (0:3-0:3) We wanted `=` but the file ended.
+- (0:3-0:3) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (err 0:5-0:5)))
+```
+
+### Errors
+- (0:5-0:5) We wanted `=` but the file ended.
+- (0:5-0:5) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let =
 ```
 
@@ -44,6 +77,39 @@ let =
 
 ### Source
 ```ite
+let y
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 y) (err 0:5-0:5)))
+```
+
+### Errors
+- (0:5-0:5) We wanted `=` but the file ended.
+- (0:5-0:5) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let ;
+```
+
+### AST
+```
+(err (bind (err 0:4-0:5) (err 0:4-0:5)))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `;`.
+- (0:4-0:5) We wanted `=` but we found `;`.
+- (0:4-0:5) We wanted an expression but we found `;`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let x =
 ```
 
@@ -54,6 +120,37 @@ let x =
 
 ### Errors
 - (0:7-0:7) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x y
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (var 0:6-0:7 y)))
+```
+
+### Errors
+- (0:6-0:7) We wanted `=` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x ;
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (err 0:6-0:7)))
+```
+
+### Errors
+- (0:6-0:7) We wanted `=` but we found `;`.
+- (0:6-0:7) We wanted an expression but we found `;`.
 
 --------------------------------------------------------------------------------
 
@@ -85,6 +182,22 @@ let = ;
 ### Errors
 - (0:4-0:5) We wanted a variable name but we found `=`.
 - (0:6-0:7) We wanted an expression but we found `;`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+😈 let x = y;
+```
+
+### AST
+```
+(err 0:0-0:2)
+(bind (var 0:7-0:8 x) (var 0:11-0:12 y))
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
 
 --------------------------------------------------------------------------------
 
@@ -150,6 +263,22 @@ let x = y 😈;
 
 ### Source
 ```ite
+let x = y; 😈
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(err 0:11-0:13)
+```
+
+### Errors
+- (0:11-0:13) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let x = y 😈
 ```
 
@@ -160,6 +289,22 @@ let x = y 😈
 
 ### Errors
 - (0:10-0:12) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+) let x = y;
+```
+
+### AST
+```
+(err 0:0-0:1)
+(bind (var 0:6-0:7 x) (var 0:10-0:11 y))
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
 
 --------------------------------------------------------------------------------
 
@@ -225,6 +370,22 @@ let x = y );
 
 ### Source
 ```ite
+let x = y; )
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(err 0:11-0:12)
+```
+
+### Errors
+- (0:11-0:12) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let x = y )
 ```
 
@@ -255,6 +416,22 @@ let 😈 = y;
 
 ### Source
 ```ite
+let x 😈 y;
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (type (err 0:6-0:8)) (var 0:9-0:10 y)))
+```
+
+### Errors
+- (0:6-0:8) We wanted `:` but we found `😈`.
+- (0:9-0:10) We wanted `=` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let x = 😈;
 ```
 
@@ -270,6 +447,23 @@ let x = 😈;
 
 ### Source
 ```ite
+let 😈 y;
+```
+
+### AST
+```
+(err (bind (err (var 0:7-0:8 y)) (err 0:8-0:9)))
+```
+
+### Errors
+- (0:4-0:6) We wanted a variable name but we found `😈`.
+- (0:8-0:9) We wanted `=` but we found `;`.
+- (0:8-0:9) We wanted an expression but we found `;`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let 😈 =;
 ```
 
@@ -280,6 +474,23 @@ let 😈 =;
 
 ### Errors
 - (0:4-0:6) We wanted a variable name but we found `😈`.
+- (0:8-0:9) We wanted an expression but we found `;`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x 😈;
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (type (err 0:6-0:8)) (err 0:8-0:9)))
+```
+
+### Errors
+- (0:6-0:8) We wanted `:` but we found `😈`.
+- (0:8-0:9) We wanted `=` but we found `;`.
 - (0:8-0:9) We wanted an expression but we found `;`.
 
 --------------------------------------------------------------------------------
@@ -302,6 +513,23 @@ let = 😈;
 
 ### Source
 ```ite
+let 😈;
+```
+
+### AST
+```
+(err (bind (err 0:4-0:6) (err 0:6-0:7)))
+```
+
+### Errors
+- (0:4-0:6) We wanted a variable name but we found `😈`.
+- (0:6-0:7) We wanted `=` but we found `;`.
+- (0:6-0:7) We wanted an expression but we found `;`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let ) = y;
 ```
 
@@ -317,6 +545,22 @@ let ) = y;
 
 ### Source
 ```ite
+let x ) y;
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (type (err 0:6-0:7)) (var 0:8-0:9 y)))
+```
+
+### Errors
+- (0:6-0:7) We wanted `:` but we found `)`.
+- (0:8-0:9) We wanted `=` but we found a variable name.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let x = );
 ```
 
@@ -327,6 +571,23 @@ let x = );
 
 ### Errors
 - (0:8-0:9) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let ) y;
+```
+
+### AST
+```
+(err (bind (err (var 0:6-0:7 y)) (err 0:7-0:8)))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `)`.
+- (0:7-0:8) We wanted `=` but we found `;`.
+- (0:7-0:8) We wanted an expression but we found `;`.
 
 --------------------------------------------------------------------------------
 
@@ -348,6 +609,23 @@ let ) =;
 
 ### Source
 ```ite
+let x );
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (type (err 0:6-0:7)) (err 0:7-0:8)))
+```
+
+### Errors
+- (0:6-0:7) We wanted `:` but we found `)`.
+- (0:7-0:8) We wanted `=` but we found `;`.
+- (0:7-0:8) We wanted an expression but we found `;`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let = );
 ```
 
@@ -359,6 +637,23 @@ let = );
 ### Errors
 - (0:4-0:5) We wanted a variable name but we found `=`.
 - (0:6-0:7) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let );
+```
+
+### AST
+```
+(err (bind (err 0:4-0:5) (err 0:5-0:6)))
+```
+
+### Errors
+- (0:4-0:5) We wanted a variable name but we found `)`.
+- (0:5-0:6) We wanted `=` but we found `;`.
+- (0:5-0:6) We wanted an expression but we found `;`.
 
 --------------------------------------------------------------------------------
 
@@ -388,6 +683,22 @@ x;
 
 ### Source
 ```ite
+😈 x
+```
+
+### AST
+```
+(err 0:0-0:2)
+(var 0:3-0:4 x)
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 x 😈
 ```
 
@@ -403,6 +714,22 @@ x 😈
 
 ### Source
 ```ite
+😈 x;
+```
+
+### AST
+```
+(err 0:0-0:2)
+(var 0:3-0:4 x)
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 x 😈;
 ```
 
@@ -413,6 +740,67 @@ x 😈;
 
 ### Errors
 - (0:2-0:4) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+x; 😈
+```
+
+### AST
+```
+(var 0:0-0:1 x)
+(err 0:3-0:5)
+```
+
+### Errors
+- (0:3-0:5) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+=
+```
+
+### AST
+```
+(err 0:0-0:1)
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `=`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+😈
+```
+
+### AST
+```
+(err 0:0-0:2)
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+)
+```
+
+### AST
+```
+(err 0:0-0:1)
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
 
 --------------------------------------------------------------------------------
 
@@ -702,6 +1090,96 @@ let x = y
 
 ### Source
 ```ite
+😈 let x = y; let x = y; let x = y;
+```
+
+### AST
+```
+(err 0:0-0:2)
+(bind (var 0:7-0:8 x) (var 0:11-0:12 y))
+(bind (var 0:18-0:19 x) (var 0:22-0:23 y))
+(bind (var 0:29-0:30 x) (var 0:33-0:34 y))
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; 😈 let x = y; let x = y;
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(err 0:11-0:13)
+(bind (var 0:18-0:19 x) (var 0:22-0:23 y))
+(bind (var 0:29-0:30 x) (var 0:33-0:34 y))
+```
+
+### Errors
+- (0:11-0:13) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; let x = y; 😈 let x = y;
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(bind (var 0:15-0:16 x) (var 0:19-0:20 y))
+(err 0:22-0:24)
+(bind (var 0:29-0:30 x) (var 0:33-0:34 y))
+```
+
+### Errors
+- (0:22-0:24) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; let x = y; let x = y; 😈
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(bind (var 0:15-0:16 x) (var 0:19-0:20 y))
+(bind (var 0:26-0:27 x) (var 0:30-0:31 y))
+(err 0:33-0:35)
+```
+
+### Errors
+- (0:33-0:35) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+😈 let x = y let x = y let x = y
+```
+
+### AST
+```
+(err 0:0-0:2)
+(bind (var 0:7-0:8 x) (var 0:11-0:12 y))
+(bind (var 0:17-0:18 x) (var 0:21-0:22 y))
+(bind (var 0:27-0:28 x) (var 0:31-0:32 y))
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let x = y 😈 let x = y let x = y
 ```
 
@@ -748,6 +1226,96 @@ let x = y let x = y let x = y 😈
 
 ### Errors
 - (0:30-0:32) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+) let x = y; let x = y; let x = y;
+```
+
+### AST
+```
+(err 0:0-0:1)
+(bind (var 0:6-0:7 x) (var 0:10-0:11 y))
+(bind (var 0:17-0:18 x) (var 0:21-0:22 y))
+(bind (var 0:28-0:29 x) (var 0:32-0:33 y))
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; ) let x = y; let x = y;
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(err 0:11-0:12)
+(bind (var 0:17-0:18 x) (var 0:21-0:22 y))
+(bind (var 0:28-0:29 x) (var 0:32-0:33 y))
+```
+
+### Errors
+- (0:11-0:12) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; let x = y; ) let x = y;
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(bind (var 0:15-0:16 x) (var 0:19-0:20 y))
+(err 0:22-0:23)
+(bind (var 0:28-0:29 x) (var 0:32-0:33 y))
+```
+
+### Errors
+- (0:22-0:23) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; let x = y; let x = y; )
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(bind (var 0:15-0:16 x) (var 0:19-0:20 y))
+(bind (var 0:26-0:27 x) (var 0:30-0:31 y))
+(err 0:33-0:34)
+```
+
+### Errors
+- (0:33-0:34) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+) let x = y let x = y let x = y
+```
+
+### AST
+```
+(err 0:0-0:1)
+(bind (var 0:6-0:7 x) (var 0:10-0:11 y))
+(bind (var 0:16-0:17 x) (var 0:20-0:21 y))
+(bind (var 0:26-0:27 x) (var 0:30-0:31 y))
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
 
 --------------------------------------------------------------------------------
 
@@ -1259,6 +1827,101 @@ let x = y
 
 ### Source
 ```ite
+do { 😈 let x = y; let x = y; let x = y; }
+```
+
+### AST
+```
+(block 0:0-0:42
+  (err 0:5-0:7)
+  (bind (var 0:12-0:13 x) (var 0:16-0:17 y))
+  (bind (var 0:23-0:24 x) (var 0:27-0:28 y))
+  (bind (var 0:34-0:35 x) (var 0:38-0:39 y)))
+```
+
+### Errors
+- (0:5-0:7) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { let x = y; 😈 let x = y; let x = y; }
+```
+
+### AST
+```
+(block 0:0-0:42
+  (bind (var 0:9-0:10 x) (var 0:13-0:14 y))
+  (err 0:16-0:18)
+  (bind (var 0:23-0:24 x) (var 0:27-0:28 y))
+  (bind (var 0:34-0:35 x) (var 0:38-0:39 y)))
+```
+
+### Errors
+- (0:16-0:18) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { let x = y; let x = y; 😈 let x = y; }
+```
+
+### AST
+```
+(block 0:0-0:42
+  (bind (var 0:9-0:10 x) (var 0:13-0:14 y))
+  (bind (var 0:20-0:21 x) (var 0:24-0:25 y))
+  (err 0:27-0:29)
+  (bind (var 0:34-0:35 x) (var 0:38-0:39 y)))
+```
+
+### Errors
+- (0:27-0:29) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { let x = y; let x = y; let x = y; 😈 }
+```
+
+### AST
+```
+(block 0:0-0:42
+  (bind (var 0:9-0:10 x) (var 0:13-0:14 y))
+  (bind (var 0:20-0:21 x) (var 0:24-0:25 y))
+  (bind (var 0:31-0:32 x) (var 0:35-0:36 y))
+  (err 0:38-0:40))
+```
+
+### Errors
+- (0:38-0:40) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { 😈 let x = y let x = y let x = y }
+```
+
+### AST
+```
+(block 0:0-0:39
+  (err 0:5-0:7)
+  (bind (var 0:12-0:13 x) (var 0:16-0:17 y))
+  (bind (var 0:22-0:23 x) (var 0:26-0:27 y))
+  (bind (var 0:32-0:33 x) (var 0:36-0:37 y)))
+```
+
+### Errors
+- (0:5-0:7) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 do { let x = y 😈 let x = y let x = y }
 ```
 
@@ -1308,6 +1971,101 @@ do { let x = y let x = y let x = y 😈 }
 
 ### Errors
 - (0:35-0:37) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { ) let x = y; let x = y; let x = y; }
+```
+
+### AST
+```
+(block 0:0-0:41
+  (err 0:5-0:6)
+  (bind (var 0:11-0:12 x) (var 0:15-0:16 y))
+  (bind (var 0:22-0:23 x) (var 0:26-0:27 y))
+  (bind (var 0:33-0:34 x) (var 0:37-0:38 y)))
+```
+
+### Errors
+- (0:5-0:6) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { let x = y; ) let x = y; let x = y; }
+```
+
+### AST
+```
+(block 0:0-0:41
+  (bind (var 0:9-0:10 x) (var 0:13-0:14 y))
+  (err 0:16-0:17)
+  (bind (var 0:22-0:23 x) (var 0:26-0:27 y))
+  (bind (var 0:33-0:34 x) (var 0:37-0:38 y)))
+```
+
+### Errors
+- (0:16-0:17) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { let x = y; let x = y; ) let x = y; }
+```
+
+### AST
+```
+(block 0:0-0:41
+  (bind (var 0:9-0:10 x) (var 0:13-0:14 y))
+  (bind (var 0:20-0:21 x) (var 0:24-0:25 y))
+  (err 0:27-0:28)
+  (bind (var 0:33-0:34 x) (var 0:37-0:38 y)))
+```
+
+### Errors
+- (0:27-0:28) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { let x = y; let x = y; let x = y; ) }
+```
+
+### AST
+```
+(block 0:0-0:41
+  (bind (var 0:9-0:10 x) (var 0:13-0:14 y))
+  (bind (var 0:20-0:21 x) (var 0:24-0:25 y))
+  (bind (var 0:31-0:32 x) (var 0:35-0:36 y))
+  (err 0:38-0:39))
+```
+
+### Errors
+- (0:38-0:39) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { ) let x = y let x = y let x = y }
+```
+
+### AST
+```
+(block 0:0-0:38
+  (err 0:5-0:6)
+  (bind (var 0:11-0:12 x) (var 0:15-0:16 y))
+  (bind (var 0:21-0:22 x) (var 0:25-0:26 y))
+  (bind (var 0:31-0:32 x) (var 0:35-0:36 y)))
+```
+
+### Errors
+- (0:5-0:6) We wanted a statement but we found `)`.
 
 --------------------------------------------------------------------------------
 
@@ -1394,6 +2152,23 @@ let x = ) )
 
 ### Errors
 - (0:8-0:9) We wanted an expression but we found `)`.
+- (0:10-0:11) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+) let x = )
+```
+
+### AST
+```
+(err 0:0-0:1)
+(bind (var 0:6-0:7 x) (err 0:10-0:11))
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
 - (0:10-0:11) We wanted an expression but we found `)`.
 
 --------------------------------------------------------------------------------
@@ -2365,6 +3140,38 @@ let ) ) x = y;
 
 ### Source
 ```ite
+😈 😈
+```
+
+### AST
+```
+(err 0:0-0:5)
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+- (0:3-0:5) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+) )
+```
+
+### AST
+```
+(err 0:0-0:3)
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
+- (0:2-0:3) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 if x {} { let y = z }
 ```
 
@@ -2976,6 +3783,23 @@ f(
 
 ### Source
 ```ite
+😈.p
+```
+
+### AST
+```
+(err 0:0-0:3)
+(var 0:3-0:4 p)
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+- (0:2-0:3) We wanted a statement but we found `.`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 (😈.p)
 ```
 
@@ -3089,6 +3913,106 @@ let x = y )😈;
 
 ### Source
 ```ite
+)😈 let x = y;
+```
+
+### AST
+```
+(err 0:0-0:3)
+(bind (var 0:8-0:9 x) (var 0:12-0:13 y))
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
+- (0:1-0:3) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+😈) let x = y;
+```
+
+### AST
+```
+(err 0:0-0:3)
+(bind (var 0:8-0:9 x) (var 0:12-0:13 y))
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+- (0:2-0:3) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; )😈
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(err 0:11-0:14)
+```
+
+### Errors
+- (0:11-0:12) We wanted a statement but we found `)`.
+- (0:12-0:14) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; 😈)
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(err 0:11-0:14)
+```
+
+### Errors
+- (0:11-0:13) We wanted a statement but we found `😈`.
+- (0:13-0:14) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+)😈
+```
+
+### AST
+```
+(err 0:0-0:3)
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `)`.
+- (0:1-0:3) We wanted a statement but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+😈)
+```
+
+### AST
+```
+(err 0:0-0:3)
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `😈`.
+- (0:2-0:3) We wanted a statement but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 let x = 🐶🐱 y;
 ```
 
@@ -3133,6 +4057,26 @@ if x {} 🐶🐱 else {
 - (0:8-0:10) We wanted `else` but we found `🐶`.
 - (0:10-0:12) We wanted `else` but we found `🐱`.
 - (0:19-0:19) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let x = y; do { let x = y; 😈 let x = y; } let x = y;
+```
+
+### AST
+```
+(bind (var 0:4-0:5 x) (var 0:8-0:9 y))
+(block 0:11-0:42
+  (bind (var 0:20-0:21 x) (var 0:24-0:25 y))
+  (err 0:27-0:29)
+  (bind (var 0:34-0:35 x) (var 0:38-0:39 y)))
+(bind (var 0:47-0:48 x) (var 0:51-0:52 y))
+```
+
+### Errors
+- (0:27-0:29) We wanted a statement but we found `😈`.
 
 --------------------------------------------------------------------------------
 
@@ -6826,6 +7770,22 @@ a ==
 
 ### Source
 ```ite
+== b
+```
+
+### AST
+```
+(err 0:0-0:2)
+(var 0:3-0:4 b)
+```
+
+### Errors
+- (0:0-0:2) We wanted a statement but we found `==`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 a 😈 == b
 ```
 
@@ -7051,6 +8011,22 @@ a + b + c 😈
 
 ### Errors
 - (0:10-0:12) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+^ b * c ^ d
+```
+
+### AST
+```
+(err 0:0-0:1)
+(mul 0:2-0:11 (var 0:2-0:3 b) (exp 0:6-0:11 (var 0:6-0:7 c) (var 0:10-0:11 d)))
+```
+
+### Errors
+- (0:0-0:1) We wanted a statement but we found `^`.
 
 --------------------------------------------------------------------------------
 
@@ -8630,6 +9606,23 @@ let x: = y;
 
 ### Source
 ```ite
+let x T = y;
+```
+
+### AST
+```
+(err (bind (var 0:4-0:5 x) (err (var 0:6-0:7 T))))
+(var 0:10-0:11 y)
+```
+
+### Errors
+- (0:6-0:7) We wanted `=` but we found a variable name.
+- (0:8-0:9) We wanted an expression but we found `=`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 (x: T)
 ```
 
@@ -8986,6 +9979,24 @@ x
 ```
 (prop 0:0-1:4 (var 0:0-0:1 x) (name 1:1-1:4 Foo))
 ```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+x;
+.Foo;
+```
+
+### AST
+```
+(var 0:0-0:1 x)
+(err 1:0-1:1)
+(var 1:1-1:4 Foo)
+```
+
+### Errors
+- (1:0-1:1) We wanted a statement but we found `.`.
 
 --------------------------------------------------------------------------------
 
@@ -9398,5 +10409,130 @@ f(a, b,
 
 ### Errors
 - (0:3-0:3) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let {
+```
+
+### AST
+```
+(err (bind (err (object 0:4-0:5)) (err 0:5-0:5)))
+```
+
+### Errors
+- (0:5-0:5) We wanted `}` but the file ended.
+- (0:5-0:5) We wanted `=` but the file ended.
+- (0:5-0:5) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let {|o
+```
+
+### AST
+```
+(err (bind (err (object 0:4-0:7 (var 0:6-0:7 o))) (err 0:7-0:7)))
+```
+
+### Errors
+- (0:7-0:7) We wanted `}` but the file ended.
+- (0:7-0:7) We wanted `=` but the file ended.
+- (0:7-0:7) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let {a: b
+```
+
+### AST
+```
+(err
+  (bind
+    (err (object 0:4-0:9 (prop (name 0:5-0:6 a) (var 0:8-0:9 b))))
+    (err 0:9-0:9)))
+```
+
+### Errors
+- (0:9-0:9) We wanted `}` but the file ended.
+- (0:9-0:9) We wanted `=` but the file ended.
+- (0:9-0:9) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let {a
+```
+
+### AST
+```
+(err (bind (err (object 0:4-0:6 (prop (name 0:5-0:6 a)))) (err 0:6-0:6)))
+```
+
+### Errors
+- (0:6-0:6) We wanted `}` but the file ended.
+- (0:6-0:6) We wanted `=` but the file ended.
+- (0:6-0:6) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let {a: b,
+```
+
+### AST
+```
+(err
+  (bind
+    (err (object 0:4-0:9 (prop (name 0:5-0:6 a) (var 0:8-0:9 b))))
+    (err 0:10-0:10)))
+```
+
+### Errors
+- (0:10-0:10) We wanted `}` but the file ended.
+- (0:10-0:10) We wanted `=` but the file ended.
+- (0:10-0:10) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let {a,
+```
+
+### AST
+```
+(err (bind (err (object 0:4-0:6 (prop (name 0:5-0:6 a)))) (err 0:7-0:7)))
+```
+
+### Errors
+- (0:7-0:7) We wanted `}` but the file ended.
+- (0:7-0:7) We wanted `=` but the file ended.
+- (0:7-0:7) We wanted an expression but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+let a = b; 😈 let c = d;
+```
+
+### AST
+```
+(bind (var 0:4-0:5 a) (var 0:8-0:9 b))
+(err 0:11-0:13)
+(bind (var 0:18-0:19 c) (var 0:22-0:23 d))
+```
+
+### Errors
+- (0:11-0:13) We wanted a statement but we found `😈`.
 
 --------------------------------------------------------------------------------

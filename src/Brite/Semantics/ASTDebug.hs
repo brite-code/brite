@@ -35,6 +35,13 @@ debugStatement s0 = case statementNode s0 of
   BindingStatement p (Just t) x ->
     (A "bind") `E` (debugPattern p) `E` ((A "type") `E` (debugType t)) `E` (debugExpression x)
 
+  ErrorStatement _ Nothing -> (symbol "err")
+  ErrorStatement _ (Just x) -> (A "err") `E` (debugStatement (Statement (statementRange s0) x))
+
+  where
+    symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
+      Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (statementRange s0)
+
 debugBlock :: Block -> S
 debugBlock (Block ss) =
   foldl
