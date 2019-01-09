@@ -77,6 +77,18 @@ debugExpression x0 = case expressionNode x0 of
         And -> "and"
         Or -> "or"
 
+  BlockExpression (Block ss) ->
+    foldl
+      (\e s -> e `E` (debugStatement s))
+      (symbol "block")
+      ss
+
+  LoopExpression (Block ss) ->
+    foldl
+      (\e s -> e `E` (debugStatement s))
+      (symbol "loop")
+      ss
+
   WrappedExpression x Nothing -> (symbol "wrap") `E` (debugExpression x)
 
   ErrorExpression _ Nothing -> symbol "err"

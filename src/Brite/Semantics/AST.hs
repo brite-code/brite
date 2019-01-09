@@ -43,7 +43,7 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, identifierText, Token(..), EndToken(..))
 import Control.Applicative
 import Control.Monad.Writer
-import Data.Foldable (foldlM, mapM_)
+import Data.Foldable (foldlM)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Alt(..))
 
@@ -59,12 +59,11 @@ newtype Module = Module
   { moduleStatements :: [Statement]
   }
 
--- While `Statement` currently does not have any common data like `Expression` or `Pattern`, we
--- still use a `newtype` wrapper for consistency. Eventually if we add common data we won’t need a
--- large refactor.
-newtype Statement = Statement
+data Statement = Statement
+  -- The range occupied by a statement.
+  { statementRange :: Range
   -- The representation of a statement.
-  { statementNode :: StatementNode
+  , statementNode :: StatementNode
   }
 
 data StatementNode
@@ -349,9 +348,25 @@ convertStatementSequence =
     (\s' ss ->
       case s' of
         Ok s -> convertStatement s : ss
-        Recover _ e s -> fatalErrorStatement e : convertStatement s : ss
-        Fatal _ e -> fatalErrorStatement e : ss)
+        Recover ts e s -> fatalErrorStatement ts e : convertStatement s : ss
+        Fatal ts e -> fatalErrorStatement ts e : ss)
     []
+
+-- Takes a statement and makes it an error statement. If the statement is already an error
+-- statement then we replace the current error with our new one.
+--
+-- The range of our error statement will be the same as the statement we are annotating.
+errorStatement :: Diagnostic -> Statement -> Statement
+errorStatement e (Statement r (ErrorStatement _ x)) = Statement r (ErrorStatement e x)
+errorStatement e (Statement r x) = Statement r (ErrorStatement e (Just x))
+
+-- Create a statement from a fatal error. If the token list is not empty then the range will be
+-- between the first and last token range. Otherwise the range will be take from the provided error.
+fatalErrorStatement :: [Token] -> Diagnostic -> Statement
+fatalErrorStatement ts e =
+  Statement
+    (fromMaybe (diagnosticRange e) (tokensRange ts))
+    (ErrorStatement e Nothing)
 
 -- Converts a CST statement into an AST statement.
 convertStatement :: CST.Statement -> Statement
@@ -360,8 +375,10 @@ convertStatement s0 = case s0 of
   -- expression and checking if the optional semicolon has errors.
   CST.ExpressionStatement x' t -> build $ do
     let x = convertExpression x'
-    mapM_ recoverToken t
-    return $ Statement (ExpressionStatement x)
+    r <- join <$> mapM recoverTokenRange t
+    return $ Statement
+      (maybe (expressionRange x) (rangeBetween (expressionRange x)) r)
+      (ExpressionStatement x)
 
   where
     -- A small utility for adding the first error to the statement we find if any.
@@ -369,15 +386,24 @@ convertStatement s0 = case s0 of
       let (s, e) = runWriter s1 in
         maybe s (flip errorStatement s) (getAlt e)
 
--- Takes a statement and makes it an error statement. If the statement is already an error
--- statement then we replace the current error with our new one.
-errorStatement :: Diagnostic -> Statement -> Statement
-errorStatement e (Statement (ErrorStatement _ x)) = Statement (ErrorStatement e x)
-errorStatement e (Statement x) = Statement (ErrorStatement e (Just x))
+-- Converts a CST block into an AST block.
+convertBlock :: CST.Block -> Writer (Alt Maybe Diagnostic) (Maybe Range, Block)
+convertBlock (CST.Block t1 ss' t2) = do
+  r1 <- recoverTokenRange t1
+  let ss = convertStatementSequence ss'
+  r2 <- recoverTokenRange t2
+  let
+    -- Attempt to construct the range covered by the block. There might not be any tokens in the
+    -- block in which case the resulting range is `Nothing`.
+    start' = r1 <|> (if not (null ss) then Just (statementRange (head ss)) else Nothing)
+    end' = r2 <|> (if not (null ss) then Just (statementRange (last ss)) else Nothing)
+    range = case (start', end') of
+      (Nothing, Nothing) -> Nothing
+      (Just start, Nothing) -> Just start
+      (Nothing, Just end) -> Just end
+      (Just start, Just end) -> Just (rangeBetween start end)
 
--- Create a statement from a fatal error.
-fatalErrorStatement :: Diagnostic -> Statement
-fatalErrorStatement e = Statement (ErrorStatement e Nothing)
+  return (range, Block ss)
 
 -- Takes an expression and makes it an error expression. If the expression is already an error
 -- expression then we replace the current error with our new one.
@@ -413,6 +439,20 @@ convertExpression x0 = case x0 of
       Expression
         (rangeBetween (tokenRange t) (expressionRange x))
         (UnaryExpression op x)
+
+  -- Convert a block CST expression to a block AST expression.
+  CST.BlockExpression t b' -> build $ do
+    (r, b) <- convertBlock b'
+    return $ Expression
+      (maybe (tokenRange t) (rangeBetween (tokenRange t)) r)
+      (BlockExpression b)
+
+  -- Convert a loop CST expression to a block AST expression.
+  CST.LoopExpression t b' -> build $ do
+    (r, b) <- convertBlock b'
+    return $ Expression
+      (maybe (tokenRange t) (rangeBetween (tokenRange t)) r)
+      (LoopExpression b)
 
   CST.WrappedExpression t1 x' Nothing t2 -> build $ do
     let x = convertRecoverExpression x'
