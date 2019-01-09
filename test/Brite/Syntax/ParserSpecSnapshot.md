@@ -312,6 +312,673 @@ do do )
 
 ### Source
 ```ite
+if x {}
+```
+
+### AST
+```
+(if 0:0-0:7 (var 0:3-0:4 x) block)
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { y }
+```
+
+### AST
+```
+(if 0:0-0:10 (var 0:3-0:4 x) (block (var 0:7-0:8 y)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else {}
+```
+
+### AST
+```
+(if 0:0-0:15 (var 0:3-0:4 x) block block)
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { y } else {}
+```
+
+### AST
+```
+(if 0:0-0:18 (var 0:3-0:4 x) (block (var 0:7-0:8 y)) block)
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else { y }
+```
+
+### AST
+```
+(if 0:0-0:18 (var 0:3-0:4 x) block (block (var 0:15-0:16 y)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { y } else { z }
+```
+
+### AST
+```
+(if 0:0-0:21 (var 0:3-0:4 x) (block (var 0:7-0:8 y)) (block (var 0:18-0:19 z)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if {}
+```
+
+### AST
+```
+(if 0:0-0:5 (err 0:3-0:4) block)
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x }
+```
+
+### AST
+```
+(err (if 0:0-0:6 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:5-0:6) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {
+```
+
+### AST
+```
+(err (if 0:0-0:6 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:6-0:6) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x
+```
+
+### AST
+```
+(err (if 0:0-0:2 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:4-0:4) We wanted `{` but the file ended.
+- (0:4-0:4) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if {
+```
+
+### AST
+```
+(err (if 0:0-0:4 (err 0:3-0:4) block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:4-0:4) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if }
+```
+
+### AST
+```
+(err (if 0:0-0:4 (err 0:3-0:4) block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:3-0:4) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if {} else {}
+```
+
+### AST
+```
+(if 0:0-0:13 (err 0:3-0:4) block block)
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x } else {}
+```
+
+### AST
+```
+(err (if 0:0-0:14 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:6) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { else {}
+```
+
+### AST
+```
+(err (if 0:0-0:14 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:7-0:11) We wanted `}` but we found `else`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x else {}
+```
+
+### AST
+```
+(err (if 0:0-0:12 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:9) We wanted `{` but we found `else`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if { else {}
+```
+
+### AST
+```
+(err (if 0:0-0:12 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if } else {}
+```
+
+### AST
+```
+(err (if 0:0-0:12 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:3-0:4) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if {} else }
+```
+
+### AST
+```
+(err (if 0:0-0:12 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:11-0:12) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x } else }
+```
+
+### AST
+```
+(err (if 0:0-0:13 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:6) We wanted `{` but we found `}`.
+- (0:12-0:13) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { else }
+```
+
+### AST
+```
+(err (if 0:0-0:13 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:7-0:11) We wanted `}` but we found `else`.
+- (0:12-0:13) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x else }
+```
+
+### AST
+```
+(err (if 0:0-0:11 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:9) We wanted `{` but we found `else`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+- (0:10-0:11) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if { else }
+```
+
+### AST
+```
+(err (if 0:0-0:11 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+- (0:10-0:11) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if } else }
+```
+
+### AST
+```
+(err (if 0:0-0:11 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:3-0:4) We wanted `{` but we found `}`.
+- (0:10-0:11) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if {} else {
+```
+
+### AST
+```
+(err (if 0:0-0:12 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:12-0:12) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x } else {
+```
+
+### AST
+```
+(err (if 0:0-0:13 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:6) We wanted `{` but we found `}`.
+- (0:13-0:13) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { else {
+```
+
+### AST
+```
+(err (if 0:0-0:13 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:7-0:11) We wanted `}` but we found `else`.
+- (0:13-0:13) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x else {
+```
+
+### AST
+```
+(err (if 0:0-0:11 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:9) We wanted `{` but we found `else`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+- (0:11-0:11) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if { else {
+```
+
+### AST
+```
+(err (if 0:0-0:11 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+- (0:11-0:11) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if } else {
+```
+
+### AST
+```
+(err (if 0:0-0:11 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:3-0:4) We wanted `{` but we found `}`.
+- (0:11-0:11) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if {} else
+```
+
+### AST
+```
+(err (if 0:0-0:10 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:10-0:10) We wanted `{` but the file ended.
+- (0:10-0:10) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x } else
+```
+
+### AST
+```
+(err (if 0:0-0:11 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:6) We wanted `{` but we found `}`.
+- (0:11-0:11) We wanted `{` but the file ended.
+- (0:11-0:11) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { else
+```
+
+### AST
+```
+(err (if 0:0-0:11 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:7-0:11) We wanted `}` but we found `else`.
+- (0:11-0:11) We wanted `{` but the file ended.
+- (0:11-0:11) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x else
+```
+
+### AST
+```
+(err (if 0:0-0:9 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:5-0:9) We wanted `{` but we found `else`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+- (0:9-0:9) We wanted `{` but the file ended.
+- (0:9-0:9) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if { else
+```
+
+### AST
+```
+(err (if 0:0-0:9 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:5-0:9) We wanted `}` but we found `else`.
+- (0:9-0:9) We wanted `{` but the file ended.
+- (0:9-0:9) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if } else
+```
+
+### AST
+```
+(err (if 0:0-0:9 (err 0:3-0:4) block block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:3-0:4) We wanted `{` but we found `}`.
+- (0:9-0:9) We wanted `{` but the file ended.
+- (0:9-0:9) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {
+```
+
+### AST
+```
+(err (if 0:0-0:6 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:6-0:6) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if {} }
+```
+
+### AST
+```
+(err (if 0:0-0:5 (err 0:3-0:4) block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+- (0:6-0:7) We wanted `else` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x } }
+```
+
+### AST
+```
+(err (if 0:0-0:6 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:5-0:6) We wanted `{` but we found `}`.
+- (0:7-0:8) We wanted `else` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x { }
+```
+
+### AST
+```
+(if 0:0-0:8 (var 0:3-0:4 x) block)
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x }
+```
+
+### AST
+```
+(err (if 0:0-0:6 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:5-0:6) We wanted `{` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if { }
+```
+
+### AST
+```
+(if 0:0-0:6 (err 0:3-0:4) block)
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `{`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if } }
+```
+
+### AST
+```
+(err (if 0:0-0:4 (err 0:3-0:4) block))
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `}`.
+- (0:3-0:4) We wanted `{` but we found `}`.
+- (0:5-0:6) We wanted `else` but we found `}`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 x 😈 😈 ;
 ```
 
@@ -592,12 +1259,156 @@ o.p.)q
 
 ### Source
 ```ite
+if x {} 😈
+```
+
+### AST
+```
+(err (if 0:0-0:7 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:8-0:10) We wanted `else` but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} 😈 else {}
+```
+
+### AST
+```
+(err (if 0:0-0:18 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:8-0:10) We wanted `else` but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} )
+```
+
+### AST
+```
+(err (if 0:0-0:7 (var 0:3-0:4 x) block))
+```
+
+### Errors
+- (0:8-0:9) We wanted `else` but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} ) else {}
+```
+
+### AST
+```
+(err (if 0:0-0:17 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:8-0:9) We wanted `else` but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if 😈 x {}
+```
+
+### AST
+```
+(if 0:0-0:10 (err (var 0:6-0:7 x)) block)
+```
+
+### Errors
+- (0:3-0:5) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x 😈 {}
+```
+
+### AST
+```
+(if 0:0-0:10 (err (var 0:3-0:4 x)) block)
+```
+
+### Errors
+- (0:5-0:7) We wanted an expression but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if ) x {}
+```
+
+### AST
+```
+(if 0:0-0:9 (err (var 0:5-0:6 x)) block)
+```
+
+### Errors
+- (0:3-0:4) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x ) {}
+```
+
+### AST
+```
+(if 0:0-0:9 (err (var 0:3-0:4 x)) block)
+```
+
+### Errors
+- (0:5-0:6) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
 do {}.p
 ```
 
 ### AST
 ```
 (prop 0:0-0:7 (block 0:0-0:5) (name 0:6-0:7 p))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {}.p
+```
+
+### AST
+```
+(prop 0:0-0:9 (if 0:0-0:7 (var 0:3-0:4 x) block) (name 0:8-0:9 p))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else {}.p
+```
+
+### AST
+```
+(prop 0:0-0:17 (if 0:0-0:15 (var 0:3-0:4 x) block block) (name 0:16-0:17 p))
 ```
 
 --------------------------------------------------------------------------------
@@ -805,6 +1616,39 @@ f(
 - (0:1-0:3) We wanted an expression but we found `😈`.
 - (0:3-0:4) We wanted `)` but we found `.`.
 - (0:5-0:6) We wanted an expression but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} 🐶🐱 else {}
+```
+
+### AST
+```
+(err (if 0:0-0:20 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:8-0:10) We wanted `else` but we found `🐶`.
+- (0:10-0:12) We wanted `else` but we found `🐱`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} 🐶🐱 else {
+```
+
+### AST
+```
+(err (if 0:0-0:19 (var 0:3-0:4 x) block block))
+```
+
+### Errors
+- (0:8-0:10) We wanted `else` but we found `🐶`.
+- (0:10-0:12) We wanted `else` but we found `🐱`.
+- (0:19-0:19) We wanted `}` but the file ended.
 
 --------------------------------------------------------------------------------
 
@@ -4882,6 +5726,133 @@ a + -b + c
 (add 0:0-0:10
   (add 0:0-0:6 (var 0:0-0:1 a) (neg 0:4-0:6 (var 0:5-0:6 b)))
   (var 0:9-0:10 c))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else if y {}
+```
+
+### AST
+```
+(if 0:0-0:20 (var 0:3-0:4 x) block (if (var 0:16-0:17 y) block))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else if y {} else {}
+```
+
+### AST
+```
+(if 0:0-0:28 (var 0:3-0:4 x) block (if (var 0:16-0:17 y) block block))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else if y {} else if z {}
+```
+
+### AST
+```
+(if 0:0-0:33
+  (var 0:3-0:4 x)
+  block
+  (if (var 0:16-0:17 y) block (if (var 0:29-0:30 z) block)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else if y {} else if z {} else {}
+```
+
+### AST
+```
+(if 0:0-0:41
+  (var 0:3-0:4 x)
+  block
+  (if (var 0:16-0:17 y) block (if (var 0:29-0:30 z) block block)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else if {}
+```
+
+### AST
+```
+(if 0:0-0:18 (var 0:3-0:4 x) block (if (err 0:16-0:17) block))
+```
+
+### Errors
+- (0:16-0:17) We wanted an expression but we found `{`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else 😈 if y {}
+```
+
+### AST
+```
+(err
+  (if 0:0-0:23
+    (var 0:3-0:4 x)
+    block
+    (block (if 0:16-0:23 (var 0:19-0:20 y) block))))
+```
+
+### Errors
+- (0:13-0:15) We wanted `{` but we found `😈`.
+- (0:23-0:23) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else 😈 if y + z {}
+```
+
+### AST
+```
+(err
+  (if 0:0-0:27
+    (var 0:3-0:4 x)
+    block
+    (block
+      (if 0:16-0:27
+        (add 0:19-0:24 (var 0:19-0:20 y) (var 0:23-0:24 z))
+        block))))
+```
+
+### Errors
+- (0:13-0:15) We wanted `{` but we found `😈`.
+- (0:27-0:27) We wanted `}` but the file ended.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+if x {} else { if y {} }
+```
+
+### AST
+```
+(if 0:0-0:24
+  (var 0:3-0:4 x)
+  block
+  (block (if 0:15-0:22 (var 0:18-0:19 y) block)))
 ```
 
 --------------------------------------------------------------------------------

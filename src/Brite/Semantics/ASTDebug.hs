@@ -30,6 +30,13 @@ debugStatement :: Statement -> S
 debugStatement s0 = case statementNode s0 of
   ExpressionStatement x -> debugExpression x
 
+debugBlock :: Block -> S
+debugBlock (Block ss) =
+  foldl
+    (\e s -> e `E` (debugStatement s))
+    (A "block")
+    ss
+
 debugExpression :: Expression -> S
 debugExpression x0 = case expressionNode x0 of
   ConstantExpression (BooleanConstant True) -> (symbol "bool") `E` (A "true")
@@ -76,6 +83,20 @@ debugExpression x0 = case expressionNode x0 of
       op = case op' of
         And -> "and"
         Or -> "or"
+
+  ConditionalExpression (ConditionalExpressionIf x1 b1 Nothing) ->
+    (symbol "if") `E` (debugExpression x1) `E` (debugBlock b1)
+
+  ConditionalExpression (ConditionalExpressionIf x1 b1 (Just a1)) ->
+    (symbol "if") `E` (debugExpression x1) `E` (debugBlock b1) `E` (alternate a1)
+    where
+      alternate (ConditionalExpressionElse b2) = debugBlock b2
+      alternate (ConditionalExpressionElseIf c2) = consequent c2
+
+      consequent (ConditionalExpressionIf x2 b2 Nothing) =
+        (A "if") `E` (debugExpression x2) `E` (debugBlock b2)
+      consequent (ConditionalExpressionIf x2 b2 (Just a2)) =
+        (A "if") `E` (debugExpression x2) `E` (debugBlock b2) `E` (alternate a2)
 
   BlockExpression (Block ss) ->
     foldl

@@ -325,6 +325,11 @@ recoverTokenRange (Recover ts e t) = do
     Nothing -> tokenRange t
     Just r -> rangeBetween r (tokenRange t)
 
+-- The range between two ranges when one of them is optional.
+rangeBetweenMaybe :: Range -> Maybe Range -> Range
+rangeBetweenMaybe r Nothing = r
+rangeBetweenMaybe r1 (Just r2) = rangeBetween r1 r2
+
 -- Converts a comma list to a plain list using the provided conversion function. Using the writer
 -- monad we record the first syntax error we find in the comma list.
 convertCommaList :: (Recover a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
@@ -377,7 +382,7 @@ convertStatement s0 = case s0 of
     let x = convertExpression x'
     r <- join <$> mapM recoverTokenRange t
     return $ Statement
-      (maybe (expressionRange x) (rangeBetween (expressionRange x)) r)
+      (rangeBetweenMaybe (expressionRange x) r)
       (ExpressionStatement x)
 
   where
@@ -440,18 +445,49 @@ convertExpression x0 = case x0 of
         (rangeBetween (tokenRange t) (expressionRange x))
         (UnaryExpression op x)
 
+  -- Convert a conditional expression CST which may recursively have `if`, `else if`, and
+  -- `else` conditions.
+  CST.ConditionalExpression c0 -> build $ do
+    (r, c) <- consequent c0
+    return $ Expression r (ConditionalExpression c)
+    where
+      consequent (CST.ConditionalExpressionIf t1 x' b' a') = do
+        let x = convertRecoverExpression x'
+        (r2, b) <- convertBlock b'
+        case a' of
+          Nothing ->
+            return (rangeBetweenMaybe (tokenRange t1) r2, ConditionalExpressionIf x b Nothing)
+          Just (Ok a'') -> do
+            (r3, a) <- alternate a''
+            return (rangeBetween (tokenRange t1) r3, ConditionalExpressionIf x b (Just a))
+          Just (Recover _ e a'') -> do
+            tell (pure e)
+            (r3, a) <- alternate a''
+            return (rangeBetween (tokenRange t1) r3, ConditionalExpressionIf x b (Just a))
+          Just (Fatal _ e) -> do
+            tell (pure e)
+            return (rangeBetweenMaybe (tokenRange t1) r2, ConditionalExpressionIf x b Nothing)
+
+      alternate (CST.ConditionalExpressionElse t1 b') = do
+        (r2, b) <- convertBlock b'
+        return (rangeBetweenMaybe (tokenRange t1) r2, ConditionalExpressionElse b)
+
+      alternate (CST.ConditionalExpressionElseIf t1 c') = do
+        (r2, c) <- consequent c'
+        return (rangeBetween (tokenRange t1) r2, ConditionalExpressionElseIf c)
+
   -- Convert a block CST expression to a block AST expression.
   CST.BlockExpression t b' -> build $ do
     (r, b) <- convertBlock b'
     return $ Expression
-      (maybe (tokenRange t) (rangeBetween (tokenRange t)) r)
+      (rangeBetweenMaybe (tokenRange t) r)
       (BlockExpression b)
 
   -- Convert a loop CST expression to a block AST expression.
   CST.LoopExpression t b' -> build $ do
     (r, b) <- convertBlock b'
     return $ Expression
-      (maybe (tokenRange t) (rangeBetween (tokenRange t)) r)
+      (rangeBetweenMaybe (tokenRange t) r)
       (LoopExpression b)
 
   CST.WrappedExpression t1 x' Nothing t2 -> build $ do
