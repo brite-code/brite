@@ -50,6 +50,23 @@ debugExpression x0 = case expressionNode x0 of
       ((symbol "call") `E` (debugExpression f))
       xs
 
+  ObjectExpression ps ext ->
+    let
+      s2 =
+        foldl
+          (\s1 p -> s1 `E` (debugProperty p))
+          (symbol "object")
+          ps
+    in
+      case ext of
+        Nothing -> s2
+        Just x -> s2 `E` (debugExpression x)
+    where
+      debugProperty (ObjectExpressionProperty n Nothing) =
+        (A "prop") `E` (debugName n)
+      debugProperty (ObjectExpressionProperty n (Just x)) =
+        (A "prop") `E` (debugName n) `E` (debugExpression x)
+
   PropertyExpression x n -> (symbol "prop") `E` (debugExpression x) `E` (debugName n)
 
   UnaryExpression op' x ->

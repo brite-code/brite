@@ -9,14 +9,14 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
-import qualified Data.Text (Text)
+import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import System.IO
 import Test.Hspec
 
-testData :: [T.Text]
+testData :: [Text]
 testData =
   [ "let x = y;"
   , "let x = y"
@@ -927,6 +927,12 @@ testData =
   , "f(a,"
   , "f(a, b"
   , "f(a, b,"
+  , "{"
+  , "{|o"
+  , "{a: b"
+  , "{a"
+  , "{a: b,"
+  , "{a,"
   ]
 
 openSnapshotFile :: IO Handle
@@ -944,7 +950,7 @@ closeSnapshotFile h = do
 spec :: Spec
 spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
   flip mapM_ testData $ \source ->
-    it (T.unpack (escape source)) $ \h ->
+    it (Text.unpack (escape source)) $ \h ->
       let
         (module_, diagnostics) = runDiagnosticWriter (parseModule (tokenize source))
         moduleDebug = Text.Lazy.toStrict (Text.Builder.toLazyText (AST.debugModule (AST.convertModule module_)))
@@ -955,12 +961,12 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h ""
         hPutStrLn h "### Source"
         hPutStrLn h "```ite"
-        hPutStrLn h (T.unpack source)
+        hPutStrLn h (Text.unpack source)
         hPutStrLn h "```"
         hPutStrLn h ""
         hPutStrLn h "### AST"
         hPutStrLn h "```"
-        hPutStr h (T.unpack moduleDebug)
+        hPutStr h (Text.unpack moduleDebug)
         hPutStrLn h "```"
         if null diagnostics then return () else (do
           hPutStrLn h ""

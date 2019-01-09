@@ -4,14 +4,14 @@ module Brite.Syntax.TokensSpec (spec) where
 
 import Brite.Syntax.Tokens
 import Data.Maybe
-import qualified Data.Text (Text)
+import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import Test.Hspec
 import System.IO
 
-testData :: [T.Text]
+testData :: [Text]
 testData =
   [ "{},.=();/"
   , "€"
@@ -141,7 +141,7 @@ closeSnapshotFile h = do
 spec :: Spec
 spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
   flip mapM_ testData $ \source ->
-    it (T.unpack (escape source)) $ \h ->
+    it (Text.unpack (escape source)) $ \h ->
       let
         (tokens, endToken) = tokenStreamToList (tokenize source)
         rebuiltSource = Text.Lazy.toStrict $ Text.Builder.toLazyText $

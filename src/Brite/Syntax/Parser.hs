@@ -193,7 +193,7 @@ tryConditionalExpressionIf =
     -- a conditional testing an object literal instead of a conditional with no test expression.
     --
     -- We believe that a user writing the invalid syntax `if {}` is _significantly_ more common then
-    -- the a user writing valid syntax with an object literal test expression `if {} {}`.
+    -- a user writing valid syntax with an object literal test expression `if {} {}`.
     --
     -- If we ever decide that this was a bad tradeoff then we can remove this special case without
     -- breaking any valid code. Which is nice. But on the other hand, we would never be able to

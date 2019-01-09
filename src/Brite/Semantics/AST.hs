@@ -184,6 +184,12 @@ data ExpressionNode
 -- `p: E`
 data ObjectExpressionProperty = ObjectExpressionProperty Name (Maybe Expression)
 
+-- Gets the range of an object expression property.
+objectExpressionPropertyRange :: ObjectExpressionProperty -> Range
+objectExpressionPropertyRange (ObjectExpressionProperty (Name r _) Nothing) = r
+objectExpressionPropertyRange (ObjectExpressionProperty (Name r _) (Just x)) =
+  rangeBetween r (expressionRange x)
+
 data BinaryOperator
   -- `+`
   = Add
@@ -303,20 +309,23 @@ data ObjectTypeProperty = ObjectTypeProperty Name (Maybe Type)
 -- `x: T`
 data Quantifier = Quantifier Name (Maybe (QuantifierBoundKind, Type))
 
+-- The monad we use while converting CST nodes.
+type Conversion a = Writer (Alt Maybe Diagnostic) a
+
 -- Gets a range from a list of tokens. Returns `Nothing` if there are no tokens.
 tokensRange :: [Token] -> Maybe Range
 tokensRange [] = Nothing
 tokensRange ts = Just (rangeBetween (tokenRange (head ts)) (tokenRange (last ts)))
 
 -- Takes a `Recover Token` and writes the error if we encountered a parse error.
-recoverToken :: Recover Token -> Writer (Alt Maybe Diagnostic) ()
+recoverToken :: Recover Token -> Conversion ()
 recoverToken (Ok _) = return ()
 recoverToken (Fatal _ e) = tell (pure e)
 recoverToken (Recover _ e _) = tell (pure e)
 
 -- Takes a `Recover Token` and get the range for that token. If the `Recover` is `Fatal` then there
 -- may not be a range. Also writes a diagnostic if there was a parse error.
-recoverTokenRange :: Recover Token -> Writer (Alt Maybe Diagnostic) (Maybe Range)
+recoverTokenRange :: Recover Token -> Conversion (Maybe Range)
 recoverTokenRange (Ok t) = return (Just (tokenRange t))
 recoverTokenRange (Fatal ts e) = tell (pure e) *> return (tokensRange ts)
 recoverTokenRange (Recover ts e t) = do
@@ -332,6 +341,10 @@ rangeBetweenMaybe r1 (Just r2) = rangeBetween r1 r2
 
 -- Converts a comma list to a plain list using the provided conversion function. Using the writer
 -- monad we record the first syntax error we find in the comma list.
+--
+-- This function asks for a callback which takes a `Recover`ed comma list item and turns that into
+-- a new value which we will return. See `convertRecoverCommaList` if you’d like for the comma list
+-- converter to handle error recovery.
 convertCommaList :: (Recover a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
 convertCommaList f (CST.CommaList as an) = do
   bs <- foldlM (\bs (a, t) -> recoverToken t *> return (f a : bs)) [] as
@@ -339,6 +352,33 @@ convertCommaList f (CST.CommaList as an) = do
   case an of
     Nothing -> return (reverse bs)
     Just a -> return (reverse (f a : bs))
+
+-- Converts a comma list to a plain list using the provided conversion function. Using the writer
+-- monad we record the first syntax error we find in the comma list.
+--
+-- This function asks for a callback which does not take a `Recover`ed comma list item even though
+-- internally every item in a comma list is wrapped in `Recover`. This converter will handle error
+-- recovery for you. It will skip items with fatal errors and report errors from recovered items. If
+-- you’d like to handle error recovery yourself see `convertCommaList`.
+convertRecoverCommaList :: (a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
+convertRecoverCommaList f (CST.CommaList as an) = do
+  bs <- foldlM
+    (\bs (a', t) ->
+      case a' of
+        Ok a -> recoverToken t *> return (f a : bs)
+        -- NOTE: Technically calling `recoverToken` here is a noop since adding the `Recover` and
+        -- `Fatal` error means all other errors will be ignored since `Alt Maybe` uses the first
+        -- error written.
+        Recover _ e a -> tell (Alt (Just e)) *> recoverToken t *> return (f a : bs)
+        Fatal _ e -> tell (Alt (Just e)) *> recoverToken t *> return bs)
+    []
+    as
+  -- Add the last element in the comma list and reverse.
+  case an of
+    Nothing -> return (reverse bs)
+    Just (Ok a) -> return (reverse (f a : bs))
+    Just (Recover _ e a) -> tell (pure e) *> return (reverse (f a : bs))
+    Just (Fatal _ e) -> tell (pure e) *> return (reverse bs)
 
 -- Converts a CST module into an AST module.
 convertModule :: CST.Module -> Module
@@ -392,7 +432,7 @@ convertStatement s0 = case s0 of
         maybe s (flip errorStatement s) (getAlt e)
 
 -- Converts a CST block into an AST block.
-convertBlock :: CST.Block -> Writer (Alt Maybe Diagnostic) (Maybe Range, Block)
+convertBlock :: CST.Block -> Conversion (Maybe Range, Block)
 convertBlock (CST.Block t1 ss' t2) = do
   r1 <- recoverTokenRange t1
   let ss = convertStatementSequence ss'
@@ -436,6 +476,39 @@ convertExpression x0 = case x0 of
   -- Variable expressions are easy since they are a single token.
   CST.VariableExpression (CST.Name n t) ->
     Expression (tokenRange t) (VariableExpression n)
+
+  -- Convert a CST object expression into an AST object expression. Any syntax error within the
+  -- object expression will be used to wrap the object expression.
+  CST.ObjectExpression t1 ps' ext' t2 -> build $ do
+    ps <- convertRecoverCommaList convertProperty ps'
+    ext <- convertExtension ext'
+    r2 <- recoverTokenRange t2
+    return $ Expression
+      (rangeBetweenMaybe
+        (tokenRange t1)
+        (r2
+          <|> (expressionRange <$> ext)
+          <|> (if not (null ps) then Just (objectExpressionPropertyRange (last ps)) else Nothing)))
+      (ObjectExpression ps ext)
+    where
+      convertProperty (CST.ObjectExpressionProperty (CST.Name n t) v) =
+        ObjectExpressionProperty (Name (tokenRange t) n) (convertPropertyValue <$> v)
+
+      convertPropertyValue (Ok (CST.ObjectExpressionPropertyValue (Token {}) v)) =
+        convertRecoverExpression v
+      convertPropertyValue (Recover _ e (CST.ObjectExpressionPropertyValue (Token {}) v)) =
+        errorExpression e (convertRecoverExpression v)
+      convertPropertyValue (Fatal ts e) =
+        fatalErrorExpression ts e
+
+      convertExtension Nothing =
+        return Nothing
+      convertExtension (Just (Ok (CST.ObjectExpressionExtension (Token {}) v))) =
+        return (Just (convertRecoverExpression v))
+      convertExtension (Just (Recover _ e (CST.ObjectExpressionExtension (Token {}) v))) =
+        tell (pure e) *> return (Just (convertRecoverExpression v))
+      convertExtension (Just (Fatal _ e)) =
+        tell (pure e) *> return Nothing
 
   -- Convert the unary expression’s operand and set the range to be between the unary operator and
   -- the operand.
