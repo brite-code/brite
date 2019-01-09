@@ -281,10 +281,7 @@ data TypeNode
   | BottomType
 
   -- `fun() -> T`
-  --
-  -- NOTE: We can parse quantifiers within a function type `fun<T>(T) -> T` but in our AST we
-  -- represent this as a quantified type wrapping a function type.
-  | FunctionType [Type] Type
+  | FunctionType [Quantifier] [Type] Type
 
   -- `{p: T}`
   | ObjectType [ObjectTypeProperty] (Maybe Type)
@@ -505,9 +502,7 @@ convertExpression x0 = case x0 of
     return $ Expression
       (rangeBetweenMaybe
         (tokenRange t1)
-        (r2
-          <|> (expressionRange <$> ext)
-          <|> (if not (null ps) then Just (objectExpressionPropertyRange (last ps)) else Nothing)))
+        (r2 <|> (expressionRange <$> ext) <|> (objectExpressionPropertyRange <$> lastMaybe ps)))
       (ObjectExpression ps ext)
     where
       convertProperty (CST.ObjectExpressionProperty (CST.Name n t) v) =
@@ -664,7 +659,7 @@ convertExpression x0 = case x0 of
         -- argument range, if there are no arguments use the opening parentheses token.
         (fromMaybe
           (tokenRange t1)
-          (r2 <|> (if not (null xs) then Just (expressionRange (last xs)) else Nothing))))
+          (r2 <|> (expressionRange <$> lastMaybe xs))))
       (CallExpression x xs)
 
   -- Add the error from our error recovery and redirect with `Ok`.
@@ -731,9 +726,7 @@ convertPattern x0 = case x0 of
     return $ Pattern
       (rangeBetweenMaybe
         (tokenRange t1)
-        (r2
-          <|> (patternRange <$> ext)
-          <|> (if not (null ps) then Just (objectPatternPropertyRange (last ps)) else Nothing)))
+        (r2 <|> (patternRange <$> ext) <|> (objectPatternPropertyRange <$> lastMaybe ps)))
       (ObjectPattern ps ext)
     where
       convertProperty (CST.ObjectPatternProperty (CST.Name n t) v) =
@@ -807,6 +800,19 @@ convertType x0 = case x0 of
   CST.BottomType t ->
     Type (tokenRange t) BottomType
 
+  -- Converts a CST function type to an AST function type. Pretty involved because there are a lot
+  -- of moving parts in a function type’s CST.
+  CST.FunctionType t1 qs' t2 ps' t3 t4 x' -> build $ do
+    qs <- convertOptionalQuantifierList qs'
+    recoverToken t2
+    ps <- convertCommaList convertRecoverType ps'
+    recoverToken t3
+    recoverToken t4
+    let x = convertRecoverType x'
+    return $ Type
+      (rangeBetween (tokenRange t1) (typeRange x))
+      (FunctionType qs ps x)
+
   -- Convert a CST object type into an AST object type. Any syntax error within the
   -- object type will be used to wrap the object type.
   CST.ObjectType t1 ps' ext' t2 -> build $ do
@@ -816,9 +822,7 @@ convertType x0 = case x0 of
     return $ Type
       (rangeBetweenMaybe
         (tokenRange t1)
-        (r2
-          <|> (typeRange <$> ext)
-          <|> (if not (null ps) then Just (objectTypePropertyRange (last ps)) else Nothing)))
+        (r2 <|> (typeRange <$> ext) <|> (objectTypePropertyRange <$> lastMaybe ps)))
       (ObjectType ps ext)
     where
       convertProperty (CST.ObjectTypeProperty (CST.Name n t3) t4 v) =
@@ -880,9 +884,7 @@ convertQuantifierList (CST.QuantifierList t1 qs' t2) = do
   qs <- convertRecoverCommaList convertQuantifier qs'
   r2 <- recoverTokenRange t2
   return
-    ( rangeBetweenMaybe
-        (tokenRange t1)
-        (r2 <|> (if (not (null qs)) then Just (quantifierRange (last qs)) else Nothing))
+    ( rangeBetweenMaybe (tokenRange t1) (r2 <|> (quantifierRange <$> lastMaybe qs))
     , qs
     )
   where
@@ -894,3 +896,15 @@ convertQuantifierList (CST.QuantifierList t1 qs' t2) = do
       Quantifier (Name (tokenRange t) n) (Just (k, errorType e (convertRecoverType x)))
     convertQuantifier (CST.Quantifier (CST.Name n t) (Just (Fatal ts e))) =
       Quantifier (Name (tokenRange t) n) (Just (Flexible, fatalErrorType ts e))
+
+-- Convert an optional list of quantifiers from the CST to the AST.
+convertOptionalQuantifierList :: Maybe (Recover CST.QuantifierList) -> Conversion [Quantifier]
+convertOptionalQuantifierList Nothing = return []
+convertOptionalQuantifierList (Just (Ok qs)) = snd <$> convertQuantifierList qs
+convertOptionalQuantifierList (Just (Recover _ e qs)) = tell (pure e) *> (snd <$> convertQuantifierList qs)
+convertOptionalQuantifierList (Just (Fatal _ e)) = tell (pure e) *> return []
+
+-- Returns `Nothing` if the list is empty and the last item if the list is non-empty.
+lastMaybe :: [a] -> Maybe a
+lastMaybe [] = Nothing
+lastMaybe as = Just (last as)

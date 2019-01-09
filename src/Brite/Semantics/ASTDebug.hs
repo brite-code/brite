@@ -191,6 +191,21 @@ debugType x0 = case typeNode x0 of
 
   BottomType -> (symbol "bottom")
 
+  FunctionType qs ps x ->
+    let
+      s2 =
+        foldl
+          (\s q -> s `E` (debugQuantifier q))
+          (symbol "fun")
+          qs
+      s3 =
+        foldl
+          (\s p -> s `E` ((A "param") `E` (debugType p)))
+          s2
+          ps
+    in
+      s3 `E` (debugType x)
+
   ObjectType ps ext ->
     let
       s2 =
