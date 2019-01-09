@@ -206,6 +206,16 @@ debugType x0 = case typeNode x0 of
       debugProperty (ObjectTypeProperty n x) =
         (A "prop") `E` (debugName n) `E` (debugType x)
 
+  QuantifiedType qs x ->
+    let
+      s2 =
+        foldl
+          (\s1 q -> s1 `E` (debugQuantifier q))
+          (symbol "quantify")
+          qs
+    in
+      s2 `E` (debugType x)
+
   WrappedType x -> (symbol "wrap") `E` (debugType x)
 
   ErrorType _ Nothing -> symbol "err"
@@ -214,6 +224,13 @@ debugType x0 = case typeNode x0 of
   where
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (typeRange x0)
+
+debugQuantifier :: Quantifier -> S
+debugQuantifier (Quantifier n Nothing) = (A "forall") `E` (debugName n)
+debugQuantifier (Quantifier n (Just (Flexible, t))) =
+  (A "forall") `E` (debugName n) `E` (A "flex") `E` (debugType t)
+debugQuantifier (Quantifier n (Just (Rigid, t))) =
+  (A "forall") `E` (debugName n) `E` (A "rigid") `E` (debugType t)
 
 -- An [S-expression][1].
 --

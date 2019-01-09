@@ -143,8 +143,6 @@ data ExpressionNode
   -- `E.p`
   | PropertyExpression Expression Name
 
-  -- TODO: | VariantExpression
-
   -- `-E`
   | UnaryExpression UnaryOperator Expression
 
@@ -163,8 +161,6 @@ data ExpressionNode
 
   -- `if E {} else {}`
   | ConditionalExpression ConditionalExpressionIf
-
-  -- TODO: | MatchExpression
 
   -- `do {}`
   | BlockExpression Block
@@ -252,8 +248,6 @@ data PatternNode
   -- `{p: P}`
   | ObjectPattern [ObjectPatternProperty] (Maybe Pattern)
 
-  -- TODO: | VariantPattern
-
   -- `(P)`
   | WrappedPattern Pattern
 
@@ -295,8 +289,6 @@ data TypeNode
   -- `{p: T}`
   | ObjectType [ObjectTypeProperty] (Maybe Type)
 
-  -- TODO: | VariantType
-
   -- `<x> T`
   | QuantifiedType [Quantifier] Type
 
@@ -318,6 +310,11 @@ objectTypePropertyRange (ObjectTypeProperty (Name r _) x) = rangeBetween r (type
 
 -- `x: T`
 data Quantifier = Quantifier Name (Maybe (QuantifierBoundKind, Type))
+
+-- Gets the range of a quantifier.
+quantifierRange :: Quantifier -> Range
+quantifierRange (Quantifier (Name r _) Nothing) = r
+quantifierRange (Quantifier (Name r _) (Just (_, t))) = rangeBetween r (typeRange t)
 
 -- The monad we use while converting CST nodes.
 type Conversion a = Writer (Alt Maybe Diagnostic) a
@@ -837,6 +834,14 @@ convertType x0 = case x0 of
       convertExtension (Just (Fatal _ e)) =
         tell (pure e) *> return Nothing
 
+  -- Convert a CST quantified type to an AST quantified type.
+  CST.QuantifiedType qs' t' -> build $ do
+    (r, qs) <- convertQuantifierList qs'
+    let t = convertRecoverType t'
+    return $ Type
+      (rangeBetween r (typeRange t))
+      (QuantifiedType qs t)
+
   CST.WrappedType t1 x' t2 -> build $ do
     let x = convertRecoverType x'
     -- NOTE: If there is an error in `t2` then that error will be attached to the
@@ -867,3 +872,25 @@ convertRecoverTypeAnnotation :: Recover CST.TypeAnnotation -> Type
 convertRecoverTypeAnnotation (Ok (CST.TypeAnnotation (Token {}) t)) = convertRecoverType t
 convertRecoverTypeAnnotation (Recover _ e (CST.TypeAnnotation _ t)) = errorType e (convertRecoverType t)
 convertRecoverTypeAnnotation (Fatal ts e) = fatalErrorType ts e
+
+-- Converts a CST list of quantifiers to a list of AST quantifiers. Also returns the range of the
+-- CST quantifier list. Remember that the CST quantifier list is always wrapped in `<>`.
+convertQuantifierList :: CST.QuantifierList -> Conversion (Range, [Quantifier])
+convertQuantifierList (CST.QuantifierList t1 qs' t2) = do
+  qs <- convertRecoverCommaList convertQuantifier qs'
+  r2 <- recoverTokenRange t2
+  return
+    ( rangeBetweenMaybe
+        (tokenRange t1)
+        (r2 <|> (if (not (null qs)) then Just (quantifierRange (last qs)) else Nothing))
+    , qs
+    )
+  where
+    convertQuantifier (CST.Quantifier (CST.Name n t) Nothing) =
+      Quantifier (Name (tokenRange t) n) Nothing
+    convertQuantifier (CST.Quantifier (CST.Name n t) (Just (Ok (CST.QuantifierBound k (Token {}) x)))) =
+      Quantifier (Name (tokenRange t) n) (Just (k, convertRecoverType x))
+    convertQuantifier (CST.Quantifier (CST.Name n t) (Just (Recover _ e (CST.QuantifierBound k (Token {}) x)))) =
+      Quantifier (Name (tokenRange t) n) (Just (k, errorType e (convertRecoverType x)))
+    convertQuantifier (CST.Quantifier (CST.Name n t) (Just (Fatal ts e))) =
+      Quantifier (Name (tokenRange t) n) (Just (Flexible, fatalErrorType ts e))
