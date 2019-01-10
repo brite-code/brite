@@ -330,6 +330,11 @@ testData =
   , "let x = y;\n😈 let x = y;"
   , "let x = y;\n\n😈 let x = y;"
   , "let x = y;\n\n\n😈 let x = y;"
+  , "let x = y; 😈\nlet x = y;"
+  , "let x = y; 😈\n\nlet x = y;"
+  , "let x = y; 😈\n\n\nlet x = y;"
+  , "let x = y;\n😈\nlet x = y;"
+  , "let x = y;\n\n😈\n\nlet x = y;"
   , "let x = y;\n😈"
   , "let x = y;\n\n😈"
   , "let x = y;\n\n\n😈"
@@ -386,6 +391,7 @@ testData =
   , "f(do{let x = y; let z = y; z})"
   , "f(do{😈;})"
   , "f(do{let  x = y;😈})"
+  , "f(do{let  x = y;😈  let   x = y})"
   , "f(do{let  x = y;😈; let   x = y})"
   , ";"
   , ";;"
@@ -482,6 +488,25 @@ testData =
   , "a /**/;"
   , "a //\n;"
   , "(x T)"
+  , "/**/ (/**/ x /**/) /**/;"
+  , "/**/ (/**/ x /**/\n//\n) /**/;"
+  , "/**/ (/**/\n//\nx /**/) /**/;"
+  , "/**/ x /**/"
+  , "/**/ x; /**/"
+  , "/**/ x /**/;"
+  , "/**/ x /**/; /**/"
+  , "x //"
+  , "x; //"
+  , "x\n//\n"
+  , "x\n//\n;"
+  , "/**/ ; /**/"
+  , "//\n\n/**/;"
+  , "   😈"
+  , "😈   "
+  , "😈\n    \n😈"
+  , "😈\n//    \n😈"
+  , "😈\n/*\n    \n*/\n😈"
+  , "😈 /*   "
   ]
 
 openSnapshotFile :: IO Handle
@@ -532,17 +557,16 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
 
         -- Test to make sure the output has no trailing spaces, but only if there were no
         -- diagnostics. If there were parse errors then we may print raw text with trailing spaces.
-        if not (null diagnostics) then return () else
-          Text.foldl'
-            (\s c ->
-              case c of
-                '\n' | s -> error "Has trailing spaces."
-                '\r' | s -> error "Has trailing spaces."
-                ' ' -> True
-                _ -> False)
-            False
-            output
-              `shouldBe` False
+        (Text.foldl'
+          (\s c ->
+            case c of
+              '\n' | s -> error "Has trailing spaces."
+              '\r' | s -> error "Has trailing spaces."
+              ' ' -> True
+              _ -> False)
+          False
+          output)
+            `shouldBe` False
 
 escape :: Text -> Text
 escape = Text.concatMap

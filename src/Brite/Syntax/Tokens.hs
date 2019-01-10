@@ -33,9 +33,8 @@ module Brite.Syntax.Tokens
   , tokenStreamToList
   , nextToken
   , tokenSource
-  , tokenKindSource
   , endTokenSource
-  , triviaSource
+  , tokensTrimmedSource
   , debugPosition
   , debugRange
   , debugTokens
@@ -593,6 +592,84 @@ triviaSource (Comment (LineComment comment)) = B.fromText "//" <> B.fromText com
 triviaSource (Comment (BlockComment comment True)) = B.fromText "/*" <> B.fromText comment <> B.fromText "*/"
 triviaSource (Comment (BlockComment comment False)) = B.fromText "/*" <> B.fromText comment
 triviaSource (OtherWhitespace c) = B.singleton c
+
+-- Builds source code from from the provided tokens removing whitespace at the beginning of the
+-- code, ending of the code, and immediately before a new line (trailing whitespace).
+tokensTrimmedSource :: [Token] -> Text.Builder
+tokensTrimmedSource = sourceStart
+  where
+    trimStart t =
+      let trivia = dropWhile isTriviaWhitespace (tokenLeadingTrivia t) in
+        t { tokenLeadingTrivia = trivia }
+
+    trimEnd t =
+      let trivia = reverse (dropWhile isTriviaWhitespace (reverse (tokenTrailingTrivia t))) in
+        t { tokenTrailingTrivia = trivia }
+
+    sourceStart [] = source []
+    sourceStart (t : ts) = source (trimStart t : ts)
+
+    source [] = mempty
+    source [t] = tokenTrimmedSource (trimEnd t)
+    source (t : ts) = tokenTrimmedSource t <> source ts
+
+-- Gets the source code that a token was parsed from. Trimming all whitespace that comes
+-- immediately before a new line.
+tokenTrimmedSource :: Token -> Text.Builder
+tokenTrimmedSource token =
+  triviaTrimmedSource (tokenLeadingTrivia token)
+    <> B.fromText (tokenKindTrimmedSource (tokenKind token))
+    <> triviaTrimmedSource (tokenTrailingTrivia token)
+
+-- Gets the source code that a token kind was parsed from. Trimming all whitespace that comes
+-- immediately before a new line.
+--
+-- NOTE: This function is basically the same as `tokenKindSource`. However, in the future when we
+-- add string literals then we will need to trim trailing whitespace inside string literals.
+tokenKindTrimmedSource :: TokenKind -> Text
+tokenKindTrimmedSource (t@(Glyph _)) = tokenKindSource t
+tokenKindTrimmedSource (t@(IdentifierToken _)) = tokenKindSource t
+tokenKindTrimmedSource (t@(UnexpectedChar _)) = tokenKindSource t
+
+-- Gets the source code that a list of trivia was parsed from. Trimming all whitespace that comes
+-- immediately before a new line.
+triviaTrimmedSource :: [Trivia] -> Text.Builder
+triviaTrimmedSource = loop mempty mempty
+  where
+    loop source space [] = source <> space
+    loop source space (t@(Spaces _) : ts) = loop (space <> triviaSource t) source ts
+    loop source space (t@(Tabs _) : ts) = loop (space <> triviaSource t) source ts
+    loop source space (t@(OtherWhitespace _) : ts) = loop (space <> triviaSource t) source ts
+
+    -- Don’t add the space trivia immediately preceding a new line.
+    loop source _ (t@(Newlines _ _) : ts) = loop mempty (source <> triviaSource t) ts
+
+    -- Trim trailing whitespace from line comments.
+    loop source space (Comment (LineComment comment) : ts) =
+      let
+        newSource =
+          source <> space <> B.fromText "//"
+            <> B.fromText (T.dropWhileEnd isSpace comment)
+      in
+        loop mempty newSource ts
+
+    -- Trim trailing whitespace from block  comments.
+    loop source space (Comment (BlockComment comment ends) : ts) =
+      let
+        newSource =
+          source <> space <> B.fromText "/*" <>
+            (if ends then removeTrailingSpaces comment <> B.fromText "*/"
+            else removeTrailingSpaces comment)
+      in
+        loop mempty newSource ts
+
+-- Removes trailing spaces which come before a new line. Trailing spaces at the end of a string are
+-- left in place.
+removeTrailingSpaces :: Text -> Text.Builder
+removeTrailingSpaces t =
+  let (t1, t2) = T.span (\c -> c /= '\n' && c /= '\r') t in
+    B.fromText (T.dropWhileEnd isSpace t1)
+      <> (if T.null t2 then mempty else removeTrailingSpaces t2)
 
 -- Debug a position.
 debugPosition :: Position -> Text.Builder

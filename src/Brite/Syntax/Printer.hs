@@ -123,7 +123,7 @@ statementSequence (s1 : Ok (EmptyStatement t) : ss@(s2 : _)) =
   where
     extra =
       triviaHasLeadingLine (tokenLeadingTrivia t) ||
-      triviaHasLeadingLine (recoverStatementLeadingTrivia s2)
+      triviaHasLeadingLine (error "unimplemented")
 
 -- Empty statements do not get trailing new lines or extra lines for extra spaces. We are removing
 -- empty statements so two empty lines after re-printing will be collapsed to one empty line.
@@ -135,7 +135,7 @@ statementSequence [] = mempty
 statementSequence [s] = statementListItem s
 statementSequence (s1 : ss@(s2 : _)) =
   statementListItem s1
-    <> (if triviaHasLeadingLine (recoverStatementLeadingTrivia s2) then hardline else mempty)
+    <> (if triviaHasLeadingLine (error "unimplemented") then hardline else mempty)
     <> statementSequence ss
 
 -- Does this trivia list have a leading new line?
@@ -154,7 +154,7 @@ statementListItem :: Recover Statement -> Document
 statementListItem s =
   case toMaybe (recover s >>= statement) of
     Just t -> t <> hardline
-    Nothing -> rawText (statementTrimmedSource s)
+    Nothing -> rawText (error "TODO: unimplemented")
 
 -- Pretty prints a statement. Always inserts a semicolon after every statement.
 statement :: Statement -> Panic Document
@@ -494,7 +494,7 @@ pattern (VariablePattern n) = return $ name n
 -- Pretty prints a token.
 token :: Token -> Document
 token (Token _ k ts1 ts2) =
-  leading ts1 <> text (tokenKindSource k) <> trailing ts2
+  leading ts1 <> text (error "TODO: unimplemented") <> trailing ts2
   where
     leading ts = let (_, cs) = triviaToComments ts in comments True (reverse cs)
       where
