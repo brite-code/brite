@@ -4,7 +4,8 @@ module Brite.Syntax.PrinterSpec (spec) where
 
 import Brite.Diagnostics
 import Brite.Syntax.Parser
-import Brite.Syntax.Printer
+import Brite.Syntax.Printer2
+import qualified Brite.Syntax.PrinterAST as PrinterAST
 import Brite.Syntax.Tokens
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -501,10 +502,12 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
     it (Text.unpack (escape input)) $ \h ->
       let
         (inputModule, diagnostics) = runDiagnosticWriter (parseModule (tokenize input))
-        output = Text.Lazy.toStrict (Text.Builder.toLazyText (printModule inputModule))
+        output = Text.Lazy.toStrict $ Text.Builder.toLazyText $
+          printModule (PrinterAST.convertModule inputModule)
         (outputModule, _) = runDiagnosticWriter (parseModule (tokenize output))
-        reprintedOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printModule outputModule))
-      in do
+        reprintedOutput = Text.Lazy.toStrict $ Text.Builder.toLazyText $
+          printModule (PrinterAST.convertModule outputModule)
+      in seq output $ do
         hPutStrLn h ""
         hPutStrLn h (replicate 80 '-')
         hPutStrLn h ""
