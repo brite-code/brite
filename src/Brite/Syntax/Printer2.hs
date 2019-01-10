@@ -10,7 +10,7 @@ import Data.Text.Lazy.Builder as Text (Builder)
 
 -- Pretty prints a Brite module. The module must be from the printer AST.
 printModule :: Module -> Text.Builder
-printModule = printDocument maxWidth . error "unimplemented"
+printModule = printDocument maxWidth . printStatementSequence . moduleStatements
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
 -- GitHub, Terminals. It is also the best for plain text comments.
@@ -25,3 +25,13 @@ printModule = printDocument maxWidth . error "unimplemented"
 --   Often times multiple declarations like `fn`s in `impl`s.
 maxWidth :: Int
 maxWidth = 80
+
+-- Prints a sequence of statements or comments.
+printStatementSequence :: [MaybeComment Statement] -> Document
+printStatementSequence ss0 = case ss0 of
+  [] -> mempty
+  Right s : ss -> printStatement s <> printStatementSequence ss
+
+-- Prints a single statement.
+printStatement :: Statement -> Document
+printStatement = error "unimplemented"

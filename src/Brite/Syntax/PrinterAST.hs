@@ -15,10 +15,13 @@
 -- The printer AST, on the other hand, does not carry information about where nodes were defined in
 -- source code and is designed to carries all comments.
 
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Brite.Syntax.PrinterAST
   ( Module(..)
   , UnattachedComment(..)
   , AttachedComment(..)
+  , MaybeComment
   , Statement(..)
   , StatementNode(..)
   , Function(..)
@@ -46,6 +49,7 @@ module Brite.Syntax.PrinterAST
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), BinaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
+import Control.Applicative
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -62,10 +66,10 @@ newtype Module = Module
 -- We consider the “Hello, world!” comment here to be unattached as it is on its own line. Separate
 -- from any source code.
 data UnattachedComment = UnattachedComment
-  -- Does an empty line come before this unattached comment?
+  -- Does an empty line come before this unattached comment? We can easily tell when there are
+  -- leading empty lines in the CST by looking at trivia. It is harder to tell if there are trailing
+  -- empty lines.
   { unattachedCommentLeadingEmptyLine :: Bool
-  -- Does an empty line come after this unattached comment?
-  , unattachedCommentTrailingEmptyLine :: Bool
   -- The comment data for this unattached comment.
   , unattachedComment :: Comment
   }
@@ -95,10 +99,9 @@ newtype AttachedComment = AttachedComment
 type MaybeComment a = Either UnattachedComment a
 
 data Statement = Statement
-  -- Does an empty line come before this statement?
+  -- Does an empty line come before this statement? We can easily tell when there are leading empty
+  -- lines in the CST by looking at trivia. It is harder to tell if there are trailing empty lines.
   { statementLeadingEmptyLine :: Bool
-  -- Does an empty line come after this statement?
-  , statementTrailingEmptyLine :: Bool
   -- The leading comments that are attached to this statement.
   , statementLeadingComments :: [AttachedComment]
   -- The trailing comments that are attached to this statement.
@@ -130,7 +133,7 @@ data StatementNode
   -- If we find a error in the CST when converting it to a printer AST then we will bail out the
   -- conversion and put a `ConcreteStatement` node directly in our AST with a reference to the
   -- original source code. Our printer will print out this statement verbatim.
-  | ConcreteStatement CST.Statement
+  | ConcreteStatement (Recover CST.Statement)
 
 -- `fun() {}`
 data Function = Function
@@ -339,6 +342,53 @@ data ObjectTypeProperty = ObjectTypeProperty Identifier Type
 -- `x: T`
 data Quantifier = Quantifier Identifier (Maybe (QuantifierBoundKind, Type))
 
+-- The panic monad is just the maybe monad with a different name so that we don’t get confused with
+-- the maybe data type.
+newtype Panic a = Panic { toMaybe :: Maybe a }
+  deriving (Functor, Applicative, Alternative, Monad)
+
+-- Panics in a panic monad.
+panic :: Panic a
+panic = Panic Nothing
+
 -- Convert a CST module into a printer AST module.
+--
+-- TODO: end token
 convertModule :: CST.Module -> Module
-convertModule = error "unimplemented"
+convertModule (CST.Module ss t) = Module (convertStatementSequence ss)
+
+-- Converts a sequence of CST statements into a sequence of AST statements.
+convertStatementSequence :: [Recover CST.Statement] -> [MaybeComment Statement]
+convertStatementSequence ss0 = case ss0 of
+  [] -> []
+
+  -- Skip empty statements in a statement sequence.
+  --
+  -- TODO: token
+  Ok (CST.EmptyStatement t) : ss -> convertStatementSequence ss
+
+  -- Attempt to convert a CST statement to an AST statement. If that fails then add the raw CST
+  -- statement and continue.
+  Ok s : ss ->
+    let
+      s' = maybe
+        (Right (Statement (error "TODO") [] [] (ConcreteStatement (Ok s)))) Right
+        (toMaybe (convertStatement s))
+    in
+      s' : convertStatementSequence ss
+
+  -- Split error recovery up into a fatal error part and an ok statement part. These will
+  -- print separately.
+  Recover ts e s : ss -> convertStatementSequence (Fatal ts e : Ok s : ss)
+
+  -- If we run into a fatal parsing error in the statement sequence then add a concrete statement
+  -- containing the fatal error right to the AST.
+  Fatal ts e : ss ->
+    let s = Right (Statement (error "TODO") [] [] (ConcreteStatement (Fatal ts e))) in
+      s : convertStatementSequence ss
+
+-- Convert a CST statement into an AST statement.
+convertStatement :: CST.Statement -> Panic Statement
+convertStatement s0 = case s0 of
+  -- Empty statements should be handled by `convertStatementSequence`!
+  CST.EmptyStatement _ -> panic
