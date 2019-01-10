@@ -40,6 +40,7 @@ module Brite.Syntax.PrinterAST
   , ObjectTypeProperty(..)
   , Quantifier(..)
   , QuantifierBoundKind(..)
+  , convertModule
   ) where
 
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), BinaryOperator(..), QuantifierBoundKind(..))
@@ -337,3 +338,7 @@ data ObjectTypeProperty = ObjectTypeProperty Identifier Type
 
 -- `x: T`
 data Quantifier = Quantifier Identifier (Maybe (QuantifierBoundKind, Type))
+
+-- Convert a CST module into a printer AST module.
+convertModule :: CST.Module -> Module
+convertModule = error "unimplemented"
