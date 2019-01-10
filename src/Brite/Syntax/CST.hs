@@ -49,7 +49,7 @@ module Brite.Syntax.CST
   , TypeAnnotation(..)
   , moduleTokens
   , moduleSource
-  , statementTokens
+  , recoverStatementTokens
   , statementFirstToken
   ) where
 
@@ -514,7 +514,7 @@ data TypeAnnotation = TypeAnnotation Token (Recover Type)
 -- exact source code of the document we parsed to produce this module.
 moduleTokens :: Module -> ([Token], EndToken)
 moduleTokens (Module statements end) =
-  ( appEndo (mconcat (map (recoverTokens statementTokensM) statements)) []
+  ( appEndo (mconcat (map (recoverTokens statementTokens) statements)) []
   , end
   )
 
@@ -525,9 +525,9 @@ moduleSource m =
   let (tokens, endToken) = moduleTokens m in
     mconcat (map tokenSource tokens) <> endTokenSource endToken
 
--- Get all the tokens in a statement.
-statementTokens :: Statement -> [Token]
-statementTokens s = appEndo (statementTokensM s) []
+-- Get all the tokens in a recover statement.
+recoverStatementTokens :: Recover Statement -> [Token]
+recoverStatementTokens s = appEndo (recoverTokens statementTokens s) []
 
 -- Gets the first token of a statement.
 statementFirstToken :: Statement -> Token
@@ -580,28 +580,26 @@ commaListTokens tokens (CommaList as an) =
     <> maybeTokens (recoverTokens tokens) an
 
 -- Get tokens from a statement.
---
--- The `M` at the end stands for “monoid”.
-statementTokensM :: Statement -> Tokens
-statementTokensM (ExpressionStatement e t) =
+statementTokens :: Statement -> Tokens
+statementTokens (ExpressionStatement e t) =
   expressionTokens e <> maybeTokens (recoverTokens singletonToken) t
-statementTokensM (BindingStatement t1 p a t2 e t3) =
+statementTokens (BindingStatement t1 p a t2 e t3) =
   singletonToken t1
     <> recoverTokens patternTokens p
     <> maybeTokens (recoverTokens typeAnnotationTokens) a
     <> recoverTokens singletonToken t2
     <> recoverTokens expressionTokens e
     <> maybeTokens (recoverTokens singletonToken) t3
-statementTokensM (ReturnStatement t1 e t2) =
+statementTokens (ReturnStatement t1 e t2) =
   singletonToken t1
     <> maybeTokens (recoverTokens expressionTokens) e
     <> maybeTokens (recoverTokens singletonToken) t2
-statementTokensM (BreakStatement t1 e t2) =
+statementTokens (BreakStatement t1 e t2) =
   singletonToken t1
     <> maybeTokens (recoverTokens expressionTokens) e
     <> maybeTokens (recoverTokens singletonToken) t2
-statementTokensM (EmptyStatement t) = singletonToken t
-statementTokensM (FunctionDeclaration t n f) =
+statementTokens (EmptyStatement t) = singletonToken t
+statementTokens (FunctionDeclaration t n f) =
   singletonToken t <> recoverTokens nameTokens n <> functionTokens f
 
 functionTokens :: Function -> Tokens
@@ -625,7 +623,7 @@ functionReturnTokens (FunctionReturn t a) =
 blockTokens :: Block -> Tokens
 blockTokens (Block t1 ss t2) =
   recoverTokens singletonToken t1
-    <> mconcat (map (recoverTokens statementTokensM) ss)
+    <> mconcat (map (recoverTokens statementTokens) ss)
     <> recoverTokens singletonToken t2
 
 -- Get tokens from a constant.

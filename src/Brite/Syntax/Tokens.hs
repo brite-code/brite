@@ -638,12 +638,14 @@ triviaTrimmedSource :: [Trivia] -> Text.Builder
 triviaTrimmedSource = loop mempty mempty
   where
     loop source space [] = source <> space
-    loop source space (t@(Spaces _) : ts) = loop (space <> triviaSource t) source ts
-    loop source space (t@(Tabs _) : ts) = loop (space <> triviaSource t) source ts
-    loop source space (t@(OtherWhitespace _) : ts) = loop (space <> triviaSource t) source ts
+
+    -- Add whitespace to the second accumulator argument.
+    loop source space (t@(Spaces _) : ts) = loop source (space <> triviaSource t) ts
+    loop source space (t@(Tabs _) : ts) = loop source (space <> triviaSource t) ts
+    loop source space (t@(OtherWhitespace _) : ts) = loop source (space <> triviaSource t) ts
 
     -- Don’t add the space trivia immediately preceding a new line.
-    loop source _ (t@(Newlines _ _) : ts) = loop mempty (source <> triviaSource t) ts
+    loop source _ (t@(Newlines _ _) : ts) = loop (source <> triviaSource t) mempty ts
 
     -- Trim trailing whitespace from line comments.
     loop source space (Comment (LineComment comment) : ts) =
@@ -652,25 +654,30 @@ triviaTrimmedSource = loop mempty mempty
           source <> space <> B.fromText "//"
             <> B.fromText (T.dropWhileEnd isSpace comment)
       in
-        loop mempty newSource ts
+        loop newSource mempty ts
 
-    -- Trim trailing whitespace from block  comments.
-    loop source space (Comment (BlockComment comment ends) : ts) =
+    -- Trim trailing whitespace from block comments.
+    --
+    -- We also automatically fix missing block comment endings. Even though this isn’t explicitly
+    -- a part of what `triviaTrimmedSource` is described as doing.
+    loop source space (Comment (BlockComment comment _) : ts) =
       let
         newSource =
-          source <> space <> B.fromText "/*" <>
-            (if ends then removeTrailingSpaces comment <> B.fromText "*/"
-            else removeTrailingSpaces comment)
+          source <> space <> B.fromText "/*" <> removeTrailingSpaces comment <> B.fromText "*/"
       in
-        loop mempty newSource ts
+        loop newSource mempty ts
 
 -- Removes trailing spaces which come before a new line. Trailing spaces at the end of a string are
 -- left in place.
 removeTrailingSpaces :: Text -> Text.Builder
 removeTrailingSpaces t =
   let (t1, t2) = T.span (\c -> c /= '\n' && c /= '\r') t in
-    B.fromText (T.dropWhileEnd isSpace t1)
-      <> (if T.null t2 then mempty else removeTrailingSpaces t2)
+    if T.null t2 then
+      B.fromText t
+    else
+      B.fromText (T.dropWhileEnd isSpace t1)
+        <> B.singleton (T.head t2)
+        <> removeTrailingSpaces (T.tail t2)
 
 -- Debug a position.
 debugPosition :: Position -> Text.Builder
