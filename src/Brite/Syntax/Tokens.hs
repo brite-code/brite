@@ -35,6 +35,7 @@ module Brite.Syntax.Tokens
   , tokenSource
   , endTokenSource
   , tokensTrimmedSource
+  , removeTrailingSpaces
   , debugPosition
   , debugRange
   , debugTokens
