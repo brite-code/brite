@@ -89,6 +89,15 @@ printStatement s0 = build $ case statementNode s0 of
   -- contained a parse error. Print out the raw source code for concrete statements.
   ConcreteStatement s -> rawText (tokensTrimmedSource (recoverStatementTokens s))
 
+  -- Print an expression statement and include a semicolon for the appropriate expressions. If the
+  -- expression has attached trailing comments then print those _after_ the semicolon.
+  ExpressionStatement x ->
+    if null (expressionTrailingComments x) then
+      printExpression x <> text ";"
+    else
+      printExpression (x { expressionTrailingComments = [] }) <> text ";"
+        <> printTrailingAttachedComments (expressionTrailingComments x)
+
   where
     build s1 =
       (if statementLeadingEmptyLine s0 then hardline else mempty)
@@ -96,3 +105,14 @@ printStatement s0 = build $ case statementNode s0 of
         <> s1
         <> printTrailingAttachedComments (statementTrailingComments s0)
         <> (case statementNode s0 of { ConcreteStatement _ -> mempty; _ -> hardline })
+
+-- Prints an expression.
+printExpression :: Expression -> Document
+printExpression x0 = build $ case expressionNode x0 of
+  VariableExpression n -> text (identifierText n)
+
+  where
+    build x1 =
+        printLeadingAttachedComments (expressionLeadingComments x0)
+        <> x1
+        <> printTrailingAttachedComments (expressionTrailingComments x0)

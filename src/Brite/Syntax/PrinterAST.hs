@@ -172,7 +172,7 @@ data ExpressionNode
   | VariableExpression Identifier
 
   -- `fun() {}`
-  | FunctionExpression
+  | FunctionExpression Function
 
   -- `f(E)`
   --
