@@ -188,6 +188,9 @@ testData =
   , "reallyReallyReallyReallyReallyReallyReallyLong && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && reallyReallyReallyReallyReallyReallyReallyLong"
   , "f(reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong)"
   , "(reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong)"
+  , "// blah blah blah\n(reallyReallyReallyReallyReallyReallyReallyLong ||\n// blah blah blah\nreallyReallyReallyReallyReallyReallyReallyLong) &&\n// blah blah blah\n(reallyReallyReallyReallyReallyReallyReallyLong ||\n// blah blah blah\nreallyReallyReallyReallyReallyReallyReallyLong)"
+  , "\n// blah blah blah\n(reallyReallyReallyReallyReallyReallyReallyLong ||\n\n// blah blah blah\nreallyReallyReallyReallyReallyReallyReallyLong) &&\n\n// blah blah blah\n(reallyReallyReallyReallyReallyReallyReallyLong ||\n\n// blah blah blah\nreallyReallyReallyReallyReallyReallyReallyLong)"
+  , "// blah blah blah\n\n(reallyReallyReallyReallyReallyReallyReallyLong ||\n// blah blah blah\n\nreallyReallyReallyReallyReallyReallyReallyLong) &&\n// blah blah blah\n\n(reallyReallyReallyReallyReallyReallyReallyLong ||\n// blah blah blah\n\nreallyReallyReallyReallyReallyReallyReallyLong)"
   , "return (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong)"
   , "--x"
   , "-(-x)"
@@ -534,6 +537,11 @@ testData =
   , "/* a */ do /* b */ { /* c */ } /* d */"
   , "/* a */ do\n/* b */ { /* c */ } /* d */"
   , "loop{  };"
+  , "a\n/**/ + /**/ b"
+  , "a +\n/**/ b"
+  , "a +\n// x\n\n// y\nb"
+  , "a +\n\n// x\n// y\nb"
+  , "a +\n\n\n// x\n// y\nb"
   ]
 
 openSnapshotFile :: IO Handle

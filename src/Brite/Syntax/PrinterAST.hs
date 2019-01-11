@@ -49,7 +49,7 @@ module Brite.Syntax.PrinterAST
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), BinaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
-import Data.Foldable (mapM_)
+import Data.Foldable (foldrM, mapM_)
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -494,7 +494,11 @@ tokenUpdateState t s =
             Comment c | a -> (True, n1, 0, AttachedComment c : cs1, cs2)
             Comment c -> (False, either Left Left n1, 0, cs1, UnattachedComment False c : cs2))
         (True, Right 0, 0, [], conversionUnattachedComments s)
-        (tokenLeadingTrivia t)
+        -- All tokens with leading trivia are the first token on their line. The previous new line
+        -- was consumed by the trailing trivia of the last token on the last line. We model that
+        -- missing new line here by adding a `Newlines` trivia.
+        (if not (null (tokenLeadingTrivia t)) then Newlines LF 1 : tokenLeadingTrivia t
+        else tokenLeadingTrivia t)
   in
     -- Construct the new state.
     ConversionState
@@ -645,6 +649,42 @@ convertExpression x0 = case x0 of
     cs1 <- takeConversionAttachedLeadingComments
     cs2 <- takeConversionAttachedTrailingComments
     return (x { expressionLeadingComments = cs1 ++ cs2 ++ expressionLeadingComments x })
+
+  CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
+    -- Iterate through all our operations in reverse. We use the same trick as `Data.Monoid.Endo` or
+    -- `DList` to build the expression in the right way. The `build` function takes an `Expression`
+    -- and returns an `Expression`. We may then add binary expression wrappers however we see fit.
+    make <-
+      foldrM
+        (\y make ->
+          case y of
+            Ok (CST.BinaryExpressionOperation op t x2') -> do
+              -- Convert the expression and then the operator token.
+              x2 <- recover x2' >>= convertExpression
+              token t
+              -- Take all the comments in our state. The unattached comments we will put in the slot
+              -- right before the right-hand-side expression.
+              cs1 <- takeConversionUnattachedComments
+              -- The attached comments we will attach as leading comments to our right-hand-side
+              -- expression.
+              cs2 <- takeConversionAttachedLeadingComments
+              cs3 <- takeConversionAttachedTrailingComments
+              -- Add a function which will create the desired binary expression.
+              return (make . (\x1 ->
+                Expression [] [] (BinaryExpression x1 op cs1
+                  (x2 { expressionLeadingComments = cs2 ++ cs3 ++ expressionLeadingComments x2 }))))
+
+            -- Panic if there was some parse error.
+            Recover _ _ _ -> panic
+            Fatal _ _ -> panic)
+        id (Ok y' : ys')
+    -- Convert our left-most expression last!
+    x1 <- convertExpression x1'
+    -- Call our build function with the left-most expression and return it.
+    return (make x1)
+
+  CST.ExpressionExtra _ (Recover _ _ _) -> panic
+  CST.ExpressionExtra _ (Fatal _ _) -> panic
 
   where
     build mx = do

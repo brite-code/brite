@@ -94,7 +94,7 @@ printStatement s0' = build $ case statementNode s0 of
   -- expression has attached trailing comments then print those _after_ the semicolon. We do this by
   -- moving around comments in `fixStatementComments`.
   ExpressionStatement x ->
-    printExpression x
+    printExpression Top x
       <> (if withoutSemicolon (expressionNode x) then mempty else text ";")
     where
       withoutSemicolon (ConstantExpression _) = False
@@ -132,7 +132,7 @@ printUngroupedBlock (Block [Right s@(Statement { statementNode = ExpressionState
     <> indent
       (line
         <> printLeadingAttachedComments (statementLeadingComments s)
-        <> printExpression x
+        <> printExpression Top x
         <> printTrailingAttachedComments (statementTrailingComments s)
         <> line)
     <> text "}"
@@ -145,30 +145,111 @@ printBlock :: Block -> Document
 printBlock = group . printUngroupedBlock
 
 -- Prints an expression.
-printExpression :: Expression -> Document
-printExpression x0' = build $ case expressionNode x0 of
+printExpression :: Precedence -> Expression -> Document
+printExpression p0 x0' = build $ case expressionNode x0 of
   ConstantExpression (BooleanConstant True) -> text "true"
   ConstantExpression (BooleanConstant False) -> text "false"
 
   VariableExpression n -> text (identifierText n)
 
-  UnaryExpression op' x -> op <> printExpression x
+  UnaryExpression op' x -> op <> printExpression Unary x
     where
       op = case op' of
         Not -> text "!"
         Positive -> text "+"
         Negative -> text "-"
 
+  BinaryExpression l op' cs r ->
+    -- Group the binary expression if we were printed at a different precedence level than our own.
+    -- This means operators of the same precedence will be put together in one group.
+    (if p0 /= p1 then group else id)
+      (printExpression p1 l <> text " " <> text op <>
+        -- If we are wrapping this expression then when there is a new line we want to indent by a
+        -- single space. That lines up our first line (which comes after a `(`) and future lines.
+        (if wrap then indent1 else id)
+          (line
+            <> mconcat (map printUnattachedComment cs)
+            <> printExpression p1 r))
+    where
+      op = case op' of
+        Add -> "+"
+        Subtract -> "-"
+        Multiply -> "*"
+        Divide -> "/"
+        Remainder -> "%"
+        Exponent -> "^"
+        Equals -> "=="
+        NotEquals -> "!="
+        LessThan -> "<"
+        LessThanOrEqual -> "<="
+        GreaterThan -> ">"
+        GreaterThanOrEqual -> ">="
+        And -> "&&"
+        Or -> "||"
+
   BlockExpression b -> text "do " <> printBlock b
   LoopExpression b -> text "loop " <> printBlock b
 
   where
+    -- Attempt to fix up comments in our expression argument.
     x0 = fromMaybe x0' (fixExpressionComments x0')
 
+    -- Finishes printing an expression node by printing leading/trailing attached comments and
+    -- parentheses in case we need them.
     build x1 =
-        printLeadingAttachedComments (expressionLeadingComments x0)
+      (if wrap then text "(" else mempty)
+        <> printLeadingAttachedComments (expressionLeadingComments x0)
         <> x1
         <> printTrailingAttachedComments (expressionTrailingComments x0)
+        <> (if wrap then text ")" else mempty)
+
+    -- Whether or not we should wrap this expression based on its precedence level.
+    wrap = p0 < p1
+
+    -- Get the actual precedence of our expression. Not the expected precedence our function
+    -- was provided.
+    p1 = case expressionNode x0 of
+      ConstantExpression _ -> Primary
+      VariableExpression _ -> Primary
+      FunctionExpression _ -> Primary
+      CallExpression _ _ -> Primary
+      ObjectExpression _ _ -> Primary
+      PropertyExpression _ _ _ -> Primary
+      UnaryExpression _ _ -> Unary
+      BinaryExpression _ Add _ _ -> Additive
+      BinaryExpression _ Subtract _ _ -> Additive
+      BinaryExpression _ Multiply _ _ -> Multiplicative
+      BinaryExpression _ Divide _ _ -> Multiplicative
+      BinaryExpression _ Remainder _ _ -> Multiplicative
+      BinaryExpression _ Exponent _ _ -> Exponentiation
+      BinaryExpression _ Equals _ _ -> Equality
+      BinaryExpression _ NotEquals _ _ -> Equality
+      BinaryExpression _ LessThan _ _ -> Relational
+      BinaryExpression _ LessThanOrEqual _ _ -> Relational
+      BinaryExpression _ GreaterThan _ _ -> Relational
+      BinaryExpression _ GreaterThanOrEqual _ _ -> Relational
+      BinaryExpression _ And _ _ -> LogicalAnd
+      BinaryExpression _ Or _ _ -> LogicalOr
+      ConditionalExpression _ -> Primary
+      BlockExpression _ -> Primary
+      LoopExpression _ -> Primary
+      WrappedExpression _ _ -> Primary
+
+-- The precedence level of an expression.
+data Precedence
+  = Primary
+  | Unary
+  | Exponentiation
+  | Multiplicative
+  | Additive
+  | Relational
+  | Equality
+  | LogicalAnd
+  | LogicalOr
+  -- The highest level of precedence. Includes every expression. Terminology taken from set theory
+  -- “top” and “bottom”.
+  | Top
+  deriving (Eq, Ord)
 
 -- Fixes the node leading and trailing comments are attached to. Returns `Nothing` if there was
 -- nothing to fix.
@@ -224,9 +305,9 @@ fixExpressionComments x0 = case expressionNode x0 of
   PropertyExpression _ _ _ -> error "TODO: Leading comments"
 
   UnaryExpression op a0 ->
-    let (b1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
+    let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
       if null (expressionLeadingComments a1) && null (expressionTrailingComments a1) then
-        if b1 then Just (x0 { expressionNode = UnaryExpression op a1 }) else Nothing
+        if c1 then Just (x0 { expressionNode = UnaryExpression op a1 }) else Nothing
       else Just $ x0
         { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
         , expressionTrailingComments = expressionTrailingComments a1 ++ expressionTrailingComments x0
@@ -234,7 +315,19 @@ fixExpressionComments x0 = case expressionNode x0 of
             (a1 { expressionLeadingComments = [], expressionTrailingComments = [] })
         }
 
-  BinaryExpression _ _ _ _ -> error "TODO: Leading and trailing comments"
+  BinaryExpression a0 op cs b0 ->
+    let
+      (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0)
+      (c2, b1) = maybe (False, b0) ((,) True) (fixExpressionComments b0)
+    in
+      if null (expressionLeadingComments a1) && null (expressionTrailingComments b1) then
+        if c1 || c2 then (Just (x0 { expressionNode = BinaryExpression a1 op cs b1 })) else Nothing
+      else Just $ x0
+        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
+        , expressionTrailingComments = expressionTrailingComments b1 ++ expressionTrailingComments x0
+        , expressionNode = BinaryExpression
+            (a1 { expressionLeadingComments = [] }) op cs (b1 { expressionTrailingComments = [] })
+        }
 
   ConstantExpression _ -> Nothing
   VariableExpression _ -> Nothing

@@ -1641,6 +1641,802 @@ x
 
 ### Input
 ```ite
+a + b + c + d
+```
+
+### Output
+```
+a + b + c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + (b + c + d)
+```
+
+### Output
+```
+a + b + c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + (b + (c + d))
+```
+
+### Output
+```
+a + b + c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+((a + b) + c) + d
+```
+
+### Output
+```
+a + b + c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + (b + c) + d
+```
+
+### Output
+```
+a + b + c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + b - c + d
+```
+
+### Output
+```
+a + b - c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + (b - c + d)
+```
+
+### Output
+```
+a + b - c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + (b - (c + d))
+```
+
+### Output
+```
+a + b - c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+((a + b) - c) + d
+```
+
+### Output
+```
+a + b - c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + (b - c) + d
+```
+
+### Output
+```
+a + b - c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a * b + c * d
+```
+
+### Output
+```
+a * b + c * d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a * (b + c) * d
+```
+
+### Output
+```
+a * (b + c) * d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a * b) + (c * d)
+```
+
+### Output
+```
+a * b + c * d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+((a * b) + c) * d
+```
+
+### Output
+```
+(a * b + c) * d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a * (b + (c * d))
+```
+
+### Output
+```
+a * (b + c * d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + -b + c
+```
+
+### Output
+```
+a + -b + c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+-a + b + -c
+```
+
+### Output
+```
+-a + b + -c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + (-b) + c
+```
+
+### Output
+```
+a + -b + c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(-a) + b + (-c)
+```
+
+### Output
+```
+-a + b + -c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + -(b) + c
+```
+
+### Output
+```
+a + -b + c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+-(a) + b + -(c)
+```
+
+### Output
+```
+-a + b + -c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + -(b + c)
+```
+
+### Output
+```
+a + -(b + c);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+-(a + b) + -c
+```
+
+### Output
+```
+-(a + b) + -c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a * b) ^ (c * d)
+```
+
+### Output
+```
+(a * b) ^ (c * d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a + b) * (c + d)
+```
+
+### Output
+```
+(a + b) * (c + d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a + b) / (c + d)
+```
+
+### Output
+```
+(a + b) / (c + d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a + b) % (c + d)
+```
+
+### Output
+```
+(a + b) % (c + d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a < b) + (c < d)
+```
+
+### Output
+```
+(a < b) + (c < d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a < b) - (c < d)
+```
+
+### Output
+```
+(a < b) - (c < d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a == b) < (c == d)
+```
+
+### Output
+```
+(a == b) < (c == d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a == b) <= (c == d)
+```
+
+### Output
+```
+(a == b) <= (c == d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a == b) > (c == d)
+```
+
+### Output
+```
+(a == b) > (c == d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a == b) >= (c == d)
+```
+
+### Output
+```
+(a == b) >= (c == d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a && b) == (c && d)
+```
+
+### Output
+```
+(a && b) == (c && d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a && b) != (c && d)
+```
+
+### Output
+```
+(a && b) != (c && d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a || b) && (c || d)
+```
+
+### Output
+```
+(a || b) && (c || d);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a && b) || (c && d)
+```
+
+### Output
+```
+a && b || c && d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + a + b
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a +
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + a * b
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a * b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + (a + b)
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a +
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + (a * b)
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a * b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + a + b
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a +
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + a * b
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a * b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + (a + b)
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a +
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong + (a * b)
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong +
+a * b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong) * (reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+(reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong) *
+(reallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyLong);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong * reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong *
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong *
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong * (reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong) * reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong *
+(reallyReallyReallyReallyReallyReallyReallyLong +
+ reallyReallyReallyReallyReallyReallyReallyLong) *
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong &&
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ reallyReallyReallyReallyReallyReallyReallyLong) &&
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong) && (reallyReallyReallyReallyReallyReallyReallyLong || reallyReallyReallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ reallyReallyReallyReallyReallyReallyReallyLong) &&
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ reallyReallyReallyReallyReallyReallyReallyLong);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+// blah blah blah
+reallyReallyReallyReallyReallyReallyReallyLong) &&
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+// blah blah blah
+reallyReallyReallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ // blah blah blah
+ reallyReallyReallyReallyReallyReallyReallyLong) &&
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ // blah blah blah
+ reallyReallyReallyReallyReallyReallyReallyLong);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+
+// blah blah blah
+reallyReallyReallyReallyReallyReallyReallyLong) &&
+
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+
+// blah blah blah
+reallyReallyReallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+
+ // blah blah blah
+ reallyReallyReallyReallyReallyReallyReallyLong) &&
+
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+
+ // blah blah blah
+ reallyReallyReallyReallyReallyReallyReallyLong);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+// blah blah blah
+
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+// blah blah blah
+
+reallyReallyReallyReallyReallyReallyReallyLong) &&
+// blah blah blah
+
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+// blah blah blah
+
+reallyReallyReallyReallyReallyReallyReallyLong)
+```
+
+### Output
+```
+// blah blah blah
+
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ // blah blah blah
+ reallyReallyReallyReallyReallyReallyReallyLong) &&
+// blah blah blah
+(reallyReallyReallyReallyReallyReallyReallyLong ||
+ // blah blah blah
+ reallyReallyReallyReallyReallyReallyReallyLong);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
 --x
 ```
 
@@ -1713,6 +2509,341 @@ x
 
 ### Input
 ```ite
+a // a
++ // +
+b // b
+```
+
+### Output
+```
+a + b; // a // + // b
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+// a
+a
+// +
++
+// b
+b
+```
+
+### Output
+```
+// a
+a +
+// +
+// b
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+// a
+a
+/**/ // +
++
+// b
+b
+```
+
+### Output
+```
+// a
+a +
+/**/
+// +
+// b
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+// a
+a
+// +
+
++
+// b
+b
+```
+
+### Output
+```
+// a
+a +
+// +
+
+// b
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+// a
+
+a
+// +
++
+// b
+b
+```
+
+### Output
+```
+// a
+
+a +
+// +
+// b
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a /* a */ + /* + */ b /* b */
+```
+
+### Output
+```
+a /* a */ + /* + */ b; /* b */
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+/* a */ a
+/* + */ +
+/* b */ b
+```
+
+### Output
+```
+/* a */ a + /* + */ /* b */ b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a /* a
+ */ + /* +
+ */ b /* b
+ */
+```
+
+### Output
+```
+a /* a
+ */ +
+/* +
+ */ b; /* b
+ */
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+/* a
+ */ a
+/* +
+ */ +
+/* b
+ */ b
+```
+
+### Output
+```
+/* a
+ */ a +
+/* +
+ */ /* b
+ */ b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+/**/ a + b
+```
+
+### Output
+```
+/**/ a + b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a /**/ + b
+```
+
+### Output
+```
+a /**/ + b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + /**/ b
+```
+
+### Output
+```
+a + /**/ b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + b /**/
+```
+
+### Output
+```
+a + b; /**/
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+/*
+*/ a + b
+```
+
+### Output
+```
+/*
+*/ a + b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a /*
+*/ + b
+```
+
+### Output
+```
+a /*
+*/ +
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + /*
+*/ b
+```
+
+### Output
+```
+a +
+/*
+*/ b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + b /*
+*/
+```
+
+### Output
+```
+a + b; /*
+*/
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+/*
+*/ reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+/*
+*/ reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong /*
+*/ + reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong /*
+*/ +
+reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + /*
+*/ reallyReallyReallyReallyReallyReallyReallyLong
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+/*
+*/ reallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+reallyReallyReallyReallyReallyReallyReallyLong + reallyReallyReallyReallyReallyReallyReallyLong /*
+*/
+```
+
+### Output
+```
+reallyReallyReallyReallyReallyReallyReallyLong +
+reallyReallyReallyReallyReallyReallyReallyLong; /*
+*/
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
 //
 a
 ```
@@ -1733,6 +2864,48 @@ a //
 ### Output
 ```
 a; //
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a // a
++ b // b
+```
+
+### Output
+```
+a + b; // a // b
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + // b
+b
+```
+
+### Output
+```
+a + b; // b
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a +
+// b
+b
+```
+
+### Output
+```
+a +
+// b
+b;
 ```
 
 --------------------------------------------------------------------------------
@@ -1965,6 +3138,70 @@ a; //
 //
 
 //
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a
+/**/
++ b
+```
+
+### Output
+```
+a +
+/**/
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a +
+/**/
+b
+```
+
+### Output
+```
+a +
+/**/
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a
+//
++ b
+```
+
+### Output
+```
+a +
+//
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a +
+//
+b
+```
+
+### Output
+```
+a +
+//
+b;
 ```
 
 --------------------------------------------------------------------------------
@@ -2313,6 +3550,7 @@ do {x
 ```
 do {
   x;
+
   //
   //
 }
@@ -2425,6 +3663,155 @@ do {}
 
 ### Input
 ```ite
+//
+(a + b) * c;
+```
+
+### Output
+```
+//
+(a + b) * c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+//
+
+(a + b) * c;
+```
+
+### Output
+```
+//
+
+(a + b) * c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a + b) //
+ * c;
+```
+
+### Output
+```
+(a + b) * c; //
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+//
+((a + b)) * c;
+```
+
+### Output
+```
+//
+(a + b) * c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+//
+
+((a + b)) * c;
+```
+
+### Output
+```
+//
+
+(a + b) * c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+((a + b)) //
+ * c;
+```
+
+### Output
+```
+(a + b) * c; //
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+//
+a + b
+```
+
+### Output
+```
+//
+a + b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(a +
+//
+b) * c
+```
+
+### Output
+```
+(a +
+ //
+ b) *
+c;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a + b +
+//
+c + d
+```
+
+### Output
+```
+a +
+b +
+//
+c +
+d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+//
+a + b + c + d
+```
+
+### Output
+```
+//
+a + b + c + d;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
 - // -
 x;
 ```
@@ -2505,6 +3892,23 @@ a //
 ```
 a; //
 ```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+(x T)
+```
+
+### Output
+```
+(x
+T)
+```
+
+### Errors
+- (0:3-0:4) We wanted `)` but we found a variable name.
+- (0:4-0:5) We wanted an expression but we found `)`.
 
 --------------------------------------------------------------------------------
 
@@ -3063,6 +4467,93 @@ loop{  };
 ### Output
 ```
 loop {}
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a
+/**/ + /**/ b
+```
+
+### Output
+```
+a + /**/ /**/ b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a +
+/**/ b
+```
+
+### Output
+```
+a + /**/ b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a +
+// x
+
+// y
+b
+```
+
+### Output
+```
+a +
+// x
+
+// y
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a +
+
+// x
+// y
+b
+```
+
+### Output
+```
+a +
+
+// x
+// y
+b;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+a +
+
+
+// x
+// y
+b
+```
+
+### Output
+```
+a +
+
+// x
+// y
+b;
 ```
 
 --------------------------------------------------------------------------------
