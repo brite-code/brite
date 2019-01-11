@@ -633,6 +633,11 @@ convertExpression x0 = case x0 of
     leadingToken t
     return (BlockExpression b)
 
+  CST.LoopExpression t b' -> build $ do
+    b <- convertBlock b'
+    leadingToken t
+    return (LoopExpression b)
+
   CST.WrappedExpression t1 x' Nothing t2 -> do
     recover t2 >>= token
     x <- recover x' >>= convertExpression

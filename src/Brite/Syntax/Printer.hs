@@ -160,6 +160,7 @@ printExpression x0' = build $ case expressionNode x0 of
         Negative -> text "-"
 
   BlockExpression b -> text "do " <> printBlock b
+  LoopExpression b -> text "loop " <> printBlock b
 
   where
     x0 = fromMaybe x0' (fixExpressionComments x0')

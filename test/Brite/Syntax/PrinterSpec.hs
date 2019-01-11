@@ -533,6 +533,7 @@ testData =
   , "break -x /* a */ /* b */"
   , "/* a */ do /* b */ { /* c */ } /* d */"
   , "/* a */ do\n/* b */ { /* c */ } /* d */"
+  , "loop{  };"
   ]
 
 openSnapshotFile :: IO Handle
