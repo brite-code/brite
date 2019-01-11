@@ -109,6 +109,9 @@ printStatement s0 = build $ case statementNode s0 of
 -- Prints an expression.
 printExpression :: Expression -> Document
 printExpression x0 = build $ case expressionNode x0 of
+  ConstantExpression (BooleanConstant True) -> text "true"
+  ConstantExpression (BooleanConstant False) -> text "false"
+
   VariableExpression n -> text (identifierText n)
 
   where

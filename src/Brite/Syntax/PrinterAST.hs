@@ -590,6 +590,9 @@ convertStatement s0 = case s0 of
 -- Convert a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Conversion Expression
 convertExpression x0 = build $ case x0 of
+  CST.ConstantExpression (CST.BooleanConstant b t) ->
+    token t *> return (ConstantExpression (BooleanConstant b))
+
   CST.VariableExpression (CST.Name n t) -> token t *> return (VariableExpression n)
 
   where
