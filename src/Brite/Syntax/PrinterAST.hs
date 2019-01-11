@@ -589,11 +589,22 @@ convertStatement s0 = case s0 of
 
 -- Convert a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Conversion Expression
-convertExpression x0 = build $ case x0 of
-  CST.ConstantExpression (CST.BooleanConstant b t) ->
-    token t *> return (ConstantExpression (BooleanConstant b))
+convertExpression x0 = case x0 of
+  CST.ConstantExpression (CST.BooleanConstant b t) -> build $ do
+    token t
+    return (ConstantExpression (BooleanConstant b))
 
-  CST.VariableExpression (CST.Name n t) -> token t *> return (VariableExpression n)
+  CST.VariableExpression (CST.Name n t) -> build $ do
+    token t
+    return (VariableExpression n)
+
+  CST.WrappedExpression t1 x' Nothing t2 -> do
+    recover t2 >>= token
+    x <- recover x' >>= convertExpression
+    token t1
+    cs1 <- takeConversionAttachedLeadingComments
+    cs2 <- takeConversionAttachedTrailingComments
+    return (x { expressionLeadingComments = cs1 ++ cs2 ++ expressionLeadingComments x })
 
   where
     build mx = do
