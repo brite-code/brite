@@ -152,6 +152,13 @@ printExpression p0 x0' = build $ case expressionNode x0 of
 
   VariableExpression n -> text (identifierText n)
 
+  -- Print a property statement which may have some unattached comments over the property.
+  PropertyExpression e cs n ->
+    printExpression Primary e <> group (indent
+      (softline
+        <> mconcat (map printUnattachedComment cs)
+        <> text "." <> text (identifierText n)))
+
   UnaryExpression op' x -> op <> printExpression Unary x
     where
       op = case op' of
@@ -302,7 +309,14 @@ fixExpressionComments :: Expression -> Maybe Expression
 fixExpressionComments x0 = case expressionNode x0 of
   CallExpression _ _ -> error "TODO: Leading comments"
 
-  PropertyExpression _ _ _ -> error "TODO: Leading comments"
+  PropertyExpression a0 cs n ->
+    let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
+      if null (expressionLeadingComments a1) then
+        if c1 then Just (x0 { expressionNode = PropertyExpression a1 cs n }) else Nothing
+      else Just $ x0
+        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
+        , expressionNode = PropertyExpression (a1 { expressionLeadingComments = [] }) cs n
+        }
 
   UnaryExpression op a0 ->
     let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in

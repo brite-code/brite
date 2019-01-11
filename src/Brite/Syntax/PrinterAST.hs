@@ -683,6 +683,16 @@ convertExpression x0 = case x0 of
     -- Call our build function with the left-most expression and return it.
     return (make x1)
 
+  -- When converting a property expression CST to printer AST we capture the unattached comments
+  -- added before the property so we can render them above that property.
+  CST.ExpressionExtra x1' (Ok (CST.PropertyExpressionExtra t1 n')) -> build $ do
+    CST.Name n t2 <- recover n'
+    token t2
+    token t1
+    cs <- takeConversionUnattachedComments
+    x1 <- convertExpression x1'
+    return (PropertyExpression x1 cs n)
+
   CST.ExpressionExtra _ (Recover _ _ _) -> panic
   CST.ExpressionExtra _ (Fatal _ _) -> panic
 

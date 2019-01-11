@@ -542,6 +542,12 @@ testData =
   , "a +\n// x\n\n// y\nb"
   , "a +\n\n// x\n// y\nb"
   , "a +\n\n\n// x\n// y\nb"
+  , "o\n// a\n.p"
+  , "o\n\n// a\n.p"
+  , "o\n// a\n\n.p"
+  , "o\n// a\n// b\n.p"
+  , "o\n// a\n\n// b\n.p"
+  , "foo.bar\n// blah blah blah\n.qux.lit"
   ]
 
 openSnapshotFile :: IO Handle
