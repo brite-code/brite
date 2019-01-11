@@ -91,13 +91,24 @@ printStatement s0' = build $ case statementNode s0 of
   ConcreteStatement s -> rawText (tokensTrimmedSource (recoverStatementTokens s))
 
   -- Print an expression statement and include a semicolon for the appropriate expressions. If the
-  -- expression has attached trailing comments then print those _after_ the semicolon.
+  -- expression has attached trailing comments then print those _after_ the semicolon. We do this by
+  -- moving around comments in `fixStatementComments`.
   ExpressionStatement x ->
-    if null (expressionTrailingComments x) then
-      printExpression x <> text ";"
-    else
-      printExpression (x { expressionTrailingComments = [] }) <> text ";"
-        <> printTrailingAttachedComments (expressionTrailingComments x)
+    printExpression x
+      <> (if withoutSemicolon (expressionNode x) then mempty else text ";")
+    where
+      withoutSemicolon (ConstantExpression _) = False
+      withoutSemicolon (VariableExpression _) = False
+      withoutSemicolon (FunctionExpression _) = False
+      withoutSemicolon (CallExpression _ _) = False
+      withoutSemicolon (ObjectExpression _ _) = False
+      withoutSemicolon (PropertyExpression _ _ _) = False
+      withoutSemicolon (UnaryExpression _ _) = False
+      withoutSemicolon (BinaryExpression _ _ _ _) = False
+      withoutSemicolon (ConditionalExpression _) = True
+      withoutSemicolon (BlockExpression _) = True
+      withoutSemicolon (LoopExpression _) = True
+      withoutSemicolon (WrappedExpression _ _) = False
 
   where
     s0 = fromMaybe s0' (fixStatementComments s0')
@@ -108,6 +119,30 @@ printStatement s0' = build $ case statementNode s0 of
         <> s1
         <> printTrailingAttachedComments (statementTrailingComments s0)
         <> (case statementNode s0 of { ConcreteStatement _ -> mempty; _ -> hardline })
+
+-- Prints a block, but the block is not wrapped in a group. That means it will only be flattened if
+-- a parent group is wrapped in a block.
+--
+-- If the block is only a single expression statement (without comments) then we attempt to print
+-- that expression statement on a single line.
+printUngroupedBlock :: Block -> Document
+printUngroupedBlock (Block []) = text "{}"
+printUngroupedBlock (Block [Right s@(Statement { statementNode = ExpressionStatement x })]) =
+  text "{"
+    <> indent
+      (line
+        <> printLeadingAttachedComments (statementLeadingComments s)
+        <> printExpression x
+        <> printTrailingAttachedComments (statementTrailingComments s)
+        <> line)
+    <> text "}"
+printUngroupedBlock (Block ss) =
+  -- Statements in a statement sequence will always end with a new line.
+  text "{" <> indent (line <> printStatementSequence ss) <> text "}"
+
+-- Prints a block.
+printBlock :: Block -> Document
+printBlock = group . printUngroupedBlock
 
 -- Prints an expression.
 printExpression :: Expression -> Document
@@ -123,6 +158,8 @@ printExpression x0' = build $ case expressionNode x0 of
         Not -> text "!"
         Positive -> text "+"
         Negative -> text "-"
+
+  BlockExpression b -> text "do " <> printBlock b
 
   where
     x0 = fromMaybe x0' (fixExpressionComments x0')

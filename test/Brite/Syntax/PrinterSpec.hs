@@ -421,6 +421,7 @@ testData =
   , "// Hello, world!\n\n;\n\nlet x = y;"
   , "do {\n//\n}"
   , "do {\n//\n//\n}"
+  , "do {\n// a\n// b\n}"
   , "do {\n//\n\n//\n}"
   , "do {\n//\n\n//\n\n}"
   , "do {\n//\n//\n\n}"
@@ -530,6 +531,8 @@ testData =
   , "let x = -y /* a */ /* b */"
   , "return -x /* a */ /* b */"
   , "break -x /* a */ /* b */"
+  , "/* a */ do /* b */ { /* c */ } /* d */"
+  , "/* a */ do\n/* b */ { /* c */ } /* d */"
   ]
 
 openSnapshotFile :: IO Handle

@@ -432,6 +432,11 @@ initialConversionState = ConversionState
   , conversionLeadingEmptyLine = False
   }
 
+-- Takes the unattached comments out of our conversion state.
+takeConversionUnattachedComments :: Conversion [UnattachedComment]
+takeConversionUnattachedComments = Conversion $ \s ->
+  Just (conversionUnattachedComments s, s { conversionUnattachedComments = [] })
+
 -- Takes the attached leading comments out of our conversion state.
 takeConversionAttachedLeadingComments :: Conversion [AttachedComment]
 takeConversionAttachedLeadingComments = Conversion $ \s ->
@@ -596,6 +601,15 @@ convertStatement s0 = case s0 of
   -- Empty statements should be handled by `convertStatementSequence`!
   CST.EmptyStatement _ -> panic
 
+-- Convert a CST block into an AST block.
+convertBlock :: CST.Block -> Conversion Block
+convertBlock (CST.Block t1 ss' t2) = do
+  recover t2 >>= token
+  cs <- takeConversionUnattachedComments
+  let ss = convertStatementSequence (map Left cs) ss'
+  recover t1 >>= token
+  return (Block ss)
+
 -- Convert a CST expression into an AST expression.
 --
 -- IMPORTANT: Remember to add tokens in reverse of the order they were declared in!!!
@@ -613,6 +627,11 @@ convertExpression x0 = case x0 of
     x <- recover x' >>= convertExpression
     leadingToken t
     return (UnaryExpression op x)
+
+  CST.BlockExpression t b' -> build $ do
+    b <- convertBlock b'
+    leadingToken t
+    return (BlockExpression b)
 
   CST.WrappedExpression t1 x' Nothing t2 -> do
     recover t2 >>= token
