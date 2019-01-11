@@ -4,7 +4,7 @@ module Brite.Syntax.PrinterSpec (spec) where
 
 import Brite.Diagnostics
 import Brite.Syntax.Parser
-import Brite.Syntax.Printer2
+import Brite.Syntax.Printer
 import qualified Brite.Syntax.PrinterAST as PrinterAST
 import Brite.Syntax.Tokens
 import Data.Text (Text)

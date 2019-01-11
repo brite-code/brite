@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Syntax.Printer2
+module Brite.Syntax.Printer
   ( printModule
   ) where
 
