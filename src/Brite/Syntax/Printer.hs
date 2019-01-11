@@ -9,6 +9,7 @@ import Brite.Syntax.PrinterAST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
 import Data.Char (isSpace)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)
@@ -84,7 +85,7 @@ printStatementSequence ss0 = loopStart ss0
 
 -- Prints a single statement.
 printStatement :: Statement -> Document
-printStatement s0 = build $ case statementNode s0 of
+printStatement s0' = build $ case statementNode s0 of
   -- For concrete statements we failed to convert them to the printer AST. Presumably because they
   -- contained a parse error. Print out the raw source code for concrete statements.
   ConcreteStatement s -> rawText (tokensTrimmedSource (recoverStatementTokens s))
@@ -99,6 +100,8 @@ printStatement s0 = build $ case statementNode s0 of
         <> printTrailingAttachedComments (expressionTrailingComments x)
 
   where
+    s0 = fromMaybe s0' (fixStatementComments s0')
+
     build s1 =
       (if statementLeadingEmptyLine s0 then hardline else mempty)
         <> printLeadingAttachedComments (statementLeadingComments s0)
@@ -108,14 +111,98 @@ printStatement s0 = build $ case statementNode s0 of
 
 -- Prints an expression.
 printExpression :: Expression -> Document
-printExpression x0 = build $ case expressionNode x0 of
+printExpression x0' = build $ case expressionNode x0 of
   ConstantExpression (BooleanConstant True) -> text "true"
   ConstantExpression (BooleanConstant False) -> text "false"
 
   VariableExpression n -> text (identifierText n)
 
+  UnaryExpression op' x -> op <> printExpression x
+    where
+      op = case op' of
+        Not -> text "!"
+        Positive -> text "+"
+        Negative -> text "-"
+
   where
+    x0 = fromMaybe x0' (fixExpressionComments x0')
+
     build x1 =
         printLeadingAttachedComments (expressionLeadingComments x0)
         <> x1
         <> printTrailingAttachedComments (expressionTrailingComments x0)
+
+-- Fixes the node leading and trailing comments are attached to. Returns `Nothing` if there was
+-- nothing to fix.
+fixStatementComments :: Statement -> Maybe Statement
+fixStatementComments s0 = case statementNode s0 of
+  ExpressionStatement x0 ->
+    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
+      if null (expressionTrailingComments x1) then
+        if b1 then Just (s0 { statementNode = ExpressionStatement x1 }) else Nothing
+      else Just $ s0
+        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
+        , statementNode = ExpressionStatement (x1 { expressionTrailingComments = [] })
+        }
+
+  BindingStatement p t x0 ->
+    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
+      if null (expressionTrailingComments x1) then
+        if b1 then Just (s0 { statementNode = BindingStatement p t x1 }) else Nothing
+      else Just $ s0
+        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
+        , statementNode = BindingStatement p t (x1 { expressionTrailingComments = [] })
+        }
+
+  ReturnStatement (Just x0) ->
+    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
+      if null (expressionTrailingComments x1) then
+        if b1 then Just (s0 { statementNode = ReturnStatement (Just x1) }) else Nothing
+      else Just $ s0
+        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
+        , statementNode = ReturnStatement (Just (x1 { expressionTrailingComments = [] }))
+        }
+
+  BreakStatement (Just x0) ->
+    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
+      if null (expressionTrailingComments x1) then
+        if b1 then Just (s0 { statementNode = BreakStatement (Just x1) }) else Nothing
+      else Just $ s0
+        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
+        , statementNode = BreakStatement (Just (x1 { expressionTrailingComments = [] }))
+        }
+
+  ReturnStatement Nothing -> Nothing
+  BreakStatement Nothing -> Nothing
+  FunctionDeclaration _ _ -> Nothing
+  ConcreteStatement _ -> Nothing
+
+-- Fixes the node leading and trailing comments are attached to. Returns `Nothing` if there was
+-- nothing to fix.
+fixExpressionComments :: Expression -> Maybe Expression
+fixExpressionComments x0 = case expressionNode x0 of
+  CallExpression _ _ -> error "TODO: Leading comments"
+
+  PropertyExpression _ _ _ -> error "TODO: Leading comments"
+
+  UnaryExpression op a0 ->
+    let (b1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
+      if null (expressionLeadingComments a1) && null (expressionTrailingComments a1) then
+        if b1 then Just (x0 { expressionNode = UnaryExpression op a1 }) else Nothing
+      else Just $ x0
+        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
+        , expressionTrailingComments = expressionTrailingComments a1 ++ expressionTrailingComments x0
+        , expressionNode = UnaryExpression op
+            (a1 { expressionLeadingComments = [], expressionTrailingComments = [] })
+        }
+
+  BinaryExpression _ _ _ _ -> error "TODO: Leading and trailing comments"
+
+  ConstantExpression _ -> Nothing
+  VariableExpression _ -> Nothing
+  FunctionExpression _ -> Nothing
+  ObjectExpression _ _ -> Nothing
+  ConditionalExpression _ -> Nothing
+  BlockExpression _ -> Nothing
+  LoopExpression _ -> Nothing
+  WrappedExpression _ _ -> Nothing

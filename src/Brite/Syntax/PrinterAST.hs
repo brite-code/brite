@@ -499,6 +499,15 @@ tokenUpdateState t s =
       , conversionLeadingEmptyLine = either id id initialLeadingLines > 1
       }
 
+-- Consumes a token and adds its trivia to state. All the trivia for this token (even the trailing
+-- trivia) will be considered leading trivia.
+leadingToken :: Token -> Conversion ()
+leadingToken t = token $ t
+  { tokenTrailingTrivia = []
+  -- Move the trailing trivia to the leading trivia field.
+  , tokenLeadingTrivia = tokenLeadingTrivia t ++ tokenTrailingTrivia t
+  }
+
 -- Converts a sequence of CST statements into a sequence of AST statements.
 convertStatementSequence :: [MaybeComment Statement] -> [Recover CST.Statement] -> [MaybeComment Statement]
 convertStatementSequence =
@@ -588,6 +597,8 @@ convertStatement s0 = case s0 of
   CST.EmptyStatement _ -> panic
 
 -- Convert a CST expression into an AST expression.
+--
+-- IMPORTANT: Remember to add tokens in reverse of the order they were declared in!!!
 convertExpression :: CST.Expression -> Conversion Expression
 convertExpression x0 = case x0 of
   CST.ConstantExpression (CST.BooleanConstant b t) -> build $ do
@@ -597,6 +608,11 @@ convertExpression x0 = case x0 of
   CST.VariableExpression (CST.Name n t) -> build $ do
     token t
     return (VariableExpression n)
+
+  CST.UnaryExpression op t x' -> build $ do
+    x <- recover x' >>= convertExpression
+    leadingToken t
+    return (UnaryExpression op x)
 
   CST.WrappedExpression t1 x' Nothing t2 -> do
     recover t2 >>= token
