@@ -1,3 +1,9 @@
+# Operating System
+.DS_Store
+
+# Haskell
 .stack-work/
 brite.cabal
-*~
+
+# Playground
+.play/
