@@ -592,6 +592,12 @@ testData =
   , "break x + y /* really really really really really really really really really long */"
   , "return x + y /* */"
   , "break x + y /* */"
+  , "f/**/()"
+  , "o/**/.p"
+  , "o./**/p"
+  , "/* a */ f/* b */()"
+  , "/* a */ o/* b */.p"
+  , "/* a */ o./* b */p"
   ]
 
 openSnapshotFile :: IO Handle

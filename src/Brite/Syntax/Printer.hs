@@ -474,16 +474,19 @@ takeExpressionTrailingComments x0 =
 takeExpressionLeadingComments :: Expression -> ([AttachedComment], Expression)
 takeExpressionLeadingComments x0 =
   case expressionNode x0 of
-    ConstantExpression _ -> noLeadingExpression
-    VariableExpression _ -> noLeadingExpression
-    FunctionExpression _ -> noLeadingExpression
-    CallExpression x1 xs -> leadingExpression x1 (\x -> CallExpression x xs)
-    ObjectExpression _ _ -> noLeadingExpression
-    PropertyExpression x1 cs p -> leadingExpression x1 (\x -> PropertyExpression x cs p)
+    -- For call expressions and property expressions also move any trailing trivia to be
+    -- leading trivia.
+    CallExpression x1 xs -> leadingExpressionTakeTrailingToo x1 (\x -> CallExpression x xs)
+    PropertyExpression x1 cs p -> leadingExpressionTakeTrailingToo x1 (\x -> PropertyExpression x cs p)
     -- While technically unary operations don’t have a leading expression we treat them as if they
     -- do for aesthetics.
     UnaryExpression op x1 -> leadingExpression x1 (UnaryExpression op)
     BinaryExpression x1 op cs x2 -> leadingExpression x1 (\x -> BinaryExpression x op cs x2)
+
+    ConstantExpression _ -> noLeadingExpression
+    VariableExpression _ -> noLeadingExpression
+    FunctionExpression _ -> noLeadingExpression
+    ObjectExpression _ _ -> noLeadingExpression
     ConditionalExpression _ -> noLeadingExpression
     BlockExpression _ -> noLeadingExpression
     LoopExpression _ -> noLeadingExpression
@@ -500,3 +503,23 @@ takeExpressionLeadingComments x0 =
           ( expressionLeadingComments x0 ++ cs
           , x0 { expressionLeadingComments = [], expressionNode = f x2 }
           )
+
+    leadingExpressionTakeTrailingToo x1 f =
+      case takeExpressionLeadingComments x1 of
+        ([], _) ->
+          case takeExpressionTrailingComments x1 of
+            (_, []) -> noLeadingExpression
+            (x3, cs3) ->
+              ( expressionLeadingComments x0 ++ cs3
+              , x0 { expressionLeadingComments = [], expressionNode = f x3 }
+              )
+        (cs2, x2) ->
+          case takeExpressionTrailingComments x2 of
+            (_, []) ->
+              ( expressionLeadingComments x0 ++ cs2
+              , x0 { expressionLeadingComments = [], expressionNode = f x2 }
+              )
+            (x3, cs3) ->
+              ( expressionLeadingComments x0 ++ cs2 ++ cs3
+              , x0 { expressionLeadingComments = [], expressionNode = f x3 }
+              )
