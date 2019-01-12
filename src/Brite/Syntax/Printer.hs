@@ -103,12 +103,9 @@ printStatementSequence :: [MaybeComment Statement] -> Document
 printStatementSequence ss0 = loopStart ss0
   where
     loopStart [] = mempty
-    loopStart (Left (UnattachedComment True c) : ss) =
-      loop (Left (UnattachedComment False c) : ss)
-    loopStart (Right (Statement True cs1 cs2 s) : ss) =
-      loop (Right (Statement False cs1 cs2 s) : ss)
-    loopStart ss =
-      loop ss
+    loopStart (Left (UnattachedComment True c) : ss) = loop (Left (UnattachedComment False c) : ss)
+    loopStart (Right (Statement True cs1 cs2 s) : ss) = loop (Right (Statement False cs1 cs2 s) : ss)
+    loopStart ss = loop ss
 
     loop [] = mempty
     loop (Left c : ss) = printUnattachedComment c <> loop ss
@@ -140,6 +137,48 @@ printStatement s0' = build $ case statementNode s0 of
       withoutSemicolon (BlockExpression _) = True
       withoutSemicolon (LoopExpression _) = True
       withoutSemicolon (WrappedExpression _ _) = False
+
+  ReturnStatement (Just (cs1, x)) | not (null cs1) || shouldBreakOntoNextLine x -> group $
+    text "return "
+      <> ifBreak (text "(")
+      <> softline
+      <> indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x)
+      <> softline
+      <> ifBreak (text ")")
+      <> text ";"
+    where
+      cs2 = case cs1 of
+        UnattachedComment True c : cs -> UnattachedComment False c : cs
+        _ -> cs1
+
+  -- NOTE: It is ok to ignore the comments here because the above branch will match if we have
+  -- some comments.
+  ReturnStatement (Just (_, x)) ->
+    text "return " <> printExpression Top x <> text ";"
+
+  BreakStatement (Just (cs1, x)) | not (null cs1) || shouldBreakOntoNextLine x ->
+    text "break "
+      <> ifBreak (text "(")
+      <> softline
+      <> indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x)
+      <> softline
+      <> ifBreak (text ")")
+      <> text ";"
+    where
+      cs2 = case cs1 of
+        UnattachedComment True c : cs -> UnattachedComment False c : cs
+        _ -> cs1
+
+  -- NOTE: It is ok to ignore the comments here because the above branch will match if we have
+  -- some comments.
+  BreakStatement (Just (_, x)) ->
+    text "break " <> printExpression Top x <> text ";"
+
+  ReturnStatement Nothing ->
+    text "return;"
+
+  BreakStatement Nothing ->
+    text "break;"
 
   where
     s0 = fromMaybe s0' (fixStatementComments s0')
@@ -229,6 +268,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
         printSingleArg (Left (UnattachedComment False c) : as)
       printSingleArgStart as = printSingleArg as
 
+      -- Print our single argument without a trailing comment!
       printSingleArg [] = mempty
       printSingleArg (Left c : as) = printUnattachedComment c <> printSingleArg as
       printSingleArg (Right a : as) = printExpression Top a <> softline <> printSingleArg as
@@ -339,6 +379,41 @@ data Precedence
   | Top
   deriving (Eq, Ord)
 
+-- Expressions that, when they break, should break onto the next line. The following is an example
+-- of an expression which should break onto a new line:
+--
+-- ```ite
+-- let x =
+--   a +
+--   // Hello, world!
+--   b;
+-- ```
+--
+-- The following is an example of an expression which should not break onto a new line:
+--
+-- ```ite
+-- let x = f(
+--   // Hello, world!
+-- );
+-- ```
+--
+-- The general rule of thumb is that if you want to keep the expression aligned vertically when it
+-- breaks you should put it on the next line.
+shouldBreakOntoNextLine :: Expression -> Bool
+shouldBreakOntoNextLine x = case expressionNode x of
+  ConstantExpression _ -> False
+  VariableExpression _ -> False
+  FunctionExpression _ -> False
+  CallExpression _ _ -> False
+  ObjectExpression _ _ -> False
+  PropertyExpression _ _ _ -> False
+  UnaryExpression _ _ -> False
+  BinaryExpression _ _ _ _ -> True
+  ConditionalExpression _ -> False
+  BlockExpression _ -> False
+  LoopExpression _ -> False
+  WrappedExpression _ _ -> False
+
 -- Fixes the node leading and trailing comments are attached to. Returns `Nothing` if there was
 -- nothing to fix.
 fixStatementComments :: Statement -> Maybe Statement
@@ -361,22 +436,22 @@ fixStatementComments s0 = case statementNode s0 of
         , statementNode = BindingStatement p t (x1 { expressionTrailingComments = [] })
         }
 
-  ReturnStatement (Just x0) ->
+  ReturnStatement (Just (cs, x0)) ->
     let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
       if null (expressionTrailingComments x1) then
-        if b1 then Just (s0 { statementNode = ReturnStatement (Just x1) }) else Nothing
+        if b1 then Just (s0 { statementNode = ReturnStatement (Just (cs, x1)) }) else Nothing
       else Just $ s0
         { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
-        , statementNode = ReturnStatement (Just (x1 { expressionTrailingComments = [] }))
+        , statementNode = ReturnStatement (Just (cs, x1 { expressionTrailingComments = [] }))
         }
 
-  BreakStatement (Just x0) ->
+  BreakStatement (Just (cs, x0)) ->
     let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
       if null (expressionTrailingComments x1) then
-        if b1 then Just (s0 { statementNode = BreakStatement (Just x1) }) else Nothing
+        if b1 then Just (s0 { statementNode = BreakStatement (Just (cs, x1)) }) else Nothing
       else Just $ s0
         { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
-        , statementNode = BreakStatement (Just (x1 { expressionTrailingComments = [] }))
+        , statementNode = BreakStatement (Just (cs, x1 { expressionTrailingComments = [] }))
         }
 
   ReturnStatement Nothing -> Nothing

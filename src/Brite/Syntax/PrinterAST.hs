@@ -120,10 +120,30 @@ data StatementNode
   | BindingStatement Pattern (Maybe Type) Expression
 
   -- `return E;`
-  | ReturnStatement (Maybe Expression)
+  --
+  -- We capture the unattached comments between the return keyword and the returned expression.
+  -- (Usually from a wrapped expression.) This allows us to print:
+  --
+  -- ```ite
+  -- return (
+  --   // Hello, world!
+  --   x
+  -- );
+  -- ```
+  | ReturnStatement (Maybe ([UnattachedComment], Expression))
 
   -- `break E;`
-  | BreakStatement (Maybe Expression)
+  --
+  -- We capture the unattached comments between the break keyword and the statement expression.
+  -- (Usually from a wrapped expression.) This allows us to print:
+  --
+  -- ```ite
+  -- break (
+  --   // Hello, world!
+  --   x
+  -- );
+  -- ```
+  | BreakStatement (Maybe ([UnattachedComment], Expression))
 
   -- NOTE: We don’t have an empty statement because the printer will never print empty statements.
   -- Including an empty statement in our AST means we might attach comments to the empty statement.
@@ -637,6 +657,20 @@ convertStatement s0 = case s0 of
   CST.ExpressionStatement x t -> do
     recoverMaybe t >>= mapM_ token
     ExpressionStatement <$> convertExpression x
+
+  CST.ReturnStatement t1 x0 t2 -> do
+    recoverMaybe t2 >>= mapM_ token
+    x1 <- recoverMaybe x0 >>= mapM convertExpression
+    x2 <- mapM (\x -> flip (,) x <$> takeConversionUnattachedComments) x1
+    token t1
+    return (ReturnStatement x2)
+
+  CST.BreakStatement t1 x0 t2 -> do
+    recoverMaybe t2 >>= mapM_ token
+    x1 <- recoverMaybe x0 >>= mapM convertExpression
+    x2 <- mapM (\x -> flip (,) x <$> takeConversionUnattachedComments) x1
+    token t1
+    return (BreakStatement x2)
 
   -- Empty statements should be handled by `convertStatementSequence`!
   CST.EmptyStatement _ -> panic
