@@ -1,3 +1,16 @@
+-- Responsible for pretty printing Brite programs from a tree structure back into text. This
+-- printer will not print the _exact_ source text that constructed the trees, but rather a pretty
+-- version. As a community, we expect all valid Brite programs to be formatted using this printer.
+--
+-- Unlike other components of Brite, the printer is “best effort” based on heuristics we choose as a
+-- community. It isn’t “this must be correct at all costs” like the type system. If there is even a
+-- small edge case implemented incorrectly in the type system it could open Brite up to security
+-- bugs. It’s fine for the printer to have small edge cases with suboptimal output, though. As long
+-- as these edge cases are uncommon.
+--
+-- NOTE: It would be a good idea to generate Brite programs and make sure that
+-- `print(code) = print(print(code))`. Also that there are never any trailing spaces.
+
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Syntax.Printer
