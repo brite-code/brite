@@ -350,6 +350,13 @@ data ObjectTypeProperty = ObjectTypeProperty Identifier Type
 data Quantifier = Quantifier Identifier (Maybe (QuantifierBoundKind, Type))
 
 -- Convert a CST module into a printer AST module.
+--
+-- IMPORTANT: The CST to AST converter should be pretty straightforward and rules based. All of our
+-- heuristics about what a pretty printed module looks like should go into `Brite.Syntax.Printer`.
+-- This is important because conversion is not the only way to generate a printer AST. The
+-- programmer may also manually construct a printer AST if they wish to programmatically generate
+-- some code. Any printing heuristics we implement in our conversion code here will not apply for
+-- manually constructed printer AST nodes.
 convertModule :: CST.Module -> Module
 convertModule (CST.Module ss t) =
   Module (convertStatementSequence (trivia 0 (endTokenTrivia t)) ss)
