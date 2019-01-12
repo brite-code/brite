@@ -80,6 +80,24 @@ printTrailingAttachedComments cs = mconcat $ flip map cs $ \c0 ->
         <> text (Text.Lazy.toStrict (Text.Builder.toLazyText (removeTrailingSpaces c)))
         <> text "*/"
 
+-- Prints a list separated by commas. If the list is broken onto multiple lines we will always add a
+-- trailing comma. The function for printing an individual comma list item returns a list of
+-- trailing comments. Our comma list printer will print these _after_ the comma.
+printCommaList :: (a -> (Document, [AttachedComment])) -> [MaybeComment a] -> Document
+printCommaList f = loopStart
+  where
+    loopStart (Left (UnattachedComment True c) : as) = loop (Left (UnattachedComment False c) : as)
+    loopStart as = loop as
+
+    loop [] = mempty
+    loop (Left c : as) = printUnattachedComment c <> loop as
+    loop [Right a] =
+      let (b, cs) = f a in
+        b <> ifBreak (text ",") <> printTrailingAttachedComments cs <> softline
+    loop (Right a : as) =
+      let (b, cs) = f a in
+        b <> text "," <> printTrailingAttachedComments cs <> line <> loop as
+
 -- Prints a sequence of statements or comments.
 printStatementSequence :: [MaybeComment Statement] -> Document
 printStatementSequence ss0 = loopStart ss0
@@ -182,42 +200,38 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   --
   -- [1]: https://prettier.io
   CallExpression x1 xs ->
-    printExpression Primary x1
-      <> group (text "("
-          <> indent (softline <> printArguments True (removeLeadingEmptyLine xs))
-          <> text ")")
+    if exactly (1 :: Int) xs then
+      printExpression Primary x1
+        <> group (text "("
+            <> indent (softline <> printSingleArgStart xs)
+            <> text ")")
+    else
+      printExpression Primary x1
+        <> group (text "("
+            <> indent (softline <> printCommaList printArg xs)
+            <> text ")")
     where
-      -- Print all our call expression arguments.
-      printArguments _ [] = mempty
-      printArguments none (Left c : args) = printUnattachedComment c <> printArguments none args
-      printArguments none (Right x' : args) =
-        let (x, trailingComments) = takeExpressionTrailingComments x' in
-          -- For the last argument only add a trailing comma if we break onto multiple lines. If
-          -- there are no other arguments and this is the last argument then we never insert a
-          -- trailing comma. See comment detailing why above.
-          if noMoreArgs args then
-            printExpression Top x
-              <> (if none then mempty else ifBreak (text ","))
-              <> printTrailingAttachedComments trailingComments
-              <> softline
-              <> printArguments False args
-          else
-            printExpression Top x
-              <> text ","
-              <> printTrailingAttachedComments trailingComments
-              <> line
-              <> printArguments False args
+      -- Prints an expression while also removing trailing comments to let our comma list handle the
+      -- trailing comments.
+      printArg x' =
+        let (x, cs) = takeExpressionTrailingComments x' in
+          (printExpression Top x, cs)
 
-      -- If our first argument is an unattached comment with a leading empty line we’d like to set
-      -- that leading empty line to false.
-      removeLeadingEmptyLine (Left c : args) | unattachedCommentLeadingEmptyLine c =
-        Left (c { unattachedCommentLeadingEmptyLine = False }) : args
-      removeLeadingEmptyLine args = args
+      -- Returns true if we have exactly `n` arguments.
+      exactly n [] = n == 0
+      exactly n (Left _ : args) = exactly n args
+      exactly n (Right _ : _) | n == 0 = False
+      exactly n (Right _ : args) = exactly (n - 1) args
 
-      -- Determine if there are no more arguments in a list.
-      noMoreArgs [] = True
-      noMoreArgs (Left _ : args) = noMoreArgs args
-      noMoreArgs (Right _ : _) = False
+      -- Print an argument list when we only have a single argument. Single argument lists never
+      -- print trailing comments. See our justification above.
+      printSingleArgStart (Left (UnattachedComment True c) : as) =
+        printSingleArg (Left (UnattachedComment False c) : as)
+      printSingleArgStart as = printSingleArg as
+
+      printSingleArg [] = mempty
+      printSingleArg (Left c : as) = printUnattachedComment c <> printSingleArg as
+      printSingleArg (Right a : as) = printExpression Top a <> softline <> printSingleArg as
 
   -- Print a property statement which may have some unattached comments over the property.
   PropertyExpression e cs n ->

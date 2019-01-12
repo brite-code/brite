@@ -554,6 +554,8 @@ testData =
   , "f(a, b\n//\n)"
   , "f(\n//\na, /* a */\nb, /* b */)"
   , "f(\n//\na, /* a */)"
+  , "f(\n\n//\na)"
+  , "f(\n\n//\na, b)"
   ]
 
 openSnapshotFile :: IO Handle
