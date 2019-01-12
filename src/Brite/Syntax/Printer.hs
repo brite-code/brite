@@ -152,6 +152,60 @@ printExpression p0 x0' = build $ case expressionNode x0 of
 
   VariableExpression n -> text (identifierText n)
 
+  -- Call expressions with a single argument never add a trailing comma. This was a pet-peeve of
+  -- mine (Caleb) in the JavaScript pretty printing library [Prettier][1]. One of the primary
+  -- reasons for trailing commas is to improve differences in the programmer’s source control
+  -- manager (like git). Adding a new line to a trailing comma list only changes one line. It does
+  -- not also change the line above it by adding a comma. It is also easy to copy/paste a new item
+  -- in a trailing comma list since you don’t need to worry about adding a new comma.
+  --
+  -- However, functions usually don’t have a variable number of arguments. Most of the time the
+  -- number of function arguments never changes so the convenience of a trailing comma list is not
+  -- relevant. Trailing commas in function calls with a single item do actively look worse (in my
+  -- opinion), though. Especially in JavaScript when you’d have an arrow function
+  -- (`(x, y) => x + y`) and you’d have to put a trailing comma after it.
+  --
+  -- This is my pretty printing framework now, so I get to call the shots.
+  --
+  -- [1]: https://prettier.io
+  CallExpression x1 xs ->
+    printExpression Primary x1
+      <> group (text "("
+          <> indent (softline <> printArguments True (removeLeadingEmptyLine xs))
+          <> text ")")
+    where
+      -- Print all our call expression arguments.
+      printArguments _ [] = mempty
+      printArguments none (Left c : args) = printUnattachedComment c <> printArguments none args
+      printArguments none (Right x' : args) =
+        let (x, trailingComments) = takeExpressionTrailingComments x' in
+          -- For the last argument only add a trailing comma if we break onto multiple lines. If
+          -- there are no other arguments and this is the last argument then we never insert a
+          -- trailing comma. See comment detailing why above.
+          if noMoreArgs args then
+            printExpression Top x
+              <> (if none then mempty else ifBreak (text ","))
+              <> printTrailingAttachedComments trailingComments
+              <> softline
+              <> printArguments False args
+          else
+            printExpression Top x
+              <> text ","
+              <> printTrailingAttachedComments trailingComments
+              <> line
+              <> printArguments False args
+
+      -- If our first argument is an unattached comment with a leading empty line we’d like to set
+      -- that leading empty line to false.
+      removeLeadingEmptyLine (Left c : args) | unattachedCommentLeadingEmptyLine c =
+        Left (c { unattachedCommentLeadingEmptyLine = False }) : args
+      removeLeadingEmptyLine args = args
+
+      -- Determine if there are no more arguments in a list.
+      noMoreArgs [] = True
+      noMoreArgs (Left _ : args) = noMoreArgs args
+      noMoreArgs (Right _ : _) = False
+
   -- Print a property statement which may have some unattached comments over the property.
   PropertyExpression e cs n ->
     printExpression Primary e <> group (indent
@@ -307,7 +361,14 @@ fixStatementComments s0 = case statementNode s0 of
 -- nothing to fix.
 fixExpressionComments :: Expression -> Maybe Expression
 fixExpressionComments x0 = case expressionNode x0 of
-  CallExpression _ _ -> error "TODO: Leading comments"
+  CallExpression a0 xs ->
+    let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
+      if null (expressionLeadingComments a1) then
+        if c1 then Just (x0 { expressionNode = CallExpression a1 xs }) else Nothing
+      else Just $ x0
+        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
+        , expressionNode = CallExpression (a1 { expressionLeadingComments = [] }) xs
+        }
 
   PropertyExpression a0 cs n ->
     let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in

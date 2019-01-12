@@ -29,6 +29,7 @@ module Brite.Syntax.PrinterAST
   , Block(..)
   , Constant(..)
   , Expression(..)
+  , takeExpressionTrailingComments
   , ExpressionNode(..)
   , ObjectExpressionProperty(..)
   , UnaryOperator(..)
@@ -50,6 +51,7 @@ import Brite.Syntax.CST (Recover(..), UnaryOperator(..), BinaryOperator(..), Qua
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
 import Data.Foldable (foldrM, mapM_)
+import Data.Maybe (maybeToList)
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -163,6 +165,11 @@ data Expression = Expression
   -- The representation for this expression.
   , expressionNode :: ExpressionNode
   }
+
+-- Removes the expression trailing comments from our `Expression` and returns them.
+takeExpressionTrailingComments :: Expression -> (Expression, [AttachedComment])
+takeExpressionTrailingComments x@(Expression { expressionTrailingComments = [] }) = (x, [])
+takeExpressionTrailingComments x = (x { expressionTrailingComments = [] }, expressionTrailingComments x)
 
 data ExpressionNode
   -- `C`
@@ -517,6 +524,28 @@ leadingToken t = token $ t
   , tokenLeadingTrivia = tokenLeadingTrivia t ++ tokenTrailingTrivia t
   }
 
+-- Convert every item in a comma list and capture the comments between items in a comma list.
+-- Returns a list of the converted items.
+convertCommaList :: (a -> Conversion b) -> CST.CommaList a -> Conversion [MaybeComment b]
+convertCommaList f (CST.CommaList as an) = do
+  -- Take the unattached comments before and after we try converting the last item in the comma
+  -- list. If there is no last item then `cs2` will always be empty. If there is a list item then
+  -- `cs2` might have some values.
+  cs1 <- takeConversionUnattachedComments
+  bn <- recoverMaybe an >>= mapM f
+  cs2 <- takeConversionUnattachedComments
+  -- Iterate in reverse through all items in the comma list.
+  foldrM
+    -- Convert each item and attempt take unattached comments for each item.
+    (\(a, t) bs -> do
+      recover t >>= token
+      b <- recover a >>= f
+      cs <- takeConversionUnattachedComments
+      return (map Left cs ++ (Right b : bs)))
+    -- Add up out initial list before we even start iterating through the main items.
+    (map Left cs2 ++ maybeToList (Right <$> bn) ++ map Left cs1)
+    as
+
 -- Converts a sequence of CST statements into a sequence of AST statements.
 convertStatementSequence :: [MaybeComment Statement] -> [Recover CST.Statement] -> [MaybeComment Statement]
 convertStatementSequence =
@@ -683,15 +712,21 @@ convertExpression x0 = case x0 of
     -- Call our build function with the left-most expression and return it.
     return (make x1)
 
-  -- When converting a property expression CST to printer AST we capture the unattached comments
-  -- added before the property so we can render them above that property.
   CST.ExpressionExtra x1' (Ok (CST.PropertyExpressionExtra t1 n')) -> build $ do
     CST.Name n t2 <- recover n'
     token t2
     token t1
+    -- Capture unattached comments that come before the property access.
     cs <- takeConversionUnattachedComments
     x1 <- convertExpression x1'
     return (PropertyExpression x1 cs n)
+
+  CST.ExpressionExtra x1' (Ok (CST.CallExpressionExtra t1 xs' t2)) -> build $ do
+    recover t2 >>= token
+    xs <- convertCommaList convertExpression xs'
+    token t1
+    x1 <- convertExpression x1'
+    return (CallExpression x1 xs)
 
   CST.ExpressionExtra _ (Recover _ _ _) -> panic
   CST.ExpressionExtra _ (Fatal _ _) -> panic
