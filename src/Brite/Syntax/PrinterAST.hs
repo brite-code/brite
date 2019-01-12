@@ -29,7 +29,6 @@ module Brite.Syntax.PrinterAST
   , Block(..)
   , Constant(..)
   , Expression(..)
-  , takeExpressionTrailingComments
   , ExpressionNode(..)
   , ObjectExpressionProperty(..)
   , UnaryOperator(..)
@@ -185,11 +184,6 @@ data Expression = Expression
   -- The representation for this expression.
   , expressionNode :: ExpressionNode
   }
-
--- Removes the expression trailing comments from our `Expression` and returns them.
-takeExpressionTrailingComments :: Expression -> (Expression, [AttachedComment])
-takeExpressionTrailingComments x@(Expression { expressionTrailingComments = [] }) = (x, [])
-takeExpressionTrailingComments x = (x { expressionTrailingComments = [] }, expressionTrailingComments x)
 
 data ExpressionNode
   -- `C`

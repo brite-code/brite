@@ -22,7 +22,6 @@ import Brite.Syntax.PrinterAST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Tokens
 import Data.Char (isSpace)
-import Data.Maybe (fromMaybe)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)
@@ -93,10 +92,15 @@ printCommaList f = loopStart
     loop (Left c : as) = printUnattachedComment c <> loop as
     loop [Right a] =
       let (b, cs) = f a in
-        b <> ifBreak (text ",") <> printTrailingAttachedComments cs <> softline
+        b <> ifBreakElse
+          (text "," <> printTrailingAttachedComments cs <> hardline)
+          (printTrailingAttachedComments cs)
     loop (Right a : as) =
       let (b, cs) = f a in
-        b <> text "," <> printTrailingAttachedComments cs <> line <> loop as
+        b <> ifBreakElse
+          (text "," <> printTrailingAttachedComments cs <> hardline)
+          (printTrailingAttachedComments cs <> text ", ")
+          <> loop as
 
 -- Prints a sequence of statements or comments.
 printStatementSequence :: [MaybeComment Statement] -> Document
@@ -113,17 +117,18 @@ printStatementSequence ss0 = loopStart ss0
 
 -- Prints a single statement.
 printStatement :: Statement -> Document
-printStatement s0' = build $ case statementNode s0 of
+printStatement s0 = build $ case statementNode s0 of
   -- For concrete statements we failed to convert them to the printer AST. Presumably because they
   -- contained a parse error. Print out the raw source code for concrete statements.
   ConcreteStatement s -> rawText (tokensTrimmedSource (recoverStatementTokens s))
 
   -- Print an expression statement and include a semicolon for the appropriate expressions. If the
-  -- expression has attached trailing comments then print those _after_ the semicolon. We do this by
-  -- moving around comments in `fixStatementComments`.
-  ExpressionStatement x ->
-    printExpression Top x
-      <> (if withoutSemicolon (expressionNode x) then mempty else text ";")
+  -- expression has attached trailing comments then print those _after_ the semicolon.
+  ExpressionStatement x' ->
+    let (x, cs) = takeExpressionTrailingComments x' in
+      printExpression Top x
+        <> (if withoutSemicolon (expressionNode x) then mempty else text ";")
+        <> printTrailingAttachedComments cs
     where
       withoutSemicolon (ConstantExpression _) = False
       withoutSemicolon (VariableExpression _) = False
@@ -138,41 +143,59 @@ printStatement s0' = build $ case statementNode s0 of
       withoutSemicolon (LoopExpression _) = True
       withoutSemicolon (WrappedExpression _ _) = False
 
-  ReturnStatement (Just (cs1, x)) | not (null cs1) || shouldBreakOntoNextLine x -> group $
-    text "return "
-      <> ifBreak (text "(")
-      <> softline
-      <> indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x)
-      <> softline
-      <> ifBreak (text ")")
-      <> text ";"
+  -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
+  ReturnStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
+    let (x, cs) = takeExpressionTrailingComments x1 in
+      group $ text "return "
+        <> ifBreak (text "(")
+        <> softline
+        <> indent
+            (mconcat (map printUnattachedComment cs2)
+              <> printExpression Top x
+              <> ifBreak (printTrailingAttachedComments cs))
+        <> softline
+        <> ifBreak (text ")")
+        <> text ";"
+        <> ifFlat (printTrailingAttachedComments cs)
     where
       cs2 = case cs1 of
         UnattachedComment True c : cs -> UnattachedComment False c : cs
         _ -> cs1
 
-  -- NOTE: It is ok to ignore the comments here because the above branch will match if we have
+  -- IMPORTANT: It is ok to ignore the comments here because the above branch will match if we have
   -- some comments.
-  ReturnStatement (Just (_, x)) ->
-    text "return " <> printExpression Top x <> text ";"
+  --
+  -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
+  ReturnStatement (Just (_, x1)) ->
+    let (x, cs) = takeExpressionTrailingComments x1 in
+      text "return " <> printExpression Top x <> text ";" <> printTrailingAttachedComments cs
 
-  BreakStatement (Just (cs1, x)) | not (null cs1) || shouldBreakOntoNextLine x ->
-    text "break "
-      <> ifBreak (text "(")
-      <> softline
-      <> indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x)
-      <> softline
-      <> ifBreak (text ")")
-      <> text ";"
+  -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
+  BreakStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
+    let (x, cs) = takeExpressionTrailingComments x1 in
+      group $ text "break "
+        <> ifBreak (text "(")
+        <> softline
+        <> indent
+            (mconcat (map printUnattachedComment cs2)
+              <> printExpression Top x
+              <> ifBreak (printTrailingAttachedComments cs))
+        <> softline
+        <> ifBreak (text ")")
+        <> text ";"
+        <> ifFlat (printTrailingAttachedComments cs)
     where
       cs2 = case cs1 of
         UnattachedComment True c : cs -> UnattachedComment False c : cs
         _ -> cs1
 
-  -- NOTE: It is ok to ignore the comments here because the above branch will match if we have
+  -- IMPORTANT: It is ok to ignore the comments here because the above branch will match if we have
   -- some comments.
-  BreakStatement (Just (_, x)) ->
-    text "break " <> printExpression Top x <> text ";"
+  --
+  -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
+  BreakStatement (Just (_, x1)) ->
+    let (x, cs) = takeExpressionTrailingComments x1 in
+      text "break " <> printExpression Top x <> text ";" <> printTrailingAttachedComments cs
 
   ReturnStatement Nothing ->
     text "return;"
@@ -181,8 +204,6 @@ printStatement s0' = build $ case statementNode s0 of
     text "break;"
 
   where
-    s0 = fromMaybe s0' (fixStatementComments s0')
-
     build s1 =
       (if statementLeadingEmptyLine s0 then hardline else mempty)
         <> printLeadingAttachedComments (statementLeadingComments s0)
@@ -319,16 +340,16 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   LoopExpression b -> text "loop " <> printBlock b
 
   where
-    -- Attempt to fix up comments in our expression argument.
-    x0 = fromMaybe x0' (fixExpressionComments x0')
+    -- Take the leading and trailing comments for our expression.
+    (cs1, (x0, cs2)) = takeExpressionTrailingComments <$> takeExpressionLeadingComments x0'
 
     -- Finishes printing an expression node by printing leading/trailing attached comments and
     -- parentheses in case we need them.
     build x1 =
       (if wrap then text "(" else mempty)
-        <> printLeadingAttachedComments (expressionLeadingComments x0)
+        <> printLeadingAttachedComments cs1
         <> x1
-        <> printTrailingAttachedComments (expressionTrailingComments x0)
+        <> printTrailingAttachedComments cs2
         <> (if wrap then text ")" else mempty)
 
     -- Whether or not we should wrap this expression based on its precedence level.
@@ -414,103 +435,68 @@ shouldBreakOntoNextLine x = case expressionNode x of
   LoopExpression _ -> False
   WrappedExpression _ _ -> False
 
--- Fixes the node leading and trailing comments are attached to. Returns `Nothing` if there was
--- nothing to fix.
-fixStatementComments :: Statement -> Maybe Statement
-fixStatementComments s0 = case statementNode s0 of
-  ExpressionStatement x0 ->
-    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
-      if null (expressionTrailingComments x1) then
-        if b1 then Just (s0 { statementNode = ExpressionStatement x1 }) else Nothing
-      else Just $ s0
-        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
-        , statementNode = ExpressionStatement (x1 { expressionTrailingComments = [] })
-        }
+-- Removes the expression trailing comments from our `Expression` and returns them. If our
+-- expression ends in another expression (like unary expressions: `-E`) then we take the trailing
+-- comments from that as well.
+takeExpressionTrailingComments :: Expression -> (Expression, [AttachedComment])
+takeExpressionTrailingComments x0 =
+  case expressionNode x0 of
+    ConstantExpression _ -> noTrailingExpression
+    VariableExpression _ -> noTrailingExpression
+    FunctionExpression _ -> noTrailingExpression
+    CallExpression _ _ -> noTrailingExpression
+    ObjectExpression _ _ -> noTrailingExpression
+    PropertyExpression _ _ _ -> noTrailingExpression
+    UnaryExpression op x1 -> trailingExpression (UnaryExpression op) x1
+    BinaryExpression x1 op cs x2 -> trailingExpression (BinaryExpression x1 op cs) x2
+    ConditionalExpression _ -> noTrailingExpression
+    BlockExpression _ -> noTrailingExpression
+    LoopExpression _ -> noTrailingExpression
+    WrappedExpression _ _ -> noTrailingExpression
+  where
+    noTrailingExpression =
+      if null (expressionTrailingComments x0) then (x0, [])
+      else (x0 { expressionTrailingComments = [] }, expressionTrailingComments x0)
 
-  BindingStatement p t x0 ->
-    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
-      if null (expressionTrailingComments x1) then
-        if b1 then Just (s0 { statementNode = BindingStatement p t x1 }) else Nothing
-      else Just $ s0
-        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
-        , statementNode = BindingStatement p t (x1 { expressionTrailingComments = [] })
-        }
+    trailingExpression f x1 =
+      case takeExpressionTrailingComments x1 of
+        (_, []) -> noTrailingExpression
+        (x2, cs) ->
+          if null (expressionTrailingComments x0) then (x0 { expressionNode = f x2 }, cs)
+          else
+            ( x0 { expressionTrailingComments = [], expressionNode = f x2 }
+            , cs ++ expressionTrailingComments x0
+            )
 
-  ReturnStatement (Just (cs, x0)) ->
-    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
-      if null (expressionTrailingComments x1) then
-        if b1 then Just (s0 { statementNode = ReturnStatement (Just (cs, x1)) }) else Nothing
-      else Just $ s0
-        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
-        , statementNode = ReturnStatement (Just (cs, x1 { expressionTrailingComments = [] }))
-        }
+-- Removes the expression leading comments from our `Expression` and returns them. If our
+-- expression begins in another expression (like property expressions: `E.p`) then we take the
+-- leading comments from that as well.
+takeExpressionLeadingComments :: Expression -> ([AttachedComment], Expression)
+takeExpressionLeadingComments x0 =
+  case expressionNode x0 of
+    ConstantExpression _ -> noLeadingExpression
+    VariableExpression _ -> noLeadingExpression
+    FunctionExpression _ -> noLeadingExpression
+    CallExpression x1 xs -> leadingExpression x1 (\x -> CallExpression x xs)
+    ObjectExpression _ _ -> noLeadingExpression
+    PropertyExpression x1 cs p -> leadingExpression x1 (\x -> PropertyExpression x cs p)
+    -- While technically unary operations don’t have a leading expression we treat them as if they
+    -- do for aesthetics.
+    UnaryExpression op x1 -> leadingExpression x1 (UnaryExpression op)
+    BinaryExpression x1 op cs x2 -> leadingExpression x1 (\x -> BinaryExpression x op cs x2)
+    ConditionalExpression _ -> noLeadingExpression
+    BlockExpression _ -> noLeadingExpression
+    LoopExpression _ -> noLeadingExpression
+    WrappedExpression _ _ -> noLeadingExpression
+  where
+    noLeadingExpression =
+      if null (expressionLeadingComments x0) then ([], x0)
+      else (expressionLeadingComments x0, x0 { expressionLeadingComments = [] })
 
-  BreakStatement (Just (cs, x0)) ->
-    let (b1, x1) = maybe (False, x0) ((,) True) (fixExpressionComments x0) in
-      if null (expressionTrailingComments x1) then
-        if b1 then Just (s0 { statementNode = BreakStatement (Just (cs, x1)) }) else Nothing
-      else Just $ s0
-        { statementTrailingComments = expressionTrailingComments x1 ++ statementTrailingComments s0
-        , statementNode = BreakStatement (Just (cs, x1 { expressionTrailingComments = [] }))
-        }
-
-  ReturnStatement Nothing -> Nothing
-  BreakStatement Nothing -> Nothing
-  FunctionDeclaration _ _ -> Nothing
-  ConcreteStatement _ -> Nothing
-
--- Fixes the node leading and trailing comments are attached to. Returns `Nothing` if there was
--- nothing to fix.
-fixExpressionComments :: Expression -> Maybe Expression
-fixExpressionComments x0 = case expressionNode x0 of
-  CallExpression a0 xs ->
-    let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
-      if null (expressionLeadingComments a1) then
-        if c1 then Just (x0 { expressionNode = CallExpression a1 xs }) else Nothing
-      else Just $ x0
-        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
-        , expressionNode = CallExpression (a1 { expressionLeadingComments = [] }) xs
-        }
-
-  PropertyExpression a0 cs n ->
-    let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
-      if null (expressionLeadingComments a1) then
-        if c1 then Just (x0 { expressionNode = PropertyExpression a1 cs n }) else Nothing
-      else Just $ x0
-        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
-        , expressionNode = PropertyExpression (a1 { expressionLeadingComments = [] }) cs n
-        }
-
-  UnaryExpression op a0 ->
-    let (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0) in
-      if null (expressionLeadingComments a1) && null (expressionTrailingComments a1) then
-        if c1 then Just (x0 { expressionNode = UnaryExpression op a1 }) else Nothing
-      else Just $ x0
-        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
-        , expressionTrailingComments = expressionTrailingComments a1 ++ expressionTrailingComments x0
-        , expressionNode = UnaryExpression op
-            (a1 { expressionLeadingComments = [], expressionTrailingComments = [] })
-        }
-
-  BinaryExpression a0 op cs b0 ->
-    let
-      (c1, a1) = maybe (False, a0) ((,) True) (fixExpressionComments a0)
-      (c2, b1) = maybe (False, b0) ((,) True) (fixExpressionComments b0)
-    in
-      if null (expressionLeadingComments a1) && null (expressionTrailingComments b1) then
-        if c1 || c2 then (Just (x0 { expressionNode = BinaryExpression a1 op cs b1 })) else Nothing
-      else Just $ x0
-        { expressionLeadingComments = expressionLeadingComments x0 ++ expressionLeadingComments a1
-        , expressionTrailingComments = expressionTrailingComments b1 ++ expressionTrailingComments x0
-        , expressionNode = BinaryExpression
-            (a1 { expressionLeadingComments = [] }) op cs (b1 { expressionTrailingComments = [] })
-        }
-
-  ConstantExpression _ -> Nothing
-  VariableExpression _ -> Nothing
-  FunctionExpression _ -> Nothing
-  ObjectExpression _ _ -> Nothing
-  ConditionalExpression _ -> Nothing
-  BlockExpression _ -> Nothing
-  LoopExpression _ -> Nothing
-  WrappedExpression _ _ -> Nothing
+    leadingExpression x1 f =
+      case takeExpressionLeadingComments x1 of
+        ([], _) -> noLeadingExpression
+        (cs, x2) ->
+          ( expressionLeadingComments x0 ++ cs
+          , x0 { expressionLeadingComments = [], expressionNode = f x2 }
+          )

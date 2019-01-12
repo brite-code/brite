@@ -6493,8 +6493,8 @@ b/**/)
 return (
   a +
   //
-  b
-); /**/
+  b /**/
+);
 ```
 
 --------------------------------------------------------------------------------
@@ -6512,8 +6512,8 @@ b//
 return (
   a +
   //
-  b
-); //
+  b //
+);
 ```
 
 --------------------------------------------------------------------------------
@@ -6750,6 +6750,240 @@ return (
   // b
   y
 );
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+f(a/**/,b);
+```
+
+### Output
+```
+f(a /**/, b);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+f(a/**/,
+//
+b);
+```
+
+### Output
+```
+f(
+  a, /**/
+  //
+  b,
+);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+f(-a/**/,b);
+```
+
+### Output
+```
+f(-a /**/, b);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+f(-a/**/,
+//
+b);
+```
+
+### Output
+```
+f(
+  -a, /**/
+  //
+  b,
+);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return x /**/
+```
+
+### Output
+```
+return x; /**/
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+break x /**/
+```
+
+### Output
+```
+break x; /**/
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return x /* really really really really really really really really really long */
+```
+
+### Output
+```
+return x; /* really really really really really really really really really long */
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+break x /* really really really really really really really really really long */
+```
+
+### Output
+```
+break x; /* really really really really really really really really really long */
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return x //
+```
+
+### Output
+```
+return x; //
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+break x //
+```
+
+### Output
+```
+break x; //
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return x // really really really really really really really really really really long
+```
+
+### Output
+```
+return x; // really really really really really really really really really really long
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+break x // really really really really really really really really really really long
+```
+
+### Output
+```
+break x; // really really really really really really really really really really long
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return reallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+### Output
+```
+return reallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+break reallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+### Output
+```
+break reallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyReallyLong;
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return x + y /* really really really really really really really really really long */
+```
+
+### Output
+```
+return (
+  x +
+  y /* really really really really really really really really really long */
+);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+break x + y /* really really really really really really really really really long */
+```
+
+### Output
+```
+break (
+  x +
+  y /* really really really really really really really really really long */
+);
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+return x + y /* */
+```
+
+### Output
+```
+return x + y; /* */
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+break x + y /* */
+```
+
+### Output
+```
+break x + y; /* */
 ```
 
 --------------------------------------------------------------------------------
