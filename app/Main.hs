@@ -14,11 +14,11 @@ import qualified Data.Text.Lazy.Builder as Text.Builder
 
 main :: IO ()
 main = do
-  input <- Text.IO.readFile ".play/test.ite"
+  input <- Text.IO.readFile ".play/src/Test.ite"
   let (mod, diagnostics) = runDiagnosticWriter (parseModule (tokenize input))
   traverse_ (Text.IO.putStrLn . toStrictText . debugDiagnostic) diagnostics
   let output = toStrictText (printModule (PrinterAST.convertModule mod))
-  seq output $ Text.IO.writeFile ".play/test.ite" output
+  seq output $ Text.IO.writeFile ".play/src/Test.ite" output
 
 toStrictText :: Text.Builder -> Text
 toStrictText = Text.Lazy.toStrict . Text.Builder.toLazyText
