@@ -15,7 +15,6 @@
 -- The printer AST, on the other hand, does not carry information about where nodes were defined in
 -- source code and is designed to carries all comments.
 
-{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Brite.Syntax.PrinterAST
@@ -50,8 +49,8 @@ module Brite.Syntax.PrinterAST
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), BinaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
-import Data.Foldable (mapM_)
-import Data.Maybe (fromJust, fromMaybe)
+import Data.Foldable (foldrM, mapM_)
+import Data.Maybe (maybeToList)
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -423,163 +422,150 @@ recoverMaybe (Just (Recover _ _ _)) = panic
 recoverMaybe (Just (Fatal _ _)) = panic
 
 data ConversionState = ConversionState
+  -- A buffer for unattached comments at the current conversion position. Once we find a place where
+  -- we can have unattached comments this list will be emptied.
   { conversionUnattachedComments :: [UnattachedComment]
+  -- A list of attached leading comments at the current conversion position. Every time a new token
+  -- is added we add our leading comments list to our trailing comments list. This list will only
+  -- ever hold the attached leading comments for the last token added to state.
   , conversionAttachedLeadingComments :: [AttachedComment]
+  -- A list of attached trailing comments at the current conversion position.
   , conversionAttachedTrailingComments :: [AttachedComment]
-  , conversionAttachedCommentsSide :: ConversionAttachedCommentsSide
-  , conversionLeadingEmptyLine :: Maybe Bool
+  -- Is there a leading empty line before the last token to be added to state but also under the
+  -- first comment above that token?
+  --
+  -- ```ite
+  -- // Hello, world!
+  --
+  -- let x = y;
+  -- ```
+  --
+  -- That is we will have a leading empty line for the `x` statement above, but not for the `x`
+  -- statement below.
+  --
+  -- ```ite
+  --
+  -- // Hello, world!
+  -- let x = y;
+  -- ```
+  , conversionLeadingEmptyLine :: Bool
   }
 
-data ConversionAttachedCommentsSide = Leading | Trailing
-
+-- Create an initial conversion state.
 initialConversionState :: ConversionState
 initialConversionState = ConversionState
   { conversionUnattachedComments = []
   , conversionAttachedLeadingComments = []
   , conversionAttachedTrailingComments = []
-  , conversionAttachedCommentsSide = Leading
-  , conversionLeadingEmptyLine = Nothing
+  , conversionLeadingEmptyLine = False
   }
 
+-- Takes the unattached comments out of our conversion state.
+takeConversionUnattachedComments :: Conversion [UnattachedComment]
+takeConversionUnattachedComments = Conversion $ \s ->
+  Just (conversionUnattachedComments s, s { conversionUnattachedComments = [] })
+
+-- Takes the attached leading comments out of our conversion state.
+takeConversionAttachedLeadingComments :: Conversion [AttachedComment]
+takeConversionAttachedLeadingComments = Conversion $ \s ->
+  Just (conversionAttachedLeadingComments s, s { conversionAttachedLeadingComments = [] })
+
+-- Takes the attached trailing comments out of our conversion state.
+takeConversionAttachedTrailingComments :: Conversion [AttachedComment]
+takeConversionAttachedTrailingComments = Conversion $ \s ->
+  Just (conversionAttachedTrailingComments s, s { conversionAttachedTrailingComments = [] })
+
+-- Consumes a token and adds its trivia to state. Remember that we expect tokens to be added to
+-- state in reverse of the order in which they were written in source code! As such comments are
+-- added to the _beginning_ of our comment lists in state.
 token :: Token -> Conversion ()
-token t = Conversion $ \oldState ->
+token t = Conversion (\s -> Just ((), tokenUpdateState t s))
+
+-- Updates the conversion state with out token. Separate from `token` so that we can call it outside
+-- of the `Conversion` monad.
+tokenUpdateState :: Token -> ConversionState -> ConversionState
+tokenUpdateState t s =
   let
-    attachedComments0 = case conversionAttachedCommentsSide oldState of
-      Leading -> conversionAttachedLeadingComments oldState
-      Trailing -> conversionAttachedTrailingComments oldState
-
-    (leadingLines, unattachedComments, newAttachedComments) =
-      foldl
-        (\(n, cs1, cs2) tr ->
-          case tr of
-            Spaces _ -> (n, cs1, cs2)
-            Tabs _ -> (n, cs1, cs2)
-            OtherWhitespace _ -> (n, cs1, cs2)
-            Newlines _ m -> (n + m, cs2 ++ cs1, [])
-            Comment c -> (0, cs1, UnattachedComment (n > 1) c : cs2))
-        (0, conversionUnattachedComments oldState, [])
-        -- All tokens with leading trivia are the first token on their line. The previous new line
-        -- was consumed by the trailing trivia of the last token on the last line. We model that
-        -- missing new line here by adding a `Newlines` trivia.
-        (if not (null (tokenLeadingTrivia t)) then Newlines LF 1 : tokenLeadingTrivia t
-        else tokenLeadingTrivia t)
-
-    attachedComments1 =
-      (map (AttachedComment . unattachedComment) newAttachedComments)
-        ++ attachedComments0
-
-    attachedComments2 =
-      foldl
-        (\cs tr ->
-          case tr of
-            Spaces _ -> cs
-            Tabs _ -> cs
-            OtherWhitespace _ -> cs
-            Newlines _ _ -> cs
-            Comment c -> AttachedComment c : cs)
-        attachedComments1
-        (tokenTrailingTrivia t)
-
-    -- If there are no attached comments then use `leadingLines` to determine if the statement
-    -- should have a leading empty line. Otherwise look at the first attached comment. (Which will
-    -- be an unattached comment immediately after our fold.)
-    leadingEmptyLine = Just $ fromMaybe
-      (if null newAttachedComments then leadingLines > 1
-       else unattachedCommentLeadingEmptyLine (head newAttachedComments))
-      (conversionLeadingEmptyLine oldState)
-
-    newState = case conversionAttachedCommentsSide oldState of
-      Leading -> oldState
-        { conversionUnattachedComments = unattachedComments
-        , conversionAttachedLeadingComments = attachedComments2
-        , conversionLeadingEmptyLine = leadingEmptyLine
-        }
-      Trailing -> oldState
-        { conversionUnattachedComments = unattachedComments
-        , conversionAttachedTrailingComments = attachedComments2
-        , conversionLeadingEmptyLine = leadingEmptyLine
-        }
-  in
-    Just ((), newState)
-
-splitToken :: Token -> Conversion ()
-splitToken t = Conversion $ \oldState ->
-  let
-    (leadingLines, unattachedComments, newAttachedLeadingComments) =
-      foldl
-        (\(n, cs1, cs2) tr ->
-          case tr of
-            Spaces _ -> (n, cs1, cs2)
-            Tabs _ -> (n, cs1, cs2)
-            OtherWhitespace _ -> (n, cs1, cs2)
-            Newlines _ m -> (n + m, cs2 ++ cs1, [])
-            Comment c -> (0, cs1, UnattachedComment (n > 1) c : cs2))
-        (0, conversionUnattachedComments oldState, [])
-        -- All tokens with leading trivia are the first token on their line. The previous new line
-        -- was consumed by the trailing trivia of the last token on the last line. We model that
-        -- missing new line here by adding a `Newlines` trivia.
-        (if not (null (tokenLeadingTrivia t)) then Newlines LF 1 : tokenLeadingTrivia t
-        else tokenLeadingTrivia t)
-
-    attachedLeadingComments =
-      (map (AttachedComment . unattachedComment) newAttachedLeadingComments)
-        ++ conversionAttachedTrailingComments oldState
-        ++ conversionAttachedLeadingComments oldState
-
+    -- Build a reversed list of attached trailing comments using the token’s trailing trivia.
     attachedTrailingComments =
-      foldl
-        (\cs tr ->
-          case tr of
+      foldr
+        (\trivia cs ->
+          case trivia of
             Spaces _ -> cs
             Tabs _ -> cs
-            OtherWhitespace _ -> cs
             Newlines _ _ -> cs
-            Comment c -> AttachedComment c : cs)
-        []
+            Comment c -> AttachedComment c : cs
+            OtherWhitespace _ -> cs)
+        (conversionAttachedLeadingComments s ++ conversionAttachedTrailingComments s)
         (tokenTrailingTrivia t)
 
-    -- If there are no attached comments then use `leadingLines` to determine if the statement
-    -- should have a leading empty line. Otherwise look at the first attached comment. (Which will
-    -- be an unattached comment immediately after our fold.)
-    leadingEmptyLine = Just $ fromMaybe
-      (if null newAttachedLeadingComments then leadingLines > 1
-       else unattachedCommentLeadingEmptyLine (head newAttachedLeadingComments))
-      (conversionLeadingEmptyLine oldState)
+    -- Get new attached comments and unattached comments by iterating in reverse through the token’s
+    -- leading trivia.
+    (_, initialLeadingLines, _, attachedLeadingComments, unattachedComments) =
+      foldr
+        (\trivia (a, n1, n, cs1, cs2) ->
+          case trivia of
+            -- Skip whitespace.
+            Spaces _ -> (a, n1, n, cs1, cs2)
+            Tabs _ -> (a, n1, n, cs1, cs2)
+            OtherWhitespace _ -> (a, n1, n, cs1, cs2)
 
-    newState = oldState
+            -- If we have more than one newline between our latest unattached comment and whatever
+            -- is above it then we have an empty leading line.
+            Newlines _ m ->
+              (False, (m +) <$> n1, n + m, cs1, case cs2 of
+                UnattachedComment False c : cs | n + m > 1 -> UnattachedComment True c : cs
+                cs -> cs)
+
+            -- Attach comments if we are on the same line as our token. Finalize `n1` by
+            -- transitioning from `Right` to `Left` at the first unattached comment we see.
+            Comment c | a -> (True, n1, 0, AttachedComment c : cs1, cs2)
+            Comment c -> (False, either Left Left n1, 0, cs1, UnattachedComment False c : cs2))
+        (True, Right 0, 0, [], conversionUnattachedComments s)
+        -- All tokens with leading trivia are the first token on their line. The previous new line
+        -- was consumed by the trailing trivia of the last token on the last line. We model that
+        -- missing new line here by adding a `Newlines` trivia.
+        (if not (null (tokenLeadingTrivia t)) then Newlines LF 1 : tokenLeadingTrivia t
+        else tokenLeadingTrivia t)
+  in
+    -- Construct the new state.
+    ConversionState
       { conversionUnattachedComments = unattachedComments
       , conversionAttachedLeadingComments = attachedLeadingComments
       , conversionAttachedTrailingComments = attachedTrailingComments
-      , conversionAttachedCommentsSide = Trailing
-      , conversionLeadingEmptyLine = leadingEmptyLine
+      , conversionLeadingEmptyLine = either id id initialLeadingLines > 1
       }
-  in
-    Just ((), newState)
 
-leading :: Conversion ()
-leading = Conversion $ \oldState ->
-  case conversionAttachedCommentsSide oldState of
-    Leading -> Just ((), oldState)
-    Trailing ->
-      let
-        attachedLeadingComments =
-          conversionAttachedTrailingComments oldState ++ conversionAttachedLeadingComments oldState
+-- Consumes a token and adds its trivia to state. All the trivia for this token (even the trailing
+-- trivia) will be considered leading trivia.
+leadingToken :: Token -> Conversion ()
+leadingToken t = token $ t
+  { tokenTrailingTrivia = []
+  -- Move the trailing trivia to the leading trivia field.
+  , tokenLeadingTrivia = tokenLeadingTrivia t ++ tokenTrailingTrivia t
+  }
 
-        newState = oldState
-          { conversionAttachedLeadingComments = attachedLeadingComments
-          , conversionAttachedTrailingComments = []
-          , conversionAttachedCommentsSide = Leading
-          }
-      in
-        Just ((), newState)
-
-captureUnattachedComments :: Conversion a -> Conversion ([UnattachedComment], a)
-captureUnattachedComments ma = Conversion $ \s0 -> do
-  (a, s1) <- runConversion ma (s0 { conversionUnattachedComments = [] })
-  return
-    ( (conversionUnattachedComments s1, a)
-    , s1 { conversionUnattachedComments = conversionUnattachedComments s0 }
-    )
+-- Convert every item in a comma list and capture the comments between items in a comma list.
+-- Returns a list of the converted items.
+convertCommaList :: (a -> Conversion b) -> CST.CommaList a -> Conversion [MaybeComment b]
+convertCommaList f (CST.CommaList as an) = do
+  -- Take the unattached comments before and after we try converting the last item in the comma
+  -- list. If there is no last item then `cs2` will always be empty. If there is a list item then
+  -- `cs2` might have some values.
+  cs1 <- takeConversionUnattachedComments
+  bn <- recoverMaybe an >>= mapM f
+  cs2 <- takeConversionUnattachedComments
+  -- Iterate in reverse through all items in the comma list.
+  foldrM
+    -- Convert each item and attempt take unattached comments for each item.
+    (\(a, t) bs -> do
+      recover t >>= token
+      b <- recover a >>= f
+      cs <- takeConversionUnattachedComments
+      return (map Left cs ++ (Right b : bs)))
+    -- Add up out initial list before we even start iterating through the main items.
+    (map Left cs2 ++ maybeToList (Right <$> bn) ++ map Left cs1)
+    as
 
 -- Converts a sequence of CST statements into a sequence of AST statements.
 convertStatementSequence :: [MaybeComment Statement] -> [Recover CST.Statement] -> [MaybeComment Statement]
@@ -598,17 +584,16 @@ convertStatementSequence =
                 { conversionUnattachedComments = cs1
                 , conversionAttachedLeadingComments = cs2
                 , conversionAttachedTrailingComments = cs3
-                , conversionAttachedCommentsSide = _
                 , conversionLeadingEmptyLine = l
                 } =
-                  snd (fromJust (runConversion (splitToken t) initialConversionState))
+                  tokenUpdateState t initialConversionState
 
-              cs4 = case map (UnattachedComment False . attachedComment) (cs3 ++ cs2) of
+              cs4 = case map (UnattachedComment False . attachedComment) (cs2 ++ cs3) of
                 [] -> []
-                (UnattachedComment _ c) : cs | fromMaybe False l -> UnattachedComment True c : cs
+                (UnattachedComment _ c) : cs | l -> UnattachedComment True c : cs
                 cs -> cs
             in
-              reverseAppend (map Left cs1) (reverseAppend (map Left cs4) ss)
+              map Left cs1 ++ map Left cs4 ++ ss
 
           -- For all other statements attempt to convert the statement by
           -- calling `convertStatement`.
@@ -627,13 +612,10 @@ convertStatementSequence =
                     { conversionUnattachedComments = cs1
                     , conversionAttachedLeadingComments = cs2
                     , conversionAttachedTrailingComments = cs3
-                    , conversionAttachedCommentsSide = _
                     , conversionLeadingEmptyLine = l
                     } = state
                 in
-                  reverseAppend
-                    (map Left cs1)
-                    (Right (Statement (fromMaybe False l) (reverse cs2) (reverse cs3) s3) : ss)
+                  map Left cs1 ++ (Right (Statement l cs2 cs3 s3) : ss)
 
           -- If we have an error recovery statement then add a concrete, fatal, statement to our
           -- list but also recurse with an `Ok` version of our recovered statement.
@@ -648,10 +630,6 @@ convertStatementSequence =
     in
       loop s0
   where
-    -- Append the two lists but reverse the first one.
-    reverseAppend [] ys = ys
-    reverseAppend (x : xs) ys = reverseAppend xs (x : ys)
-
     -- Does this list of tokens have a leading line?
     tokensHaveLeadingLine [] = False
     tokensHaveLeadingLine (t : _) = triviaHasLeadingLine (tokenLeadingTrivia t)
@@ -670,25 +648,22 @@ convertStatementSequence =
 -- and comments.
 convertStatement :: CST.Statement -> Conversion StatementNode
 convertStatement s0 = case s0 of
-  CST.ExpressionStatement x' t -> do
-    x <- convertExpression x'
+  CST.ExpressionStatement x t -> do
     recoverMaybe t >>= mapM_ token
-    return (ExpressionStatement x)
+    ExpressionStatement <$> convertExpression x
 
   CST.ReturnStatement t1 x0 t2 -> do
-    token t1
-    x2 <- recoverMaybe x0 >>= mapM (\x1 -> do
-      (cs, x2) <- captureUnattachedComments (convertExpression x1)
-      return (reverse cs, x2))
     recoverMaybe t2 >>= mapM_ token
+    x1 <- recoverMaybe x0 >>= mapM convertExpression
+    x2 <- mapM (\x -> flip (,) x <$> takeConversionUnattachedComments) x1
+    token t1
     return (ReturnStatement x2)
 
   CST.BreakStatement t1 x0 t2 -> do
-    token t1
-    x2 <- recoverMaybe x0 >>= mapM (\x1 -> do
-      (cs, x2) <- captureUnattachedComments (convertExpression x1)
-      return (reverse cs, x2))
     recoverMaybe t2 >>= mapM_ token
+    x1 <- recoverMaybe x0 >>= mapM convertExpression
+    x2 <- mapM (\x -> flip (,) x <$> takeConversionUnattachedComments) x1
+    token t1
     return (BreakStatement x2)
 
   -- Empty statements should be handled by `convertStatementSequence`!
@@ -697,713 +672,103 @@ convertStatement s0 = case s0 of
 -- Convert a CST block into an AST block.
 convertBlock :: CST.Block -> Conversion Block
 convertBlock (CST.Block t1 ss' t2) = do
+  recover t2 >>= token
+  cs <- takeConversionUnattachedComments
+  let ss = convertStatementSequence (map Left cs) ss'
   recover t1 >>= token
-  (cs, ()) <- captureUnattachedComments (recover t2 >>= token)
-  let ss = convertStatementSequence (reverse (map Left cs)) ss'
   return (Block ss)
 
 -- Convert a CST expression into an AST expression.
+--
+-- IMPORTANT: Remember to add tokens in reverse of the order they were declared in!!!
 convertExpression :: CST.Expression -> Conversion Expression
 convertExpression x0 = case x0 of
   CST.ConstantExpression (CST.BooleanConstant b t) -> build $ do
-    splitToken t
+    token t
     return (ConstantExpression (BooleanConstant b))
 
   CST.VariableExpression (CST.Name n t) -> build $ do
-    splitToken t
+    token t
     return (VariableExpression n)
 
   CST.UnaryExpression op t x' -> build $ do
-    token t
     x <- recover x' >>= convertExpression
+    leadingToken t
     return (UnaryExpression op x)
 
   CST.BlockExpression t b' -> build $ do
-    token t
     b <- convertBlock b'
+    leadingToken t
     return (BlockExpression b)
 
   CST.LoopExpression t b' -> build $ do
-    token t
     b <- convertBlock b'
+    leadingToken t
     return (LoopExpression b)
 
-  -- For a wrapped expression with no type annotation we will be removing the wrapping parentheses.
-  -- Make sure the comments from the parentheses tokens are added to the expression.
   CST.WrappedExpression t1 x' Nothing t2 -> do
-    token t1
-    x <- recover x' >>= convertExpression
     recover t2 >>= token
-    Conversion $ \s ->
-      let
-        cs1 = conversionAttachedLeadingComments s
-        cs2 = conversionAttachedTrailingComments s
-      in
-        if null cs1 && null cs2 then Just (x, s)
-        else Just
-          ( x { expressionTrailingComments = expressionTrailingComments x ++ reverse cs1 ++ reverse cs2 }
-          , s { conversionAttachedLeadingComments = [], conversionAttachedTrailingComments = [] }
-          )
+    x <- recover x' >>= convertExpression
+    token t1
+    cs1 <- takeConversionAttachedLeadingComments
+    cs2 <- takeConversionAttachedTrailingComments
+    return (x { expressionLeadingComments = cs1 ++ cs2 ++ expressionLeadingComments x })
 
-  -- CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
-  --   -- Iterate through all our operations in reverse. We use the same trick as `Data.Monoid.Endo` or
-  --   -- `DList` to build the expression in the right way. The `build` function takes an `Expression`
-  --   -- and returns an `Expression`. We may then add binary expression wrappers however we see fit.
-  --   make <-
-  --     foldrM
-  --       (\y make ->
-  --         case y of
-  --           Ok (CST.BinaryExpressionOperation op t x2') -> do
-  --             -- Convert the expression and then the operator token.
-  --             x2 <- recover x2' >>= convertExpression
-  --             token t
-  --             -- Take all the comments in our state. The unattached comments we will put in the slot
-  --             -- right before the right-hand-side expression.
-  --             cs1 <- takeConversionUnattachedComments
-  --             -- The attached comments we will attach as leading comments to our right-hand-side
-  --             -- expression.
-  --             cs2 <- takeConversionAttachedLeadingComments
-  --             cs3 <- takeConversionAttachedTrailingComments
-  --             -- Add a function which will create the desired binary expression.
-  --             return (make . (\x1 ->
-  --               Expression [] [] (BinaryExpression x1 op cs1
-  --                 (x2 { expressionLeadingComments = cs2 ++ cs3 ++ expressionLeadingComments x2 }))))
+  CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
+    -- Iterate through all our operations in reverse. We use the same trick as `Data.Monoid.Endo` or
+    -- `DList` to build the expression in the right way. The `build` function takes an `Expression`
+    -- and returns an `Expression`. We may then add binary expression wrappers however we see fit.
+    make <-
+      foldrM
+        (\y make ->
+          case y of
+            Ok (CST.BinaryExpressionOperation op t x2') -> do
+              -- Convert the expression and then the operator token.
+              x2 <- recover x2' >>= convertExpression
+              token t
+              -- Take all the comments in our state. The unattached comments we will put in the slot
+              -- right before the right-hand-side expression.
+              cs1 <- takeConversionUnattachedComments
+              -- The attached comments we will attach as leading comments to our right-hand-side
+              -- expression.
+              cs2 <- takeConversionAttachedLeadingComments
+              cs3 <- takeConversionAttachedTrailingComments
+              -- Add a function which will create the desired binary expression.
+              return (make . (\x1 ->
+                Expression [] [] (BinaryExpression x1 op cs1
+                  (x2 { expressionLeadingComments = cs2 ++ cs3 ++ expressionLeadingComments x2 }))))
 
-  --           -- Panic if there was some parse error.
-  --           Recover _ _ _ -> panic
-  --           Fatal _ _ -> panic)
-  --       id (Ok y' : ys')
-  --   -- Convert our left-most expression last!
-  --   x1 <- convertExpression x1'
-  --   -- Call our build function with the left-most expression and return it.
-  --   return (make x1)
+            -- Panic if there was some parse error.
+            Recover _ _ _ -> panic
+            Fatal _ _ -> panic)
+        id (Ok y' : ys')
+    -- Convert our left-most expression last!
+    x1 <- convertExpression x1'
+    -- Call our build function with the left-most expression and return it.
+    return (make x1)
 
   CST.ExpressionExtra x1' (Ok (CST.PropertyExpressionExtra t1 n')) -> build $ do
     CST.Name n t2 <- recover n'
+    token t2
+    token t1
+    -- Capture unattached comments that come before the property access.
+    cs <- takeConversionUnattachedComments
     x1 <- convertExpression x1'
-    -- Capture unattached comments written above the property access.
-    (cs, ()) <- captureUnattachedComments (token t1 *> token t2)
-    return (PropertyExpression x1 (reverse cs) n)
+    return (PropertyExpression x1 cs n)
 
-  -- CST.ExpressionExtra x1' (Ok (CST.CallExpressionExtra t1 xs' t2)) -> build $ do
-  --   recover t2 >>= token
-  --   xs <- convertCommaList convertExpression xs'
-  --   token t1
-  --   x1 <- convertExpression x1'
-  --   return (CallExpression x1 xs)
+  CST.ExpressionExtra x1' (Ok (CST.CallExpressionExtra t1 xs' t2)) -> build $ do
+    recover t2 >>= token
+    xs <- convertCommaList convertExpression xs'
+    token t1
+    x1 <- convertExpression x1'
+    return (CallExpression x1 xs)
 
   CST.ExpressionExtra _ (Recover _ _ _) -> panic
   CST.ExpressionExtra _ (Fatal _ _) -> panic
 
   where
-    build mx = Conversion $ \s0 -> do
-      ((), s1) <- runConversion leading s0
-      (x, s2) <- runConversion mx s1
-      return
-        ( Expression
-            (reverse (conversionAttachedLeadingComments s2))
-            (reverse (conversionAttachedTrailingComments s2))
-            x
-        , s2
-            { conversionAttachedLeadingComments = []
-            , conversionAttachedTrailingComments = []
-            }
-        )
-
--- -- Concatenates two lists together but reverses the first list while doing so. More efficient in
--- -- theory than `reverse xs ++ ys`.
--- reverseAppend :: [a] -> [a] -> [a]
--- reverseAppend [] ys = ys
--- reverseAppend (x : xs) ys = reverseAppend xs (x : ys)
-
--- The state of our conversion from CST to AST.
-
--- -- Consumes a token and adds it to our conversion state.
--- token :: Token -> Conversion ()
--- token t = Conversion $ \oldState ->
---   let
---     (leadingLines, unattachedComments, newAttachedLeadingComments) =
---       foldl
---         (\(n, cs1, cs2) tr ->
---           case tr of
---             Spaces _ -> (n, cs1, cs2)
---             Tabs _ -> (n, cs1, cs2)
---             OtherWhitespace _ -> (n, cs1, cs2)
---             Newlines _ m -> (n + m, cs1, cs2)
---             Comment c | n == 0 -> (0, cs1, AttachedComment c : cs2)
---             Comment c ->
---               let
---                 cs3 =
---                   map (UnattachedComment False . attachedComment) cs2 ++
---                     (UnattachedComment (n > 1) c : cs1)
---               in
---                 (0, cs3, []))
---         (0, conversionUnattachedComments oldState, [])
---         (tokenLeadingTrivia t)
-
---     attachedTrailingComments =
---       foldr
---         (\tr cs ->
---           case tr of
---             Spaces _ -> cs
---             Tabs _ -> cs
---             OtherWhitespace _ -> cs
---             Newlines _ _ -> cs
---             Comment c -> AttachedComment c : cs)
---         (conversionAttachedTrailingComments oldState)
---         (tokenTrailingTrivia t)
-
---     leadingEmptyLine = case conversionLeadingEmptyLine oldState of
---       Nothing -> Just (leadingLines > 1)
---       l@(Just _) -> l
-
---     newState = case conversionAttachedLeadingComments oldState of
---       Nothing -> ConversionState
---         { conversionUnattachedComments = unattachedComments
---         , conversionAttachedLeadingComments = Just (reverse newAttachedLeadingComments)
---         , conversionAttachedTrailingComments = attachedTrailingComments
---         , conversionLeadingEmptyLine = leadingEmptyLine
---         }
---       attachedLeadingComments@(Just _) -> ConversionState
---         { conversionUnattachedComments = unattachedComments
---         , conversionAttachedLeadingComments = attachedLeadingComments
---         , conversionAttachedTrailingComments = reverseAppend newAttachedLeadingComments attachedTrailingComments
---         , conversionLeadingEmptyLine = leadingEmptyLine
---         }
---   in
---     Just ((), newState)
-
--- -- Takes the unattached comments out of our conversion state.
--- --
--- -- NOTE: These comments are in reverse order!!!
--- takeConversionUnattachedComments :: Conversion [UnattachedComments]
--- takeConversionUnattachedComments =
---   Conversion (\s -> Just (conversionUnattachedComments s, s { conversionUnattachedComments = [] }))
-
--- -- getConversionAttachedComments :: Conversion a -> Conversion ([AttachedComment], a, [AttachedComment])
-
--- -- Convert a CST expression into an AST expression.
--- convertExpression :: CST.Expression -> Conversion Expression
--- convertExpression x0 = case x0 of
---   CST.ConstantExpression (CST.BooleanConstant b t) -> build $ do
---     token t
---     return (ConstantExpression (BooleanConstant b))
-
-  -- CST.VariableExpression (CST.Name n t) -> build $ do
-  --   token t
-  --   return (VariableExpression n)
-
-  -- CST.UnaryExpression op t x' -> build $ do
-  --   x <- recover x' >>= convertExpression
-  --   leadingToken t
-  --   return (UnaryExpression op x)
-
-  -- -- CST.UnaryExpression op t x' -> do
-  -- --   x <- convertExpression x'
-  -- --   return (group (UnaryExpression op <$> (token t *> x)))
-
-  -- CST.BlockExpression t b' -> build $ do
-  --   b <- convertBlock b'
-  --   leadingToken t
-  --   return (BlockExpression b)
-
-  -- CST.LoopExpression t b' -> build $ do
-  --   b <- convertBlock b'
-  --   leadingToken t
-  --   return (LoopExpression b)
-
-  -- CST.WrappedExpression t1 x' Nothing t2 -> do
-  --   recover t2 >>= token
-  --   x <- recover x' >>= convertExpression
-  --   token t1
-  --   cs1 <- takeConversionAttachedLeadingComments
-  --   cs2 <- takeConversionAttachedTrailingComments
-  --   return (x { expressionLeadingComments = cs1 ++ cs2 ++ expressionLeadingComments x })
-
-  -- CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
-  --   -- Iterate through all our operations in reverse. We use the same trick as `Data.Monoid.Endo` or
-  --   -- `DList` to build the expression in the right way. The `build` function takes an `Expression`
-  --   -- and returns an `Expression`. We may then add binary expression wrappers however we see fit.
-  --   make <-
-  --     foldrM
-  --       (\y make ->
-  --         case y of
-  --           Ok (CST.BinaryExpressionOperation op t x2') -> do
-  --             -- Convert the expression and then the operator token.
-  --             x2 <- recover x2' >>= convertExpression
-  --             token t
-  --             -- Take all the comments in our state. The unattached comments we will put in the slot
-  --             -- right before the right-hand-side expression.
-  --             cs1 <- takeConversionUnattachedComments
-  --             -- The attached comments we will attach as leading comments to our right-hand-side
-  --             -- expression.
-  --             cs2 <- takeConversionAttachedLeadingComments
-  --             cs3 <- takeConversionAttachedTrailingComments
-  --             -- Add a function which will create the desired binary expression.
-  --             return (make . (\x1 ->
-  --               Expression [] [] (BinaryExpression x1 op cs1
-  --                 (x2 { expressionLeadingComments = cs2 ++ cs3 ++ expressionLeadingComments x2 }))))
-
-  --           -- Panic if there was some parse error.
-  --           Recover _ _ _ -> panic
-  --           Fatal _ _ -> panic)
-  --       id (Ok y' : ys')
-  --   -- Convert our left-most expression last!
-  --   x1 <- convertExpression x1'
-  --   -- Call our build function with the left-most expression and return it.
-  --   return (make x1)
-
-  -- CST.ExpressionExtra x1' (Ok (CST.PropertyExpressionExtra t1 n')) -> build $ do
-  --   CST.Name n t2 <- recover n'
-  --   token t2
-  --   token t1
-  --   -- Capture unattached comments that come before the property access.
-  --   cs <- takeConversionUnattachedComments
-  --   x1 <- convertExpression x1'
-  --   return (PropertyExpression x1 cs n)
-
-  -- CST.ExpressionExtra x1' (Ok (CST.CallExpressionExtra t1 xs' t2)) -> build $ do
-  --   recover t2 >>= token
-  --   xs <- convertCommaList convertExpression xs'
-  --   token t1
-  --   x1 <- convertExpression x1'
-  --   return (CallExpression x1 xs)
-
-  -- CST.ExpressionExtra _ (Recover _ _ _) -> panic
-  -- CST.ExpressionExtra _ (Fatal _ _) -> panic
-
-  -- where
-  --   build mx = do
-  --     x <- mx
-  --     cs1 <- takeConversionAttachedLeadingComments
-  --     cs2 <- takeConversionAttachedTrailingComments
-  --     return (Expression cs1 cs2 x)
-
-
-
--- convertModule (CST.Module ss t) =
---   Module (convertStatementSequence (trivia 0 (endTokenTrivia t)) ss)
---   where
---     trivia _ [] = []
---     trivia n (Spaces _ : ts) = trivia n ts
---     trivia n (Tabs _ : ts) = trivia n ts
---     trivia n (OtherWhitespace _ : ts) = trivia n ts
---     trivia n (Newlines _ m : ts) = trivia (n + m) ts
---     trivia n (Comment c : ts) = Left (UnattachedComment (n > 1) c) : trivia 0 ts
-
--- data Conversion2
---   = TokenConversion Token
---   | ConcatConversion Conversion2 Conversion2
---   | GroupConversion
-
--- -- data Conversion2 a where
--- --   TokenConversion :: Token -> Conversion2 ()
--- --   MapConversion :: (a -> b) -> Conversion2 a -> Conversion2 b
--- --   PureConversion :: a -> Conversion2 a
--- --   ApplyConversion :: Conversion2 (a -> b) -> Conversion2 a -> Conversion2 b
--- --   GroupConversion :: ([AttachedComment] -> [AttachedComment] -> a -> b) -> Conversion2 a -> Conversion2 b
-
--- -- instance Functor Conversion2 where
--- --   fmap = MapConversion
-
--- -- instance Applicative Conversion2 where
--- --   pure = PureConversion
--- --   (<*>) = ApplyConversion
-
--- -- runConversion2 :: Conversion2 a -> a
--- -- runConversion2 =
-
--- -- The monad we use for converting the CST into a printer AST.
--- newtype Conversion a = Conversion
---   { runConversion :: ConversionState -> Maybe (a, ConversionState)
---   }
-
--- instance Functor Conversion where
---   fmap f x = Conversion $ \s1 -> do
---     (a, s2) <- runConversion x s1
---     return (f a, s2)
-
--- instance Applicative Conversion where
---   pure a = Conversion (\s -> Just (a, s))
---   x <*> y = Conversion $ \s1 -> do
---     (f, s2) <- runConversion x s1
---     (a, s3) <- runConversion y s2
---     return (f a, s3)
-
--- instance Monad Conversion where
---   x >>= f = Conversion $ \s1 -> do
---     (a, s2) <- runConversion x s1
---     runConversion (f a) s2
-
--- -- Panics the conversion discarding all current and future progress until the panic is caught.
--- panic :: Conversion a
--- panic = Conversion (\_ -> Nothing)
-
--- -- Panics if we have `Fatal` or `Recover`.
--- recover :: Recover a -> Conversion a
--- recover (Ok a) = return a
--- recover (Recover _ _ _) = panic
--- recover (Fatal _ _) = panic
-
--- -- Panics if we have `Fatal` or `Recover` and returns `Nothing` if the maybe was `Nothing`.
--- recoverMaybe :: Maybe (Recover a) -> Conversion (Maybe a)
--- recoverMaybe Nothing = return Nothing
--- recoverMaybe (Just (Ok a)) = return (Just a)
--- recoverMaybe (Just (Recover _ _ _)) = panic
--- recoverMaybe (Just (Fatal _ _)) = panic
-
--- data ConversionState = ConversionState
---   -- A buffer for unattached comments at the current conversion position. Once we find a place where
---   -- we can have unattached comments this list will be emptied.
---   { conversionUnattachedComments :: [UnattachedComment]
---   -- A list of attached leading comments at the current conversion position. Every time a new token
---   -- is added we add our leading comments list to our trailing comments list. This list will only
---   -- ever hold the attached leading comments for the last token added to state.
---   , conversionAttachedLeadingComments :: [AttachedComment]
---   -- A list of attached trailing comments at the current conversion position.
---   , conversionAttachedTrailingComments :: [AttachedComment]
---   -- Is there a leading empty line before the last token to be added to state but also under the
---   -- first comment above that token?
---   --
---   -- ```ite
---   -- // Hello, world!
---   --
---   -- let x = y;
---   -- ```
---   --
---   -- That is we will have a leading empty line for the `x` statement above, but not for the `x`
---   -- statement below.
---   --
---   -- ```ite
---   --
---   -- // Hello, world!
---   -- let x = y;
---   -- ```
---   , conversionLeadingEmptyLine :: Bool
---   }
-
--- -- Create an initial conversion state.
--- initialConversionState :: ConversionState
--- initialConversionState = ConversionState
---   { conversionUnattachedComments = []
---   , conversionAttachedLeadingComments = []
---   , conversionAttachedTrailingComments = []
---   , conversionLeadingEmptyLine = False
---   }
-
--- -- Takes the unattached comments out of our conversion state.
--- takeConversionUnattachedComments :: Conversion [UnattachedComment]
--- takeConversionUnattachedComments = Conversion $ \s ->
---   Just (conversionUnattachedComments s, s { conversionUnattachedComments = [] })
-
--- -- Takes the attached leading comments out of our conversion state.
--- takeConversionAttachedLeadingComments :: Conversion [AttachedComment]
--- takeConversionAttachedLeadingComments = Conversion $ \s ->
---   Just (conversionAttachedLeadingComments s, s { conversionAttachedLeadingComments = [] })
-
--- -- Takes the attached trailing comments out of our conversion state.
--- takeConversionAttachedTrailingComments :: Conversion [AttachedComment]
--- takeConversionAttachedTrailingComments = Conversion $ \s ->
---   Just (conversionAttachedTrailingComments s, s { conversionAttachedTrailingComments = [] })
-
--- -- Consumes a token and adds its trivia to state. Remember that we expect tokens to be added to
--- -- state in reverse of the order in which they were written in source code! As such comments are
--- -- added to the _beginning_ of our comment lists in state.
--- token :: Token -> Conversion ()
--- token t = Conversion (\s -> Just ((), tokenUpdateState t s))
-
--- -- Updates the conversion state with out token. Separate from `token` so that we can call it outside
--- -- of the `Conversion` monad.
--- tokenUpdateState :: Token -> ConversionState -> ConversionState
--- tokenUpdateState t s =
---   let
---     -- Build a reversed list of attached trailing comments using the token’s trailing trivia.
---     attachedTrailingComments =
---       foldr
---         (\trivia cs ->
---           case trivia of
---             Spaces _ -> cs
---             Tabs _ -> cs
---             Newlines _ _ -> cs
---             Comment c -> AttachedComment c : cs
---             OtherWhitespace _ -> cs)
---         (conversionAttachedLeadingComments s ++ conversionAttachedTrailingComments s)
---         (tokenTrailingTrivia t)
-
---     -- Get new attached comments and unattached comments by iterating in reverse through the token’s
---     -- leading trivia.
---     (_, initialLeadingLines, _, attachedLeadingComments, unattachedComments) =
---       foldr
---         (\trivia (a, n1, n, cs1, cs2) ->
---           case trivia of
---             -- Skip whitespace.
---             Spaces _ -> (a, n1, n, cs1, cs2)
---             Tabs _ -> (a, n1, n, cs1, cs2)
---             OtherWhitespace _ -> (a, n1, n, cs1, cs2)
-
---             -- If we have more than one newline between our latest unattached comment and whatever
---             -- is above it then we have an empty leading line.
---             Newlines _ m ->
---               (False, (m +) <$> n1, n + m, cs1, case cs2 of
---                 UnattachedComment False c : cs | n + m > 1 -> UnattachedComment True c : cs
---                 cs -> cs)
-
---             -- Attach comments if we are on the same line as our token. Finalize `n1` by
---             -- transitioning from `Right` to `Left` at the first unattached comment we see.
---             Comment c | a -> (True, n1, 0, AttachedComment c : cs1, cs2)
---             Comment c -> (False, either Left Left n1, 0, cs1, UnattachedComment False c : cs2))
---         (True, Right 0, 0, [], conversionUnattachedComments s)
---         -- All tokens with leading trivia are the first token on their line. The previous new line
---         -- was consumed by the trailing trivia of the last token on the last line. We model that
---         -- missing new line here by adding a `Newlines` trivia.
---         (if not (null (tokenLeadingTrivia t)) then Newlines LF 1 : tokenLeadingTrivia t
---         else tokenLeadingTrivia t)
---   in
---     -- Construct the new state.
---     ConversionState
---       { conversionUnattachedComments = unattachedComments
---       , conversionAttachedLeadingComments = attachedLeadingComments
---       , conversionAttachedTrailingComments = attachedTrailingComments
---       , conversionLeadingEmptyLine = either id id initialLeadingLines > 1
---       }
-
--- -- Consumes a token and adds its trivia to state. All the trivia for this token (even the trailing
--- -- trivia) will be considered leading trivia.
--- leadingToken :: Token -> Conversion ()
--- leadingToken t = token $ t
---   { tokenTrailingTrivia = []
---   -- Move the trailing trivia to the leading trivia field.
---   , tokenLeadingTrivia = tokenLeadingTrivia t ++ tokenTrailingTrivia t
---   }
-
--- -- Convert every item in a comma list and capture the comments between items in a comma list.
--- -- Returns a list of the converted items.
--- convertCommaList :: (a -> Conversion b) -> CST.CommaList a -> Conversion [MaybeComment b]
--- convertCommaList f (CST.CommaList as an) = do
---   -- Take the unattached comments before and after we try converting the last item in the comma
---   -- list. If there is no last item then `cs2` will always be empty. If there is a list item then
---   -- `cs2` might have some values.
---   cs1 <- takeConversionUnattachedComments
---   bn <- recoverMaybe an >>= mapM f
---   cs2 <- takeConversionUnattachedComments
---   -- Iterate in reverse through all items in the comma list.
---   foldrM
---     -- Convert each item and attempt take unattached comments for each item.
---     (\(a, t) bs -> do
---       recover t >>= token
---       b <- recover a >>= f
---       cs <- takeConversionUnattachedComments
---       return (map Left cs ++ (Right b : bs)))
---     -- Add up out initial list before we even start iterating through the main items.
---     (map Left cs2 ++ maybeToList (Right <$> bn) ++ map Left cs1)
---     as
-
--- -- Converts a sequence of CST statements into a sequence of AST statements.
--- convertStatementSequence :: [MaybeComment Statement] -> [Recover CST.Statement] -> [MaybeComment Statement]
--- convertStatementSequence =
---   -- Use `foldr` to iterate in reverse through all our statements.
---   foldr $ \s0 ss ->
---     let
---       loop s1 =
---         case s1 of
---           -- Add all the comments from an empty statement to the statement list, but don’t add the
---           -- empty statement itself. We never print an empty statement. They are mostly only for
---           -- error recovery.
---           Ok (CST.EmptyStatement t) ->
---             let
---               ConversionState
---                 { conversionUnattachedComments = cs1
---                 , conversionAttachedLeadingComments = cs2
---                 , conversionAttachedTrailingComments = cs3
---                 , conversionLeadingEmptyLine = l
---                 } =
---                   tokenUpdateState t initialConversionState
-
---               cs4 = case map (UnattachedComment False . attachedComment) (cs2 ++ cs3) of
---                 [] -> []
---                 (UnattachedComment _ c) : cs | l -> UnattachedComment True c : cs
---                 cs -> cs
---             in
---               map Left cs1 ++ map Left cs4 ++ ss
-
---           -- For all other statements attempt to convert the statement by
---           -- calling `convertStatement`.
---           Ok s2 ->
---             case runConversion (convertStatement s2) initialConversionState of
---               -- If the statement contains some parse error and we throw away all our conversion
---               -- work then add our CST statement to the list. Our printer will print out the raw
---               -- version of this statement instead of a pretty printed version.
---               Nothing ->
---                 let leadingLine = triviaHasLeadingLine (tokenLeadingTrivia (CST.statementFirstToken s2)) in
---                   Right (Statement leadingLine [] [] (ConcreteStatement (Ok s2))) : ss
-
---               Just (s3, state) ->
---                 let
---                   ConversionState
---                     { conversionUnattachedComments = cs1
---                     , conversionAttachedLeadingComments = cs2
---                     , conversionAttachedTrailingComments = cs3
---                     , conversionLeadingEmptyLine = l
---                     } = state
---                 in
---                   map Left cs1 ++ (Right (Statement l cs2 cs3 s3) : ss)
-
---           -- If we have an error recovery statement then add a concrete, fatal, statement to our
---           -- list but also recurse with an `Ok` version of our recovered statement.
---           Recover ts e s2 ->
---             let s3 = Statement (tokensHaveLeadingLine ts) [] [] (ConcreteStatement (Fatal ts e)) in
---               Right s3 : loop (Ok s2)
-
---           -- If we have a fatal statement then add a concrete, fatal, statement to our list.
---           Fatal ts e ->
---             let s2 = Statement (tokensHaveLeadingLine ts) [] [] (ConcreteStatement (Fatal ts e)) in
---               Right s2 : ss
---     in
---       loop s0
---   where
---     -- Does this list of tokens have a leading line?
---     tokensHaveLeadingLine [] = False
---     tokensHaveLeadingLine (t : _) = triviaHasLeadingLine (tokenLeadingTrivia t)
-
---     -- Does this list of trivia have a leading line?
---     triviaHasLeadingLine [] = False
---     triviaHasLeadingLine (Spaces _ : ts) = triviaHasLeadingLine ts
---     triviaHasLeadingLine (Tabs _ : ts) = triviaHasLeadingLine ts
---     triviaHasLeadingLine (Newlines _ _ : _) = True
---     triviaHasLeadingLine (Comment _ : _) = False
---     triviaHasLeadingLine (OtherWhitespace _ : ts) = triviaHasLeadingLine ts
-
--- -- Convert a CST statement into an AST statement node. `convertStatementSequence` will do the final
--- -- conversion from a statement node into a statement. We don’t do the final conversion to a
--- -- statement in this function because we want to let `convertStatementSequence` handle errors
--- -- and comments.
--- convertStatement :: CST.Statement -> Conversion StatementNode
--- convertStatement s0 = case s0 of
---   CST.ExpressionStatement x t -> do
---     recoverMaybe t >>= mapM_ token
---     ExpressionStatement <$> convertExpression x
-
---   CST.ReturnStatement t1 x0 t2 -> do
---     recoverMaybe t2 >>= mapM_ token
---     x1 <- recoverMaybe x0 >>= mapM convertExpression
---     x2 <- mapM (\x -> flip (,) x <$> takeConversionUnattachedComments) x1
---     token t1
---     return (ReturnStatement x2)
-
---   CST.BreakStatement t1 x0 t2 -> do
---     recoverMaybe t2 >>= mapM_ token
---     x1 <- recoverMaybe x0 >>= mapM convertExpression
---     x2 <- mapM (\x -> flip (,) x <$> takeConversionUnattachedComments) x1
---     token t1
---     return (BreakStatement x2)
-
---   -- Empty statements should be handled by `convertStatementSequence`!
---   CST.EmptyStatement _ -> panic
-
--- -- Convert a CST block into an AST block.
--- convertBlock :: CST.Block -> Conversion Block
--- convertBlock (CST.Block t1 ss' t2) = do
---   recover t2 >>= token
---   cs <- takeConversionUnattachedComments
---   let ss = convertStatementSequence (map Left cs) ss'
---   recover t1 >>= token
---   return (Block ss)
-
--- -- Convert a CST expression into an AST expression.
--- --
--- -- IMPORTANT: Remember to add tokens in reverse of the order they were declared in!!!
--- convertExpression :: CST.Expression -> Conversion Expression
--- convertExpression x0 = case x0 of
---   CST.ConstantExpression (CST.BooleanConstant b t) -> build $ do
---     token t
---     return (ConstantExpression (BooleanConstant b))
-
---   CST.VariableExpression (CST.Name n t) -> build $ do
---     token t
---     return (VariableExpression n)
-
---   CST.UnaryExpression op t x' -> build $ do
---     x <- recover x' >>= convertExpression
---     leadingToken t
---     return (UnaryExpression op x)
-
---   -- CST.UnaryExpression op t x' -> do
---   --   x <- convertExpression x'
---   --   return (group (UnaryExpression op <$> (token t *> x)))
-
---   CST.BlockExpression t b' -> build $ do
---     b <- convertBlock b'
---     leadingToken t
---     return (BlockExpression b)
-
---   CST.LoopExpression t b' -> build $ do
---     b <- convertBlock b'
---     leadingToken t
---     return (LoopExpression b)
-
---   CST.WrappedExpression t1 x' Nothing t2 -> do
---     recover t2 >>= token
---     x <- recover x' >>= convertExpression
---     token t1
---     cs1 <- takeConversionAttachedLeadingComments
---     cs2 <- takeConversionAttachedTrailingComments
---     return (x { expressionLeadingComments = cs1 ++ cs2 ++ expressionLeadingComments x })
-
---   CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
---     -- Iterate through all our operations in reverse. We use the same trick as `Data.Monoid.Endo` or
---     -- `DList` to build the expression in the right way. The `build` function takes an `Expression`
---     -- and returns an `Expression`. We may then add binary expression wrappers however we see fit.
---     make <-
---       foldrM
---         (\y make ->
---           case y of
---             Ok (CST.BinaryExpressionOperation op t x2') -> do
---               -- Convert the expression and then the operator token.
---               x2 <- recover x2' >>= convertExpression
---               token t
---               -- Take all the comments in our state. The unattached comments we will put in the slot
---               -- right before the right-hand-side expression.
---               cs1 <- takeConversionUnattachedComments
---               -- The attached comments we will attach as leading comments to our right-hand-side
---               -- expression.
---               cs2 <- takeConversionAttachedLeadingComments
---               cs3 <- takeConversionAttachedTrailingComments
---               -- Add a function which will create the desired binary expression.
---               return (make . (\x1 ->
---                 Expression [] [] (BinaryExpression x1 op cs1
---                   (x2 { expressionLeadingComments = cs2 ++ cs3 ++ expressionLeadingComments x2 }))))
-
---             -- Panic if there was some parse error.
---             Recover _ _ _ -> panic
---             Fatal _ _ -> panic)
---         id (Ok y' : ys')
---     -- Convert our left-most expression last!
---     x1 <- convertExpression x1'
---     -- Call our build function with the left-most expression and return it.
---     return (make x1)
-
---   CST.ExpressionExtra x1' (Ok (CST.PropertyExpressionExtra t1 n')) -> build $ do
---     CST.Name n t2 <- recover n'
---     token t2
---     token t1
---     -- Capture unattached comments that come before the property access.
---     cs <- takeConversionUnattachedComments
---     x1 <- convertExpression x1'
---     return (PropertyExpression x1 cs n)
-
---   CST.ExpressionExtra x1' (Ok (CST.CallExpressionExtra t1 xs' t2)) -> build $ do
---     recover t2 >>= token
---     xs <- convertCommaList convertExpression xs'
---     token t1
---     x1 <- convertExpression x1'
---     return (CallExpression x1 xs)
-
---   CST.ExpressionExtra _ (Recover _ _ _) -> panic
---   CST.ExpressionExtra _ (Fatal _ _) -> panic
-
---   where
---     build mx = do
---       x <- mx
---       cs1 <- takeConversionAttachedLeadingComments
---       cs2 <- takeConversionAttachedTrailingComments
---       return (Expression cs1 cs2 x)
+    build mx = do
+      x <- mx
+      cs1 <- takeConversionAttachedLeadingComments
+      cs2 <- takeConversionAttachedTrailingComments
+      return (Expression cs1 cs2 x)

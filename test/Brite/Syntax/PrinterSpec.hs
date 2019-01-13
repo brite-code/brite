@@ -598,11 +598,6 @@ testData =
   , "/* a */ f/* b */()"
   , "/* a */ o/* b */.p"
   , "/* a */ o./* b */p"
-  , "f(a, /**/ b)"
-  , "f(\n//\na, /**/ b)"
-  , "/* a */ /* b */ ( /* c */ /* d */\nx\n/* e */ /* f */ ) /* g */ /* h */"
-  , "/* a */ /* b */\n/* c */\nx;"
-  , "-\n// -\nx;"
   ]
 
 openSnapshotFile :: IO Handle
