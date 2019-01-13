@@ -15,7 +15,9 @@
 -- The printer AST, on the other hand, does not carry information about where nodes were defined in
 -- source code and is designed to carries all comments.
 
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ExistentialQuantification #-}
 
 module Brite.Syntax.PrinterAST
   ( Module(..)
@@ -49,8 +51,11 @@ module Brite.Syntax.PrinterAST
 import Brite.Syntax.CST (Recover(..), UnaryOperator(..), BinaryOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
+import Control.Applicative ((<|>))
+import Control.Monad (join)
 import Data.Foldable (foldrM, mapM_)
 import Data.Maybe (maybeToList)
+import Data.Monoid (Endo(..))
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -381,6 +386,63 @@ convertModule (CST.Module ss t) =
     trivia n (OtherWhitespace _ : ts) = trivia n ts
     trivia n (Newlines _ m : ts) = trivia (n + m) ts
     trivia n (Comment c : ts) = Left (UnattachedComment (n > 1) c) : trivia 0 ts
+
+data Conversion2 a where
+  PureConversion :: a -> Conversion2 a
+  MapConversion :: (a -> b) -> Conversion2 a -> Conversion2 b
+  ApplyConversion :: Conversion2 (a -> b) -> Conversion2 a -> Conversion2 b
+  TokenConversion :: Token -> Conversion2 ()
+  GroupConversion :: ([[Trivia]] -> [[Trivia]] -> a -> b) -> Conversion2 a -> Conversion2 b
+
+data Box f = forall a. Box { unbox :: f a }
+
+runConversion2 :: Conversion2 a -> a
+runConversion2 = error "unimplemented"
+  where
+    loop :: Maybe (Maybe Token) -> Maybe (Maybe Token) -> Conversion2 a -> (Endo [[Trivia]], a, Endo [[Trivia]])
+    loop _ _ (PureConversion a) = (mempty, a, mempty)
+    loop t1 t2 (MapConversion f c) =  let (ts1, a, ts2) = loop t1 t2 c in (ts1, f a, ts2)
+
+    loop t1 t2 (ApplyConversion c1 c2) =
+      let
+        (ts1, f, ts2) = loop t1 (firstToken c2 <|> t2) c1
+        (ts3, a, ts4) = loop (lastToken c1 <|> t1) t2 c2
+      in
+        (ts1 <> ts2, f a, ts3 <> ts4)
+
+    loop _ (Just Nothing) (TokenConversion t) = (Endo (tokenLeadingTrivia t :), (), mempty)
+    loop _ _ (TokenConversion t) = (Endo (tokenLeadingTrivia t :), (), Endo (tokenTrailingTrivia t :))
+
+    loop (Just (Just t1)) _ (GroupConversion f c) =
+      let (ts1, a, ts2) = loop Nothing Nothing c in
+        (mempty, f (tokenTrailingTrivia t1 : appEndo ts1 []) (appEndo ts2 []) a, mempty)
+    loop _ _ (GroupConversion f c) =
+      let (ts1, a, ts2) = loop Nothing Nothing c in
+        (mempty, f (appEndo ts1 []) (appEndo ts2 []) a, mempty)
+
+    -- Gets the first token in the conversion.
+    --
+    -- * `Nothing` means the conversion is empty and has no tokens.
+    -- * `Just (Just t)` is the first token in the conversion.
+    -- * `Just Nothing` means the conversion ends in a group. We can’t see the tokens in a group.
+    firstToken :: Conversion2 a -> Maybe (Maybe Token)
+    firstToken (PureConversion _) = Nothing
+    firstToken (MapConversion _ c) = firstToken c
+    firstToken (ApplyConversion c1 c2) = firstToken c1 <|> firstToken c2
+    firstToken (TokenConversion t) = Just (Just t)
+    firstToken (GroupConversion _ _) = Just Nothing
+
+    -- Gets the last token in the conversion.
+    --
+    -- * `Nothing` means the conversion is empty and has no tokens.
+    -- * `Just (Just t)` is the last token in the conversion.
+    -- * `Just Nothing` means the conversion ends in a group. We can’t see the tokens in a group.
+    lastToken :: Conversion2 a -> Maybe (Maybe Token)
+    lastToken (PureConversion _) = Nothing
+    lastToken (MapConversion _ c) = lastToken c
+    lastToken (ApplyConversion c1 c2) = lastToken c2 <|> lastToken c1
+    lastToken (TokenConversion t) = Just (Just t)
+    lastToken (GroupConversion _ _) = Just Nothing
 
 -- The monad we use for converting the CST into a printer AST.
 newtype Conversion a = Conversion
