@@ -14,7 +14,7 @@ module Brite.Exception
 import Control.Exception (Exception)
 
 data BriteException
-  -- If the project database was upgraded _past_ what this build of Brite supports then we throw
+  -- If the project cache was upgraded _past_ what this build of Brite supports then we throw
   -- this exception.
   --
   -- This usually happens when a user runs a newer version of Brite on their project, thus updating
@@ -22,7 +22,7 @@ data BriteException
   -- cache format.
   --
   -- TODO: We should have a nicer error for users which includes version numbers if possible!!!
-  = ProjectDatabaseUnrecognizedVersion
+  = ProjectCacheUnrecognizedVersion
 
   deriving (Show)
 

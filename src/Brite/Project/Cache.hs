@@ -1,10 +1,16 @@
+-- Manages all the cached information in a Brite project. Brite uses a SQLite database to manage the
+-- cache. It’s important to remember why we call this module “Cache” and not “Database”. This isn’t
+-- the definitive source of information about the user’s program. The file system is. If the user
+-- throws away the cache we’ll just rebuild it. So the file system is the real “database” whereas
+-- our SQLite database is merely a cache of the file system.
+
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Project.Database
-  ( ProjectDatabase
-  , unsafeProjectDatabaseConnection
-  , withDatabase
-  , withTemporaryDatabase
+module Brite.Project.Cache
+  ( ProjectCache
+  , unsafeProjectCacheConnection
+  , withCache
+  , withTemporaryCache
   , SourceFile(..)
   , selectAllSourceFiles
   ) where
@@ -23,36 +29,37 @@ import System.FilePath ((</>))
 -- TODO: Error handling for SQLITE_BUSY
 
 -- Wrapper around a SQLite database connection. This allows us to control what operations the
--- outside world may perform on our database.
-newtype ProjectDatabase = ProjectDatabase { projectDatabaseConnection :: Connection }
+-- outside world may perform on our cache.
+newtype ProjectCache = ProjectCache { projectCacheConnection :: Connection }
 
--- Unsafely gets the database’s SQLite connection. You shouldn’t be using the raw SQLite database
+-- Unsafely gets the cache’s SQLite connection. You shouldn’t be using the raw SQLite database
 -- connection outside of this module! Let this module be responsible for all the SQLite work.
-unsafeProjectDatabaseConnection :: ProjectDatabase -> Connection
-unsafeProjectDatabaseConnection = projectDatabaseConnection
+unsafeProjectCacheConnection :: ProjectCache -> Connection
+unsafeProjectCacheConnection = projectCacheConnection
 
--- Opens a database connection, executes an action using this connection, and closes the connection,
+-- Opens a cache connection, executes an action using this connection, and closes the connection,
 -- even in the presence of exceptions.
-withDatabase :: ProjectCacheDirectory -> (ProjectDatabase -> IO a) -> IO a
-withDatabase projectCacheDirectory action =
-  let projectDatabasePath = getProjectCacheDirectory projectCacheDirectory </> "project.db" in
-    withConnection projectDatabasePath (\c ->
-      setupDatabase (ProjectDatabase c) *> action (ProjectDatabase c))
+withCache :: ProjectCacheDirectory -> (ProjectCache -> IO a) -> IO a
+withCache projectCacheDirectory action =
+  let projectCache = getProjectCacheDirectory projectCacheDirectory </> "project.db" in
+    withConnection projectCache (\c ->
+      setupCache (ProjectCache c) *> action (ProjectCache c))
 
--- Opens an in-memory temporary database connection, executes an action using this connection, and
--- closes the connection, even in the presence of exceptions. The database will vanish when the
+-- Opens an in-memory temporary cache connection, executes an action using this connection, and
+-- closes the connection, even in the presence of exceptions. The cache will vanish when the
 -- action completes.
-withTemporaryDatabase :: (ProjectDatabase -> IO a) -> IO a
-withTemporaryDatabase action =
+withTemporaryCache :: (ProjectCache -> IO a) -> IO a
+withTemporaryCache action =
   withConnection ":memory:" (\c ->
-    setupDatabase (ProjectDatabase c) *> action (ProjectDatabase c))
+    setupCache (ProjectCache c) *> action (ProjectCache c))
 
--- Setup the Brite database by running appropriate migrations. We determine which migrations need to
--- be run by looking at the [`user_version`][1] pragma which SQLite kindly provides to us.
+-- Setup the Brite SQLite cache database by running appropriate migrations. We determine which
+-- migrations need to be run by looking at the [`user_version`][1] pragma which SQLite kindly
+-- provides to us.
 --
 -- [1]: https://sqlite.org/pragma.html#pragma_user_version
-setupDatabase :: ProjectDatabase -> IO ()
-setupDatabase (ProjectDatabase c) = do
+setupCache :: ProjectCache -> IO ()
+setupCache (ProjectCache c) = do
   -- Query the database to get the current user version...
   userVersionRows <- query_ c "PRAGMA user_version" :: IO [Only Int]
   let userVersion = if null userVersionRows then 0 else fromOnly (head userVersionRows)
@@ -80,18 +87,18 @@ setupDatabase (ProjectDatabase c) = do
   -- If our `latestUserVersion` is smaller than the `userVersion` then we are using an old version
   -- of the Brite compiler with a new version of the cache.
   else if latestUserVersion < userVersion then
-    throwIO ProjectDatabaseUnrecognizedVersion
+    throwIO ProjectCacheUnrecognizedVersion
 
   -- Otherwise `latestUserVersion` is equal to `userVersion` so we have nothing to set up!
   else
     return ()
 
--- The latest possible `user_version` pragma. If in `setupDatabase` we find that our `user_version`
+-- The latest possible `user_version` pragma. If in `setupCache` we find that our `user_version`
 -- is smaller than the latest user version then we will run the appropriate migrations.
 latestUserVersion :: Int
 latestUserVersion = length allMigrations
 
--- Database migrations which get run in `setupDatabase`.
+-- Cache migrations which are run in `setupCache`.
 --
 -- IMPORTANT: Never change the schema migrations from a released Brite version! Only change the
 -- schema migrations for unreleased code. This allows us to upgrade the user’s cache whenever they
@@ -106,21 +113,21 @@ allMigrations =
     \"
   ]
 
--- The representation of a source file in our database.
+-- The representation of a source file in our cache.
 data SourceFile = SourceFile
   -- The unique identifier for this source file which can be used in foreign key constraints.
   { sourceFileID :: Int
   -- The path to our source file relative to the project’s `src` directory.
   , sourceFilePath :: SourceFilePath
-  -- The last time at which the source file was modified according to our database. In the file
-  -- system the file may have been modified but our database doesn’t know yet.
+  -- The last time at which the source file was modified according to our cache. In the file
+  -- system the file may have been modified but our cache doesn’t know yet.
   , sourceFileTime :: UTCTime
   }
 
 instance FromRow SourceFile where
   fromRow = SourceFile <$> field <*> (dangerouslyCreateSourceFilePath <$> field) <*> field
 
--- Selects all of the source files in the database. Remember that these source files might not be up
+-- Selects all of the source files in the cache. Remember that these source files might not be up
 -- to date!
-selectAllSourceFiles :: ProjectDatabase -> a -> (a -> SourceFile -> IO a) -> IO a
-selectAllSourceFiles (ProjectDatabase c) = fold_ c "SELECT id, path, time FROM source_file"
+selectAllSourceFiles :: ProjectCache -> a -> (a -> SourceFile -> IO a) -> IO a
+selectAllSourceFiles (ProjectCache c) = fold_ c "SELECT id, path, time FROM source_file"
