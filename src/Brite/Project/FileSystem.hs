@@ -6,6 +6,7 @@ module Brite.Project.FileSystem
   , getSourceFilePath
   , ProjectCacheDirectory
   , getProjectCacheDirectory
+  , dangerouslyCreateProjectCacheDirectory
   , findProjectDirectory
   , findProjectCacheDirectory
   , traverseProjectSourceFiles
@@ -84,6 +85,11 @@ newtype SourceFilePath = SourceFilePath { getSourceFilePath :: FilePath }
 -- which gives us guarantees about its construction.
 newtype ProjectCacheDirectory = ProjectCacheDirectory { getProjectCacheDirectory :: FilePath }
   deriving (Show)
+
+-- Dangerously creates a new project cache directory. We assume you’ve validated all the assumptions
+-- that the `ProjectCacheDirectory` type has made.
+dangerouslyCreateProjectCacheDirectory :: FilePath -> ProjectCacheDirectory
+dangerouslyCreateProjectCacheDirectory = ProjectCacheDirectory
 
 -- Finds a Brite project configuration file based on the file path provided by the user.
 --

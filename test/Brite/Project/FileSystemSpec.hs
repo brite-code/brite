@@ -15,7 +15,7 @@ withTemporaryDirectory action =
   bracket
     (do
       systemTemporaryDirectory <- getTemporaryDirectory
-      temporaryDirectory <- canonicalizePath (systemTemporaryDirectory </> "Brite.Project.FilesSpec")
+      temporaryDirectory <- canonicalizePath (systemTemporaryDirectory </> "Brite.Project.FileSystemSpec")
       createDirectory temporaryDirectory
       return temporaryDirectory)
     removeDirectoryRecursive

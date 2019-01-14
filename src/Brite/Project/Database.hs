@@ -2,6 +2,7 @@
 
 module Brite.Project.Database
   ( Database
+  , unsafeDatabaseConnection
   , withDatabase
   , withTemporaryDatabase
   ) where
@@ -19,6 +20,11 @@ import System.FilePath ((</>))
 -- Wrapper around a SQLite database connection. This allows us to control what operations the
 -- outside world may perform on our database.
 newtype Database = Database { databaseConnection :: Connection }
+
+-- Unsafely gets the database’s SQLite connection. You shouldn’t be using the raw SQLite database
+-- connection outside of this module! Let this module be responsible for all the SQLite work.
+unsafeDatabaseConnection :: Database -> Connection
+unsafeDatabaseConnection = databaseConnection
 
 -- Opens a database connection, executes an action using this connection, and closes the connection,
 -- even in the presence of exceptions.
