@@ -41,47 +41,47 @@ spec = around withTemporaryDirectory $ do
 
     it "finds a config in the same directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      testFindProjectDirectory dir `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory "." `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory dir `shouldReturn` Just dir
+      testFindProjectDirectory "." `shouldReturn` Just dir
 
     it "finds a config when passed the exact config path" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      testFindProjectDirectory (dir </> "Brite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "Brite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "Brite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "Brite") `shouldReturn` Just dir
 
     it "finds a config when passed another file in the same directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       writeFile (dir </> "other.txt") ""
-      testFindProjectDirectory (dir </> "other.txt") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "other.txt") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "other.txt") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "other.txt") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in the same directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      testFindProjectDirectory (dir </> "missing.txt") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "missing.txt") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "missing.txt") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "missing.txt") `shouldReturn` Just dir
 
     it "finds a config when searching a child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
-      testFindProjectDirectory (dir </> "src") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src") `shouldReturn` Just dir
 
     it "finds a config when searching a nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
       createDirectory (dir </> "src" </> "a")
       createDirectory (dir </> "src" </> "a" </> "b")
-      testFindProjectDirectory (dir </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory (dir </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a") `shouldReturn` Just dir
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` Just dir
 
     it "finds a config when passed a file in a child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
       writeFile (dir </> "src" </> "code.ite") ""
-      testFindProjectDirectory (dir </> "src" </> "code.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "code.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "code.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "code.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a file in a nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
@@ -90,58 +90,58 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "src" </> "a" </> "b")
       writeFile (dir </> "src" </> "a" </> "foo.ite") ""
       writeFile (dir </> "src" </> "a" </> "b" </> "bar.ite") ""
-      testFindProjectDirectory (dir </> "src" </> "a" </> "foo.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "foo.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "foo.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "foo.ite") `shouldReturn` Just dir
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
-      testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
       createDirectory (dir </> "src" </> "a")
       createDirectory (dir </> "src" </> "a" </> "b")
-      testFindProjectDirectory (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      testFindProjectDirectory (dir </> "src") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src") `shouldReturn` Just dir
 
     it "finds a config when passed a missing nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      testFindProjectDirectory (dir </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory (dir </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a") `shouldReturn` Just dir
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a missing child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a missing nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      testFindProjectDirectory (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` Just dir
 
     it "finds a config in a nested directory when using relative paths" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
       writeFile (dir </> "a" </> "Brite") ""
       writeFile (dir </> "b" </> "Brite") ""
-      testFindProjectDirectory ("." </> "a") `shouldReturn` (Just (dir </> "a" </> "Brite"))
-      testFindProjectDirectory ("." </> "b") `shouldReturn` (Just (dir </> "b" </> "Brite"))
+      testFindProjectDirectory ("." </> "a") `shouldReturn` (Just (dir </> "a"))
+      testFindProjectDirectory ("." </> "b") `shouldReturn` (Just (dir </> "b"))
 
     it "does not find a config in a sibling folder" $ \dir -> do
       createDirectory (dir </> "a")
@@ -168,10 +168,10 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "src")
       writeFile (dir </> "b" </> "Brite") ""
       createFileLink (dir </> "a" </> "src" </> "test.ite") (dir </> "b" </> "src" </> "test.ite")
-      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b")
 
     it "finds the config file for the directory a nested file was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -184,12 +184,12 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "src" </> "other")
       writeFile (dir </> "b" </> "Brite") ""
       createFileLink (dir </> "a" </> "src" </> "other" </> "test.ite") (dir </> "b" </> "src" </> "other" </> "test.ite")
-      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b")
 
     it "finds the config file for the directory a directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -199,10 +199,10 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b")
       writeFile (dir </> "b" </> "Brite") ""
       createDirectoryLink (dir </> "a" </> "src") (dir </> "b" </> "src")
-      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b")
 
     it "finds the config file for the nested directory a directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -213,12 +213,12 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b")
       writeFile (dir </> "b" </> "Brite") ""
       createDirectoryLink (dir </> "a" </> "src") (dir </> "b" </> "src")
-      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b")
 
     it "finds the config file for the directory a nested directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -230,21 +230,21 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "src")
       writeFile (dir </> "b" </> "Brite") ""
       createDirectoryLink (dir </> "a" </> "src" </> "other") (dir </> "b" </> "src" </> "other")
-      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b")
 
     it "finds the config file even if .. is used" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
       writeFile (dir </> "b" </> "Brite") ""
-      testFindProjectDirectory (dir </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
-      testFindProjectDirectory ("." </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b")
       setCurrentDirectory (dir </> "a")
-      testFindProjectDirectory (".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (".." </> "b") `shouldReturn` Just (dir </> "b")
 
     it "does not find the config when .. is used to escape a directory" $ \dir -> do
       createDirectory (dir </> "a")
@@ -262,14 +262,14 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "d")
       writeFile (dir </> "b" </> "Brite") ""
       writeFile (dir </> "b" </> "d" </> "Brite") ""
-      testFindProjectDirectory (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      testFindProjectDirectory ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
+      testFindProjectDirectory ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
+      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
+      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
       setCurrentDirectory (dir </> "a")
-      testFindProjectDirectory (".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
       setCurrentDirectory (dir </> "a" </> "c")
-      testFindProjectDirectory (".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
 
     it "does not find the config when ../.. is used to escape a directory" $ \dir -> do
       createDirectory (dir </> "a")
@@ -294,10 +294,10 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "d")
       writeFile (dir </> "b" </> "Brite") ""
       writeFile (dir </> "b" </> "d" </> "Brite") ""
-      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
+      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
       setCurrentDirectory (dir </> "a" </> "c")
-      testFindProjectDirectory (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
 
     it "does not find the config when ../x/../.. is used to escape a directory" $ \dir -> do
       createDirectory (dir </> "a")

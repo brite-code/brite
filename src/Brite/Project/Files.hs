@@ -4,12 +4,15 @@ module Brite.Project.Files
   , dangerouslyCreateProjectDirectory
   , SourceFilePath
   , getSourceFilePath
+  , ProjectCacheDirectory
+  , getProjectCacheDirectory
   , findProjectDirectory
+  , findProjectCacheDirectory
   , traverseProjectSourceFiles
-  , escapeFilePath
   ) where
 
 import Data.Foldable (foldlM)
+import Network.HTTP.Base (urlEncode)
 import System.Directory
 import System.FilePath
 
@@ -45,6 +48,12 @@ sourceFileExtension = ".ite"
 configFileName :: String
 configFileName = "Brite"
 
+-- The relative path we add to an [XDG directory][1] path.
+--
+-- [1]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+xdgRelativePath :: FilePath
+xdgRelativePath = "brite"
+
 -- The path to a project directory. We only allow this type to be created through
 -- `findProjectDirectory`. With a project directory path we are guaranteed that:
 --
@@ -53,6 +62,7 @@ configFileName = "Brite"
 -- * The path is a directory. Not a file.
 -- * The directory pointed to by the path contains a Brite configuration file.
 newtype ProjectDirectory = ProjectDirectory { getProjectDirectory :: FilePath }
+  deriving (Show)
 
 -- Dangerously creates a new project directory. We assume you’ve validated all the assumptions that
 -- the `ProjectDirectory` type has made.
@@ -68,6 +78,12 @@ dangerouslyCreateProjectDirectory = ProjectDirectory
 -- * The path may point to a directory. The only criteria is that a source path must have the Brite
 --   source code extension. A directory can pretend to be a source file by using the extension.
 newtype SourceFilePath = SourceFilePath { getSourceFilePath :: FilePath }
+  deriving (Show)
+
+-- The path to a project’s cache directory. We only allow this type to be created in this module
+-- which gives us guarantees about its construction.
+newtype ProjectCacheDirectory = ProjectCacheDirectory { getProjectCacheDirectory :: FilePath }
+  deriving (Show)
 
 -- Finds a Brite project configuration file based on the file path provided by the user.
 --
@@ -93,12 +109,12 @@ findProjectDirectory initialFilePath =
           loop (back (1 :: Int) (takeDirectory filePath))
       else do
         isDirectory <- doesDirectoryExist filePath
-        -- If the file is in fact, a directory, then search for our config file in this directory. If
-        -- we find it return `Just`. If we don’t find it try the parent directory.
+        -- If the file is in fact, a directory, then search for our config file in this directory.
+        -- If we find it return `Just`. If we don’t find it try the parent directory.
         if isDirectory then do
           let configFilePath = filePath </> configFileName
           isFile <- doesFileExist configFilePath
-          if isFile then return (Just configFilePath) else configFileNotFound
+          if isFile then return (Just filePath) else configFileNotFound
         else
           configFileNotFound
       where
@@ -109,6 +125,35 @@ findProjectDirectory initialFilePath =
           let directoryPath = takeDirectory filePath in
             if filePath == directoryPath then return Nothing
             else loop directoryPath
+
+-- Finds the directory for a project’s cache. If a directory does not yet exist then we create one.
+--
+-- All of a user’s Brite cache files live in `$XDG_CACHE_HOME/brite`. Where `$XDG_CACHE_HOME` comes
+-- from the [XDG Base Directory Specification][1]. On non-Windows systems we default to `~/.cache`.
+--
+-- The cache files for a specific directory live in the URL encoded relative path from the user’s
+-- home directory to the project directory. We assume that `$XDG_CACHE_HOME` is unique for every
+-- user. If it is not then we are sad and might experience cache collisions since we take the
+-- relative path from the user’s home directory.
+--
+-- [1]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
+findProjectCacheDirectory :: ProjectDirectory -> IO ProjectCacheDirectory
+findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
+  -- Get the user’s home directory.
+  homeDirectory <- getHomeDirectory
+  -- Make the path to our project directory relative to the user’s home directory.
+  let relativeProjectDirectory = makeRelative homeDirectory projectDirectory
+  -- Get the Brite user-specific cache directory. We depend on the assumption that this directory
+  -- really is user-specific! If it’s not then taking the relative path between the user’s home
+  -- directory and the project directory is unsafe...
+  userCacheDirectory <- getXdgDirectory XdgCache xdgRelativePath
+  -- Construct the project cache directory by adding the URL encoded relative path directory.
+  let projectCacheDirectory = userCacheDirectory </> urlEncode relativeProjectDirectory
+  -- Create the project cache directory if it does not already exist. Also create the project cache
+  -- directory’s parent directories.
+  createDirectoryIfMissing True projectCacheDirectory
+  -- Return the project cache directory.
+  return (ProjectCacheDirectory projectCacheDirectory)
 
 -- Traverse all the Brite source files in the project directory’s `src` folder. The order in which
 -- we traverse file paths is consistent across runs, but determined by the underlying file system
@@ -164,21 +209,3 @@ traverseProjectSourceFiles update initialState (ProjectDirectory projectDirector
         -- Iterate through file names and start with the current state.
         currentState
         fileNames
-
--- Escape the slashes in a file path so that the file path may be used as a file name itself. We use
--- this to create directories for Brite caches. Inspired by [Hack/Flow][1].
---
--- [1]: https://github.com/facebook/flow/blob/ef74a645241326a10eba82164feb197eb8f10ac9/hack/utils/sys/path.ml#L55-L66
-escapeFilePath :: FilePath -> String
-escapeFilePath =
-  foldr
-    (\c s ->
-      case c of
-        '\\' -> 'z' : 'B' : s
-        ':' -> 'z' : 'C' : s
-        '/' -> 'z' : 'S' : s
-        '\x00' -> 'z' : '0' : s
-        '.' -> 'z' : 'D' : s
-        'z' -> 'z' : 'Z' : s
-        _ -> c : s)
-    []
