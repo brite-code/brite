@@ -41,17 +41,17 @@ spec = around withTemporaryDirectory $ do
       testWithDatabase dir $ \db -> do
         let c = unsafeDatabaseConnection db
         userVersionRows <- query_ c "PRAGMA user_version" :: IO [Only Int]
-        userVersionRows `shouldSatisfy` ((== 1) . length)
-        userVersionRows `shouldSatisfy` ((> 0) . fromOnly . head)
+        length userVersionRows `shouldBe` 1
+        fromOnly (head userVersionRows) `shouldNotBe` 0
 
     it "runs migrations on an empty database" $ \dir -> withConnection "project.db" $ \c -> do
       userVersionRows1 <- query_ c "PRAGMA user_version" :: IO [Only Int]
-      userVersionRows1 `shouldSatisfy` ((== 1) . length)
-      userVersionRows1 `shouldSatisfy` ((== 0) . fromOnly . head)
+      length userVersionRows1 `shouldBe` 1
+      fromOnly (head userVersionRows1) `shouldBe` 0
       testWithDatabase dir (const (return ()))
       userVersionRows2 <- query_ c "PRAGMA user_version" :: IO [Only Int]
-      userVersionRows2 `shouldSatisfy` ((== 1) . length)
-      userVersionRows2 `shouldSatisfy` ((> 0) . fromOnly . head)
+      length userVersionRows2 `shouldBe` 1
+      fromOnly (head userVersionRows2) `shouldNotBe` 0
 
     it "errors if the user version is larger than expected" $ \dir -> withConnection "project.db" $ \c -> do
       execute_ c "PRAGMA user_version = 9001"
