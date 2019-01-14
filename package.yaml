@@ -9,6 +9,7 @@ dependencies:
   - hspec >= 2.5 && < 3
   - HTTP >= 4000.3 && < 4001
   - mtl >= 2.2 && < 3
+  - sqlite-simple >= 0.4.16 && < 1
   - text >= 1.2 && < 2
   - text-icu >= 0.7 && < 1
 
