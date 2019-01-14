@@ -1,5 +1,7 @@
 module Brite.Project.Files
-  ( findProjectConfig
+  ( ProjectDirectoryPath
+  , projectDirectoryPath
+  , findProjectDirectory
   , findSourceFilePaths
   , escapeFilePath
   ) where
@@ -40,6 +42,15 @@ sourceFileExtension = ".ite"
 configFileName :: String
 configFileName = "Brite"
 
+-- The path to a project directory. We only allow this type to be created through
+-- `findProjectDirectory`. With a project directory path we are guaranteed that:
+--
+-- * The path is canonicalized. It is not a relative path and it does not contain special
+--   directories like `..`.
+-- * The path is a directory. Not a file.
+-- * The directory pointed to by the path contains a Brite configuration file.
+newtype ProjectDirectoryPath = ProjectDirectoryPath { projectDirectoryPath :: FilePath }
+
 -- Finds a Brite project configuration file based on the file path provided by the user.
 --
 -- * If the provided path is a file path we will search the parent directory.
@@ -47,8 +58,9 @@ configFileName = "Brite"
 --   parent directory.
 -- * If we reach the file system root and we haven’t found a Brite project configuration file then
 --   return `Nothing`.
-findProjectConfig :: FilePath -> IO (Maybe FilePath)
-findProjectConfig initialFilePath = makeAbsolute initialFilePath >>= loop >>= mapM canonicalizePath
+findProjectDirectory :: FilePath -> IO (Maybe ProjectDirectoryPath)
+findProjectDirectory initialFilePath =
+  fmap ProjectDirectoryPath <$> (makeAbsolute initialFilePath >>= loop >>= mapM canonicalizePath)
   where
     loop filePath =
       -- If we see `..` then we manually implement going backwards so that we don’t end up searching
