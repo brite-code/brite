@@ -1,6 +1,9 @@
 module Brite.Project.Files
-  ( ProjectDirectoryPath
-  , projectDirectoryPath
+  ( ProjectDirectory
+  , getProjectDirectory
+  , dangerouslyCreateProjectDirectory
+  , SourceFilePath
+  , getSourceFilePath
   , findProjectDirectory
   , findSourceFilePaths
   , escapeFilePath
@@ -49,7 +52,22 @@ configFileName = "Brite"
 --   directories like `..`.
 -- * The path is a directory. Not a file.
 -- * The directory pointed to by the path contains a Brite configuration file.
-newtype ProjectDirectoryPath = ProjectDirectoryPath { projectDirectoryPath :: FilePath }
+newtype ProjectDirectory = ProjectDirectory { getProjectDirectory :: FilePath }
+
+-- Dangerously creates a new project directory. We assume you’ve validated all the assumptions that
+-- the `ProjectDirectory` type has made.
+dangerouslyCreateProjectDirectory :: FilePath -> ProjectDirectory
+dangerouslyCreateProjectDirectory = ProjectDirectory
+
+-- The path to a source file. We only allow this type to be created in this module. With a source
+-- file path we are guaranteed that:
+--
+-- * The path is not a relative path and it does not contain special directories like `..`. The path
+--   may contained linked files or directories that are not canonicalized. This is ok.
+-- * The path is part of the source code of a Brite project.
+-- * The path may point to a directory. The only criteria is that a source path must have the Brite
+--   source code extension. A directory can pretend to be a source file by using the extension.
+newtype SourceFilePath = SourceFilePath { getSourceFilePath :: FilePath }
 
 -- Finds a Brite project configuration file based on the file path provided by the user.
 --
@@ -58,9 +76,9 @@ newtype ProjectDirectoryPath = ProjectDirectoryPath { projectDirectoryPath :: Fi
 --   parent directory.
 -- * If we reach the file system root and we haven’t found a Brite project configuration file then
 --   return `Nothing`.
-findProjectDirectory :: FilePath -> IO (Maybe ProjectDirectoryPath)
+findProjectDirectory :: FilePath -> IO (Maybe ProjectDirectory)
 findProjectDirectory initialFilePath =
-  fmap ProjectDirectoryPath <$> (makeAbsolute initialFilePath >>= loop >>= mapM canonicalizePath)
+  fmap ProjectDirectory <$> (makeAbsolute initialFilePath >>= loop >>= mapM canonicalizePath)
   where
     loop filePath =
       -- If we see `..` then we manually implement going backwards so that we don’t end up searching
@@ -92,9 +110,9 @@ findProjectDirectory initialFilePath =
             if filePath == directoryPath then return Nothing
             else loop directoryPath
 
--- Find all the Brite source files in the provided directory. We assume that the provided
--- directory exists. The order of file paths is consistent, but determined by the underlying file
--- system implementation and not file names!
+-- Find all the Brite source files in the project directory’s `src` folder. The order of file paths
+-- is consistent across runs, but determined by the underlying file system implementation and not
+-- file names!
 --
 -- IMPORTANT: Remember that this function will take a long time on large directories with many
 -- files! After all, it has to traverse every file. We only want to run this over the `src` folder
@@ -103,8 +121,11 @@ findProjectDirectory initialFilePath =
 -- NOTE: If the user has a directory that ends in `.ite` then we will consider that a source file
 -- path! We do this as it decreases the number of system calls we need to make potentially helping
 -- performance. (We have no evidence to prove this actually helps performance.)
-findSourceFilePaths :: FilePath -> IO [FilePath]
-findSourceFilePaths = loop []
+findSourceFilePaths :: ProjectDirectory -> IO [SourceFilePath]
+findSourceFilePaths (ProjectDirectory projectDirectory) = do
+  let sourceDirectory = projectDirectory </> "src"
+  doesSourceDirectoryExist <- doesDirectoryExist sourceDirectory
+  if doesSourceDirectoryExist then loop [] sourceDirectory else return []
   where
     loop initialSourceFilePaths directoryPath = do
       -- Find all the file names in our current directory.
@@ -128,7 +149,7 @@ findSourceFilePaths = loop []
           --
           -- TODO: Warn if the file name is not a valid identifier.
           if takeExtension filePath == sourceFileExtension then
-            return (filePath : sourceFilePaths)
+            return (SourceFilePath filePath : sourceFilePaths)
           -- If this file is not a directory and it’s not a Brite source file, ignore it.
           else do
             isDirectory <- doesDirectoryExist filePath

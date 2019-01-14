@@ -22,60 +22,63 @@ withTemporaryDirectory action =
     (\temporaryDirectory ->
       withCurrentDirectory temporaryDirectory (action temporaryDirectory))
 
--- Unwraps `ProjectDirectoryPath`.
-findProjectDirectoryPath :: FilePath -> IO (Maybe FilePath)
-findProjectDirectoryPath = (fmap projectDirectoryPath <$>) . findProjectDirectory
+testFindProjectDirectory :: FilePath -> IO (Maybe FilePath)
+testFindProjectDirectory = (fmap getProjectDirectory <$>) . findProjectDirectory
+
+testFindSourceFilePaths :: FilePath -> IO [FilePath]
+testFindSourceFilePaths =
+  (sort <$>) . (map getSourceFilePath <$>) . findSourceFilePaths . dangerouslyCreateProjectDirectory
 
 spec :: Spec
 spec = around withTemporaryDirectory $ do
   describe "findProjectDirectory" $ do
     it "finds nothing when no config file exists" $ \dir -> do
-      findProjectDirectoryPath dir `shouldReturn` Nothing
-      findProjectDirectoryPath "." `shouldReturn` Nothing
+      testFindProjectDirectory dir `shouldReturn` Nothing
+      testFindProjectDirectory "." `shouldReturn` Nothing
 
     it "finds a config in the same directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      findProjectDirectoryPath dir `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath "." `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory dir `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory "." `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed the exact config path" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      findProjectDirectoryPath (dir </> "Brite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "Brite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "Brite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "Brite") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed another file in the same directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       writeFile (dir </> "other.txt") ""
-      findProjectDirectoryPath (dir </> "other.txt") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "other.txt") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "other.txt") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "other.txt") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a missing file in the same directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      findProjectDirectoryPath (dir </> "missing.txt") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "missing.txt") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "missing.txt") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "missing.txt") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when searching a child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
-      findProjectDirectoryPath (dir </> "src") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when searching a nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
       createDirectory (dir </> "src" </> "a")
       createDirectory (dir </> "src" </> "a" </> "b")
-      findProjectDirectoryPath (dir </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a file in a child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
       writeFile (dir </> "src" </> "code.ite") ""
-      findProjectDirectoryPath (dir </> "src" </> "code.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "code.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "code.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "code.ite") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a file in a nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
@@ -84,65 +87,65 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "src" </> "a" </> "b")
       writeFile (dir </> "src" </> "a" </> "foo.ite") ""
       writeFile (dir </> "src" </> "a" </> "b" </> "bar.ite") ""
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "foo.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "foo.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "foo.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "foo.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a missing file in a child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
-      findProjectDirectoryPath (dir </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a missing file in a nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
       createDirectory (dir </> "src")
       createDirectory (dir </> "src" </> "a")
       createDirectory (dir </> "src" </> "a" </> "b")
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a missing child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      findProjectDirectoryPath (dir </> "src") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a missing nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      findProjectDirectoryPath (dir </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a missing file in a missing child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      findProjectDirectoryPath (dir </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config when passed a missing file in a missing nested child directory" $ \dir -> do
       writeFile (dir </> "Brite") ""
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
-      findProjectDirectoryPath ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
+      testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` (Just (dir </> "Brite"))
 
     it "finds a config in a nested directory when using relative paths" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
       writeFile (dir </> "a" </> "Brite") ""
       writeFile (dir </> "b" </> "Brite") ""
-      findProjectDirectoryPath ("." </> "a") `shouldReturn` (Just (dir </> "a" </> "Brite"))
-      findProjectDirectoryPath ("." </> "b") `shouldReturn` (Just (dir </> "b" </> "Brite"))
+      testFindProjectDirectory ("." </> "a") `shouldReturn` (Just (dir </> "a" </> "Brite"))
+      testFindProjectDirectory ("." </> "b") `shouldReturn` (Just (dir </> "b" </> "Brite"))
 
     it "does not find a config in a sibling folder" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
       writeFile (dir </> "a" </> "Brite") ""
-      findProjectDirectoryPath (dir </> "b") `shouldReturn` Nothing
-      findProjectDirectoryPath ("." </> "b") `shouldReturn` Nothing
+      testFindProjectDirectory (dir </> "b") `shouldReturn` Nothing
+      testFindProjectDirectory ("." </> "b") `shouldReturn` Nothing
 
     it "does not find a config in a sibling folder when searching for a file" $ \dir -> do
       createDirectory (dir </> "a")
@@ -150,8 +153,8 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "a" </> "Brite") ""
       writeFile (dir </> "a" </> "other.txt") ""
       writeFile (dir </> "b" </> "other.txt") ""
-      findProjectDirectoryPath (dir </> "b" </> "other.txt") `shouldReturn` Nothing
-      findProjectDirectoryPath ("." </> "b" </> "other.txt") `shouldReturn` Nothing
+      testFindProjectDirectory (dir </> "b" </> "other.txt") `shouldReturn` Nothing
+      testFindProjectDirectory ("." </> "b" </> "other.txt") `shouldReturn` Nothing
 
     it "finds the config file for the directory a file was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -162,10 +165,10 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "src")
       writeFile (dir </> "b" </> "Brite") ""
       createFileLink (dir </> "a" </> "src" </> "test.ite") (dir </> "b" </> "src" </> "test.ite")
-      findProjectDirectoryPath (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
 
     it "finds the config file for the directory a nested file was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -178,12 +181,12 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "src" </> "other")
       writeFile (dir </> "b" </> "Brite") ""
       createFileLink (dir </> "a" </> "src" </> "other" </> "test.ite") (dir </> "b" </> "src" </> "other" </> "test.ite")
-      findProjectDirectoryPath (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
 
     it "finds the config file for the directory a directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -193,10 +196,10 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b")
       writeFile (dir </> "b" </> "Brite") ""
       createDirectoryLink (dir </> "a" </> "src") (dir </> "b" </> "src")
-      findProjectDirectoryPath (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
 
     it "finds the config file for the nested directory a directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -207,12 +210,12 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b")
       writeFile (dir </> "b" </> "Brite") ""
       createDirectoryLink (dir </> "a" </> "src") (dir </> "b" </> "src")
-      findProjectDirectoryPath (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
 
     it "finds the config file for the directory a nested directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -224,30 +227,30 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "src")
       writeFile (dir </> "b" </> "Brite") ""
       createDirectoryLink (dir </> "a" </> "src" </> "other") (dir </> "b" </> "src" </> "other")
-      findProjectDirectoryPath (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b" </> "Brite")
 
     it "finds the config file even if .. is used" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
       writeFile (dir </> "b" </> "Brite") ""
-      findProjectDirectoryPath (dir </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
-      findProjectDirectoryPath ("." </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory ("." </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
       setCurrentDirectory (dir </> "a")
-      findProjectDirectoryPath (".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
+      testFindProjectDirectory (".." </> "b") `shouldReturn` Just (dir </> "b" </> "Brite")
 
     it "does not find the config when .. is used to escape a directory" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
       writeFile (dir </> "a" </> "Brite") ""
-      findProjectDirectoryPath (dir </> "a" </> ".." </> "b") `shouldReturn` Nothing
-      findProjectDirectoryPath ("." </> "a" </> ".." </> "b") `shouldReturn` Nothing
+      testFindProjectDirectory (dir </> "a" </> ".." </> "b") `shouldReturn` Nothing
+      testFindProjectDirectory ("." </> "a" </> ".." </> "b") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a")
-      findProjectDirectoryPath (".." </> "b") `shouldReturn` Nothing
+      testFindProjectDirectory (".." </> "b") `shouldReturn` Nothing
 
     it "finds the config file even if ../.. is used" $ \dir -> do
       createDirectory (dir </> "a")
@@ -256,14 +259,14 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "d")
       writeFile (dir </> "b" </> "Brite") ""
       writeFile (dir </> "b" </> "d" </> "Brite") ""
-      findProjectDirectoryPath (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      findProjectDirectoryPath ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      findProjectDirectoryPath (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      findProjectDirectoryPath ("." </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
       setCurrentDirectory (dir </> "a")
-      findProjectDirectoryPath (".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
       setCurrentDirectory (dir </> "a" </> "c")
-      findProjectDirectoryPath (".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
 
     it "does not find the config when ../.. is used to escape a directory" $ \dir -> do
       createDirectory (dir </> "a")
@@ -272,14 +275,14 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "d")
       writeFile (dir </> "a" </> "Brite") ""
       writeFile (dir </> "a" </> "c" </> "Brite") ""
-      findProjectDirectoryPath (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Nothing
-      findProjectDirectoryPath ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Nothing
-      findProjectDirectoryPath (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
-      findProjectDirectoryPath ("." </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a")
-      findProjectDirectoryPath (".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory (".." </> "b" </> "d") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a" </> "c")
-      findProjectDirectoryPath (".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory (".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
 
     it "finds the config file even if ../x/../.. is used" $ \dir -> do
       createDirectory (dir </> "a")
@@ -288,10 +291,10 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "d")
       writeFile (dir </> "b" </> "Brite") ""
       writeFile (dir </> "b" </> "d" </> "Brite") ""
-      findProjectDirectoryPath (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
-      findProjectDirectoryPath ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
       setCurrentDirectory (dir </> "a" </> "c")
-      findProjectDirectoryPath (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
+      testFindProjectDirectory (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d" </> "Brite")
 
     it "does not find the config when ../x/../.. is used to escape a directory" $ \dir -> do
       createDirectory (dir </> "a")
@@ -300,208 +303,265 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "b" </> "d")
       writeFile (dir </> "a" </> "Brite") ""
       writeFile (dir </> "a" </> "c" </> "Brite") ""
-      findProjectDirectoryPath (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
-      findProjectDirectoryPath ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a" </> "c")
-      findProjectDirectoryPath (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+      testFindProjectDirectory (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
 
   describe "findSourceFilePaths" $ do
-    it "finds source files immediately in the directory" $ \dir -> do
+    it "finds nothing if a src directory does not exist" $ \dir -> do
       writeFile (dir </> "a.ite") ""
       writeFile (dir </> "b.ite") ""
       writeFile (dir </> "c.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "b.ite", dir </> "c.ite"]
+      testFindSourceFilePaths dir `shouldReturn` []
+
+    it "finds nothing if src is a file and not a directory" $ \dir -> do
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite") ""
+      writeFile (dir </> "c.ite") ""
+      writeFile (dir </> "src") ""
+      testFindSourceFilePaths dir `shouldReturn` []
+
+    it "finds source files immediately in the directory" $ \dir -> do
+      createDirectory (dir </> "src")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.ite"
+        , dir </> "src" </> "c.ite"
+        ]
+
+    it "ignores files outside the src directory" $ \dir -> do
+      createDirectory (dir </> "src")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite") ""
+      writeFile (dir </> "c.ite") ""
+      writeFile (dir </> "src" </> "d.ite") ""
+      writeFile (dir </> "src" </> "e.ite") ""
+      writeFile (dir </> "src" </> "f.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "d.ite"
+        , dir </> "src" </> "e.ite"
+        , dir </> "src" </> "f.ite"
+        ]
 
     it "finds source files immediately in the directory ignoring non-source files" $ \dir -> do
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "b.txt") ""
-      writeFile (dir </> "c.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "c.ite"]
+      createDirectory (dir </> "src")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.txt") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "c.ite"
+        ]
 
     it "finds source files when they have an extra leading extension" $ \dir -> do
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "b.test.ite") ""
-      writeFile (dir </> "c.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "b.test.ite", dir </> "c.ite"]
+      createDirectory (dir </> "src")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.test.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.test.ite"
+        , dir </> "src" </> "c.ite"
+        ]
 
     it "ignores source files when they have an extra trailing extension" $ \dir -> do
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "b.ite.test") ""
-      writeFile (dir </> "c.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "c.ite"]
+      createDirectory (dir </> "src")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite.test") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "c.ite"
+        ]
 
     it "includes directories with a source file extension same as source files" $ \dir -> do
-      createDirectory (dir </> "b.ite")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "c.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "b.ite", dir </> "c.ite"]
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "b.ite")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.ite"
+        , dir </> "src" </> "c.ite"
+        ]
 
     it "does not include source files in a directory with a source file extension" $ \dir -> do
-      createDirectory (dir </> "b.ite")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "c.ite") ""
-      writeFile (dir </> "b.ite" </> "d.ite") ""
-      writeFile (dir </> "b.ite" </> "e.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "b.ite", dir </> "c.ite"]
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "b.ite")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      writeFile (dir </> "src" </> "b.ite" </> "d.ite") ""
+      writeFile (dir </> "src" </> "b.ite" </> "e.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.ite"
+        , dir </> "src" </> "c.ite"
+        ]
 
     it "does not include directories with a source file different from as source files" $ \dir -> do
-      createDirectory (dir </> "b.txt")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "c.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "c.ite"]
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "b.txt")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "c.ite"
+        ]
 
     it "does include source files in a directory with a different extension" $ \dir -> do
-      createDirectory (dir </> "b.txt")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "c.ite") ""
-      writeFile (dir </> "b.txt" </> "d.ite") ""
-      writeFile (dir </> "b.txt" </> "e.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [dir </> "a.ite", dir </> "b.txt" </> "d.ite", dir </> "b.txt" </> "e.ite", dir </> "c.ite"]
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "b.txt")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      writeFile (dir </> "src" </> "b.txt" </> "d.ite") ""
+      writeFile (dir </> "src" </> "b.txt" </> "e.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.txt" </> "d.ite"
+        , dir </> "src" </> "b.txt" </> "e.ite"
+        , dir </> "src" </> "c.ite"
+        ]
 
     it "finds source files in directories" $ \dir -> do
-      createDirectory (dir </> "foo")
-      createDirectory (dir </> "bar")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "b.ite") ""
-      writeFile (dir </> "foo" </> "c.ite") ""
-      writeFile (dir </> "foo" </> "d.ite") ""
-      writeFile (dir </> "bar" </> "e.ite") ""
-      writeFile (dir </> "bar" </> "f.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [ dir </> "a.ite"
-        , dir </> "b.ite"
-        , dir </> "bar" </> "e.ite"
-        , dir </> "bar" </> "f.ite"
-        , dir </> "foo" </> "c.ite"
-        , dir </> "foo" </> "d.ite"
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "foo")
+      createDirectory (dir </> "src" </> "bar")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "c.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "d.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "e.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "f.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.ite"
+        , dir </> "src" </> "bar" </> "e.ite"
+        , dir </> "src" </> "bar" </> "f.ite"
+        , dir </> "src" </> "foo" </> "c.ite"
+        , dir </> "src" </> "foo" </> "d.ite"
         ]
 
     it "ignores files with non-source extensions in nested directories" $ \dir -> do
-      createDirectory (dir </> "foo")
-      createDirectory (dir </> "bar")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "b.ite") ""
-      writeFile (dir </> "nope.txt") ""
-      writeFile (dir </> "foo" </> "c.ite") ""
-      writeFile (dir </> "foo" </> "d.ite") ""
-      writeFile (dir </> "foo" </> "nope.txt") ""
-      writeFile (dir </> "bar" </> "e.ite") ""
-      writeFile (dir </> "bar" </> "f.ite") ""
-      writeFile (dir </> "bar" </> "nope.txt") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [ dir </> "a.ite"
-        , dir </> "b.ite"
-        , dir </> "bar" </> "e.ite"
-        , dir </> "bar" </> "f.ite"
-        , dir </> "foo" </> "c.ite"
-        , dir </> "foo" </> "d.ite"
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "foo")
+      createDirectory (dir </> "src" </> "bar")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "nope.txt") ""
+      writeFile (dir </> "src" </> "foo" </> "c.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "d.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "nope.txt") ""
+      writeFile (dir </> "src" </> "bar" </> "e.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "f.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "nope.txt") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.ite"
+        , dir </> "src" </> "bar" </> "e.ite"
+        , dir </> "src" </> "bar" </> "f.ite"
+        , dir </> "src" </> "foo" </> "c.ite"
+        , dir </> "src" </> "foo" </> "d.ite"
         ]
 
     it "finds source files in nested directories" $ \dir -> do
-      createDirectory (dir </> "foo")
-      createDirectory (dir </> "bar")
-      createDirectory (dir </> "foo" </> "qux")
-      createDirectory (dir </> "bar" </> "lit")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "b.ite") ""
-      writeFile (dir </> "foo" </> "c.ite") ""
-      writeFile (dir </> "foo" </> "d.ite") ""
-      writeFile (dir </> "foo" </> "qux" </> "e.ite") ""
-      writeFile (dir </> "foo" </> "qux" </> "f.ite") ""
-      writeFile (dir </> "bar" </> "g.ite") ""
-      writeFile (dir </> "bar" </> "h.ite") ""
-      writeFile (dir </> "bar" </> "lit" </> "i.ite") ""
-      writeFile (dir </> "bar" </> "lit" </> "j.ite") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [ dir </> "a.ite"
-        , dir </> "b.ite"
-        , dir </> "bar" </> "g.ite"
-        , dir </> "bar" </> "h.ite"
-        , dir </> "bar" </> "lit" </> "i.ite"
-        , dir </> "bar" </> "lit" </> "j.ite"
-        , dir </> "foo" </> "c.ite"
-        , dir </> "foo" </> "d.ite"
-        , dir </> "foo" </> "qux" </> "e.ite"
-        , dir </> "foo" </> "qux" </> "f.ite"
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "foo")
+      createDirectory (dir </> "src" </> "bar")
+      createDirectory (dir </> "src" </> "foo" </> "qux")
+      createDirectory (dir </> "src" </> "bar" </> "lit")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "c.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "d.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "qux" </> "e.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "qux" </> "f.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "g.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "h.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "lit" </> "i.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "lit" </> "j.ite") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.ite"
+        , dir </> "src" </> "bar" </> "g.ite"
+        , dir </> "src" </> "bar" </> "h.ite"
+        , dir </> "src" </> "bar" </> "lit" </> "i.ite"
+        , dir </> "src" </> "bar" </> "lit" </> "j.ite"
+        , dir </> "src" </> "foo" </> "c.ite"
+        , dir </> "src" </> "foo" </> "d.ite"
+        , dir </> "src" </> "foo" </> "qux" </> "e.ite"
+        , dir </> "src" </> "foo" </> "qux" </> "f.ite"
         ]
 
     it "ignores files with non-source extensions in nested directories" $ \dir -> do
-      createDirectory (dir </> "foo")
-      createDirectory (dir </> "bar")
-      createDirectory (dir </> "foo" </> "qux")
-      createDirectory (dir </> "bar" </> "lit")
-      writeFile (dir </> "a.ite") ""
-      writeFile (dir </> "b.ite") ""
-      writeFile (dir </> "nope.txt") ""
-      writeFile (dir </> "foo" </> "c.ite") ""
-      writeFile (dir </> "foo" </> "d.ite") ""
-      writeFile (dir </> "foo" </> "nope.txt") ""
-      writeFile (dir </> "foo" </> "qux" </> "e.ite") ""
-      writeFile (dir </> "foo" </> "qux" </> "f.ite") ""
-      writeFile (dir </> "foo" </> "qux" </> "nope.txt") ""
-      writeFile (dir </> "bar" </> "g.ite") ""
-      writeFile (dir </> "bar" </> "h.ite") ""
-      writeFile (dir </> "bar" </> "nope.txt") ""
-      writeFile (dir </> "bar" </> "lit" </> "i.ite") ""
-      writeFile (dir </> "bar" </> "lit" </> "j.ite") ""
-      writeFile (dir </> "bar" </> "lit" </> "nope.txt") ""
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [ dir </> "a.ite"
-        , dir </> "b.ite"
-        , dir </> "bar" </> "g.ite"
-        , dir </> "bar" </> "h.ite"
-        , dir </> "bar" </> "lit" </> "i.ite"
-        , dir </> "bar" </> "lit" </> "j.ite"
-        , dir </> "foo" </> "c.ite"
-        , dir </> "foo" </> "d.ite"
-        , dir </> "foo" </> "qux" </> "e.ite"
-        , dir </> "foo" </> "qux" </> "f.ite"
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "foo")
+      createDirectory (dir </> "src" </> "bar")
+      createDirectory (dir </> "src" </> "foo" </> "qux")
+      createDirectory (dir </> "src" </> "bar" </> "lit")
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "nope.txt") ""
+      writeFile (dir </> "src" </> "foo" </> "c.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "d.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "nope.txt") ""
+      writeFile (dir </> "src" </> "foo" </> "qux" </> "e.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "qux" </> "f.ite") ""
+      writeFile (dir </> "src" </> "foo" </> "qux" </> "nope.txt") ""
+      writeFile (dir </> "src" </> "bar" </> "g.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "h.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "nope.txt") ""
+      writeFile (dir </> "src" </> "bar" </> "lit" </> "i.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "lit" </> "j.ite") ""
+      writeFile (dir </> "src" </> "bar" </> "lit" </> "nope.txt") ""
+      testFindSourceFilePaths dir `shouldReturn`
+        [ dir </> "src" </> "a.ite"
+        , dir </> "src" </> "b.ite"
+        , dir </> "src" </> "bar" </> "g.ite"
+        , dir </> "src" </> "bar" </> "h.ite"
+        , dir </> "src" </> "bar" </> "lit" </> "i.ite"
+        , dir </> "src" </> "bar" </> "lit" </> "j.ite"
+        , dir </> "src" </> "foo" </> "c.ite"
+        , dir </> "src" </> "foo" </> "d.ite"
+        , dir </> "src" </> "foo" </> "qux" </> "e.ite"
+        , dir </> "src" </> "foo" </> "qux" </> "f.ite"
         ]
 
     it "finds linked files" $ \dir -> do
       createDirectory (dir </> "foo")
       createDirectory (dir </> "bar")
-      writeFile (dir </> "foo" </> "a.ite") ""
-      writeFile (dir </> "bar" </> "b.ite") ""
-      writeFile (dir </> "foo" </> "c.ite") ""
-      writeFile (dir </> "bar" </> "d.ite") ""
-      createFileLink (dir </> "bar" </> "b.ite") (dir </> "foo" </> "b.ite")
-      createFileLink (dir </> "bar" </> "d.ite") (dir </> "foo" </> "d.ite")
-      sort <$> findSourceFilePaths (dir </> "foo") `shouldReturn`
-        [ dir </> "foo" </> "a.ite"
-        , dir </> "foo" </> "b.ite"
-        , dir </> "foo" </> "c.ite"
-        , dir </> "foo" </> "d.ite"
-        ]
-      sort <$> findSourceFilePaths dir `shouldReturn`
-        [ dir </> "bar" </> "b.ite"
-        , dir </> "bar" </> "d.ite"
-        , dir </> "foo" </> "a.ite"
-        , dir </> "foo" </> "b.ite"
-        , dir </> "foo" </> "c.ite"
-        , dir </> "foo" </> "d.ite"
+      createDirectory (dir </> "foo" </> "src")
+      createDirectory (dir </> "bar" </> "src")
+      writeFile (dir </> "foo" </> "src" </> "a.ite") ""
+      writeFile (dir </> "bar" </> "src" </> "b.ite") ""
+      writeFile (dir </> "foo" </> "src" </> "c.ite") ""
+      writeFile (dir </> "bar" </> "src" </> "d.ite") ""
+      createFileLink (dir </> "bar" </> "src" </> "b.ite") (dir </> "foo" </> "src" </> "b.ite")
+      createFileLink (dir </> "bar" </> "src" </> "d.ite") (dir </> "foo" </> "src" </> "d.ite")
+      testFindSourceFilePaths (dir </> "foo") `shouldReturn`
+        [ dir </> "foo" </> "src" </> "a.ite"
+        , dir </> "foo" </> "src" </> "b.ite"
+        , dir </> "foo" </> "src" </> "c.ite"
+        , dir </> "foo" </> "src" </> "d.ite"
         ]
 
     it "finds files in linked directories" $ \dir -> do
       createDirectory (dir </> "foo")
       createDirectory (dir </> "bar")
-      createDirectory (dir </> "bar" </> "qux")
-      writeFile (dir </> "foo" </> "a.ite") ""
-      writeFile (dir </> "foo" </> "b.ite") ""
-      writeFile (dir </> "bar" </> "qux" </> "c.ite") ""
-      writeFile (dir </> "bar" </> "qux" </> "d.ite") ""
-      createDirectoryLink (dir </> "bar" </> "qux") (dir </> "foo" </> "qux")
-      sort <$> findSourceFilePaths (dir </> "foo") `shouldReturn`
-        [ dir </> "foo" </> "a.ite"
-        , dir </> "foo" </> "b.ite"
-        , dir </> "foo" </> "qux" </> "c.ite"
-        , dir </> "foo" </> "qux" </> "d.ite"
+      createDirectory (dir </> "foo" </> "src")
+      createDirectory (dir </> "bar" </> "src")
+      createDirectory (dir </> "bar" </> "src" </> "qux")
+      writeFile (dir </> "foo" </> "src" </> "a.ite") ""
+      writeFile (dir </> "foo" </> "src" </> "b.ite") ""
+      writeFile (dir </> "bar" </> "src" </> "qux" </> "c.ite") ""
+      writeFile (dir </> "bar" </> "src" </> "qux" </> "d.ite") ""
+      createDirectoryLink (dir </> "bar" </> "src" </> "qux") (dir </> "foo" </> "src" </> "qux")
+      testFindSourceFilePaths (dir </> "foo") `shouldReturn`
+        [ dir </> "foo" </> "src" </> "a.ite"
+        , dir </> "foo" </> "src" </> "b.ite"
+        , dir </> "foo" </> "src" </> "qux" </> "c.ite"
+        , dir </> "foo" </> "src" </> "qux" </> "d.ite"
         ]
