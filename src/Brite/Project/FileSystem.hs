@@ -78,8 +78,8 @@ dangerouslyCreateProjectDirectory = ProjectDirectory
 -- The path to a source file. We only allow this type to be created in this module. With a source
 -- file path we are guaranteed that:
 --
--- * The path is not a relative path and it does not contain special directories like `..`. The path
---   may contained linked files or directories that are not canonicalized. This is ok.
+-- * The path is relative to the `src` directory of the project directory the file is a part of.
+-- * The path may contained linked files or directories that are not canonicalized. This is ok.
 -- * The path is part of the source code of a Brite project.
 -- * The path may point to a directory. The only criteria is that a source path must have the Brite
 --   source code extension. A directory can pretend to be a source file by using the extension.
@@ -179,10 +179,11 @@ findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
 -- performance. (We have no evidence to prove this actually helps performance.)
 traverseProjectSourceFiles :: (a -> SourceFilePath -> IO a) -> a -> ProjectDirectory -> IO a
 traverseProjectSourceFiles update initialState (ProjectDirectory projectDirectory) = do
-  let sourceDirectory = projectDirectory </> "src"
   doesSourceDirectoryExist <- doesDirectoryExist sourceDirectory
   if doesSourceDirectoryExist then loop initialState sourceDirectory else return initialState
   where
+    sourceDirectory = projectDirectory </> "src"
+
     loop currentState directoryPath = do
       -- Find all the file names in our current directory.
       fileNames <- listDirectory directoryPath
@@ -205,7 +206,7 @@ traverseProjectSourceFiles update initialState (ProjectDirectory projectDirector
           --
           -- TODO: Warn if the file name is not a valid identifier.
           if takeExtension filePath == sourceFileExtension then
-            update state (SourceFilePath filePath)
+            update state (SourceFilePath (makeRelative sourceDirectory filePath))
           -- If this file is not a directory and it’s not a Brite source file, ignore it.
           else do
             isDirectory <- doesDirectoryExist filePath

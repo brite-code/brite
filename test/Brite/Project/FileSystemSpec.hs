@@ -331,9 +331,9 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "b.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "c.ite"
         ]
 
     it "ignores files outside the src directory" $ \dir -> do
@@ -345,9 +345,9 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "e.ite") ""
       writeFile (dir </> "src" </> "f.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "d.ite"
-        , dir </> "src" </> "e.ite"
-        , dir </> "src" </> "f.ite"
+        [ "d.ite"
+        , "e.ite"
+        , "f.ite"
         ]
 
     it "finds source files immediately in the directory ignoring non-source files" $ \dir -> do
@@ -356,8 +356,8 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "b.txt") ""
       writeFile (dir </> "src" </> "c.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "c.ite"
         ]
 
     it "finds source files when they have an extra leading extension" $ \dir -> do
@@ -366,9 +366,9 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "b.test.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.test.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "b.test.ite"
+        , "c.ite"
         ]
 
     it "ignores source files when they have an extra trailing extension" $ \dir -> do
@@ -377,8 +377,8 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "b.ite.test") ""
       writeFile (dir </> "src" </> "c.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "c.ite"
         ]
 
     it "includes directories with a source file extension same as source files" $ \dir -> do
@@ -387,9 +387,9 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "c.ite"
         ]
 
     it "does not include source files in a directory with a source file extension" $ \dir -> do
@@ -400,9 +400,9 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "b.ite" </> "d.ite") ""
       writeFile (dir </> "src" </> "b.ite" </> "e.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "c.ite"
         ]
 
     it "does not include directories with a source file different from as source files" $ \dir -> do
@@ -411,8 +411,8 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "c.ite"
         ]
 
     it "does include source files in a directory with a different extension" $ \dir -> do
@@ -423,10 +423,10 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "b.txt" </> "d.ite") ""
       writeFile (dir </> "src" </> "b.txt" </> "e.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.txt" </> "d.ite"
-        , dir </> "src" </> "b.txt" </> "e.ite"
-        , dir </> "src" </> "c.ite"
+        [ "a.ite"
+        , "b.txt" </> "d.ite"
+        , "b.txt" </> "e.ite"
+        , "c.ite"
         ]
 
     it "finds source files in directories" $ \dir -> do
@@ -440,12 +440,12 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "bar" </> "e.ite") ""
       writeFile (dir </> "src" </> "bar" </> "f.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.ite"
-        , dir </> "src" </> "bar" </> "e.ite"
-        , dir </> "src" </> "bar" </> "f.ite"
-        , dir </> "src" </> "foo" </> "c.ite"
-        , dir </> "src" </> "foo" </> "d.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "bar" </> "e.ite"
+        , "bar" </> "f.ite"
+        , "foo" </> "c.ite"
+        , "foo" </> "d.ite"
         ]
 
     it "ignores files with non-source extensions in nested directories" $ \dir -> do
@@ -462,12 +462,12 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "bar" </> "f.ite") ""
       writeFile (dir </> "src" </> "bar" </> "nope.txt") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.ite"
-        , dir </> "src" </> "bar" </> "e.ite"
-        , dir </> "src" </> "bar" </> "f.ite"
-        , dir </> "src" </> "foo" </> "c.ite"
-        , dir </> "src" </> "foo" </> "d.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "bar" </> "e.ite"
+        , "bar" </> "f.ite"
+        , "foo" </> "c.ite"
+        , "foo" </> "d.ite"
         ]
 
     it "finds source files in nested directories" $ \dir -> do
@@ -487,16 +487,16 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "bar" </> "lit" </> "i.ite") ""
       writeFile (dir </> "src" </> "bar" </> "lit" </> "j.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.ite"
-        , dir </> "src" </> "bar" </> "g.ite"
-        , dir </> "src" </> "bar" </> "h.ite"
-        , dir </> "src" </> "bar" </> "lit" </> "i.ite"
-        , dir </> "src" </> "bar" </> "lit" </> "j.ite"
-        , dir </> "src" </> "foo" </> "c.ite"
-        , dir </> "src" </> "foo" </> "d.ite"
-        , dir </> "src" </> "foo" </> "qux" </> "e.ite"
-        , dir </> "src" </> "foo" </> "qux" </> "f.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "bar" </> "g.ite"
+        , "bar" </> "h.ite"
+        , "bar" </> "lit" </> "i.ite"
+        , "bar" </> "lit" </> "j.ite"
+        , "foo" </> "c.ite"
+        , "foo" </> "d.ite"
+        , "foo" </> "qux" </> "e.ite"
+        , "foo" </> "qux" </> "f.ite"
         ]
 
     it "ignores files with non-source extensions in nested directories" $ \dir -> do
@@ -521,16 +521,16 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "bar" </> "lit" </> "j.ite") ""
       writeFile (dir </> "src" </> "bar" </> "lit" </> "nope.txt") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
-        [ dir </> "src" </> "a.ite"
-        , dir </> "src" </> "b.ite"
-        , dir </> "src" </> "bar" </> "g.ite"
-        , dir </> "src" </> "bar" </> "h.ite"
-        , dir </> "src" </> "bar" </> "lit" </> "i.ite"
-        , dir </> "src" </> "bar" </> "lit" </> "j.ite"
-        , dir </> "src" </> "foo" </> "c.ite"
-        , dir </> "src" </> "foo" </> "d.ite"
-        , dir </> "src" </> "foo" </> "qux" </> "e.ite"
-        , dir </> "src" </> "foo" </> "qux" </> "f.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "bar" </> "g.ite"
+        , "bar" </> "h.ite"
+        , "bar" </> "lit" </> "i.ite"
+        , "bar" </> "lit" </> "j.ite"
+        , "foo" </> "c.ite"
+        , "foo" </> "d.ite"
+        , "foo" </> "qux" </> "e.ite"
+        , "foo" </> "qux" </> "f.ite"
         ]
 
     it "finds linked files" $ \dir -> do
@@ -545,10 +545,10 @@ spec = around withTemporaryDirectory $ do
       createFileLink (dir </> "bar" </> "src" </> "b.ite") (dir </> "foo" </> "src" </> "b.ite")
       createFileLink (dir </> "bar" </> "src" </> "d.ite") (dir </> "foo" </> "src" </> "d.ite")
       testTraverseProjectSourceFiles (dir </> "foo") `shouldReturn`
-        [ dir </> "foo" </> "src" </> "a.ite"
-        , dir </> "foo" </> "src" </> "b.ite"
-        , dir </> "foo" </> "src" </> "c.ite"
-        , dir </> "foo" </> "src" </> "d.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "c.ite"
+        , "d.ite"
         ]
 
     it "finds files in linked directories" $ \dir -> do
@@ -563,8 +563,8 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "bar" </> "src" </> "qux" </> "d.ite") ""
       createDirectoryLink (dir </> "bar" </> "src" </> "qux") (dir </> "foo" </> "src" </> "qux")
       testTraverseProjectSourceFiles (dir </> "foo") `shouldReturn`
-        [ dir </> "foo" </> "src" </> "a.ite"
-        , dir </> "foo" </> "src" </> "b.ite"
-        , dir </> "foo" </> "src" </> "qux" </> "c.ite"
-        , dir </> "foo" </> "src" </> "qux" </> "d.ite"
+        [ "a.ite"
+        , "b.ite"
+        , "qux" </> "c.ite"
+        , "qux" </> "d.ite"
         ]
