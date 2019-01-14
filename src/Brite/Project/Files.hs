@@ -1,4 +1,8 @@
-module Brite.Project.Files (findProjectConfig, findSourceFilePaths) where
+module Brite.Project.Files
+  ( findProjectConfig
+  , findSourceFilePaths
+  , escapeFilePath
+  ) where
 
 import Data.Foldable (foldlM)
 import System.Directory
@@ -127,3 +131,21 @@ findSourceFilePaths = loop []
         -- Iterate through file names and start with the initial source file path list.
         initialSourceFilePaths
         fileNames
+
+-- Escape the slashes in a file path so that the file path may be used as a file name itself. We use
+-- this to create directories for Brite caches. Inspired by [Hack/Flow][1].
+--
+-- [1]: https://github.com/facebook/flow/blob/ef74a645241326a10eba82164feb197eb8f10ac9/hack/utils/sys/path.ml#L55-L66
+escapeFilePath :: FilePath -> String
+escapeFilePath =
+  foldr
+    (\c s ->
+      case c of
+        '\\' -> 'z' : 'B' : s
+        ':' -> 'z' : 'C' : s
+        '/' -> 'z' : 'S' : s
+        '\x00' -> 'z' : '0' : s
+        '.' -> 'z' : 'D' : s
+        'z' -> 'z' : 'Z' : s
+        _ -> c : s)
+    []
