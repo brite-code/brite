@@ -2,9 +2,10 @@
 
 module Brite.Project.DatabaseSpec (spec) where
 
+import Brite.Exception
 import Brite.Project.FileSystem (dangerouslyCreateProjectCacheDirectory)
 import Brite.Project.Database
-import Control.Exception.Base (bracket)
+import Control.Exception (bracket)
 import Database.SQLite.Simple
 import System.Directory
 import System.FilePath
@@ -54,4 +55,6 @@ spec = around withTemporaryDirectory $ do
 
     it "errors if the user version is larger than expected" $ \dir -> withConnection "project.db" $ \c -> do
       execute_ c "PRAGMA user_version = 9001"
-      testWithDatabase dir (const (return ()))
+      testWithDatabase dir (const (return ())) `shouldThrow` \e ->
+        case e of
+          ProjectDatabaseUnrecognizedVersion -> True

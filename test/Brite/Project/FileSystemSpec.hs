@@ -1,7 +1,7 @@
 module Brite.Project.FileSystemSpec (spec) where
 
 import Brite.Project.FileSystem
-import Control.Exception.Base (bracket)
+import Control.Exception (bracket)
 import Data.List (sort)
 import System.Directory
 import System.FilePath

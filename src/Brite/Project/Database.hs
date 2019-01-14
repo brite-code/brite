@@ -7,7 +7,9 @@ module Brite.Project.Database
   , withTemporaryDatabase
   ) where
 
+import Brite.Exception
 import Brite.Project.FileSystem (ProjectCacheDirectory, getProjectCacheDirectory)
+import Control.Exception (throwIO)
 import Data.Foldable (traverse_)
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
@@ -73,7 +75,7 @@ setupDatabase (Database c) = do
   -- If our `latestUserVersion` is smaller than the `userVersion` then we are using an old version
   -- of the Brite compiler with a new version of the cache.
   else if latestUserVersion < userVersion then
-    error "TODO: Using an older version of Brite with a newer cache"
+    throwIO ProjectDatabaseUnrecognizedVersion
 
   -- Otherwise `latestUserVersion` is equal to `userVersion` so we have nothing to set up!
   else
