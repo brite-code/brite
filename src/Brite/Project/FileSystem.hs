@@ -12,6 +12,7 @@ module Brite.Project.FileSystem
   , traverseProjectSourceFiles
   ) where
 
+import Brite.Dev
 import Data.Foldable (foldlM)
 import Network.HTTP.Base (urlEncode)
 import System.Directory
@@ -51,9 +52,13 @@ configFileName = "Brite"
 
 -- The relative path we add to an [XDG directory][1] path.
 --
+-- In development we use a different folder than for releases. This way if a user chooses to run a
+-- development build of Brite against their project they’ll get a separate cache so if they choose
+-- to switch back to release mode they won’t be affected by the development mode cache.
+--
 -- [1]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
 xdgRelativePath :: FilePath
-xdgRelativePath = "brite"
+xdgRelativePath = if isDev then "brite-dev" else "brite"
 
 -- The path to a project directory. We only allow this type to be created through
 -- `findProjectDirectory`. With a project directory path we are guaranteed that:
