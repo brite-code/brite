@@ -25,9 +25,12 @@ withTemporaryDirectory action =
 testFindProjectDirectory :: FilePath -> IO (Maybe FilePath)
 testFindProjectDirectory = (fmap getProjectDirectory <$>) . findProjectDirectory
 
-testFindSourceFilePaths :: FilePath -> IO [FilePath]
-testFindSourceFilePaths =
-  (sort <$>) . (map getSourceFilePath <$>) . findSourceFilePaths . dangerouslyCreateProjectDirectory
+testTraverseProjectSourceFiles :: FilePath -> IO [FilePath]
+testTraverseProjectSourceFiles =
+  (sort <$>)
+    . (map getSourceFilePath <$>)
+    . traverseProjectSourceFiles (\as a -> return (a : as)) []
+    . dangerouslyCreateProjectDirectory
 
 spec :: Spec
 spec = around withTemporaryDirectory $ do
@@ -308,26 +311,26 @@ spec = around withTemporaryDirectory $ do
       setCurrentDirectory (dir </> "a" </> "c")
       testFindProjectDirectory (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
 
-  describe "findSourceFilePaths" $ do
+  describe "traverseProjectSourceFiles" $ do
     it "finds nothing if a src directory does not exist" $ \dir -> do
       writeFile (dir </> "a.ite") ""
       writeFile (dir </> "b.ite") ""
       writeFile (dir </> "c.ite") ""
-      testFindSourceFilePaths dir `shouldReturn` []
+      testTraverseProjectSourceFiles dir `shouldReturn` []
 
     it "finds nothing if src is a file and not a directory" $ \dir -> do
       writeFile (dir </> "a.ite") ""
       writeFile (dir </> "b.ite") ""
       writeFile (dir </> "c.ite") ""
       writeFile (dir </> "src") ""
-      testFindSourceFilePaths dir `shouldReturn` []
+      testTraverseProjectSourceFiles dir `shouldReturn` []
 
     it "finds source files immediately in the directory" $ \dir -> do
       createDirectory (dir </> "src")
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "b.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.ite"
         , dir </> "src" </> "c.ite"
@@ -341,7 +344,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "d.ite") ""
       writeFile (dir </> "src" </> "e.ite") ""
       writeFile (dir </> "src" </> "f.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "d.ite"
         , dir </> "src" </> "e.ite"
         , dir </> "src" </> "f.ite"
@@ -352,7 +355,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "b.txt") ""
       writeFile (dir </> "src" </> "c.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "c.ite"
         ]
@@ -362,7 +365,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "b.test.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.test.ite"
         , dir </> "src" </> "c.ite"
@@ -373,7 +376,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "b.ite.test") ""
       writeFile (dir </> "src" </> "c.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "c.ite"
         ]
@@ -383,7 +386,7 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "src" </> "b.ite")
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.ite"
         , dir </> "src" </> "c.ite"
@@ -396,7 +399,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "c.ite") ""
       writeFile (dir </> "src" </> "b.ite" </> "d.ite") ""
       writeFile (dir </> "src" </> "b.ite" </> "e.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.ite"
         , dir </> "src" </> "c.ite"
@@ -407,7 +410,7 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "src" </> "b.txt")
       writeFile (dir </> "src" </> "a.ite") ""
       writeFile (dir </> "src" </> "c.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "c.ite"
         ]
@@ -419,7 +422,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "c.ite") ""
       writeFile (dir </> "src" </> "b.txt" </> "d.ite") ""
       writeFile (dir </> "src" </> "b.txt" </> "e.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.txt" </> "d.ite"
         , dir </> "src" </> "b.txt" </> "e.ite"
@@ -436,7 +439,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "foo" </> "d.ite") ""
       writeFile (dir </> "src" </> "bar" </> "e.ite") ""
       writeFile (dir </> "src" </> "bar" </> "f.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.ite"
         , dir </> "src" </> "bar" </> "e.ite"
@@ -458,7 +461,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "bar" </> "e.ite") ""
       writeFile (dir </> "src" </> "bar" </> "f.ite") ""
       writeFile (dir </> "src" </> "bar" </> "nope.txt") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.ite"
         , dir </> "src" </> "bar" </> "e.ite"
@@ -483,7 +486,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "bar" </> "h.ite") ""
       writeFile (dir </> "src" </> "bar" </> "lit" </> "i.ite") ""
       writeFile (dir </> "src" </> "bar" </> "lit" </> "j.ite") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.ite"
         , dir </> "src" </> "bar" </> "g.ite"
@@ -517,7 +520,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "bar" </> "lit" </> "i.ite") ""
       writeFile (dir </> "src" </> "bar" </> "lit" </> "j.ite") ""
       writeFile (dir </> "src" </> "bar" </> "lit" </> "nope.txt") ""
-      testFindSourceFilePaths dir `shouldReturn`
+      testTraverseProjectSourceFiles dir `shouldReturn`
         [ dir </> "src" </> "a.ite"
         , dir </> "src" </> "b.ite"
         , dir </> "src" </> "bar" </> "g.ite"
@@ -541,7 +544,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "bar" </> "src" </> "d.ite") ""
       createFileLink (dir </> "bar" </> "src" </> "b.ite") (dir </> "foo" </> "src" </> "b.ite")
       createFileLink (dir </> "bar" </> "src" </> "d.ite") (dir </> "foo" </> "src" </> "d.ite")
-      testFindSourceFilePaths (dir </> "foo") `shouldReturn`
+      testTraverseProjectSourceFiles (dir </> "foo") `shouldReturn`
         [ dir </> "foo" </> "src" </> "a.ite"
         , dir </> "foo" </> "src" </> "b.ite"
         , dir </> "foo" </> "src" </> "c.ite"
@@ -559,7 +562,7 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "bar" </> "src" </> "qux" </> "c.ite") ""
       writeFile (dir </> "bar" </> "src" </> "qux" </> "d.ite") ""
       createDirectoryLink (dir </> "bar" </> "src" </> "qux") (dir </> "foo" </> "src" </> "qux")
-      testFindSourceFilePaths (dir </> "foo") `shouldReturn`
+      testTraverseProjectSourceFiles (dir </> "foo") `shouldReturn`
         [ dir </> "foo" </> "src" </> "a.ite"
         , dir </> "foo" </> "src" </> "b.ite"
         , dir </> "foo" </> "src" </> "qux" </> "c.ite"

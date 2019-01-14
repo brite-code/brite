@@ -5,7 +5,7 @@ module Brite.Project.Files
   , SourceFilePath
   , getSourceFilePath
   , findProjectDirectory
-  , findSourceFilePaths
+  , traverseProjectSourceFiles
   , escapeFilePath
   ) where
 
@@ -110,9 +110,9 @@ findProjectDirectory initialFilePath =
             if filePath == directoryPath then return Nothing
             else loop directoryPath
 
--- Find all the Brite source files in the project directory’s `src` folder. The order of file paths
--- is consistent across runs, but determined by the underlying file system implementation and not
--- file names!
+-- Traverse all the Brite source files in the project directory’s `src` folder. The order in which
+-- we traverse file paths is consistent across runs, but determined by the underlying file system
+-- implementation.
 --
 -- IMPORTANT: Remember that this function will take a long time on large directories with many
 -- files! After all, it has to traverse every file. We only want to run this over the `src` folder
@@ -121,19 +121,19 @@ findProjectDirectory initialFilePath =
 -- NOTE: If the user has a directory that ends in `.ite` then we will consider that a source file
 -- path! We do this as it decreases the number of system calls we need to make potentially helping
 -- performance. (We have no evidence to prove this actually helps performance.)
-findSourceFilePaths :: ProjectDirectory -> IO [SourceFilePath]
-findSourceFilePaths (ProjectDirectory projectDirectory) = do
+traverseProjectSourceFiles :: (a -> SourceFilePath -> IO a) -> a -> ProjectDirectory -> IO a
+traverseProjectSourceFiles update initialState (ProjectDirectory projectDirectory) = do
   let sourceDirectory = projectDirectory </> "src"
   doesSourceDirectoryExist <- doesDirectoryExist sourceDirectory
-  if doesSourceDirectoryExist then loop [] sourceDirectory else return []
+  if doesSourceDirectoryExist then loop initialState sourceDirectory else return initialState
   where
-    loop initialSourceFilePaths directoryPath = do
+    loop currentState directoryPath = do
       -- Find all the file names in our current directory.
       fileNames <- listDirectory directoryPath
       -- Iterate through our file names and either recurse into the directory or check to see if
       -- this file is a source file.
       foldlM
-        (\sourceFilePaths fileName ->
+        (\state fileName ->
           let filePath = directoryPath </> fileName in
           -- If we have a file extension of `.ite` then we have a source file! The source file might
           -- have a name which is not a valid identifier. If this is the case, we need to warn the
@@ -149,7 +149,7 @@ findSourceFilePaths (ProjectDirectory projectDirectory) = do
           --
           -- TODO: Warn if the file name is not a valid identifier.
           if takeExtension filePath == sourceFileExtension then
-            return (SourceFilePath filePath : sourceFilePaths)
+            update state (SourceFilePath filePath)
           -- If this file is not a directory and it’s not a Brite source file, ignore it.
           else do
             isDirectory <- doesDirectoryExist filePath
@@ -158,11 +158,11 @@ findSourceFilePaths (ProjectDirectory projectDirectory) = do
             --
             -- TODO: Warn if the directory name is not a valid identifier.
             if isDirectory then
-              loop sourceFilePaths filePath
+              loop state filePath
             else
-              return sourceFilePaths)
-        -- Iterate through file names and start with the initial source file path list.
-        initialSourceFilePaths
+              return state)
+        -- Iterate through file names and start with the current state.
+        currentState
         fileNames
 
 -- Escape the slashes in a file path so that the file path may be used as a file name itself. We use
