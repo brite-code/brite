@@ -2,6 +2,7 @@ module Brite.Project.FilesSpec (spec) where
 
 import Brite.Project.Files
 import Control.Exception.Base (bracket)
+import Data.List (sort)
 import System.Directory
 import System.FilePath
 import Test.Hspec
@@ -299,3 +300,204 @@ spec = around withTemporaryDirectory $ do
       findProjectConfig ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a" </> "c")
       findProjectConfig (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+
+  describe "findSourceFilePaths" $ do
+    it "finds source files immediately in the directory" $ \dir -> do
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite") ""
+      writeFile (dir </> "c.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "b.ite", dir </> "c.ite"]
+
+    it "finds source files immediately in the directory ignoring non-source files" $ \dir -> do
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.txt") ""
+      writeFile (dir </> "c.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "c.ite"]
+
+    it "finds source files when they have an extra leading extension" $ \dir -> do
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.test.ite") ""
+      writeFile (dir </> "c.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "b.test.ite", dir </> "c.ite"]
+
+    it "ignores source files when they have an extra trailing extension" $ \dir -> do
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite.test") ""
+      writeFile (dir </> "c.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "c.ite"]
+
+    it "includes directories with a source file extension same as source files" $ \dir -> do
+      createDirectory (dir </> "b.ite")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "c.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "b.ite", dir </> "c.ite"]
+
+    it "does not include source files in a directory with a source file extension" $ \dir -> do
+      createDirectory (dir </> "b.ite")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "c.ite") ""
+      writeFile (dir </> "b.ite" </> "d.ite") ""
+      writeFile (dir </> "b.ite" </> "e.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "b.ite", dir </> "c.ite"]
+
+    it "does not include directories with a source file different from as source files" $ \dir -> do
+      createDirectory (dir </> "b.txt")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "c.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "c.ite"]
+
+    it "does include source files in a directory with a different extension" $ \dir -> do
+      createDirectory (dir </> "b.txt")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "c.ite") ""
+      writeFile (dir </> "b.txt" </> "d.ite") ""
+      writeFile (dir </> "b.txt" </> "e.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [dir </> "a.ite", dir </> "b.txt" </> "d.ite", dir </> "b.txt" </> "e.ite", dir </> "c.ite"]
+
+    it "finds source files in directories" $ \dir -> do
+      createDirectory (dir </> "foo")
+      createDirectory (dir </> "bar")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite") ""
+      writeFile (dir </> "foo" </> "c.ite") ""
+      writeFile (dir </> "foo" </> "d.ite") ""
+      writeFile (dir </> "bar" </> "e.ite") ""
+      writeFile (dir </> "bar" </> "f.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [ dir </> "a.ite"
+        , dir </> "b.ite"
+        , dir </> "bar" </> "e.ite"
+        , dir </> "bar" </> "f.ite"
+        , dir </> "foo" </> "c.ite"
+        , dir </> "foo" </> "d.ite"
+        ]
+
+    it "ignores files with non-source extensions in nested directories" $ \dir -> do
+      createDirectory (dir </> "foo")
+      createDirectory (dir </> "bar")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite") ""
+      writeFile (dir </> "nope.txt") ""
+      writeFile (dir </> "foo" </> "c.ite") ""
+      writeFile (dir </> "foo" </> "d.ite") ""
+      writeFile (dir </> "foo" </> "nope.txt") ""
+      writeFile (dir </> "bar" </> "e.ite") ""
+      writeFile (dir </> "bar" </> "f.ite") ""
+      writeFile (dir </> "bar" </> "nope.txt") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [ dir </> "a.ite"
+        , dir </> "b.ite"
+        , dir </> "bar" </> "e.ite"
+        , dir </> "bar" </> "f.ite"
+        , dir </> "foo" </> "c.ite"
+        , dir </> "foo" </> "d.ite"
+        ]
+
+    it "finds source files in nested directories" $ \dir -> do
+      createDirectory (dir </> "foo")
+      createDirectory (dir </> "bar")
+      createDirectory (dir </> "foo" </> "qux")
+      createDirectory (dir </> "bar" </> "lit")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite") ""
+      writeFile (dir </> "foo" </> "c.ite") ""
+      writeFile (dir </> "foo" </> "d.ite") ""
+      writeFile (dir </> "foo" </> "qux" </> "e.ite") ""
+      writeFile (dir </> "foo" </> "qux" </> "f.ite") ""
+      writeFile (dir </> "bar" </> "g.ite") ""
+      writeFile (dir </> "bar" </> "h.ite") ""
+      writeFile (dir </> "bar" </> "lit" </> "i.ite") ""
+      writeFile (dir </> "bar" </> "lit" </> "j.ite") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [ dir </> "a.ite"
+        , dir </> "b.ite"
+        , dir </> "bar" </> "g.ite"
+        , dir </> "bar" </> "h.ite"
+        , dir </> "bar" </> "lit" </> "i.ite"
+        , dir </> "bar" </> "lit" </> "j.ite"
+        , dir </> "foo" </> "c.ite"
+        , dir </> "foo" </> "d.ite"
+        , dir </> "foo" </> "qux" </> "e.ite"
+        , dir </> "foo" </> "qux" </> "f.ite"
+        ]
+
+    it "ignores files with non-source extensions in nested directories" $ \dir -> do
+      createDirectory (dir </> "foo")
+      createDirectory (dir </> "bar")
+      createDirectory (dir </> "foo" </> "qux")
+      createDirectory (dir </> "bar" </> "lit")
+      writeFile (dir </> "a.ite") ""
+      writeFile (dir </> "b.ite") ""
+      writeFile (dir </> "nope.txt") ""
+      writeFile (dir </> "foo" </> "c.ite") ""
+      writeFile (dir </> "foo" </> "d.ite") ""
+      writeFile (dir </> "foo" </> "nope.txt") ""
+      writeFile (dir </> "foo" </> "qux" </> "e.ite") ""
+      writeFile (dir </> "foo" </> "qux" </> "f.ite") ""
+      writeFile (dir </> "foo" </> "qux" </> "nope.txt") ""
+      writeFile (dir </> "bar" </> "g.ite") ""
+      writeFile (dir </> "bar" </> "h.ite") ""
+      writeFile (dir </> "bar" </> "nope.txt") ""
+      writeFile (dir </> "bar" </> "lit" </> "i.ite") ""
+      writeFile (dir </> "bar" </> "lit" </> "j.ite") ""
+      writeFile (dir </> "bar" </> "lit" </> "nope.txt") ""
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [ dir </> "a.ite"
+        , dir </> "b.ite"
+        , dir </> "bar" </> "g.ite"
+        , dir </> "bar" </> "h.ite"
+        , dir </> "bar" </> "lit" </> "i.ite"
+        , dir </> "bar" </> "lit" </> "j.ite"
+        , dir </> "foo" </> "c.ite"
+        , dir </> "foo" </> "d.ite"
+        , dir </> "foo" </> "qux" </> "e.ite"
+        , dir </> "foo" </> "qux" </> "f.ite"
+        ]
+
+    it "finds linked files" $ \dir -> do
+      createDirectory (dir </> "foo")
+      createDirectory (dir </> "bar")
+      writeFile (dir </> "foo" </> "a.ite") ""
+      writeFile (dir </> "bar" </> "b.ite") ""
+      writeFile (dir </> "foo" </> "c.ite") ""
+      writeFile (dir </> "bar" </> "d.ite") ""
+      createFileLink (dir </> "bar" </> "b.ite") (dir </> "foo" </> "b.ite")
+      createFileLink (dir </> "bar" </> "d.ite") (dir </> "foo" </> "d.ite")
+      sort <$> findSourceFilePaths (dir </> "foo") `shouldReturn`
+        [ dir </> "foo" </> "a.ite"
+        , dir </> "foo" </> "b.ite"
+        , dir </> "foo" </> "c.ite"
+        , dir </> "foo" </> "d.ite"
+        ]
+      sort <$> findSourceFilePaths dir `shouldReturn`
+        [ dir </> "bar" </> "b.ite"
+        , dir </> "bar" </> "d.ite"
+        , dir </> "foo" </> "a.ite"
+        , dir </> "foo" </> "b.ite"
+        , dir </> "foo" </> "c.ite"
+        , dir </> "foo" </> "d.ite"
+        ]
+
+    it "finds files in linked directories" $ \dir -> do
+      createDirectory (dir </> "foo")
+      createDirectory (dir </> "bar")
+      createDirectory (dir </> "bar" </> "qux")
+      writeFile (dir </> "foo" </> "a.ite") ""
+      writeFile (dir </> "foo" </> "b.ite") ""
+      writeFile (dir </> "bar" </> "qux" </> "c.ite") ""
+      writeFile (dir </> "bar" </> "qux" </> "d.ite") ""
+      createDirectoryLink (dir </> "bar" </> "qux") (dir </> "foo" </> "qux")
+      sort <$> findSourceFilePaths (dir </> "foo") `shouldReturn`
+        [ dir </> "foo" </> "a.ite"
+        , dir </> "foo" </> "b.ite"
+        , dir </> "foo" </> "qux" </> "c.ite"
+        , dir </> "foo" </> "qux" </> "d.ite"
+        ]
