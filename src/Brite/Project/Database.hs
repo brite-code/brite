@@ -1,16 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Project.Database
-  ( Database
-  , unsafeDatabaseConnection
+  ( ProjectDatabase
+  , unsafeProjectDatabaseConnection
   , withDatabase
   , withTemporaryDatabase
+  , SourceFile(..)
+  , selectAllSourceFiles
   ) where
 
 import Brite.Exception
-import Brite.Project.FileSystem (ProjectCacheDirectory, getProjectCacheDirectory)
+import Brite.Project.FileSystem
 import Control.Exception (throwIO)
 import Data.Foldable (traverse_)
+import Data.Time (UTCTime)
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Int as Text.Builder
@@ -21,33 +24,35 @@ import System.FilePath ((</>))
 
 -- Wrapper around a SQLite database connection. This allows us to control what operations the
 -- outside world may perform on our database.
-newtype Database = Database { databaseConnection :: Connection }
+newtype ProjectDatabase = ProjectDatabase { projectDatabaseConnection :: Connection }
 
 -- Unsafely gets the database’s SQLite connection. You shouldn’t be using the raw SQLite database
 -- connection outside of this module! Let this module be responsible for all the SQLite work.
-unsafeDatabaseConnection :: Database -> Connection
-unsafeDatabaseConnection = databaseConnection
+unsafeProjectDatabaseConnection :: ProjectDatabase -> Connection
+unsafeProjectDatabaseConnection = projectDatabaseConnection
 
 -- Opens a database connection, executes an action using this connection, and closes the connection,
 -- even in the presence of exceptions.
-withDatabase :: ProjectCacheDirectory -> (Database -> IO a) -> IO a
+withDatabase :: ProjectCacheDirectory -> (ProjectDatabase -> IO a) -> IO a
 withDatabase projectCacheDirectory action =
   let projectDatabasePath = getProjectCacheDirectory projectCacheDirectory </> "project.db" in
-    withConnection projectDatabasePath (\c -> setupDatabase (Database c) *> action (Database c))
+    withConnection projectDatabasePath (\c ->
+      setupDatabase (ProjectDatabase c) *> action (ProjectDatabase c))
 
 -- Opens an in-memory temporary database connection, executes an action using this connection, and
 -- closes the connection, even in the presence of exceptions. The database will vanish when the
 -- action completes.
-withTemporaryDatabase :: (Database -> IO a) -> IO a
+withTemporaryDatabase :: (ProjectDatabase -> IO a) -> IO a
 withTemporaryDatabase action =
-  withConnection ":memory:" (\c -> setupDatabase (Database c) *> action (Database c))
+  withConnection ":memory:" (\c ->
+    setupDatabase (ProjectDatabase c) *> action (ProjectDatabase c))
 
 -- Setup the Brite database by running appropriate migrations. We determine which migrations need to
 -- be run by looking at the [`user_version`][1] pragma which SQLite kindly provides to us.
 --
 -- [1]: https://sqlite.org/pragma.html#pragma_user_version
-setupDatabase :: Database -> IO ()
-setupDatabase (Database c) = do
+setupDatabase :: ProjectDatabase -> IO ()
+setupDatabase (ProjectDatabase c) = do
   -- Query the database to get the current user version...
   userVersionRows <- query_ c "PRAGMA user_version" :: IO [Only Int]
   let userVersion = if null userVersionRows then 0 else fromOnly (head userVersionRows)
@@ -87,8 +92,35 @@ latestUserVersion :: Int
 latestUserVersion = length allMigrations
 
 -- Database migrations which get run in `setupDatabase`.
+--
+-- IMPORTANT: Never change the schema migrations from a released Brite version! Only change the
+-- schema migrations for unreleased code. This allows us to upgrade the user’s cache whenever they
+-- upgrade Brite.
 allMigrations :: [Query]
 allMigrations =
-  [ "SELECT 1 + 1;\n\
+  [ "CREATE TABLE source_file (\n\
+    \  id INTEGER PRIMARY KEY,\n\
+    \  path TEXT NOT NULL UNIQUE,\n\
+    \  time TEXT NOT NULL\n\
+    \);\n\
     \"
   ]
+
+-- The representation of a source file in our database.
+data SourceFile = SourceFile
+  -- The unique identifier for this source file which can be used in foreign key constraints.
+  { sourceFileID :: Int
+  -- The path to our source file relative to the project’s `src` directory.
+  , sourceFilePath :: SourceFilePath
+  -- The last time at which the source file was modified according to our database. In the file
+  -- system the file may have been modified but our database doesn’t know yet.
+  , sourceFileTime :: UTCTime
+  }
+
+instance FromRow SourceFile where
+  fromRow = SourceFile <$> field <*> (dangerouslyCreateSourceFilePath <$> field) <*> field
+
+-- Selects all of the source files in the database. Remember that these source files might not be up
+-- to date!
+selectAllSourceFiles :: ProjectDatabase -> a -> (a -> SourceFile -> IO a) -> IO a
+selectAllSourceFiles (ProjectDatabase c) = fold_ c "SELECT id, path, time FROM source_file"

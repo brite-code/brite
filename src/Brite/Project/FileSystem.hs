@@ -4,6 +4,7 @@ module Brite.Project.FileSystem
   , dangerouslyCreateProjectDirectory
   , SourceFilePath
   , getSourceFilePath
+  , dangerouslyCreateSourceFilePath
   , ProjectCacheDirectory
   , getProjectCacheDirectory
   , dangerouslyCreateProjectCacheDirectory
@@ -85,6 +86,11 @@ dangerouslyCreateProjectDirectory = ProjectDirectory
 --   source code extension. A directory can pretend to be a source file by using the extension.
 newtype SourceFilePath = SourceFilePath { getSourceFilePath :: FilePath }
   deriving (Show)
+
+-- Dangerously creates a new source file path. We assume you’ve validated all the assumptions that
+-- the `ProjectCacheDirectory` type has made.
+dangerouslyCreateSourceFilePath :: FilePath -> SourceFilePath
+dangerouslyCreateSourceFilePath = SourceFilePath
 
 -- The path to a project’s cache directory. We only allow this type to be created in this module
 -- which gives us guarantees about its construction.

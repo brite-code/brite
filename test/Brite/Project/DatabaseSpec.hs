@@ -26,7 +26,7 @@ withTemporaryDirectory action =
     (\temporaryDirectory ->
       withCurrentDirectory temporaryDirectory (action temporaryDirectory))
 
-testWithDatabase :: FilePath -> (Database -> IO a) -> IO a
+testWithDatabase :: FilePath -> (ProjectDatabase -> IO a) -> IO a
 testWithDatabase = withDatabase . dangerouslyCreateProjectCacheDirectory
 
 spec :: Spec
@@ -39,7 +39,7 @@ spec = around withTemporaryDirectory $ do
 
     it "runs migrations on a freshly created database" $ \dir -> do
       testWithDatabase dir $ \db -> do
-        let c = unsafeDatabaseConnection db
+        let c = unsafeProjectDatabaseConnection db
         userVersionRows <- query_ c "PRAGMA user_version" :: IO [Only Int]
         length userVersionRows `shouldBe` 1
         fromOnly (head userVersionRows) `shouldNotBe` 0
