@@ -16,7 +16,7 @@ module Brite.Project.Cache
   ) where
 
 import Brite.Exception
-import Brite.Project.FileSystem
+import Brite.Project.Files
 import Control.Exception (throwIO)
 import Data.Foldable (traverse_)
 import Data.Time (UTCTime)

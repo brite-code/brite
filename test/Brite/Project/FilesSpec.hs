@@ -1,6 +1,6 @@
-module Brite.Project.FileSystemSpec (spec) where
+module Brite.Project.FilesSpec (spec) where
 
-import Brite.Project.FileSystem
+import Brite.Project.Files
 import Control.Exception (bracket)
 import Data.List (sort)
 import System.Directory
@@ -15,7 +15,7 @@ withTemporaryDirectory action =
   bracket
     (do
       systemTemporaryDirectory <- getTemporaryDirectory
-      temporaryDirectory <- canonicalizePath (systemTemporaryDirectory </> "Brite.Project.FileSystemSpec")
+      temporaryDirectory <- canonicalizePath (systemTemporaryDirectory </> "Brite.Project.FilesSpec")
       createDirectory temporaryDirectory
       return temporaryDirectory)
     removeDirectoryRecursive

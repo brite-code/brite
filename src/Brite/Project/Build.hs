@@ -36,7 +36,7 @@
 
 module Brite.Project.Build () where
 
-import Brite.Project.FileSystem
+import Brite.Project.Files
 
 buildProject :: ProjectDirectory -> IO ()
 buildProject = error "unimplemented"

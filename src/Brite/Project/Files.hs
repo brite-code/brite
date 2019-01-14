@@ -1,4 +1,4 @@
-module Brite.Project.FileSystem
+module Brite.Project.Files
   ( ProjectDirectory
   , getProjectDirectory
   , dangerouslyCreateProjectDirectory

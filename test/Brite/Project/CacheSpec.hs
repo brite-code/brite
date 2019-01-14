@@ -3,7 +3,7 @@
 module Brite.Project.CacheSpec (spec) where
 
 import Brite.Exception
-import Brite.Project.FileSystem (dangerouslyCreateProjectCacheDirectory)
+import Brite.Project.Files (dangerouslyCreateProjectCacheDirectory)
 import Brite.Project.Cache
 import Control.Exception (bracket)
 import Database.SQLite.Simple
