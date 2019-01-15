@@ -332,8 +332,6 @@ data Comment
   --
   -- NOTE: Maybe we should remove support for block comments? They complicate printing and parsing
   -- and are not used for documentation. At least warn when we see a block comment?
-  --
-  -- TODO: Make a decision on keeping or removing block comments.
   | BlockComment Text Bool
 
 -- Is this trivia whitespace?

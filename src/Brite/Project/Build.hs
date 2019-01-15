@@ -165,8 +165,6 @@ buildProjectFiles cache targetedSourceFilePaths = withImmediateTransaction cache
         if sourceFileTime sourceFile < targetedSourceFileTime then updateSourceFile cache sourceFile
         else return ()
 
--- TODO: `buildProjectVirtualFiles`
-
 -- Builds a source file which does not exist in the cache and inserts it into the cache.
 --
 -- Assumes that:
