@@ -28,14 +28,14 @@ testFindProjectDirectory = (fmap getProjectDirectory <$>) . findProjectDirectory
 
 testIntoSourceFilePath :: FilePath -> FilePath -> IO (Maybe FilePath)
 testIntoSourceFilePath p1 p2 =
-  fmap getSourceFilePath <$> intoSourceFilePath (dangerouslyCreateProjectDirectory p1) p2
+  fmap getSourceFileRelativePath <$> intoSourceFilePath (dangerouslyCreateProjectDirectory p1) p2
 
 testTraverseProjectSourceFiles :: FilePath -> IO [FilePath]
 testTraverseProjectSourceFiles =
   (sort <$>)
-    . (map getSourceFilePath <$>)
+    . (map getSourceFileRelativePath <$>)
     . (\p -> traverseProjectSourceFiles p [] (\as a -> do
-        yay <- isJust <$> intoSourceFilePath p (getProjectDirectory p </> "src" </> getSourceFilePath a)
+        yay <- isJust <$> intoSourceFilePath p (getSourceFilePath p a)
         if yay then return (a : as)
         else error "Expected intoSourceFilePath to succeed on all paths returned by traverseProjectSourceFiles."))
     . dangerouslyCreateProjectDirectory

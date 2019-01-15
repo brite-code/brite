@@ -173,7 +173,7 @@ selectSourceFiles :: ProjectCache -> [SourceFilePath] -> a -> (a -> SourceFile -
 selectSourceFiles (ProjectCache _ c) sourceFilePaths =
   let
     (paramCount, params) =
-      foldr (\p (n, ps) -> (n + 1, getSourceFilePath p : ps)) (0, []) sourceFilePaths
+      foldr (\p (n, ps) -> (n + 1, getSourceFileRelativePath p : ps)) (0, []) sourceFilePaths
   in
     fold c
       -- `Data.Text` fusion should make constructing this query fast. `Text.replicate` with a

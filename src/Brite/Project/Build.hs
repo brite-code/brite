@@ -40,8 +40,14 @@ module Brite.Project.Build
 
 import Brite.Project.Files
 import Brite.Project.Cache
+import Data.Foldable (traverse_)
 import qualified Data.HashTable.IO as HashTable
+import System.Directory (doesFileExist)
 
+-- We need a hash table with:
+--
+-- * Reasonable insertion performance considering we do it all at once in one batch.
+-- * Good deletion performance since we might delete all the entries we added to the table.
 type HashTable k v = HashTable.CuckooHashTable k v
 
 -- Builds _all_ of the source files in a Brite project. If a source file is already up-to-date in
@@ -55,6 +61,10 @@ type HashTable k v = HashTable.CuckooHashTable k v
 -- to the project’s cache until this function completes! Other processes may read stale data from
 -- the cache, though. If any part of the transaction fails then the entire thing will be
 -- rolled back.
+--
+-- TODO: Retry transaction commit if we get `SQLITE_BUSY` because that means another process is
+-- reading while we are trying to write! We don’t want to throw away our entire transaction just
+-- because someone else is reading.
 buildProject :: ProjectCache -> IO ()
 buildProject cache = withImmediateTransaction cache $ do
   -- Create a new hash table with which we will store in-memory our source file objects after
@@ -106,26 +116,74 @@ buildProject cache = withImmediateTransaction cache $ do
 -- exist in the cache then we will remove the cache entry. This is how one may perform manual
 -- garbage collection. Source file paths which don’t exist in the file system or in the cache
 -- are ignored.
+--
+-- TODO: Retry transaction commit if we get `SQLITE_BUSY` because that means another process is
+-- reading while we are trying to write! We don’t want to throw away our entire transaction just
+-- because someone else is reading.
 buildProjectFiles :: ProjectCache -> [SourceFilePath] -> IO ()
-buildProjectFiles = error "TODO: unimplemented"
+buildProjectFiles cache targetedSourceFilePaths = withImmediateTransaction cache $ do
+  -- Create a new hash table with which we will store in-memory our source file objects after
+  -- fetching them from the cache.
+  sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath SourceFile)
+
+  -- Select the targeted source files from our cache and put them into a hash table keyed by the
+  -- source file’s path.
+  selectSourceFiles cache targetedSourceFilePaths () $ \() sourceFile ->
+    HashTable.insert sourceFiles (sourceFilePath sourceFile) sourceFile
+
+  -- Traverse the targeted source files...
+  flip traverse_ targetedSourceFilePaths $ \targetedSourceFilePath -> do
+    -- Lookup the source file in our file system and in the results of our cache database query.
+    targetedSourceFileExists <- doesFileExist (getSourceFilePath (projectDirectory cache) targetedSourceFilePath)
+    sourceFileM <- HashTable.lookup sourceFiles targetedSourceFilePath
+    -- Perform an action based on the state of our file system and cache...
+    case (targetedSourceFileExists, sourceFileM) of
+      -- If the file does not exist in the file system _and_ the file does not exist in our cache
+      -- then do nothing.
+      (False, Nothing) -> return ()
+      -- If the file exists in our file system and the file does not exist in our cache then build
+      -- the file and insert it into our cache.
+      (True, Nothing) -> insertSourceFile cache targetedSourceFilePath
+      -- If the file does not exist in our file system but the file does exist in our cache then
+      -- remove the file from the cache.
+      (False, Just sourceFile) -> deleteSourceFile cache sourceFile
+      -- If the file exists in both the file system and our cache then let’s check the targeted
+      -- file’s modification time. If the modification time is later then what we have in our cache
+      -- then let’s update the source file in our cache.
+      (True, Just sourceFile) -> do
+        targetedSourceFileTime <- getSourceFileTime (projectDirectory cache) targetedSourceFilePath
+        -- Check the current modification time of the source file. If it is _later_ then the source
+        -- file modification time in our cache then we need to update the source file in our cache.
+        if sourceFileTime sourceFile < targetedSourceFileTime then updateSourceFile cache sourceFile
+        else return ()
 
 -- TODO: `buildProjectVirtualFiles`
 
 -- Builds a source file which does not exist in the cache and inserts it into the cache.
 --
--- (Assumes that the source file does not already exist.)
+-- Assumes that:
+--
+-- * The source file does not exist in our cache.
+-- * The source file exists in the file system.
 insertSourceFile :: ProjectCache -> SourceFilePath -> IO ()
 insertSourceFile = error "TODO: unimplemented"
 
 -- Rebuilds a source file which already exists in the cache and updates all the cache entries
 -- associated with that source file.
 --
--- (Assumes that the source file already exists in the cache.)
+-- Assumes that:
+--
+-- * The source file exists in our cache.
+-- * The source file exists in the file system.
+-- * The cached version of the source file is out-of-date with the file system version.
 updateSourceFile :: ProjectCache -> SourceFile -> IO ()
 updateSourceFile = error "TODO: unimplemented"
 
 -- Deletes a source file and all associated resources from the cache.
 --
--- (Assumes that the source file already exists in the cache.)
+-- Assumes that:
+--
+-- * The source file exists in our cache.
+-- * The source file does not exist in the file system.
 deleteSourceFile :: ProjectCache -> SourceFile -> IO ()
 deleteSourceFile = error "TODO: unimplemented"

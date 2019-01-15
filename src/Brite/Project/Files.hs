@@ -5,6 +5,7 @@ module Brite.Project.Files
   , getProjectDirectory
   , dangerouslyCreateProjectDirectory
   , SourceFilePath
+  , getSourceFileRelativePath
   , getSourceFilePath
   , dangerouslyCreateSourceFilePath
   , getSourceFileTime
@@ -96,8 +97,16 @@ dangerouslyCreateProjectDirectory = ProjectDirectory
 -- * The path is part of the source code of a Brite project.
 -- * The path may point to a directory. The only criteria is that a source path must have the Brite
 --   source code extension. A directory can pretend to be a source file by using the extension.
-newtype SourceFilePath = SourceFilePath { getSourceFilePath :: FilePath }
+--
+-- We do not guarantee that this points to a real file in the file system! The file may have been
+-- deleted since the last time we saw it.
+newtype SourceFilePath = SourceFilePath { getSourceFileRelativePath :: FilePath }
   deriving (Eq, Hashable, Show)
+
+-- Construct the source file’s absolute path using the project directory.
+getSourceFilePath :: ProjectDirectory -> SourceFilePath -> FilePath
+getSourceFilePath (ProjectDirectory projectDirectory) (SourceFilePath sourceFilePath) =
+  projectDirectory </> sourceDirectoryName </> sourceFilePath
 
 -- Gets the last modification time for our source file.
 getSourceFileTime :: ProjectDirectory -> SourceFilePath -> IO UTCTime
