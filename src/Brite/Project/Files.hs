@@ -110,7 +110,7 @@ getSourceFilePath (ProjectDirectory projectDirectory) (SourceFilePath sourceFile
 
 -- Gets the last modification time for our source file.
 getSourceFileTime :: ProjectDirectory -> SourceFilePath -> IO UTCTime
-getSourceFileTime (ProjectDirectory p1) (SourceFilePath p2) = getModificationTime (p1 </> p2)
+getSourceFileTime p1 p2 = getModificationTime (getSourceFilePath p1 p2)
 
 -- Dangerously creates a new source file path. We assume you’ve validated all the assumptions that
 -- the `ProjectCacheDirectory` type has made.
