@@ -169,7 +169,7 @@ findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
   -- directory and the project directory is unsafe...
   userCacheDirectory <- getXdgDirectory XdgCache xdgRelativePath
   -- Construct the project cache directory by adding the URL encoded relative path directory.
-  let projectCacheDirectory = userCacheDirectory </> urlEncode relativeProjectDirectory
+  let projectCacheDirectory = userCacheDirectory </> "projects" </> urlEncode relativeProjectDirectory
   -- Create the project cache directory if it does not already exist. Also create the project cache
   -- directory’s parent directories.
   createDirectoryIfMissing True projectCacheDirectory
