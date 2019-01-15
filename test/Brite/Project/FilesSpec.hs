@@ -3,6 +3,7 @@ module Brite.Project.FilesSpec (spec) where
 import Brite.Project.Files
 import Control.Exception (bracket)
 import Data.List (sort)
+import Data.Maybe (isJust)
 import System.Directory
 import System.FilePath
 import Test.Hspec
@@ -25,11 +26,18 @@ withTemporaryDirectory action =
 testFindProjectDirectory :: FilePath -> IO (Maybe FilePath)
 testFindProjectDirectory = (fmap getProjectDirectory <$>) . findProjectDirectory
 
+testIntoSourceFilePath :: FilePath -> FilePath -> IO (Maybe FilePath)
+testIntoSourceFilePath p1 p2 =
+  fmap getSourceFilePath <$> intoSourceFilePath (dangerouslyCreateProjectDirectory p1) p2
+
 testTraverseProjectSourceFiles :: FilePath -> IO [FilePath]
 testTraverseProjectSourceFiles =
   (sort <$>)
     . (map getSourceFilePath <$>)
-    . (\p -> traverseProjectSourceFiles p [] (\as a -> return (a : as)))
+    . (\p -> traverseProjectSourceFiles p [] (\as a -> do
+        yay <- isJust <$> intoSourceFilePath p (getProjectDirectory p </> "src" </> getSourceFilePath a)
+        if yay then return (a : as)
+        else error "Expected intoSourceFilePath to succeed on all paths returned by traverseProjectSourceFiles."))
     . dangerouslyCreateProjectDirectory
 
 spec :: Spec
@@ -170,8 +178,12 @@ spec = around withTemporaryDirectory $ do
       createFileLink (dir </> "a" </> "src" </> "test.ite") (dir </> "b" </> "src" </> "test.ite")
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
 
     it "finds the config file for the directory a nested file was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -187,9 +199,15 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
       testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
 
     it "finds the config file for the directory a directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -201,8 +219,12 @@ spec = around withTemporaryDirectory $ do
       createDirectoryLink (dir </> "a" </> "src") (dir </> "b" </> "src")
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
-      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
 
     it "finds the config file for the nested directory a directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -216,9 +238,15 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
-      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
 
     it "finds the config file for the directory a nested directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
@@ -233,9 +261,15 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory ("." </> "b" </> "src") `shouldReturn` Just (dir </> "b")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "b")
-      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "b")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b" </> "src" </> "other" </> "test.ite") `shouldReturn` Just (dir </> "a")
 
     it "finds the config file even if .. is used" $ \dir -> do
       createDirectory (dir </> "a")
@@ -310,6 +344,60 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a" </> "c")
       testFindProjectDirectory (".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
+
+    it "finds projects in a linked directory" $ \dir -> do
+      createDirectory (dir </> "a")
+      writeFile (dir </> "a" </> "Brite") ""
+      createDirectoryLink (dir </> "a") (dir </> "b")
+      testFindProjectDirectory (dir </> "a") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "a") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory (dir </> "b") `shouldReturn` Just (dir </> "a")
+      testFindProjectDirectory ("." </> "b") `shouldReturn` Just (dir </> "a")
+
+  describe "intoSourceFilePath" $ do
+    it "does not find files inside the project directory" $ \dir -> do
+      writeFile (dir </> "foo.ite") ""
+      testIntoSourceFilePath dir "foo.ite" `shouldReturn` Nothing
+      testIntoSourceFilePath dir "bar.ite" `shouldReturn` Nothing
+
+    it "does not find files outside the project directory" $ \dir -> do
+      createDirectory (dir </> "test")
+      writeFile (dir </> "test" </> "foo.ite") ""
+      testIntoSourceFilePath dir ("test" </> "foo.ite") `shouldReturn` Nothing
+      testIntoSourceFilePath dir ("test" </> "bar.ite") `shouldReturn` Nothing
+
+    it "finds files inside of the source directory" $ \dir -> do
+      createDirectory (dir </> "src")
+      writeFile (dir </> "src" </> "foo.ite") ""
+      testIntoSourceFilePath dir ("src" </> "foo.ite") `shouldReturn` Just "foo.ite"
+      testIntoSourceFilePath dir ("src" </> "bar.ite") `shouldReturn` Just "bar.ite"
+
+    it "finds files inside of a directory inside the source directory" $ \dir -> do
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "a")
+      writeFile (dir </> "src" </> "a" </> "foo.ite") ""
+      testIntoSourceFilePath dir ("src" </> "a" </> "foo.ite") `shouldReturn` Just ("a" </> "foo.ite")
+      testIntoSourceFilePath dir ("src" </> "a" </> "bar.ite") `shouldReturn` Just ("a" </> "bar.ite")
+
+    it "finds files inside of a nested directory inside the source directory" $ \dir -> do
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "a")
+      createDirectory (dir </> "src" </> "a" </> "b")
+      writeFile (dir </> "src" </> "a" </> "b" </> "foo.ite") ""
+      testIntoSourceFilePath dir ("src" </> "a" </> "b" </> "foo.ite") `shouldReturn` Just ("a" </> "b" </> "foo.ite")
+      testIntoSourceFilePath dir ("src" </> "a" </> "b" </> "bar.ite") `shouldReturn` Just ("a" </> "b" </> "bar.ite")
+
+    it "ignores files with the wrong extension" $ \dir -> do
+      createDirectory (dir </> "src")
+      writeFile (dir </> "src" </> "foo.txt") ""
+      writeFile (dir </> "src" </> "foo.ite.skip") ""
+      writeFile (dir </> "src" </> "foo.test.ite") ""
+      testIntoSourceFilePath dir ("src" </> "foo.txt") `shouldReturn` Nothing
+      testIntoSourceFilePath dir ("src" </> "foo.txt.skip") `shouldReturn` Nothing
+      testIntoSourceFilePath dir ("src" </> "foo.test.ite") `shouldReturn` Just "foo.test.ite"
+      testIntoSourceFilePath dir ("src" </> "bar.txt") `shouldReturn` Nothing
+      testIntoSourceFilePath dir ("src" </> "bar.txt.skip") `shouldReturn` Nothing
+      testIntoSourceFilePath dir ("src" </> "bar.test.ite") `shouldReturn` Just "bar.test.ite"
 
   describe "traverseProjectSourceFiles" $ do
     it "finds nothing if a src directory does not exist" $ \dir -> do
@@ -388,7 +476,6 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "c.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
         [ "a.ite"
-        , "b.ite"
         , "c.ite"
         ]
 
@@ -401,7 +488,8 @@ spec = around withTemporaryDirectory $ do
       writeFile (dir </> "src" </> "b.ite" </> "e.ite") ""
       testTraverseProjectSourceFiles dir `shouldReturn`
         [ "a.ite"
-        , "b.ite"
+        , "b.ite/d.ite"
+        , "b.ite/e.ite"
         , "c.ite"
         ]
 
@@ -546,9 +634,7 @@ spec = around withTemporaryDirectory $ do
       createFileLink (dir </> "bar" </> "src" </> "d.ite") (dir </> "foo" </> "src" </> "d.ite")
       testTraverseProjectSourceFiles (dir </> "foo") `shouldReturn`
         [ "a.ite"
-        , "b.ite"
         , "c.ite"
-        , "d.ite"
         ]
 
     it "finds files in linked directories" $ \dir -> do
@@ -565,6 +651,4 @@ spec = around withTemporaryDirectory $ do
       testTraverseProjectSourceFiles (dir </> "foo") `shouldReturn`
         [ "a.ite"
         , "b.ite"
-        , "qux" </> "c.ite"
-        , "qux" </> "d.ite"
         ]

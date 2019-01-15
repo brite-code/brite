@@ -9,6 +9,7 @@ module Brite.Project.Files
   , dangerouslyCreateSourceFilePath
   , getSourceFileTime
   , findProjectDirectory
+  , intoSourceFilePath
   , findProjectCacheDirectory
   , traverseProjectSourceFiles
   ) where
@@ -18,7 +19,7 @@ import Data.Foldable (foldlM)
 import Data.Hashable (Hashable)
 import Data.Time (UTCTime)
 import Network.HTTP.Base (urlEncode)
-import System.Directory
+import System.Directory hiding (isSymbolicLink)
 import System.FilePath
 
 -- The extension for a Brite source file is `ite`. We imagine there will be many puns which can be
@@ -53,6 +54,16 @@ sourceFileExtension = ".ite"
 configFileName :: String
 configFileName = "Brite"
 
+-- The `src` convention is really well known among programmers to be the directory that source code
+-- lives in. It also plays nicely in the alphabetical ordering of many file explorers and IDEs as
+-- `src` comes after most other folder names in the alphabet like `docs` and `app` but
+-- before `tests`.
+--
+-- I (Caleb) briefly considered using the directory `code` for Brite code, but decided against it
+-- because the convention around `src` is so strong across many programming disciplines.
+sourceDirectoryName :: String
+sourceDirectoryName = "src"
+
 -- The relative path we add to an [XDG directory][1] path.
 --
 -- In development we use a different folder than for releases. This way if a user chooses to run a
@@ -60,7 +71,7 @@ configFileName = "Brite"
 -- to switch back to release mode they won’t be affected by the development mode cache.
 --
 -- [1]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-xdgRelativePath :: FilePath
+xdgRelativePath :: String
 xdgRelativePath = if isDev then "brite-dev" else "brite"
 
 -- The path to a project directory. We only allow this type to be created through
@@ -81,8 +92,7 @@ dangerouslyCreateProjectDirectory = ProjectDirectory
 -- The path to a source file. We only allow this type to be created in this module. With a source
 -- file path we are guaranteed that:
 --
--- * The path is relative to the `src` directory of the project directory the file is a part of.
--- * The path may contained linked files or directories that are not canonicalized. This is ok.
+-- * The path is relative to the source directory of the project directory the file is a part of.
 -- * The path is part of the source code of a Brite project.
 -- * The path may point to a directory. The only criteria is that a source path must have the Brite
 --   source code extension. A directory can pretend to be a source file by using the extension.
@@ -107,29 +117,18 @@ dangerouslyCreateSourceFilePath = SourceFilePath
 --   return `Nothing`.
 findProjectDirectory :: FilePath -> IO (Maybe ProjectDirectory)
 findProjectDirectory initialFilePath =
-  fmap ProjectDirectory <$> (makeAbsolute initialFilePath >>= loop >>= mapM canonicalizePath)
+  fmap ProjectDirectory <$> (canonicalizePath initialFilePath >>= loop)
   where
-    loop filePath =
-      -- If we see `..` then we manually implement going backwards so that we don’t end up searching
-      -- in the directory we backed out of.
-      if takeFileName filePath == ".." then
-        let
-          back n nextFilePath =
-            if takeFileName nextFilePath == ".." then back (n + 1) (takeDirectory nextFilePath)
-            else if n == 0 then nextFilePath
-            else back (n - 1) (takeDirectory nextFilePath)
-        in
-          loop (back (1 :: Int) (takeDirectory filePath))
-      else do
-        isDirectory <- doesDirectoryExist filePath
-        -- If the file is in fact, a directory, then search for our config file in this directory.
-        -- If we find it return `Just`. If we don’t find it try the parent directory.
-        if isDirectory then do
-          let configFilePath = filePath </> configFileName
-          isFile <- doesFileExist configFilePath
-          if isFile then return (Just filePath) else configFileNotFound
-        else
-          configFileNotFound
+    loop filePath = do
+      isDirectory <- doesDirectoryExist filePath
+      -- If the file is in fact, a directory, then search for our config file in this directory.
+      -- If we find it return `Just`. If we don’t find it try the parent directory.
+      if isDirectory then do
+        let configFilePath = filePath </> configFileName
+        isFile <- doesFileExist configFilePath
+        if isFile then return (Just filePath) else configFileNotFound
+      else
+        configFileNotFound
       where
         -- If we didn’t find a configuration file then try the parent directory. If
         -- `filePath == takeDirectory filePath` then we know that we’ve reached the root of our file
@@ -168,12 +167,36 @@ findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
   -- Return the project cache directory.
   return projectCacheDirectory
 
--- Traverse all the Brite source files in the project directory’s `src` folder. The order in which
+-- Converts a file path into a `SourceFilePath` if that path exists in the source directory of
+-- our project.
+--
+-- Symbolic links will be resolved to their original path.
+intoSourceFilePath :: ProjectDirectory -> FilePath -> IO (Maybe SourceFilePath)
+intoSourceFilePath (ProjectDirectory projectDirectory) initialSourceFilePath = do
+  -- Canonicalize the source file path we were provided. This removes indirections and
+  -- resolves links.
+  absoluteSourceFilePath <- canonicalizePath initialSourceFilePath
+  -- Construct the source directory for our project.
+  let sourceDirectory = projectDirectory </> sourceDirectoryName
+  -- Construct the relative source file path based on our project’s source directory.
+  let sourceFilePath = makeRelative sourceDirectory absoluteSourceFilePath
+  -- `makeRelative` will never introduce `..` so if our file path is outside the source directory it
+  -- will be left alone. If the file path was changed then we do indeed have a source file path!
+  --
+  -- If the extension of our source file is something we didn’t expect we also need to
+  -- return nothing.
+  if sourceFilePath == absoluteSourceFilePath then return Nothing
+  else if takeExtension sourceFilePath /= sourceFileExtension then return Nothing
+  else return (Just (SourceFilePath sourceFilePath))
+
+-- Traverse all the Brite source files in the project directory’s source folder. The order in which
 -- we traverse file paths is consistent across runs, but determined by the underlying file system
 -- implementation.
 --
+-- Ignores all symbolic links.
+--
 -- IMPORTANT: Remember that this function will take a long time on large directories with many
--- files! After all, it has to traverse every file. We only want to run this over the `src` folder
+-- files! After all, it has to traverse every file. We only want to run this over the source folder
 -- in a Brite project.
 --
 -- NOTE: If the user has a directory that ends in `.ite` then we will consider that a source file
@@ -181,10 +204,20 @@ findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
 -- performance. (We have no evidence to prove this actually helps performance.)
 traverseProjectSourceFiles :: ProjectDirectory -> a -> (a -> SourceFilePath -> IO a) -> IO a
 traverseProjectSourceFiles (ProjectDirectory projectDirectory) initialState update = do
+  -- Determine if the source directory exists. Only ask if the source directory is a symlink if we
+  -- know that the source directory exists.
   doesSourceDirectoryExist <- doesDirectoryExist sourceDirectory
-  if doesSourceDirectoryExist then loop initialState sourceDirectory else return initialState
+  isSourceDirectorySymbolicLink <-
+    if doesSourceDirectoryExist then pathIsSymbolicLink sourceDirectory else return False
+  -- The source directory must exist and must not be a symbolic link to begin traversal. Otherwise
+  -- we don’t traverse anything.
+  if doesSourceDirectoryExist && not isSourceDirectorySymbolicLink then
+    loop initialState sourceDirectory
+  else
+    return initialState
   where
-    sourceDirectory = projectDirectory </> "src"
+    -- Construct the source directory for our project.
+    sourceDirectory = projectDirectory </> sourceDirectoryName
 
     loop currentState directoryPath = do
       -- Find all the file names in our current directory.
@@ -192,8 +225,31 @@ traverseProjectSourceFiles (ProjectDirectory projectDirectory) initialState upda
       -- Iterate through our file names and either recurse into the directory or check to see if
       -- this file is a source file.
       foldlM
-        (\state fileName ->
-          let filePath = directoryPath </> fileName in
+        (\state fileName -> do
+          let filePath = directoryPath </> fileName
+
+          -- Check to see if the file path is a directory and whether or not it is a symbolic link.
+          --
+          -- NOTE: Does this make one or two system calls?
+          isDirectory <- doesDirectoryExist filePath
+          isSymbolicLink <- pathIsSymbolicLink filePath
+
+          -- If this file is a symbolic link then ignore it. The symbolic link will either point to
+          -- some directory _outside_ of the source directory or it will point to a directory inside
+          -- the source directory. If the link does the former we want to ignore the file. If the
+          -- link does the latter then we will see the file later during directory traversal.
+          --
+          -- We must do this for compatibility with `intoSourceFilePath`.
+          if isSymbolicLink then
+            return state
+
+          -- If the file path is actually a directory path then recursively search that directory
+          -- for source files.
+          --
+          -- TODO: Warn if the directory name is not a valid identifier.
+          else if isDirectory then
+            loop state filePath
+
           -- If we have a file extension of `.ite` then we have a source file! The source file might
           -- have a name which is not a valid identifier. If this is the case, we need to warn the
           -- user later on.
@@ -202,24 +258,13 @@ traverseProjectSourceFiles (ProjectDirectory projectDirectory) initialState upda
           -- will add it to our list of source file paths. However, `MyFile.test` is not a valid
           -- identifier so we’ll warn about it in the future.
           --
-          -- NOTE: We don’t bother to check and see if this is a file or a directory. As long as it
-          -- has the `.ite` extension. This reduces the number of system calls we need to make.
-          -- (Does this actually help performance? There’s no evidence to back that up.)
-          --
           -- TODO: Warn if the file name is not a valid identifier.
-          if takeExtension filePath == sourceFileExtension then
+          else if takeExtension filePath == sourceFileExtension then
             update state (SourceFilePath (makeRelative sourceDirectory filePath))
+
           -- If this file is not a directory and it’s not a Brite source file, ignore it.
-          else do
-            isDirectory <- doesDirectoryExist filePath
-            -- If the file path is actually a directory path then recursively search that directory
-            -- for source files.
-            --
-            -- TODO: Warn if the directory name is not a valid identifier.
-            if isDirectory then
-              loop state filePath
-            else
-              return state)
+          else
+            return state)
         -- Iterate through file names and start with the current state.
         currentState
         fileNames

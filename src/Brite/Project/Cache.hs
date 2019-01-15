@@ -152,7 +152,7 @@ withImmediateTransaction = SQLite.withImmediateTransaction . projectCacheConnect
 data SourceFile = SourceFile
   -- The unique identifier for this source file which can be used in foreign key constraints.
   { sourceFileID :: Int
-  -- The path to our source file relative to the project’s `src` directory.
+  -- The path to our source file relative to the project’s source directory.
   , sourceFilePath :: SourceFilePath
   -- The last time at which the source file was modified according to our cache. In the file
   -- system the file may have been modified but our cache doesn’t know yet.
