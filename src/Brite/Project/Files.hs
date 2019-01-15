@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Brite.Project.Files
   ( ProjectDirectory
   , getProjectDirectory
@@ -7,6 +9,7 @@ module Brite.Project.Files
   , dangerouslyCreateSourceFilePath
   , ProjectCacheDirectory
   , getProjectCacheDirectory
+  , getSourceFileTime
   , dangerouslyCreateProjectCacheDirectory
   , findProjectDirectory
   , findProjectCacheDirectory
@@ -15,6 +18,8 @@ module Brite.Project.Files
 
 import Brite.Dev
 import Data.Foldable (foldlM)
+import Data.Hashable (Hashable)
+import Data.Time (UTCTime)
 import Network.HTTP.Base (urlEncode)
 import System.Directory
 import System.FilePath
@@ -85,7 +90,11 @@ dangerouslyCreateProjectDirectory = ProjectDirectory
 -- * The path may point to a directory. The only criteria is that a source path must have the Brite
 --   source code extension. A directory can pretend to be a source file by using the extension.
 newtype SourceFilePath = SourceFilePath { getSourceFilePath :: FilePath }
-  deriving (Show)
+  deriving (Eq, Hashable, Show)
+
+-- Gets the last modification time for our source file.
+getSourceFileTime :: ProjectDirectory -> SourceFilePath -> IO UTCTime
+getSourceFileTime (ProjectDirectory p1) (SourceFilePath p2) = getModificationTime (p1 </> p2)
 
 -- Dangerously creates a new source file path. We assume you’ve validated all the assumptions that
 -- the `ProjectCacheDirectory` type has made.
@@ -183,8 +192,8 @@ findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
 -- NOTE: If the user has a directory that ends in `.ite` then we will consider that a source file
 -- path! We do this as it decreases the number of system calls we need to make potentially helping
 -- performance. (We have no evidence to prove this actually helps performance.)
-traverseProjectSourceFiles :: (a -> SourceFilePath -> IO a) -> a -> ProjectDirectory -> IO a
-traverseProjectSourceFiles update initialState (ProjectDirectory projectDirectory) = do
+traverseProjectSourceFiles :: ProjectDirectory -> a -> (a -> SourceFilePath -> IO a) -> IO a
+traverseProjectSourceFiles (ProjectDirectory projectDirectory) initialState update = do
   doesSourceDirectoryExist <- doesDirectoryExist sourceDirectory
   if doesSourceDirectoryExist then loop initialState sourceDirectory else return initialState
   where

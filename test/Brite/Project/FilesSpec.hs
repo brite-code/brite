@@ -29,7 +29,7 @@ testTraverseProjectSourceFiles :: FilePath -> IO [FilePath]
 testTraverseProjectSourceFiles =
   (sort <$>)
     . (map getSourceFilePath <$>)
-    . traverseProjectSourceFiles (\as a -> return (a : as)) []
+    . (\p -> traverseProjectSourceFiles p [] (\as a -> return (a : as)))
     . dangerouslyCreateProjectDirectory
 
 spec :: Spec

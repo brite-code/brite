@@ -34,14 +34,57 @@
 -- never a dependent of itself. This is important and one of the reasons we don’t allow cycles
 -- between files.)
 
-module Brite.Project.Build () where
+module Brite.Project.Build
+  ( buildProject
+  ) where
 
 import Brite.Project.Files
+import Brite.Project.Cache
+import qualified Data.HashTable.IO as HashTable
 
-buildProject :: ProjectDirectory -> IO ()
-buildProject = error "unimplemented"
+type HashTable k v = HashTable.CuckooHashTable k v
 
-buildProjectFiles :: ProjectDirectory -> [SourceFilePath] -> IO ()
+buildProject :: ProjectDirectory -> ProjectCache -> IO ()
+buildProject projectDirectory projectCache = do
+  -- Create a new hash table with a concrete type so that GHC can eliminate type
+  -- class dictionaries.
+  sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath SourceFile)
+
+  -- Select all the source files from our cache and put them into a hash table keyed by the source
+  -- file’s path.
+  selectAllSourceFiles projectCache () $ \() sourceFile ->
+    HashTable.insert sourceFiles (sourceFilePath sourceFile) sourceFile
+
+  -- Traverse all the source files in our project. If the source file does not exist in our cache
+  -- or the source file has been modified since it was inserted in our cache then we need to process
+  -- the source file.
+  --
+  -- We delete all the source files we see from our `sourceFiles` hash table. This means that at the
+  -- very end we’ll be left with only the source files which were deleted since the last time we
+  -- updated our cache. These source files need to be removed from the cache.
+  traverseProjectSourceFiles projectDirectory () $ \() localSourceFilePath -> do
+    -- Lookup the source file in our hash table.
+    sourceFileM <- HashTable.lookup sourceFiles localSourceFilePath
+    case sourceFileM of
+      -- If the source file does not exist then we need to process the source file and it to
+      -- our cache!
+      Nothing -> putStrLn ("TODO: Process " ++ getSourceFilePath localSourceFilePath)
+      -- If the source file does exist then we check the modification time. If the file was modified
+      -- since the last time we built then we need to process the file.
+      Just sourceFile -> do
+        localSourceFileTime <- getSourceFileTime projectDirectory localSourceFilePath
+        if sourceFileTime sourceFile < localSourceFileTime then
+          putStrLn ("TODO: Process " ++ getSourceFilePath localSourceFilePath)
+        else return ()
+        -- Delete the source file from our hash table. All the source files which remain in our hash
+        -- table at the end of our project build will be deleted from the cache.
+        HashTable.delete sourceFiles localSourceFilePath
+
+  -- TODO: Delete source files in the cache that still exist in `sourceFiles`.
+
+  return ()
+
+buildProjectFiles :: ProjectDirectory -> ProjectCache -> [SourceFilePath] -> IO ()
 buildProjectFiles = error "unimplemented"
 
 -- TODO: `buildProjectVirtualFiles`
