@@ -13,6 +13,7 @@ module Brite.Project.Cache
   , withTemporaryCache
   , SourceFile(..)
   , selectAllSourceFiles
+  , selectSourceFiles
   ) where
 
 import Brite.Exception
@@ -20,6 +21,7 @@ import Brite.Project.Files
 import Control.Exception (throwIO)
 import Data.Foldable (traverse_)
 import Data.Time (UTCTime)
+import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Int as Text.Builder
@@ -127,7 +129,23 @@ data SourceFile = SourceFile
 instance FromRow SourceFile where
   fromRow = SourceFile <$> field <*> (dangerouslyCreateSourceFilePath <$> field) <*> field
 
--- Selects all of the source files in the cache. Remember that these source files might not be up
--- to date!
+-- Selects all of the source files in the cache. Remember that this source file data might not be up
+-- to date with the file system!
 selectAllSourceFiles :: ProjectCache -> a -> (a -> SourceFile -> IO a) -> IO a
 selectAllSourceFiles (ProjectCache c) = fold_ c "SELECT id, path, time FROM source_file"
+
+-- Selects source the source files with provided file paths. Some of the provided source files might
+-- not exist. Remember that this source file data might not be up to date with the file system!
+selectSourceFiles :: ProjectCache -> [SourceFilePath] -> a -> (a -> SourceFile -> IO a) -> IO a
+selectSourceFiles (ProjectCache c) sourceFilePaths =
+  let
+    (paramCount, params) =
+      foldr (\p (n, ps) -> (n + 1, getSourceFilePath p : ps)) (0, []) sourceFilePaths
+  in
+    fold c
+      -- `Data.Text` fusion should make constructing this query fast. `Text.replicate` with a
+      -- singleton parameter should be rewritten to `replicateChar` which is subject to fusion.
+      (Query (Text.append
+        "SELECT id, path, time FROM source_file WHERE path IN ("
+        (Text.snoc (Text.intersperse ',' (Text.replicate paramCount "?")) ')')))
+      params
