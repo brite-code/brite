@@ -50,8 +50,13 @@ type HashTable k v = HashTable.CuckooHashTable k v
 -- If there are any source files in the cache that no longer exist in our project directory then we
 -- will delete those source files from the cache. Running full project builds occasionally is
 -- important for garbage collection.
+--
+-- This function executes in an immediate cache transaction. That means no other process can write
+-- to the project’s cache until this function completes! Other processes may read stale data from
+-- the cache, though. If any part of the transaction fails then the entire thing will be
+-- rolled back.
 buildProject :: ProjectCache -> IO ()
-buildProject cache = do
+buildProject cache = withImmediateTransaction cache $ do
   -- Create a new hash table with which we will store in-memory our source file objects after
   -- fetching them from the cache.
   sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath SourceFile)
@@ -72,21 +77,24 @@ buildProject cache = do
     -- Lookup the source file in our hash table.
     sourceFileM <- HashTable.lookup sourceFiles localSourceFilePath
     case sourceFileM of
-      -- If the source file does not exist then we need to process the source file and it to
-      -- our cache!
-      Nothing -> putStrLn ("TODO: Process " ++ getSourceFilePath localSourceFilePath)
-      -- If the source file does exist then we check the modification time. If the file was modified
-      -- since the last time we built then we need to process the file.
+      -- If the source file does not exist then we need to process the source file and insert it
+      -- into our cache!
+      Nothing -> insertSourceFile cache localSourceFilePath
+      -- If the source file does exist in the cache...
       Just sourceFile -> do
         localSourceFileTime <- getSourceFileTime (projectDirectory cache) localSourceFilePath
-        if sourceFileTime sourceFile < localSourceFileTime then
-          putStrLn ("TODO: Process " ++ getSourceFilePath localSourceFilePath)
+        -- Check the current modification time of the source file. If it is _later_ then the source
+        -- file modification time in our cache then we need to update the source file in our cache.
+        if sourceFileTime sourceFile < localSourceFileTime then updateSourceFile cache sourceFile
         else return ()
         -- Delete the source file from our hash table. All the source files which remain in our hash
         -- table at the end of our project build will be deleted from the cache.
         HashTable.delete sourceFiles localSourceFilePath
 
-  -- TODO: Delete source files in the cache that still exist in `sourceFiles`.
+  -- Delete all source files in the cache that still exist in our `sourceFiles` hash table. If a
+  -- source file was not deleted from our hash table then that means it does not exist in the
+  -- file system.
+  HashTable.mapM_ (\(_, sourceFile) -> deleteSourceFile cache sourceFile) sourceFiles
 
   return ()
 
@@ -102,3 +110,22 @@ buildProjectFiles :: ProjectCache -> [SourceFilePath] -> IO ()
 buildProjectFiles = error "TODO: unimplemented"
 
 -- TODO: `buildProjectVirtualFiles`
+
+-- Builds a source file which does not exist in the cache and inserts it into the cache.
+--
+-- (Assumes that the source file does not already exist.)
+insertSourceFile :: ProjectCache -> SourceFilePath -> IO ()
+insertSourceFile = error "TODO: unimplemented"
+
+-- Rebuilds a source file which already exists in the cache and updates all the cache entries
+-- associated with that source file.
+--
+-- (Assumes that the source file already exists in the cache.)
+updateSourceFile :: ProjectCache -> SourceFile -> IO ()
+updateSourceFile = error "TODO: unimplemented"
+
+-- Deletes a source file and all associated resources from the cache.
+--
+-- (Assumes that the source file already exists in the cache.)
+deleteSourceFile :: ProjectCache -> SourceFile -> IO ()
+deleteSourceFile = error "TODO: unimplemented"

@@ -12,6 +12,8 @@ module Brite.Project.Cache
   , unsafeProjectCacheConnection
   , withCache
   , unsafeWithCustomCache
+  , withTransaction
+  , withImmediateTransaction
   , SourceFile(..)
   , selectAllSourceFiles
   , selectSourceFiles
@@ -26,10 +28,15 @@ import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Int as Text.Builder
-import Database.SQLite.Simple
+import Database.SQLite.Simple hiding (withTransaction, withImmediateTransaction)
+import qualified Database.SQLite.Simple as SQLite
 import System.FilePath ((</>))
 
--- TODO: Error handling for SQLITE_BUSY
+-- TODO: Error handling for `SQLITE_BUSY`. If we retry after a `SQLITE_BUSY` we need to check
+-- `PRAGMA user_version`. For instance, if a newer Brite was updating the cache schema and we tried
+-- a request and got `SQLITE_BUSY` then we retry after the newer Brite is done we have an old
+-- version of Brite reading against a new schema! So we need to check `PRAGMA user_version` to make
+-- sure this doesn’t happen.
 
 -- Wrapper around a SQLite database connection. This allows us to control what operations the
 -- outside world may perform on our cache.
@@ -119,6 +126,27 @@ allMigrations =
     \);\n\
     \"
   ]
+
+-- Run an IO action inside a “deferred” transaction. A deferred transaction does not acquire any
+-- locks until some SQL queries are executed. The first query to read the database will proceed if
+-- there are no exclusive locks on the database. The first query to write to the database will
+-- proceed if no one else is trying to write to the database.
+withTransaction :: ProjectCache -> IO a -> IO a
+withTransaction = SQLite.withTransaction . projectCacheConnection
+
+-- Run in IO action inside an “immediate” transaction. An immediate transaction will immediately
+-- block other cache connections from _writing_ to the cache but will not prevent other connections
+-- from reading from the cache. An immediate transaction will also block any other processes from
+-- starting an immediate transaction.
+--
+-- Immediate transactions are good when we want to _serialize_ cache updates but not reads. Anyone
+-- will be able to read from the cache during the transaction. Their reads might be stale though.
+--
+-- We use this during full project builds. Only one full project build may be executed at once
+-- because we take an immediate transaction. However, IDE tools can still read stale data from
+-- the cache.
+withImmediateTransaction :: ProjectCache -> IO a -> IO a
+withImmediateTransaction = SQLite.withImmediateTransaction . projectCacheConnection
 
 -- The representation of a source file in our cache.
 data SourceFile = SourceFile
