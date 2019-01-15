@@ -41,6 +41,10 @@ testSelectAllSourceFiles :: ProjectCache -> IO [FilePath]
 testSelectAllSourceFiles cache = sort <$> selectAllSourceFiles cache []
   (\as a -> return (getSourceFileRelativePath (sourceFilePath a) : as))
 
+testBuildProjectFiles :: ProjectCache -> [FilePath] -> IO ()
+testBuildProjectFiles cache paths =
+  buildProjectFiles cache (map dangerouslyCreateSourceFilePath paths)
+
 spec :: Spec
 spec = around withTestCache $ do
   describe "buildProject" $ do
@@ -94,13 +98,13 @@ spec = around withTestCache $ do
       writeFile (dir </> "src" </> "b.ite") ""
       testSelectAllSourceFiles cache `shouldReturn` []
       buildProject cache
-      n1 <- totalChanges c
+      n <- totalChanges c
       testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite"]
       buildProject cache
-      totalChanges c `shouldReturn` n1
+      totalChanges c `shouldReturn` n
       testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite"]
       buildProject cache
-      totalChanges c `shouldReturn` n1
+      totalChanges c `shouldReturn` n
       testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite"]
 
     it "rebuilds files that were updated" $ \(dir, cache) -> do
@@ -115,10 +119,10 @@ spec = around withTestCache $ do
       -- to change.
       execute c "UPDATE source_file SET time = ? WHERE path = ?" (oldTime, ("b.ite" :: String))
       changes c `shouldReturn` 1
-      n1 <- totalChanges c
+      n <- totalChanges c
       query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only oldTime]
       buildProject cache
-      totalChanges c `shouldNotReturn` n1
+      totalChanges c `shouldNotReturn` n
       query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only time]
 
     it "deletes files that were removed" $ \(dir, cache) -> do
@@ -154,4 +158,128 @@ spec = around withTestCache $ do
       renameFile (dir </> "src" </> "b.ite") (dir </> "src" </> "d.ite")
       testSelectAllSourceFiles cache `shouldReturn` ["b.ite", "c.ite"]
       buildProject cache
+      testSelectAllSourceFiles cache `shouldReturn` ["c.ite", "d.ite"]
+
+  describe "buildProjectFiles" $ do
+    it "does nothing on an empty directory with empty input" $ \(_, cache) -> do
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache []
+      testSelectAllSourceFiles cache `shouldReturn` []
+
+    it "does nothing on an empty directory with missing input" $ \(_, cache) -> do
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache ["a.ite", "b.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` []
+
+    it "does nothing with empty input" $ \(dir, cache) -> do
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache []
+      testSelectAllSourceFiles cache `shouldReturn` []
+
+    it "inserts listed new files into the cache" $ \(dir, cache) -> do
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache ["a.ite", "c.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+
+    it "inserts listed new files into the cache incrementally" $ \(dir, cache) -> do
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache ["b.ite"]
+      writeFile (dir </> "src" </> "d.ite") ""
+      testSelectAllSourceFiles cache `shouldReturn` ["b.ite"]
+      testBuildProjectFiles cache ["a.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite"]
+      testBuildProjectFiles cache ["d.ite", "c.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite", "c.ite", "d.ite"]
+
+    it "does nothing when rebuilding untouched files" $ \(dir, cache) -> do
+      let c = unsafeProjectCacheConnection cache
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache ["a.ite", "c.ite"]
+      n <- totalChanges c
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+      testBuildProjectFiles cache ["a.ite", "c.ite"]
+      totalChanges c `shouldReturn` n
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+      testBuildProjectFiles cache ["a.ite", "c.ite"]
+      totalChanges c `shouldReturn` n
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+      testBuildProjectFiles cache ["a.ite"]
+      totalChanges c `shouldReturn` n
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+      testBuildProjectFiles cache ["c.ite"]
+      totalChanges c `shouldReturn` n
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+
+    it "updates outdated listed files" $ \(dir, cache) -> do
+      let c = unsafeProjectCacheConnection cache
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      aTime <- getModificationTime (dir </> "src" </> "a.ite")
+      let aOldTime = addUTCTime (-nominalDay) aTime
+      bTime <- getModificationTime (dir </> "src" </> "b.ite")
+      let bOldTime = addUTCTime (-nominalDay) bTime
+      testBuildProjectFiles cache ["a.ite", "b.ite", "c.ite"]
+      -- Lie to our cache and say that the last time `b.ite` was modified was a day ago. We don’t
+      -- want to delay our tests by actually waiting a couple seconds for the modification time
+      -- to change.
+      execute c "UPDATE source_file SET time = ? WHERE path = ?" (aOldTime, ("a.ite" :: String))
+      changes c `shouldReturn` 1
+      execute c "UPDATE source_file SET time = ? WHERE path = ?" (bOldTime, ("b.ite" :: String))
+      changes c `shouldReturn` 1
+      n <- totalChanges c
+      query c "SELECT time FROM source_file WHERE path = ?" (Only ("a.ite" :: String)) `shouldReturn` [Only aOldTime]
+      query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only bOldTime]
+      testBuildProjectFiles cache ["b.ite", "c.ite"]
+      totalChanges c `shouldNotReturn` n
+      query c "SELECT time FROM source_file WHERE path = ?" (Only ("a.ite" :: String)) `shouldReturn` [Only aOldTime]
+      query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only bTime]
+
+    it "removes listed files from the cache that are deleted" $ \(dir, cache) -> do
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      writeFile (dir </> "src" </> "c.ite") ""
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache ["a.ite", "b.ite", "c.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite", "c.ite"]
+      removeFile (dir </> "src" </> "b.ite")
+      removeFile (dir </> "src" </> "c.ite")
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite", "c.ite"]
+      testBuildProjectFiles cache ["a.ite", "b.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+      removeFile (dir </> "src" </> "a.ite")
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "c.ite"]
+      testBuildProjectFiles cache ["c.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite"]
+      testBuildProjectFiles cache ["a.ite", "b.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` []
+
+    it "moves files that were moved" $ \(dir, cache) -> do
+      writeFile (dir </> "src" </> "a.ite") ""
+      writeFile (dir </> "src" </> "b.ite") ""
+      testSelectAllSourceFiles cache `shouldReturn` []
+      testBuildProjectFiles cache ["a.ite", "b.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite"]
+      renameFile (dir </> "src" </> "a.ite") (dir </> "src" </> "c.ite")
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite"]
+      testBuildProjectFiles cache []
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite"]
+      testBuildProjectFiles cache ["c.ite", "b.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite", "c.ite"]
+      renameFile (dir </> "src" </> "b.ite") (dir </> "src" </> "d.ite")
+      testSelectAllSourceFiles cache `shouldReturn` ["a.ite", "b.ite", "c.ite"]
+      testBuildProjectFiles cache ["a.ite", "d.ite"]
+      testSelectAllSourceFiles cache `shouldReturn` ["b.ite", "c.ite", "d.ite"]
+      testBuildProjectFiles cache ["b.ite"]
       testSelectAllSourceFiles cache `shouldReturn` ["c.ite", "d.ite"]
