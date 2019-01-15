@@ -7,10 +7,7 @@ module Brite.Project.Files
   , SourceFilePath
   , getSourceFilePath
   , dangerouslyCreateSourceFilePath
-  , ProjectCacheDirectory
-  , getProjectCacheDirectory
   , getSourceFileTime
-  , dangerouslyCreateProjectCacheDirectory
   , findProjectDirectory
   , findProjectCacheDirectory
   , traverseProjectSourceFiles
@@ -101,16 +98,6 @@ getSourceFileTime (ProjectDirectory p1) (SourceFilePath p2) = getModificationTim
 dangerouslyCreateSourceFilePath :: FilePath -> SourceFilePath
 dangerouslyCreateSourceFilePath = SourceFilePath
 
--- The path to a project’s cache directory. We only allow this type to be created in this module
--- which gives us guarantees about its construction.
-newtype ProjectCacheDirectory = ProjectCacheDirectory { getProjectCacheDirectory :: FilePath }
-  deriving (Show)
-
--- Dangerously creates a new project cache directory. We assume you’ve validated all the assumptions
--- that the `ProjectCacheDirectory` type has made.
-dangerouslyCreateProjectCacheDirectory :: FilePath -> ProjectCacheDirectory
-dangerouslyCreateProjectCacheDirectory = ProjectCacheDirectory
-
 -- Finds a Brite project configuration file based on the file path provided by the user.
 --
 -- * If the provided path is a file path we will search the parent directory.
@@ -163,7 +150,7 @@ findProjectDirectory initialFilePath =
 -- relative path from the user’s home directory.
 --
 -- [1]: https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html
-findProjectCacheDirectory :: ProjectDirectory -> IO ProjectCacheDirectory
+findProjectCacheDirectory :: ProjectDirectory -> IO FilePath
 findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
   -- Get the user’s home directory.
   homeDirectory <- getHomeDirectory
@@ -179,7 +166,7 @@ findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
   -- directory’s parent directories.
   createDirectoryIfMissing True projectCacheDirectory
   -- Return the project cache directory.
-  return (ProjectCacheDirectory projectCacheDirectory)
+  return projectCacheDirectory
 
 -- Traverse all the Brite source files in the project directory’s `src` folder. The order in which
 -- we traverse file paths is consistent across runs, but determined by the underlying file system

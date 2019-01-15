@@ -3,7 +3,7 @@
 module Brite.Project.CacheSpec (spec) where
 
 import Brite.Exception
-import Brite.Project.Files (dangerouslyCreateProjectCacheDirectory)
+import Brite.Project.Files (dangerouslyCreateProjectDirectory)
 import Brite.Project.Cache
 import Control.Exception (bracket)
 import Database.SQLite.Simple
@@ -27,7 +27,7 @@ withTemporaryDirectory action =
       withCurrentDirectory temporaryDirectory (action temporaryDirectory))
 
 testWithCache :: FilePath -> (ProjectCache -> IO a) -> IO a
-testWithCache = withCache . dangerouslyCreateProjectCacheDirectory
+testWithCache p = unsafeWithCustomCache (dangerouslyCreateProjectDirectory p) (p </> "project.db")
 
 spec :: Spec
 spec = around withTemporaryDirectory $ do

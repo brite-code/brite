@@ -44,15 +44,15 @@ import qualified Data.HashTable.IO as HashTable
 
 type HashTable k v = HashTable.CuckooHashTable k v
 
-buildProject :: ProjectDirectory -> ProjectCache -> IO ()
-buildProject projectDirectory projectCache = do
+buildProject :: ProjectCache -> IO ()
+buildProject cache = do
   -- Create a new hash table with a concrete type so that GHC can eliminate type
   -- class dictionaries.
   sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath SourceFile)
 
   -- Select all the source files from our cache and put them into a hash table keyed by the source
   -- file’s path.
-  selectAllSourceFiles projectCache () $ \() sourceFile ->
+  selectAllSourceFiles cache () $ \() sourceFile ->
     HashTable.insert sourceFiles (sourceFilePath sourceFile) sourceFile
 
   -- Traverse all the source files in our project. If the source file does not exist in our cache
@@ -62,7 +62,7 @@ buildProject projectDirectory projectCache = do
   -- We delete all the source files we see from our `sourceFiles` hash table. This means that at the
   -- very end we’ll be left with only the source files which were deleted since the last time we
   -- updated our cache. These source files need to be removed from the cache.
-  traverseProjectSourceFiles projectDirectory () $ \() localSourceFilePath -> do
+  traverseProjectSourceFiles (projectDirectory cache) () $ \() localSourceFilePath -> do
     -- Lookup the source file in our hash table.
     sourceFileM <- HashTable.lookup sourceFiles localSourceFilePath
     case sourceFileM of
@@ -72,7 +72,7 @@ buildProject projectDirectory projectCache = do
       -- If the source file does exist then we check the modification time. If the file was modified
       -- since the last time we built then we need to process the file.
       Just sourceFile -> do
-        localSourceFileTime <- getSourceFileTime projectDirectory localSourceFilePath
+        localSourceFileTime <- getSourceFileTime (projectDirectory cache) localSourceFilePath
         if sourceFileTime sourceFile < localSourceFileTime then
           putStrLn ("TODO: Process " ++ getSourceFilePath localSourceFilePath)
         else return ()
@@ -84,7 +84,7 @@ buildProject projectDirectory projectCache = do
 
   return ()
 
-buildProjectFiles :: ProjectDirectory -> ProjectCache -> [SourceFilePath] -> IO ()
+buildProjectFiles :: ProjectCache -> [SourceFilePath] -> IO ()
 buildProjectFiles = error "unimplemented"
 
 -- TODO: `buildProjectVirtualFiles`

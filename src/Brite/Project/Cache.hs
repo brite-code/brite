@@ -8,9 +8,10 @@
 
 module Brite.Project.Cache
   ( ProjectCache
+  , projectDirectory
   , unsafeProjectCacheConnection
   , withCache
-  , withTemporaryCache
+  , unsafeWithCustomCache
   , SourceFile(..)
   , selectAllSourceFiles
   , selectSourceFiles
@@ -32,7 +33,10 @@ import System.FilePath ((</>))
 
 -- Wrapper around a SQLite database connection. This allows us to control what operations the
 -- outside world may perform on our cache.
-newtype ProjectCache = ProjectCache { projectCacheConnection :: Connection }
+data ProjectCache = ProjectCache
+  { projectDirectory :: ProjectDirectory
+  , projectCacheConnection :: Connection
+  }
 
 -- Unsafely gets the cache’s SQLite connection. You shouldn’t be using the raw SQLite database
 -- connection outside of this module! Let this module be responsible for all the SQLite work.
@@ -41,19 +45,20 @@ unsafeProjectCacheConnection = projectCacheConnection
 
 -- Opens a cache connection, executes an action using this connection, and closes the connection,
 -- even in the presence of exceptions.
-withCache :: ProjectCacheDirectory -> (ProjectCache -> IO a) -> IO a
-withCache projectCacheDirectory action =
-  let projectCache = getProjectCacheDirectory projectCacheDirectory </> "project.db" in
-    withConnection projectCache (\c ->
-      setupCache (ProjectCache c) *> action (ProjectCache c))
+withCache :: ProjectDirectory -> (ProjectCache -> IO a) -> IO a
+withCache project action = do
+  projectCacheDirectory <- findProjectCacheDirectory project
+  let projectCacheDatabasePath = projectCacheDirectory </> "project.db"
+  withConnection projectCacheDatabasePath (\connection ->
+    let cache = ProjectCache project connection in
+      setupCache cache *> action cache)
 
--- Opens an in-memory temporary cache connection, executes an action using this connection, and
--- closes the connection, even in the presence of exceptions. The cache will vanish when the
--- action completes.
-withTemporaryCache :: (ProjectCache -> IO a) -> IO a
-withTemporaryCache action =
-  withConnection ":memory:" (\c ->
-    setupCache (ProjectCache c) *> action (ProjectCache c))
+-- Unsafely sets up a cache connection with a custom file path. We only use this in tests!
+unsafeWithCustomCache :: ProjectDirectory -> FilePath -> (ProjectCache -> IO a) -> IO a
+unsafeWithCustomCache project projectCacheDatabasePath action =
+  withConnection projectCacheDatabasePath (\connection ->
+    let cache = ProjectCache project connection in
+      setupCache cache *> action cache)
 
 -- Setup the Brite SQLite cache database by running appropriate migrations. We determine which
 -- migrations need to be run by looking at the [`user_version`][1] pragma which SQLite kindly
@@ -61,7 +66,7 @@ withTemporaryCache action =
 --
 -- [1]: https://sqlite.org/pragma.html#pragma_user_version
 setupCache :: ProjectCache -> IO ()
-setupCache (ProjectCache c) = do
+setupCache (ProjectCache _ c) = do
   -- Query the database to get the current user version...
   userVersionRows <- query_ c "PRAGMA user_version" :: IO [Only Int]
   let userVersion = if null userVersionRows then 0 else fromOnly (head userVersionRows)
@@ -132,12 +137,12 @@ instance FromRow SourceFile where
 -- Selects all of the source files in the cache. Remember that this source file data might not be up
 -- to date with the file system!
 selectAllSourceFiles :: ProjectCache -> a -> (a -> SourceFile -> IO a) -> IO a
-selectAllSourceFiles (ProjectCache c) = fold_ c "SELECT id, path, time FROM source_file"
+selectAllSourceFiles (ProjectCache _ c) = fold_ c "SELECT id, path, time FROM source_file"
 
 -- Selects source the source files with provided file paths. Some of the provided source files might
 -- not exist. Remember that this source file data might not be up to date with the file system!
 selectSourceFiles :: ProjectCache -> [SourceFilePath] -> a -> (a -> SourceFile -> IO a) -> IO a
-selectSourceFiles (ProjectCache c) sourceFilePaths =
+selectSourceFiles (ProjectCache _ c) sourceFilePaths =
   let
     (paramCount, params) =
       foldr (\p (n, ps) -> (n + 1, getSourceFilePath p : ps)) (0, []) sourceFilePaths
