@@ -44,10 +44,16 @@ import qualified Data.HashTable.IO as HashTable
 
 type HashTable k v = HashTable.CuckooHashTable k v
 
+-- Builds _all_ of the source files in a Brite project. If a source file is already up-to-date in
+-- the cache then we skip building it.
+--
+-- If there are any source files in the cache that no longer exist in our project directory then we
+-- will delete those source files from the cache. Running full project builds occasionally is
+-- important for garbage collection.
 buildProject :: ProjectCache -> IO ()
 buildProject cache = do
-  -- Create a new hash table with a concrete type so that GHC can eliminate type
-  -- class dictionaries.
+  -- Create a new hash table with which we will store in-memory our source file objects after
+  -- fetching them from the cache.
   sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath SourceFile)
 
   -- Select all the source files from our cache and put them into a hash table keyed by the source
@@ -84,7 +90,15 @@ buildProject cache = do
 
   return ()
 
+-- Builds a subset of the source files in a project. We only update the source files that we were
+-- provided in the cache. We do not touch any other source files. Except possibly the dependents of
+-- the source files we are updating.
+--
+-- If we provide the name of a source file path which no longer exists in the file system but does
+-- exist in the cache then we will remove the cache entry. This is how one may perform manual
+-- garbage collection. Source file paths which don’t exist in the file system or in the cache
+-- are ignored.
 buildProjectFiles :: ProjectCache -> [SourceFilePath] -> IO ()
-buildProjectFiles = error "unimplemented"
+buildProjectFiles = error "TODO: unimplemented"
 
 -- TODO: `buildProjectVirtualFiles`
