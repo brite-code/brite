@@ -36,6 +36,7 @@
 
 module Brite.Project.Build
   ( buildProject
+  , buildProjectFiles
   ) where
 
 import Brite.Project.Files
@@ -97,24 +98,20 @@ buildProject cache = withImmediateTransaction cache $ do
     case sourceFileM of
       -- If the source file does not exist then we need to process the source file and insert it
       -- into our cache!
-      Nothing -> insertSourceFile cache localSourceFilePath
+      Nothing -> buildSourceFile cache localSourceFilePath
       -- If the source file does exist in the cache...
       Just sourceFile -> do
-        localSourceFileTime <- getSourceFileTime (projectDirectory cache) localSourceFilePath
-        -- Check the current modification time of the source file. If it is _later_ then the source
-        -- file modification time in our cache then we need to update the source file in our cache.
-        if sourceFileTime sourceFile < localSourceFileTime then updateSourceFile cache sourceFile
-        else return ()
+        -- Update our source file in the cache.
+        rebuildSourceFile cache sourceFile
         -- Delete the source file from our hash table. All the source files which remain in our hash
-        -- table at the end of our project build will be deleted from the cache.
+        -- once we’ve looked at all the source files will be deleted from the cache since they no
+        -- longer exist in the file system.
         HashTable.delete sourceFiles localSourceFilePath
 
   -- Delete all source files in the cache that still exist in our `sourceFiles` hash table. If a
   -- source file was not deleted from our hash table then that means it does not exist in the
   -- file system.
-  HashTable.mapM_ (\(_, sourceFile) -> deleteSourceFile cache sourceFile) sourceFiles
-
-  return ()
+  HashTable.mapM_ (\(_, sourceFile) -> cleanSourceFile cache sourceFile) sourceFiles
 
 -- Builds a subset of the source files in a project. We only update the source files that we were
 -- provided in the cache. We do not touch any other source files. Except possibly the dependents of
@@ -142,8 +139,9 @@ buildProjectFiles cache targetedSourceFilePaths = withImmediateTransaction cache
   -- Traverse the targeted source files...
   flip traverse_ targetedSourceFilePaths $ \targetedSourceFilePath -> do
     -- Lookup the source file in our file system and in the results of our cache database query.
-    targetedSourceFileExists <- doesFileExist (getSourceFilePath (projectDirectory cache) targetedSourceFilePath)
     sourceFileM <- HashTable.lookup sourceFiles targetedSourceFilePath
+    targetedSourceFileExists <-
+      doesFileExist (getSourceFilePath (projectDirectory cache) targetedSourceFilePath)
     -- Perform an action based on the state of our file system and cache...
     case (targetedSourceFileExists, sourceFileM) of
       -- If the file does not exist in the file system _and_ the file does not exist in our cache
@@ -151,29 +149,27 @@ buildProjectFiles cache targetedSourceFilePaths = withImmediateTransaction cache
       (False, Nothing) -> return ()
       -- If the file exists in our file system and the file does not exist in our cache then build
       -- the file and insert it into our cache.
-      (True, Nothing) -> insertSourceFile cache targetedSourceFilePath
+      (True, Nothing) -> buildSourceFile cache targetedSourceFilePath
       -- If the file does not exist in our file system but the file does exist in our cache then
       -- remove the file from the cache.
-      (False, Just sourceFile) -> deleteSourceFile cache sourceFile
-      -- If the file exists in both the file system and our cache then let’s check the targeted
-      -- file’s modification time. If the modification time is later then what we have in our cache
-      -- then let’s update the source file in our cache.
-      (True, Just sourceFile) -> do
-        targetedSourceFileTime <- getSourceFileTime (projectDirectory cache) targetedSourceFilePath
-        -- Check the current modification time of the source file. If it is _later_ then the source
-        -- file modification time in our cache then we need to update the source file in our cache.
-        if sourceFileTime sourceFile < targetedSourceFileTime then updateSourceFile cache sourceFile
-        else return ()
+      (False, Just sourceFile) -> cleanSourceFile cache sourceFile
+      -- If the file exists in both the file system and our cache then update the source file in our
+      -- cache using the latest information from the file system.
+      (True, Just sourceFile) -> rebuildSourceFile cache sourceFile
 
--- Builds a source file which does not exist in the cache and inserts it into the cache.
+-- Builds a source file which _does not_ exist in the cache.
 --
 -- Assumes that:
 --
 -- * The source file does not exist in our cache.
 -- * The source file exists in the file system.
 -- * That we are inside an immediate transaction.
-insertSourceFile :: ProjectCache -> SourceFilePath -> IO ()
-insertSourceFile = error "TODO: unimplemented"
+buildSourceFile :: ProjectCache -> SourceFilePath -> IO ()
+buildSourceFile cache newSourceFilePath = do
+  -- Fetch the modification time for our new source file.
+  newSourceFileTime <- getSourceFileTime (projectDirectory cache) newSourceFilePath
+  -- Insert the new source file into our cache...
+  insertSourceFile cache newSourceFilePath newSourceFileTime
 
 -- Rebuilds a source file which already exists in the cache and updates all the cache entries
 -- associated with that source file.
@@ -182,17 +178,27 @@ insertSourceFile = error "TODO: unimplemented"
 --
 -- * The source file exists in our cache.
 -- * The source file exists in the file system.
--- * The cached version of the source file is out-of-date with the file system version.
 -- * That we are inside an immediate transaction.
-updateSourceFile :: ProjectCache -> SourceFile -> IO ()
-updateSourceFile = error "TODO: unimplemented"
+rebuildSourceFile :: ProjectCache -> SourceFile -> IO ()
+rebuildSourceFile cache sourceFile = do
+  -- Fetch the modification time for the source file we are updating.
+  currentSourceFileTime <- getSourceFileTime (projectDirectory cache) (sourceFilePath sourceFile)
+  -- Compare the current modification time against the modification time in our cache. If our
+  -- current modification time is _larger_ than what we have in our cache then we need to update our
+  -- cache! Otherwise immediately return so we don’t have to process this file since it’s up-to-date
+  -- in the cache.
+  if not (sourceFileTime sourceFile < currentSourceFileTime) then return () else do
+    -- Update the new source file in our cache...
+    updateSourceFile cache sourceFile currentSourceFileTime
 
--- Deletes a source file and all associated resources from the cache.
+-- Cleans a source file and all associated resources from the cache.
 --
 -- Assumes that:
 --
 -- * The source file exists in our cache.
 -- * The source file does not exist in the file system.
 -- * That we are inside an immediate transaction.
-deleteSourceFile :: ProjectCache -> SourceFile -> IO ()
-deleteSourceFile = error "TODO: unimplemented"
+cleanSourceFile :: ProjectCache -> SourceFile -> IO ()
+cleanSourceFile cache sourceFile =
+  -- Delete the old source file from our cache...
+  deleteSourceFile cache sourceFile

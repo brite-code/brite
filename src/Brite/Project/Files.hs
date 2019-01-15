@@ -239,7 +239,11 @@ traverseProjectSourceFiles (ProjectDirectory projectDirectory) initialState upda
 
           -- Check to see if the file path is a directory and whether or not it is a symbolic link.
           --
-          -- NOTE: Does this make one or two system calls?
+          -- NOTE: Does this make one or two system calls? If it makes multiple system calls we may
+          -- be able to optimize by making only one system call. We can further optimize by getting
+          -- the file’s modification time in the very same system call. Currently callers of
+          -- `traverseProjectSourceFiles` end up fetching the modification time themselves for all
+          -- Brite source files.
           isDirectory <- doesDirectoryExist filePath
           isSymbolicLink <- pathIsSymbolicLink filePath
 

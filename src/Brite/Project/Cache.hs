@@ -17,6 +17,9 @@ module Brite.Project.Cache
   , SourceFile(..)
   , selectAllSourceFiles
   , selectSourceFiles
+  , insertSourceFile
+  , updateSourceFile
+  , deleteSourceFile
   ) where
 
 import Brite.Exception
@@ -182,3 +185,20 @@ selectSourceFiles (ProjectCache _ c) sourceFilePaths =
         "SELECT id, path, time FROM source_file WHERE path IN ("
         (Text.snoc (Text.intersperse ',' (Text.replicate paramCount "?")) ')')))
       params
+
+-- Inserts a source file into the project’s cache.
+insertSourceFile :: ProjectCache -> SourceFilePath -> UTCTime -> IO ()
+insertSourceFile (ProjectCache _ c) newSourceFilePath newSourceTime =
+  execute c "INSERT INTO source_file (path, time) VALUES (?, ?)"
+    (getSourceFileRelativePath newSourceFilePath, newSourceTime)
+
+-- Updates a source file in the project’s cache.
+updateSourceFile :: ProjectCache -> SourceFile -> UTCTime -> IO ()
+updateSourceFile (ProjectCache _ c) sourceFile newSourceTime =
+  execute c "UPDATE source_file SET time = ? WHERE id = ?"
+    (newSourceTime, sourceFileID sourceFile)
+
+-- Deletes a source file from the project’s cache.
+deleteSourceFile :: ProjectCache -> SourceFile -> IO ()
+deleteSourceFile (ProjectCache _ c) sourceFile =
+  execute c "DELETE FROM source_file WHERE id = ?" (Only (sourceFileID sourceFile))
