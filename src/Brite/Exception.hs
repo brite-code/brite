@@ -7,10 +7,14 @@
 -- proceed past a problem in the project structure. For example, the project cache may be malformed
 -- or the project config may have a syntax exception.
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module Brite.Exception
   ( BriteException(..)
+  , exceptionMessage
   ) where
 
+import Brite.DiagnosticsMarkup
 import Control.Exception (Exception)
 
 data BriteException
@@ -27,3 +31,20 @@ data BriteException
   deriving (Show)
 
 instance Exception BriteException
+
+-- Get a human-readable message for our Brite exception. We use the same diagnostic markup data type
+-- to build the message.
+--
+-- Follow the same rules as `Brite.Diagnostics` to write exception messages.
+exceptionMessage :: BriteException -> Markup
+
+-- Unfortunately, for this message we don’t have nice version numbers because it comes from a
+-- low-level check in `Brite.Project.Cache` which uses a version identifier not useful for humans.
+-- (The number of database migrations executed against the SQLite cache.)
+--
+-- If this exception is thrown we’d rather the programmer use the newer version of Brite which
+-- upgraded their SQLite cache. So we intentionally use language like “please” to encourage usage of
+-- the new version and “mistake” to discourage running `brite reset`.
+exceptionMessage ProjectCacheUnrecognizedVersion =
+  plain "A newer version of Brite built this project. Please use that version instead. If you \
+  \think this was a mistake run " <> code "brite reset" <> plain "."
