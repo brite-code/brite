@@ -521,29 +521,31 @@ nextTrivia side acc p0 t0 =
     Just ('/', t1) | not (T.null t1) && T.head t1 == '*' ->
       let
         -- Collect the comment and the position after the comment.
-        (comment, (finalState, p2), t2) =
+        (comment, ((_, finalState), p2), t2) =
           T.spanWithState
-            (\(state, p1) c ->
+            (\((depth, state), p1) c ->
               case c of
                 -- If we found the block comment end sequence then return `Nothing`.
-                '*' -> Just (1, nextPosition 1 p1)
-                '/' | state == 1 -> Just (2, nextPosition 1 p1)
-                _ | state == 2 -> Nothing
+                _ | state == FoundAsteriskSlash && depth == 0 -> Nothing
+                '*' | state == FoundSlash -> Just ((depth + 1, Normal), nextPosition 1 p1)
+                '*' -> Just ((depth, FoundAsterisk), nextPosition 1 p1)
+                '/' | state == FoundAsterisk -> Just ((depth - 1, FoundAsteriskSlash), nextPosition 1 p1)
+                '/' -> Just ((depth, FoundSlash), nextPosition 1 p1)
 
                 -- Count newlines. LF, CR, and CRLF. We use state to count CRLF.
-                '\n' | state == 3 -> Just (0, p1)
-                '\n' -> Just (0, nextPositionLine 1 p1)
-                '\r' -> Just (3, nextPositionLine 1 p1)
+                '\n' | state == FoundCarriageReturn -> Just ((depth, Normal), p1)
+                '\n' -> Just ((depth, Normal), nextPositionLine 1 p1)
+                '\r' -> Just ((depth, FoundCarriageReturn), nextPositionLine 1 p1)
 
                 -- Add the character’s UTF-16 length to the position and continue.
-                _ -> Just (0, nextPosition (utf16Length c) p1))
-            ((0 :: Int), nextPosition 2 p0)
+                _ -> Just ((depth, Normal), nextPosition (utf16Length c) p1))
+            (((1 :: Int), Normal), nextPosition 2 p0)
             (T.tail t1)
 
         -- Drop `*/` from the comment text.
         blockComment =
           case finalState of
-            2 -> BlockComment (T.dropEnd 2 comment) True
+            FoundAsteriskSlash -> BlockComment (T.dropEnd 2 comment) True
             _ -> BlockComment comment False
 
         -- Create the new `acc` value.
@@ -562,6 +564,14 @@ nextTrivia side acc p0 t0 =
 
     -- Return trivia if there isn’t more.
     _ -> (reverse acc, p0, t0)
+
+data BlockCommentState
+  = Normal
+  | FoundAsterisk
+  | FoundAsteriskSlash
+  | FoundSlash
+  | FoundCarriageReturn
+  deriving (Eq)
 
 -- Gets the source code that a token was parsed from.
 tokenSource :: Token -> Text.Builder
