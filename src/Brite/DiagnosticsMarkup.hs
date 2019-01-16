@@ -50,7 +50,7 @@ toText (Markup t) = t
 
 -- Converts our markup into a document to be rendered in an ANSI terminal.
 toANSIDoc :: Markup -> Doc
-toANSIDoc = loop mempty . Text.Builder.toLazyText . markupTextBuilder
+toANSIDoc = Doc.group . loop mempty . Text.Builder.toLazyText . markupTextBuilder
   where
     loop acc0 t0 =
       let
