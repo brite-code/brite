@@ -229,4 +229,4 @@ debugDiagnostic diagnostic =
   Text.Builder.singleton '('
     <> debugRange (diagnosticRange diagnostic)
     <> Text.Builder.fromText ") "
-    <> printMarkup (diagnosticMessage diagnostic)
+    <> toText (diagnosticMessage diagnostic)
