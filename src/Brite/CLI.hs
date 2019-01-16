@@ -1,8 +1,8 @@
 module Brite.CLI (main) where
 
 import Brite.Dev
+import Brite.DiagnosticsMarkup (toANSIDoc)
 import Brite.Exception
-import Control.Exception (try)
 import System.Environment
 import System.Exit
 import System.IO (stdout)
@@ -13,13 +13,18 @@ main :: IO ()
 main = do
   args <- getArgs
   exitWith =<< case parseArgs args of
-    Right command -> execute command
+    Right command -> do
+      result <- catchEverything (execute command)
+      case result of
+        Left message -> displayDoc (errorMessage (toANSIDoc message)) *> return (ExitFailure 1)
+        Right exitCode -> return exitCode
+
     Left arg -> do
       displayDoc $
         errorMessage
-          (text "Unrecognized argument \"" <>
+          (text "Unrecognized argument “" <>
            bold (text arg) <>
-           text "\". See below for the correct usage.") <>
+           text "”. See below for the correct usage.") <>
         hardline <>
         helpMessage
       return (ExitFailure 1)
@@ -68,16 +73,16 @@ execute HelpCommand = do
 
 -- TODO: Actually implement the `new` command...
 execute NewCommand = do
-  displayDoc (errorMessage (text "The \"new\" command is currently unimplemented."))
+  displayDoc (errorMessage (text "The “new” command is currently unimplemented."))
   return (ExitFailure 1)
 
 -- TODO: Actually implement the `build` command...
 execute (BuildCommand paths) =
   if null paths then do
-    displayDoc (errorMessage (text "The \"build\" command is currently unimplemented."))
+    displayDoc (errorMessage (text "The “build” command is currently unimplemented."))
     return (ExitFailure 1)
   else do
-    displayDoc (errorMessage (text "The \"build\" command is currently unimplemented."))
+    displayDoc (errorMessage (text "The “build” command is currently unimplemented."))
     return (ExitFailure 1)
 
 -- TODO: Actually implement the `reset` command...
@@ -90,7 +95,7 @@ execute (BuildCommand paths) =
 -- we delete when the programmer calls `brite reset` significantly improves the performance of
 -- their builds.
 execute ResetCommand = do
-  displayDoc (errorMessage (text "The \"reset\" command is currently unimplemented."))
+  displayDoc (errorMessage (text "The “reset” command is currently unimplemented."))
   return (ExitFailure 1)
 
 -- Parses a list of CLI arguments and returns either a command or an error. An error could be an

@@ -11,11 +11,12 @@
 
 module Brite.Exception
   ( BriteException(..)
-  , exceptionMessage
+  , catchEverything
   ) where
 
 import Brite.DiagnosticsMarkup
-import Control.Exception (Exception)
+import Control.Exception
+import qualified Database.SQLite.Simple as SQLLite
 
 data BriteException
   -- If the project cache was upgraded _past_ what this build of Brite supports then we throw
@@ -36,7 +37,7 @@ instance Exception BriteException
 -- to build the message.
 --
 -- Follow the same rules as `Brite.Diagnostics` to write exception messages.
-exceptionMessage :: BriteException -> Markup
+briteExceptionMessage :: BriteException -> Markup
 
 -- Unfortunately, for this message we don’t have nice version numbers because it comes from a
 -- low-level check in `Brite.Project.Cache` which uses a version identifier not useful for humans.
@@ -45,6 +46,58 @@ exceptionMessage :: BriteException -> Markup
 -- If this exception is thrown we’d rather the programmer use the newer version of Brite which
 -- upgraded their SQLite cache. So we intentionally use language like “please” to encourage usage of
 -- the new version and “mistake” to discourage running `brite reset`.
-exceptionMessage ProjectCacheUnrecognizedVersion =
+briteExceptionMessage ProjectCacheUnrecognizedVersion =
   plain "A newer version of Brite built this project. Please use that version instead. If you \
   \think this was a mistake run " <> code "brite reset" <> plain "."
+
+-- TODO: We need an error log file where we log errors in detail. We only want to tell users about
+-- the log file in GitHub issues since we don’t want to reveal Brite internal implementation
+-- details which a log would contain.
+--
+-- Ideally, we’d know all of the exceptions Brite might throw ahead of time and we could provide a
+-- good error messages for the expected issues.
+--
+-- Should we automatically upload error logs to the server? The logs might contain
+-- sensitive information.
+
+-- We want to be really clear here that this is our fault and not the user’s!
+someExceptionErrorMessage :: SomeException -> Markup
+someExceptionErrorMessage _ =
+  plain "Uh oh. We could not do what you asked. " <> issueTrackerMessage
+
+-- We want to be really clear here that this is our fault and not the user’s! We also don’t want to
+-- reveal that we are using SQLite. It’s not a secret, you can look at Brite’s source code, but a
+-- Brite user should never have to think about SQLite. If they are trying to run queries against the
+-- cache, we haven’t abstracted the cache for enough away from the user.
+sqliteGenericErrorMessage :: Markup
+sqliteGenericErrorMessage =
+  plain "Uh oh. We failed to access your project’s cache. " <> issueTrackerMessage
+
+sqliteSQLErrorMessage :: SQLLite.SQLError -> Markup
+sqliteSQLErrorMessage _ = sqliteGenericErrorMessage
+
+sqliteResultErrorMessage :: SQLLite.ResultError -> Markup
+sqliteResultErrorMessage _ = sqliteGenericErrorMessage
+
+sqliteFormatErrorMessage :: SQLLite.FormatError -> Markup
+sqliteFormatErrorMessage _ = sqliteGenericErrorMessage
+
+-- A message for pushing people to our issue tracker when they encounter an unexpected error.
+--
+-- We use the word “issue” instead of the word “bug” because the meaning of “bug” is subjective. An
+-- error might be expected behavior and we just haven’t created a better error message for it yet.
+issueTrackerMessage :: Markup
+issueTrackerMessage =
+  plain "See if this issue was already reported: https://github.com/brite-code/brite/issues"
+
+-- Catch all errors and print them to a diagnostic markup error message.
+catchEverything :: IO a -> IO (Either Markup a)
+catchEverything action = (Right <$> action) `catches`
+  [ handler someExceptionErrorMessage
+  , handler briteExceptionMessage
+  , handler sqliteSQLErrorMessage
+  , handler sqliteResultErrorMessage
+  , handler sqliteFormatErrorMessage
+  ]
+  where
+    handler f = Handler (return . Left . f)
