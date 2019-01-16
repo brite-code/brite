@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Brite.CLI
+import qualified Brite.CLI
 
 main :: IO ()
-main = cli
+main = Brite.CLI.main
