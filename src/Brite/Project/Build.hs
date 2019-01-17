@@ -45,14 +45,6 @@ import Data.Foldable (traverse_)
 import qualified Data.HashTable.IO as HashTable
 import System.Directory (doesFileExist)
 
--- TODO: Create C++ bootstrapper to provide arguments to the Haskell RTS. Specifically we’d like to
--- instruct Haskell to use N - 1 threads where N is the number of available concurrent threads. See
--- [`std::thread::hardware_concurrency`][1]. We have to do this in a C++ wrapper because there is no
--- way to [configure the RTS in Haskell][2].
---
--- [1]: https://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
--- [2]: https://downloads.haskell.org/~ghc/7.4.1/docs/html/users_guide/runtime-control.html
-
 -- We need a hash table with:
 --
 -- * Reasonable insertion performance considering we do it all at once in one batch.
