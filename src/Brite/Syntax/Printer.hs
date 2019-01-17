@@ -146,6 +146,8 @@ printStatement s0 = build $ case statementNode s0 of
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   ReturnStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
     let (x, cs) = takeExpressionTrailingComments x1 in
+      -- NOTE: Adding another `group` here may break our carefully crafted
+      -- `ifBreak`/`ifFlat` conditions.
       group $ text "return "
         <> ifBreak (text "(")
         <> softline
@@ -173,6 +175,8 @@ printStatement s0 = build $ case statementNode s0 of
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   BreakStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
     let (x, cs) = takeExpressionTrailingComments x1 in
+      -- NOTE: Adding another `group` here may break our carefully crafted
+      -- `ifBreak`/`ifFlat` conditions.
       group $ text "break "
         <> ifBreak (text "(")
         <> softline

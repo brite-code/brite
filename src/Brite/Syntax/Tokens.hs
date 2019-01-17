@@ -63,6 +63,9 @@ import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
 data Position = Position { positionLine :: !Int, positionCharacter :: !Int }
   deriving (Eq)
 
+instance Show Position where
+  show = Text.Lazy.unpack . B.toLazyText . debugPosition
+
 -- The position at the start of a document.
 initialPosition :: Position
 initialPosition = Position 0 0
@@ -91,6 +94,9 @@ utf16Length c = if n .&. 0xFFFF == n then 1 else 2
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Range = Range { rangeStart :: Position, rangeEnd :: Position }
 
+instance Show Range where
+  show = Text.Lazy.unpack . B.toLazyText . debugRange
+
 -- Gets the range between two other ranges. Takes the first position from the first range and the
 -- second position from the second range.
 rangeBetween :: Range -> Range -> Range
@@ -109,7 +115,7 @@ rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 -- pattern identifiers.
 --
 -- [1]: http://www.unicode.org/reports/tr31
-newtype Identifier = Identifier Text
+newtype Identifier = Identifier Text deriving (Show)
 
 -- Get the text representation of an identifier.
 identifierText :: Identifier -> Text
@@ -140,7 +146,7 @@ data Keyword
   | Return
   | Loop
   | Break
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- Tries to convert a text value into a keyword. Returns `Just` if the text value is a keyword.
 -- Returns `Nothing` if the text value is not a keyword.
@@ -190,12 +196,14 @@ data Token = Token
   , tokenLeadingTrivia :: [Trivia]
   , tokenTrailingTrivia :: [Trivia]
   }
+  deriving (Show)
 
 -- The kind of a token.
 data TokenKind
   = Glyph Glyph
   | IdentifierToken Identifier
   | UnexpectedChar Char
+  deriving (Show)
 
 -- The last token in a document. An end token has the position at which the document ended and all
 -- the trivia between the last token and the ending.
@@ -269,7 +277,7 @@ data Glyph
   | Semicolon
   -- `/`
   | Slash
-  deriving (Eq)
+  deriving (Eq, Show)
 
 -- Gets the text representation of a glyph.
 glyphText :: Glyph -> Text
@@ -319,9 +327,10 @@ data Trivia
   -- Other whitespace characters which we optimize such as obscure Unicode whitespace characters
   -- like U+00A0.
   | OtherWhitespace Char
+  deriving (Show)
 
 -- `\n`, `\r`, and `\r\n`
-data Newline = LF | CR | CRLF
+data Newline = LF | CR | CRLF deriving (Show)
 
 data Comment
   -- `// ...` does not include the newline that ends the comment. Does include the `//` characters.
@@ -333,6 +342,7 @@ data Comment
   -- NOTE: Maybe we should remove support for block comments? They complicate printing and parsing
   -- and are not used for documentation. At least warn when we see a block comment?
   | BlockComment Text Bool
+  deriving (Show)
 
 -- Is this trivia whitespace?
 isTriviaWhitespace :: Trivia -> Bool
