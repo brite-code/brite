@@ -50,7 +50,7 @@ toText (Markup t) = t
 
 -- Converts our markup into a document to be rendered in an ANSI terminal.
 toANSIDoc :: Markup -> Doc
-toANSIDoc = Doc.group . loop mempty . Text.Builder.toLazyText . markupTextBuilder
+toANSIDoc = loop mempty . Text.Builder.toLazyText . markupTextBuilder
   where
     loop acc0 t0 =
       let
@@ -96,7 +96,7 @@ toANSIDoc = Doc.group . loop mempty . Text.Builder.toLazyText . markupTextBuilde
           --
           -- We only expect spaces here, but we use a wildcard so that our pattern match
           -- is exhaustive.
-          Just (_, t3) -> loop (acc1 <> Doc.line) t3
+          Just (_, t3) -> loop (acc1 <> Doc.group Doc.line) t3
 
     -- Unescapes the characters after a backslash.
     unescape t0 =

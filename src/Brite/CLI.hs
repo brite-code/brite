@@ -3,10 +3,12 @@ module Brite.CLI (main) where
 import Brite.Dev
 import Brite.DiagnosticsMarkup (toANSIDoc)
 import Brite.Exception
+import Brite.Project.Files (findProjectDirectoryOrThrow)
 import System.Environment
 import System.Exit
 import System.IO (stdout)
-import Text.PrettyPrint.ANSI.Leijen
+import Text.PrettyPrint.ANSI.Leijen (Doc)
+import qualified Text.PrettyPrint.ANSI.Leijen as Doc
 
 -- The main function for the Brite CLI.
 main :: IO ()
@@ -22,16 +24,16 @@ main = do
     Left arg -> do
       displayDoc $
         errorMessage
-          (text "Unrecognized argument “" <>
-           bold (text arg) <>
-           text "”. See below for the correct usage.") <>
-        hardline <>
+          (Doc.text "Unrecognized argument " <>
+            Doc.bold (Doc.text arg) <>
+            Doc.text ". See below for the correct usage.") <>
+        Doc.hardline <>
         helpMessage
       return (ExitFailure 1)
 
 -- Displays a pretty print ANSI document.
 displayDoc :: Doc -> IO ()
-displayDoc x = displayIO stdout (renderPretty 0.4 80 x)
+displayDoc x = Doc.displayIO stdout (Doc.renderPretty 1 80 x)
 
 {--------------------------------------------------------------------------------------------------}
 {- Commands                                                                                       -}
@@ -73,16 +75,17 @@ execute HelpCommand = do
 
 -- TODO: Actually implement the `new` command...
 execute NewCommand = do
-  displayDoc (errorMessage (text "The “new” command is currently unimplemented."))
+  displayDoc (errorMessage (Doc.text "The `new` command is currently unimplemented."))
   return (ExitFailure 1)
 
 -- TODO: Actually implement the `build` command...
 execute (BuildCommand paths) =
   if null paths then do
-    displayDoc (errorMessage (text "The “build” command is currently unimplemented."))
+    _ <- findProjectDirectoryOrThrow "."
+    displayDoc (errorMessage (Doc.text "The `build` command is currently unimplemented."))
     return (ExitFailure 1)
   else do
-    displayDoc (errorMessage (text "The “build” command is currently unimplemented."))
+    displayDoc (errorMessage (Doc.text "The `build` command is currently unimplemented."))
     return (ExitFailure 1)
 
 -- TODO: Actually implement the `reset` command...
@@ -95,7 +98,7 @@ execute (BuildCommand paths) =
 -- we delete when the programmer calls `brite reset` significantly improves the performance of
 -- their builds.
 execute ResetCommand = do
-  displayDoc (errorMessage (text "The “reset” command is currently unimplemented."))
+  displayDoc (errorMessage (Doc.text "The `reset` command is currently unimplemented."))
   return (ExitFailure 1)
 
 -- Parses a list of CLI arguments and returns either a command or an error. An error could be an
@@ -133,33 +136,42 @@ parseArgs = loop EmptyCommand
 -- An operational error message logged by the CLI.
 errorMessage :: Doc -> Doc
 errorMessage x =
-  bold (red (text "Error:")) <> text " " <> x <> hardline
+  Doc.bold (Doc.red (Doc.text "Error:")) <> Doc.text " " <> x <> Doc.hardline
 
 -- The help text for Brite. Prints a nice little box which is reminiscent of a postcard. Also allows
 -- us to do clever work with alignment since we clearly have a left-hand-side.
 helpMessage :: Doc
 helpMessage =
-  black (text "┌" <> text (replicate 78 '─') <> text "┐") <> hardline <>
+  Doc.black (Doc.text "┌" <> Doc.text (replicate 78 '─') <> Doc.text "┐") <> Doc.hardline <>
   boxContent <>
-  black (text "└" <> text (replicate 78 '─') <> text "┘") <> hardline
+  Doc.black (Doc.text "└" <> Doc.text (replicate 78 '─') <> Doc.text "┘") <> Doc.hardline
   where
     boxContent = mconcat $
       map
         (\a ->
           case a of
-            Nothing -> black (text "│") <> fill 78 mempty <> black (text "│") <> hardline
-            Just b -> black (text "│") <> fill 78 (text " " <> b) <> black (text "│") <> hardline) $
-        [ Just $ bold (text "Brite")
-        , Just $ text "A tool for product development."
+            Nothing ->
+              Doc.black (Doc.text "│") <>
+              Doc.fill 78 mempty <>
+              Doc.black (Doc.text "│") <>
+              Doc.hardline
+            Just b ->
+              Doc.black (Doc.text "│") <>
+              Doc.fill 78 (Doc.text " " <> b) <>
+              Doc.black (Doc.text "│") <> Doc.hardline) $
+
+        [ Just $ Doc.bold (Doc.text "Brite")
+        , Just $ Doc.text "A tool for product development."
         , Nothing
-        , Just $ bold (text "Usage:")
+        , Just $ Doc.bold (Doc.text "Usage:")
         ] ++
         (map
           (\(a, b) -> Just $
-            black (text "$") <>
-            text " " <>
-            fill 32 (text (if isDev then "brite-dev" else "brite") <> text " " <> text a) <>
-            black (text "# " <> text b))
+            Doc.black (Doc.text "$") <>
+            Doc.text " " <>
+            Doc.fill 32 (Doc.text (if isDev then "brite-dev" else "brite") <> Doc.text " " <> Doc.text a) <>
+            Doc.black (Doc.text "# " <> Doc.text b))
+
           [ ("new {name}", "Create a new Brite project.")
           , ("build", "Build the code in your project.")
           , ("build {path...}", "Build the code at these paths.")

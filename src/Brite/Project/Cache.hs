@@ -24,7 +24,6 @@ module Brite.Project.Cache
 
 import Brite.Exception
 import Brite.Project.Files
-import Control.Exception (throwIO)
 import Data.Foldable (traverse_)
 import Data.Time (UTCTime)
 import qualified Data.Text as Text
@@ -104,7 +103,7 @@ setupCache (ProjectCache _ c) = do
   -- If our `latestUserVersion` is smaller than the `userVersion` then we are using an old version
   -- of the Brite compiler with a new version of the cache.
   else if latestUserVersion < userVersion then
-    throwIO ProjectCacheUnrecognizedVersion
+    throw ProjectCacheUnrecognizedVersion
 
   -- Otherwise `latestUserVersion` is equal to `userVersion` so we have nothing to set up!
   else
