@@ -13,8 +13,14 @@ stack build
 # Switch back into the directory our script was executed from. Unless we
 # executed our script from the same directory as Brite’s source code. In that
 # case, for convenience, we’ll execute from the Brite playground directory.
-if [ "$DIR" == "$CWD" ]
-then
+if [ "$DIR" == "$CWD" ]; then
+  # If a play directory does not exist then let’s create one!
+  if [ ! -d "$DIR/.play" ]; then
+    mkdir "$DIR/.play"
+    touch "$DIR/.play/Brite.yaml"
+    mkdir "$DIR/.play/src"
+    touch "$DIR/.play/src/Play.ite"
+  fi
   cd "$DIR/.play"
 else
   cd "$CWD"
