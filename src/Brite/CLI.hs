@@ -92,6 +92,12 @@ execute NewCommand = do
 --
 -- NOTE: The build command will accept files that don’t exist in the file system. This way you can
 -- delete files from your cache that no longer exist in the file system.
+--
+-- TODO: Progress indicator showing how much work we’ve done so far in building the project. This
+-- way Brite’s not a black box. Also consider telling the user when we’re retrying their
+-- transaction? `withImmediateTransaction` has retry logic in case someone is trying to read from
+-- the database while we’re trying to commit a large transaction. This could potentially take a long
+-- time we should let the user know if it does.
 execute (BuildCommand initialSourceFilePaths) =
   if null initialSourceFilePaths then do
     projectDirectory <- findProjectDirectoryOrThrow "."

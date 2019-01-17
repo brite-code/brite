@@ -70,10 +70,6 @@ type HashTable k v = HashTable.CuckooHashTable k v
 -- to the project’s cache until this function completes! Other processes may read stale data from
 -- the cache, though. If any part of the transaction fails then the entire thing will be
 -- rolled back.
---
--- TODO: Retry transaction commit if we get `SQLITE_BUSY` because that means another process is
--- reading while we are trying to write! We don’t want to throw away our entire transaction just
--- because someone else is reading.
 buildProject :: ProjectCache -> IO ()
 buildProject cache = withImmediateTransaction cache $ do
   -- Create a new hash table with which we will store in-memory our source file objects after
@@ -121,10 +117,6 @@ buildProject cache = withImmediateTransaction cache $ do
 -- exist in the cache then we will remove the cache entry. This is how one may perform manual
 -- garbage collection. Source file paths which don’t exist in the file system or in the cache
 -- are ignored.
---
--- TODO: Retry transaction commit if we get `SQLITE_BUSY` because that means another process is
--- reading while we are trying to write! We don’t want to throw away our entire transaction just
--- because someone else is reading.
 buildProjectFiles :: ProjectCache -> [SourceFilePath] -> IO ()
 buildProjectFiles cache targetedSourceFilePaths = withImmediateTransaction cache $ do
   -- Create a new hash table with which we will store in-memory our source file objects after

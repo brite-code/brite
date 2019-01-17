@@ -112,8 +112,8 @@ sqliteGenericErrorMessage =
 sqliteSQLErrorMessage :: SQLLite.SQLError -> Markup
 sqliteSQLErrorMessage e =
   case SQLLite.sqlError e of
-    SQLLite.ErrorBusy ->
-      plain "Another Brite process is building your code. Wait a bit and try again."
+    SQLLite.ErrorBusy -> plain "Another Brite process is building your code. Wait a bit and try again."
+    SQLLite.ErrorSchema -> briteExceptionMessage ProjectCacheUnrecognizedVersion
     _ -> sqliteGenericErrorMessage
 
 sqliteResultErrorMessage :: SQLLite.ResultError -> Markup

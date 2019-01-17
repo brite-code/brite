@@ -30,15 +30,11 @@ import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Int as Text.Builder
+import Control.Concurrent (threadDelay)
+import Control.Exception (mask, onException, catchJust)
 import Database.SQLite.Simple hiding (withTransaction, withImmediateTransaction)
 import qualified Database.SQLite.Simple as SQLite
 import System.FilePath ((</>))
-
--- TODO: Error handling for `SQLITE_BUSY`. If we retry after a `SQLITE_BUSY` we need to check
--- `PRAGMA user_version`. For instance, if a newer Brite was updating the cache schema and we tried
--- a request and got `SQLITE_BUSY` then we retry after the newer Brite is done we have an old
--- version of Brite reading against a new schema! So we need to check `PRAGMA user_version` to make
--- sure this doesn’t happen.
 
 -- Wrapper around a SQLite database connection. This allows us to control what operations the
 -- outside world may perform on our cache.
@@ -147,8 +143,41 @@ withTransaction = SQLite.withTransaction . projectCacheConnection
 -- We use this during full project builds. Only one full project build may be executed at once
 -- because we take an immediate transaction. However, IDE tools can still read stale data from
 -- the cache.
+--
+-- If we can’t commit because the cache is currently being read by another transaction we will retry
+-- the commit again after a delay. The current delay function we use, in seconds, is
+-- f(n) = .1s * n ^ 2 where “n” is the number of retries. We only retry four times. This means our
+-- delays will look like:
+--
+-- * f(0) = 0.0s
+-- * f(1) = 0.1s
+-- * f(2) = 0.4s
+-- * f(3) = 0.9s
+--
+-- So if every commit errors we end up running the following:
+-- `COMMIT`, wait 0s, `COMMIT`, wait 0.1s, `COMMIT`, wait 0.4s, `COMMIT`, wait 0.9s, `COMMIT`.
+-- That’s a total wait time from delays of 1.4s. We should collect data to tune how frequently we
+-- retry and when we retry.
+--
+-- There aren’t very many cache operations which we retry. We retry `withImmediateTransaction`
+-- commits particularly because generally we do a lot of work in immediate transactions. That’s why
+-- we want to acquire the write lock at the beginning. So if we’ve done a lot of work but then we
+-- get blocked by an IDE tool trying to read some data, that sucks. So we retry.
 withImmediateTransaction :: ProjectCache -> IO a -> IO a
-withImmediateTransaction = SQLite.withImmediateTransaction . projectCacheConnection
+withImmediateTransaction (ProjectCache _ c) action =
+  mask $ \restore -> do
+    execute_ c "BEGIN IMMEDIATE TRANSACTION"
+    x <- restore action `onException` execute_ c "ROLLBACK TRANSACTION"
+    commit 0
+    return x
+  where
+    commit n | n == 4 = execute_ c "COMMIT TRANSACTION"
+    commit n = catchJust
+      (\e -> if sqlError e == ErrorBusy then Just () else Nothing)
+      (execute_ c "COMMIT TRANSACTION")
+      (\() -> do
+        threadDelay (100000 * (n ^ (2 :: Int)))
+        commit (n + 1))
 
 -- The representation of a source file in our cache.
 data SourceFile = SourceFile
