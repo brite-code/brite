@@ -33,15 +33,15 @@ library:
     - -Wno-missing-local-signatures # Warning for polymorphic local bindings; nothing wrong with those.
     - -Wno-monomorphism-restriction # Don’t warn if the monomorphism restriction is used
     - -Wno-implicit-prelude # Of course we want to implicitlly import the prelude
+  when:
+    - condition: flag(release)
+      cpp-options: -DRELEASE
 
 executables:
   brite-exe:
     main: Main.hs
     source-dirs: app
-    ghc-options:
-      - -threaded
-      - -rtsopts
-      - -with-rtsopts=-N
+    ghc-options: -threaded -rtsopts -with-rtsopts=-N
     dependencies:
       - brite
 
@@ -55,3 +55,9 @@ tests:
       - -with-rtsopts=-N
     dependencies:
       - brite
+
+# Configure flags with: `stack build --flag brite:release`
+flags:
+  release:
+    manual: true
+    default: false

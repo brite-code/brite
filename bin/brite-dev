@@ -27,4 +27,4 @@ else
 fi
 
 # Execute the Brite binary directly from Stack’s build folder.
-$DIR/.stack-work/dist/x86_64-osx/Cabal-2.2.0.1/build/brite-exe/brite-exe $@
+$DIR/.stack-work/install/x86_64-osx/lts-12.22/8.4.4/bin/brite-exe $@
