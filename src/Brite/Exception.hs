@@ -61,7 +61,7 @@ briteExceptionMessage (ProjectDirectoryNotFound ".") =
   plain "Could not find a " <> code (Text.pack configFileName) <> plain " file."
 briteExceptionMessage (ProjectDirectoryNotFound path) =
   plain "Could not find a " <> code (Text.pack configFileName) <> plain " file \
-  \in " <> code (Text.pack path) <> plain "."
+  \for " <> code (Text.pack path) <> plain "."
 
 -- Unfortunately, for this message we don’t have nice version numbers because it comes from a
 -- low-level check in `Brite.Project.Cache` which uses a version identifier not useful for humans.
