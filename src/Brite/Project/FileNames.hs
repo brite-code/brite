@@ -20,24 +20,13 @@ sourceFileExtension = ".ite"
 -- The Brite configuration file is a YAML file. We choose YAML as it is terser than JSON and
 -- supports user comments.
 --
--- The file name does not have a file extension. This makes the branding of a Brite project
--- especially clear. There is precedence for this in `Makefile`s and `Dockerfile`s in addition to
--- dot-files like `.gitignore` and `.babelrc` as well as some plain-text files like `LICENSE`
--- and `README`. The Brite configuration file is the first I know of for a project to use their name
--- directly without modification as the configuration file name.
---
--- If we ever choose to change the format of Brite configuration files from YAML to something else
--- it will be very hard to upgrade since we aren’t using file extensions. YAML is a very
--- comprehensive and universal standard, so I (Caleb) don’t imagine us moving away from it at
--- this time.
---
--- Maybe in the future we’ll have Brite configuration written in Brite. After all, a big feature of
--- the language is it’s ability to control the build within it’s source files. However, there will
--- likely always be some project configuration which is preferably static. Like programming language
--- edition and dependencies. Not to mention we need the ability to statically manipulate the
--- configuration. Like adding dependencies when a user chooses to install a new package.
+-- We considered not included a file extension for the project configuration file. However, that
+-- makes it difficult to talk about the config file in a sentence. “You need to edit your
+--  `Brite.yaml` file.” vs “You need to edit your `Brite` file.” In the latter are we referring to
+-- the Brite configuration file or a Brite source code file? Including an extension helps
+-- distinguish “Brite” the proper noun from “`Brite.yaml`” the project configuration file.
 configFileName :: String
-configFileName = "Brite"
+configFileName = "Brite.yaml"
 
 -- The `src` convention is really well known among programmers to be the directory that source code
 -- lives in. It also plays nicely in the alphabetical ordering of many file explorers and IDEs as

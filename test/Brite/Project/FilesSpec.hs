@@ -48,34 +48,34 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory "." `shouldReturn` Nothing
 
     it "finds a config in the same directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       testFindProjectDirectory dir `shouldReturn` Just dir
       testFindProjectDirectory "." `shouldReturn` Just dir
 
     it "finds a config when passed the exact config path" $ \dir -> do
-      writeFile (dir </> "Brite") ""
-      testFindProjectDirectory (dir </> "Brite") `shouldReturn` Just dir
-      testFindProjectDirectory ("." </> "Brite") `shouldReturn` Just dir
+      writeFile (dir </> "Brite.yaml") ""
+      testFindProjectDirectory (dir </> "Brite.yaml") `shouldReturn` Just dir
+      testFindProjectDirectory ("." </> "Brite.yaml") `shouldReturn` Just dir
 
     it "finds a config when passed another file in the same directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       writeFile (dir </> "other.txt") ""
       testFindProjectDirectory (dir </> "other.txt") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "other.txt") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in the same directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "missing.txt") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "missing.txt") `shouldReturn` Just dir
 
     it "finds a config when searching a child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       createDirectory (dir </> "src")
       testFindProjectDirectory (dir </> "src") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src") `shouldReturn` Just dir
 
     it "finds a config when searching a nested child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       createDirectory (dir </> "src")
       createDirectory (dir </> "src" </> "a")
       createDirectory (dir </> "src" </> "a" </> "b")
@@ -85,14 +85,14 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` Just dir
 
     it "finds a config when passed a file in a child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       createDirectory (dir </> "src")
       writeFile (dir </> "src" </> "code.ite") ""
       testFindProjectDirectory (dir </> "src" </> "code.ite") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src" </> "code.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a file in a nested child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       createDirectory (dir </> "src")
       createDirectory (dir </> "src" </> "a")
       createDirectory (dir </> "src" </> "a" </> "b")
@@ -104,13 +104,13 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "bar.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       createDirectory (dir </> "src")
       testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a nested child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       createDirectory (dir </> "src")
       createDirectory (dir </> "src" </> "a")
       createDirectory (dir </> "src" </> "a" </> "b")
@@ -120,24 +120,24 @@ spec = around withTemporaryDirectory $ do
       testFindProjectDirectory ("." </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "src") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src") `shouldReturn` Just dir
 
     it "finds a config when passed a missing nested child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "src" </> "a") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src" </> "a") `shouldReturn` Just dir
       testFindProjectDirectory (dir </> "src" </> "a" </> "b") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src" </> "a" </> "b") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a missing child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "src" </> "missing.ite") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src" </> "missing.ite") `shouldReturn` Just dir
 
     it "finds a config when passed a missing file in a missing nested child directory" $ \dir -> do
-      writeFile (dir </> "Brite") ""
+      writeFile (dir </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "src" </> "a" </> "missing.ite") `shouldReturn` Just dir
       testFindProjectDirectory ("." </> "src" </> "a" </> "missing.ite") `shouldReturn` Just dir
       testFindProjectDirectory (dir </> "src" </> "a" </> "b" </> "missing.ite") `shouldReturn` Just dir
@@ -146,22 +146,22 @@ spec = around withTemporaryDirectory $ do
     it "finds a config in a nested directory when using relative paths" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
-      writeFile (dir </> "a" </> "Brite") ""
-      writeFile (dir </> "b" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
       testFindProjectDirectory ("." </> "a") `shouldReturn` (Just (dir </> "a"))
       testFindProjectDirectory ("." </> "b") `shouldReturn` (Just (dir </> "b"))
 
     it "does not find a config in a sibling folder" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "b") `shouldReturn` Nothing
       testFindProjectDirectory ("." </> "b") `shouldReturn` Nothing
 
     it "does not find a config in a sibling folder when searching for a file" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       writeFile (dir </> "a" </> "other.txt") ""
       writeFile (dir </> "b" </> "other.txt") ""
       testFindProjectDirectory (dir </> "b" </> "other.txt") `shouldReturn` Nothing
@@ -170,11 +170,11 @@ spec = around withTemporaryDirectory $ do
     it "finds the config file for the directory a file was linked to" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "a" </> "src")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       writeFile (dir </> "a" </> "src" </> "test.ite") ""
       createDirectory (dir </> "b")
       createDirectory (dir </> "b" </> "src")
-      writeFile (dir </> "b" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
       createFileLink (dir </> "a" </> "src" </> "test.ite") (dir </> "b" </> "src" </> "test.ite")
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
@@ -189,12 +189,12 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "a")
       createDirectory (dir </> "a" </> "src")
       createDirectory (dir </> "a" </> "src" </> "other")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       writeFile (dir </> "a" </> "src" </> "other" </> "test.ite") ""
       createDirectory (dir </> "b")
       createDirectory (dir </> "b" </> "src")
       createDirectory (dir </> "b" </> "src" </> "other")
-      writeFile (dir </> "b" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
       createFileLink (dir </> "a" </> "src" </> "other" </> "test.ite") (dir </> "b" </> "src" </> "other" </> "test.ite")
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
@@ -212,10 +212,10 @@ spec = around withTemporaryDirectory $ do
     it "finds the config file for the directory a directory was linked to" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "a" </> "src")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       writeFile (dir </> "a" </> "src" </> "test.ite") ""
       createDirectory (dir </> "b")
-      writeFile (dir </> "b" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
       createDirectoryLink (dir </> "a" </> "src") (dir </> "b" </> "src")
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "test.ite") `shouldReturn` Just (dir </> "a")
@@ -230,10 +230,10 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "a")
       createDirectory (dir </> "a" </> "src")
       createDirectory (dir </> "a" </> "src" </> "other")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       writeFile (dir </> "a" </> "src" </> "test.ite") ""
       createDirectory (dir </> "b")
-      writeFile (dir </> "b" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
       createDirectoryLink (dir </> "a" </> "src") (dir </> "b" </> "src")
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
@@ -252,11 +252,11 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "a")
       createDirectory (dir </> "a" </> "src")
       createDirectory (dir </> "a" </> "src" </> "other")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       writeFile (dir </> "a" </> "src" </> "test.ite") ""
       createDirectory (dir </> "b")
       createDirectory (dir </> "b" </> "src")
-      writeFile (dir </> "b" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
       createDirectoryLink (dir </> "a" </> "src" </> "other") (dir </> "b" </> "src" </> "other")
       testFindProjectDirectory (dir </> "a" </> "src") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory (dir </> "a" </> "src" </> "other") `shouldReturn` Just (dir </> "a")
@@ -274,7 +274,7 @@ spec = around withTemporaryDirectory $ do
     it "finds the config file even if .. is used" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
-      writeFile (dir </> "b" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b")
       testFindProjectDirectory ("." </> "a" </> ".." </> "b") `shouldReturn` Just (dir </> "b")
       setCurrentDirectory (dir </> "a")
@@ -283,7 +283,7 @@ spec = around withTemporaryDirectory $ do
     it "does not find the config when .. is used to escape a directory" $ \dir -> do
       createDirectory (dir </> "a")
       createDirectory (dir </> "b")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "a" </> ".." </> "b") `shouldReturn` Nothing
       testFindProjectDirectory ("." </> "a" </> ".." </> "b") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a")
@@ -294,8 +294,8 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "a" </> "c")
       createDirectory (dir </> "b")
       createDirectory (dir </> "b" </> "d")
-      writeFile (dir </> "b" </> "Brite") ""
-      writeFile (dir </> "b" </> "d" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
+      writeFile (dir </> "b" </> "d" </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
       testFindProjectDirectory ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
       testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
@@ -310,8 +310,8 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "a" </> "c")
       createDirectory (dir </> "b")
       createDirectory (dir </> "b" </> "d")
-      writeFile (dir </> "a" </> "Brite") ""
-      writeFile (dir </> "a" </> "c" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
+      writeFile (dir </> "a" </> "c" </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "a" </> ".." </> "b" </> "d") `shouldReturn` Nothing
       testFindProjectDirectory ("." </> "a" </> ".." </> "b" </> "d") `shouldReturn` Nothing
       testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
@@ -326,8 +326,8 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "a" </> "c")
       createDirectory (dir </> "b")
       createDirectory (dir </> "b" </> "d")
-      writeFile (dir </> "b" </> "Brite") ""
-      writeFile (dir </> "b" </> "d" </> "Brite") ""
+      writeFile (dir </> "b" </> "Brite.yaml") ""
+      writeFile (dir </> "b" </> "d" </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
       testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Just (dir </> "b" </> "d")
       setCurrentDirectory (dir </> "a" </> "c")
@@ -338,8 +338,8 @@ spec = around withTemporaryDirectory $ do
       createDirectory (dir </> "a" </> "c")
       createDirectory (dir </> "b")
       createDirectory (dir </> "b" </> "d")
-      writeFile (dir </> "a" </> "Brite") ""
-      writeFile (dir </> "a" </> "c" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
+      writeFile (dir </> "a" </> "c" </> "Brite.yaml") ""
       testFindProjectDirectory (dir </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
       testFindProjectDirectory ("." </> "a" </> "c" </> ".." </> "c" </> ".." </> ".." </> "b" </> "d") `shouldReturn` Nothing
       setCurrentDirectory (dir </> "a" </> "c")
@@ -347,7 +347,7 @@ spec = around withTemporaryDirectory $ do
 
     it "finds projects in a linked directory" $ \dir -> do
       createDirectory (dir </> "a")
-      writeFile (dir </> "a" </> "Brite") ""
+      writeFile (dir </> "a" </> "Brite.yaml") ""
       createDirectoryLink (dir </> "a") (dir </> "b")
       testFindProjectDirectory (dir </> "a") `shouldReturn` Just (dir </> "a")
       testFindProjectDirectory ("." </> "a") `shouldReturn` Just (dir </> "a")
