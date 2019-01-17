@@ -12,6 +12,7 @@ module Brite.Project.Files
   , findProjectDirectory
   , findProjectDirectoryOrThrow
   , intoSourceFilePath
+  , intoSourceFilePathOrThrow
   , findProjectCacheDirectory
   , traverseProjectSourceFiles
   ) where
@@ -138,6 +139,9 @@ findProjectCacheDirectory (ProjectDirectory projectDirectory) = do
 -- Converts a file path into a `SourceFilePath` if that path exists in the source directory of
 -- our project.
 --
+-- Directories cannot be source files. Missing files are considered to be source files if they have
+-- the appropriate extension, though.
+--
 -- Symbolic links will be resolved to their original path.
 intoSourceFilePath :: ProjectDirectory -> FilePath -> IO (Maybe SourceFilePath)
 intoSourceFilePath (ProjectDirectory projectDirectory) initialSourceFilePath = do
@@ -155,7 +159,19 @@ intoSourceFilePath (ProjectDirectory projectDirectory) initialSourceFilePath = d
   -- return nothing.
   if sourceFilePath == absoluteSourceFilePath then return Nothing
   else if takeExtension sourceFilePath /= sourceFileExtension then return Nothing
-  else return (Just (SourceFilePath sourceFilePath))
+  else do
+    -- Directories cannot be source files.
+    isDirectory <- doesDirectoryExist absoluteSourceFilePath
+    if isDirectory then return Nothing else return (Just (SourceFilePath sourceFilePath))
+
+-- Converts a file path into a `SourceFilePath` with `intoSourceFilePathOrThrow` or throws if we
+-- can’t convert the path.
+intoSourceFilePathOrThrow :: ProjectDirectory -> FilePath -> IO SourceFilePath
+intoSourceFilePathOrThrow projectDirectory initialSourceFilePath = do
+  sourceFilePathMaybe <- intoSourceFilePath projectDirectory initialSourceFilePath
+  case sourceFilePathMaybe of
+    Nothing -> throw (InvalidSourceFilePath initialSourceFilePath)
+    Just sourceFilePath -> return sourceFilePath
 
 -- Traverse all the Brite source files in the project directory’s source folder. The order in which
 -- we traverse file paths is consistent across runs, but determined by the underlying file system

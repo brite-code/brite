@@ -30,6 +30,12 @@ data BriteException
   -- error message.
   = ProjectDirectoryNotFound FilePath
 
+  -- We expect a source file to live in a particular directory, but instead it is either not a
+  -- source file (does not have the `.ite` extension) or it lives outside of the project directory.
+  --
+  -- The first path is the project directory’s path. The second path is the source file path.
+  | InvalidSourceFilePath FilePath
+
   -- If the project cache was upgraded _past_ what this build of Brite supports then we throw
   -- this exception.
   --
@@ -62,6 +68,12 @@ briteExceptionMessage (ProjectDirectoryNotFound ".") =
 briteExceptionMessage (ProjectDirectoryNotFound path) =
   plain "Could not find a " <> code (Text.pack configFileName) <> plain " file \
   \for " <> code (Text.pack path) <> plain "."
+
+-- Tell the user that their source file does not exist in this project. Remember that the source
+-- file path might just have the wrong extension. If the project directory is the current directory
+-- then use a simpler message.
+briteExceptionMessage (InvalidSourceFilePath sourceFilePath) =
+  code (Text.pack sourceFilePath) <> plain " is not a source file in this project."
 
 -- Unfortunately, for this message we don’t have nice version numbers because it comes from a
 -- low-level check in `Brite.Project.Cache` which uses a version identifier not useful for humans.

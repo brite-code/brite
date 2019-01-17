@@ -3,7 +3,9 @@ module Brite.CLI (main) where
 import Brite.Dev
 import Brite.DiagnosticsMarkup (toANSIDoc)
 import Brite.Exception
-import Brite.Project.Files (findProjectDirectoryOrThrow)
+import Brite.Project.Build (buildProject, buildProjectFiles)
+import Brite.Project.Cache (withCache)
+import Brite.Project.Files (findProjectDirectoryOrThrow, intoSourceFilePathOrThrow)
 import System.Environment
 import System.Exit
 import System.IO (stdout)
@@ -78,15 +80,25 @@ execute NewCommand = do
   displayDoc (errorMessage (Doc.text "The `new` command is currently unimplemented."))
   return (ExitFailure 1)
 
--- TODO: Actually implement the `build` command...
-execute (BuildCommand paths) =
-  if null paths then do
-    _ <- findProjectDirectoryOrThrow "."
-    displayDoc (errorMessage (Doc.text "The `build` command is currently unimplemented."))
-    return (ExitFailure 1)
+-- Build some Brite code!
+--
+-- If no source file paths were provided to the command then we will search for the project
+-- directory in our current directory. If we find the project directory then we will build the
+-- entire project.
+--
+-- If some source file paths were provided we will search for the project directory in our current
+-- directory. Then we will convert all the paths we were provided into source file paths. Finally
+-- we will build only those project files.
+execute (BuildCommand initialSourceFilePaths) =
+  if null initialSourceFilePaths then do
+    projectDirectory <- findProjectDirectoryOrThrow "."
+    withCache projectDirectory buildProject
+    return ExitSuccess
   else do
-    displayDoc (errorMessage (Doc.text "The `build` command is currently unimplemented."))
-    return (ExitFailure 1)
+    projectDirectory <- findProjectDirectoryOrThrow "."
+    sourceFilePaths <- traverse (intoSourceFilePathOrThrow projectDirectory) initialSourceFilePaths
+    withCache projectDirectory (flip buildProjectFiles sourceFilePaths)
+    return ExitSuccess
 
 -- TODO: Actually implement the `reset` command...
 --

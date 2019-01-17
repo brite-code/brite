@@ -399,6 +399,13 @@ spec = around withTemporaryDirectory $ do
       testIntoSourceFilePath dir ("src" </> "bar.txt.skip") `shouldReturn` Nothing
       testIntoSourceFilePath dir ("src" </> "bar.test.ite") `shouldReturn` Just "bar.test.ite"
 
+    it "ignores directories" $ \dir -> do
+      createDirectory (dir </> "src")
+      createDirectory (dir </> "src" </> "foo.ite")
+      writeFile (dir </> "src" </> "bar.ite") ""
+      testIntoSourceFilePath dir ("src" </> "foo.ite") `shouldReturn` Nothing
+      testIntoSourceFilePath dir ("src" </> "bar.ite") `shouldReturn` Just "foo.ite"
+
   describe "traverseProjectSourceFiles" $ do
     it "finds nothing if a src directory does not exist" $ \dir -> do
       writeFile (dir </> "a.ite") ""
