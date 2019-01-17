@@ -5,7 +5,8 @@ import Brite.DiagnosticsMarkup (toANSIDoc)
 import Brite.Exception
 import Brite.Project.Build (buildProject, buildProjectFiles)
 import Brite.Project.Cache (withCache)
-import Brite.Project.Files (findProjectDirectoryOrThrow, intoSourceFilePathOrThrow)
+import Brite.Project.Files
+import System.Directory (removeDirectoryRecursive)
 import System.Environment
 import System.Exit
 import System.IO (stdout)
@@ -109,7 +110,7 @@ execute (BuildCommand initialSourceFilePaths) =
     withCache projectDirectory (flip buildProjectFiles sourceFilePaths)
     return ExitSuccess
 
--- TODO: Actually implement the `reset` command...
+-- Cleans the current project’s cache.
 --
 -- NOTE: We use the name `reset` instead of the traditional `clean` to imply this is a hard reset of
 -- the programmer’s project. We’d prefer that the programmer does not run `reset` if possible since
@@ -119,8 +120,10 @@ execute (BuildCommand initialSourceFilePaths) =
 -- we delete when the programmer calls `brite reset` significantly improves the performance of
 -- their builds.
 execute ResetCommand = do
-  displayDoc (errorMessage (Doc.text "The `reset` command is currently unimplemented."))
-  return (ExitFailure 1)
+  projectDirectory <- findProjectDirectoryOrThrow "."
+  projectCacheDirectory <- findProjectCacheDirectory projectDirectory
+  removeDirectoryRecursive projectCacheDirectory
+  return ExitSuccess
 
 -- Parses a list of CLI arguments and returns either a command or an error. An error could be an
 -- unrecognized argument, for instance.
