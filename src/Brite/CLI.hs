@@ -89,6 +89,9 @@ execute NewCommand = do
 -- If some source file paths were provided we will search for the project directory in our current
 -- directory. Then we will convert all the paths we were provided into source file paths. Finally
 -- we will build only those project files.
+--
+-- NOTE: The build command will accept files that don’t exist in the file system. This way you can
+-- delete files from your cache that no longer exist in the file system.
 execute (BuildCommand initialSourceFilePaths) =
   if null initialSourceFilePaths then do
     projectDirectory <- findProjectDirectoryOrThrow "."
