@@ -110,7 +110,11 @@ sqliteGenericErrorMessage =
   plain "Uh oh. We failed to access your project’s cache. " <> issueTrackerMessage
 
 sqliteSQLErrorMessage :: SQLLite.SQLError -> Markup
-sqliteSQLErrorMessage _ = sqliteGenericErrorMessage
+sqliteSQLErrorMessage e =
+  case SQLLite.sqlError e of
+    SQLLite.ErrorBusy ->
+      plain "Another Brite process is building your code. Wait a bit and try again."
+    _ -> sqliteGenericErrorMessage
 
 sqliteResultErrorMessage :: SQLLite.ResultError -> Markup
 sqliteResultErrorMessage _ = sqliteGenericErrorMessage
