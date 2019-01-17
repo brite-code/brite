@@ -1,16 +1,24 @@
 #!/bin/bash
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." > /dev/null 2>&1 && pwd)"
 CWD="$(pwd)"
 
 # Don’t run Brite if the build fails.
 set -e
 
 # Switch into the Brite repository and build Brite.
-cd "$DIR/.."
+cd "$DIR"
 stack build
 
-# Switch back into the directory this script was called from and execute Brite.
-# We find this is faster than using `stack run`.
-cd "$CWD"
-$DIR/../.stack-work/dist/x86_64-osx/Cabal-2.2.0.1/build/brite-exe/brite-exe $@
+# Switch back into the directory our script was executed from. Unless we
+# executed our script from the same directory as Brite’s source code. In that
+# case, for convenience, we’ll execute from the Brite playground directory.
+if [ "$DIR" == "$CWD" ]
+then
+  cd "$DIR/.play"
+else
+  cd "$CWD"
+fi
+
+# Execute the Brite binary directly from Stack’s build folder.
+$DIR/.stack-work/dist/x86_64-osx/Cabal-2.2.0.1/build/brite-exe/brite-exe $@
