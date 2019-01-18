@@ -52,7 +52,6 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
 import Control.Applicative ((<|>))
 import Data.Foldable (foldlM, foldrM)
-import Debug.Trace
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -120,7 +119,7 @@ data StatementNode
   = ExpressionStatement Expression
 
   -- `let P = E;`
-  | BindingStatement Pattern (Maybe Type) Expression
+  | BindingStatement Pattern (Maybe Type) [UnattachedComment] Expression
 
   -- `return E;`
   --
@@ -377,7 +376,7 @@ data Quantifier = Quantifier Identifier (Maybe (QuantifierBoundKind, Type))
 -- manually constructed printer AST nodes.
 convertModule :: CST.Module -> Module
 convertModule (CST.Module ss t) =
-  Module (convertStatementSequence (trivia 0 (endTokenTrivia t)) ss)
+  Module (convertStatementSequence (trivia 1 (endTokenTrivia t)) ss)
   where
     trivia _ [] = []
     trivia n (Spaces _ : ts) = trivia n ts
@@ -712,12 +711,12 @@ convertStatementSequence =
                 , conversionLeadingEmptyLine = l
                 } = state
 
-              cs4 = case map (UnattachedComment False . attachedComment) (cs2 ++ cs3) of
-                [] -> []
-                (UnattachedComment _ c) : cs | l -> UnattachedComment True c : cs
-                cs -> cs
+              cs4 = map (UnattachedComment False . attachedComment) (cs2 ++ cs3)
             in
-              map Left cs1 ++ map Left cs4 ++ ss
+              map Left cs1 ++ map Left cs4 ++ case ss of
+                Left (UnattachedComment False c) : ss' | l -> Left (UnattachedComment True c) : ss'
+                Right (Statement False a b c) : ss' | l -> Right (Statement True a b c) : ss'
+                _ -> ss
 
           -- For all other statements attempt to convert the statement by
           -- calling `convertStatement`.
@@ -777,6 +776,13 @@ convertStatement s0 = case s0 of
     t <- recoverMaybe t'
     return ((ExpressionStatement <$> x) `semicolon` t)
 
+  CST.BindingStatement t1 p' Nothing t2' x' t3' -> do
+    p <- recover p' >>= convertPattern
+    t2 <- recover t2'
+    x <- recover x' >>= convertExpression
+    t3 <- recoverMaybe t3'
+    return ((BindingStatement <$> (token t1 *> p) <*> pure Nothing <*> (token t2 *> comments) <*> x) `semicolon` t3)
+
   CST.ReturnStatement t1 x0 t2' -> do
     x1 <- recoverMaybe x0 >>= traverse convertExpression
     let x2 = fmap ((,) <$> comments <*>) x1
@@ -807,8 +813,6 @@ convertBlock (CST.Block t1' ss t2') = do
   return (token t1 *> block <* token t2)
 
 -- Convert a CST expression into an AST expression.
---
--- IMPORTANT: Remember to add tokens in reverse of the order they were declared in!!!
 convertExpression :: CST.Expression -> Panic (Conversion Expression)
 convertExpression x0 = case x0 of
   CST.ConstantExpression (CST.BooleanConstant b t) ->
@@ -832,12 +836,12 @@ convertExpression x0 = case x0 of
   CST.WrappedExpression t1 x' Nothing t2' -> do
     x <- recover x' >>= convertExpression
     t2 <- recover t2'
-    return (group wrapExpression (token t1 *> x <* token t2))
+    return (group wrap (token t1 *> x <* token t2))
     where
-      wrapExpression [] [] x = x
-      wrapExpression cs [] x = x { expressionLeadingComments = cs ++ expressionLeadingComments x }
-      wrapExpression [] cs x = x { expressionTrailingComments = expressionTrailingComments x ++ cs }
-      wrapExpression cs1 cs2 x = x
+      wrap [] [] x = x
+      wrap cs [] x = x { expressionLeadingComments = cs ++ expressionLeadingComments x }
+      wrap [] cs x = x { expressionTrailingComments = expressionTrailingComments x ++ cs }
+      wrap cs1 cs2 x = x
         { expressionLeadingComments = cs1 ++ expressionLeadingComments x
         , expressionTrailingComments = expressionTrailingComments x ++ cs2
         }
@@ -877,3 +881,25 @@ convertExpression x0 = case x0 of
 
   CST.ExpressionExtra _ (Recover _ _ _) -> panic
   CST.ExpressionExtra _ (Fatal _ _) -> panic
+
+-- Convert a CST pattern into an AST pattern.
+convertPattern :: CST.Pattern -> Panic (Conversion Pattern)
+convertPattern x0 = case x0 of
+  CST.ConstantPattern (CST.BooleanConstant b t) ->
+    return (group Pattern (token t *> pure (ConstantPattern (BooleanConstant b))))
+
+  CST.VariablePattern (CST.Name n t) ->
+    return (group Pattern (token t *> pure (VariablePattern n)))
+
+  CST.WrappedPattern t1 x' t2' -> do
+    x <- recover x' >>= convertPattern
+    t2 <- recover t2'
+    return (group wrap (token t1 *> x <* token t2))
+    where
+      wrap [] [] x = x
+      wrap cs [] x = x { patternLeadingComments = cs ++ patternLeadingComments x }
+      wrap [] cs x = x { patternTrailingComments = patternTrailingComments x ++ cs }
+      wrap cs1 cs2 x = x
+        { patternLeadingComments = cs1 ++ patternLeadingComments x
+        , patternTrailingComments = patternTrailingComments x ++ cs2
+        }

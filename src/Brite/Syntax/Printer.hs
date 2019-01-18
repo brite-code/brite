@@ -143,9 +143,44 @@ printStatement s0 = build $ case statementNode s0 of
       withoutSemicolon (LoopExpression _) = True
       withoutSemicolon (WrappedExpression _ _) = False
 
+  -- Print expressions that should break on a new line and comments specifically written above
+  -- the value.
+  --
+  -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
+  BindingStatement p Nothing cs1 x1 | not (null cs1) || shouldBreakOntoNextLine x1 ->
+    let (x, cs3) = takeExpressionTrailingComments x1 in
+      -- NOTE: Adding another `group` here may break our carefully crafted
+      -- `ifBreak`/`ifFlat` conditions.
+      group $ text "let "
+        <> printPattern p
+        <> text " ="
+        <> line
+        <> indent
+            (mconcat (map printUnattachedComment cs2)
+              <> printExpression Top x)
+        <> text ";"
+        <> printTrailingAttachedComments cs3
+      where
+        cs2 = case cs1 of
+          UnattachedComment True c : cs -> UnattachedComment False c : cs
+          _ -> cs1
+
+  -- IMPORTANT: It is ok to ignore the comments here because the above branch will match if we have
+  -- some comments.
+  --
+  -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
+  BindingStatement p Nothing _ x1 ->
+    let (x, cs) = takeExpressionTrailingComments x1 in
+      text "let "
+        <> printPattern p
+        <> text " = "
+        <> printExpression Top x
+        <> text ";"
+        <> printTrailingAttachedComments cs
+
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   ReturnStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
-    let (x, cs) = takeExpressionTrailingComments x1 in
+    let (x, cs3) = takeExpressionTrailingComments x1 in
       -- NOTE: Adding another `group` here may break our carefully crafted
       -- `ifBreak`/`ifFlat` conditions.
       group $ text "return "
@@ -154,11 +189,11 @@ printStatement s0 = build $ case statementNode s0 of
         <> indent
             (mconcat (map printUnattachedComment cs2)
               <> printExpression Top x
-              <> ifBreak (printTrailingAttachedComments cs))
+              <> ifBreak (printTrailingAttachedComments cs3))
         <> softline
         <> ifBreak (text ")")
         <> text ";"
-        <> ifFlat (printTrailingAttachedComments cs)
+        <> ifFlat (printTrailingAttachedComments cs3)
     where
       cs2 = case cs1 of
         UnattachedComment True c : cs -> UnattachedComment False c : cs
@@ -403,6 +438,22 @@ data Precedence
   -- “top” and “bottom”.
   | Top
   deriving (Eq, Ord)
+
+-- Prints a pattern.
+printPattern :: Pattern -> Document
+printPattern x0 = build $ case patternNode x0 of
+  ConstantPattern (BooleanConstant True) -> text "true"
+  ConstantPattern (BooleanConstant False) -> text "false"
+
+  VariablePattern n -> text (identifierText n)
+
+  where
+    -- Finishes printing an expression node by printing leading/trailing attached comments and
+    -- parentheses in case we need them.
+    build x1 =
+      printLeadingAttachedComments (patternLeadingComments x0)
+        <> x1
+        <> printTrailingAttachedComments (patternTrailingComments x0)
 
 -- Expressions that, when they break, should break onto the next line. The following is an example
 -- of an expression which should break onto a new line:

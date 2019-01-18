@@ -625,6 +625,8 @@ testData =
   , "g(\n//\nf(x), /* a */ /* b */y)"
   , "g(\n//\nf(x /* a */), /* b */y)"
   , "g(\n//\nf(x /* a */ /* b */),y)"
+  , "let x = y /**/"
+  , "let x =\n//\ny /**/"
   ]
 
 openSnapshotFile :: IO Handle
