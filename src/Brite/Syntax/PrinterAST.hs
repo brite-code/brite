@@ -262,7 +262,7 @@ data ObjectExpressionProperty = ObjectExpressionProperty Identifier (Maybe Expre
 
 -- `if E { ... }`
 data ConditionalExpressionIf =
-  ConditionalExpressionIf Expression Block (Maybe ConditionalExpressionElse)
+  ConditionalExpressionIf [UnattachedComment] Expression Block (Maybe ConditionalExpressionElse)
 
 data ConditionalExpressionElse
   -- `else { ... }`
@@ -824,6 +824,24 @@ convertExpression x0 = case x0 of
   CST.UnaryExpression op t x' -> do
     x <- recover x' >>= convertExpression
     return (group Expression (token t *> (UnaryExpression op <$> x)))
+
+  CST.ConditionalExpression c0' -> do
+    c0 <- consequent c0'
+    return (group Expression (ConditionalExpression <$> c0))
+    where
+      consequent (CST.ConditionalExpressionIf t x' b' a') = do
+        x <- recover x' >>= convertExpression
+        b <- convertBlock b'
+        a <- recoverMaybe a' >>= mapM alternate
+        return (ConditionalExpressionIf <$> (token t *> comments) <*> x <*> b <*> maybe (pure Nothing) (fmap Just) a)
+
+      alternate (CST.ConditionalExpressionElse t b') = do
+        b <- convertBlock b'
+        return (ConditionalExpressionElse <$> comments <*> (token t *> b))
+
+      alternate (CST.ConditionalExpressionElseIf t c') = do
+        c <- consequent c'
+        return (ConditionalExpressionElseIf <$> comments <*> (token t *> c))
 
   CST.BlockExpression t b' -> do
     b <- convertBlock b'

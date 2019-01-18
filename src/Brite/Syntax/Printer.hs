@@ -375,6 +375,36 @@ printExpression p0 x0' = build $ case expressionNode x0 of
         And -> "&&"
         Or -> "||"
 
+  ConditionalExpression c0 ->
+    group (consequent c0)
+    where
+      consequent (ConditionalExpressionIf cs3 x b a) =
+        text "if " <>
+        (if not (null cs3) || shouldBreakOntoNextLine x then group $
+          let
+            cs4 = case cs3 of
+              UnattachedComment True c : cs -> UnattachedComment False c : cs
+              _ -> cs3
+          in
+            ifBreak (text "(") <>
+            softline <>
+            indent (mconcat (map printUnattachedComment cs4) <> printExpression Top x) <>
+            softline <>
+            ifBreak (text ")")
+        else
+          printExpression Top x) <>
+        text " " <>
+        printUngroupedBlock b <>
+        maybe mempty alternate a
+
+      alternate (ConditionalExpressionElse [] b) = text " else " <> printUngroupedBlock b
+      alternate (ConditionalExpressionElse cs b) =
+        hardline <> mconcat (map printUnattachedComment cs) <> text "else " <> printUngroupedBlock b
+
+      alternate (ConditionalExpressionElseIf [] c) = text " else " <> consequent c
+      alternate (ConditionalExpressionElseIf cs c) =
+        hardline <> mconcat (map printUnattachedComment cs) <> text "else " <> consequent c
+
   BlockExpression b -> text "do " <> printBlock b
   LoopExpression b -> text "loop " <> printBlock b
 
