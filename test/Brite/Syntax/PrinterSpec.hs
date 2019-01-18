@@ -813,6 +813,11 @@ testData =
   , "{a /**/, b}"
   , "f(\n//\na /**/, b)"
   , "{\n//\na /**/, b}"
+  , "{p: p}"
+  , "{p: (p)}"
+  , "{p:\n//\np}"
+  , "{p:\n//\n(p)}"
+  , "{p:(\n//\np)}"
   ]
 
 openSnapshotFile :: IO Handle

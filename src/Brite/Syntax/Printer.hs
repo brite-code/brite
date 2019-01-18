@@ -336,6 +336,12 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       printSingleArg (Right (a, cs) : as) =
         printExpression Top a <> printTrailingAttachedComments cs <> softline <> printSingleArg as
 
+  -- NOTE: We don’t automatically convert `{p: p}` into `{p}` because we believe that will be
+  -- confusing for beginners. Instead we emit a warning diagnostic saying that `{p: p}` is the same
+  -- thing as `{p}`.
+  --
+  -- TODO: Emit a warning diagnostic saying that `{p: p}` is the same thing as `{p}`. With
+  -- an auto-fix.
   ObjectExpression ps Nothing ->
     group (text "{" <> indent (softline <> printCommaList printProperty ps) <> text "}")
     where
