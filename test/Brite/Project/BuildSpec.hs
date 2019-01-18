@@ -117,13 +117,13 @@ spec = around withTestCache $ do
       -- Lie to our cache and say that the last time `b.ite` was modified was a day ago. We don’t
       -- want to delay our tests by actually waiting a couple seconds for the modification time
       -- to change.
-      execute c "UPDATE source_file SET time = ? WHERE path = ?" (oldTime, ("b.ite" :: String))
+      execute c "UPDATE file SET time = ? WHERE path = ?" (oldTime, ("b.ite" :: String))
       changes c `shouldReturn` 1
       n <- totalChanges c
-      query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only oldTime]
+      query c "SELECT time FROM file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only oldTime]
       buildProject cache
       totalChanges c `shouldNotReturn` n
-      query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only time]
+      query c "SELECT time FROM file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only time]
 
     it "deletes files that were removed" $ \(dir, cache) -> do
       writeFile (dir </> "src" </> "a.ite") ""
@@ -234,17 +234,17 @@ spec = around withTestCache $ do
       -- Lie to our cache and say that the last time `b.ite` was modified was a day ago. We don’t
       -- want to delay our tests by actually waiting a couple seconds for the modification time
       -- to change.
-      execute c "UPDATE source_file SET time = ? WHERE path = ?" (aOldTime, ("a.ite" :: String))
+      execute c "UPDATE file SET time = ? WHERE path = ?" (aOldTime, ("a.ite" :: String))
       changes c `shouldReturn` 1
-      execute c "UPDATE source_file SET time = ? WHERE path = ?" (bOldTime, ("b.ite" :: String))
+      execute c "UPDATE file SET time = ? WHERE path = ?" (bOldTime, ("b.ite" :: String))
       changes c `shouldReturn` 1
       n <- totalChanges c
-      query c "SELECT time FROM source_file WHERE path = ?" (Only ("a.ite" :: String)) `shouldReturn` [Only aOldTime]
-      query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only bOldTime]
+      query c "SELECT time FROM file WHERE path = ?" (Only ("a.ite" :: String)) `shouldReturn` [Only aOldTime]
+      query c "SELECT time FROM file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only bOldTime]
       testBuildProjectFiles cache ["b.ite", "c.ite"]
       totalChanges c `shouldNotReturn` n
-      query c "SELECT time FROM source_file WHERE path = ?" (Only ("a.ite" :: String)) `shouldReturn` [Only aOldTime]
-      query c "SELECT time FROM source_file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only bTime]
+      query c "SELECT time FROM file WHERE path = ?" (Only ("a.ite" :: String)) `shouldReturn` [Only aOldTime]
+      query c "SELECT time FROM file WHERE path = ?" (Only ("b.ite" :: String)) `shouldReturn` [Only bTime]
 
     it "removes listed files from the cache that are deleted" $ \(dir, cache) -> do
       writeFile (dir </> "src" </> "a.ite") ""

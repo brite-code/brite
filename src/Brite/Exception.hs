@@ -95,6 +95,14 @@ briteExceptionMessage ProjectCacheUnrecognizedVersion =
 --
 -- Should we automatically upload error logs to the server? The logs might contain
 -- sensitive information.
+--
+-- Info to add to the error log:
+--
+-- * Whether we are in development or not.
+-- * Brite version number.
+-- * Expected SQLite cache `user_version`.
+-- * Actual SQLite cache `user_version`.
+-- * SQLite query. Without the arguments.
 
 -- We want to be really clear here that this is our fault and not the user’s!
 someExceptionErrorMessage :: SomeException -> Markup
