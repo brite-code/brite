@@ -536,6 +536,8 @@ printPattern x0 = build $ case patternNode x0 of
 
   VariablePattern n -> text (identifierText n)
 
+  HolePattern -> text "_"
+
   where
     -- Finishes printing an expression node by printing leading/trailing attached comments and
     -- parentheses in case we need them.

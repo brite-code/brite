@@ -847,6 +847,7 @@ testData =
   , "{p, q,\n/* a */ | /* b */ o}"
   , "{p, q\n/* a */ | /* b */\no}"
   , "{p, q,\n/* a */ | /* b */\no}"
+  , "let _ = x;"
   ]
 
 openSnapshotFile :: IO Handle

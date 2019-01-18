@@ -938,6 +938,9 @@ convertPattern x0 = case x0 of
   CST.VariablePattern (CST.Name n t) ->
     return (group Pattern (token t *> pure (VariablePattern n)))
 
+  CST.HolePattern t ->
+    return (group Pattern (token t *> pure HolePattern))
+
   CST.WrappedPattern t1 x' t2' -> do
     x <- recover x' >>= convertPattern
     t2 <- recover t2'
