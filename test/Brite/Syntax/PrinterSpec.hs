@@ -864,6 +864,7 @@ testData =
   , "let {p, q | o} = x;"
   , "let {p, q | _} = x;"
   , "let {\n//\np, q | _} = x;"
+  , "let {p, q |\n//\n_} = x;"
   , "let {| _} = x;"
   , "let {/* a */|/* b */ _} = x;"
   , "let {p: p} = x;"

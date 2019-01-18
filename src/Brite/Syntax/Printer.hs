@@ -387,7 +387,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
         in
           -- If the object breaks onto multiple lines then put the bar at the same indentation level
           -- as `{}`.
-          ifBreakElse (text "|" <> hardline) (text " | ") <>
+          ifBreakElse (text "| ") (text " | ") <>
           indent (mconcat (map printUnattachedComment cs1) <> printExpression Top x) <>
           softline
 
@@ -575,7 +575,7 @@ printPattern x0 = build $ case patternNode x0 of
         in
           -- If the object breaks onto multiple lines then put the bar at the same indentation level
           -- as `{}`.
-          ifBreakElse (text "|" <> hardline) (text " | ") <>
+          ifBreakElse (text "| ") (text " | ") <>
           indent (mconcat (map printUnattachedComment cs1) <> printPattern x) <>
           softline
 

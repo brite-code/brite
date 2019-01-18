@@ -845,7 +845,11 @@ convertExpression x0 = case x0 of
           wrap cs1 cs2 (cs3, x) =
             wrap cs1 [] (cs3, x { expressionTrailingComments = expressionTrailingComments x ++ cs2 })
 
-      extension (CST.ObjectExpressionExtension t x') = do
+      extension (CST.ObjectExpressionExtension t' x') = do
+        -- Cheat and make all of an expression bar’s trivia leading instead of trailing. This way
+        -- when we print a comment on the same line as a bar it will be treated as an
+        -- unattached comment.
+        let t = t' { tokenLeadingTrivia = tokenLeadingTrivia t' ++ tokenTrailingTrivia t', tokenTrailingTrivia = [] }
         x <- recover x' >>= convertExpression
         return ((,) <$> comments <*> group wrap (token t *> x))
         where
@@ -968,7 +972,11 @@ convertPattern x0 = case x0 of
           wrap cs1 cs2 x =
             wrap cs1 [] (x { patternTrailingComments = patternTrailingComments x ++ cs2 })
 
-      extension (CST.ObjectPatternExtension t x') = do
+      extension (CST.ObjectPatternExtension t' x') = do
+        -- Cheat and make all of an expression bar’s trivia leading instead of trailing. This way
+        -- when we print a comment on the same line as a bar it will be treated as an
+        -- unattached comment.
+        let t = t' { tokenLeadingTrivia = tokenLeadingTrivia t' ++ tokenTrailingTrivia t', tokenTrailingTrivia = [] }
         x <- recover x' >>= convertPattern
         return ((,) <$> comments <*> group wrap (token t *> x))
         where
