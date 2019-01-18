@@ -326,13 +326,16 @@ data PatternNode
   -- `{p: P}`
   --
   -- The programmer may write comments between properties.
-  | ObjectPattern [MaybeComment ObjectPatternProperty] (Maybe Pattern)
+  | ObjectPattern [CommaListItem ObjectPatternProperty] (Maybe ([UnattachedComment], Pattern))
 
   -- NOTE: We never print unnecessary parentheses. Which is why we don’t have a `WrappedPattern` AST
   -- node. The printer will decide which nodes to wrap based on need and aesthetics.
 
--- `p: E`
-data ObjectPatternProperty = ObjectPatternProperty Identifier (Maybe Pattern)
+data ObjectPatternProperty
+  -- `{p: E}`
+  = ObjectPatternProperty [AttachedComment] Identifier Pattern
+  -- `{p}`
+  | ObjectPatternPropertyPun [AttachedComment] [AttachedComment] Identifier
 
 data Type = Type
   -- The leading comments that are attached to this type.
@@ -940,6 +943,38 @@ convertPattern x0 = case x0 of
 
   CST.HolePattern t ->
     return (group Pattern (token t *> pure HolePattern))
+
+  CST.ObjectPattern t1 ps' ext' t2' -> do
+    ps <- convertCommaList property ps'
+    ext <- liftMaybe <$> (recoverMaybe ext' >>= mapM extension)
+    t2 <- recover t2'
+    return (group Pattern (ObjectPattern <$> (token t1 *> ps) <*> (ext <* token t2)))
+    where
+      property (CST.ObjectPatternProperty (CST.Name n t) Nothing) =
+        return (group ObjectPatternPropertyPun (token t *> pure n))
+
+      -- NOTE: Unlike object expression properties we don’t collect unattached comments between the
+      -- colon and the property value. Instead we let those comments float up to the comma list
+      -- root. We capture unattached comments for expression properties mostly because some
+      -- expressions (like binary expressions) are printed on the next line below the property colon
+      -- and we’d like to put a comment on the line above such expressions.
+      property (CST.ObjectPatternProperty (CST.Name n t3) (Just v')) = do
+        (CST.ObjectPatternPropertyValue t4 x') <- recover v'
+        x <- recover x' >>= convertPattern
+        return (group wrap (token t3 *> token t4 *> x))
+        where
+          wrap [] [] x = ObjectPatternProperty [] n x
+          wrap cs [] x = ObjectPatternProperty cs n x
+          wrap cs1 cs2 x =
+            wrap cs1 [] (x { patternTrailingComments = patternTrailingComments x ++ cs2 })
+
+      extension (CST.ObjectPatternExtension t x') = do
+        x <- recover x' >>= convertPattern
+        return ((,) <$> comments <*> group wrap (token t *> x))
+        where
+          wrap [] [] x = x
+          wrap cs [] x = x { patternLeadingComments = cs ++ patternLeadingComments x }
+          wrap cs1 cs2 x = x { patternLeadingComments = cs1 ++ cs2 ++ patternLeadingComments x }
 
   CST.WrappedPattern t1 x' t2' -> do
     x <- recover x' >>= convertPattern

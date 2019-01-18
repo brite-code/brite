@@ -538,6 +538,47 @@ printPattern x0 = build $ case patternNode x0 of
 
   HolePattern -> text "_"
 
+  -- NOTE: We don’t automatically convert `{p: p}` into `{p}` because we believe that will be
+  -- confusing for beginners. Instead we emit a warning diagnostic saying that `{p: p}` is the same
+  -- thing as `{p}`.
+  --
+  -- TODO: Emit a warning diagnostic saying that `{p: p}` is the same thing as `{p}`. With
+  -- an auto-fix.
+  ObjectPattern ps ext -> group $
+    text "{" <>
+    indent (softline <> printCommaList printProperty ps) <>
+    printExtension ext <>
+    text "}"
+    where
+      -- The trailing comments of a punned object expression are printed by `printCommaList`.
+      printProperty (ObjectPatternPropertyPun cs1 cs2 n) =
+        (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
+
+      printProperty (ObjectPatternProperty cs1 n x') =
+        -- The trailing comments of our expression are printed by `printCommaList` after the comma.
+        let (x, cs2) = takePatternTrailingComments x' in
+          ( group $
+              printLeadingAttachedComments cs1 <>
+              text (identifierText n) <>
+              text ": " <>
+              printPattern x
+          , cs2
+          )
+
+      printExtension Nothing = mempty
+      printExtension (Just (cs1', x)) =
+        let
+          -- Remove the leading empty line from our list of unattached comments.
+          cs1 = case cs1' of
+            UnattachedComment True c : cs -> UnattachedComment False c : cs
+            cs -> cs
+        in
+          -- If the object breaks onto multiple lines then put the bar at the same indentation level
+          -- as `{}`.
+          ifBreakElse (text "|" <> hardline) (text " | ") <>
+          indent (mconcat (map printUnattachedComment cs1) <> printPattern x) <>
+          softline
+
   where
     -- Finishes printing an expression node by printing leading/trailing attached comments and
     -- parentheses in case we need them.
@@ -581,9 +622,9 @@ shouldBreakOntoNextLine x = case expressionNode x of
   LoopExpression _ -> False
   WrappedExpression _ _ -> False
 
--- Removes the expression trailing comments from our `Expression` and returns them. If our
--- expression ends in another expression (like unary expressions: `-E`) then we take the trailing
--- comments from that as well.
+-- Removes the trailing comments from our `Expression` and returns them. If our expression ends in
+-- another expression (like unary expressions: `-E`) then we take the trailing comments from that
+-- as well.
 takeExpressionTrailingComments :: Expression -> (Expression, [AttachedComment])
 takeExpressionTrailingComments x0 =
   case expressionNode x0 of
@@ -614,9 +655,9 @@ takeExpressionTrailingComments x0 =
             , cs ++ expressionTrailingComments x0
             )
 
--- Removes the expression leading comments from our `Expression` and returns them. If our
--- expression begins in another expression (like property expressions: `E.p`) then we take the
--- leading comments from that as well.
+-- Removes the leading comments from our `Expression` and returns them. If our expression begins
+-- with another expression (like property expressions: `E.p`) then we take the leading comments from
+-- that as well.
 takeExpressionLeadingComments :: Expression -> ([AttachedComment], Expression)
 takeExpressionLeadingComments x0 =
   case expressionNode x0 of
@@ -669,3 +710,16 @@ takeExpressionLeadingComments x0 =
               ( expressionLeadingComments x0 ++ cs2 ++ cs3
               , x0 { expressionLeadingComments = [], expressionNode = f x3 }
               )
+
+-- Removes the trailing comments from our `Pattern` and returns them.
+takePatternTrailingComments :: Pattern -> (Pattern, [AttachedComment])
+takePatternTrailingComments x0 =
+  case patternNode x0 of
+    ConstantPattern _ -> noTrailing
+    VariablePattern _ -> noTrailing
+    HolePattern -> noTrailing
+    ObjectPattern _ _ -> noTrailing
+  where
+    noTrailing =
+      if null (patternTrailingComments x0) then (x0, [])
+      else (x0 { patternTrailingComments = [] }, patternTrailingComments x0)
