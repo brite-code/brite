@@ -171,10 +171,11 @@ printStatement s0 = build $ case statementNode s0 of
   -- some comments.
   --
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
-  BindingStatement p Nothing _ x1 ->
+  BindingStatement p t _ x1 ->
     let (x, cs) = takeExpressionTrailingComments x1 in
       text "let "
         <> printPattern p
+        <> maybe mempty ((text ": " <>) . printType) t
         <> text " = "
         <> printExpression Top x
         <> text ";"
@@ -466,6 +467,12 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   BlockExpression b -> text "do " <> printBlock b
   LoopExpression b -> text "loop " <> printBlock b
 
+  WrappedExpression x t ->
+    if shouldBreakOntoNextLine x then
+      text "(" <> indent1 (printExpression Top x <> text ": " <> printType t) <> text ")"
+    else
+      text "(" <> printExpression Top x <> text ": " <> printType t <> text ")"
+
   where
     -- Take the leading and trailing comments for our expression.
     (attachedLeadingComments, (x0, attachedTrailingComments)) =
@@ -586,6 +593,52 @@ printPattern x0 = build $ case patternNode x0 of
       printLeadingAttachedComments (patternLeadingComments x0)
         <> x1
         <> printTrailingAttachedComments (patternTrailingComments x0)
+
+-- Prints a type.
+printType :: Type -> Document
+printType x0 = build $ case typeNode x0 of
+  VariableType n -> text (identifierText n)
+
+  BottomType -> text "!"
+
+  ObjectType ps ext -> group $
+    text "{" <>
+    indent (softline <> printCommaList printProperty ps) <>
+    printExtension ext <>
+    text "}"
+    where
+      printProperty (ObjectTypeProperty cs1 n x') =
+        -- The trailing comments of our expression are printed by `printCommaList` after the comma.
+        let (x, cs2) = takeTypeTrailingComments x' in
+          ( group $
+              printLeadingAttachedComments cs1 <>
+              text (identifierText n) <>
+              text ": " <>
+              printType x
+          , cs2
+          )
+
+      printExtension Nothing = mempty
+      printExtension (Just (cs1', x)) =
+        let
+          -- Remove the leading empty line from our list of unattached comments.
+          cs1 = case cs1' of
+            UnattachedComment True c : cs -> UnattachedComment False c : cs
+            cs -> cs
+        in
+          -- If the object breaks onto multiple lines then put the bar at the same indentation level
+          -- as `{}`.
+          ifBreakElse (text "| ") (text " | ") <>
+          indent (mconcat (map printUnattachedComment cs1) <> printType x) <>
+          softline
+
+  where
+    -- Finishes printing an expression node by printing leading/trailing attached comments and
+    -- parentheses in case we need them.
+    build x1 =
+      printLeadingAttachedComments (typeLeadingComments x0)
+        <> x1
+        <> printTrailingAttachedComments (typeTrailingComments x0)
 
 -- Expressions that, when they break, should break onto the next line. The following is an example
 -- of an expression which should break onto a new line:
@@ -723,3 +776,27 @@ takePatternTrailingComments x0 =
     noTrailing =
       if null (patternTrailingComments x0) then (x0, [])
       else (x0 { patternTrailingComments = [] }, patternTrailingComments x0)
+
+-- Removes the trailing comments from our `Type` and returns them.
+takeTypeTrailingComments :: Type -> (Type, [AttachedComment])
+takeTypeTrailingComments x0 =
+  case typeNode x0 of
+    VariableType _ -> noTrailing
+    BottomType -> noTrailing
+    FunctionType qs ps x1 -> trailing (FunctionType qs ps) x1
+    ObjectType _ _ -> noTrailing
+    QuantifiedType qs x1 -> trailing (QuantifiedType qs) x1
+  where
+    noTrailing =
+      if null (typeTrailingComments x0) then (x0, [])
+      else (x0 { typeTrailingComments = [] }, typeTrailingComments x0)
+
+    trailing f x1 =
+      case takeTypeTrailingComments x1 of
+        (_, []) -> noTrailing
+        (x2, cs) ->
+          if null (typeTrailingComments x0) then (x0 { typeNode = f x2 }, cs)
+          else
+            ( x0 { typeTrailingComments = [], typeNode = f x2 }
+            , cs ++ typeTrailingComments x0
+            )

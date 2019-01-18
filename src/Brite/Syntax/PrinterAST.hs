@@ -356,23 +356,23 @@ data TypeNode
   -- `fun() -> T`
   --
   -- The programmer may write comments between properties and parameters.
-  | FunctionType [MaybeComment Quantifier] [MaybeComment Type] Type
+  | FunctionType [CommaListItem Quantifier] [CommaListItem Type] Type
 
   -- `{p: T}`
   --
   -- The programmer may write comments between properties.
-  | ObjectType [MaybeComment ObjectTypeProperty] (Maybe Type)
+  | ObjectType [CommaListItem ObjectTypeProperty] (Maybe ([UnattachedComment], Type))
 
   -- `<x> T`
   --
   -- The programmer may write comments between quantifiers.
-  | QuantifiedType [MaybeComment Quantifier] Type
+  | QuantifiedType [CommaListItem Quantifier] Type
 
   -- NOTE: We never print unnecessary parentheses. Which is why we don’t have a `WrappedType` AST
   -- node. The printer will decide which nodes to wrap based on need and aesthetics.
 
 -- `p: T`
-data ObjectTypeProperty = ObjectTypeProperty Identifier Type
+data ObjectTypeProperty = ObjectTypeProperty [AttachedComment] Identifier Type
 
 -- `x: T`
 data Quantifier = Quantifier Identifier (Maybe (QuantifierBoundKind, Type))
@@ -785,12 +785,13 @@ convertStatement s0 = case s0 of
     t <- recoverMaybe t'
     return ((ExpressionStatement <$> x) `semicolon` t)
 
-  CST.BindingStatement t1 p' Nothing t2' x' t3' -> do
+  CST.BindingStatement t1 p' a' t2' x' t3' -> do
     p <- recover p' >>= convertPattern
+    a <- liftMaybe <$> (recoverMaybe a' >>= mapM convertTypeAnnotation)
     t2 <- recover t2'
     x <- recover x' >>= convertExpression
     t3 <- recoverMaybe t3'
-    return ((BindingStatement <$> (token t1 *> p) <*> pure Nothing <*> (token t2 *> comments) <*> x) `semicolon` t3)
+    return ((BindingStatement <$> (token t1 *> p) <*> a <*> (token t2 *> comments) <*> x) `semicolon` t3)
 
   CST.ReturnStatement t1 x' t2' -> do
     x <- liftMaybe <$> (recoverMaybe x' >>= mapM (fmap (((,) <$> comments) <*>) . convertExpression))
@@ -900,6 +901,12 @@ convertExpression x0 = case x0 of
         , expressionTrailingComments = expressionTrailingComments x ++ cs2
         }
 
+  CST.WrappedExpression t1 x' (Just a') t2' -> do
+    x <- recover x' >>= convertExpression
+    a <- recover a' >>= convertTypeAnnotation
+    t2 <- recover t2'
+    return (group Expression (WrappedExpression <$> (token t1 *> x) <*> (a <* token t2)))
+
   CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
     -- Convert our left-most expression.
     x1 <- convertExpression x1'
@@ -996,3 +1003,72 @@ convertPattern x0 = case x0 of
         { patternLeadingComments = cs1 ++ patternLeadingComments x
         , patternTrailingComments = patternTrailingComments x ++ cs2
         }
+
+-- Convert a CST type into an AST type.
+convertType :: CST.Type -> Panic (Conversion Type)
+convertType x0 = case x0 of
+  CST.VariableType (CST.Name n t) ->
+    return (group Type (token t *> pure (VariableType n)))
+
+  CST.BottomType t ->
+    return (group Type (token t *> pure BottomType))
+
+  CST.ObjectType t1 ps' ext' t2' -> do
+    ps <- convertCommaList property ps'
+    ext <- liftMaybe <$> (recoverMaybe ext' >>= mapM extension)
+    t2 <- recover t2'
+    return (group Type (ObjectType <$> (token t1 *> ps) <*> (ext <* token t2)))
+    where
+      -- NOTE: Unlike object expression properties we don’t collect unattached comments between the
+      -- colon and the property value. Instead we let those comments float up to the comma list
+      -- root. We capture unattached comments for expression properties mostly because some
+      -- expressions (like binary expressions) are printed on the next line below the property colon
+      -- and we’d like to put a comment on the line above such expressions.
+      property (CST.ObjectTypeProperty (CST.Name n t3) t4' x') = do
+        t4 <- recover t4'
+        x <- recover x' >>= convertType
+        return (group wrap (token t3 *> token t4 *> x))
+        where
+          wrap [] [] x = ObjectTypeProperty [] n x
+          wrap cs [] x = ObjectTypeProperty cs n x
+          wrap cs1 cs2 x =
+            wrap cs1 [] (x { typeTrailingComments = typeTrailingComments x ++ cs2 })
+
+      extension (CST.ObjectTypeExtension t' x') = do
+        -- Cheat and make all of an expression bar’s trivia leading instead of trailing. This way
+        -- when we print a comment on the same line as a bar it will be treated as an
+        -- unattached comment.
+        let t = t' { tokenLeadingTrivia = tokenLeadingTrivia t' ++ tokenTrailingTrivia t', tokenTrailingTrivia = [] }
+        x <- recover x' >>= convertType
+        return ((,) <$> comments <*> group wrap (token t *> x))
+        where
+          wrap [] [] x = x
+          wrap cs [] x = x { typeLeadingComments = cs ++ typeLeadingComments x }
+          wrap cs1 cs2 x = x { typeLeadingComments = cs1 ++ cs2 ++ typeLeadingComments x }
+
+  CST.WrappedType t1 x' t2' -> do
+    x <- recover x' >>= convertType
+    t2 <- recover t2'
+    return (group wrap (token t1 *> x <* token t2))
+    where
+      wrap [] [] x = x
+      wrap cs [] x = x { typeLeadingComments = cs ++ typeLeadingComments x }
+      wrap [] cs x = x { typeTrailingComments = typeTrailingComments x ++ cs }
+      wrap cs1 cs2 x = x
+        { typeLeadingComments = cs1 ++ typeLeadingComments x
+        , typeTrailingComments = typeTrailingComments x ++ cs2
+        }
+
+-- Converts a type annotation into a type.
+convertTypeAnnotation :: CST.TypeAnnotation -> Panic (Conversion Type)
+convertTypeAnnotation (CST.TypeAnnotation t a') = do
+  a <- recover a' >>= convertType
+  return (group wrap (token t *> a))
+  where
+    wrap [] [] x = x
+    wrap cs [] x = x { typeLeadingComments = cs ++ typeLeadingComments x }
+    wrap [] cs x = x { typeTrailingComments = typeTrailingComments x ++ cs }
+    wrap cs1 cs2 x = x
+      { typeLeadingComments = cs1 ++ typeLeadingComments x
+      , typeTrailingComments = typeTrailingComments x ++ cs2
+      }
