@@ -333,6 +333,30 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       printSingleArg (Left c : as) = printUnattachedComment c <> printSingleArg as
       printSingleArg (Right a : as) = printExpression Top a <> softline <> printSingleArg as
 
+  ObjectExpression ps Nothing ->
+    group (text "{" <> indent (softline <> printCommaList printProperty ps) <> text "}")
+    where
+      printProperty (ObjectExpressionProperty cs1 n (Left cs2)) =
+        (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
+      printProperty (ObjectExpressionProperty cs3 n (Right (cs1, x'))) =
+        let
+          (x, cs4) = takeExpressionTrailingComments x'
+          cs2 = case cs1 of
+            UnattachedComment True c : cs -> UnattachedComment False c : cs
+            _ -> cs1
+        in
+          ( group $
+              printLeadingAttachedComments cs3 <>
+              text (identifierText n) <>
+              text ":" <>
+              (if not (null cs2) || shouldBreakOntoNextLine x then
+                line <>
+                indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x)
+              else
+                text " " <> printExpression Top x)
+          , cs4
+          )
+
   -- Print a property statement which may have some unattached comments over the property.
   PropertyExpression e cs n ->
     printExpression Primary e <> group (indent
@@ -378,17 +402,17 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   ConditionalExpression c0 ->
     group (consequent c0)
     where
-      consequent (ConditionalExpressionIf cs3 x b a) =
+      consequent (ConditionalExpressionIf cs1 x b a) =
         text "if " <>
-        (if not (null cs3) || shouldBreakOntoNextLine x then group $
+        (if not (null cs1) || shouldBreakOntoNextLine x then group $
           let
-            cs4 = case cs3 of
+            cs2 = case cs1 of
               UnattachedComment True c : cs -> UnattachedComment False c : cs
-              _ -> cs3
+              _ -> cs1
           in
             ifBreak (text "(") <>
             softline <>
-            indent (mconcat (map printUnattachedComment cs4) <> printExpression Top x) <>
+            indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x) <>
             softline <>
             ifBreak (text ")")
         else
@@ -410,15 +434,16 @@ printExpression p0 x0' = build $ case expressionNode x0 of
 
   where
     -- Take the leading and trailing comments for our expression.
-    (cs1, (x0, cs2)) = takeExpressionTrailingComments <$> takeExpressionLeadingComments x0'
+    (attachedLeadingComments, (x0, attachedTrailingComments)) =
+      takeExpressionTrailingComments <$> takeExpressionLeadingComments x0'
 
     -- Finishes printing an expression node by printing leading/trailing attached comments and
     -- parentheses in case we need them.
     build x1 =
       (if wrap then text "(" else mempty)
-        <> printLeadingAttachedComments cs1
+        <> printLeadingAttachedComments attachedLeadingComments
         <> x1
-        <> printTrailingAttachedComments cs2
+        <> printTrailingAttachedComments attachedTrailingComments
         <> (if wrap then text ")" else mempty)
 
     -- Whether or not we should wrap this expression based on its precedence level.

@@ -258,7 +258,11 @@ data ExpressionNode
   | WrappedExpression Expression Type
 
 -- `p: E`
-data ObjectExpressionProperty = ObjectExpressionProperty Identifier (Maybe Expression)
+data ObjectExpressionProperty =
+  ObjectExpressionProperty
+    [AttachedComment]                                            -- Leading comments attached to the property.
+    Identifier                                                   -- The property label.
+    (Either [AttachedComment] ([UnattachedComment], Expression)) -- Either trailing attached comments or an expression.
 
 -- `if E { ... }`
 data ConditionalExpressionIf =
@@ -657,10 +661,21 @@ recoverMaybe (Just (Ok a)) = return (Just a)
 recoverMaybe (Just (Recover _ _ _)) = panic
 recoverMaybe (Just (Fatal _ _)) = panic
 
+-- Lift’s an applicative inside a maybe to an applicative wrapping a maybe.
+liftMaybe :: Applicative t => Maybe (t a) -> t (Maybe a)
+liftMaybe = maybe (pure Nothing) (fmap Just)
+
 -- Convert every item in a comma list and capture the comments between items in a comma list.
 -- Returns a list of the converted items.
-convertCommaList :: (a -> Panic (Conversion b)) -> CST.CommaList a -> Panic (Conversion [MaybeComment b])
-convertCommaList f (CST.CommaList as an) = do
+--
+-- We wrap each item in the comma list in a conversion group to capture attached comments from the
+-- trailing comma. So we will also need a a function for that conversion group.
+convertCommaList ::
+  ([AttachedComment] -> [AttachedComment] -> b -> c) ->
+  (a -> Panic (Conversion b)) ->
+  CST.CommaList a ->
+  Panic (Conversion [MaybeComment c])
+convertCommaList g f (CST.CommaList as an) = do
   -- At the end of the list we get all of the unattached comments...
   let bs0 = map Left <$> comments
   -- If we have a last item without a trailing comma then convert it!
@@ -668,26 +683,17 @@ convertCommaList f (CST.CommaList as an) = do
   let
     bs1 = case bn of
       Nothing -> bs0
-      Just b -> item <$> comments <*> b <*> bs0
+      Just b -> item <$> comments <*> (group g b) <*> bs0
   -- Convert each item and take unattached comments for each item.
   foldrM
     (\(a, t') bs -> do
       b <- recover a >>= f
       t <- recover t'
-      return (item <$> comments <*> (sneakCommaInsideGroup b t) <*> bs))
+      return (item <$> comments <*> (group g (b <* token t)) <*> bs))
     bs1
     as
   where
     item cs b bs = map Left cs ++ (Right b : bs)
-
-    -- Sneaks a comma token inside the first right-most group we see.
-    sneakCommaInsideGroup :: Conversion a -> Token -> Conversion a
-    sneakCommaInsideGroup x@(PureConversion _) t = x <* token t
-    sneakCommaInsideGroup (MapConversion g x) t = MapConversion g (sneakCommaInsideGroup x t)
-    sneakCommaInsideGroup (ApplyConversion a b) t = ApplyConversion a (sneakCommaInsideGroup b t)
-    sneakCommaInsideGroup x@(TokenConversion _) t = x <* token t
-    sneakCommaInsideGroup (GroupConversion g x) t = GroupConversion g (x <* token t)
-    sneakCommaInsideGroup x@CommentsConversion t = x <* token t
 
 -- Converts a sequence of CST statements into a sequence of AST statements.
 convertStatementSequence :: [MaybeComment Statement] -> [Recover CST.Statement] -> [MaybeComment Statement]
@@ -783,19 +789,15 @@ convertStatement s0 = case s0 of
     t3 <- recoverMaybe t3'
     return ((BindingStatement <$> (token t1 *> p) <*> pure Nothing <*> (token t2 *> comments) <*> x) `semicolon` t3)
 
-  CST.ReturnStatement t1 x0 t2' -> do
-    x1 <- recoverMaybe x0 >>= traverse convertExpression
-    let x2 = fmap ((,) <$> comments <*>) x1
-    let x3 = maybe (pure Nothing) (fmap Just) x2
+  CST.ReturnStatement t1 x' t2' -> do
+    x <- liftMaybe <$> (recoverMaybe x' >>= mapM (fmap (((,) <$> comments) <*>) . convertExpression))
     t2 <- recoverMaybe t2'
-    return (token t1 *> (ReturnStatement <$> x3) `semicolon` t2)
+    return (token t1 *> (ReturnStatement <$> x) `semicolon` t2)
 
-  CST.BreakStatement t1 x0 t2' -> do
-    x1 <- recoverMaybe x0 >>= traverse convertExpression
-    let x2 = fmap ((,) <$> comments <*>) x1
-    let x3 = maybe (pure Nothing) (fmap Just) x2
+  CST.BreakStatement t1 x' t2' -> do
+    x <- liftMaybe <$> (recoverMaybe x' >>= mapM (fmap (((,) <$> comments) <*>) . convertExpression))
     t2 <- recoverMaybe t2'
-    return (token t1 *> (BreakStatement <$> x3) `semicolon` t2)
+    return (token t1 *> (BreakStatement <$> x) `semicolon` t2)
 
   -- Empty statements should be handled by `convertStatementSequence`!
   CST.EmptyStatement _ -> panic
@@ -821,6 +823,30 @@ convertExpression x0 = case x0 of
   CST.VariableExpression (CST.Name n t) ->
     return (group Expression (token t *> pure (VariableExpression n)))
 
+  CST.ObjectExpression t1 ps' Nothing t2' -> do
+    ps <- convertCommaList wrap prop ps'
+    t2 <- recover t2'
+    return (group Expression (ObjectExpression <$> (token t1 *> ps) <*> (pure Nothing <* token t2)))
+    where
+      prop (CST.ObjectExpressionProperty (CST.Name n t) Nothing) =
+        return (token t *> pure (ObjectExpressionProperty [] n (Left [])))
+
+      prop (CST.ObjectExpressionProperty (CST.Name n t3) (Just v')) = do
+        (CST.ObjectExpressionPropertyValue t4 x') <- recover v'
+        x <- recover x' >>= convertExpression
+        return (token t3 *> (ObjectExpressionProperty [] n . Right <$> ((,) <$> (token t4 *> comments) <*> x)))
+
+      wrap [] [] p = p
+      wrap (c1 : cs1) cs2 (ObjectExpressionProperty [] n v) =
+        wrap [] cs2 (ObjectExpressionProperty (c1 : cs1) n v)
+      wrap (c1 : cs1) cs3 (ObjectExpressionProperty cs2 n v) =
+        wrap [] cs3 (ObjectExpressionProperty (c1 : (cs1 ++ cs2)) n v)
+      wrap [] cs1 (ObjectExpressionProperty cs2 n (Left cs3)) =
+        ObjectExpressionProperty cs2 n (Left (cs3 ++ cs1))
+      wrap [] cs1 (ObjectExpressionProperty cs2 n (Right (cs3, x))) =
+        ObjectExpressionProperty cs2 n (Right (cs3, x
+          { expressionTrailingComments = expressionTrailingComments x ++ cs1 }))
+
   CST.UnaryExpression op t x' -> do
     x <- recover x' >>= convertExpression
     return (group Expression (token t *> (UnaryExpression op <$> x)))
@@ -832,8 +858,8 @@ convertExpression x0 = case x0 of
       consequent (CST.ConditionalExpressionIf t x' b' a') = do
         x <- recover x' >>= convertExpression
         b <- convertBlock b'
-        a <- recoverMaybe a' >>= mapM alternate
-        return (ConditionalExpressionIf <$> (token t *> comments) <*> x <*> b <*> maybe (pure Nothing) (fmap Just) a)
+        a <- liftMaybe <$> (recoverMaybe a' >>= mapM alternate)
+        return (ConditionalExpressionIf <$> (token t *> comments) <*> x <*> b <*> a)
 
       alternate (CST.ConditionalExpressionElse t b') = do
         b <- convertBlock b'
@@ -854,15 +880,7 @@ convertExpression x0 = case x0 of
   CST.WrappedExpression t1 x' Nothing t2' -> do
     x <- recover x' >>= convertExpression
     t2 <- recover t2'
-    return (group wrap (token t1 *> x <* token t2))
-    where
-      wrap [] [] x = x
-      wrap cs [] x = x { expressionLeadingComments = cs ++ expressionLeadingComments x }
-      wrap [] cs x = x { expressionTrailingComments = expressionTrailingComments x ++ cs }
-      wrap cs1 cs2 x = x
-        { expressionLeadingComments = cs1 ++ expressionLeadingComments x
-        , expressionTrailingComments = expressionTrailingComments x ++ cs2
-        }
+    return (group extendExpressionAttachedComments (token t1 *> x <* token t2))
 
   CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
     -- Convert our left-most expression.
@@ -893,12 +911,23 @@ convertExpression x0 = case x0 of
 
   CST.ExpressionExtra x1' (Ok (CST.CallExpressionExtra t1 xs' t2')) -> do
     x1 <- convertExpression x1'
-    xs <- convertCommaList convertExpression xs'
+    xs <- convertCommaList extendExpressionAttachedComments convertExpression xs'
     t2 <- recover t2'
     return (group Expression (CallExpression <$> x1 <*> (token t1 *> xs <* token t2)))
 
   CST.ExpressionExtra _ (Recover _ _ _) -> panic
   CST.ExpressionExtra _ (Fatal _ _) -> panic
+
+extendExpressionAttachedComments :: [AttachedComment] -> [AttachedComment] -> Expression -> Expression
+extendExpressionAttachedComments [] [] x = x
+extendExpressionAttachedComments cs [] x =
+  x { expressionLeadingComments = cs ++ expressionLeadingComments x }
+extendExpressionAttachedComments [] cs x =
+  x { expressionTrailingComments = expressionTrailingComments x ++ cs }
+extendExpressionAttachedComments cs1 cs2 x = x
+  { expressionLeadingComments = cs1 ++ expressionLeadingComments x
+  , expressionTrailingComments = expressionTrailingComments x ++ cs2
+  }
 
 -- Convert a CST pattern into an AST pattern.
 convertPattern :: CST.Pattern -> Panic (Conversion Pattern)
