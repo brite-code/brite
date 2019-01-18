@@ -211,7 +211,7 @@ data ExpressionNode
   -- `{p: E}`
   --
   -- The programmer may write comments between properties.
-  | ObjectExpression [CommaListItem ObjectExpressionProperty] (Maybe Expression)
+  | ObjectExpression [CommaListItem ObjectExpressionProperty] (Maybe ([UnattachedComment], Expression))
 
   -- `E.p`
   --
@@ -643,7 +643,6 @@ runConversion c0 =
         Comment c -> AttachedComment c : cs
         Newlines _ _ -> cs
 
-
 -- The `Maybe` monad but with a scarier name.
 newtype Panic a = Panic { toMaybe :: Maybe a }
   deriving (Functor, Applicative, Monad)
@@ -824,15 +823,16 @@ convertExpression x0 = case x0 of
   CST.VariableExpression (CST.Name n t) ->
     return (group Expression (token t *> pure (VariableExpression n)))
 
-  CST.ObjectExpression t1 ps' Nothing t2' -> do
-    ps <- convertCommaList prop ps'
+  CST.ObjectExpression t1 ps' ext' t2' -> do
+    ps <- convertCommaList property ps'
+    ext <- liftMaybe <$> (recoverMaybe ext' >>= mapM extension)
     t2 <- recover t2'
-    return (group Expression (ObjectExpression <$> (token t1 *> ps) <*> (pure Nothing <* token t2)))
+    return (group Expression (ObjectExpression <$> (token t1 *> ps) <*> (ext <* token t2)))
     where
-      prop (CST.ObjectExpressionProperty (CST.Name n t) Nothing) =
+      property (CST.ObjectExpressionProperty (CST.Name n t) Nothing) =
         return (group ObjectExpressionPropertyPun (token t *> pure n))
 
-      prop (CST.ObjectExpressionProperty (CST.Name n t3) (Just v')) = do
+      property (CST.ObjectExpressionProperty (CST.Name n t3) (Just v')) = do
         (CST.ObjectExpressionPropertyValue t4 x') <- recover v'
         x <- recover x' >>= convertExpression
         return (group wrap ((,) <$> (token t3 *> token t4 *> comments) <*> x))
@@ -841,6 +841,14 @@ convertExpression x0 = case x0 of
           wrap cs1 [] (cs2, x) = ObjectExpressionProperty cs1 n cs2 x
           wrap cs1 cs2 (cs3, x) =
             wrap cs1 [] (cs3, x { expressionTrailingComments = expressionTrailingComments x ++ cs2 })
+
+      extension (CST.ObjectExpressionExtension t x') = do
+        x <- recover x' >>= convertExpression
+        return ((,) <$> comments <*> group wrap (token t *> x))
+        where
+          wrap [] [] x = x
+          wrap cs [] x = x { expressionLeadingComments = cs ++ expressionLeadingComments x }
+          wrap cs1 cs2 x = x { expressionLeadingComments = cs1 ++ cs2 ++ expressionLeadingComments x }
 
   CST.UnaryExpression op t x' -> do
     x <- recover x' >>= convertExpression

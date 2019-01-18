@@ -342,8 +342,11 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   --
   -- TODO: Emit a warning diagnostic saying that `{p: p}` is the same thing as `{p}`. With
   -- an auto-fix.
-  ObjectExpression ps Nothing ->
-    group (text "{" <> indent (softline <> printCommaList printProperty ps) <> text "}")
+  ObjectExpression ps ext -> group $
+    text "{" <>
+    indent (softline <> printCommaList printProperty ps) <>
+    printExtension ext <>
+    text "}"
     where
       -- The trailing comments of a punned object expression are printed by `printCommaList`.
       printProperty (ObjectExpressionPropertyPun cs1 cs2 n) =
@@ -373,6 +376,20 @@ printExpression p0 x0' = build $ case expressionNode x0 of
                 text " " <> printExpression Top x)
           , cs3
           )
+
+      printExtension Nothing = mempty
+      printExtension (Just (cs1', x)) =
+        let
+          -- Remove the leading empty line from our list of unattached comments.
+          cs1 = case cs1' of
+            UnattachedComment True c : cs -> UnattachedComment False c : cs
+            cs -> cs
+        in
+          -- If the object breaks onto multiple lines then put the bar at the same indentation level
+          -- as `{}`.
+          ifBreakElse (text "|" <> hardline) (text " | ") <>
+          indent (mconcat (map printUnattachedComment cs1) <> printExpression Top x) <>
+          softline
 
   -- Print a property statement which may have some unattached comments over the property.
   PropertyExpression e cs n ->
