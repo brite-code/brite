@@ -81,8 +81,8 @@ printTrailingAttachedComments cs = mconcat $ flip map cs $ \c0 ->
 
 -- Prints a list separated by commas. If the list is broken onto multiple lines we will always add a
 -- trailing comma. The function for printing an individual comma list item returns a list of
--- trailing comments. Our comma list printer will print these _after_ the comma.
-printCommaList :: (a -> (Document, [AttachedComment])) -> [MaybeComment a] -> Document
+-- trailing comments before and after the comma.
+printCommaList :: (a -> (Document, [AttachedComment])) -> [CommaListItem a] -> Document
 printCommaList f = loopStart
   where
     loopStart (Left (UnattachedComment True c) : as) = loop (Left (UnattachedComment False c) : as)
@@ -90,17 +90,19 @@ printCommaList f = loopStart
 
     loop [] = mempty
     loop (Left c : as) = printUnattachedComment c <> loop as
-    loop [Right a] =
-      let (b, cs) = f a in
-        b <> ifBreakElse
-          (text "," <> printTrailingAttachedComments cs <> hardline)
-          (printTrailingAttachedComments cs)
-    loop (Right a : as) =
-      let (b, cs) = f a in
-        b <> ifBreakElse
-          (text "," <> printTrailingAttachedComments cs <> hardline)
-          (printTrailingAttachedComments cs <> text ", ")
-          <> loop as
+    loop [Right (a, cs2)] =
+      let (b, cs1) = f a in
+        b <>
+        ifBreakElse
+          (text "," <> printTrailingAttachedComments cs1 <> printTrailingAttachedComments cs2 <> hardline)
+          (printTrailingAttachedComments cs1 <> printTrailingAttachedComments cs2)
+    loop (Right (a, cs2) : as) =
+      let (b, cs1) = f a in
+        b <>
+        ifBreakElse
+          (text "," <> printTrailingAttachedComments cs1 <> printTrailingAttachedComments cs2 <> hardline)
+          (printTrailingAttachedComments cs1 <> text "," <> printTrailingAttachedComments cs2 <> text " ") <>
+        loop as
 
 -- Prints a sequence of statements or comments.
 printStatementSequence :: [MaybeComment Statement] -> Document
@@ -331,30 +333,39 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       -- Print our single argument without a trailing comment!
       printSingleArg [] = mempty
       printSingleArg (Left c : as) = printUnattachedComment c <> printSingleArg as
-      printSingleArg (Right a : as) = printExpression Top a <> softline <> printSingleArg as
+      printSingleArg (Right (a, cs) : as) =
+        printExpression Top a <> printTrailingAttachedComments cs <> softline <> printSingleArg as
 
   ObjectExpression ps Nothing ->
     group (text "{" <> indent (softline <> printCommaList printProperty ps) <> text "}")
     where
-      printProperty (ObjectExpressionProperty cs1 n (Left cs2)) =
+      -- The trailing comments of a punned object expression are printed by `printCommaList`.
+      printProperty (ObjectExpressionPropertyPun cs1 cs2 n) =
         (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
-      printProperty (ObjectExpressionProperty cs3 n (Right (cs1, x'))) =
+
+      printProperty (ObjectExpressionProperty cs1 n cs2' x') =
         let
-          (x, cs4) = takeExpressionTrailingComments x'
-          cs2 = case cs1 of
+          -- The trailing comments of our expression are printed by `printCommaList` after
+          -- the comma.
+          (x, cs3) = takeExpressionTrailingComments x'
+          -- Remove the leading empty line from our list of unattached comments.
+          cs2 = case cs2' of
             UnattachedComment True c : cs -> UnattachedComment False c : cs
-            _ -> cs1
+            cs -> cs
         in
           ( group $
-              printLeadingAttachedComments cs3 <>
+              printLeadingAttachedComments cs1 <>
               text (identifierText n) <>
               text ":" <>
+              -- If either we have some unattached comments or the expression should be broken onto
+              -- a new line when printing then make sure when this property breaks we put the
+              -- expression on a new line and we add indentation.
               (if not (null cs2) || shouldBreakOntoNextLine x then
                 line <>
                 indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x)
               else
                 text " " <> printExpression Top x)
-          , cs4
+          , cs3
           )
 
   -- Print a property statement which may have some unattached comments over the property.
