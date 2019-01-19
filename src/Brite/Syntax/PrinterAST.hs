@@ -53,6 +53,7 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
 import Control.Applicative ((<|>))
 import Data.Foldable (foldlM, foldrM)
+import Data.Maybe (fromMaybe)
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -1015,6 +1016,15 @@ convertType x0 = case x0 of
 
   CST.BottomType t ->
     return (group Type (token t *> pure BottomType))
+
+  CST.FunctionType t1 qs' t2' ps' t3' t4' r' -> do
+    qs <- fromMaybe (pure []) <$> (recoverMaybe qs' >>= mapM convertQuantifierList)
+    t2 <- recover t2'
+    ps <- convertCommaList convertType ps'
+    t3 <- recover t3'
+    t4 <- recover t4'
+    r <- recover r' >>= convertType
+    return (group Type (FunctionType <$> (token t1 *> qs) <*> (token t2 *> ps <* token t3) <*> (token t4 *> r)))
 
   CST.ObjectType t1 ps' ext' t2' -> do
     ps <- convertCommaList property ps'

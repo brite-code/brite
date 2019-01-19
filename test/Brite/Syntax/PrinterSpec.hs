@@ -918,6 +918,21 @@ testData =
   , "(x: <\n//\n/* a */ T: U /* b */, /* c */ V> T)"
   , "(x: <T: <T> T /**/> T)"
   , "(x: <\n//\nT: <T> T /**/> T)"
+  , "(x: fun() -> T)"
+  , "(x: fun<>() -> T)"
+  , "(x: fun<T>() -> T)"
+  , "(x: fun<T>(T) -> T)"
+  , "(x: fun(T) -> T)"
+  , "(x: fun(T, U) -> T)"
+  , "(x: fun(T, U, V) -> T)"
+  , "(x: fun(T,) -> T)"
+  , "(x: fun(T, U,) -> T)"
+  , "(x: fun(T, U, V,) -> T)"
+  , "(x: fun<A, B>(C, D) -> T)"
+  , "(x: fun<A, B,>(C, D,) -> T)"
+  , "(x: fun<\n//\nA, B>(C, D) -> T)"
+  , "(x: fun<A, B>(\n//\nC, D) -> T)"
+  , "(x: fun<\n//\nA, B>(\n//\nC, D) -> T)"
   ]
 
 openSnapshotFile :: IO Handle

@@ -601,6 +601,17 @@ printType x0 = build $ case typeNode x0 of
 
   BottomType -> text "!"
 
+  FunctionType qs ps t ->
+    text "fun" <>
+    printQuantifierList qs <>
+    group (text "(" <> indent (softline <> printCommaList printParameter ps) <> text ")") <>
+    text " -> " <>
+    printType t
+    where
+      printParameter x' =
+        let (x, cs) = takeTypeTrailingComments x' in
+          (printType x, cs)
+
   ObjectType ps ext -> group $
     text "{" <>
     indent (softline <> printCommaList printProperty ps) <>
