@@ -976,6 +976,7 @@ testData =
   , "fun f<T>() {}"
   , "fun f<T>(x: T) -> T {x}"
   , "fun /* a */ f /* b */() {}"
+  , "(x: <\n//\nT: fun() -> U /* a */, /* b */> T)"
   ]
 
 openSnapshotFile :: IO Handle
