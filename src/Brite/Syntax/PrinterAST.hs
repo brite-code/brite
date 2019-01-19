@@ -167,8 +167,8 @@ data StatementNode
 
 -- `fun() {}`
 data Function = Function
-  { functionQuantifiers :: [MaybeComment Quantifier]
-  , functionParameters :: [MaybeComment FunctionParameter]
+  { functionQuantifiers :: [CommaListItem Quantifier]
+  , functionParameters :: [CommaListItem FunctionParameter]
   , functionReturn :: Maybe Type
   , functionBody :: Block
   }
@@ -810,9 +810,42 @@ convertStatement s0 = case s0 of
   -- Empty statements should be handled by `convertStatementSequence`!
   CST.EmptyStatement _ -> panic
 
+  CST.FunctionDeclaration t1 n' f' -> do
+    CST.Name n t2 <- recover n'
+    f <- convertFunction f'
+    return (FunctionDeclaration n <$> (token t1 *> token t2 *> f))
+
   where
     semicolon x Nothing = x
     semicolon x (Just t) = x <* token t
+
+-- Convert a CST function to an AST function.
+convertFunction :: CST.Function -> Panic (Conversion Function)
+convertFunction (CST.Function qs' t1' ps' t2' r' b') = do
+  qs <- fromMaybe (pure []) <$> (recoverMaybe qs' >>= mapM convertQuantifierList)
+  t1 <- recover t1'
+  ps <- convertCommaList convertFunctionParameter ps'
+  t2 <- recover t2'
+  r <- liftMaybe <$> (recoverMaybe r' >>= mapM convertFunctionReturn)
+  b <- convertBlock b'
+  return (Function <$> qs <*> (token t1 *> ps <* token t2) <*> r <*> b)
+  where
+    convertFunctionParameter (CST.FunctionParameter p' a') = do
+      p <- convertPattern p'
+      a <- liftMaybe <$> (recoverMaybe a' >>= mapM convertTypeAnnotation)
+      return (FunctionParameter <$> p <*> a)
+
+    convertFunctionReturn (CST.FunctionReturn t3 t') = do
+      t <- recover t' >>= convertType
+      return (group wrap (token t3 *> t))
+      where
+        wrap [] [] x = x
+        wrap cs [] x = x { typeLeadingComments = cs ++ typeLeadingComments x }
+        wrap [] cs x = x { typeTrailingComments = typeTrailingComments x ++ cs }
+        wrap cs1 cs2 x = x
+          { typeLeadingComments = cs1 ++ typeLeadingComments x
+          , typeTrailingComments = typeTrailingComments x ++ cs2
+          }
 
 -- Convert a CST block into an AST block.
 convertBlock :: CST.Block -> Panic (Conversion Block)
@@ -830,6 +863,10 @@ convertExpression x0 = case x0 of
 
   CST.VariableExpression (CST.Name n t) ->
     return (group Expression (token t *> pure (VariableExpression n)))
+
+  CST.FunctionExpression t f' -> do
+    f <- convertFunction f'
+    return (group Expression (FunctionExpression <$> (token t *> f)))
 
   CST.ObjectExpression t1 ps' ext' t2' -> do
     ps <- convertCommaList property ps'

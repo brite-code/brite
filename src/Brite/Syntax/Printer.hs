@@ -124,6 +124,11 @@ printStatement s0 = build $ case statementNode s0 of
   -- contained a parse error. Print out the raw source code for concrete statements.
   ConcreteStatement s -> rawText (tokensTrimmedSource (recoverStatementTokens s))
 
+  -- Wrap a `FunctionExpression` in parentheses. Otherwise it will get confused with
+  -- a `FunctionDeclaration.`
+  ExpressionStatement x@(Expression { expressionNode = FunctionExpression _ }) ->
+    text "(" <> printExpression Top x <> text ");"
+
   -- Print an expression statement and include a semicolon for the appropriate expressions. If the
   -- expression has attached trailing comments then print those _after_ the semicolon.
   ExpressionStatement x' ->
@@ -245,6 +250,8 @@ printStatement s0 = build $ case statementNode s0 of
   BreakStatement Nothing ->
     text "break;"
 
+  FunctionDeclaration n f -> printFunction (Just n) f
+
   where
     build s1 =
       (if statementLeadingEmptyLine s0 then hardline else mempty)
@@ -252,6 +259,25 @@ printStatement s0 = build $ case statementNode s0 of
         <> s1
         <> printTrailingAttachedComments (statementTrailingComments s0)
         <> (case statementNode s0 of { ConcreteStatement _ -> mempty; _ -> hardline })
+
+-- Prints a function. Either a function expression or a function declaration.
+printFunction :: Maybe Identifier -> Function -> Document
+printFunction n (Function qs ps r b) =
+  text "fun" <>
+  maybe mempty ((text " " <>) . text . identifierText) n <>
+  printQuantifierList qs <>
+  group (text "(" <> indent (softline <> printCommaList printFunctionParameter ps) <> text ")") <>
+  maybe mempty ((text " -> " <>) . printType) r <>
+  text " " <>
+  printBlock b
+  where
+    printFunctionParameter (FunctionParameter p' Nothing) =
+      let (p, cs) = takePatternTrailingComments p' in
+        (printPattern p, cs)
+
+    printFunctionParameter (FunctionParameter p (Just t')) =
+      let (t, cs) = takeTypeTrailingComments t' in
+        (printPattern p <> text ": " <> printType t, cs)
 
 -- Prints a block, but the block is not wrapped in a group. That means it will only be flattened if
 -- a parent group is wrapped in a block.
@@ -284,6 +310,8 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   ConstantExpression (BooleanConstant False) -> text "false"
 
   VariableExpression n -> text (identifierText n)
+
+  FunctionExpression f -> printFunction Nothing f
 
   -- Call expressions with a single argument never add a trailing comma. This was a pet-peeve of
   -- mine (Caleb) in the JavaScript pretty printing library [Prettier][1]. One of the primary
