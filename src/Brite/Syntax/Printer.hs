@@ -632,6 +632,9 @@ printType x0 = build $ case typeNode x0 of
           indent (mconcat (map printUnattachedComment cs1) <> printType x) <>
           softline
 
+  QuantifiedType [] t -> printType t
+  QuantifiedType qs t -> printQuantifierList qs <> text " " <> printType t
+
   where
     -- Finishes printing an expression node by printing leading/trailing attached comments and
     -- parentheses in case we need them.
@@ -639,6 +642,22 @@ printType x0 = build $ case typeNode x0 of
       printLeadingAttachedComments (typeLeadingComments x0)
         <> x1
         <> printTrailingAttachedComments (typeTrailingComments x0)
+
+printQuantifierList :: [CommaListItem Quantifier] -> Document
+printQuantifierList [] = mempty
+printQuantifierList qs = group $
+  text "<" <> indent (softline <> printCommaList printQuantifier qs) <> text ">"
+  where
+    printQuantifier (QuantifierUnbound cs1 cs2 n) =
+      (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
+    printQuantifier (Quantifier cs1 n k t') =
+      let (t, cs2) = takeTypeTrailingComments t' in
+      ( printLeadingAttachedComments cs1 <>
+        text (identifierText n) <>
+        (case k of { Flexible -> text ": "; Rigid -> text " = " }) <>
+        printType t
+      , cs2
+      )
 
 -- Expressions that, when they break, should break onto the next line. The following is an example
 -- of an expression which should break onto a new line:

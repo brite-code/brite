@@ -374,8 +374,11 @@ data TypeNode
 -- `p: T`
 data ObjectTypeProperty = ObjectTypeProperty [AttachedComment] Identifier Type
 
--- `x: T`
-data Quantifier = Quantifier Identifier (Maybe (QuantifierBoundKind, Type))
+data Quantifier
+  -- `T`
+  = QuantifierUnbound [AttachedComment] [AttachedComment] Identifier
+  -- `T: U`
+  | Quantifier [AttachedComment] Identifier QuantifierBoundKind Type
 
 -- Convert a CST module into a printer AST module.
 --
@@ -1046,6 +1049,11 @@ convertType x0 = case x0 of
           wrap cs [] x = x { typeLeadingComments = cs ++ typeLeadingComments x }
           wrap cs1 cs2 x = x { typeLeadingComments = cs1 ++ cs2 ++ typeLeadingComments x }
 
+  CST.QuantifiedType qs' t' -> do
+    qs <- convertQuantifierList qs'
+    t <- recover t' >>= convertType
+    return (group Type (QuantifiedType <$> qs <*> t))
+
   CST.WrappedType t1 x' t2' -> do
     x <- recover x' >>= convertType
     t2 <- recover t2'
@@ -1058,6 +1066,25 @@ convertType x0 = case x0 of
         { typeLeadingComments = cs1 ++ typeLeadingComments x
         , typeTrailingComments = typeTrailingComments x ++ cs2
         }
+
+convertQuantifierList :: CST.QuantifierList -> Panic (Conversion [CommaListItem Quantifier])
+convertQuantifierList (CST.QuantifierList t1 qs' t2') = do
+  qs <- convertCommaList convertQuantifier qs'
+  t2 <- recover t2'
+  return (token t1 *> qs <* token t2)
+  where
+    convertQuantifier (CST.Quantifier (CST.Name n t) Nothing) = do
+      return (group QuantifierUnbound (token t *> pure n))
+
+    convertQuantifier (CST.Quantifier (CST.Name n t3) (Just b')) = do
+      CST.QuantifierBound k t4 t' <- recover b'
+      t <- recover t' >>= convertType
+      return (group wrap ((,) k <$> (token t3 *> token t4 *> t)))
+      where
+        wrap [] [] (k, x) = Quantifier [] n k x
+        wrap cs [] (k, x) = Quantifier cs n k x
+        wrap cs1 cs2 (k, x) =
+          wrap cs1 [] (k, x { typeTrailingComments = typeTrailingComments x ++ cs2 })
 
 -- Converts a type annotation into a type.
 convertTypeAnnotation :: CST.TypeAnnotation -> Panic (Conversion Type)
