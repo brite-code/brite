@@ -143,8 +143,8 @@ printStatement s0 = build $ case statementNode s0 of
       withoutSemicolon (CallExpression _ _) = False
       withoutSemicolon (ObjectExpression _ _) = False
       withoutSemicolon (PropertyExpression _ _ _) = False
-      withoutSemicolon (UnaryExpression _ _) = False
-      withoutSemicolon (BinaryExpression _ _ _ _) = False
+      withoutSemicolon (PrefixExpression _ _) = False
+      withoutSemicolon (InfixExpression _ _ _ _) = False
       withoutSemicolon (ConditionalExpression _) = True
       withoutSemicolon (BlockExpression _) = True
       withoutSemicolon (LoopExpression _) = True
@@ -427,15 +427,15 @@ printExpression p0 x0' = build $ case expressionNode x0 of
         <> mconcat (map printUnattachedComment cs)
         <> text "." <> text (identifierText n)))
 
-  UnaryExpression op' x -> op <> printExpression Unary x
+  PrefixExpression op' x -> op <> printExpression Prefix x
     where
       op = case op' of
         Not -> text "!"
         Positive -> text "+"
         Negative -> text "-"
 
-  BinaryExpression l op' cs r ->
-    -- Group the binary expression if we were printed at a different precedence level than our own.
+  InfixExpression l op' cs r ->
+    -- Group the infix expression if we were printed at a different precedence level than our own.
     -- This means operators of the same precedence will be put together in one group.
     (if p0 /= p1 then group else id)
       (printExpression p1 l <> text " " <> text op <>
@@ -527,21 +527,21 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       CallExpression _ _ -> Primary
       ObjectExpression _ _ -> Primary
       PropertyExpression _ _ _ -> Primary
-      UnaryExpression _ _ -> Unary
-      BinaryExpression _ Add _ _ -> Additive
-      BinaryExpression _ Subtract _ _ -> Additive
-      BinaryExpression _ Multiply _ _ -> Multiplicative
-      BinaryExpression _ Divide _ _ -> Multiplicative
-      BinaryExpression _ Remainder _ _ -> Multiplicative
-      BinaryExpression _ Exponent _ _ -> Exponentiation
-      BinaryExpression _ Equals _ _ -> Equality
-      BinaryExpression _ NotEquals _ _ -> Equality
-      BinaryExpression _ LessThan _ _ -> Relational
-      BinaryExpression _ LessThanOrEqual _ _ -> Relational
-      BinaryExpression _ GreaterThan _ _ -> Relational
-      BinaryExpression _ GreaterThanOrEqual _ _ -> Relational
-      BinaryExpression _ And _ _ -> LogicalAnd
-      BinaryExpression _ Or _ _ -> LogicalOr
+      PrefixExpression _ _ -> Prefix
+      InfixExpression _ Add _ _ -> Additive
+      InfixExpression _ Subtract _ _ -> Additive
+      InfixExpression _ Multiply _ _ -> Multiplicative
+      InfixExpression _ Divide _ _ -> Multiplicative
+      InfixExpression _ Remainder _ _ -> Multiplicative
+      InfixExpression _ Exponent _ _ -> Exponentiation
+      InfixExpression _ Equals _ _ -> Equality
+      InfixExpression _ NotEquals _ _ -> Equality
+      InfixExpression _ LessThan _ _ -> Relational
+      InfixExpression _ LessThanOrEqual _ _ -> Relational
+      InfixExpression _ GreaterThan _ _ -> Relational
+      InfixExpression _ GreaterThanOrEqual _ _ -> Relational
+      InfixExpression _ And _ _ -> LogicalAnd
+      InfixExpression _ Or _ _ -> LogicalOr
       ConditionalExpression _ -> Primary
       BlockExpression _ -> Primary
       LoopExpression _ -> Primary
@@ -550,7 +550,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
 -- The precedence level of an expression.
 data Precedence
   = Primary
-  | Unary
+  | Prefix
   | Exponentiation
   | Multiplicative
   | Additive
@@ -726,15 +726,15 @@ shouldBreakOntoNextLine x = case expressionNode x of
   CallExpression _ _ -> False
   ObjectExpression _ _ -> False
   PropertyExpression _ _ _ -> False
-  UnaryExpression _ _ -> False
-  BinaryExpression _ _ _ _ -> True
+  PrefixExpression _ _ -> False
+  InfixExpression _ _ _ _ -> True
   ConditionalExpression _ -> False
   BlockExpression _ -> False
   LoopExpression _ -> False
   WrappedExpression _ _ -> False
 
 -- Removes the trailing comments from our `Expression` and returns them. If our expression ends in
--- another expression (like unary expressions: `-E`) then we take the trailing comments from that
+-- another expression (like prefix expressions: `-E`) then we take the trailing comments from that
 -- as well.
 takeExpressionTrailingComments :: Expression -> (Expression, [AttachedComment])
 takeExpressionTrailingComments x0 =
@@ -745,8 +745,8 @@ takeExpressionTrailingComments x0 =
     CallExpression _ _ -> noTrailingExpression
     ObjectExpression _ _ -> noTrailingExpression
     PropertyExpression _ _ _ -> noTrailingExpression
-    UnaryExpression op x1 -> trailingExpression (UnaryExpression op) x1
-    BinaryExpression x1 op cs x2 -> trailingExpression (BinaryExpression x1 op cs) x2
+    PrefixExpression op x1 -> trailingExpression (PrefixExpression op) x1
+    InfixExpression x1 op cs x2 -> trailingExpression (InfixExpression x1 op cs) x2
     ConditionalExpression _ -> noTrailingExpression
     BlockExpression _ -> noTrailingExpression
     LoopExpression _ -> noTrailingExpression
@@ -776,10 +776,10 @@ takeExpressionLeadingComments x0 =
     -- leading trivia.
     CallExpression x1 xs -> leadingExpressionTakeTrailingToo x1 (\x -> CallExpression x xs)
     PropertyExpression x1 cs p -> leadingExpressionTakeTrailingToo x1 (\x -> PropertyExpression x cs p)
-    -- While technically unary operations don’t have a leading expression we treat them as if they
+    -- While technically prefix operations don’t have a leading expression we treat them as if they
     -- do for aesthetics.
-    UnaryExpression op x1 -> leadingExpression x1 (UnaryExpression op)
-    BinaryExpression x1 op cs x2 -> leadingExpression x1 (\x -> BinaryExpression x op cs x2)
+    PrefixExpression op x1 -> leadingExpression x1 (PrefixExpression op)
+    InfixExpression x1 op cs x2 -> leadingExpression x1 (\x -> InfixExpression x op cs x2)
 
     ConstantExpression _ -> noLeadingExpression
     VariableExpression _ -> noLeadingExpression

@@ -234,20 +234,20 @@ tryCallExpressionExtra =
     <&> commaList tryExpression
     <&> glyph ParenRight
 
-tryUnaryExpression :: TryParser Expression
-tryUnaryExpression =
+tryPrefixExpression :: TryParser Expression
+tryPrefixExpression =
   not_
     <|> negative
     <|> positive
     <|> trySecondaryExpression
   where
-    operand = retry tryUnaryExpression
-    not_ = (UnaryExpression Not) <$> tryGlyph Bang <&> operand
-    negative = (UnaryExpression Negative) <$> tryGlyph Minus <&> operand
-    positive = (UnaryExpression Positive) <$> tryGlyph Plus <&> operand
+    operand = retry tryPrefixExpression
+    not_ = (PrefixExpression Not) <$> tryGlyph Bang <&> operand
+    negative = (PrefixExpression Negative) <$> tryGlyph Minus <&> operand
+    positive = (PrefixExpression Positive) <$> tryGlyph Plus <&> operand
 
-tryBinaryExpression :: TryParser Expression
-tryBinaryExpression = build' <$> tryBinaryExpressionOperand <&> many tryBinaryExpressionOperation
+tryInfixExpression :: TryParser Expression
+tryInfixExpression = build' <$> tryInfixExpressionOperand <&> many tryInfixExpressionOperation
   where
     build' x [] = x
     build' x ops = build x [] ops
@@ -256,8 +256,8 @@ tryBinaryExpression = build' <$> tryBinaryExpressionOperand <&> many tryBinaryEx
     build x ops [op] = into x (reverse (op : ops))
     build x ops1 (op1 : ops2@(op2 : _)) =
       let
-        p1 = binaryExpressionOperationPrecedence op1
-        p2 = binaryExpressionOperationPrecedence op2
+        p1 = infixExpressionOperationPrecedence op1
+        p2 = infixExpressionOperationPrecedence op2
       in
         -- `* E`, `+ E`
         if p1 < p2 then
@@ -266,25 +266,25 @@ tryBinaryExpression = build' <$> tryBinaryExpressionOperand <&> many tryBinaryEx
         -- `+ E`, `* E`
         else if p1 > p2 then
           case op1 of
-            Ok (BinaryExpressionOperation op t (Ok y)) ->
-              let op1' = Ok (BinaryExpressionOperation op t (Ok (build y [] ops2))) in
+            Ok (InfixExpressionOperation op t (Ok y)) ->
+              let op1' = Ok (InfixExpressionOperation op t (Ok (build y [] ops2))) in
                 into x (reverse (op1' : ops1))
-            Recover ts e (BinaryExpressionOperation op t (Ok y)) ->
-              let op1' = Recover ts e (BinaryExpressionOperation op t (Ok (build y [] ops2))) in
+            Recover ts e (InfixExpressionOperation op t (Ok y)) ->
+              let op1' = Recover ts e (InfixExpressionOperation op t (Ok (build y [] ops2))) in
                 into x (reverse (op1' : ops1))
-            Ok (BinaryExpressionOperation op t (Recover ts e y)) ->
-              let op1' = Ok (BinaryExpressionOperation op t (Recover ts e (build y [] ops2))) in
+            Ok (InfixExpressionOperation op t (Recover ts e y)) ->
+              let op1' = Ok (InfixExpressionOperation op t (Recover ts e (build y [] ops2))) in
                 into x (reverse (op1' : ops1))
-            Recover ts1 e1 (BinaryExpressionOperation op t (Recover ts2 e2 y)) ->
-              let op1' = Recover ts1 e1 (BinaryExpressionOperation op t (Recover ts2 e2 (build y [] ops2))) in
+            Recover ts1 e1 (InfixExpressionOperation op t (Recover ts2 e2 y)) ->
+              let op1' = Recover ts1 e1 (InfixExpressionOperation op t (Recover ts2 e2 (build y [] ops2))) in
                 into x (reverse (op1' : ops1))
 
-            -- NOTE: These cases should be unreachable since in `binaryExpressionOperationPrecedence`
+            -- NOTE: These cases should be unreachable since in `infixExpressionOperationPrecedence`
             -- we give fatal `FatalPrecedence` which is the smallest precedence. Therefore it is
             -- impossible for a precedence to ever be greater than `FatalPrecedence`. Use a dummy
             -- implementation instead of throwing with `error`, though, because you never know.
-            Ok (BinaryExpressionOperation _ _ (Fatal _ _)) -> build x (op1 : ops1) ops2
-            Recover _ _ (BinaryExpressionOperation _ _ (Fatal _ _)) -> build x (op1 : ops1) ops2
+            Ok (InfixExpressionOperation _ _ (Fatal _ _)) -> build x (op1 : ops1) ops2
+            Recover _ _ (InfixExpressionOperation _ _ (Fatal _ _)) -> build x (op1 : ops1) ops2
             Fatal _ _ -> build x (op1 : ops1) ops2
 
         -- `+ E`, `+ E`
@@ -292,15 +292,15 @@ tryBinaryExpression = build' <$> tryBinaryExpressionOperand <&> many tryBinaryEx
           build x (op1 : ops1) ops2
 
     into x [] = x
-    into x (Ok op : ops) = ExpressionExtra x (Ok (BinaryExpressionExtra op ops))
-    into x (Recover ts e op : ops) = ExpressionExtra x (Recover ts e (BinaryExpressionExtra op ops))
+    into x (Ok op : ops) = ExpressionExtra x (Ok (InfixExpressionExtra op ops))
+    into x (Recover ts e op : ops) = ExpressionExtra x (Recover ts e (InfixExpressionExtra op ops))
     into x (Fatal ts e : ops) = into (ExpressionExtra x (Fatal ts e)) ops
 
-tryBinaryExpressionOperand :: TryParser Expression
-tryBinaryExpressionOperand = tryUnaryExpression
+tryInfixExpressionOperand :: TryParser Expression
+tryInfixExpressionOperand = tryPrefixExpression
 
-tryBinaryExpressionOperation :: TryParser BinaryExpressionOperation
-tryBinaryExpressionOperation =
+tryInfixExpressionOperation :: TryParser InfixExpressionOperation
+tryInfixExpressionOperation =
   add
     <|> subtract_
     <|> multiply
@@ -317,8 +317,8 @@ tryBinaryExpressionOperation =
     <|> or_
     <|> unexpected ExpectedExpression
   where
-    make = BinaryExpressionOperation
-    operand = retry tryBinaryExpressionOperand
+    make = InfixExpressionOperation
+    operand = retry tryInfixExpressionOperand
     add = make Add <$> tryGlyph Plus <&> operand
     subtract_ = make Subtract <$> tryGlyph Minus <&> operand
     multiply = make Multiply <$> tryGlyph Asterisk <&> operand
@@ -346,33 +346,33 @@ data Precedence
   | LogicalOr
   deriving (Eq, Ord)
 
--- Gets the precedence level of a binary operator.
-binaryOperatorPrecedence :: BinaryOperator -> Precedence
-binaryOperatorPrecedence Exponent = Exponentiation
-binaryOperatorPrecedence Multiply = Multiplicative
-binaryOperatorPrecedence Divide = Multiplicative
-binaryOperatorPrecedence Remainder = Multiplicative
-binaryOperatorPrecedence Add = Additive
-binaryOperatorPrecedence Subtract = Additive
-binaryOperatorPrecedence LessThan = Relational
-binaryOperatorPrecedence LessThanOrEqual = Relational
-binaryOperatorPrecedence GreaterThan = Relational
-binaryOperatorPrecedence GreaterThanOrEqual = Relational
-binaryOperatorPrecedence Equals = Equality
-binaryOperatorPrecedence NotEquals = Equality
-binaryOperatorPrecedence And = LogicalAnd
-binaryOperatorPrecedence Or = LogicalOr
+-- Gets the precedence level of a infix operator.
+infixOperatorPrecedence :: InfixOperator -> Precedence
+infixOperatorPrecedence Exponent = Exponentiation
+infixOperatorPrecedence Multiply = Multiplicative
+infixOperatorPrecedence Divide = Multiplicative
+infixOperatorPrecedence Remainder = Multiplicative
+infixOperatorPrecedence Add = Additive
+infixOperatorPrecedence Subtract = Additive
+infixOperatorPrecedence LessThan = Relational
+infixOperatorPrecedence LessThanOrEqual = Relational
+infixOperatorPrecedence GreaterThan = Relational
+infixOperatorPrecedence GreaterThanOrEqual = Relational
+infixOperatorPrecedence Equals = Equality
+infixOperatorPrecedence NotEquals = Equality
+infixOperatorPrecedence And = LogicalAnd
+infixOperatorPrecedence Or = LogicalOr
 
--- Gets the precedence level of a binary expression operation.
-binaryExpressionOperationPrecedence :: Recover BinaryExpressionOperation -> Precedence
-binaryExpressionOperationPrecedence (Ok (BinaryExpressionOperation _ _ (Fatal _ _))) = FatalPrecedence
-binaryExpressionOperationPrecedence (Recover _ _ (BinaryExpressionOperation _ _ (Fatal _ _))) = FatalPrecedence
-binaryExpressionOperationPrecedence (Ok (BinaryExpressionOperation op _ _)) = binaryOperatorPrecedence op
-binaryExpressionOperationPrecedence (Recover _ _ (BinaryExpressionOperation op _ _)) = binaryOperatorPrecedence op
-binaryExpressionOperationPrecedence (Fatal _ _) = FatalPrecedence
+-- Gets the precedence level of a infix expression operation.
+infixExpressionOperationPrecedence :: Recover InfixExpressionOperation -> Precedence
+infixExpressionOperationPrecedence (Ok (InfixExpressionOperation _ _ (Fatal _ _))) = FatalPrecedence
+infixExpressionOperationPrecedence (Recover _ _ (InfixExpressionOperation _ _ (Fatal _ _))) = FatalPrecedence
+infixExpressionOperationPrecedence (Ok (InfixExpressionOperation op _ _)) = infixOperatorPrecedence op
+infixExpressionOperationPrecedence (Recover _ _ (InfixExpressionOperation op _ _)) = infixOperatorPrecedence op
+infixExpressionOperationPrecedence (Fatal _ _) = FatalPrecedence
 
 tryExpression :: TryParser Expression
-tryExpression = tryBinaryExpression
+tryExpression = tryInfixExpression
 
 expression :: Parser (Recover Expression)
 expression = retry tryExpression

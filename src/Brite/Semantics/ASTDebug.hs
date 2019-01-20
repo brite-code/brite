@@ -112,7 +112,7 @@ debugExpression x0 = case expressionNode x0 of
 
   PropertyExpression x n -> (symbol "prop") `E` (debugExpression x) `E` (debugName n)
 
-  UnaryExpression op' x ->
+  PrefixExpression op' x ->
     (symbol op) `E` (debugExpression x)
     where
       op = case op' of
@@ -120,7 +120,7 @@ debugExpression x0 = case expressionNode x0 of
         Negative -> "neg"
         Positive -> "pos"
 
-  BinaryExpression l op' r ->
+  InfixExpression l op' r ->
     (symbol op) `E` (debugExpression l) `E` (debugExpression r)
     where
       op = case op' of

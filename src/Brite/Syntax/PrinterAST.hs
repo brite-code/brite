@@ -33,8 +33,8 @@ module Brite.Syntax.PrinterAST
   , Expression(..)
   , ExpressionNode(..)
   , ObjectExpressionProperty(..)
-  , UnaryOperator(..)
-  , BinaryOperator(..)
+  , PrefixOperator(..)
+  , InfixOperator(..)
   , ConditionalExpressionIf(..)
   , ConditionalExpressionElse(..)
   , Pattern(..)
@@ -48,7 +48,7 @@ module Brite.Syntax.PrinterAST
   , convertModule
   ) where
 
-import Brite.Syntax.CST (Recover(..), UnaryOperator(..), BinaryOperator(..), QuantifierBoundKind(..))
+import Brite.Syntax.CST (Recover(..), PrefixOperator(..), InfixOperator(..), QuantifierBoundKind(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
 import Control.Applicative ((<|>))
@@ -229,11 +229,11 @@ data ExpressionNode
   | PropertyExpression Expression [UnattachedComment] Identifier
 
   -- `-E`
-  | UnaryExpression UnaryOperator Expression
+  | PrefixExpression PrefixOperator Expression
 
   -- `E + E`
   --
-  -- There may be unattached comments between the binary operator and the right-hand-side
+  -- There may be unattached comments between the infix operator and the right-hand-side
   -- expression. This allows us to print code like this:
   --
   -- ```ite
@@ -245,7 +245,7 @@ data ExpressionNode
   -- ```
   --
   -- NOTE: Logical operators “and” (`&&`) and “or” (`||`) are included in this AST node.
-  | BinaryExpression Expression BinaryOperator [UnattachedComment] Expression
+  | InfixExpression Expression InfixOperator [UnattachedComment] Expression
 
   -- `if E {} else {}`
   | ConditionalExpression ConditionalExpressionIf
@@ -899,9 +899,9 @@ convertExpression x0 = case x0 of
           wrap cs [] x = x { expressionLeadingComments = cs ++ expressionLeadingComments x }
           wrap cs1 cs2 x = x { expressionLeadingComments = cs1 ++ cs2 ++ expressionLeadingComments x }
 
-  CST.UnaryExpression op t x' -> do
+  CST.PrefixExpression op t x' -> do
     x <- recover x' >>= convertExpression
-    return (group Expression (token t *> (UnaryExpression op <$> x)))
+    return (group Expression (token t *> (PrefixExpression op <$> x)))
 
   CST.ConditionalExpression c0' -> do
     c0 <- consequent c0'
@@ -948,19 +948,19 @@ convertExpression x0 = case x0 of
     t2 <- recover t2'
     return (group Expression (WrappedExpression <$> (token t1 *> x) <*> (a <* token t2)))
 
-  CST.ExpressionExtra x1' (Ok (CST.BinaryExpressionExtra y' ys')) -> do
+  CST.ExpressionExtra x1' (Ok (CST.InfixExpressionExtra y' ys')) -> do
     -- Convert our left-most expression.
     x1 <- convertExpression x1'
-    -- Iterate through all our operations and use them to create binary expressions...
+    -- Iterate through all our operations and use them to create infix expressions...
     x3 <-
       foldlM
         (\x y ->
           case y of
-            Ok (CST.BinaryExpressionOperation op t x2') -> do
+            Ok (CST.InfixExpressionOperation op t x2') -> do
               -- Convert the expression and then the operator token.
               x2 <- recover x2' >>= convertExpression
-              -- Convert our operation into a binary expression.
-              return (group Expression (flip BinaryExpression op <$> x <*> comments <*> (token t *> x2)))
+              -- Convert our operation into a infix expression.
+              return (group Expression (flip InfixExpression op <$> x <*> comments <*> (token t *> x2)))
 
             -- Panic if there was some parse error.
             Recover _ _ _ -> panic
@@ -1008,7 +1008,7 @@ convertPattern x0 = case x0 of
       -- NOTE: Unlike object expression properties we don’t collect unattached comments between the
       -- colon and the property value. Instead we let those comments float up to the comma list
       -- root. We capture unattached comments for expression properties mostly because some
-      -- expressions (like binary expressions) are printed on the next line below the property colon
+      -- expressions (like infix expressions) are printed on the next line below the property colon
       -- and we’d like to put a comment on the line above such expressions.
       property (CST.ObjectPatternProperty (CST.Name n t3) (Just v')) = do
         (CST.ObjectPatternPropertyValue t4 x') <- recover v'
@@ -1072,7 +1072,7 @@ convertType x0 = case x0 of
       -- NOTE: Unlike object expression properties we don’t collect unattached comments between the
       -- colon and the property value. Instead we let those comments float up to the comma list
       -- root. We capture unattached comments for expression properties mostly because some
-      -- expressions (like binary expressions) are printed on the next line below the property colon
+      -- expressions (like infix expressions) are printed on the next line below the property colon
       -- and we’d like to put a comment on the line above such expressions.
       property (CST.ObjectTypeProperty (CST.Name n t3) t4' x') = do
         t4 <- recover t4'

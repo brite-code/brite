@@ -29,12 +29,12 @@ module Brite.Syntax.CST
   , ObjectExpressionProperty(..)
   , ObjectExpressionPropertyValue(..)
   , ObjectExpressionExtension(..)
-  , UnaryOperator(..)
-  , BinaryOperator(..)
+  , PrefixOperator(..)
+  , InfixOperator(..)
   , ConditionalExpressionIf(..)
   , ConditionalExpressionElse(..)
   , ExpressionExtra(..)
-  , BinaryExpressionOperation(..)
+  , InfixExpressionOperation(..)
   , Pattern(..)
   , ObjectPatternProperty(..)
   , ObjectPatternPropertyValue(..)
@@ -229,7 +229,7 @@ data Expression
   -- ``
   --
   -- An operation on a single expression.
-  | UnaryExpression UnaryOperator Token (Recover Expression)
+  | PrefixExpression PrefixOperator Token (Recover Expression)
 
   -- ```
   -- if E { ... }
@@ -293,7 +293,7 @@ data ObjectExpressionPropertyValue = ObjectExpressionPropertyValue Token (Recove
 -- An extension operation on an object.
 data ObjectExpressionExtension = ObjectExpressionExtension Token (Recover Expression)
 
-data UnaryOperator
+data PrefixOperator
   -- `!`
   = Not
   -- `-`
@@ -301,7 +301,7 @@ data UnaryOperator
   -- `+`
   | Positive
 
-data BinaryOperator
+data InfixOperator
   -- `+`
   = Add
   -- `-`
@@ -329,12 +329,12 @@ data BinaryOperator
   -- `&&`
   --
   -- NOTE: `And` and `Or` will conditionally evaluate the second argument. Don’t assume the second
-  -- argument evaluates like other binary operators.
+  -- argument evaluates like other infix operators.
   | And
   -- `||`
   --
   -- NOTE: `And` and `Or` will conditionally evaluate the second argument. Don’t assume the second
-  -- argument evaluates like other binary operators.
+  -- argument evaluates like other infix operators.
   | Or
 
 -- `if E { ... }`
@@ -355,7 +355,7 @@ data ConditionalExpressionElse
 -- parser implementation.
 data ExpressionExtra
   -- `E + E`
-  = BinaryExpressionExtra BinaryExpressionOperation [Recover BinaryExpressionOperation]
+  = InfixExpressionExtra InfixExpressionOperation [Recover InfixExpressionOperation]
   -- `E.p`
   | PropertyExpressionExtra Token (Recover Name)
   -- `f(...)`
@@ -363,10 +363,10 @@ data ExpressionExtra
 
 -- `+ E`
 --
--- We implement binary expressions in such a way that the left-hand side will always exist even when
--- the right-hand side may not. By parsing binary expressions in this way we guarantee that when
+-- We implement infix expressions in such a way that the left-hand side will always exist even when
+-- the right-hand side may not. By parsing infix expressions in this way we guarantee that when
 -- turning an expression into a tokens list the list will _never_ be empty.
-data BinaryExpressionOperation = BinaryExpressionOperation BinaryOperator Token (Recover Expression)
+data InfixExpressionOperation = InfixExpressionOperation InfixOperator Token (Recover Expression)
 
 -- The left hand side of a binding statement. Takes a value and deconstructs it into the parts that
 -- make it up. Binding those parts to variable names in scope.
@@ -544,7 +544,7 @@ expressionFirstToken (ConstantExpression (BooleanConstant _ t)) = t
 expressionFirstToken (VariableExpression (Name _ t)) = t
 expressionFirstToken (FunctionExpression t _) = t
 expressionFirstToken (ObjectExpression t _ _ _) = t
-expressionFirstToken (UnaryExpression _ t _) = t
+expressionFirstToken (PrefixExpression _ t _) = t
 expressionFirstToken (ConditionalExpression (ConditionalExpressionIf t _ _ _)) = t
 expressionFirstToken (BlockExpression t _) = t
 expressionFirstToken (LoopExpression t _) = t
@@ -654,7 +654,7 @@ expressionTokens (ObjectExpression t1 ps ext t2) =
     extensionTokens (ObjectExpressionExtension t3 e) =
       singletonToken t3 <> recoverTokens expressionTokens e
 
-expressionTokens (UnaryExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
+expressionTokens (PrefixExpression _ t e) = singletonToken t <> recoverTokens expressionTokens e
 
 expressionTokens (ConditionalExpression i') =
   ifTokens i'
@@ -681,14 +681,14 @@ expressionTokens (WrappedExpression t1 e a t2) =
 expressionTokens (ExpressionExtra e ext) =
   expressionTokens e <> recoverTokens extraTokens ext
   where
-    extraTokens (BinaryExpressionExtra op ops) =
-      binaryOperation op <> mconcat (map (recoverTokens binaryOperation) ops)
+    extraTokens (InfixExpressionExtra op ops) =
+      infixOperation op <> mconcat (map (recoverTokens infixOperation) ops)
     extraTokens (PropertyExpressionExtra t l) =
       singletonToken t <> recoverTokens nameTokens l
     extraTokens (CallExpressionExtra t1 args t2) =
       singletonToken t1 <> commaListTokens expressionTokens args <> recoverTokens singletonToken t2
 
-    binaryOperation (BinaryExpressionOperation _ t e2) =
+    infixOperation (InfixExpressionOperation _ t e2) =
       singletonToken t <> recoverTokens expressionTokens e2
 
 -- Get tokens from a pattern.
