@@ -200,6 +200,8 @@ helpMessage =
           , ("build", "Build the code in your project.")
           , ("build {path...}", "Build the code at these paths.")
 
+          -- TODO: Add format command. Also, combine `build` and `build {path...}` documentation.
+
           -- NOTE: We intentionally don’t document `brite reset` here. We don’t want programmers
           -- using `brite reset` except in dire circumstances where they absolutely need to reset
           -- their project since `brite reset` throws away their cache which slows down everything.
