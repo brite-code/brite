@@ -173,7 +173,7 @@ rebuildSourceFile cache sourceFile = do
   -- in the cache.
   if not (sourceFileModificationTime sourceFile < modificationTime) then return () else do
     -- Update the new source file in our cache...
-    updateSourceFile cache sourceFile modificationTime
+    updateSourceFile cache (sourceFileID sourceFile) modificationTime
 
 -- Cleans a source file and all associated resources from the cache.
 --
@@ -185,4 +185,4 @@ rebuildSourceFile cache sourceFile = do
 cleanSourceFile :: ProjectCache -> CacheSourceFile -> IO ()
 cleanSourceFile cache sourceFile =
   -- Delete the old source file from our cache...
-  deleteSourceFile cache sourceFile
+  deleteSourceFile cache (sourceFileID sourceFile)
