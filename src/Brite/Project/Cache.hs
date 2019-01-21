@@ -117,7 +117,7 @@ latestUserVersion = length allMigrations
 -- upgrade Brite.
 allMigrations :: [Query]
 allMigrations =
-  [ "CREATE TABLE file (\n\
+  [ "CREATE TABLE source_file (\n\
     \  id INTEGER PRIMARY KEY,\n\
     \  path TEXT NOT NULL UNIQUE,\n\
     \  time TEXT NOT NULL\n\
@@ -196,7 +196,7 @@ instance FromRow SourceFile where
 -- Selects all of the source files in the cache. Remember that this source file data might not be up
 -- to date with the file system!
 selectAllSourceFiles :: ProjectCache -> a -> (a -> SourceFile -> IO a) -> IO a
-selectAllSourceFiles (ProjectCache _ c) = fold_ c "SELECT id, path, time FROM file"
+selectAllSourceFiles (ProjectCache _ c) = fold_ c "SELECT id, path, time FROM source_file"
 
 -- Selects source the source files with provided file paths. Some of the provided source files might
 -- not exist. Remember that this source file data might not be up to date with the file system!
@@ -210,23 +210,23 @@ selectSourceFiles (ProjectCache _ c) sourceFilePaths =
       -- `Data.Text` fusion should make constructing this query fast. `Text.replicate` with a
       -- singleton parameter should be rewritten to `replicateChar` which is subject to fusion.
       (Query (Text.append
-        "SELECT id, path, time FROM file WHERE path IN ("
+        "SELECT id, path, time FROM source_file WHERE path IN ("
         (Text.snoc (Text.intersperse ',' (Text.replicate paramCount "?")) ')')))
       params
 
 -- Inserts a source file into the project’s cache.
 insertSourceFile :: ProjectCache -> SourceFilePath -> UTCTime -> IO ()
 insertSourceFile (ProjectCache _ c) newSourceFilePath newSourceTime =
-  execute c "INSERT INTO file (path, time) VALUES (?, ?)"
+  execute c "INSERT INTO source_file (path, time) VALUES (?, ?)"
     (getSourceFileRelativePath newSourceFilePath, newSourceTime)
 
 -- Updates a source file in the project’s cache.
 updateSourceFile :: ProjectCache -> SourceFile -> UTCTime -> IO ()
 updateSourceFile (ProjectCache _ c) sourceFile newSourceTime =
-  execute c "UPDATE file SET time = ? WHERE id = ?"
+  execute c "UPDATE source_file SET time = ? WHERE id = ?"
     (newSourceTime, sourceFileID sourceFile)
 
 -- Deletes a source file from the project’s cache.
 deleteSourceFile :: ProjectCache -> SourceFile -> IO ()
 deleteSourceFile (ProjectCache _ c) sourceFile =
-  execute c "DELETE FROM file WHERE id = ?" (Only (sourceFileID sourceFile))
+  execute c "DELETE FROM source_file WHERE id = ?" (Only (sourceFileID sourceFile))
