@@ -25,12 +25,6 @@ module Brite.Project.Cache
   , insertSourceFile
   , updateSourceFile
   , deleteSourceFile
-  , StatementID
-  , StatementSummary
-  , statementSummaryID
-  , statementSummaryPreviousStatementID
-  , statementSummaryContentHash
-  , selectStatementSummaries
   ) where
 
 import Brite.Exception
@@ -143,47 +137,6 @@ allMigrations =
       -- the actual modification time. If that’s the case we’ll update this file on the next build.
       modification_time TEXT NOT NULL
     );
-
-    -- Every statement in every source file is given its own database row, for now. This is because
-    -- we want to optimize for incremental rebuild performance over everything else. We choose
-    -- statements as the thing to rebuild because:
-    --
-    -- * We want incremental compilation consistently in the milliseconds and we’re willing to pay
-    --   the cost of higher memory usage for that.
-    -- * It’s really easy to get a consistent diff of what changed. We look at every statement, hash
-    --   them, and compare to what was in our database.
-    -- * Statements generally have a pretty consistent level of complexity. As compared to blocks or
-    --   functions which might be tiny or gigantic.
-    --
-    -- We do worry about database size and `INSERT`/`SELECT` performance, though, but we’ll cross
-    -- that bridge when we get there. Incremental performance is what we want to focus on.
-    CREATE TABLE statement (
-      id INTEGER PRIMARY KEY,
-      -- The source file this statement may be found in.
-      source_file_id INTEGER NOT NULL,
-      -- The statement before this one. If `null` then this is the last statement in a sequence
-      -- of statements.
-      previous_statement_id INTEGER,
-      -- A line offset to be added to the positions in `content`. This way, just because a new line
-      -- was added before our statement we won’t have to rebuild it.
-      line_offset INTEGER NOT NULL,
-      -- A character offset to be added to the positions in `content`. This way, just because the
-      -- indentation changed for our statement we won’t have to rebuild it.
-      character_offset INTEGER NOT NULL,
-      -- A hash of the statement’s AST source. Remember, this is a hash of the source! Not of the
-      -- type checked contents.
-      content_hash INTEGER NOT NULL,
-      -- Binary encoded representation of the type checked statement.
-      content BLOB NOT NULL
-
-      FOREIGN KEY (source_file_id) REFERENCES source_file(id)
-      FOREIGN KEY (previous_statement_id) REFERENCES statement(id)
-    );
-
-    -- We’ll be selecting statements based on their source file. Whenever we build a project, we
-    -- discover files which changed and we select all the statements from that file to determine
-    -- what changed.
-    CREATE INDEX statement_source_file ON statement (source_file_id);
     |]
   ]
 
@@ -299,23 +252,3 @@ updateSourceFile (ProjectCache _ c) (SourceFileID i) newSourceTime =
 deleteSourceFile :: ProjectCache -> SourceFileID -> IO ()
 deleteSourceFile (ProjectCache _ c) (SourceFileID i) =
   execute c "DELETE FROM source_file WHERE id = ?" (Only i)
-
--- The identifier of a statement in our cache. Opaque to all modules outside of this one.
-newtype StatementID = StatementID Int
-
--- The summary of a statement in our cache containing the content hash and some other fields. We use
--- this to compare what precisely in a file needs to be rebuilt. Don’t include any extra information
--- beyond that since most of the time edits to an existing file are small.
-data StatementSummary = StatementSummary
-  { statementSummaryID :: StatementID
-  , statementSummaryPreviousStatementID :: Int
-  , statementSummaryContentHash :: Int
-  }
-
-instance FromRow StatementSummary where
-  fromRow = StatementSummary <$> (StatementID <$> field) <*> field <*> field
-
--- Selects a summary of all the statements in the provided source file.
-selectStatementSummaries :: ProjectCache -> SourceFileID -> a -> (a -> StatementSummary -> IO a) -> IO a
-selectStatementSummaries (ProjectCache _ c) (SourceFileID i) =
-  fold c "SELECT id, previous_statement_id, content_hash FROM statement WHERE source_file_id = ?" (Only i)
