@@ -15,8 +15,8 @@ module Brite.Project.Cache
   , unsafeWithCustomCache
   , withTransaction
   , withImmediateTransaction
-  , CacheSourceFileID
-  , CacheSourceFile(..)
+  , SourceFileID
+  , SourceFile(..)
   , selectAllSourceFiles
   , selectSourceFiles
   , insertSourceFile
@@ -192,12 +192,12 @@ withImmediateTransaction (ProjectCache _ c) action =
         commit (n + 1))
 
 -- An identifier for a source file in our cache. We can’t inspect the ID outside this module.
-newtype CacheSourceFileID = CacheSourceFileID Int
+newtype SourceFileID = SourceFileID Int
 
 -- The representation of a source file in our cache.
-data CacheSourceFile = CacheSourceFile
+data SourceFile = SourceFile
   -- The unique identifier for this source file which can be used in foreign key constraints.
-  { sourceFileID :: CacheSourceFileID
+  { sourceFileID :: SourceFileID
   -- The path to our source file relative to the project’s source directory.
   , sourceFilePath :: SourceFilePath
   -- The last time at which the source file was modified according to our cache. In the file
@@ -205,22 +205,22 @@ data CacheSourceFile = CacheSourceFile
   , sourceFileModificationTime :: UTCTime
   }
 
-instance FromRow CacheSourceFile where
+instance FromRow SourceFile where
   fromRow =
-    CacheSourceFile
-      <$> (CacheSourceFileID <$> field)
+    SourceFile
+      <$> (SourceFileID <$> field)
       <*> (dangerouslyCreateSourceFilePath <$> field)
       <*> field
 
 -- Selects all of the source files in the cache. Remember that this source file data might not be up
 -- to date with the file system!
-selectAllSourceFiles :: ProjectCache -> a -> (a -> CacheSourceFile -> IO a) -> IO a
+selectAllSourceFiles :: ProjectCache -> a -> (a -> SourceFile -> IO a) -> IO a
 selectAllSourceFiles (ProjectCache _ c) =
   fold_ c "SELECT id, path, modification_time FROM source_file"
 
 -- Selects source the source files with provided file paths. Some of the provided source files might
 -- not exist. Remember that this source file data might not be up to date with the file system!
-selectSourceFiles :: ProjectCache -> [SourceFilePath] -> a -> (a -> CacheSourceFile -> IO a) -> IO a
+selectSourceFiles :: ProjectCache -> [SourceFilePath] -> a -> (a -> SourceFile -> IO a) -> IO a
 selectSourceFiles (ProjectCache _ c) sourceFilePaths =
   let
     (paramCount, params) =
@@ -241,11 +241,11 @@ insertSourceFile (ProjectCache _ c) newSourceFilePath newSourceTime =
     (getSourceFileRelativePath newSourceFilePath, newSourceTime)
 
 -- Updates a source file in the project’s cache.
-updateSourceFile :: ProjectCache -> CacheSourceFileID -> UTCTime -> IO ()
-updateSourceFile (ProjectCache _ c) (CacheSourceFileID i) newSourceTime =
+updateSourceFile :: ProjectCache -> SourceFileID -> UTCTime -> IO ()
+updateSourceFile (ProjectCache _ c) (SourceFileID i) newSourceTime =
   execute c "UPDATE source_file SET modification_time = ? WHERE id = ?" (newSourceTime, i)
 
 -- Deletes a source file from the project’s cache.
-deleteSourceFile :: ProjectCache -> CacheSourceFileID -> IO ()
-deleteSourceFile (ProjectCache _ c) (CacheSourceFileID i) =
+deleteSourceFile :: ProjectCache -> SourceFileID -> IO ()
+deleteSourceFile (ProjectCache _ c) (SourceFileID i) =
   execute c "DELETE FROM source_file WHERE id = ?" (Only i)
