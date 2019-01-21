@@ -142,6 +142,10 @@ allMigrations =
       -- The last time the file was modified in the file system. This value might be earlier than
       -- the actual modification time. If that’s the case we’ll update this file on the next build.
       modification_time TEXT NOT NULL
+
+      -- TODO: Every source file needs a block...
+      -- block_id INTEGER NOT NULL
+      -- FOREIGN KEY (block_id) REFERENCES block(id)
     );
 
     -- Every statement in every source file is given its own database row, for now. This is because
@@ -161,6 +165,8 @@ allMigrations =
       id INTEGER PRIMARY KEY,
       -- The source file this statement may be found in.
       source_file_id INTEGER NOT NULL,
+      -- The block in which the statement appears.
+      block_id INTEGER NOT NULL,
       -- The statement before this one. If `null` then this is the last statement in a sequence
       -- of statements.
       previous_statement_id INTEGER,
@@ -173,10 +179,9 @@ allMigrations =
       -- A hash of the statement’s AST source. Remember, this is a hash of the source! Not of the
       -- type checked contents.
       content_hash INTEGER NOT NULL,
-      -- Binary encoded representation of the type checked statement.
-      content BLOB NOT NULL
 
       FOREIGN KEY (source_file_id) REFERENCES source_file(id)
+      FOREIGN KEY (block_id) REFERENCES block(id)
       FOREIGN KEY (previous_statement_id) REFERENCES statement(id)
     );
 
@@ -184,6 +189,17 @@ allMigrations =
     -- discover files which changed and we select all the statements from that file to determine
     -- what changed.
     CREATE INDEX statement_source_file ON statement (source_file_id);
+
+    CREATE TABLE block (
+      id INTEGER PRIMARY KEY,
+      source_file_id INTEGER NOT NULL,
+      parent_block_id INTEGER,
+      last_statement_id INTEGER
+
+      FOREIGN KEY (source_file_id) REFERENCES source_file(id)
+      FOREIGN KEY (parent_block_id) REFERENCES block(id)
+      FOREIGN KEY (last_statement_id) REFERENCES statement(id)
+    );
     |]
   ]
 
