@@ -38,23 +38,27 @@ spec = around withTemporaryDirectory $ do
       doesFileExist (dir </> "project.db") `shouldReturn` True
 
     it "runs migrations on a freshly created database" $ \dir -> do
-      testWithCache dir $ \db -> do
-        let c = unsafeProjectCacheConnection db
-        userVersionRows <- query_ c "PRAGMA user_version" :: IO [Only Int]
-        length userVersionRows `shouldBe` 1
-        fromOnly (head userVersionRows) `shouldNotBe` 0
+      testWithCache dir $ \cache -> do
+        let c = unsafeProjectCacheConnection cache
+        query_ c "PRAGMA user_version" `shouldNotReturn` [Only (0 :: Int)]
 
     it "runs migrations on an empty database" $ \dir -> withConnection "project.db" $ \c -> do
-      userVersionRows1 <- query_ c "PRAGMA user_version" :: IO [Only Int]
-      length userVersionRows1 `shouldBe` 1
-      fromOnly (head userVersionRows1) `shouldBe` 0
+      query_ c "PRAGMA user_version" `shouldReturn` [Only (0 :: Int)]
       testWithCache dir (const (return ()))
-      userVersionRows2 <- query_ c "PRAGMA user_version" :: IO [Only Int]
-      length userVersionRows2 `shouldBe` 1
-      fromOnly (head userVersionRows2) `shouldNotBe` 0
+      query_ c "PRAGMA user_version" `shouldNotReturn` [Only (0 :: Int)]
 
     it "errors if the user version is larger than expected" $ \dir -> withConnection "project.db" $ \c -> do
       execute_ c "PRAGMA user_version = 9001"
       testWithCache dir (const (return ())) `shouldThrow` \e ->
         case e of
           ProjectCacheUnrecognizedVersion -> True
+
+    it "enables foreign key constraints" $ \dir -> do
+      withConnection "foreign-keys-test.db" $ \c -> do
+        query_ c "PRAGMA foreign_keys" `shouldReturn` [Only (0 :: Int)]
+      testWithCache dir $ \cache -> do
+        let c = unsafeProjectCacheConnection cache
+        query_ c "PRAGMA foreign_keys" `shouldReturn` [Only (1 :: Int)]
+      testWithCache dir $ \cache -> do
+        let c = unsafeProjectCacheConnection cache
+        query_ c "PRAGMA foreign_keys" `shouldReturn` [Only (1 :: Int)]

@@ -5,6 +5,7 @@
 -- our SQLite database is merely a cache of the file system.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Brite.Project.Cache
   ( ProjectCache
@@ -33,6 +34,7 @@ import qualified Data.Text.Lazy.Builder.Int as Text.Builder
 import Control.Concurrent (threadDelay)
 import Control.Exception (mask, onException, catchJust)
 import Database.SQLite.Simple hiding (withTransaction, withImmediateTransaction)
+import Database.SQLite.Simple.QQ
 import qualified Database.SQLite.Simple as SQLite
 import System.FilePath ((</>))
 
@@ -72,6 +74,9 @@ unsafeWithCustomCache project projectCacheDatabasePath action =
 -- [1]: https://sqlite.org/pragma.html#pragma_user_version
 setupCache :: ProjectCache -> IO ()
 setupCache (ProjectCache _ c) = do
+  -- Enable foreign key constraints since SQLite does not enable them by default for backwards
+  -- compatibility reasons.
+  execute_ c "PRAGMA foreign_keys = ON"
   -- Query the database to get the current user version...
   userVersionRows <- query_ c "PRAGMA user_version" :: IO [Only Int]
   let userVersion = if null userVersionRows then 0 else fromOnly (head userVersionRows)
@@ -117,12 +122,15 @@ latestUserVersion = length allMigrations
 -- upgrade Brite.
 allMigrations :: [Query]
 allMigrations =
-  [ "CREATE TABLE source_file (\n\
-    \  id INTEGER PRIMARY KEY,\n\
-    \  path TEXT NOT NULL UNIQUE,\n\
-    \  time TEXT NOT NULL\n\
-    \);\n\
-    \"
+  [ [sql|
+    -- All the source files in our project. With their path relative to the project directory
+    -- and the last time the file was updated.
+    CREATE TABLE source_file (
+      id INTEGER PRIMARY KEY,
+      path TEXT NOT NULL UNIQUE,
+      time TEXT NOT NULL
+    );
+    |]
   ]
 
 -- Run an IO action inside a “deferred” transaction. A deferred transaction does not acquire any
