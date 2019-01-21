@@ -123,11 +123,14 @@ latestUserVersion = length allMigrations
 allMigrations :: [Query]
 allMigrations =
   [ [sql|
-    -- All the source files in our project. With their path relative to the project directory
-    -- and the last time the file was updated.
+    -- A source file in our project.
     CREATE TABLE source_file (
       id INTEGER PRIMARY KEY,
+      -- The path relative to our project’s source directory. So if our project directory was
+      -- `~/projects/my-app` then this path would be relative to `~/projects/my-app/src`.
       path TEXT NOT NULL UNIQUE,
+      -- The last time the file was modified in the file system. This value might be earlier than
+      -- the actual modification time. If that’s the case we’ll update this file on the next build.
       modification_time TEXT NOT NULL
     );
     |]
