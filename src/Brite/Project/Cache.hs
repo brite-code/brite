@@ -128,7 +128,7 @@ allMigrations =
     CREATE TABLE source_file (
       id INTEGER PRIMARY KEY,
       path TEXT NOT NULL UNIQUE,
-      time TEXT NOT NULL
+      modification_time TEXT NOT NULL
     );
     |]
   ]
@@ -195,7 +195,7 @@ data SourceFile = SourceFile
   , sourceFilePath :: SourceFilePath
   -- The last time at which the source file was modified according to our cache. In the file
   -- system the file may have been modified but our cache doesn’t know yet.
-  , sourceFileTime :: UTCTime
+  , sourceFileModificationTime :: UTCTime
   }
 
 instance FromRow SourceFile where
@@ -204,7 +204,8 @@ instance FromRow SourceFile where
 -- Selects all of the source files in the cache. Remember that this source file data might not be up
 -- to date with the file system!
 selectAllSourceFiles :: ProjectCache -> a -> (a -> SourceFile -> IO a) -> IO a
-selectAllSourceFiles (ProjectCache _ c) = fold_ c "SELECT id, path, time FROM source_file"
+selectAllSourceFiles (ProjectCache _ c) =
+  fold_ c "SELECT id, path, modification_time FROM source_file"
 
 -- Selects source the source files with provided file paths. Some of the provided source files might
 -- not exist. Remember that this source file data might not be up to date with the file system!
@@ -218,20 +219,20 @@ selectSourceFiles (ProjectCache _ c) sourceFilePaths =
       -- `Data.Text` fusion should make constructing this query fast. `Text.replicate` with a
       -- singleton parameter should be rewritten to `replicateChar` which is subject to fusion.
       (Query (Text.append
-        "SELECT id, path, time FROM source_file WHERE path IN ("
+        "SELECT id, path, modification_time FROM source_file WHERE path IN ("
         (Text.snoc (Text.intersperse ',' (Text.replicate paramCount "?")) ')')))
       params
 
 -- Inserts a source file into the project’s cache.
 insertSourceFile :: ProjectCache -> SourceFilePath -> UTCTime -> IO ()
 insertSourceFile (ProjectCache _ c) newSourceFilePath newSourceTime =
-  execute c "INSERT INTO source_file (path, time) VALUES (?, ?)"
+  execute c "INSERT INTO source_file (path, modification_time) VALUES (?, ?)"
     (getSourceFileRelativePath newSourceFilePath, newSourceTime)
 
 -- Updates a source file in the project’s cache.
 updateSourceFile :: ProjectCache -> SourceFile -> UTCTime -> IO ()
 updateSourceFile (ProjectCache _ c) sourceFile newSourceTime =
-  execute c "UPDATE source_file SET time = ? WHERE id = ?"
+  execute c "UPDATE source_file SET modification_time = ? WHERE id = ?"
     (newSourceTime, sourceFileID sourceFile)
 
 -- Deletes a source file from the project’s cache.

@@ -8,7 +8,7 @@ module Brite.Project.Files
   , getSourceFileRelativePath
   , getSourceFilePath
   , dangerouslyCreateSourceFilePath
-  , getSourceFileTime
+  , getSourceFileModificationTime
   , findProjectDirectory
   , findProjectDirectoryOrThrow
   , intoSourceFilePath
@@ -60,8 +60,8 @@ getSourceFilePath (ProjectDirectory projectDirectory) (SourceFilePath sourceFile
   projectDirectory </> sourceDirectoryName </> sourceFilePath
 
 -- Gets the last modification time for our source file.
-getSourceFileTime :: ProjectDirectory -> SourceFilePath -> IO UTCTime
-getSourceFileTime p1 p2 = getModificationTime (getSourceFilePath p1 p2)
+getSourceFileModificationTime :: ProjectDirectory -> SourceFilePath -> IO UTCTime
+getSourceFileModificationTime p1 p2 = getModificationTime (getSourceFilePath p1 p2)
 
 -- Dangerously creates a new source file path. We assume you’ve validated all the assumptions that
 -- the `ProjectCacheDirectory` type has made.

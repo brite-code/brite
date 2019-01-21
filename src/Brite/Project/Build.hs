@@ -151,9 +151,9 @@ buildProjectFiles cache targetedSourceFilePaths = withImmediateTransaction cache
 buildSourceFile :: ProjectCache -> SourceFilePath -> IO ()
 buildSourceFile cache newSourceFilePath = do
   -- Fetch the modification time for our new source file.
-  newSourceFileTime <- getSourceFileTime (projectDirectory cache) newSourceFilePath
+  modificationTime <- getSourceFileModificationTime (projectDirectory cache) newSourceFilePath
   -- Insert the new source file into our cache...
-  insertSourceFile cache newSourceFilePath newSourceFileTime
+  insertSourceFile cache newSourceFilePath modificationTime
 
 -- Rebuilds a source file which already exists in the cache and updates all the cache entries
 -- associated with that source file.
@@ -166,14 +166,14 @@ buildSourceFile cache newSourceFilePath = do
 rebuildSourceFile :: ProjectCache -> SourceFile -> IO ()
 rebuildSourceFile cache sourceFile = do
   -- Fetch the modification time for the source file we are updating.
-  currentSourceFileTime <- getSourceFileTime (projectDirectory cache) (sourceFilePath sourceFile)
+  modificationTime <- getSourceFileModificationTime (projectDirectory cache) (sourceFilePath sourceFile)
   -- Compare the current modification time against the modification time in our cache. If our
   -- current modification time is _larger_ than what we have in our cache then we need to update our
   -- cache! Otherwise immediately return so we don’t have to process this file since it’s up-to-date
   -- in the cache.
-  if not (sourceFileTime sourceFile < currentSourceFileTime) then return () else do
+  if not (sourceFileModificationTime sourceFile < modificationTime) then return () else do
     -- Update the new source file in our cache...
-    updateSourceFile cache sourceFile currentSourceFileTime
+    updateSourceFile cache sourceFile modificationTime
 
 -- Cleans a source file and all associated resources from the cache.
 --
