@@ -66,7 +66,7 @@ buildProject :: ProjectCache -> IO ()
 buildProject cache = withImmediateTransaction cache $ do
   -- Create a new hash table with which we will store in-memory our source file objects after
   -- fetching them from the cache.
-  sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath SourceFile)
+  sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath CacheSourceFile)
 
   -- Select all the source files from our cache and put them into a hash table keyed by the source
   -- file’s path.
@@ -113,7 +113,7 @@ buildProjectFiles :: ProjectCache -> [SourceFilePath] -> IO ()
 buildProjectFiles cache targetedSourceFilePaths = withImmediateTransaction cache $ do
   -- Create a new hash table with which we will store in-memory our source file objects after
   -- fetching them from the cache.
-  sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath SourceFile)
+  sourceFiles <- HashTable.new :: IO (HashTable SourceFilePath CacheSourceFile)
 
   -- Select the targeted source files from our cache and put them into a hash table keyed by the
   -- source file’s path.
@@ -163,7 +163,7 @@ buildSourceFile cache newSourceFilePath = do
 -- * The source file exists in our cache.
 -- * The source file exists in the file system.
 -- * That we are inside an immediate transaction.
-rebuildSourceFile :: ProjectCache -> SourceFile -> IO ()
+rebuildSourceFile :: ProjectCache -> CacheSourceFile -> IO ()
 rebuildSourceFile cache sourceFile = do
   -- Fetch the modification time for the source file we are updating.
   modificationTime <- getSourceFileModificationTime (projectDirectory cache) (sourceFilePath sourceFile)
@@ -182,7 +182,7 @@ rebuildSourceFile cache sourceFile = do
 -- * The source file exists in our cache.
 -- * The source file does not exist in the file system.
 -- * That we are inside an immediate transaction.
-cleanSourceFile :: ProjectCache -> SourceFile -> IO ()
+cleanSourceFile :: ProjectCache -> CacheSourceFile -> IO ()
 cleanSourceFile cache sourceFile =
   -- Delete the old source file from our cache...
   deleteSourceFile cache sourceFile
