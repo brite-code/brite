@@ -1,3 +1,10 @@
+-- This module is intended to be imported qualified:
+--
+-- ```hs
+-- import Brite.Semantics.Type (Monotype, Polytype)
+-- import qualified Brite.Semantics.Type as Type
+-- ```
+
 module Brite.Semantics.Type
   ( Monotype
   , MonotypeDescription(..)
@@ -7,15 +14,18 @@ module Brite.Semantics.Type
   , polytypeDescription
   , Binding(..)
   , BindingFlexibility(..)
+  , variable
   , booleanMonotype
   , boolean
   , integerMonotype
   , integer
   , function
   , polytype
+  , bottom
   ) where
 
 import Brite.Semantics.AST (Name)
+import Brite.Semantics.CheckMonad (TypeVariableID, typeVariableID)
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
 
@@ -31,7 +41,7 @@ data MonotypeDescription
   -- `T`
   --
   -- The variable referenced by this monotype.
-  = Variable Int
+  = Variable TypeVariableID
 
   -- `Bool`, `Int`
   --
@@ -79,8 +89,8 @@ data PolytypeDescription
 
 -- A binding of some identifier to a type.
 data Binding = Binding
-  -- The unique identifier for this binding. No other binding will share the same ID.
-  { bindingID :: Int
+  -- The unique identifier for this binding. No other binding will share the same identifier.
+  { bindingID :: TypeVariableID
   -- The name given to this binding in source code. Optional since this binding might have been
   -- added during type inference.
   , bindingName :: Maybe Name
@@ -92,6 +102,14 @@ data Binding = Binding
 
 data BindingFlexibility = Flexible | Rigid
 
+-- Creates a type variable monotype.
+variable :: TypeVariableID -> Monotype
+variable i =
+  Monotype
+    { monotypeFreeVariables = IntSet.singleton (typeVariableID i)
+    , monotypeDescription = Variable i
+    }
+
 -- A boolean monotype.
 booleanMonotype :: Monotype
 booleanMonotype =
@@ -101,6 +119,10 @@ booleanMonotype =
     }
 
 -- A boolean polytype.
+--
+-- We give the boolean polytype a nice name instead of `booleanMonotype` because we don’t want
+-- people to create a new polytype every time with `polytype booleanMonotype`. We’d rather them use
+-- the constant boolean polytype defined here.
 boolean :: Polytype
 boolean = polytype booleanMonotype
 
@@ -113,6 +135,10 @@ integerMonotype =
     }
 
 -- An integer polytype.
+--
+-- We give the integer polytype a nice name instead of `integerMonotype` because we don’t want
+-- people to create a new polytype every time with `polytype integerMonotype`. We’d rather them use
+-- the constant integer polytype defined here.
 integer :: Polytype
 integer = polytype integerMonotype
 
@@ -132,4 +158,13 @@ polytype t =
     { polytypeNormal = True
     , polytypeFreeVariables = monotypeFreeVariables t
     , polytypeDescription = Monotype_ t
+    }
+
+-- The bottom polytype.
+bottom :: Polytype
+bottom =
+  Polytype
+    { polytypeNormal = True
+    , polytypeFreeVariables = IntSet.empty
+    , polytypeDescription = Bottom
     }

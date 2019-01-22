@@ -3,7 +3,8 @@ module Brite.Semantics.Unify
   ) where
 
 import Brite.Diagnostics
-import Brite.Semantics.Type
+import Brite.Semantics.Type (Monotype, MonotypeDescription(..))
+import qualified Brite.Semantics.Type as Type
 
 -- The unification algorithm takes a prefix and two monotypes asserting that the types are
 -- equivalent under the prefix. However, what makes unification extra special is that at the same
@@ -27,7 +28,7 @@ import Brite.Semantics.Type
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
 unify :: Monotype -> Monotype -> Either Diagnostic ()
 unify type1 type2 =
-  case (monotypeDescription type1, monotypeDescription type2) of
+  case (Type.monotypeDescription type1, Type.monotypeDescription type2) of
     -- Variables with the same ID unify without any further analysis. We make sure to give every
     -- type variable a globally unique ID so that they’ll never conflict.
     (Variable id1, Variable id2) | id1 == id2 -> Right ()

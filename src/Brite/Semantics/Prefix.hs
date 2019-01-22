@@ -9,12 +9,17 @@ module Brite.Semantics.Prefix
   ( Prefix
   , new
   , withLevel
+  , add
+  , fresh
+  , freshWithBound
   ) where
 
 import Brite.Semantics.CheckMonad
-import Brite.Semantics.Type
+import Brite.Semantics.Type (Polytype, Monotype)
+import qualified Brite.Semantics.Type as Type
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
+import Data.Maybe (isJust)
 import Data.STRef
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
@@ -47,16 +52,15 @@ import Data.STRef
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 -- [2]: http://okmij.org/ftp/ML/generalization.html
 data Prefix s = Prefix
-  { prefixCounter :: STRef s Int
-  , prefixLevels :: STRef s [PrefixLevel s]
-  , prefixEntries :: HashTable s Int (PrefixEntry s)
+  { prefixLevels :: STRef s [PrefixLevel s]
+  , prefixEntries :: HashTable s TypeVariableID (PrefixEntry s)
   }
 
 -- An entry for a type variable in the prefix. The entry remembers the level at which the entry is
 -- stored and the quantifier which defined this type variable.
 data PrefixEntry s = PrefixEntry
-  { prefixEntryLevel :: STRef s (PrefixLevel s)
-  , prefixEntryBinding :: Binding
+  { prefixEntryBinding :: Type.Binding
+  , prefixEntryLevel :: STRef s (PrefixLevel s)
   }
 
 -- In our prefix, levels are a way to manage garbage collection. Whenever we introduce a type
@@ -68,12 +72,12 @@ data PrefixEntry s = PrefixEntry
 -- depends on it. When that happens we change the level of the type variable.
 data PrefixLevel s = PrefixLevel
   { prefixLevelIndex :: Int
-  , prefixLevelTypeVariables :: HashTable s Int ()
+  , prefixLevelVariables :: HashTable s TypeVariableID ()
   }
 
 -- Creates a new prefix.
 new :: Check s (Prefix s)
-new = liftST (Prefix <$> newSTRef 0 <*> newSTRef [] <*> HashTable.new)
+new = liftST (Prefix <$> newSTRef [] <*> HashTable.new)
 
 -- Introduces a new level for the execution of the provided action. Cleans up the level after the
 -- action finishes. Any type variables created in the level will be removed from the prefix unless
@@ -90,7 +94,50 @@ withLevel prefix action = do
   -- Remove the level we just added from the prefix.
   liftST $ writeSTRef (prefixLevels prefix) oldLevels
   -- Delete all type variables at this level from the prefix.
-  liftST $ flip HashTable.mapM_ (prefixLevelTypeVariables newLevel)
+  liftST $ flip HashTable.mapM_ (prefixLevelVariables newLevel)
     (\(i, _) -> HashTable.delete (prefixEntries prefix) i)
   -- Return the result from executing our action.
   return result
+
+-- Adds a type variable binding to our prefix.
+--
+-- * If the prefix level stack is empty we don’t add this binding.
+-- * If the binding already exists in the prefix we don’t add this binding, leaving the current
+--   one as-is.
+-- * If the binding type has free type variables that don’t exist in the prefix then we will happily
+--   add your binding to the prefix anyway. Just know that you’re in for a world of trouble later
+--   when you try to use those unbound type variables.
+add :: Prefix s -> Type.Binding -> Check s ()
+add prefix binding = do
+  -- If there are no levels or a binding with the same ID already exists then we don’t add
+  -- the binding.
+  levels <- liftST $ readSTRef (prefixLevels prefix)
+  hasBinding <- liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) (Type.bindingID binding)
+  if null levels || hasBinding then return () else do
+    -- Add the type variable binding to the current level.
+    let level = head levels
+    liftST $ HashTable.insert (prefixLevelVariables level) (Type.bindingID binding) ()
+    -- Add the type variable binding to the prefix.
+    entry <- liftST $ PrefixEntry binding <$> newSTRef level
+    liftST $ HashTable.insert (prefixEntries prefix) (Type.bindingID binding) entry
+
+-- Creates a fresh type variable with no bound.
+fresh :: Prefix s -> Check s Monotype
+fresh prefix = do
+  i <- freshTypeVariable
+  add prefix (Type.Binding i Nothing Type.Flexible Type.bottom)
+  return (Type.variable i)
+
+-- Creates a fresh type variable with the provided type as the bound. If the provided type is a
+-- monotype then we return the monotype directly instead of creating a fresh type variable.
+freshWithBound :: Prefix s -> Type.BindingFlexibility -> Polytype -> Check s Monotype
+freshWithBound prefix k t =
+  -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
+  -- always inlined in normal form anyway.
+  case Type.polytypeDescription t of
+    Type.Monotype_ t' -> return t'
+    _ -> do
+      -- Creates a fresh type variable ID and adds a binding with that ID to the prefix.
+      i <- freshTypeVariable
+      add prefix (Type.Binding i Nothing k t)
+      return (Type.variable i)

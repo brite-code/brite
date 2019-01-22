@@ -6,7 +6,8 @@ module Brite.Semantics.Check () where
 
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
-import Brite.Semantics.Type
+import Brite.Semantics.Type (Polytype)
+import qualified Brite.Semantics.Type as Type
 
 -- Type checks an expression AST and returns a typed AVT expression.
 --
@@ -40,16 +41,16 @@ checkExpression astExpression = case AST.expressionNode astExpression of
     range = AST.expressionRange astExpression
 
 checkConstant :: AST.Constant -> Polytype
-checkConstant (BooleanConstant _) = boolean
+checkConstant (BooleanConstant _) = Type.boolean
 
 -- Checks a type and turns it into a polytype which might possibly have errors.
 checkType :: AST.Type -> Polytype
-checkType = polytype . checkMonotype
+checkType = Type.polytype . checkMonotype
   where
     checkMonotype astType = case AST.typeNode astType of
       -- TODO: Add proper type scoping support instead of hard-coding.
-      AST.VariableType identifier | AST.identifierText identifier == "Bool" -> booleanMonotype
-      AST.VariableType identifier | AST.identifierText identifier == "Int" -> integerMonotype
+      AST.VariableType identifier | AST.identifierText identifier == "Bool" -> Type.booleanMonotype
+      AST.VariableType identifier | AST.identifierText identifier == "Int" -> Type.integerMonotype
 
       AST.FunctionType [] [parameter] body ->
-        function (checkMonotype parameter) (checkMonotype body)
+        Type.function (checkMonotype parameter) (checkMonotype body)

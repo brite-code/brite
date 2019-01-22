@@ -8,7 +8,7 @@ module Brite.Semantics.AVT
   ) where
 
 import Brite.Semantics.AST (Constant(..))
-import Brite.Semantics.Type
+import Brite.Semantics.Type (Polytype)
 import Brite.Syntax.Tokens (Range(..))
 
 data Expression = Expression
