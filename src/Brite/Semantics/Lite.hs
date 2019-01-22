@@ -16,8 +16,9 @@
 module Brite.Semantics.Lite () where
 
 import Brite.Semantics.AST
-import Brite.Syntax.Tokens (Position(..))
+import Brite.Syntax.Tokens (Position(..), unsafeIdentifier)
 import Data.Functor.Identity
+import qualified Data.Text as Text
 import Text.Parsec hiding (Parsec)
 import Text.Parsec.Language (emptyDef)
 import qualified Text.Parsec.Token as P
@@ -25,33 +26,85 @@ import qualified Text.Parsec.Token as P
 type Parsec a = ParsecT String () Identity a
 
 range :: Parsec a -> Parsec (Range, a)
-range ma = do
-  start <- getPosition
-  a <- ma
-  end <- getPosition
-  return
-    ( Range
-        (Position (sourceLine start - 1) (sourceColumn start - 1))
-        (Position (sourceLine end - 1) (sourceColumn end - 1))
-    , a
-    )
+range p = build <$> getPosition <*> p <*> getPosition
+  where
+    build start a end =
+      ( Range
+          (Position (sourceLine start - 1) (sourceColumn start - 1))
+          (Position (sourceLine end - 1) (sourceColumn end - 1))
+      , a
+      )
+
+block :: Parsec Block
+block = build <$> expression
+  where
+    build x = case expressionNode x of
+      BlockExpression b -> b
+      _ -> Block [Statement (expressionRange x) (ExpressionStatement x)]
 
 constant :: Parsec Constant
 constant =
-  pure (BooleanConstant True) <* reserved "true" <|>
-  pure (BooleanConstant False) <* reserved "false"
+  (pure (BooleanConstant True) <* reserved "true") <|>
+  (pure (BooleanConstant False) <* reserved "false")
+
+function :: Parsec Function
+function =
+  Function []
+    <$> (reservedOp "λ" *> (flip (:) [] <$> functionParameter))
+    <*> pure Nothing
+    <*> (reservedOp "." *> block)
+  where
+    functionParameter = FunctionParameter <$> pattern <*> pure Nothing
 
 expression :: Parsec Expression
-expression = fmap (uncurry Expression) . range $
-  ConstantExpression <$> constant
+expression = unwrappedExpression <|> (fmap (uncurry Expression) . range $
+  (FunctionExpression <$> function) <|>
+  bindingExpression <|>
+  (ConditionalExpression <$> conditionalExpression))
+
+unwrappedExpression :: Parsec Expression
+unwrappedExpression = fmap (uncurry Expression) . range $
+  (VariableExpression <$> identifier) <|>
+  (ConstantExpression <$> constant) <|>
+  (parens (WrappedExpression <$> expression <*> pure Nothing))
+
+conditionalExpression :: Parsec ConditionalExpressionIf
+conditionalExpression = consequent
+  where
+    consequent =
+      ConditionalExpressionIf <$>
+        (reserved "if" *> expression) <*>
+        (reserved "then" *> block) <*>
+        ((Just <$> alternate) <|> pure Nothing)
+
+    alternate =
+      reserved "else" *>
+        (ConditionalExpressionElseIf <$> (reserved "if" *> consequent) <|>
+         ConditionalExpressionElse <$> block)
+
+pattern :: Parsec Pattern
+pattern = fmap (uncurry Pattern) . range $
+  (VariablePattern <$> identifier)
 
 lexer :: P.TokenParser ()
 lexer = P.makeTokenParser $ emptyDef
   { P.commentStart = "/*"
   , P.commentEnd = "*/"
   , P.commentLine = "//"
-  , P.reservedNames = ["true", "false"]
+  , P.reservedNames = ["true", "false", "if", "then", "else"]
+  , P.opStart = P.opLetter emptyDef
+  , P.opLetter = oneOf "λ."
+  , P.reservedOpNames = ["λ", "."]
   }
 
 reserved :: String -> Parsec ()
 reserved = P.reserved lexer
+
+reservedOp :: String -> Parsec ()
+reservedOp = P.reservedOp lexer
+
+identifier :: Parsec Identifier
+identifier = unsafeIdentifier . Text.pack <$> P.identifier lexer
+
+parens :: Parsec a -> Parsec a
+parens = P.parens lexer

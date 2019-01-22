@@ -10,6 +10,7 @@ module Brite.Syntax.Tokens
   , Range(..)
   , rangeBetween
   , Identifier
+  , unsafeIdentifier
   , identifierText
   , Keyword(..)
   , keywordText
@@ -116,6 +117,10 @@ rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 --
 -- [1]: http://www.unicode.org/reports/tr31
 newtype Identifier = Identifier Text deriving (Show)
+
+-- Unsafely creates an identifier without checking if it is in the correct format.
+unsafeIdentifier :: Text -> Identifier
+unsafeIdentifier = Identifier
 
 -- Get the text representation of an identifier.
 identifierText :: Identifier -> Text
