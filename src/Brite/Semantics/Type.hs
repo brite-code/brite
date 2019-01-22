@@ -1,26 +1,23 @@
 module Brite.Semantics.Type
-  ( TypeVariableID
-  , Monotype
+  ( Monotype
   , MonotypeDescription(..)
   , monotypeDescription
   , Polytype
   , PolytypeDescription(..)
   , polytypeDescription
+  , Binding(..)
+  , BindingFlexibility(..)
   , booleanMonotype
   , boolean
   , integerMonotype
   , integer
   , function
   , polytype
-  , QuantifierBoundFlexibility(..)
   ) where
 
-import Brite.Semantics.AST (Name, QuantifierBoundFlexibility)
+import Brite.Semantics.AST (Name)
 import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
-
-newtype TypeVariableID = TypeVariableID Int
-  deriving (Eq)
 
 -- Types that do not contain quantifiers.
 data Monotype = Monotype
@@ -34,7 +31,7 @@ data MonotypeDescription
   -- `T`
   --
   -- The variable referenced by this monotype.
-  = Variable TypeVariableID
+  = Variable Int
 
   -- `Bool`, `Int`
   --
@@ -78,20 +75,22 @@ data PolytypeDescription
   --
   -- In academic literature we write `∀(a = T1).T2` and `∀(a ≥ T1).T2` for rigid and flexible
   -- universal quantification respectively. We also write `∀a.T` as shorthand for `∀(a ≥ ⊥).T`.
-  | Quantify Quantifier Polytype
+  | Quantify Binding Polytype
 
--- A universal quantifier.
-data Quantifier = Quantifier
-  -- The unique identifier for this quantifier. No other quantifier will share the same ID.
-  { quantifierID :: TypeVariableID
-  -- The name given to this quantifier in source code. Optional since this quantifier might have
-  -- been added during type inference.
-  , quantifierName :: Maybe Name
-  -- The flexibility of the quantifier’s bound.
-  , quantifierBoundFlexibility :: QuantifierBoundFlexibility
-  -- The bound of our quantifier.
-  , quantifierBound :: Polytype
+-- A binding of some identifier to a type.
+data Binding = Binding
+  -- The unique identifier for this binding. No other binding will share the same ID.
+  { bindingID :: Int
+  -- The name given to this binding in source code. Optional since this binding might have been
+  -- added during type inference.
+  , bindingName :: Maybe Name
+  -- The flexibility of this binding.
+  , bindingFlexibility :: BindingFlexibility
+  -- The type being bound.
+  , bindingType :: Polytype
   }
+
+data BindingFlexibility = Flexible | Rigid
 
 -- A boolean monotype.
 booleanMonotype :: Monotype
