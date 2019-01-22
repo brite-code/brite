@@ -135,7 +135,7 @@ freshWithBound prefix k t =
   -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
   -- always inlined in normal form anyway.
   case Type.polytypeDescription t of
-    Type.Monotype_ t' -> return t'
+    Type.Monotype' t' -> return t'
     _ -> do
       -- Creates a fresh type variable ID and adds a binding with that ID to the prefix.
       i <- freshTypeVariable
