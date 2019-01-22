@@ -11,9 +11,17 @@
 -- recovery in `Brite.Syntax.ParserFramework`. We don’t care about error recovery for this parser
 -- since a Brite programmer will never right in Lite.
 --
+-- The biggest reason for having Lite and for writing our tests in Lite is so that, culturally, we
+-- can keep Brite’s type system rooted in academics. I (Caleb) don’t have time to prove soundness of
+-- a type system, but I can implement a type system that someone else has provided soundness for.
+-- By having Lite we can separate Brite’s type system from the end language product we want
+-- to build.
+--
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 
-module Brite.Semantics.Lite () where
+module Brite.Semantics.Lite
+  ( expressionParsec
+  ) where
 
 import Brite.Semantics.AST
 import Brite.Syntax.Tokens (Position(..), unsafeIdentifier)
@@ -24,6 +32,9 @@ import Text.Parsec.Language (emptyDef)
 import qualified Text.Parsec.Token as P
 
 type Parsec a = ParsecT String () Identity a
+
+expressionParsec :: Parsec Expression
+expressionParsec = expression
 
 range :: Parsec a -> Parsec (Range, a)
 range p = build <$> getPosition <*> p <*> getPosition
@@ -47,8 +58,21 @@ constant =
   (pure (BooleanConstant True) <* reserved "true") <|>
   (pure (BooleanConstant False) <* reserved "false")
 
-function :: Parsec Function
-function =
+expression :: Parsec Expression
+expression =
+  unwrappedExpression
+    <|> bindingExpression
+    <|> functionExpression
+    <|> conditionalExpression
+
+unwrappedExpression :: Parsec Expression
+unwrappedExpression = fmap (uncurry Expression) . range $
+  (VariableExpression <$> identifier)
+    <|> (ConstantExpression <$> constant)
+    <|> (parens (WrappedExpression <$> expression <*> pure Nothing))
+
+functionExpression :: Parsec Expression
+functionExpression = fmap (uncurry Expression) . range $ fmap FunctionExpression $
   Function []
     <$> (reservedOp "λ" *> (flip (:) [] <$> functionParameter))
     <*> pure Nothing
@@ -56,20 +80,24 @@ function =
   where
     functionParameter = FunctionParameter <$> pattern <*> pure Nothing
 
-expression :: Parsec Expression
-expression = unwrappedExpression <|> (fmap (uncurry Expression) . range $
-  (FunctionExpression <$> function) <|>
-  bindingExpression <|>
-  (ConditionalExpression <$> conditionalExpression))
+bindingExpression :: Parsec Expression
+bindingExpression = fmap (uncurry Expression) . range $
+  build <$>
+    range
+      ((,) <$>
+        (reserved "let" *> pattern) <*>
+        (reservedOp "=" *> expression <* reserved "in")) <*>
+    expression
+  where
+    build (r, (binding, value)) body =
+      let s = Statement r (BindingStatement binding Nothing value) in
+        BlockExpression $ Block $ s : case expressionNode body of
+          BlockExpression (Block ss) -> ss
+          _ -> [Statement (expressionRange body) (ExpressionStatement body)]
 
-unwrappedExpression :: Parsec Expression
-unwrappedExpression = fmap (uncurry Expression) . range $
-  (VariableExpression <$> identifier) <|>
-  (ConstantExpression <$> constant) <|>
-  (parens (WrappedExpression <$> expression <*> pure Nothing))
-
-conditionalExpression :: Parsec ConditionalExpressionIf
-conditionalExpression = consequent
+conditionalExpression :: Parsec Expression
+conditionalExpression =
+  uncurry Expression <$> (range (ConditionalExpression <$> consequent))
   where
     consequent =
       ConditionalExpressionIf <$>
@@ -91,10 +119,10 @@ lexer = P.makeTokenParser $ emptyDef
   { P.commentStart = "/*"
   , P.commentEnd = "*/"
   , P.commentLine = "//"
-  , P.reservedNames = ["true", "false", "if", "then", "else"]
+  , P.reservedNames = ["true", "false", "if", "then", "else", "let", "in"]
   , P.opStart = P.opLetter emptyDef
-  , P.opLetter = oneOf "λ."
-  , P.reservedOpNames = ["λ", "."]
+  , P.opLetter = oneOf "λ.="
+  , P.reservedOpNames = ["λ", ".", "="]
   }
 
 reserved :: String -> Parsec ()
