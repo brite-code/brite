@@ -1,10 +1,18 @@
+-- This module is intended to be imported qualified:
+--
+-- ```hs
+-- import Brite.Semantics.Prefix (Prefix)
+-- import qualified Brite.Semantics.Prefix as Prefix
+-- ```
+
 module Brite.Semantics.Prefix
   ( Prefix
-  , newPrefix
+  , new
+  , withLevel
   ) where
 
+import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type
-import Control.Monad.ST
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.STRef
@@ -64,5 +72,25 @@ data PrefixLevel s = PrefixLevel
   }
 
 -- Creates a new prefix.
-newPrefix :: ST s (Prefix s)
-newPrefix = Prefix <$> newSTRef 0 <*> newSTRef [] <*> HashTable.new
+new :: Check s (Prefix s)
+new = liftST (Prefix <$> newSTRef 0 <*> newSTRef [] <*> HashTable.new)
+
+-- Introduces a new level for the execution of the provided action. Cleans up the level after the
+-- action finishes. Any type variables created in the level will be removed from the prefix unless
+-- they were moved in an update.
+withLevel :: Prefix s -> Check s a -> Check s a
+withLevel prefix action = do
+  -- Add a new level to the prefix.
+  oldLevels <- liftST $ readSTRef (prefixLevels prefix)
+  let index = case oldLevels of { [] -> 0; level : _ -> prefixLevelIndex level + 1 }
+  newLevel <- liftST $ PrefixLevel index <$> HashTable.new
+  liftST $ writeSTRef (prefixLevels prefix) (newLevel : oldLevels)
+  -- Execute our action with the new level added to our prefix.
+  result <- action
+  -- Remove the level we just added from the prefix.
+  liftST $ writeSTRef (prefixLevels prefix) oldLevels
+  -- Delete all type variables at this level from the prefix.
+  liftST $ flip HashTable.mapM_ (prefixLevelTypeVariables newLevel)
+    (\(i, _) -> HashTable.delete (prefixEntries prefix) i)
+  -- Return the result from executing our action.
+  return result
