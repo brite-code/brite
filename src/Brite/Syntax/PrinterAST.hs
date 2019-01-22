@@ -44,11 +44,11 @@ module Brite.Syntax.PrinterAST
   , TypeNode(..)
   , ObjectTypeProperty(..)
   , Quantifier(..)
-  , QuantifierBoundKind(..)
+  , QuantifierBoundFlexibility(..)
   , convertModule
   ) where
 
-import Brite.Syntax.CST (Recover(..), PrefixOperator(..), InfixOperator(..), QuantifierBoundKind(..))
+import Brite.Syntax.CST (Recover(..), PrefixOperator(..), InfixOperator(..), QuantifierBoundFlexibility(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens
 import Control.Applicative ((<|>))
@@ -379,7 +379,7 @@ data Quantifier
   -- `T`
   = QuantifierUnbound [AttachedComment] [AttachedComment] Identifier
   -- `T: U`
-  | Quantifier [AttachedComment] Identifier QuantifierBoundKind Type
+  | Quantifier [AttachedComment] Identifier QuantifierBoundFlexibility Type
 
 -- Convert a CST module into a printer AST module.
 --

@@ -36,13 +36,13 @@ module Brite.Semantics.AST
   , TypeNode(..)
   , ObjectTypeProperty(..)
   , Quantifier(..)
-  , QuantifierBoundKind(..)
+  , QuantifierBoundFlexibility(..)
   , convertModule
   , convertExpression
   ) where
 
 import Brite.Diagnostics
-import Brite.Syntax.CST (Recover(..), PrefixOperator(..), QuantifierBoundKind(..))
+import Brite.Syntax.CST (Recover(..), PrefixOperator(..), QuantifierBoundFlexibility(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, identifierText, Token(..), EndToken(..))
 import Control.Applicative
@@ -313,7 +313,7 @@ objectTypePropertyRange :: ObjectTypeProperty -> Range
 objectTypePropertyRange (ObjectTypeProperty (Name r _) x) = rangeBetween r (typeRange x)
 
 -- `x: T`
-data Quantifier = Quantifier Name (Maybe (QuantifierBoundKind, Type))
+data Quantifier = Quantifier Name (Maybe (QuantifierBoundFlexibility, Type))
 
 -- Gets the range of a quantifier.
 quantifierRange :: Quantifier -> Range
