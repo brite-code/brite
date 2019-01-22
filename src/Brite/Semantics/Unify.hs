@@ -1,4 +1,6 @@
-module Brite.Semantics.Unify () where
+module Brite.Semantics.Unify
+  ( unify
+  ) where
 
 import Brite.Diagnostics
 import Brite.Semantics.Type
@@ -24,4 +26,41 @@ import Brite.Semantics.Type
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
 unify :: Monotype -> Monotype -> Either Diagnostic ()
-unify = error "unimplemented"
+unify type1 type2 =
+  case (monotypeDescription type1, monotypeDescription type2) of
+    -- Variables with the same ID unify without any further analysis. We make sure to give every
+    -- type variable a globally unique ID so that they’ll never conflict.
+    (Variable id1, Variable id2) | id1 == id2 -> Right ()
+
+    (Variable _, _) -> error "TODO: unimplemented"
+    (_, Variable _) -> error "TODO: unimplemented"
+
+    -- Primitive intrinsic types unify with each other no problem.
+    (Boolean, Boolean) -> Right ()
+    (Integer, Integer) -> Right ()
+
+    -- Functions unify if the parameters and bodies unify.
+    --
+    -- If both the unification of the parameters and bodies fail then we will report two error
+    -- diagnostics. However, we will only return the first error from unify.
+    (Function parameter1 body1, Function parameter2 body2) ->
+      let
+        result1 = unify parameter1 parameter2
+        result2 = unify body1 body2
+      in
+        result1 `eitherOr` result2
+
+    -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
+    -- want a compiler warning telling us to add a case for that type to unification.
+    (Boolean, _) -> incompatibleTypes
+    (Integer, _) -> incompatibleTypes
+    (Function _ _, _) -> incompatibleTypes
+
+  where
+    incompatibleTypes = error "unimplemented"
+
+-- If the first `Either` is `Right` we return the second. If the first `Either` is `Left` we return
+-- the first. So we return the first `Either` with an error.
+eitherOr :: Either a b -> Either a b -> Either a b
+eitherOr (Right _) x = x
+eitherOr x@(Left _) _ = x

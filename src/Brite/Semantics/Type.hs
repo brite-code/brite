@@ -1,5 +1,6 @@
 module Brite.Semantics.Type
-  ( Monotype
+  ( TypeVariableID
+  , Monotype
   , MonotypeDescription(..)
   , monotypeDescription
   , Polytype
@@ -19,6 +20,7 @@ import Data.IntSet (IntSet)
 import qualified Data.IntSet as IntSet
 
 newtype TypeVariableID = TypeVariableID Int
+  deriving (Eq)
 
 -- Types that do not contain quantifiers.
 data Monotype = Monotype

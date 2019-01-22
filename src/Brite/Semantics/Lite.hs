@@ -1,5 +1,6 @@
--- Welcome to the home of Brite Lite! Lite is a syntax inspired by academic tradition which we use
--- for testing the type checker. Specifically the syntax of the [MLF thesis][1] and related papers.
+-- Welcome to the home of Brite Lite! Lite is a syntax inspired by academic tradition which freely
+-- includes Unicode symbols that we use for testing the type checker. Specifically we use the syntax
+-- of the [MLF thesis][1] and related papers.
 --
 -- No Brite programmer should ever end seeing Lite. It is only a useful tool for compiler hackers
 -- and academics to describe the type checking properties of Brite. Lite directly parses an AST
@@ -16,6 +17,13 @@
 -- a type system, but I can implement a type system that someone else has provided soundness for.
 -- By having Lite we can separate Brite’s type system from the end language product we want
 -- to build.
+--
+-- Also, especially in the early days, Brite’s syntax might change. We don’t precisely know the best
+-- way to represent universal vs. existential quantification, or rigid vs. flexible bounds. Even
+-- though they exist in the type system in theory. We also might use some degree of syntactic
+-- punning so that multiple concepts look similar but in fact have different behaviors. Because of
+-- this, it’s nice to have a stable syntax we can use to explore the type system while the real
+-- Brite syntax is rooted in programming language culture.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 
