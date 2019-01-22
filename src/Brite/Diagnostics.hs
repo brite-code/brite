@@ -117,28 +117,39 @@ class Monad m => DiagnosticMonad m where
 -- (`++`). This is basically the same as using `WriterT` with the [`Endo`][1] monoid.
 --
 -- [1]: http://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Monoid.html#t:Endo
-data DiagnosticWriter a = DiagnosticWriter a ([Diagnostic] -> [Diagnostic])
+data DiagnosticWriter a = DiagnosticWriter { unDiagnosticWriter :: [Diagnostic] -> (a, [Diagnostic]) }
 
 instance Functor DiagnosticWriter where
-  fmap f (DiagnosticWriter a ds) = DiagnosticWriter (f a) ds
+  fmap f wa = DiagnosticWriter $ \ds0 ->
+    let (a, ds1) = unDiagnosticWriter wa ds0 in
+      (f a, ds1)
+  {-# INLINE fmap #-}
 
 instance Applicative DiagnosticWriter where
-  pure a = DiagnosticWriter a id
-  (DiagnosticWriter f x) <*> (DiagnosticWriter a y) = DiagnosticWriter (f a) (x . y)
+  pure a = DiagnosticWriter (\ds -> (a, ds))
+  {-# INLINE pure #-}
+
+  wf <*> wa = DiagnosticWriter $ \ds0 ->
+    let
+      (f, ds1) = unDiagnosticWriter wf ds0
+      (a, ds2) = unDiagnosticWriter wa ds1
+    in
+      (f a, ds2)
+  {-# INLINE (<*>) #-}
 
 instance Monad DiagnosticWriter where
-  (DiagnosticWriter a x) >>= f =
-    let
-      (DiagnosticWriter b y) = f a
-    in
-      DiagnosticWriter b (x . y)
+  wa >>= f = DiagnosticWriter $ \ds0 ->
+    let (a, ds1) = unDiagnosticWriter wa ds0 in
+      unDiagnosticWriter (f a) ds1
+  {-# INLINE (>>=) #-}
 
 instance DiagnosticMonad DiagnosticWriter where
-  report d = DiagnosticWriter d (d :)
+  report d = DiagnosticWriter (\ds -> (d, d : ds))
+  {-# INLINE report #-}
 
 -- Runs a `DiagnosticWriter` monad.
 runDiagnosticWriter :: DiagnosticWriter a -> (a, [Diagnostic])
-runDiagnosticWriter (DiagnosticWriter a ds) = (a, ds [])
+runDiagnosticWriter wa = let (a, ds) = unDiagnosticWriter wa [] in (a, reverse ds)
 
 -- What token did we expect?
 data ExpectedToken
