@@ -1,5 +1,12 @@
 module Brite.Semantics.Type
   ( Monotype
+  , Polytype
+  , booleanMonotype
+  , boolean
+  , integerMonotype
+  , integer
+  , function
+  , polytype
   , QuantifierBoundFlexibility(..)
   ) where
 
@@ -79,3 +86,45 @@ data Quantifier = Quantifier
   -- The bound of our quantifier.
   , quantifierBound :: Polytype
   }
+
+-- A boolean monotype.
+booleanMonotype :: Monotype
+booleanMonotype =
+  Monotype
+    { monotypeFreeVariables = IntSet.empty
+    , monotypeDescription = Boolean
+    }
+
+-- A boolean polytype.
+boolean :: Polytype
+boolean = polytype booleanMonotype
+
+-- An integer monotype.
+integerMonotype :: Monotype
+integerMonotype =
+  Monotype
+    { monotypeFreeVariables = IntSet.empty
+    , monotypeDescription = Integer
+    }
+
+-- An integer polytype.
+integer :: Polytype
+integer = polytype integerMonotype
+
+-- Creates a new function monotype.
+function :: Monotype -> Monotype -> Monotype
+function parameter body =
+  Monotype
+    { monotypeFreeVariables =
+        IntSet.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
+    , monotypeDescription = Function parameter body
+    }
+
+-- Converts a monotype into a polytype.
+polytype :: Monotype -> Polytype
+polytype t =
+  Polytype
+    { polytypeNormal = True
+    , polytypeFreeVariables = monotypeFreeVariables t
+    , polytypeDescription = Monotype_ t
+    }
