@@ -10,8 +10,8 @@ import Brite.Semantics.Type
 
 -- Type checks an expression AST and returns a typed AVT expression.
 --
--- This algorithm corresponds to the type inference algorithm in the [MLF thesis][1] described in
--- section 7.1.
+-- This algorithm corresponds to the type inference algorithm named `infer()` in the [MLF thesis][1]
+-- described in section 7.1.
 --
 -- In theory:
 --

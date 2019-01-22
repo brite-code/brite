@@ -1,6 +1,10 @@
 module Brite.Semantics.Type
   ( Monotype
+  , MonotypeDescription(..)
+  , monotypeDescription
   , Polytype
+  , PolytypeDescription(..)
+  , polytypeDescription
   , booleanMonotype
   , boolean
   , integerMonotype
