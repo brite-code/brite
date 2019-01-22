@@ -27,8 +27,11 @@
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module Brite.Semantics.Lite
   ( expressionParsec
+  , typeParsec
   ) where
 
 import Brite.Semantics.AST
@@ -44,6 +47,9 @@ type Parsec a = ParsecT String () Identity a
 expressionParsec :: Parsec Expression
 expressionParsec = expression
 
+typeParsec :: Parsec Type
+typeParsec = type'
+
 range :: Parsec a -> Parsec (Range, a)
 range p = build <$> getPosition <*> p <*> getPosition
   where
@@ -53,6 +59,9 @@ range p = build <$> getPosition <*> p <*> getPosition
           (Position (sourceLine end - 1) (sourceColumn end - 1))
       , a
       )
+
+name :: Parsec Name
+name = uncurry Name <$> range identifier
 
 block :: Parsec Block
 block = build <$> expression
@@ -84,7 +93,7 @@ functionExpression = fmap (uncurry Expression) . range $ fmap FunctionExpression
   Function []
     <$> (reservedOp "λ" *> (flip (:) [] <$> functionParameter))
     <*> pure Nothing
-    <*> (reservedOp "." *> block)
+    <*> (dot *> block)
   where
     functionParameter = FunctionParameter <$> pattern <*> pure Nothing
 
@@ -122,15 +131,43 @@ pattern :: Parsec Pattern
 pattern = fmap (uncurry Pattern) . range $
   (VariablePattern <$> identifier)
 
+type' :: Parsec Type
+type' = functionType <|> quantifiedType
+
+unwrappedType :: Parsec Type
+unwrappedType = fmap (uncurry Type) . range $
+  (VariableType <$> identifier)
+    <|> (reserved "bool" *> pure (VariableType (unsafeIdentifier "Bool")))
+    <|> (reserved "int" *> pure (VariableType (unsafeIdentifier "Int")))
+    <|> (parens (WrappedType <$> type'))
+    <|> (reservedOp "⊥" *> pure BottomType)
+
+functionType :: Parsec Type
+functionType = fmap build . range $
+  flip ($) <$> unwrappedType <*> option Left ((\b a -> Right (a, b)) <$> (reservedOp "→" *> functionType))
+  where
+    build (_, Left t) = t
+    build (r, Right (a, b)) = Type r (FunctionType [] [a] b)
+
+quantifiedType :: Parsec Type
+quantifiedType = fmap (uncurry Type) . range $
+  QuantifiedType <$> (reserved "∀" *> quantifiers <* dot) <*> type'
+  where
+    quantifiers =
+      (parens (commaSep1 (Quantifier <$> name <*> optionMaybe bound)))
+        <|> (flip (:) [] . flip Quantifier Nothing <$> name)
+
+    bound = (,) <$> ((reservedOp "≥" *> pure Flexible) <|> (reservedOp "=" *> pure Rigid)) <*> type'
+
 lexer :: P.TokenParser ()
 lexer = P.makeTokenParser $ emptyDef
   { P.commentStart = "/*"
   , P.commentEnd = "*/"
   , P.commentLine = "//"
-  , P.reservedNames = ["true", "false", "if", "then", "else", "let", "in"]
+  , P.reservedNames = ["true", "false", "if", "then", "else", "let", "in", "bool", "int"]
   , P.opStart = P.opLetter emptyDef
-  , P.opLetter = oneOf "λ.="
-  , P.reservedOpNames = ["λ", ".", "="]
+  , P.opLetter = oneOf "λ=∀≥⊥→"
+  , P.reservedOpNames = ["λ", "=", "∀", "≥", "⊥", "→"]
   }
 
 reserved :: String -> Parsec ()
@@ -144,3 +181,9 @@ identifier = unsafeIdentifier . Text.pack <$> P.identifier lexer
 
 parens :: Parsec a -> Parsec a
 parens = P.parens lexer
+
+dot :: Parsec String
+dot = P.dot lexer
+
+commaSep1 :: Parsec a -> Parsec [a]
+commaSep1 = P.commaSep1 lexer
