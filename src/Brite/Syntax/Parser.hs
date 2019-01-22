@@ -98,10 +98,10 @@ tryConstant :: TryParser Constant
 tryConstant = tryBooleanTrue <|> tryBooleanFalse
 
 tryBooleanTrue :: TryParser Constant
-tryBooleanTrue = BooleanConstant True <$> tryKeyword True_
+tryBooleanTrue = BooleanConstant True <$> tryKeyword True'
 
 tryBooleanFalse :: TryParser Constant
-tryBooleanFalse = BooleanConstant False <$> tryKeyword False_
+tryBooleanFalse = BooleanConstant False <$> tryKeyword False'
 
 -- Ordered roughly by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression

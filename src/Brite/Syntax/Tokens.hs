@@ -141,8 +141,8 @@ isIdentifierContinue c =
 -- Some word that is valid identifier syntax but we reserve for the purpose of parsing.
 data Keyword
   = Hole -- `_`
-  | True_
-  | False_
+  | True'
+  | False'
   | Let
   | If
   | Else
@@ -159,8 +159,8 @@ keyword :: Text -> Maybe Keyword
 keyword t =
   case t of
     "_" -> Just Hole
-    "true" -> Just True_
-    "false" -> Just False_
+    "true" -> Just True'
+    "false" -> Just False'
     "let" -> Just Let
     "if" -> Just If
     "else" -> Just Else
@@ -174,8 +174,8 @@ keyword t =
 -- Gets the raw text for a keyword.
 keywordText :: Keyword -> Text
 keywordText Hole = "_"
-keywordText True_ = "true"
-keywordText False_ = "false"
+keywordText True' = "true"
+keywordText False' = "false"
 keywordText Let = "let"
 keywordText If = "if"
 keywordText Else = "else"
