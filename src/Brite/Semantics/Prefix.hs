@@ -18,7 +18,6 @@ import Brite.Semantics.AST (Range)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
-import Control.Monad.ST
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.Maybe (isJust)
@@ -76,15 +75,6 @@ data PrefixLevel s = PrefixLevel
   { prefixLevelIndex :: Int
   , prefixLevelVariables :: HashTable s TypeVariableID ()
   }
-
--- We only want to use `liftST` here in the prefix module, so `CheckMonad` gave `liftST` an ugly
--- name to avoid usage outside of the prefix.
---
--- This does not mean the `ST` monad is bad! It just means we want to limit usage of the `ST` monad
--- to `Prefix`.
-liftST :: ST s a -> Check s a
-liftST = pleaseDoNotUseLiftST
-{-# INLINE liftST #-}
 
 -- Creates a new prefix.
 new :: Check s (Prefix s)

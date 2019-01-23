@@ -6,7 +6,7 @@ module Brite.Semantics.CheckMonad
   , TypeVariableID
   , typeVariableID
   , runCheck
-  , pleaseDoNotUseLiftST
+  , liftST
   , freshTypeVariable
   ) where
 
@@ -62,15 +62,9 @@ runCheck ca = runST $ do
   (,) <$> (unCheck ca ts ds) <*> readSTRef ds
 
 -- Lifts the `ST` monad into the `Check` monad.
---
--- We give this function an ugly name since we only want to use it in the `Prefix` module. If you’re
--- writing type checking code, please try to use pure Haskell code instead.
---
--- This does not mean the `ST` monad is bad! It just means we want to limit usage of the `ST` monad
--- to `Prefix`.
-pleaseDoNotUseLiftST :: ST s a -> Check s a
-pleaseDoNotUseLiftST sa = Check $ \_ _ -> sa
-{-# INLINE pleaseDoNotUseLiftST #-}
+liftST :: ST s a -> Check s a
+liftST sa = Check $ \_ _ -> sa
+{-# INLINE liftST #-}
 
 -- Creates a fresh type variable ID.
 freshTypeVariable :: Check s TypeVariableID
