@@ -13,17 +13,18 @@ module Brite.Semantics.Type
   , PolytypeDescription(..)
   , polytypeDescription
   , Binding(..)
-  , BindingFlexibility(..)
+  , Flexibility(..)
   , variable
   , boolean
   , integer
   , function
+  , variableNotFoundError
   , polytype
   , bottom
   , normal
   ) where
 
-import Brite.Semantics.AST (Name)
+import Brite.Semantics.AST (Name, Identifier, Flexibility(..))
 import Brite.Semantics.CheckMonad (TypeVariableID, typeVariableID)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -58,6 +59,18 @@ data MonotypeDescription
   -- TODO: Currently we only allow exactly one function argument, but Brite supports any number of
   -- function arguments.
   | Function Monotype Monotype
+
+  -- When the programmer writes a type that is not found anywhere in the current scope we introduce
+  -- a “variable not found” error type. In theory, we can think of every identifier introduced by
+  -- one of these errors as a unique type constructor. Say `Foo` and `Bar` don’t exist in the
+  -- current scope. The `Foo` error type is equivalent to another `Foo` error type but is not
+  -- equivalent to `Bar`.
+  --
+  -- This fits in nicely with the [MLF thesis’s][1] ability to extend the type system through “type
+  -- symbols” (see Section 1.1).
+  --
+  -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+  | VariableNotFoundError Identifier
 
 -- Types that do contain quantifiers. When we refer to a “type” what we really mean is “polytype”.
 data Polytype = Polytype
@@ -98,19 +111,17 @@ data Binding = Binding
   -- added during type inference.
   , bindingName :: Maybe Name
   -- The flexibility of this binding.
-  , bindingFlexibility :: BindingFlexibility
+  , bindingFlexibility :: Flexibility
   -- The type being bound.
   , bindingType :: Polytype
   }
 
-data BindingFlexibility = Flexible | Rigid
-
 -- Creates a type variable monotype.
 variable :: TypeVariableID -> Monotype
-variable i =
+variable id' =
   Monotype
-    { monotypeFreeVariables = IntSet.singleton (typeVariableID i)
-    , monotypeDescription = Variable i
+    { monotypeFreeVariables = IntSet.singleton (typeVariableID id')
+    , monotypeDescription = Variable id'
     }
 
 -- A boolean monotype.
@@ -133,18 +144,25 @@ integer =
 function :: Monotype -> Monotype -> Monotype
 function parameter body =
   Monotype
-    { monotypeFreeVariables =
-        IntSet.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
+    { monotypeFreeVariables = IntSet.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
     , monotypeDescription = Function parameter body
+    }
+
+-- Creates an error type for variables which could not be found.
+variableNotFoundError :: Identifier -> Monotype
+variableNotFoundError identifier =
+  Monotype
+    { monotypeFreeVariables = IntSet.empty
+    , monotypeDescription = VariableNotFoundError identifier
     }
 
 -- Converts a monotype into a polytype.
 polytype :: Monotype -> Polytype
-polytype t =
+polytype type' =
   Polytype
     { polytypeNormal = True
-    , polytypeFreeVariables = monotypeFreeVariables t
-    , polytypeDescription = Monotype' t
+    , polytypeFreeVariables = monotypeFreeVariables type'
+    , polytypeDescription = Monotype' type'
     }
 
 -- The bottom polytype.
@@ -275,6 +293,8 @@ substituteMonotype substitutions t0 = case monotypeDescription t0 of
   -- Types which will never have substitutions.
   Boolean -> Nothing
   Integer -> Nothing
+  -- Error types which will never have substitutions.
+  VariableNotFoundError _ -> Nothing
   -- If we don’t need a substitution then immediately return our type without recursing.
   _ | not (needsSubstitution substitutions (monotypeFreeVariables t0)) -> Nothing
   -- Substitute the type variables in a function type. We do this below the above condition so we

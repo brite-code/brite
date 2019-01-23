@@ -130,7 +130,7 @@ fresh prefix = do
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
 -- monotype then we return the monotype directly instead of creating a fresh type variable.
-freshWithBound :: Prefix s -> Type.BindingFlexibility -> Polytype -> Check s Monotype
+freshWithBound :: Prefix s -> Type.Flexibility -> Polytype -> Check s Monotype
 freshWithBound prefix k t =
   -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
   -- always inlined in normal form anyway.

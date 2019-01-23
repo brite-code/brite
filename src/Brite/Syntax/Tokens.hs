@@ -1,6 +1,7 @@
 -- Responsible for turning a Brite source text into a format which may be parsed. This includes
 -- tokenizing the document and determining positions.
 
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Syntax.Tokens
@@ -44,6 +45,7 @@ module Brite.Syntax.Tokens
 
 import Data.Bits ((.&.))
 import Data.Char
+import Data.Hashable (Hashable)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Custom as T
@@ -116,7 +118,11 @@ rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 -- pattern identifiers.
 --
 -- [1]: http://www.unicode.org/reports/tr31
-newtype Identifier = Identifier Text deriving (Show)
+newtype Identifier = Identifier Text
+  deriving (Eq, Hashable)
+
+instance Show Identifier where
+  show (Identifier t) = T.unpack t
 
 -- Unsafely creates an identifier without checking if it is in the correct format.
 unsafeIdentifier :: Text -> Identifier

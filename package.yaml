@@ -17,6 +17,7 @@ dependencies:
   - text >= 1.2 && < 2
   - text-icu >= 0.7 && < 1
   - time >= 1.8 && < 2
+  - unordered-containers >= 0.2.9 && < 1
 
 library:
   source-dirs: src

@@ -45,7 +45,7 @@ module Brite.Syntax.CST
   , QuantifierList(..)
   , Quantifier(..)
   , QuantifierBound(..)
-  , QuantifierBoundFlexibility(..)
+  , Flexibility(..)
   , TypeAnnotation(..)
   , moduleTokens
   , moduleSource
@@ -502,10 +502,10 @@ data Quantifier = Quantifier Name (Maybe (Recover QuantifierBound))
 -- : T
 -- = T
 -- ```
-data QuantifierBound = QuantifierBound QuantifierBoundFlexibility Token (Recover Type)
+data QuantifierBound = QuantifierBound Flexibility Token (Recover Type)
 
 -- `:` or `=`
-data QuantifierBoundFlexibility = Rigid | Flexible
+data Flexibility = Rigid | Flexible
 
 -- `: T`
 data TypeAnnotation = TypeAnnotation Token (Recover Type)
