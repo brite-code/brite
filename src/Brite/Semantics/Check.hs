@@ -2,7 +2,9 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Semantics.Check () where
+module Brite.Semantics.Check
+  ( checkType
+  ) where
 
 import Brite.Semantics.AST (Identifier)
 import qualified Brite.Semantics.AST as AST
@@ -10,6 +12,7 @@ import Brite.Semantics.AVT
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
+import Brite.Syntax.Tokens (unsafeIdentifier)
 import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
@@ -44,6 +47,15 @@ checkExpression :: AST.Expression -> Expression
 checkExpression astExpression = error "TODO"
 
 type Context = HashMap Identifier Monotype
+
+-- Checks a type and converts it into an internal polytype representation.
+checkType :: AST.Type -> Check s Polytype
+checkType type' = checkPolytype initialContext Positive type'
+  where
+    initialContext = HashMap.fromList
+      [ (unsafeIdentifier "Bool", Type.boolean)
+      , (unsafeIdentifier "Int", Type.integer)
+      ]
 
 -- Checks an AST type and turns it into a polytype.
 checkPolytype :: Context -> Polarity -> AST.Type -> Check s Polytype
