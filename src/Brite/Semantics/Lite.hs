@@ -30,8 +30,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Semantics.Lite
-  ( expressionParsec
+  ( Parsec
+  , expressionParsec
   , typeParsec
+  , callParsec
   ) where
 
 import Brite.Semantics.AST
@@ -49,6 +51,11 @@ expressionParsec = expression
 
 typeParsec :: Parsec Type
 typeParsec = type'
+
+callParsec :: String -> Parsec a -> Parsec a
+callParsec x p = do
+  y <- P.identifier lexer
+  if x /= y then unexpected y else parens p
 
 range :: Parsec a -> Parsec (Range, a)
 range p = build <$> getPosition <*> p <*> getPosition
@@ -151,7 +158,7 @@ functionType = fmap build . range $
 
 quantifiedType :: Parsec Type
 quantifiedType = fmap (uncurry Type) . range $
-  QuantifiedType <$> (reserved "∀" *> quantifiers <* dot) <*> type'
+  QuantifiedType <$> (reservedOp "∀" *> quantifiers <* dot) <*> type'
   where
     quantifiers =
       (parens (commaSep1 (Quantifier <$> name <*> optionMaybe bound)))
