@@ -80,7 +80,7 @@ testData =
   , ("<B, A = fun<A>(A) -> A> A", "fun<A>(A) -> A")
   , ("<A = fun<A>(A) -> A, B, C = fun<Z>(Z) -> B> A", "fun<A>(A) -> A")
   , ("fun<A = fun<A>(A) -> A, B, C = fun<Z>(Z) -> B>(A) -> A", "fun<A = fun<A>(A) -> A>(A) -> A")
-  , ("fun<A = <Z> Int>(A) -> A", "Int → Int")
+  , ("fun<A = <Z> Int>(A) -> A", "fun(Int) -> Int")
   , ("<B = fun<A>(A) -> A, C = <Z> B> C", "fun<A>(A) -> A")
   , ("<Z> X", "X")
   , ("<A, A = fun<A>(A) -> A> A", "fun<A>(A) -> A")
