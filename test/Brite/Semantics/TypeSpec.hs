@@ -99,9 +99,7 @@ spec = do
     flip traverse_ testData $ \(input, output) ->
       it (Text.unpack input) $ do
         let (cstType, ds) = runDiagnosticWriter (parseType (tokenize input))
-        case ds of
-          [] -> return ()
-          d : _ -> error (Text.Lazy.unpack (Text.Builder.toLazyText (debugDiagnostic d)))
+        mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds
         let astType = convertRecoverType cstType
         let type' = normal (checkType astType)
         seq type' (True `shouldBe` True)

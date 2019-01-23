@@ -48,7 +48,7 @@
 module Brite.Diagnostics
   ( Diagnostic
   , diagnosticRange
-  , DiagnosticMonad
+  , DiagnosticMonad(..)
   , DiagnosticWriter
   , runDiagnosticWriter
   , ExpectedToken(..)
@@ -60,6 +60,8 @@ module Brite.Diagnostics
 
 import Brite.DiagnosticsMarkup
 import Brite.Syntax.Tokens (Range, debugRange, TokenKind(..), Glyph, glyphText)
+import Data.Sequence (Seq, (|>))
+import qualified Data.Sequence as Seq
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
@@ -111,13 +113,12 @@ data InfoDiagnosticMessage
 class Monad m => DiagnosticMonad m where
   report :: Diagnostic -> m Diagnostic
 
--- A simple diagnostic writer monad which writes diagnostics to a list.
---
--- Uses a function to build up the diagnostics list so that we can use cons (`:`) instead of append
--- (`++`). This is basically the same as using `WriterT` with the [`Endo`][1] monoid.
+-- A simple diagnostic writer monad which writes diagnostics to a sequence.
 --
 -- [1]: http://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Monoid.html#t:Endo
-data DiagnosticWriter a = DiagnosticWriter { unDiagnosticWriter :: [Diagnostic] -> (a, [Diagnostic]) }
+data DiagnosticWriter a = DiagnosticWriter
+  { unDiagnosticWriter :: Seq Diagnostic -> (a, Seq Diagnostic)
+  }
 
 instance Functor DiagnosticWriter where
   fmap f wa = DiagnosticWriter $ \ds0 ->
@@ -144,12 +145,12 @@ instance Monad DiagnosticWriter where
   {-# INLINE (>>=) #-}
 
 instance DiagnosticMonad DiagnosticWriter where
-  report d = DiagnosticWriter (\ds -> (d, d : ds))
+  report d = DiagnosticWriter (\ds -> (d, ds |> d))
   {-# INLINE report #-}
 
 -- Runs a `DiagnosticWriter` monad.
-runDiagnosticWriter :: DiagnosticWriter a -> (a, [Diagnostic])
-runDiagnosticWriter wa = let (a, ds) = unDiagnosticWriter wa [] in (a, reverse ds)
+runDiagnosticWriter :: DiagnosticWriter a -> (a, Seq Diagnostic)
+runDiagnosticWriter wa = unDiagnosticWriter wa Seq.empty
 
 -- What token did we expect?
 data ExpectedToken

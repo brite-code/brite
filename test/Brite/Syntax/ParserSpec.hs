@@ -9,6 +9,7 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
+import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
@@ -892,7 +893,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h "```"
         hPutStr h (Text.unpack moduleDebug)
         hPutStrLn h "```"
-        if null diagnostics then return () else (do
+        if Seq.null diagnostics then return () else (do
           hPutStrLn h ""
           hPutStrLn h "### Errors"
           flip mapM_ diagnostics (\diagnostic ->

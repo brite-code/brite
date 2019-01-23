@@ -6,13 +6,15 @@ module Brite.Semantics.CheckMonad
   , TypeVariableID
   , typeVariableID
   , runCheck
-  , liftST
+  , pleaseDoNotUseLiftST
   , freshTypeVariable
   ) where
 
 import Brite.Diagnostics
 import Control.Monad.ST
 import Data.Hashable
+import Data.Sequence (Seq, (|>))
+import qualified Data.Sequence as Seq
 import Data.STRef
 
 -- The identifier for a type variable. We can only create tvars inside of the check monad. Every
@@ -20,49 +22,65 @@ import Data.STRef
 newtype TypeVariableID = TypeVariableID { typeVariableID :: Int }
   deriving (Eq, Hashable)
 
--- The monad we use for type checking. It combines an `ST` monad with a state monad so that we can
--- report diagnostics.
-newtype Check s a = Check { unCheck :: STRef s Int -> [Diagnostic] -> ST s (a, [Diagnostic]) }
+-- The monad we use for type checking. It combines an `ST` monad with some context.
+--
+-- NOTE: You can think of this as a `StateT s (ST x) a` monad. Then we apply a pretty mechanical
+-- transformation to `ReaderT (STRef x s) (ST x) a`. We can perform all the same operations except
+-- now we don’t have the intermediate tuple. We have an `ST` monad already so choosing between
+-- a `StateT` and `ReaderT` representation in this case doesn’t matter.
+newtype Check s a = Check
+  { unCheck :: STRef s Int -> STRef s (Seq Diagnostic) -> ST s a
+  }
 
 instance Functor (Check s) where
-  fmap f ca = Check $ \ts ds0 -> do
-    (a, ds1) <- unCheck ca ts ds0
-    return (f a, ds1)
+  fmap f ca = Check $ \ts ds -> f <$> unCheck ca ts ds
   {-# INLINE fmap #-}
 
 instance Applicative (Check s) where
-  pure a = Check (\_ ds -> pure (a, ds))
+  pure a = Check (\_ _ -> pure a)
   {-# INLINE pure #-}
 
-  cf <*> ca = Check $ \ts ds0 -> do
-    (f, ds1) <- unCheck cf ts ds0
-    (a, ds2) <- unCheck ca ts ds1
-    return (f a, ds2)
+  cf <*> ca = Check $ \ts ds ->
+    let
+      f = unCheck cf ts ds
+      a = unCheck ca ts ds
+    in
+      f <*> a
   {-# INLINE (<*>) #-}
 
 instance Monad (Check s) where
-  ca >>= f = Check $ \ts ds0 -> do
-    (a, ds1) <- unCheck ca ts ds0
-    unCheck (f a) ts ds1
+  ca >>= f = Check $ \ts ds -> do
+    a <- unCheck ca ts ds
+    unCheck (f a) ts ds
   {-# INLINE (>>=) #-}
 
 -- Run the check monad.
-runCheck :: (forall s. Check s a) -> (a, [Diagnostic])
+runCheck :: (forall s. Check s a) -> (a, Seq Diagnostic)
 runCheck ca = runST $ do
   ts <- newSTRef 0
-  (a, ds) <- unCheck ca ts []
-  return (a, reverse ds)
+  ds <- newSTRef Seq.empty
+  (,) <$> (unCheck ca ts ds) <*> readSTRef ds
 
 -- Lifts the `ST` monad into the `Check` monad.
-liftST :: ST s a -> Check s a
-liftST sa = Check $ \_ ds -> do
-  a <- sa
-  return (a, ds)
-{-# INLINE liftST #-}
+--
+-- We give this function an ugly name since we only want to use it in the `Prefix` module. If you’re
+-- writing type checking code, please try to use pure Haskell code instead.
+--
+-- This does not mean the `ST` monad is bad! It just means we want to limit usage of the `ST` monad
+-- to `Prefix`.
+pleaseDoNotUseLiftST :: ST s a -> Check s a
+pleaseDoNotUseLiftST sa = Check $ \_ _ -> sa
+{-# INLINE pleaseDoNotUseLiftST #-}
 
 -- Creates a fresh type variable ID.
 freshTypeVariable :: Check s TypeVariableID
-freshTypeVariable = Check $ \ts ds -> do
+freshTypeVariable = Check $ \ts _ -> do
   t <- readSTRef ts
   writeSTRef ts (t + 1)
-  return (TypeVariableID t, ds)
+  return (TypeVariableID t)
+
+instance DiagnosticMonad (Check s) where
+  report d = Check $ \_ ds -> do
+    modifySTRef ds (|> d)
+    return d
+  {-# INLINE report #-}
