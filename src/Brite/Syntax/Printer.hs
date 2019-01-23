@@ -671,8 +671,18 @@ printType x0 = build $ case typeNode x0 of
           indent (mconcat (map printUnattachedComment cs1) <> printType x) <>
           softline
 
+  -- If we quantify a `FunctionType` or a `QuantifiedType` then we want to inline our quantifiers
+  -- in those types.
   QuantifiedType [] t -> printType t
-  QuantifiedType qs t -> printQuantifierList qs <> text " " <> printType t
+  QuantifiedType qs1 t1 ->
+    case typeNode t1 of
+      VariableType _ -> normal
+      BottomType -> normal
+      FunctionType qs2 ps r -> printType (t1 { typeNode = FunctionType (qs1 ++ qs2) ps r })
+      ObjectType _ _ -> normal
+      QuantifiedType qs2 t2 -> printType (t1 { typeNode = QuantifiedType (qs1 ++ qs2) t2 })
+    where
+      normal = printQuantifierList qs1 <> text " " <> printType t1
 
   where
     -- Finishes printing an expression node by printing leading/trailing attached comments and
