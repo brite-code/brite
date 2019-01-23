@@ -23,7 +23,7 @@ module Brite.Semantics.Type
   , normal
   ) where
 
-import Brite.Semantics.AST (Range, Name)
+import Brite.Semantics.AST (Name)
 import Brite.Semantics.CheckMonad (TypeVariableID, typeVariableID)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -33,11 +33,8 @@ import Data.Maybe (fromMaybe)
 
 -- Types that do not contain quantifiers.
 data Monotype = Monotype
-  -- The range at which this monotype was defined. This could be the location of a type declaration
-  -- or some expression’s inferred type.
-  { monotypeRange :: Range
   -- The free variables in this monotype.
-  , monotypeFreeVariables :: IntSet
+  { monotypeFreeVariables :: IntSet
   -- The representation of this monotype.
   , monotypeDescription :: MonotypeDescription
   }
@@ -109,38 +106,34 @@ data Binding = Binding
 data BindingFlexibility = Flexible | Rigid
 
 -- Creates a type variable monotype.
-variable :: Range -> TypeVariableID -> Monotype
-variable range i =
+variable :: TypeVariableID -> Monotype
+variable i =
   Monotype
-    { monotypeRange = range
-    , monotypeFreeVariables = IntSet.singleton (typeVariableID i)
+    { monotypeFreeVariables = IntSet.singleton (typeVariableID i)
     , monotypeDescription = Variable i
     }
 
 -- A boolean monotype.
-boolean :: Range -> Monotype
-boolean range =
+boolean :: Monotype
+boolean =
   Monotype
-    { monotypeRange = range
-    , monotypeFreeVariables = IntSet.empty
+    { monotypeFreeVariables = IntSet.empty
     , monotypeDescription = Boolean
     }
 
 -- An integer monotype.
-integer :: Range -> Monotype
-integer range =
+integer :: Monotype
+integer =
   Monotype
-    { monotypeRange = range
-    , monotypeFreeVariables = IntSet.empty
+    { monotypeFreeVariables = IntSet.empty
     , monotypeDescription = Integer
     }
 
 -- Creates a new function monotype.
-function :: Range -> Monotype -> Monotype -> Monotype
-function range parameter body =
+function :: Monotype -> Monotype -> Monotype
+function parameter body =
   Monotype
-    { monotypeRange = range
-    , monotypeFreeVariables =
+    { monotypeFreeVariables =
         IntSet.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
     , monotypeDescription = Function parameter body
     }
@@ -286,7 +279,7 @@ substituteMonotype substitutions t0 = case monotypeDescription t0 of
   _ | not (needsSubstitution substitutions (monotypeFreeVariables t0)) -> Nothing
   -- Substitute the type variables in a function type. We do this below the above condition so we
   -- won’t recurse if we don’t absolutely have to.
-  Function t1 t2 -> Just (function (monotypeRange t0) (recurse t1) (recurse t2))
+  Function t1 t2 -> Just (function (recurse t1) (recurse t2))
   where
     recurse t = fromMaybe t (substituteMonotype substitutions t)
 
