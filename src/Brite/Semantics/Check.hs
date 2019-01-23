@@ -101,6 +101,25 @@ checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bin
   -- Add our binding and process the remaining quantifiers in our new context.
   checkQuantifiers context1 polarity quantifiers (bindings |> binding)
 
+-- Checks a type expecting that we return a monotype. However, in our type syntax we can have nested
+-- polytypes but we can’t have that in our internal representation of types. So when we see a
+-- polytype nested inside a monotype we add a new binding where the flexibility is determined by the
+-- polarity in the position we find the polytype. So for example, the type:
+--
+-- ```ite
+-- fun(fun<T>(T) -> T) -> fun<T>(T) -> T
+-- ```
+--
+-- Becomes:
+--
+-- ```ite
+-- fun<
+--   Type1 = fun<T>(T) -> T,
+--   Type2: fun<T>(T) -> T,
+-- >(Type1) -> Type2
+-- ```
+--
+-- When we print our internal type representation back out we will inline the types again.
 checkMonotype :: Context -> Polarity -> Seq Type.Binding -> AST.Type -> Check s (Seq Type.Binding, Monotype)
 checkMonotype context polarity bindings0 type0 = case AST.typeNode type0 of
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
