@@ -1,5 +1,6 @@
 module Brite.Syntax.Parser
   ( parseModule
+  , parseType
   ) where
 
 import Brite.Diagnostics
@@ -17,6 +18,10 @@ parseModule tokens = do
     return m
   else
     return m
+
+-- Parses a Brite type from a stream of tokens.
+parseType :: TokenStream -> DiagnosticWriter (Recover Type)
+parseType tokens = fst <$> runParser type_ tokens
 
 name :: Parser (Recover Name)
 name = retry tryName

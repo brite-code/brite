@@ -39,6 +39,8 @@ module Brite.Semantics.AST
   , QuantifierBoundFlexibility(..)
   , convertModule
   , convertExpression
+  , convertType
+  , convertRecoverType
   ) where
 
 import Brite.Diagnostics
