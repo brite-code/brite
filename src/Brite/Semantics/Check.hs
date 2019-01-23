@@ -8,7 +8,7 @@ module Brite.Semantics.Check
 
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
-import Brite.Semantics.Type (Polytype)
+import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 
 -- Type checks an expression AST and returns a typed AVT expression.
@@ -35,24 +35,24 @@ import qualified Brite.Semantics.Type as Type
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
 checkExpression :: AST.Expression -> Expression
-checkExpression astExpression = case AST.expressionNode astExpression of
-  AST.ConstantExpression constant ->
-    Expression range (checkConstant constant) (ConstantExpression constant)
-
-  where
-    range = AST.expressionRange astExpression
-
-checkConstant :: AST.Constant -> Polytype
-checkConstant (BooleanConstant _) = Type.boolean
+checkExpression astExpression = error "TODO"
 
 -- Checks a type and turns it into a polytype which might possibly have errors.
 checkType :: AST.Type -> Polytype
-checkType = Type.polytype . checkMonotype
+checkType = Type.polytype . loop []
   where
-    checkMonotype astType = case AST.typeNode astType of
-      -- TODO: Add proper type scoping support instead of hard-coding.
-      AST.VariableType identifier | AST.identifierText identifier == "Bool" -> Type.booleanMonotype
-      AST.VariableType identifier | AST.identifierText identifier == "Int" -> Type.integerMonotype
+    loop qs t = case AST.typeNode t of
+      _ -> error "TODO"
 
-      AST.FunctionType [] [parameter] body ->
-        Type.function (checkMonotype parameter) (checkMonotype body)
+      -- -- TODO: Add proper type scoping support instead of hard-coding.
+      -- AST.VariableType identifier | AST.identifierText identifier == "Bool" -> Type.booleanMonotype
+      -- AST.VariableType identifier | AST.identifierText identifier == "Int" -> Type.integerMonotype
+
+      -- AST.FunctionType [] [parameter] body ->
+      --   Type.function (checkMonotype parameter) (checkMonotype body)
+
+-- -- Lookup intrinsic monotypes. We run this after all other lookups have failed.
+-- lookupIntrinsicType :: Text -> Maybe Monotype
+-- lookupIntrinsicType "Bool" = Just Type.booleanMonotype
+-- lookupIntrinsicType "Int" = Just Type.integerMonotype
+-- lookupIntrinsicType _ = Nothing

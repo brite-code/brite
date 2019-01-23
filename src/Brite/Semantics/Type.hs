@@ -15,9 +15,7 @@ module Brite.Semantics.Type
   , Binding(..)
   , BindingFlexibility(..)
   , variable
-  , booleanMonotype
   , boolean
-  , integerMonotype
   , integer
   , function
   , polytype
@@ -25,7 +23,7 @@ module Brite.Semantics.Type
   , normal
   ) where
 
-import Brite.Semantics.AST (Name)
+import Brite.Semantics.AST (Range, Name)
 import Brite.Semantics.CheckMonad (TypeVariableID, typeVariableID)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
@@ -35,8 +33,11 @@ import Data.Maybe (fromMaybe)
 
 -- Types that do not contain quantifiers.
 data Monotype = Monotype
+  -- The range at which this monotype was defined. This could be the location of a type declaration
+  -- or some expression’s inferred type.
+  { monotypeRange :: Range
   -- The free variables in this monotype.
-  { monotypeFreeVariables :: IntSet
+  , monotypeFreeVariables :: IntSet
   -- The representation of this monotype.
   , monotypeDescription :: MonotypeDescription
   }
@@ -108,50 +109,38 @@ data Binding = Binding
 data BindingFlexibility = Flexible | Rigid
 
 -- Creates a type variable monotype.
-variable :: TypeVariableID -> Monotype
-variable i =
+variable :: Range -> TypeVariableID -> Monotype
+variable range i =
   Monotype
-    { monotypeFreeVariables = IntSet.singleton (typeVariableID i)
+    { monotypeRange = range
+    , monotypeFreeVariables = IntSet.singleton (typeVariableID i)
     , monotypeDescription = Variable i
     }
 
 -- A boolean monotype.
-booleanMonotype :: Monotype
-booleanMonotype =
+boolean :: Range -> Monotype
+boolean range =
   Monotype
-    { monotypeFreeVariables = IntSet.empty
+    { monotypeRange = range
+    , monotypeFreeVariables = IntSet.empty
     , monotypeDescription = Boolean
     }
 
--- A boolean polytype.
---
--- We give the boolean polytype a nice name instead of `booleanMonotype` because we don’t want
--- people to create a new polytype every time with `polytype booleanMonotype`. We’d rather them use
--- the constant boolean polytype defined here.
-boolean :: Polytype
-boolean = polytype booleanMonotype
-
 -- An integer monotype.
-integerMonotype :: Monotype
-integerMonotype =
+integer :: Range -> Monotype
+integer range =
   Monotype
-    { monotypeFreeVariables = IntSet.empty
+    { monotypeRange = range
+    , monotypeFreeVariables = IntSet.empty
     , monotypeDescription = Integer
     }
 
--- An integer polytype.
---
--- We give the integer polytype a nice name instead of `integerMonotype` because we don’t want
--- people to create a new polytype every time with `polytype integerMonotype`. We’d rather them use
--- the constant integer polytype defined here.
-integer :: Polytype
-integer = polytype integerMonotype
-
 -- Creates a new function monotype.
-function :: Monotype -> Monotype -> Monotype
-function parameter body =
+function :: Range -> Monotype -> Monotype -> Monotype
+function range parameter body =
   Monotype
-    { monotypeFreeVariables =
+    { monotypeRange = range
+    , monotypeFreeVariables =
         IntSet.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
     , monotypeDescription = Function parameter body
     }
@@ -297,8 +286,7 @@ substituteMonotype substitutions t0 = case monotypeDescription t0 of
   _ | not (needsSubstitution substitutions (monotypeFreeVariables t0)) -> Nothing
   -- Substitute the type variables in a function type. We do this below the above condition so we
   -- won’t recurse if we don’t absolutely have to.
-  Function t1 t2 -> Just (function (recurse t1) (recurse t2))
-
+  Function t1 t2 -> Just (function (monotypeRange t0) (recurse t1) (recurse t2))
   where
     recurse t = fromMaybe t (substituteMonotype substitutions t)
 

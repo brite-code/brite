@@ -14,6 +14,7 @@ module Brite.Semantics.Prefix
   , freshWithBound
   ) where
 
+import Brite.Semantics.AST (Range)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
@@ -132,16 +133,16 @@ add prefix binding = do
     liftST $ HashTable.insert (prefixEntries prefix) (Type.bindingID binding) entry
 
 -- Creates a fresh type variable with no bound.
-fresh :: Prefix s -> Check s Monotype
-fresh prefix = do
+fresh :: Prefix s -> Range -> Check s Monotype
+fresh prefix r = do
   i <- freshTypeVariable
   add prefix (Type.Binding i Nothing Type.Flexible Type.bottom)
-  return (Type.variable i)
+  return (Type.variable r i)
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
 -- monotype then we return the monotype directly instead of creating a fresh type variable.
-freshWithBound :: Prefix s -> Type.BindingFlexibility -> Polytype -> Check s Monotype
-freshWithBound prefix k t =
+freshWithBound :: Prefix s -> Range -> Type.BindingFlexibility -> Polytype -> Check s Monotype
+freshWithBound prefix r k t =
   -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
   -- always inlined in normal form anyway.
   case Type.polytypeDescription t of
@@ -150,4 +151,4 @@ freshWithBound prefix k t =
       -- Creates a fresh type variable ID and adds a binding with that ID to the prefix.
       i <- freshTypeVariable
       add prefix (Type.Binding i Nothing k t)
-      return (Type.variable i)
+      return (Type.variable r i)
