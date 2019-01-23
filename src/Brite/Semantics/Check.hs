@@ -10,10 +10,12 @@ import Brite.Semantics.AVT
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
+import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq, (|>))
+import qualified Data.Sequence as Seq
 
 -- Type checks an expression AST and returns a typed AVT expression.
 --
@@ -45,19 +47,60 @@ type Context = HashMap Identifier Monotype
 
 -- Checks an AST type and turns it into a polytype.
 checkPolytype :: Context -> Polarity -> AST.Type -> Check s Polytype
-checkPolytype context0 polarity type0 = error "TODO"
+checkPolytype context0 polarity type0 = case AST.typeNode type0 of
+  -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
+  -- error type.
+  AST.VariableType name -> return $ Type.polytype $
+    fromMaybe (Type.variableNotFoundError name) (HashMap.lookup name context0)
 
--- checkPolytype context0 type0 = case AST.typeNode type0 of
---   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
---   -- error type.
---   AST.VariableType name -> return $ Type.polytype $
---     fromMaybe (Type.variableNotFoundError name) (HashMap.lookup name context0)
+  AST.BottomType -> return Type.bottom
 
---   AST.BottomType -> return Type.bottom
+  -- Check a function type with its quantifiers.
+  AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
+    (context1, bindings1) <- checkQuantifiers context0 polarity quantifiers Seq.empty
+    (bindings2, parameterType) <- checkMonotype context1 (flipPolarity polarity) bindings1 uncheckedParameterType
+    (bindings3, bodyType) <- checkMonotype context1 polarity bindings2 uncheckedBodyType
+    return (Type.quantify (toList bindings3) (Type.function parameterType bodyType))
 
---   -- AST.QuantifiedType
+  -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
+  -- inline those bindings into our prefix as well.
+  AST.QuantifiedType quantifiers0 uncheckedBodyType0 -> do
+    (context1, bindings1) <- checkQuantifiers context0 polarity quantifiers0 Seq.empty
+    (context2, bindings2, uncheckedBodyType) <- loop context1 bindings1 uncheckedBodyType0
+    (bindings3, bodyType) <- checkMonotype context2 polarity bindings2 uncheckedBodyType
+    return (Type.quantify (toList bindings3) bodyType)
+    where
+      loop context1 bindings1 type1 = case AST.typeNode type1 of
+        AST.QuantifiedType quantifiers1 type2 -> do
+          (context2, bindings2) <- checkQuantifiers context1 polarity quantifiers1 bindings1
+          loop context2 bindings2 type2
 
---   AST.WrappedType type1 -> checkType context0 type1
+        AST.VariableType _ -> return (context1, bindings1, type1)
+        AST.BottomType -> return (context1, bindings1, type1)
+        AST.FunctionType _ _ _ -> return (context1, bindings1, type1)
+        AST.ObjectType _ _ -> return (context1, bindings1, type1)
+        AST.WrappedType type2 -> loop context1 bindings1 type2
+        AST.ErrorType _ _ -> return (context1, bindings1, type1)
+
+  AST.WrappedType type1 -> checkPolytype context0 polarity type1
+
+-- Check all the AST type quantifiers and convert them into a list of bindings.
+checkQuantifiers :: Context -> Polarity -> [AST.Quantifier] -> Seq Type.Binding -> Check s (Context, Seq Type.Binding)
+checkQuantifiers context0 _ [] bindings = return (context0, bindings)
+checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bindings = do
+  -- Get a fresh type variable ID for our binding.
+  id' <- freshTypeVariable
+  -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
+  -- type, bound. Otherwise we need to check our bound type with the current context.
+  binding <- case bound of
+    Nothing -> return (Type.Binding id' (Just name) Type.Flexible Type.bottom)
+    Just (flexibility, boundType) ->
+      Type.Binding id' (Just name) flexibility <$> checkPolytype context0 polarity boundType
+  -- Introduce our new type variable ID into our context. Notably introduce our type variable
+  -- after checking our binding type.
+  let context1 = HashMap.insert (AST.nameIdentifier name) (Type.variable id') context0
+  -- Add our binding and process the remaining quantifiers in our new context.
+  checkQuantifiers context1 polarity quantifiers (bindings |> binding)
 
 checkMonotype :: Context -> Polarity -> Seq Type.Binding -> AST.Type -> Check s (Seq Type.Binding, Monotype)
 checkMonotype context polarity bindings0 type0 = case AST.typeNode type0 of
@@ -108,24 +151,6 @@ checkMonotype context polarity bindings0 type0 = case AST.typeNode type0 of
     polarityFlexibility = case polarity of
       Negative -> Type.Rigid
       Positive -> Type.Flexible
-
--- -- Check all the AST type quantifiers and convert them into a list of bindings.
--- checkQuantifiers :: Context -> [AST.Quantifier] -> Seq Type.Binding -> Check s (Context, Seq Type.Binding)
--- checkQuantifiers context0 [] bindings = return (context0, bindings)
--- checkQuantifiers context0 (AST.Quantifier name bound : quantifiers) bindings = do
---   -- Get a fresh type variable ID for our binding.
---   id' <- freshTypeVariable
---   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
---   -- type, bound. Otherwise we need to check our bound type with the current context.
---   binding <- case bound of
---     Nothing -> return (Type.Binding id' (Just name) Type.Flexible Type.bottom)
---     Just (flexibility, boundType) ->
---       Type.Binding id' (Just name) flexibility <$> checkType context0 boundType
---   -- Introduce our new type variable ID into our context. Notably introduce our type variable
---   -- after checking our binding type.
---   let context1 = HashMap.insert (AST.nameIdentifier name) (Type.variable id') context0
---   -- Add our binding and process the remaining quantifiers in our new context.
---   checkQuantifiers context1 quantifiers (bindings |> binding)
 
 -- Polarity represents whether a type is in an “input” or an “output” position. You may also know
 -- polarity as “variance”.

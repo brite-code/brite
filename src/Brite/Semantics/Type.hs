@@ -21,6 +21,7 @@ module Brite.Semantics.Type
   , variableNotFoundError
   , polytype
   , bottom
+  , quantify
   , normal
   ) where
 
@@ -174,6 +175,28 @@ bottom =
     , polytypeDescription = Bottom
     }
 
+-- Quantifies a monotype with some bindings. If an empty list was provided then we return the
+-- monotype converted to a polytype.
+--
+-- We will not add the free variables of unused bounds to the free variables of our polytype. Since
+-- in normal form these bounds will be dropped.
+quantify :: [Binding] -> Monotype -> Polytype
+quantify [] body = polytype body
+quantify bindings body =
+  Polytype
+    { polytypeNormal = False
+    , polytypeFreeVariables =
+        foldr
+          (\binding free ->
+            if not (IntSet.member (typeVariableID (bindingID binding)) free) then free else
+              IntSet.union
+                (IntSet.delete (typeVariableID (bindingID binding)) free)
+                (polytypeFreeVariables (bindingType binding)))
+          (monotypeFreeVariables body)
+          bindings
+    , polytypeDescription = Quantify bindings body
+    }
+
 -- Converts a polytype to normal form as described in Section 1.5.3 of the [MLF thesis][1].
 -- Returns a referentially equal type if the type is already in normal form.
 --
@@ -277,8 +300,8 @@ substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescriptio
             -- Remove this binding from our set of free variables and add all the free variables
             -- from our binding type.
             newFree = IntSet.union
-              (polytypeFreeVariables (bindingType binding))
               (IntSet.delete (typeVariableID (bindingID binding)) free)
+              (polytypeFreeVariables (bindingType binding))
           in
             loopRev newFree body (binding : bindings) bindingsRev
         else
