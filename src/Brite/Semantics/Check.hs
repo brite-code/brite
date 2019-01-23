@@ -64,23 +64,10 @@ checkPolytype context0 polarity type0 = case AST.typeNode type0 of
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
   -- inline those bindings into our prefix as well.
-  AST.QuantifiedType quantifiers0 uncheckedBodyType0 -> do
-    (context1, bindings1) <- checkQuantifiers context0 polarity quantifiers0 Seq.empty
-    (context2, bindings2, uncheckedBodyType) <- loop context1 bindings1 uncheckedBodyType0
-    (bindings3, bodyType) <- checkMonotype context2 polarity bindings2 uncheckedBodyType
-    return (Type.quantify (toList bindings3) bodyType)
-    where
-      loop context1 bindings1 type1 = case AST.typeNode type1 of
-        AST.QuantifiedType quantifiers1 type2 -> do
-          (context2, bindings2) <- checkQuantifiers context1 polarity quantifiers1 bindings1
-          loop context2 bindings2 type2
-
-        AST.VariableType _ -> return (context1, bindings1, type1)
-        AST.BottomType -> return (context1, bindings1, type1)
-        AST.FunctionType _ _ _ -> return (context1, bindings1, type1)
-        AST.ObjectType _ _ -> return (context1, bindings1, type1)
-        AST.WrappedType type2 -> loop context1 bindings1 type2
-        AST.ErrorType _ _ -> return (context1, bindings1, type1)
+  AST.QuantifiedType quantifiers uncheckedBodyType -> do
+    (context1, bindings1) <- checkQuantifiers context0 polarity quantifiers Seq.empty
+    (bindings2, bodyType) <- checkMonotype context1 polarity bindings1 uncheckedBodyType
+    return (Type.quantify (toList bindings2) bodyType)
 
   AST.WrappedType type1 -> checkPolytype context0 polarity type1
 

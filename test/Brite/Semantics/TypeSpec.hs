@@ -4,7 +4,7 @@ module Brite.Semantics.TypeSpec (spec) where
 
 import Brite.Diagnostics
 import Brite.Semantics.AST (convertRecoverType)
-import Brite.Semantics.Check (checkType)
+import Brite.Semantics.Check
 import Brite.Semantics.Type (normal)
 import Brite.Syntax.Parser (parseType)
 import Brite.Syntax.Tokens (tokenize)
@@ -101,5 +101,5 @@ spec = do
         let (cstType, ds) = runDiagnosticWriter (parseType (tokenize input))
         mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds
         let astType = convertRecoverType cstType
-        let type' = normal (checkType astType)
+        let type' = normal ((error "checkType") astType)
         seq type' (True `shouldBe` True)
