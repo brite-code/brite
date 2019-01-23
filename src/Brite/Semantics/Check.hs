@@ -2,7 +2,9 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Semantics.Check () where
+module Brite.Semantics.Check
+  ( checkType
+  ) where
 
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
