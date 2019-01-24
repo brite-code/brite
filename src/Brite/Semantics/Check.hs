@@ -6,6 +6,7 @@ module Brite.Semantics.Check
   ( checkType
   ) where
 
+import Brite.Diagnostics
 import Brite.Semantics.AST (Identifier)
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
@@ -43,17 +44,17 @@ import qualified Data.Sequence as Seq
 --   type check, but we also build an AVT which is semantically equivalent to our input AST.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
-checkExpression :: AST.Expression -> Expression
+checkExpression :: AST.Expression -> Check s Expression
 checkExpression astExpression = error "TODO"
 
 -- Checks a type and converts it into an internal polytype representation.
-checkType :: AST.Type -> Check s Polytype
+checkType :: AST.Type -> DiagnosticWriter Polytype
 checkType type' = checkPolytype initialContext Positive type'
   where
     initialContext = HashSet.fromList [unsafeIdentifier "Bool", unsafeIdentifier "Int"]
 
 -- Checks an AST type and turns it into a polytype.
-checkPolytype :: HashSet Identifier -> Polarity -> AST.Type -> Check s Polytype
+checkPolytype :: HashSet Identifier -> Polarity -> AST.Type -> DiagnosticWriter Polytype
 checkPolytype context0 polarity type0 = case AST.typeNode type0 of
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
@@ -80,7 +81,9 @@ checkPolytype context0 polarity type0 = case AST.typeNode type0 of
   AST.WrappedType type1 -> checkPolytype context0 polarity type1
 
 -- Check all the AST type quantifiers and convert them into a list of bindings.
-checkQuantifiers :: HashSet Identifier -> Polarity -> [AST.Quantifier] -> Seq Type.Binding -> Check s (HashSet Identifier, Seq Type.Binding)
+checkQuantifiers ::
+  HashSet Identifier -> Polarity -> [AST.Quantifier] -> Seq Type.Binding ->
+    DiagnosticWriter (HashSet Identifier, Seq Type.Binding)
 checkQuantifiers context0 _ [] bindings = return (context0, bindings)
 checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bindings = do
   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
@@ -114,7 +117,9 @@ checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bin
 -- ```
 --
 -- When we print our internal type representation back out we will inline the types again.
-checkMonotype :: HashSet Identifier -> Polarity -> Seq Type.Binding -> AST.Type -> Check s (HashSet Identifier, Seq Type.Binding, Monotype)
+checkMonotype ::
+  HashSet Identifier -> Polarity -> Seq Type.Binding -> AST.Type ->
+    DiagnosticWriter (HashSet Identifier, Seq Type.Binding, Monotype)
 checkMonotype context0 polarity bindings0 type0 = case AST.typeNode type0 of
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
