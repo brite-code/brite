@@ -27,6 +27,7 @@ testData =
   , ("fun<A, B = Int, C = fun(A) -> B>(C) -> C", "fun<A>(fun(A) -> Int) -> fun(A) -> Int")
   , ("fun<A = Int, B = fun<C>(C) -> A, A>(A) -> B", "fun<B = fun<C>(C) -> Int, A>(A) -> B")
   , ("fun<A = Int, B = fun(A) -> A, A>(A) -> B", "fun<A>(A) -> fun(Int) -> Int")
+  , ("fun<A, B = fun<C>(A) -> C, A>(A) -> B", "fun<A, B = fun<C>(A) -> C, A>(A) -> B")
   , ("fun<A, B = A, A>(A) -> B", "fun<A, A2>(A2) -> A")
   , ("fun<A, B = A, A, A = A>(A) -> B", "fun<A, A2>(A2) -> A")
   , ("fun<A, B = A, A, C = A, A>(A) -> fun(B) -> C", "fun<A, A2, A3>(A3) -> fun(A) -> A2")
