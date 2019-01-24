@@ -15,6 +15,7 @@
 
 module Brite.Syntax.Printer
   ( printModule
+  , printCompactType
   ) where
 
 import Brite.Syntax.CST (recoverStatementTokens)
@@ -30,6 +31,10 @@ import qualified Data.Text.Lazy.Builder as Text.Builder
 -- Pretty prints a Brite module. The module must be from the printer AST.
 printModule :: Module -> Text.Builder
 printModule = printDocument maxWidth . printStatementSequence . moduleStatements
+
+-- Pretty prints a type compactly. The type must be from the printer AST.
+printCompactType :: Type -> Text.Builder
+printCompactType = printCompactDocument . printType
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
 -- GitHub, Terminals. It is also the best for plain text comments.

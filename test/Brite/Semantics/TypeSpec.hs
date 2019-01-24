@@ -6,7 +6,9 @@ import Brite.Diagnostics
 import Brite.Semantics.AST (convertRecoverType)
 import Brite.Semantics.Check (checkType)
 import Brite.Semantics.Type (normal)
+import Brite.Semantics.TypePrinter (printPolytype)
 import Brite.Syntax.Parser (parseType)
+import Brite.Syntax.Printer (printCompactType)
 import Brite.Syntax.Tokens (tokenize)
 import Data.Foldable (traverse_)
 import Data.Text (Text)
@@ -24,7 +26,7 @@ testData =
   , ("fun<B = Int, C = fun<A>(A) -> B>(C) -> C", "fun<C = fun<A>(A) -> Int>(C) -> C")
   , ("fun<A, B = Int, C = fun(A) -> B>(C) -> C", "fun<A>(fun(A) -> Int) -> fun(A) -> Int")
   , ("fun<A = Int, B = fun<C>(C) -> A, A>(A) -> B", "fun<B = fun<C>(C) -> Int, A>(A) -> B")
-  , ("fun<A = Int, B = fun(A) -> A, A>(A) -> B", "fun<A>(A) -> Int → Int")
+  , ("fun<A = Int, B = fun(A) -> A, A>(A) -> B", "fun<A>(A) -> fun(Int) -> Int")
   , ("fun<A, B = A, A>(A) -> B", "fun<A, A2>(A2) -> A")
   , ("fun<A, B = A, A, A = A>(A) -> B", "fun<A, A2>(A2) -> A")
   , ("fun<A, B = A, A, C = A, A>(A) -> fun(B) -> C", "fun<A, A2, A3>(A3) -> fun(A) -> A2")
@@ -35,7 +37,7 @@ testData =
   , ("fun<A, B = A, A2, A>(A) -> fun(A2) -> B", "fun<A, A2, A3>(A3) -> fun(A2) -> A")
   , ("fun<A, B = A, A, A2>(A) -> fun(A2) -> B", "fun<A, A2, A3>(A2) -> fun(A3) -> A")
   , ("fun<A, A = fun<Z>(Z) -> A, A = fun<Z>(Z) -> A>(A) -> A", "fun<A, A = fun<Z>(Z) -> A, A = fun<Z>(Z) -> A>(A) -> A")
-  , ("fun<A, A = fun(A) -> A, A = fun(A) -> A, A = fun(A) -> A>(A) -> A", "")
+  , ("fun<A, A = fun(A) -> A, A = fun(A) -> A, A = fun(A) -> A>(A) -> A", "fun<A>(fun(fun(fun(A) -> A) -> fun(A) -> A) -> fun(fun(A) -> A) -> fun(A) -> A) -> fun(fun(fun(A) -> A) -> fun(A) -> A) -> fun(fun(A) -> A) -> fun(A) -> A")
   , ("<A> Int", "Int")
   , ("<A, B> Int", "Int")
   , ("fun<A>(A) -> Int", "fun<A>(A) -> Int")
@@ -98,8 +100,9 @@ spec = do
   describe "normal" $ do
     flip traverse_ testData $ \(input, output) ->
       it (Text.unpack input) $ do
-        let (cstType, ds) = runDiagnosticWriter (parseType (tokenize input))
-        mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds
-        let astType = convertRecoverType cstType
-        let type' = normal <$> (checkType astType)
-        seq type' (True `shouldBe` True)
+        let (type1, ds1) = runDiagnosticWriter (parseType (tokenize input))
+        mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
+        let (type2, ds2) = runDiagnosticWriter (normal <$> checkType (convertRecoverType type1))
+        mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds2
+        let expectedOutput = printCompactType (printPolytype type2)
+        Text.Lazy.toStrict (Text.Builder.toLazyText expectedOutput) `shouldBe` output

@@ -32,6 +32,7 @@ module Brite.Syntax.PrinterFramework
   , ifFlat
   , ifBreakElse
   , printDocument
+  , printCompactDocument
   ) where
 
 import Brite.Syntax.Tokens (utf16Length)
@@ -325,5 +326,13 @@ printLayout (LineLayout _ l) = Text.Builder.singleton '\n' <> printLayout l
 
 -- Prints the document at the specified maximum width.
 printDocument :: Int -> Document -> Text.Builder
-printDocument maxWidth rootDocument =
-  printLayout (layout (initialState maxWidth) [(Break, 0, rootDocument)])
+printDocument maxWidth document =
+  printLayout (layout (initialState maxWidth) [(Break, 0, document)])
+
+-- Prints the document as compactly as possible. Hard line breaks are still accepted, but everything
+-- we can fit onto one line we will.
+printCompactDocument :: Document -> Text.Builder
+printCompactDocument document =
+  -- Max width shouldn’t matter in flat mode.
+  let maxWidth = 0 in
+    printLayout (layout (initialState maxWidth) [(Flat, 0, document)])

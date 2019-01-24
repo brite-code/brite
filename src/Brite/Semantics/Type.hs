@@ -264,7 +264,7 @@ substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescriptio
 
       loop _ _ substitutions [] bindingsRev =
         -- Apply the substitutions to our body and call the next step, `loopRev`.
-        let body = fromMaybe body (substituteMonotype substitutions initialBody) in
+        let body = fromMaybe initialBody (substituteMonotype substitutions initialBody) in
           loopRev (monotypeFreeVariables body) body [] bindingsRev
 
       loop seen captured substitutions (oldBinding : bindings) bindingsRev =
@@ -272,7 +272,7 @@ substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescriptio
           -- Convert the bound’s type to normal form if necessary.
           binding = case substituteAndNormalizePolytype substitutions (bindingType oldBinding) of
             Nothing -> oldBinding
-            Just newType -> binding { bindingType = newType }
+            Just newType -> oldBinding { bindingType = newType }
         in
           case polytypeDescription (bindingType binding) of
             -- If this binding is a monotype then we want to remove the binding and substitute it
