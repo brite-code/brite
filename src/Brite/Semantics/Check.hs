@@ -45,7 +45,20 @@ import qualified Data.Sequence as Seq
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
 checkExpression :: AST.Expression -> Check s Expression
-checkExpression astExpression = error "TODO"
+checkExpression astExpression =
+  -- TODO: Type annotations on function parameters should have a _negative_ polarity. The polarity
+  -- is an aesthetic choice that matches type annotations. Consider:
+  --
+  -- ```ite
+  -- fun f(
+  --   f: fun(fun<T>(T) -> T) -> Int
+  -- ) {
+  --   f(add1)
+  -- }
+  --
+  -- (f: fun(fun(fun<T>(T) -> T) -> Int) -> Int);
+  -- ```
+  error "TODO"
 
 -- Checks a type and converts it into an internal polytype representation.
 checkType :: AST.Type -> DiagnosticWriter Polytype
@@ -91,6 +104,8 @@ checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bin
   binding <- case bound of
     Nothing -> return (Type.Binding (AST.nameIdentifier name) Type.Flexible Type.bottom)
     Just (flexibility, boundType) ->
+      -- TODO: We use the current polarity of the position where the quantifiers lie. Check if this
+      -- works when reconstructing the type.
       Type.Binding (AST.nameIdentifier name) flexibility <$> checkPolytype context0 polarity boundType
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
   -- after checking our binding type.
