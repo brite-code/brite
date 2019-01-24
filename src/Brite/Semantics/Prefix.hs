@@ -15,12 +15,15 @@ module Brite.Semantics.Prefix
   ) where
 
 import Brite.Semantics.CheckMonad
+import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
+import Brite.Syntax.Tokens (Identifier, unsafeIdentifier)
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.Maybe (isJust)
 import Data.STRef
+import qualified Data.Text as Text
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
 -- `ST` monad for mutability. Unlike other immutable Haskell data types.
@@ -52,8 +55,9 @@ import Data.STRef
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 -- [2]: http://okmij.org/ftp/ML/generalization.html
 data Prefix s = Prefix
-  { prefixLevels :: STRef s [PrefixLevel s]
-  , prefixEntries :: HashTable s TypeVariableID (PrefixEntry s)
+  { prefixCounter :: STRef s Int
+  , prefixLevels :: STRef s [PrefixLevel s]
+  , prefixEntries :: HashTable s Identifier (PrefixEntry s)
   }
 
 -- An entry for a type variable in the prefix. The entry remembers the level at which the entry is
@@ -72,12 +76,12 @@ data PrefixEntry s = PrefixEntry
 -- depends on it. When that happens we change the level of the type variable.
 data PrefixLevel s = PrefixLevel
   { prefixLevelIndex :: Int
-  , prefixLevelVariables :: HashTable s TypeVariableID ()
+  , prefixLevelVariables :: HashTable s Identifier ()
   }
 
 -- Creates a new prefix.
 new :: Check s (Prefix s)
-new = liftST (Prefix <$> newSTRef [] <*> HashTable.new)
+new = liftST (Prefix <$> newSTRef 1 <*> newSTRef [] <*> HashTable.new)
 
 -- Introduces a new level for the execution of the provided action. Cleans up the level after the
 -- action finishes. Any type variables created in the level will be removed from the prefix unless
@@ -89,8 +93,12 @@ withLevel prefix action = do
   let index = case oldLevels of { [] -> 0; level : _ -> prefixLevelIndex level + 1 }
   newLevel <- liftST $ PrefixLevel index <$> HashTable.new
   liftST $ writeSTRef (prefixLevels prefix) (newLevel : oldLevels)
+  -- Get the current counter value. We will set this back after our action is done.
+  oldCounter <- liftST $ readSTRef (prefixCounter prefix)
   -- Execute our action with the new level added to our prefix.
   result <- action
+  -- Restore the old counter value.
+  liftST $ writeSTRef (prefixCounter prefix) oldCounter
   -- Remove the level we just added from the prefix.
   liftST $ writeSTRef (prefixLevels prefix) oldLevels
   -- Delete all type variables at this level from the prefix.
@@ -112,21 +120,30 @@ add prefix binding = do
   -- If there are no levels or a binding with the same ID already exists then we don’t add
   -- the binding.
   levels <- liftST $ readSTRef (prefixLevels prefix)
-  hasBinding <- liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) (Type.bindingID binding)
+  hasBinding <- liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) (Type.bindingName binding)
   if null levels || hasBinding then return () else do
     -- Add the type variable binding to the current level.
     let level = head levels
-    liftST $ HashTable.insert (prefixLevelVariables level) (Type.bindingID binding) ()
+    liftST $ HashTable.insert (prefixLevelVariables level) (Type.bindingName binding) ()
     -- Add the type variable binding to the prefix.
     entry <- liftST $ PrefixEntry binding <$> newSTRef level
-    liftST $ HashTable.insert (prefixEntries prefix) (Type.bindingID binding) entry
+    liftST $ HashTable.insert (prefixEntries prefix) (Type.bindingName binding) entry
+
+-- Generates a fresh type variable name.
+freshName :: Prefix s -> Check s Identifier
+freshName prefix = do
+  counter <- liftST $ readSTRef (prefixCounter prefix)
+  let name = unsafeIdentifier (Text.append freshTypeBaseName (Text.pack (show counter)))
+  liftST $ writeSTRef (prefixCounter prefix) (counter + 1)
+  nameExists <- liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) name
+  if nameExists then freshName prefix else return name
 
 -- Creates a fresh type variable with no bound.
 fresh :: Prefix s -> Check s Monotype
 fresh prefix = do
-  i <- freshTypeVariable
-  add prefix (Type.Binding i Nothing Type.Flexible Type.bottom)
-  return (Type.variable i)
+  name <- freshName prefix
+  add prefix (Type.Binding name Type.Flexible Type.bottom)
+  return (Type.variable name)
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
 -- monotype then we return the monotype directly instead of creating a fresh type variable.
@@ -137,7 +154,6 @@ freshWithBound prefix k t =
   case Type.polytypeDescription t of
     Type.Monotype' t' -> return t'
     _ -> do
-      -- Creates a fresh type variable ID and adds a binding with that ID to the prefix.
-      i <- freshTypeVariable
-      add prefix (Type.Binding i Nothing k t)
-      return (Type.variable i)
+      name <- freshName prefix
+      add prefix (Type.Binding name k t)
+      return (Type.variable name)

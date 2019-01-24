@@ -1,7 +1,11 @@
 -- And Taborlin the Great said to the stone: "BREAK!" and the stone broke...
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module Brite.Semantics.Namer
   ( uniqueName
+  , freshTypeName
+  , freshTypeBaseName
   ) where
 
 import Brite.Syntax.Tokens (Identifier, unsafeIdentifier, identifierText)
@@ -14,15 +18,35 @@ import qualified Data.Text as Text
 -- function to check if a name already exists.
 uniqueName :: (Identifier -> Bool) -> Identifier -> Identifier
 uniqueName exists name | not (exists name) = name
-uniqueName exists name = loop start
+uniqueName exists initialName = loop start
   where
-    (start, namePrefix) = case integerSuffix (identifierText name) of
-      Nothing -> (2, identifierText name)
-      Just (t, i) -> (i + 1, t)
+    (start, namePrefix) = case integerSuffix (identifierText initialName) of
+      Nothing -> (2, identifierText initialName)
+      Just (name, suffix) -> (suffix + 1, name)
 
     loop i =
       let newName = unsafeIdentifier (Text.append namePrefix (Text.pack (show i))) in
         if exists newName then loop (i + 1) else newName
+
+-- Generates the name of a fresh type when we don’t have a user provided name name to base our type
+-- name off of. Implement the same as `uniqueName` under the hood.
+--
+-- We choose to name these types `TypeN` where “N” is a positive integer. Other languages may choose
+-- `tN` or `TN` or a sequence of `a`, `b`, `c`, etc. We choose `TypeN` because we want to enforce
+-- for the programmer that type variable names are just like regular variable names and they should
+-- be named as such. A name like `T` (while popular in Java, JavaScript, and C) is not
+-- very expressive.
+freshTypeName :: (Identifier -> Bool) -> Identifier
+freshTypeName exists = loop (1 :: Int)
+  where
+    loop i =
+      let newName = unsafeIdentifier (Text.append freshTypeBaseName (Text.pack (show i))) in
+        if exists newName then loop (i + 1) else newName
+
+-- The base name for `freshTypeName`. Does not include an integer suffix. Useful if you want to
+-- implement your own name generator.
+freshTypeBaseName :: Text
+freshTypeBaseName = "Type"
 
 -- Gets the integer suffix of the provided name. For instance, for `x` we return nothing, but for
 -- `x42` we return the integer 42. Also returns the string before the suffix.

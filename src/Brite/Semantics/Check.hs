@@ -1,6 +1,6 @@
 -- Checks an AST for type errors. Converting that AST into an internal, typed, representation.
 
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings #-} -- TODO: Remove when removing `Bool` and `Int` special handling.
 
 module Brite.Semantics.Check
   ( checkType
@@ -10,13 +10,13 @@ import Brite.Semantics.AST (Identifier)
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
 import Brite.Semantics.CheckMonad
+import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Brite.Syntax.Tokens (unsafeIdentifier)
 import Data.Foldable (toList)
-import Data.HashMap.Lazy (HashMap)
-import qualified Data.HashMap.Lazy as HashMap
-import Data.Maybe (fromMaybe)
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HashSet
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 
@@ -46,58 +46,52 @@ import qualified Data.Sequence as Seq
 checkExpression :: AST.Expression -> Expression
 checkExpression astExpression = error "TODO"
 
-type Context = HashMap Identifier Monotype
-
 -- Checks a type and converts it into an internal polytype representation.
 checkType :: AST.Type -> Check s Polytype
 checkType type' = checkPolytype initialContext Positive type'
   where
-    initialContext = HashMap.fromList
-      [ (unsafeIdentifier "Bool", Type.boolean)
-      , (unsafeIdentifier "Int", Type.integer)
-      ]
+    initialContext = HashSet.fromList [unsafeIdentifier "Bool", unsafeIdentifier "Int"]
 
 -- Checks an AST type and turns it into a polytype.
-checkPolytype :: Context -> Polarity -> AST.Type -> Check s Polytype
+checkPolytype :: HashSet Identifier -> Polarity -> AST.Type -> Check s Polytype
 checkPolytype context0 polarity type0 = case AST.typeNode type0 of
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
-  AST.VariableType name -> return $ Type.polytype $
-    fromMaybe (Type.variableNotFoundError name) (HashMap.lookup name context0)
+  AST.VariableType name ->
+    if HashSet.member name context0 then return (Type.polytype (Type.variable name))
+    else return (Type.polytype (Type.variableNotFoundError name))
 
   AST.BottomType -> return Type.bottom
 
   -- Check a function type with its quantifiers.
   AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
     (context1, bindings1) <- checkQuantifiers context0 polarity quantifiers Seq.empty
-    (bindings2, parameterType) <- checkMonotype context1 (flipPolarity polarity) bindings1 uncheckedParameterType
-    (bindings3, bodyType) <- checkMonotype context1 polarity bindings2 uncheckedBodyType
+    (context2, bindings2, parameterType) <- checkMonotype context1 (flipPolarity polarity) bindings1 uncheckedParameterType
+    (_, bindings3, bodyType) <- checkMonotype context2 polarity bindings2 uncheckedBodyType
     return (Type.quantify (toList bindings3) (Type.function parameterType bodyType))
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
   -- inline those bindings into our prefix as well.
   AST.QuantifiedType quantifiers uncheckedBodyType -> do
     (context1, bindings1) <- checkQuantifiers context0 polarity quantifiers Seq.empty
-    (bindings2, bodyType) <- checkMonotype context1 polarity bindings1 uncheckedBodyType
+    (_, bindings2, bodyType) <- checkMonotype context1 polarity bindings1 uncheckedBodyType
     return (Type.quantify (toList bindings2) bodyType)
 
   AST.WrappedType type1 -> checkPolytype context0 polarity type1
 
 -- Check all the AST type quantifiers and convert them into a list of bindings.
-checkQuantifiers :: Context -> Polarity -> [AST.Quantifier] -> Seq Type.Binding -> Check s (Context, Seq Type.Binding)
+checkQuantifiers :: HashSet Identifier -> Polarity -> [AST.Quantifier] -> Seq Type.Binding -> Check s (HashSet Identifier, Seq Type.Binding)
 checkQuantifiers context0 _ [] bindings = return (context0, bindings)
 checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bindings = do
-  -- Get a fresh type variable ID for our binding.
-  id' <- freshTypeVariable
   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
   binding <- case bound of
-    Nothing -> return (Type.Binding id' (Just name) Type.Flexible Type.bottom)
+    Nothing -> return (Type.Binding (AST.nameIdentifier name) Type.Flexible Type.bottom)
     Just (flexibility, boundType) ->
-      Type.Binding id' (Just name) flexibility <$> checkPolytype context0 polarity boundType
+      Type.Binding (AST.nameIdentifier name) flexibility <$> checkPolytype context0 polarity boundType
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
   -- after checking our binding type.
-  let context1 = HashMap.insert (AST.nameIdentifier name) (Type.variable id') context0
+  let context1 = HashSet.insert (AST.nameIdentifier name) context0
   -- Add our binding and process the remaining quantifiers in our new context.
   checkQuantifiers context1 polarity quantifiers (bindings |> binding)
 
@@ -120,25 +114,26 @@ checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bin
 -- ```
 --
 -- When we print our internal type representation back out we will inline the types again.
-checkMonotype :: Context -> Polarity -> Seq Type.Binding -> AST.Type -> Check s (Seq Type.Binding, Monotype)
-checkMonotype context polarity bindings0 type0 = case AST.typeNode type0 of
+checkMonotype :: HashSet Identifier -> Polarity -> Seq Type.Binding -> AST.Type -> Check s (HashSet Identifier, Seq Type.Binding, Monotype)
+checkMonotype context0 polarity bindings0 type0 = case AST.typeNode type0 of
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
-  AST.VariableType name -> return $ (,) bindings0 $
-    fromMaybe (Type.variableNotFoundError name) (HashMap.lookup name context)
+  AST.VariableType name ->
+    if HashSet.member name context0 then return (context0, bindings0, Type.variable name)
+    else return (context0, bindings0, Type.variableNotFoundError name)
 
   -- If we see a bottom type when we are expecting a monotype then create a fresh type variable
   -- which we will place in our polytype prefix.
   AST.BottomType -> do
-    id' <- freshTypeVariable
-    let binding = Type.Binding id' Nothing polarityFlexibility Type.bottom
-    return (bindings0 |> binding, Type.variable id')
+    let name = freshTypeName (\testName -> HashSet.member testName context0)
+    let binding = Type.Binding name polarityFlexibility Type.bottom
+    return (HashSet.insert name context0, bindings0 |> binding, Type.variable name)
 
   -- Check the parameter and body type of a function.
   AST.FunctionType [] [uncheckedParameterType] uncheckedBodyType -> do
-    (bindings1, parameterType) <- checkMonotype context (flipPolarity polarity) bindings0 uncheckedParameterType
-    (bindings2, bodyType) <- checkMonotype context polarity bindings1 uncheckedBodyType
-    return (bindings2, Type.function parameterType bodyType)
+    (context1, bindings1, parameterType) <- checkMonotype context0 (flipPolarity polarity) bindings0 uncheckedParameterType
+    (context2, bindings2, bodyType) <- checkMonotype context1 polarity bindings1 uncheckedBodyType
+    return (context2, bindings2, Type.function parameterType bodyType)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
   -- with a bound of this quantified type which we will place in our polytype prefix.
@@ -146,9 +141,9 @@ checkMonotype context polarity bindings0 type0 = case AST.typeNode type0 of
   -- NOTE: We don’t inline the quantifiers as bindings of our prefix! That could break scoping and
   -- we wouldn’t be able to print back out the same type.
   AST.QuantifiedType _ _ -> do
-    id' <- freshTypeVariable
-    binding <- Type.Binding id' Nothing polarityFlexibility <$> checkPolytype context polarity type0
-    return (bindings0 |> binding, Type.variable id')
+    let name = freshTypeName (\testName -> HashSet.member testName context0)
+    binding <- Type.Binding name polarityFlexibility <$> checkPolytype context0 polarity type0
+    return (HashSet.insert name context0, bindings0 |> binding, Type.variable name)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
   -- with a bound of this quantified type which we will place in our polytype prefix.
@@ -158,12 +153,12 @@ checkMonotype context polarity bindings0 type0 = case AST.typeNode type0 of
   --
   -- NOTE: We do treat a quantified function type the same as a `QuantifiedType`.
   AST.FunctionType (_ : _) _ _ -> do
-    id' <- freshTypeVariable
-    binding <- Type.Binding id' Nothing polarityFlexibility <$> checkPolytype context polarity type0
-    return (bindings0 |> binding, Type.variable id')
+    let name = freshTypeName (\testName -> HashSet.member testName context0)
+    binding <- Type.Binding name polarityFlexibility <$> checkPolytype context0 polarity type0
+    return (HashSet.insert name context0, bindings0 |> binding, Type.variable name)
 
   AST.WrappedType type1 ->
-    checkMonotype context polarity bindings0 type1
+    checkMonotype context0 polarity bindings0 type1
 
   where
     polarityFlexibility = case polarity of
