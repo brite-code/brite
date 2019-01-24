@@ -678,6 +678,7 @@ printType x0 = build $ case typeNode x0 of
     case typeNode t1 of
       VariableType _ -> normal
       BottomType -> normal
+      FunctionType [] ps r -> printType (t1 { typeNode = FunctionType qs1 ps r })
       FunctionType qs2 ps r -> printType (t1 { typeNode = FunctionType (qs1 ++ qs2) ps r })
       ObjectType _ _ -> normal
       QuantifiedType qs2 t2 -> printType (t1 { typeNode = QuantifiedType (qs1 ++ qs2) t2 })

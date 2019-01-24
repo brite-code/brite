@@ -45,6 +45,13 @@ module Brite.Syntax.PrinterAST
   , ObjectTypeProperty(..)
   , Quantifier(..)
   , Flexibility(..)
+  , variableType
+  , bottomType
+  , functionType
+  , quantifiedFunctionType
+  , quantifiedType
+  , unboundQuantifier
+  , quantifier
   , convertModule
   ) where
 
@@ -380,6 +387,38 @@ data Quantifier
   = QuantifierUnbound [AttachedComment] [AttachedComment] Identifier
   -- `T: U`
   | Quantifier [AttachedComment] Identifier Flexibility Type
+
+commaListItem :: a -> CommaListItem a
+commaListItem a = Right (a, [])
+
+-- `x`
+variableType :: Identifier -> Type
+variableType name = Type [] [] (VariableType name)
+
+-- `!`
+bottomType :: Type
+bottomType = Type [] [] BottomType
+
+-- `fun() -> T`
+functionType :: [Type] -> Type -> Type
+functionType parameters body = Type [] [] (FunctionType [] (map commaListItem parameters) body)
+
+-- `fun<T>() -> U`
+quantifiedFunctionType :: [Quantifier] -> [Type] -> Type -> Type
+quantifiedFunctionType quantifiers parameters body = Type [] [] $
+  FunctionType (map commaListItem quantifiers) (map commaListItem parameters) body
+
+-- `<T> U`
+quantifiedType :: [Quantifier] -> Type -> Type
+quantifiedType quantifiers body = Type [] [] (QuantifiedType (map commaListItem quantifiers) body)
+
+-- `<T>`
+unboundQuantifier :: Identifier -> Quantifier
+unboundQuantifier name = QuantifierUnbound [] [] name
+
+-- `<T: U>`
+quantifier :: Identifier -> Flexibility -> Type -> Quantifier
+quantifier name flex type' = Quantifier [] name flex type'
 
 -- Convert a CST module into a printer AST module.
 --
