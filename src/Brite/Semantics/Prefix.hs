@@ -14,16 +14,15 @@ module Brite.Semantics.Prefix
   , freshWithBound
   ) where
 
+import Brite.Semantics.AST (Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
-import Brite.Syntax.Tokens (Identifier, unsafeIdentifier)
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.Maybe (isJust)
 import Data.STRef
-import qualified Data.Text as Text
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
 -- `ST` monad for mutability. Unlike other immutable Haskell data types.
@@ -55,7 +54,7 @@ import qualified Data.Text as Text
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 -- [2]: http://okmij.org/ftp/ML/generalization.html
 data Prefix s = Prefix
-  { prefixCounter :: STRef s Int
+  { prefixCounter :: STRef s FreshCounter
   , prefixLevels :: STRef s [PrefixLevel s]
   , prefixEntries :: HashTable s Identifier (PrefixEntry s)
   }
@@ -81,7 +80,7 @@ data PrefixLevel s = PrefixLevel
 
 -- Creates a new prefix.
 new :: Check s (Prefix s)
-new = liftST (Prefix <$> newSTRef 1 <*> newSTRef [] <*> HashTable.new)
+new = liftST (Prefix <$> newSTRef initialFreshCounter <*> newSTRef [] <*> HashTable.new)
 
 -- Introduces a new level for the execution of the provided action. Cleans up the level after the
 -- action finishes. Any type variables created in the level will be removed from the prefix unless
@@ -132,11 +131,10 @@ add prefix binding = do
 -- Generates a fresh type variable name.
 freshName :: Prefix s -> Check s Identifier
 freshName prefix = do
-  counter <- liftST $ readSTRef (prefixCounter prefix)
-  let name = unsafeIdentifier (Text.append freshTypeBaseName (Text.pack (show counter)))
-  liftST $ writeSTRef (prefixCounter prefix) (counter + 1)
-  nameExists <- liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) name
-  if nameExists then freshName prefix else return name
+  oldCounter <- liftST $ readSTRef (prefixCounter prefix)
+  (name, newCounter) <- liftST $ freshTypeNameM (fmap isJust . HashTable.lookup (prefixEntries prefix)) oldCounter
+  liftST $ writeSTRef (prefixCounter prefix) (newCounter)
+  return name
 
 -- Creates a fresh type variable with no bound.
 fresh :: Prefix s -> Check s Monotype

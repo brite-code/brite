@@ -1,4 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Brite.Semantics.CheckMonad
@@ -9,7 +8,6 @@ module Brite.Semantics.CheckMonad
 
 import Brite.Diagnostics
 import Control.Monad.ST
-import Data.Hashable
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.STRef

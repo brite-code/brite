@@ -4,8 +4,10 @@
 
 module Brite.Semantics.Namer
   ( uniqueName
+  , FreshCounter
+  , initialFreshCounter
   , freshTypeName
-  , freshTypeBaseName
+  , freshTypeNameM
   ) where
 
 import Brite.Syntax.Tokens (Identifier, unsafeIdentifier, identifierText)
@@ -28,23 +30,40 @@ uniqueName exists initialName = loop start
       let newName = unsafeIdentifier (Text.append namePrefix (Text.pack (show i))) in
         if exists newName then loop (i + 1) else newName
 
--- Generates the name of a fresh type when we don’t have a user provided name name to base our type
--- name off of. Implement the same as `uniqueName` under the hood.
+-- State for a counter of fresh names.
+newtype FreshCounter = FreshCounter Int
+
+-- The initial state for a fresh counter.
+initialFreshCounter :: FreshCounter
+initialFreshCounter = FreshCounter 1
+
+-- Generates a new name for a type. Takes a function which checks if the name already exists or not
+-- and takes some state for generating fresh names.
+freshTypeName :: (Identifier -> Bool) -> FreshCounter -> (Identifier, FreshCounter)
+freshTypeName exists (FreshCounter j) = loop j
+  where
+    loop i =
+      let newName = unsafeIdentifier (Text.append freshTypeBaseName (Text.pack (show i))) in
+        if exists newName then loop (i + 1) else (newName, FreshCounter (i + 1))
+
+-- Same as `freshTypeName` except the exists check is performed inside a monad in case the
+-- programmer needs access to mutable references.
+freshTypeNameM :: Monad m => (Identifier -> m Bool) -> FreshCounter -> m (Identifier, FreshCounter)
+freshTypeNameM exists (FreshCounter j) = loop j
+  where
+    loop i = do
+      let newName = unsafeIdentifier (Text.append freshTypeBaseName (Text.pack (show i)))
+      newNameExists <- exists newName
+      if newNameExists then loop (i + 1) else return (newName, FreshCounter (i + 1))
+
+-- The base name we use when generating a fresh type variable name when we have no other name
+-- to use.
 --
 -- We choose to name these types `TypeN` where “N” is a positive integer. Other languages may choose
 -- `tN` or `TN` or a sequence of `a`, `b`, `c`, etc. We choose `TypeN` because we want to enforce
 -- for the programmer that type variable names are just like regular variable names and they should
 -- be named as such. A name like `T` (while popular in Java, JavaScript, and C) is not
 -- very expressive.
-freshTypeName :: (Identifier -> Bool) -> Identifier
-freshTypeName exists = loop (1 :: Int)
-  where
-    loop i =
-      let newName = unsafeIdentifier (Text.append freshTypeBaseName (Text.pack (show i))) in
-        if exists newName then loop (i + 1) else newName
-
--- The base name for `freshTypeName`. Does not include an integer suffix. Useful if you want to
--- implement your own name generator.
 freshTypeBaseName :: Text
 freshTypeBaseName = "Type"
 

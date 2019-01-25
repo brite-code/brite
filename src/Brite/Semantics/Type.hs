@@ -19,7 +19,6 @@ module Brite.Semantics.Type
   , boolean
   , integer
   , function
-  , variableNotFoundError
   , polytype
   , bottom
   , quantify
@@ -65,18 +64,6 @@ data MonotypeDescription
   -- TODO: Currently we only allow exactly one function argument, but Brite supports any number of
   -- function arguments.
   | Function Monotype Monotype
-
-  -- When the programmer writes a type that is not found anywhere in the current scope we introduce
-  -- a “variable not found” error type. In theory, we can think of every identifier introduced by
-  -- one of these errors as a unique type constructor. Say `Foo` and `Bar` don’t exist in the
-  -- current scope. The `Foo` error type is equivalent to another `Foo` error type but is not
-  -- equivalent to `Bar`.
-  --
-  -- This fits in nicely with the [MLF thesis’s][1] ability to extend the type system through “type
-  -- symbols” (see Section 1.1).
-  --
-  -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-  | VariableNotFoundError Identifier
 
 -- Types that do contain quantifiers. When we refer to a “type” what we really mean is “polytype”.
 data Polytype = Polytype
@@ -157,14 +144,6 @@ function parameter body =
   Monotype
     { monotypeFreeVariables = HashSet.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
     , monotypeDescription = Function parameter body
-    }
-
--- Creates an error type for variables which could not be found.
-variableNotFoundError :: Identifier -> Monotype
-variableNotFoundError identifier =
-  Monotype
-    { monotypeFreeVariables = HashSet.empty
-    , monotypeDescription = VariableNotFoundError identifier
     }
 
 -- Converts a monotype into a polytype.
@@ -401,8 +380,6 @@ substituteMonotype substitutions t0 = case monotypeDescription t0 of
   -- Types which will never have substitutions.
   Boolean -> Nothing
   Integer -> Nothing
-  -- Error types which will never have substitutions.
-  VariableNotFoundError _ -> Nothing
   -- If we don’t need a substitution then immediately return our type without recursing.
   _ | not (needsSubstitution substitutions (monotypeFreeVariables t0)) -> Nothing
   -- Substitute the type variables in a function type. We do this below the above condition so we

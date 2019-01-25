@@ -39,10 +39,6 @@ printMonotype polarity type' references0 yield = case monotypeDescription type' 
   Boolean -> yield references0 (\_ -> PrinterAST.variableType (unsafeIdentifier "Bool"))
   Integer -> yield references0 (\_ -> PrinterAST.variableType (unsafeIdentifier "Int"))
 
-  -- If we had an error variable type then we don’t want to add a reference! We want that type to
-  -- continue being an error.
-  VariableNotFoundError name -> yield references0 (\_ -> PrinterAST.variableType name)
-
 -- -- Count all our references and remember the polarity at which they appear. Positive references will
 -- -- go in the first tuple slot and negative references will go in the second tuple slot.
 -- countMonotypeReferences :: Polarity -> Monotype -> HashMap Identifier (Int, Int) -> HashMap Identifier (Int, Int)
@@ -57,7 +53,6 @@ printMonotype polarity type' references0 yield = case monotypeDescription type' 
 --   -- Don’t change the references map.
 --   Boolean -> references0
 --   Integer -> references0
---   VariableNotFoundError _ -> references0
 
 --   -- Count references in a function type and make sure to flip the polarity for function arguments.
 --   Function parameter body ->
@@ -122,5 +117,3 @@ printMonotypeWithoutInlining type' = case monotypeDescription type' of
     PrinterAST.functionType
       [printMonotypeWithoutInlining parameter]
       (printMonotypeWithoutInlining body)
-
-  VariableNotFoundError name -> PrinterAST.variableType name

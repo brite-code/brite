@@ -54,12 +54,14 @@ module Brite.Diagnostics
   , ExpectedToken(..)
   , unexpectedToken
   , unexpectedEnding
+  , unboundTypeVariable
   , diagnosticMessage
+  , diagnosticMessageText
   , debugDiagnostic
   ) where
 
 import Brite.DiagnosticsMarkup
-import Brite.Syntax.Tokens (Range, debugRange, TokenKind(..), Glyph, glyphText)
+import Brite.Syntax.Tokens (Range, debugRange, Identifier, identifierText, TokenKind(..), Glyph, glyphText)
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as Text
@@ -103,6 +105,8 @@ data ErrorDiagnosticMessage
   = UnexpectedToken TokenKind ExpectedToken
   -- The parser ran into the end of the source document unexpectedly.
   | UnexpectedEnding ExpectedToken
+  -- The type checker ran into a type variable which it could not find a binding for.
+  | UnboundTypeVariable Identifier
 
 data WarningDiagnosticMessage
 
@@ -173,6 +177,11 @@ unexpectedEnding :: DiagnosticMonad m => Range -> ExpectedToken -> m Diagnostic
 unexpectedEnding range expected = report $ Diagnostic range $ Error $
   UnexpectedEnding expected
 
+-- The type checker ran into a type variable which it could not find a binding for.
+unboundTypeVariable :: DiagnosticMonad m => Range -> Identifier -> m Diagnostic
+unboundTypeVariable range name = report $ Diagnostic range $ Error $
+  UnboundTypeVariable name
+
 -- Creates the human readable diagnostic message for a given diagnostic. Remember that this
 -- generates a new message every time it is called instead of fetching a pre-generated message.
 diagnosticMessage :: Diagnostic -> Markup
@@ -181,6 +190,10 @@ diagnosticMessage diagnostic =
     Error message -> diagnosticErrorMessage message
     Warning _ -> error "unreachable"
     Info _ -> error "unreachable"
+
+-- The text of a diagnostic message.
+diagnosticMessageText :: Diagnostic -> Text.Builder
+diagnosticMessageText = toText . diagnosticMessage
 
 diagnosticErrorMessage :: ErrorDiagnosticMessage -> Markup
 
@@ -223,6 +236,17 @@ diagnosticErrorMessage (UnexpectedToken unexpected expected) =
 -- perspective which we are designing for.
 diagnosticErrorMessage (UnexpectedEnding expected) =
   plain "We wanted " <> expectedTokenDescription expected <> plain " but the file ended."
+
+-- Other options considered include:
+--
+-- * “`T` does not exist.” This is too forceful and puts all the blame on the programmer. It also
+--   might be wrong. `T` could exist, it just might be in another scope or file.
+-- * “Could not find type `T`.” Adding “we” makes the message a bit more personal. It shifts blame
+--   from the programmer to the compiler.
+-- * “We cannot find type `T`.” I like the sound of “could not” better than “cannot” or “can’t”.
+-- * “We could not find name `T`.” We use “type” instead of “name” to be more specific here.
+diagnosticErrorMessage (UnboundTypeVariable name) =
+  plain "We could not find type " <> code (identifierText name) <> plain "."
 
 -- Get the description of an expected token.
 expectedTokenDescription :: ExpectedToken -> Markup
