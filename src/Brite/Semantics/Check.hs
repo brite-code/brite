@@ -61,13 +61,13 @@ checkExpression astExpression =
   error "TODO"
 
 -- Checks a type and converts it into an internal polytype representation.
-checkType :: AST.Type -> DiagnosticWriter Polytype
-checkType type' = checkPolytype initialContext Positive type'
+checkType :: Type.Polarity -> AST.Type -> DiagnosticWriter Polytype
+checkType polarity type' = checkPolytype initialContext polarity type'
   where
     initialContext = HashSet.fromList [unsafeIdentifier "Bool", unsafeIdentifier "Int"]
 
 -- Checks an AST type and turns it into a polytype.
-checkPolytype :: HashSet Identifier -> Polarity -> AST.Type -> DiagnosticWriter Polytype
+checkPolytype :: HashSet Identifier -> Type.Polarity -> AST.Type -> DiagnosticWriter Polytype
 checkPolytype context0 polarity type0 = case AST.typeNode type0 of
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
@@ -80,7 +80,7 @@ checkPolytype context0 polarity type0 = case AST.typeNode type0 of
   -- Check a function type with its quantifiers.
   AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
     (context1, bindings1) <- checkQuantifiers context0 polarity quantifiers Seq.empty
-    (context2, bindings2, parameterType) <- checkMonotype context1 (flipPolarity polarity) bindings1 uncheckedParameterType
+    (context2, bindings2, parameterType) <- checkMonotype context1 (Type.flipPolarity polarity) bindings1 uncheckedParameterType
     (_, bindings3, bodyType) <- checkMonotype context2 polarity bindings2 uncheckedBodyType
     return (Type.quantify (toList bindings3) (Type.function parameterType bodyType))
 
@@ -95,7 +95,7 @@ checkPolytype context0 polarity type0 = case AST.typeNode type0 of
 
 -- Check all the AST type quantifiers and convert them into a list of bindings.
 checkQuantifiers ::
-  HashSet Identifier -> Polarity -> [AST.Quantifier] -> Seq Type.Binding ->
+  HashSet Identifier -> Type.Polarity -> [AST.Quantifier] -> Seq Type.Binding ->
     DiagnosticWriter (HashSet Identifier, Seq Type.Binding)
 checkQuantifiers context0 _ [] bindings = return (context0, bindings)
 checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bindings = do
@@ -133,7 +133,7 @@ checkQuantifiers context0 polarity (AST.Quantifier name bound : quantifiers) bin
 --
 -- When we print our internal type representation back out we will inline the types again.
 checkMonotype ::
-  HashSet Identifier -> Polarity -> Seq Type.Binding -> AST.Type ->
+  HashSet Identifier -> Type.Polarity -> Seq Type.Binding -> AST.Type ->
     DiagnosticWriter (HashSet Identifier, Seq Type.Binding, Monotype)
 checkMonotype context0 polarity bindings0 type0 = case AST.typeNode type0 of
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
@@ -146,12 +146,12 @@ checkMonotype context0 polarity bindings0 type0 = case AST.typeNode type0 of
   -- which we will place in our polytype prefix.
   AST.BottomType -> do
     let name = freshTypeName (\testName -> HashSet.member testName context0)
-    let binding = Type.Binding name polarityFlexibility Type.bottom
+    let binding = Type.Binding name flexibility Type.bottom
     return (HashSet.insert name context0, bindings0 |> binding, Type.variable name)
 
   -- Check the parameter and body type of a function.
   AST.FunctionType [] [uncheckedParameterType] uncheckedBodyType -> do
-    (context1, bindings1, parameterType) <- checkMonotype context0 (flipPolarity polarity) bindings0 uncheckedParameterType
+    (context1, bindings1, parameterType) <- checkMonotype context0 (Type.flipPolarity polarity) bindings0 uncheckedParameterType
     (context2, bindings2, bodyType) <- checkMonotype context1 polarity bindings1 uncheckedBodyType
     return (context2, bindings2, Type.function parameterType bodyType)
 
@@ -162,7 +162,7 @@ checkMonotype context0 polarity bindings0 type0 = case AST.typeNode type0 of
   -- we wouldn’t be able to print back out the same type.
   AST.QuantifiedType _ _ -> do
     let name = freshTypeName (\testName -> HashSet.member testName context0)
-    binding <- Type.Binding name polarityFlexibility <$> checkPolytype context0 polarity type0
+    binding <- Type.Binding name flexibility <$> checkPolytype context0 polarity type0
     return (HashSet.insert name context0, bindings0 |> binding, Type.variable name)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
@@ -174,32 +174,11 @@ checkMonotype context0 polarity bindings0 type0 = case AST.typeNode type0 of
   -- NOTE: We do treat a quantified function type the same as a `QuantifiedType`.
   AST.FunctionType (_ : _) _ _ -> do
     let name = freshTypeName (\testName -> HashSet.member testName context0)
-    binding <- Type.Binding name polarityFlexibility <$> checkPolytype context0 polarity type0
+    binding <- Type.Binding name flexibility <$> checkPolytype context0 polarity type0
     return (HashSet.insert name context0, bindings0 |> binding, Type.variable name)
 
   AST.WrappedType type1 ->
     checkMonotype context0 polarity bindings0 type1
 
   where
-    polarityFlexibility = case polarity of
-      Negative -> Type.Rigid
-      Positive -> Type.Flexible
-
--- Polarity represents whether a type is in an “input” or an “output” position. You may also know
--- polarity as “variance”.
---
--- Consider the type `fun(T) -> U`. Here `T` is in an _input_ position so we give it a negative
--- polarity. However, `U` is in an _output_ position so we give it a positive polarity.
---
--- A negative position in a negative position is a positive position. Consider the type
--- `fun(fun(T) -> U) -> V`. Here, like before, `V` has a positive polarity. `U` has a negative
--- polarity because it it is in a negative position (function parameter) and a positive position
--- (function return) so a negative times a positive is a negative. `T`, however, has a positive
--- polarity because it is in a negative position (function parameter) and a negative position again
--- (function parameter of a function parameter) so a negative times a negative is a positive.
-data Polarity = Positive | Negative
-
--- Flips the polarity from positive to negative and vice-versa.
-flipPolarity :: Polarity -> Polarity
-flipPolarity Positive = Negative
-flipPolarity Negative = Positive
+    flexibility = Type.polarityFlexibility polarity
