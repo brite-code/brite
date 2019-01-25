@@ -109,6 +109,14 @@ checkPolytype polarity context0 type0 = case AST.typeNode type0 of
 
   AST.WrappedType type1 -> checkPolytype polarity context0 type1
 
+  -- Error types which don’t have a recovered type return error types.
+  AST.ErrorType diagnostic Nothing -> errorType diagnostic
+
+  -- Error types which do have a recovered type ignore their diagnostic (there’s no point in keeping
+  -- it, where would we throw it?) and continue type checking with the recovered type.
+  AST.ErrorType _ (Just type1) ->
+    checkPolytype polarity context0 (type0 { AST.typeNode = type1 })
+
   where
     range = AST.typeRange type0
 
@@ -211,6 +219,14 @@ checkMonotype polarity context counter0 bindings0 type0 = case AST.typeNode type
 
   AST.WrappedType type1 ->
     checkMonotype polarity context counter0 bindings0 type1
+
+  -- Error types which don’t have a recovered type return error types.
+  AST.ErrorType diagnostic Nothing -> errorType diagnostic
+
+  -- Error types which do have a recovered type ignore their diagnostic (there’s no point in keeping
+  -- it, where would we throw it?) and continue type checking with the recovered type.
+  AST.ErrorType _ (Just type1) ->
+    checkMonotype polarity context counter0 bindings0 (type0 { AST.typeNode = type1 })
 
   where
     flexibility = Type.polarityFlexibility polarity

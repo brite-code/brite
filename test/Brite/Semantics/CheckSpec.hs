@@ -104,6 +104,10 @@ testData =
   , ("fun(fun<T>(T) -> T) -> Type1", "fun<Type1 = fun<T>(T) -> T, Type2>(Type1) -> Type2", ["We could not find type `Type1`."])
   , ("fun<T>(!) -> !", "fun<T, Type1 = !, Type2>(Type1) -> Type2", [])
   , ("fun<Type2>(!) -> !", "fun<Type2, Type1 = !, Type3>(Type1) -> Type3", [])
+  , ("😈", "!", [])
+  , ("fun(😈) -> 😈", "fun<Type1 = !, Type2>(Type1) -> Type2", [])
+  , ("😈 X", "X", [])
+  , ("fun(😈 X) -> 😈 X", "fun(X) -> X", [])
   ]
 
 initialContext :: HashSet Identifier
