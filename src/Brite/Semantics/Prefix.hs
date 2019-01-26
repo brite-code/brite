@@ -22,6 +22,7 @@ import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
+import Control.Monad.ST
 import Data.Foldable (foldlM)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.HashTable.ST.Cuckoo (HashTable)
@@ -112,8 +113,8 @@ withLevel prefix action = do
   return result
 
 -- Does this name exist in the prefix?
-exists :: Prefix s -> Identifier -> Check s Bool
-exists prefix name = liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) name
+exists :: Prefix s -> Identifier -> ST s Bool
+exists prefix name = isJust <$> HashTable.lookup (prefixEntries prefix) name
 
 -- Adds a type binding to our prefix assuming that the binding’s name is not already bound.
 --
@@ -121,23 +122,23 @@ exists prefix name = liftST $ isJust <$> HashTable.lookup (prefixEntries prefix)
 -- * If the binding type has free type variables that don’t exist in the prefix then we will happily
 --   add your binding to the prefix anyway. Just know that you’re in for a world of trouble later
 --   when you try to use those unbound type variables.
-addAssumingThatNameIsUnbound :: Prefix s -> Type.Binding -> Check s ()
+addAssumingThatNameIsUnbound :: Prefix s -> Type.Binding -> ST s ()
 addAssumingThatNameIsUnbound prefix binding = do
   -- If there are no levels or a binding with the same ID already exists then we don’t add
   -- the binding.
-  levels <- liftST $ readSTRef (prefixLevels prefix)
+  levels <- readSTRef (prefixLevels prefix)
   if null levels then return () else do
     -- Add the type variable binding to the current level.
     let level = head levels
-    liftST $ HashTable.insert (prefixLevelVariables level) (Type.bindingName binding) ()
+    HashTable.insert (prefixLevelVariables level) (Type.bindingName binding) ()
     -- Add the type variable binding to the prefix.
-    entry <- liftST $ PrefixEntry <$> newSTRef binding <*> newSTRef level
-    liftST $ HashTable.insert (prefixEntries prefix) (Type.bindingName binding) entry
+    entry <- PrefixEntry <$> newSTRef binding <*> newSTRef level
+    HashTable.insert (prefixEntries prefix) (Type.bindingName binding) entry
 
 -- Adds a type binding to our prefix. If the name is already bound in the prefix then we generate a
 -- unique name and try again.
 add :: Prefix s -> Type.Binding -> Check s (Maybe Monotype)
-add prefix binding = do
+add prefix binding = liftST $ do
   newName <- uniqueNameM (exists prefix) (Type.bindingName binding)
   -- If we did not generate a new name then we can use our binding unchanged.
   if newName == Type.bindingName binding then do
@@ -149,16 +150,16 @@ add prefix binding = do
     return (Just (Type.variable newName))
 
 -- Generates a fresh type variable name.
-freshName :: Prefix s -> Check s Identifier
+freshName :: Prefix s -> ST s Identifier
 freshName prefix = do
-  oldCounter <- liftST $ readSTRef (prefixCounter prefix)
+  oldCounter <- readSTRef (prefixCounter prefix)
   (name, newCounter) <- freshTypeNameM (exists prefix) oldCounter
-  liftST $ writeSTRef (prefixCounter prefix) (newCounter)
+  writeSTRef (prefixCounter prefix) (newCounter)
   return name
 
 -- Creates a fresh type variable with no bound.
 fresh :: Prefix s -> Check s Monotype
-fresh prefix = do
+fresh prefix = liftST $ do
   name <- freshName prefix
   addAssumingThatNameIsUnbound prefix (Type.Binding name Type.Flexible Type.bottom)
   return (Type.variable name)
@@ -166,7 +167,7 @@ fresh prefix = do
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
 -- monotype then we return the monotype directly instead of creating a fresh type variable.
 freshWithBound :: Prefix s -> Type.Flexibility -> Polytype -> Check s Monotype
-freshWithBound prefix k t =
+freshWithBound prefix k t = liftST $
   -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
   -- always inlined in normal form anyway.
   case Type.polytypeDescription t of
@@ -179,18 +180,18 @@ freshWithBound prefix k t =
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
 -- return nothing. The bound returned will always be in normal form.
 lookup :: Prefix s -> Identifier -> Check s (Maybe Polytype)
-lookup prefix name = do
+lookup prefix name = liftST $ do
   -- Lookup the entry in the table. If the type is not in normal form we want to convert the type
   -- before returning.
-  maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
+  maybeEntry <- HashTable.lookup (prefixEntries prefix) name
   flip traverse maybeEntry $ \entry -> do
     -- Read the binding from our entry.
-    binding <- liftST $ readSTRef (prefixEntryBinding entry)
+    binding <- readSTRef (prefixEntryBinding entry)
     -- If the type is not in normal form, convert it to normal form and update the binding in
     -- our entry.
     if not (Type.polytypeNormal (Type.bindingType binding)) then do
       let newType = Type.normal (Type.bindingType binding)
-      liftST $ writeSTRef (prefixEntryBinding entry) (binding { Type.bindingType = newType })
+      writeSTRef (prefixEntryBinding entry) (binding { Type.bindingType = newType })
       return newType
     else
       return (Type.bindingType binding)
