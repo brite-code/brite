@@ -14,6 +14,7 @@ module Brite.Semantics.Prefix
   , freshWithBound
   , lookup
   , instantiate
+  , generalize
   ) where
 
 import Prelude hiding (lookup)
@@ -23,7 +24,7 @@ import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Control.Monad.ST
-import Data.Foldable (foldlM)
+import Data.Foldable (foldlM, traverse_)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
@@ -225,3 +226,53 @@ instantiate prefix bindings body = do
   -- If we have some substitutions we need to apply them to our body type.
   if HashMap.null substitutions2 then return body
   else return (fromMaybe body (Type.substituteMonotype substitutions2 body))
+
+-- Generalizes a type at the current level of the prefix. If the type references variables in the
+-- prefix at the current level then we will quantify the provided monotype with those type
+-- variables. If the type references variables at another level then we will not quantify those. The
+-- returned type will be in normal form.
+--
+-- If there are no levels then we return the type without generalizing.
+generalize :: Prefix s -> Monotype -> Check s Polytype
+generalize prefix body = liftST $ do
+  -- Get the current prefix level. Return the body type directly if we have no levels.
+  levels <- readSTRef (prefixLevels prefix)
+  if null levels then return (Type.polytype body) else do
+    let currentLevelIndex = prefixLevelIndex (head levels)
+    -- Create a hash table for tracking the type variables we’ve visited. Also create a list of the
+    -- bounds we are going to quantify.
+    visited <- HashTable.new
+    bindingsRef <- newSTRef []
+    -- Our visitor will look at each free type variable and possibly add it to our bounds list
+    -- and recurse.
+    let
+      visit name = do
+        -- If we have not yet visited this type variable...
+        nameVisited <- isJust <$> HashTable.lookup visited name
+        if not nameVisited then do
+          HashTable.insert visited name ()
+          -- Find the type variable in our prefix. If it exists then we want to look at the
+          -- entry’s level.
+          HashTable.lookup (prefixEntries prefix) name >>= traverse_ (\entry -> do
+            -- If the type variable is on our current level...
+            entryLevelIndex <- prefixLevelIndex <$> readSTRef (prefixEntryLevel entry)
+            if entryLevelIndex >= currentLevelIndex then do
+              -- Read the binding reference.
+              entryBinding <- readSTRef (prefixEntryBinding entry)
+              -- Recurse and visit all free variables in our bound because the bound might have some
+              -- dependencies on this level.
+              traverse_ visit (Type.polytypeFreeVariables (Type.bindingType entryBinding))
+              -- Add our bound to the list we will use to quantify. It is important we do this after
+              -- recursing! Since the bound we add depends on the bounds we might add
+              -- while recursing.
+              modifySTRef bindingsRef (entryBinding :)
+            else
+              return ())
+        else
+          return ()
+    -- Visit all the free variables in this type.
+    traverse_ visit (Type.monotypeFreeVariables body)
+    -- Quantify the type by the list of bounds we collected. Also convert the type to normal form.
+    bindings <- readSTRef bindingsRef
+    if null bindings then return (Type.polytype body)
+    else return (Type.normal (Type.quantify (reverse bindings) body))
