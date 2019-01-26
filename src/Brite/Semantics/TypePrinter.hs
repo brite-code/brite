@@ -1,3 +1,6 @@
+-- Responsible for converting our type checker representation of types into a Brite printer AST. We
+-- give the printer AST to the printer which will build source code.
+
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Semantics.TypePrinter
