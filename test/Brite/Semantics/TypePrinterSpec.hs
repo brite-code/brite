@@ -53,6 +53,15 @@ testData =
   , ("fun<T, U: fun<V>(V) -> T>(T) -> U", "fun<T>(T) -> fun<V>(V) -> T")
   , ("fun<T, T: fun<V>(V) -> T>(Int) -> T", "fun(Int) -> fun<V>(V) -> !")
   , ("fun<T, T: fun<V>(V) -> T>(T) -> T", "fun<T: fun<V>(V) -> !>(T) -> T")
+  , ("fun<T, U: fun<V>(V) -> fun(T) -> T, T>(T) -> U", "fun<T, T2>(T2) -> fun<V>(V) -> fun(T) -> T")
+  , ("fun<T, U: fun<V>(V) -> fun(T) -> T, T: fun<V>(V) -> V>(T) -> U", "fun<T, T2: fun<V>(V) -> V>(T2) -> fun<V>(V) -> fun(T) -> T")
+  , ("fun<T, V: fun<U: fun<V>(V) -> fun(T) -> T, T>(T) -> U>(V) -> V", "fun<T, V: fun<T2>(T2) -> fun<V>(V) -> fun(T) -> T>(V) -> V")
+  , ("fun<T2, T, U: fun<V>(V) -> fun(T) -> T, T>(T2) -> fun(T) -> U", "fun<T2, T, T3>(T2) -> fun(T3) -> fun<V>(V) -> fun(T) -> T")
+  , ("fun<T2, T, V: fun<U: fun<V>(V) -> fun(T) -> T, T>(T2) -> fun(T) -> U>(V) -> V", "fun<T2, T, V: fun<T3>(T2) -> fun(T3) -> fun<V>(V) -> fun(T) -> T>(V) -> V")
+  , ("fun<A = !, B = fun<V>(V) -> A, A, A2>(A) -> fun(A2) -> B", "fun<A = !, B = fun<V>(V) -> A, A, A2>(A) -> fun(A2) -> B")
+  , ("fun<A = !, B = fun<V>(V) -> A, A2, A>(A) -> fun(A2) -> B", "fun<A = !, B = fun<V>(V) -> A, A2, A>(A) -> fun(A2) -> B")
+  , ("fun<T = !, U: fun<V>(V) -> T, T, T2>(T) -> fun(T2) -> U", "fun<T = !, T2, T3>(T2) -> fun(T3) -> fun<V>(V) -> T")
+  , ("fun<T = !, U: fun<V>(V) -> T, T2, T>(T) -> fun(T2) -> U", "fun<T = !, T2, T3>(T3) -> fun(T2) -> fun<V>(V) -> T")
   ]
 
 initialContext :: HashSet Identifier
@@ -66,4 +75,8 @@ spec = do
       mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
       let (type2, _) = runDiagnosticWriter (checkPolytype Positive initialContext (convertRecoverType type1))
       let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytype Positive type2)))
+      let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))
+      let (type4, _) = runDiagnosticWriter (checkPolytype Positive initialContext (convertRecoverType type3))
+      let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytype Positive type4)))
       actualOutput `shouldBe` expectedOutput
+      actualOutput2 `shouldBe` actualOutput

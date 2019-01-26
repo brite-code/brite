@@ -96,6 +96,7 @@ testData =
   , ("fun<A, B = fun(A) -> A, A = fun<Z>(Z) -> B>(A) -> A", "fun<A, A2 = fun<Z>(Z) -> fun(A) -> A>(A2) -> A2")
   , ("fun<A, B = fun(A) -> A, A = fun<Z>(Z) -> B>(A) -> fun(A) -> B", "fun<A, A2 = fun<Z>(Z) -> fun(A) -> A>(A2) -> fun(A2) -> fun(A) -> A")
   , ("<X, X = X> X", "!")
+  , ("fun<T2, U: fun<T, V: T, T>(V) -> fun(T) -> T2>(U) -> U", "fun<T2, U: fun<T, T3>(T) -> fun(T3) -> T2>(U) -> U")
   ]
 
 initialContext :: HashSet Identifier
@@ -110,4 +111,8 @@ spec = do
         mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
         let (type2, _) = runDiagnosticWriter (normal <$> checkPolytype Positive initialContext (convertRecoverType type1))
         let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type2)))
+        let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))
+        let (type4, _) = runDiagnosticWriter (normal <$> checkPolytype Positive initialContext (convertRecoverType type3))
+        let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type4)))
         actualOutput `shouldBe` expectedOutput
+        actualOutput2 `shouldBe` actualOutput

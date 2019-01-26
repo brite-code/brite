@@ -9,9 +9,11 @@ module Brite.Semantics.Type
   ( Monotype
   , MonotypeDescription(..)
   , monotypeDescription
+  , monotypeFreeVariables
   , Polytype
   , PolytypeDescription(..)
   , polytypeDescription
+  , polytypeFreeVariables
   , Binding(..)
   , Flexibility(..)
   , isUnboundBinding
@@ -222,12 +224,12 @@ polarityFlexibility Negative = Rigid
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 normal :: Polytype -> Polytype
 normal t | polytypeNormal t = t
-normal t = fromMaybe t (substituteAndNormalizePolytype HashMap.empty t)
+normal t = fromMaybe t (substituteAndNormalizePolytype HashSet.empty HashMap.empty t)
 
 -- Applies substitutions to a polytype in addition to converting it to normal form. Returns nothing
 -- if the type did not change.
-substituteAndNormalizePolytype :: HashMap Identifier Monotype -> Polytype -> Maybe Polytype
-substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescription t0 of
+substituteAndNormalizePolytype :: HashSet Identifier -> HashMap Identifier Monotype -> Polytype -> Maybe Polytype
+substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polytypeDescription t0 of
   -- Bottom types neither need to be substituted or converted to normal form.
   Bottom -> Nothing
 
@@ -247,7 +249,7 @@ substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescriptio
   --
   -- We know from the above pre-condition that this quantified type _must_ be changed.
   Quantify initialBindings initialBody ->
-    Just (loop HashSet.empty HashSet.empty initialSubstitutions initialBindings [])
+    Just (loop initialSeen HashSet.empty initialSubstitutions initialBindings [])
     where
       -- The first `loop` function takes all the monotype bounds and substitutes them inside the
       -- quantified type’s body and subsequent bounds. While doing so we accumulate a list of the
@@ -276,7 +278,7 @@ substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescriptio
       loop seen captured substitutions (oldBinding : bindings) bindingsRev =
         let
           -- Convert the bound’s type to normal form if necessary.
-          binding = case substituteAndNormalizePolytype substitutions (bindingType oldBinding) of
+          binding = case substituteAndNormalizePolytype seen substitutions (bindingType oldBinding) of
             Nothing -> oldBinding
             Just newType -> oldBinding { bindingType = newType }
         in
@@ -296,12 +298,10 @@ substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescriptio
               if HashSet.member (bindingName binding) captured then
                 let
                   -- Generate a new name for our binding that is unique. We can’t use a name that
-                  -- we’ve already seen since that name might be used at some future point, and we
-                  -- can’t use a name that we captured since the whole point of this branch is to
-                  -- not use a captured name.
+                  -- we’ve already seen since that name might be used at some future point.
                   newName =
                     uniqueName
-                      (\testName -> HashSet.member testName seen || HashSet.member testName captured)
+                      (\testName -> HashSet.member testName seen)
                       (bindingName binding)
 
                   newBinding = binding { bindingName = newName }
@@ -313,12 +313,13 @@ substituteAndNormalizePolytype initialSubstitutions t0 = case polytypeDescriptio
                   -- replace it.
                   newSubstitutions = HashMap.insert (bindingName binding) (variable newName) substitutions
 
-                  -- Insert our new name into `captured` because the name was “captured” in our
-                  -- substitutions map. We don’t need to insert the name into `seen` because that’s
-                  -- redundant based on our implementation. We only need it in the `captured` set.
+                  -- Insert our new name into both `seen` because our quantifier list now includes
+                  -- this binding. Insert our new name into `captured` because the name was
+                  -- “captured” in our substitutions map.
+                  newSeen = HashSet.insert newName seen
                   newCaptured = HashSet.insert newName captured
                 in
-                  loop seen newCaptured newSubstitutions bindings (newBinding : bindingsRev)
+                  loop newSeen newCaptured newSubstitutions bindings (newBinding : bindingsRev)
 
               -- Otherwise, we can use the binding’s name.
               else

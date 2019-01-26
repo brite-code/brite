@@ -5,11 +5,14 @@ module Brite.Semantics.TypePrinter
   , printPolytypeWithoutInlining
   ) where
 
+import Brite.Semantics.Namer
 import Brite.Semantics.Type
 import qualified Brite.Syntax.PrinterAST as PrinterAST
 import Brite.Syntax.Tokens (Identifier, unsafeIdentifier)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
+import Data.HashSet (HashSet)
+import qualified Data.HashSet as HashSet
 import Data.Maybe (fromMaybe)
 
 -- Prints a polytype to a Brite printer AST which may then be printed to text. This printer also
@@ -34,7 +37,8 @@ printPolytype polarity type0 = case polytypeDescription type0 of
   -- If we have a quantified type then print it using our more complex
   -- `printPolytypeWithInlining` implementation.
   Quantify _ _ ->
-    printPolytypeWithInlining polarity type0 HashMap.empty (\_ makeType -> makeType HashMap.empty)
+    printPolytypeWithInlining polarity type0 HashMap.empty $ \_ makeType ->
+      makeType HashSet.empty HashMap.empty
 
 -- Prints a polytype while providing facilities for inlining bounds with only a single use at the
 -- appropriate polarity.
@@ -46,14 +50,16 @@ printPolytype polarity type0 = case polytypeDescription type0 of
 -- [1]: https://en.wikipedia.org/wiki/Continuation-passing_style
 printPolytypeWithInlining ::
   Polarity -> Polytype -> HashMap Identifier (Int, Int) ->
-    (HashMap Identifier (Int, Int) -> (HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
+    (HashMap Identifier (Int, Int) -> (HashSet Identifier -> HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
       -> a
 printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescription type1 of
   -- Print our monotype with inlining.
-  Monotype' type2 -> printMonotypeWithInlining polarity type2 references0 yield
+  Monotype' type2 ->
+    printMonotypeWithInlining polarity type2 references0 $ \references1 makeType ->
+      yield references1 (\_ substitutions -> makeType substitutions)
 
   -- Bottom types don’t care about references. They only yield their type.
-  Bottom -> yield references0 (\_ -> PrinterAST.bottomType)
+  Bottom -> yield references0 (\_ _ -> PrinterAST.bottomType)
 
   -- If we have a quantified then we’ve got some work to do!
   Quantify initialBindings body ->
@@ -61,8 +67,8 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
     -- quantifiers and a printer AST type for the function body. When we yield we need to combine
     -- those into one printer AST type.
     loop initialBindings $ \references1 makeQuantifiedBody ->
-      yield references1 $ \inlineBindings ->
-        let (qs, t) = makeQuantifiedBody inlineBindings in
+      yield references1 $ \seen substitutions ->
+        let (qs, t) = makeQuantifiedBody seen HashSet.empty substitutions in
           PrinterAST.quantifiedType qs t
     where
       -- This loop function is pretty gnarly. Here’s what it does:
@@ -92,13 +98,15 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
       -- `next` will iterate back through our bindings.
       loop [] next =
         printMonotypeWithInlining polarity body references0 $ \references1 makeBody ->
-          next references1 $ \inlineBindings ->
-            ([], makeBody inlineBindings)
+          next references1 $ \_ _ substitutions ->
+            ([], makeBody substitutions)
 
       -- For every binding:
       --
       -- * Check how many references to this binding there are.
       -- * Determine if the binding needs to be inlined.
+      -- * If the binding needs to be inlined, capture its free variables and rename them if we
+      --   see them again.
       loop (binding : bindings) next = loop bindings $ \references1 makeQuantifiedBody ->
         let
           -- Both delete the references for this binding from our map and at the same time
@@ -107,36 +115,84 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
             HashMap.alterF (\value -> (value, Nothing)) (bindingName binding) references1
         in
           printPolytypeWithInlining polarity (bindingType binding) references2 $ \references3 makeBindingType ->
-            next references3 $ \inlineBindings ->
+            next references3 $ \seen captured substitutions ->
               case (bindingFlexibility binding, bindingReferences) of
                 -- If there are no references to this binding then ignore it. These branches should
                 -- be unreachable since normal mode will discard unused bindings.
-                (_, Nothing) -> makeQuantifiedBody (HashMap.delete (bindingName binding) inlineBindings)
-                (_, Just (0, 0)) -> makeQuantifiedBody (HashMap.delete (bindingName binding) inlineBindings)
+                (_, Nothing) -> makeQuantifiedBody seen captured (HashMap.delete (bindingName binding) substitutions)
+                (_, Just (0, 0)) -> makeQuantifiedBody seen captured (HashMap.delete (bindingName binding) substitutions)
 
                 -- If a flexible binding has just one positive reference then inline the
                 -- binding type.
-                (Flexible, Just (1, 0)) -> makeQuantifiedBody $
-                  HashMap.insert (bindingName binding) (makeBindingType inlineBindings) inlineBindings
+                (Flexible, Just (1, 0)) ->
+                  let newCaptured = HashSet.union (polytypeFreeVariables (bindingType binding)) captured in
+                    makeQuantifiedBody seen newCaptured $
+                      HashMap.insert (bindingName binding) (makeBindingType seen substitutions) substitutions
 
                 -- If a rigid binding has just one negative reference then inline the binding type.
-                (Rigid, Just (0, 1)) -> makeQuantifiedBody $
-                  HashMap.insert (bindingName binding) (makeBindingType inlineBindings) inlineBindings
+                (Rigid, Just (0, 1)) ->
+                  let newCaptured = HashSet.union (polytypeFreeVariables (bindingType binding)) captured in
+                    makeQuantifiedBody seen newCaptured $
+                      HashMap.insert (bindingName binding) (makeBindingType seen substitutions) substitutions
 
-                -- If our binding has more than one reference add it as a quantifier...
+                -- If our binding has more than one reference then we want to add it as
+                -- a quantifier.
                 _ ->
-                  let
-                    (qs, t) = makeQuantifiedBody (HashMap.delete (bindingName binding) inlineBindings)
-                    q =
-                      if isUnboundBinding binding then
-                        PrinterAST.unboundQuantifier (bindingName binding)
-                      else
-                        PrinterAST.quantifier
+                  -- If this binding is captured in our `substitutions` map then we need to pick a
+                  -- new name for it.
+                  if HashSet.member (bindingName binding) captured then
+                    let
+                      -- Generate a new, unique, name that we have not seen before and is
+                      -- not captured.
+                      newBindingName =
+                        uniqueName
+                          (\testName -> HashSet.member testName seen)
                           (bindingName binding)
-                          (bindingFlexibility binding)
-                          (makeBindingType inlineBindings)
-                  in
-                    (q : qs, t)
+
+                      -- Create our quantifier using the new binding name.
+                      q =
+                        if isUnboundBinding binding then
+                          PrinterAST.unboundQuantifier newBindingName
+                        else
+                          PrinterAST.quantifier
+                            newBindingName
+                            (bindingFlexibility binding)
+                            (makeBindingType seen substitutions)
+
+                      -- Create the rest of our quantifiers and quantified body. Add our new binding
+                      -- name as a substitution and add the new binding name to out “captured” set.
+                      -- Also add our new binding name to our “seen” set.
+                      (qs, t) =
+                        makeQuantifiedBody
+                          (HashSet.insert newBindingName seen)
+                          (HashSet.insert newBindingName captured)
+                          (HashMap.insert (bindingName binding) (PrinterAST.variableType newBindingName) substitutions)
+                    in
+                      (q : qs, t)
+
+                  -- Otherwise, we don’t have to generate a new name.
+                  else
+                    let
+                      -- Create our quantifier. If we have a flexible, bottom type, bound then we
+                      -- print an unbound quantifier. Otherwise we print a full quantifier.
+                      q =
+                        if isUnboundBinding binding then
+                          PrinterAST.unboundQuantifier (bindingName binding)
+                        else
+                          PrinterAST.quantifier
+                            (bindingName binding)
+                            (bindingFlexibility binding)
+                            (makeBindingType seen substitutions)
+
+                      -- Create the rest of our quantifiers. Add our binding name to our “seen” set.
+                      -- If we had an old substitution, remove it.
+                      (qs, t) =
+                        makeQuantifiedBody
+                          (HashSet.insert (bindingName binding) seen)
+                          captured
+                          (HashMap.delete (bindingName binding) substitutions)
+                    in
+                      (q : qs, t)
   where
     -- Convert our type to normal form before printing it.
     type1 = normal type0
@@ -168,8 +224,8 @@ printMonotypeWithInlining polarity type' references0 yield = case monotypeDescri
           name
           references0
     in
-      yield references1 $ \inlineBindings ->
-        case HashMap.lookup name inlineBindings of
+      yield references1 $ \substitutions ->
+        case HashMap.lookup name substitutions of
           Nothing -> PrinterAST.variableType name
           Just t -> t
 
@@ -180,8 +236,8 @@ printMonotypeWithInlining polarity type' references0 yield = case monotypeDescri
   Function parameter body ->
     printMonotypeWithInlining (flipPolarity polarity) parameter references0 $ \references1 makeParameter ->
       printMonotypeWithInlining polarity body references1 $ \references2 makeBody ->
-        yield references2 $ \inlineBindings ->
-          PrinterAST.functionType [makeParameter inlineBindings] (makeBody inlineBindings)
+        yield references2 $ \substitutions ->
+          PrinterAST.functionType [makeParameter substitutions] (makeBody substitutions)
 
 -- Prints a polytype to a `PrinterAST`. That printer AST will then be provided to our actual printer
 -- for display to the programmer.
