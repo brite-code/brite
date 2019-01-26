@@ -24,7 +24,7 @@ import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Control.Monad.ST
-import Data.Foldable (fold, foldlM, traverse_)
+import Data.Foldable (foldlM, traverse_)
 import qualified Data.HashMap.Lazy as HashMap
 import qualified Data.HashSet as HashSet
 import Data.HashTable.ST.Cuckoo (HashTable)
@@ -307,3 +307,30 @@ occurs prefix targetName type0 = if HashSet.null (Type.polytypeFreeVariables typ
         (Type.polytypeFreeVariables type1)
   -- Start our check with the initial type.
   loop type0
+
+-- “Re-orders” the dependencies of a polytype in the prefix. The prefix is ordered by levels. All
+-- the type variable in a given level will be generalized together. So if our new level comes
+-- before the level of our type’s dependencies then we need to move our type’s dependencies to the
+-- new level. Otherwise we’ll have dangling pointers when the type’s dependencies’ level is removed
+-- from our prefix.
+--
+-- Oh, and yes, pun intended.
+levelUp :: Prefix s -> PrefixLevel s -> Polytype -> ST s ()
+levelUp prefix newLevel type0 =
+  -- Loop through all of our free type variables...
+  flip traverse_ (Type.polytypeFreeVariables type0) $ \name ->
+    -- Lookup the type variable. If it exists then we want to check its level...
+    HashTable.lookup (prefixEntries prefix) name >>= traverse_ (\entry -> do
+      -- We know that the old level will be removed before the new level if the index of the old
+      -- level is larger.
+      oldLevel <- readSTRef (prefixEntryLevel entry)
+      if prefixLevelIndex oldLevel > prefixLevelIndex newLevel then do
+        -- Change our variable’s level.
+        writeSTRef (prefixEntryLevel entry) newLevel
+        HashTable.delete (prefixLevelVariables oldLevel) name
+        HashTable.insert (prefixLevelVariables newLevel) name ()
+        -- Recurse because we might have dependencies in our bound that also need to be updated.
+        (Type.bindingType <$> readSTRef (prefixEntryBinding entry)) >>= levelUp prefix newLevel
+      else
+        return ())
+
