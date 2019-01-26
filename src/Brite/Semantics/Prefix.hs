@@ -24,8 +24,9 @@ import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Control.Monad.ST
-import Data.Foldable (foldlM, traverse_)
+import Data.Foldable (fold, foldlM, traverse_)
 import qualified Data.HashMap.Lazy as HashMap
+import qualified Data.HashSet as HashSet
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.Maybe (isJust, fromMaybe)
@@ -276,3 +277,33 @@ generalize prefix body = liftST $ do
     bindings <- readSTRef bindingsRef
     if null bindings then return (Type.polytype body)
     else return (Type.normal (Type.quantify (reverse bindings) body))
+
+-- Checks to see if the provided name occurs anywhere in the type or in the bounds of any free type
+-- variables recursively. If it does then we can’t update the type variable at `name` with the
+-- provided type.
+occurs :: Prefix s -> Identifier -> Polytype -> ST s Bool
+occurs prefix targetName type0 = if HashSet.null (Type.polytypeFreeVariables type0) then return False else do
+  -- Cache for type variables we have seen before so we don’t need to check them twice.
+  seen <- HashTable.new
+  let
+    loop type1 = do
+      -- Lazily search through all the type’s free variables. The lazy part is important here since
+      -- we want to stop searching when we first find an occurrence.
+      --
+      -- NOTE: Validate that we stop at the first occurrence since `HashSet` does not implement
+      -- `Foldable`. Instead it implements its own primitives.
+      HashSet.foldr
+        (\name seenOccurrenceM -> do
+          seenOccurrence <- seenOccurrenceM
+          if seenOccurrence then return True else
+            if targetName == name then return True else do
+              seenName <- isJust <$> HashTable.lookup seen name
+              if seenName then return False else do
+                HashTable.insert seen name ()
+                HashTable.lookup (prefixEntries prefix) name >>=
+                  mapM (readSTRef . prefixEntryBinding) >>=
+                  maybe (return False) (loop . Type.bindingType))
+        (return False)
+        (Type.polytypeFreeVariables type1)
+  -- Start our check with the initial type.
+  loop type0
