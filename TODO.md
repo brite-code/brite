@@ -12,3 +12,4 @@
 - Warn for shadowed variables. We don’t want programmer to be confused about
   where a name was defined. To reuse the same variable name for multiple values
   the programmer may use the update operator.
+- Use bottom types to warn about unreachable code.

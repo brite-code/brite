@@ -36,6 +36,23 @@ testData =
   , ("fun<T>(Int) -> T", "fun(Int) -> !")
   , ("fun<T = !>(T) -> Int", "fun(!) -> Int")
   , ("fun<T = !>(Int) -> T", "fun<T = !>(Int) -> T")
+  , ("fun(Int) -> !", "fun(Int) -> !")
+  , ("fun(!) -> Int", "fun(!) -> Int")
+  , ("fun(!) -> !", "fun(!) -> !")
+  , ("fun<A, B>(A) -> fun(A) -> fun(B) -> B", "fun<A, B>(A) -> fun(A) -> fun(B) -> B")
+  , ("fun<A, B>(A) -> B", "fun<A>(A) -> !")
+  , ("fun<T = !, U: fun<V>(T) -> V, T>(U) -> T", "fun<U: fun(!) -> !>(U) -> !")
+  , ("fun<T, U: fun<V>(V) -> T>(U) -> U", "fun<U: fun<V>(V) -> !>(U) -> U")
+  , ("fun<T = !, U: fun<V>(T) -> V>(U) -> U", "fun<U: fun(!) -> !>(U) -> U")
+  , ("fun<T, U: fun<V>(V) -> fun(T) -> T, T>(U) -> T", "fun<T, U: fun<V>(V) -> fun(T) -> T>(U) -> !")
+  , ("fun<T, U: fun<V>(V) -> T, T = fun<V>(V) -> V>(U) -> T", "fun<U: fun<V>(V) -> !, T = fun<V>(V) -> V>(U) -> T")
+  , ("fun<T, U = fun<V>(V) -> T, T: fun<V>(V) -> V>(U) -> T", "fun(fun<V>(V) -> !) -> fun<V>(V) -> V")
+  , ("fun<T, U: fun<V>(V) -> T, T: fun<V>(V) -> V>(U) -> T", "fun<U: fun<V>(V) -> !>(U) -> fun<V>(V) -> V")
+  , ("fun<T, U = fun<V>(V) -> T, T = fun<V>(V) -> V>(U) -> T", "fun<T = fun<V>(V) -> V>(fun<V>(V) -> !) -> T")
+  , ("fun<T, U: fun<V>(V) -> T>(Int) -> U", "fun(Int) -> fun<V>(V) -> !")
+  , ("fun<T, U: fun<V>(V) -> T>(T) -> U", "fun<T>(T) -> fun<V>(V) -> T")
+  , ("fun<T, T: fun<V>(V) -> T>(Int) -> T", "fun(Int) -> fun<V>(V) -> !")
+  , ("fun<T, T: fun<V>(V) -> T>(T) -> T", "fun<T: fun<V>(V) -> !>(T) -> T")
   ]
 
 initialContext :: HashSet Identifier

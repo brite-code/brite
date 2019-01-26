@@ -55,17 +55,50 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
   -- Bottom types don’t care about references. They only yield their type.
   Bottom -> yield references0 (\_ -> PrinterAST.bottomType)
 
+  -- If we have a quantified then we’ve got some work to do!
   Quantify initialBindings body ->
+    -- Call our loop. The loop yields a continuation function that returns a list of printer AST
+    -- quantifiers and a printer AST type for the function body. When we yield we need to combine
+    -- those into one printer AST type.
     loop initialBindings $ \references1 makeQuantifiedBody ->
       yield references1 $ \inlineBindings ->
         let (qs, t) = makeQuantifiedBody inlineBindings in
           PrinterAST.quantifiedType qs t
     where
+      -- This loop function is pretty gnarly. Here’s what it does:
+      --
+      -- We loop through all our bindings in forward order but we print them in _reverse_ order. How
+      -- does that work? Consider a list of three bindings `[a, b, c]`. We want the following
+      -- call nesting:
+      --
+      -- * `printMonotypeWithInlining body`
+      --   * `printPolytypeWithInlining c`
+      --     * `printPolytypeWithInlining b`
+      --       * `printPolytypeWithInlining a`
+      --
+      -- That is we want to print `body` first and collect its references. Then we want to print
+      -- `c`, `b`, and `a` in that order. Since `c` cannot be referenced from `b` but it could be
+      -- referenced by `body`.
+      --
+      -- Every time we print, we collect our references map which has a type of
+      -- `HashMap Identifier (Int, Int)`. The first element of the tuple is the number of positive
+      -- references we have and the second element of the tuple is the number of negative
+      -- references we have.
+      --
+      -- When we print, we remember how many references we had. A flexible binding with one positive
+      -- reference will be inlined. A rigid binding with one negative reference will be inlined.
+
+      -- When we have iterated through all our bindings, print our monotype and call `next`. Calling
+      -- `next` will iterate back through our bindings.
       loop [] next =
         printMonotypeWithInlining polarity body references0 $ \references1 makeBody ->
           next references1 $ \inlineBindings ->
             ([], makeBody inlineBindings)
 
+      -- For every binding:
+      --
+      -- * Check how many references to this binding there are.
+      -- * Determine if the binding needs to be inlined.
       loop (binding : bindings) next = loop bindings $ \references1 makeQuantifiedBody ->
         let
           -- Both delete the references for this binding from our map and at the same time
@@ -81,13 +114,19 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
                 (_, Nothing) -> makeQuantifiedBody (HashMap.delete (bindingName binding) inlineBindings)
                 (_, Just (0, 0)) -> makeQuantifiedBody (HashMap.delete (bindingName binding) inlineBindings)
 
-                -- (Flexible, Just (1, 0)) -> error "TODO"
+                -- If a flexible binding has just one positive reference then inline the
+                -- binding type.
+                (Flexible, Just (1, 0)) -> makeQuantifiedBody $
+                  HashMap.insert (bindingName binding) (makeBindingType inlineBindings) inlineBindings
 
-                -- (Rigid, Just (0, 1)) -> error "TODO"
+                -- If a rigid binding has just one negative reference then inline the binding type.
+                (Rigid, Just (0, 1)) -> makeQuantifiedBody $
+                  HashMap.insert (bindingName binding) (makeBindingType inlineBindings) inlineBindings
 
+                -- If our binding has more than one reference add it as a quantifier...
                 _ ->
                   let
-                    (qs, t) = makeQuantifiedBody inlineBindings
+                    (qs, t) = makeQuantifiedBody (HashMap.delete (bindingName binding) inlineBindings)
                     q =
                       if isUnboundBinding binding then
                         PrinterAST.unboundQuantifier (bindingName binding)
