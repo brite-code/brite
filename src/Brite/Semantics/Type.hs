@@ -14,6 +14,7 @@ module Brite.Semantics.Type
   , PolytypeDescription(..)
   , polytypeDescription
   , polytypeFreeVariables
+  , polytypeNormal
   , Binding(..)
   , Flexibility(..)
   , isUnboundBinding

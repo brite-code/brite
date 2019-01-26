@@ -12,8 +12,10 @@ module Brite.Semantics.Prefix
   , add
   , fresh
   , freshWithBound
+  , lookup
   ) where
 
+import Prelude hiding (lookup)
 import Brite.Semantics.AST (Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
@@ -62,7 +64,7 @@ data Prefix s = Prefix
 -- An entry for a type variable in the prefix. The entry remembers the level at which the entry is
 -- stored and the quantifier which defined this type variable.
 data PrefixEntry s = PrefixEntry
-  { prefixEntryBinding :: Type.Binding
+  { prefixEntryBinding :: STRef s Type.Binding
   , prefixEntryLevel :: STRef s (PrefixLevel s)
   }
 
@@ -125,7 +127,7 @@ add prefix binding = do
     let level = head levels
     liftST $ HashTable.insert (prefixLevelVariables level) (Type.bindingName binding) ()
     -- Add the type variable binding to the prefix.
-    entry <- liftST $ PrefixEntry binding <$> newSTRef level
+    entry <- liftST $ PrefixEntry <$> newSTRef binding <*> newSTRef level
     liftST $ HashTable.insert (prefixEntries prefix) (Type.bindingName binding) entry
 
 -- Generates a fresh type variable name.
@@ -155,3 +157,22 @@ freshWithBound prefix k t =
       name <- freshName prefix
       add prefix (Type.Binding name k t)
       return (Type.variable name)
+
+-- Finds the binding for the provided name in the prefix. If no type variable could be found then we
+-- return nothing. The bound returned will always be in normal form.
+lookup :: Prefix s -> Identifier -> Check s (Maybe Polytype)
+lookup prefix name = do
+  -- Lookup the entry in the table. If the type is not in normal form we want to convert the type
+  -- before returning.
+  maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
+  flip traverse maybeEntry $ \entry -> do
+    -- Read the binding from our entry.
+    binding <- liftST $ readSTRef (prefixEntryBinding entry)
+    -- If the type is not in normal form, convert it to normal form and update the binding in
+    -- our entry.
+    if not (Type.polytypeNormal (Type.bindingType binding)) then do
+      let newType = Type.normal (Type.bindingType binding)
+      liftST $ writeSTRef (prefixEntryBinding entry) (binding { Type.bindingType = newType })
+      return newType
+    else
+      return (Type.bindingType binding)
