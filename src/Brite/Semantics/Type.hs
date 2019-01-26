@@ -27,6 +27,8 @@ module Brite.Semantics.Type
   , quantify
   , Polarity(..)
   , normal
+  , substitutePolytype
+  , substituteMonotype
   ) where
 
 import Brite.Semantics.AST (Identifier, Flexibility(..))
@@ -360,6 +362,40 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
             loopRev newFree body (binding : bindings) bindingsRev
         else
           loopRev free body bindings bindingsRev
+
+-- Substitutes the free variables of the provided polytype with a substitution if one was made
+-- available in the substitutions map. Returns nothing if no substitution was made.
+substitutePolytype :: HashMap Identifier Monotype -> Polytype -> Maybe Polytype
+substitutePolytype substitutions0 t0 = case polytypeDescription t0 of
+  -- Substitute a monotype and update our polytype if there was a substitution.
+  Monotype' t1 -> case substituteMonotype substitutions0 t1 of
+    Nothing -> Nothing
+    Just t2 -> Just (t0 { polytypeDescription = Monotype' t2 })
+
+  -- There are never any substitutions in bottom types.
+  Bottom -> Nothing
+
+  -- If the polytype does not need substitution then return nothing. Otherwise we assume that the
+  -- polytype will need some substitution.
+  _ | not (needsSubstitution substitutions0 (polytypeFreeVariables t0)) -> Nothing
+
+  -- Assumes that the quantified type needs substitution. Iterates through all the bindings. If a
+  -- binding shadows a variable which was substituted then we need to remove it from the
+  -- substitutions map.
+  Quantify initialBindings body ->
+    Just (t0 { polytypeDescription = uncurry Quantify (loop substitutions0 initialBindings) })
+    where
+      loop substitutions1 [] = ([], fromMaybe body (substituteMonotype substitutions1 body))
+      loop substitutions1 (binding : bindings) =
+        let
+          newBinding = case substitutePolytype substitutions1 (bindingType binding) of
+            Nothing -> binding
+            Just newType -> binding { bindingType = newType }
+
+          (newBindings, newBody) =
+            loop (HashMap.delete (bindingName binding) substitutions1) bindings
+        in
+          (newBinding : newBindings, newBody)
 
 -- Substitutes the free variables of the provided monotype with a substitution if one was made
 -- available in the substitutions map. Returns nothing if no substitution was made.

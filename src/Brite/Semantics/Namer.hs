@@ -4,6 +4,7 @@
 
 module Brite.Semantics.Namer
   ( uniqueName
+  , uniqueNameM
   , FreshCounter
   , initialFreshCounter
   , freshTypeName
@@ -29,6 +30,22 @@ uniqueName exists initialName = loop start
     loop i =
       let newName = unsafeIdentifier (Text.append namePrefix (Text.pack (show i))) in
         if exists newName then loop (i + 1) else newName
+
+-- Same as `uniqueName` except the exists check is performed inside a monad in case the
+-- programmer needs access to mutable references.
+uniqueNameM :: Monad m => (Identifier -> m Bool) -> Identifier -> m Identifier
+uniqueNameM exists initialName = do
+  initialNameExists <- exists initialName
+  if initialNameExists then loop start else return initialName
+  where
+    (start, namePrefix) = case integerSuffix (identifierText initialName) of
+      Nothing -> (2, identifierText initialName)
+      Just (name, suffix) -> (suffix + 1, name)
+
+    loop i = do
+      let newName = unsafeIdentifier (Text.append namePrefix (Text.pack (show i)))
+      newNameExists <- exists newName
+      if newNameExists then loop (i + 1) else return newName
 
 -- State for a counter of fresh names.
 newtype FreshCounter = FreshCounter Int

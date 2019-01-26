@@ -13,6 +13,7 @@ module Brite.Semantics.Prefix
   , fresh
   , freshWithBound
   , lookup
+  , instantiate
   ) where
 
 import Prelude hiding (lookup)
@@ -21,9 +22,11 @@ import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
+import Data.Foldable (foldlM)
+import qualified Data.HashMap.Lazy as HashMap
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, fromMaybe)
 import Data.STRef
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
@@ -108,21 +111,22 @@ withLevel prefix action = do
   -- Return the result from executing our action.
   return result
 
--- Adds a type variable binding to our prefix.
+-- Does this name exist in the prefix?
+exists :: Prefix s -> Identifier -> Check s Bool
+exists prefix name = liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) name
+
+-- Adds a type binding to our prefix assuming that the binding’s name is not already bound.
 --
 -- * If the prefix level stack is empty we don’t add this binding.
--- * If the binding already exists in the prefix we don’t add this binding, leaving the current
---   one as-is.
 -- * If the binding type has free type variables that don’t exist in the prefix then we will happily
 --   add your binding to the prefix anyway. Just know that you’re in for a world of trouble later
 --   when you try to use those unbound type variables.
-add :: Prefix s -> Type.Binding -> Check s ()
-add prefix binding = do
+addAssumingThatNameIsUnbound :: Prefix s -> Type.Binding -> Check s ()
+addAssumingThatNameIsUnbound prefix binding = do
   -- If there are no levels or a binding with the same ID already exists then we don’t add
   -- the binding.
   levels <- liftST $ readSTRef (prefixLevels prefix)
-  hasBinding <- liftST $ isJust <$> HashTable.lookup (prefixEntries prefix) (Type.bindingName binding)
-  if null levels || hasBinding then return () else do
+  if null levels then return () else do
     -- Add the type variable binding to the current level.
     let level = head levels
     liftST $ HashTable.insert (prefixLevelVariables level) (Type.bindingName binding) ()
@@ -130,11 +134,25 @@ add prefix binding = do
     entry <- liftST $ PrefixEntry <$> newSTRef binding <*> newSTRef level
     liftST $ HashTable.insert (prefixEntries prefix) (Type.bindingName binding) entry
 
+-- Adds a type binding to our prefix. If the name is already bound in the prefix then we generate a
+-- unique name and try again.
+add :: Prefix s -> Type.Binding -> Check s (Maybe Monotype)
+add prefix binding = do
+  newName <- uniqueNameM (exists prefix) (Type.bindingName binding)
+  -- If we did not generate a new name then we can use our binding unchanged.
+  if newName == Type.bindingName binding then do
+    addAssumingThatNameIsUnbound prefix binding
+    return Nothing
+  else do
+    -- Otherwise we need to add a binding with our new name to the prefix.
+    addAssumingThatNameIsUnbound prefix (binding { Type.bindingName = newName })
+    return (Just (Type.variable newName))
+
 -- Generates a fresh type variable name.
 freshName :: Prefix s -> Check s Identifier
 freshName prefix = do
   oldCounter <- liftST $ readSTRef (prefixCounter prefix)
-  (name, newCounter) <- liftST $ freshTypeNameM (fmap isJust . HashTable.lookup (prefixEntries prefix)) oldCounter
+  (name, newCounter) <- freshTypeNameM (exists prefix) oldCounter
   liftST $ writeSTRef (prefixCounter prefix) (newCounter)
   return name
 
@@ -142,7 +160,7 @@ freshName prefix = do
 fresh :: Prefix s -> Check s Monotype
 fresh prefix = do
   name <- freshName prefix
-  add prefix (Type.Binding name Type.Flexible Type.bottom)
+  addAssumingThatNameIsUnbound prefix (Type.Binding name Type.Flexible Type.bottom)
   return (Type.variable name)
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
@@ -155,7 +173,7 @@ freshWithBound prefix k t =
     Type.Monotype' t' -> return t'
     _ -> do
       name <- freshName prefix
-      add prefix (Type.Binding name k t)
+      addAssumingThatNameIsUnbound prefix (Type.Binding name k t)
       return (Type.variable name)
 
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
@@ -176,3 +194,33 @@ lookup prefix name = do
       return newType
     else
       return (Type.bindingType binding)
+
+-- Merges the bounds of a quantified type into the prefix. If any of the bound names already exist
+-- in the prefix then we need to generate new names. Those names will be substituted in the bounds
+-- and the provided body type. The new body type with substituted names will be returned.
+instantiate :: Prefix s -> [Type.Binding] -> Monotype -> Check s Monotype
+instantiate prefix bindings body = do
+  -- Loop through our bindings and add them to our prefix. All of the bindings with a naming
+  -- conflict in our prefix will add a substitution to our substitutions map.
+  substitutions2 <-
+    foldlM
+      (\substitutions1 binding -> do
+        let
+          -- If we have some substitutions then apply them to our binding.
+          newBinding =
+            if HashMap.null substitutions1 then binding
+            else case Type.substitutePolytype substitutions1 (Type.bindingType binding) of
+              Nothing -> binding
+              Just newType -> binding { Type.bindingType = newType }
+        -- Add the binding to our prefix.
+        maybeNewType <- add prefix newBinding
+        -- If we had to generate a new name then add a substitution to our map.
+        return $ case maybeNewType of
+          Nothing -> substitutions1
+          Just newType -> HashMap.insert (Type.bindingName newBinding) newType substitutions1)
+      -- Start with no substitutions and loop through bindings.
+      HashMap.empty
+      bindings
+  -- If we have some substitutions we need to apply them to our body type.
+  if HashMap.null substitutions2 then return body
+  else return (fromMaybe body (Type.substituteMonotype substitutions2 body))
