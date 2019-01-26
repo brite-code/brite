@@ -5,7 +5,7 @@ module Brite.Semantics.TypeSpec (spec) where
 import Brite.Diagnostics
 import Brite.Semantics.AST (convertRecoverType)
 import Brite.Semantics.Check (checkPolytype)
-import Brite.Semantics.Type (Polarity(..), normal)
+import Brite.Semantics.Type (normal)
 import Brite.Semantics.TypePrinter (printPolytypeWithoutInlining)
 import Brite.Syntax.Parser (parseType)
 import Brite.Syntax.Printer (printCompactType)
@@ -109,10 +109,10 @@ spec = do
       it (Text.unpack input) $ do
         let (type1, ds1) = runDiagnosticWriter (parseType (tokenize input))
         mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
-        let (type2, _) = runDiagnosticWriter (normal <$> checkPolytype Positive initialContext (convertRecoverType type1))
+        let (type2, _) = runDiagnosticWriter (normal <$> checkPolytype initialContext (convertRecoverType type1))
         let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type2)))
         let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))
-        let (type4, _) = runDiagnosticWriter (normal <$> checkPolytype Positive initialContext (convertRecoverType type3))
+        let (type4, _) = runDiagnosticWriter (normal <$> checkPolytype initialContext (convertRecoverType type3))
         let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type4)))
         actualOutput `shouldBe` expectedOutput
         actualOutput2 `shouldBe` actualOutput

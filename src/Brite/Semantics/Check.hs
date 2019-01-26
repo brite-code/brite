@@ -43,21 +43,9 @@ import qualified Data.Sequence as Seq
 -- * `o` corresponds to the result of `expressionType` on the returned expression. Not only do we
 --   type check, but we also build an AVT which is semantically equivalent to our input AST.
 --
--- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 checkExpression :: AST.Expression -> Check s Expression
 checkExpression astExpression =
-  -- TODO: Type annotations on function parameters should have a _negative_ polarity. The polarity
-  -- is an aesthetic choice that matches type annotations. Consider:
-  --
-  -- ```ite
-  -- fun f(
-  --   f: fun(fun<T>(T) -> T) -> Int
-  -- ) {
-  --   f(add1)
-  -- }
-  --
-  -- (f: fun(fun(fun<T>(T) -> T) -> Int) -> Int);
-  -- ```
   error "TODO"
 
 -- Checks an AST type and turns it into a polytype.
@@ -75,8 +63,8 @@ checkExpression astExpression =
 --
 -- By converting errors into bottom types we use a form of the first strategy. An error in the types
 -- will appear as a “could not unify with bottom” type error.
-checkPolytype :: Type.Polarity -> HashSet Identifier -> AST.Type -> DiagnosticWriter Polytype
-checkPolytype polarity context0 type0 = case AST.typeNode type0 of
+checkPolytype :: HashSet Identifier -> AST.Type -> DiagnosticWriter Polytype
+checkPolytype context0 type0 = case AST.typeNode type0 of
   -- Special handling for booleans and integers.
   --
   -- TODO: Replace this with proper handling. When doing so also delete the `OverloadedStrings`
@@ -94,20 +82,20 @@ checkPolytype polarity context0 type0 = case AST.typeNode type0 of
 
   -- Check a function type with its quantifiers.
   AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
-    (context1, bindings1) <- checkQuantifiers polarity context0 quantifiers Seq.empty
+    (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
     let counter0 = initialFreshCounter
-    (counter1, bindings2, parameterType) <- checkMonotype (Type.flipPolarity polarity) context1 counter0 bindings1 uncheckedParameterType
-    (_, bindings3, bodyType) <- checkMonotype polarity context1 counter1 bindings2 uncheckedBodyType
+    (counter1, bindings2, parameterType) <- checkMonotype Type.Negative context1 counter0 bindings1 uncheckedParameterType
+    (_, bindings3, bodyType) <- checkMonotype Type.Positive context1 counter1 bindings2 uncheckedBodyType
     return (Type.quantify (toList bindings3) (Type.function parameterType bodyType))
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
   -- inline those bindings into our prefix as well.
   AST.QuantifiedType quantifiers uncheckedBodyType -> do
-    (context1, bindings1) <- checkQuantifiers polarity context0 quantifiers Seq.empty
-    (_, bindings2, bodyType) <- checkMonotype polarity context1 initialFreshCounter bindings1 uncheckedBodyType
+    (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
+    (_, bindings2, bodyType) <- checkMonotype Type.Positive context1 initialFreshCounter bindings1 uncheckedBodyType
     return (Type.quantify (toList bindings2) bodyType)
 
-  AST.WrappedType type1 -> checkPolytype polarity context0 type1
+  AST.WrappedType type1 -> checkPolytype context0 type1
 
   -- Error types which don’t have a recovered type return error types.
   AST.ErrorType diagnostic Nothing -> errorType diagnostic
@@ -115,7 +103,7 @@ checkPolytype polarity context0 type0 = case AST.typeNode type0 of
   -- Error types which do have a recovered type ignore their diagnostic (there’s no point in keeping
   -- it, where would we throw it?) and continue type checking with the recovered type.
   AST.ErrorType _ (Just type1) ->
-    checkPolytype polarity context0 (type0 { AST.typeNode = type1 })
+    checkPolytype context0 (type0 { AST.typeNode = type1 })
 
   where
     range = AST.typeRange type0
@@ -128,47 +116,59 @@ checkPolytype polarity context0 type0 = case AST.typeNode type0 of
 
 -- Check all the AST type quantifiers and convert them into a list of bindings.
 checkQuantifiers ::
-  Type.Polarity -> HashSet Identifier -> [AST.Quantifier] -> Seq Type.Binding ->
+  HashSet Identifier -> [AST.Quantifier] -> Seq Type.Binding ->
     DiagnosticWriter (HashSet Identifier, Seq Type.Binding)
-checkQuantifiers _ context0 [] bindings = return (context0, bindings)
-checkQuantifiers polarity context0 (AST.Quantifier name bound : quantifiers) bindings = do
+checkQuantifiers context0 [] bindings = return (context0, bindings)
+checkQuantifiers context0 (AST.Quantifier name bound : quantifiers) bindings = do
   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
   binding <- case bound of
     Nothing -> return (Type.Binding (AST.nameIdentifier name) Type.Flexible Type.bottom)
     Just (flexibility, boundType) ->
-      -- TODO: We use the current polarity of the position where the quantifiers lie. Check if this
-      -- works when reconstructing the type.
-      Type.Binding (AST.nameIdentifier name) flexibility <$> checkPolytype polarity context0 boundType
+      Type.Binding (AST.nameIdentifier name) flexibility <$> checkPolytype context0 boundType
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
   -- after checking our binding type.
   let context1 = HashSet.insert (AST.nameIdentifier name) context0
   -- Add our binding and process the remaining quantifiers in our new context.
-  checkQuantifiers polarity context1 quantifiers (bindings |> binding)
+  checkQuantifiers context1 quantifiers (bindings |> binding)
 
 -- Checks a type expecting that we return a monotype. However, in our type syntax we can have nested
--- polytypes but we can’t have that in our internal representation of types. So when we see a
--- polytype nested inside a monotype we add a new binding where the flexibility is determined by the
--- polarity in the position we find the polytype. So for example, the type:
+-- polytypes but we can’t have that in our internal representation of types.
 --
--- ```ite
--- fun(fun<T>(T) -> T) -> fun<T>(T) -> T
--- ```
+-- In [MLF][1] all quantifiers are forced to the top level of a type. That is the object type
+-- `{identity: fun<T>(T) -> T}` is invalid because the quantifier `<T>` is _inside_ the object type.
+-- In MLF this example must be written as `<F: fun<T>(T) -> T> {identity: F}`. Writing all
+-- quantified types in this way is really inconvenient. The programmer can’t think about their
+-- polymorphism locally.
 --
--- Becomes:
+-- Brite implements a heuristic first proposed in [“Qualified Types for MLF”][2] which allows us to
+-- write polymorphic types inline. A polymorphic type inside a function parameter is given a rigid
+-- bound (`=`) and a polymorphic type anywhere else is given a flexible bound (`:`). So
+-- `fun(fun<T>(T) -> T) -> void` would be translated to the MLF type
+-- `<F = fun<T>(T) -> T> fun(F) -> void` but `fun() -> fun<T>(T) -> T` would be translated to the
+-- MLF type `<F: fun<T>(T) -> T> fun() -> F`.
 --
--- ```ite
--- fun<
---   Type1 = fun<T>(T) -> T,
---   Type2: fun<T>(T) -> T,
--- >(Type1) -> Type2
--- ```
+-- This heuristic raises the question of how we should handle function parameters inside of function
+-- parameters. For example, if `T` in `fun(fun(T) -> void) -> void` had a quantifier should we hoist
+-- `T` to a rigid (`=`) or flexible (`:`) bound? If we say a function parameter inside a function
+-- parameter cancels each other out then we’d give `T` a rigid (`=`) bound. However, this means our
+-- rule requires context to be correct.
 --
--- When we print our internal type representation back out we will inline the types again.
+-- Consider `<F = fun(T) -> void> fun(F) -> void`. Here, we know that `T` is inside a function
+-- parameter, but we don’t know that `F` is inside another function parameter. Implementing this
+-- interpretation of the heuristic would not be straightforward. So instead we implement the
+-- heuristic locally.
+--
+-- We only look at the nearest type constructor to determine the bound flexibility. So in
+-- `fun(fun(T) -> void) -> void` we would give `T` a rigid bound (`=`) since, locally, it is inside
+-- a function parameter.
+--
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+-- [2]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/qmlf.pdf
 checkMonotype ::
   Type.Polarity -> HashSet Identifier -> FreshCounter -> Seq Type.Binding -> AST.Type ->
     DiagnosticWriter (FreshCounter, Seq Type.Binding, Monotype)
-checkMonotype polarity context counter0 bindings0 type0 = case AST.typeNode type0 of
+checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode type0 of
   -- Special handling for booleans and integers.
   --
   -- TODO: Replace this with proper handling. When doing so also delete the `OverloadedStrings`
@@ -186,13 +186,13 @@ checkMonotype polarity context counter0 bindings0 type0 = case AST.typeNode type
   -- which we will place in our polytype prefix.
   AST.BottomType -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-    let binding = Type.Binding name flexibility Type.bottom
+    let binding = Type.Binding name localFlexibility Type.bottom
     return (counter1, bindings0 |> binding, Type.variable name)
 
   -- Check the parameter and body type of a function.
   AST.FunctionType [] [uncheckedParameterType] uncheckedBodyType -> do
-    (counter1, bindings1, parameterType) <- checkMonotype (Type.flipPolarity polarity) context counter0 bindings0 uncheckedParameterType
-    (counter2, bindings2, bodyType) <- checkMonotype polarity context counter1 bindings1 uncheckedBodyType
+    (counter1, bindings1, parameterType) <- checkMonotype Type.Negative context counter0 bindings0 uncheckedParameterType
+    (counter2, bindings2, bodyType) <- checkMonotype Type.Positive context counter1 bindings1 uncheckedBodyType
     return (counter2, bindings2, Type.function parameterType bodyType)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
@@ -202,7 +202,7 @@ checkMonotype polarity context counter0 bindings0 type0 = case AST.typeNode type
   -- we wouldn’t be able to print back out the same type.
   AST.QuantifiedType _ _ -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-    binding <- Type.Binding name flexibility <$> checkPolytype polarity context type0
+    binding <- Type.Binding name localFlexibility <$> checkPolytype context type0
     return (counter1, bindings0 |> binding, Type.variable name)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
@@ -214,11 +214,11 @@ checkMonotype polarity context counter0 bindings0 type0 = case AST.typeNode type
   -- NOTE: We do treat a quantified function type the same as a `QuantifiedType`.
   AST.FunctionType (_ : _) _ _ -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-    binding <- Type.Binding name flexibility <$> checkPolytype polarity context type0
+    binding <- Type.Binding name localFlexibility <$> checkPolytype context type0
     return (counter1, bindings0 |> binding, Type.variable name)
 
   AST.WrappedType type1 ->
-    checkMonotype polarity context counter0 bindings0 type1
+    checkMonotype localPolarity context counter0 bindings0 type1
 
   -- Error types which don’t have a recovered type return error types.
   AST.ErrorType diagnostic Nothing -> errorType diagnostic
@@ -226,11 +226,14 @@ checkMonotype polarity context counter0 bindings0 type0 = case AST.typeNode type
   -- Error types which do have a recovered type ignore their diagnostic (there’s no point in keeping
   -- it, where would we throw it?) and continue type checking with the recovered type.
   AST.ErrorType _ (Just type1) ->
-    checkMonotype polarity context counter0 bindings0 (type0 { AST.typeNode = type1 })
+    checkMonotype localPolarity context counter0 bindings0 (type0 { AST.typeNode = type1 })
 
   where
-    flexibility = Type.polarityFlexibility polarity
     range = AST.typeRange type0
+
+    localFlexibility = case localPolarity of
+      Type.Positive -> Type.Flexible
+      Type.Negative -> Type.Rigid
 
     -- Forces the programmer to provide proof that they reported an error diagnostic. However, we
     -- don’t include the diagnostic in our internal type structure since there is no obvious place
@@ -238,5 +241,5 @@ checkMonotype polarity context counter0 bindings0 type0 = case AST.typeNode type
     errorType :: Diagnostic -> DiagnosticWriter (FreshCounter, Seq Type.Binding, Monotype)
     errorType _ = do
       let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-      let binding = Type.Binding name flexibility Type.bottom
+      let binding = Type.Binding name localFlexibility Type.bottom
       return (counter1, bindings0 |> binding, Type.variable name)

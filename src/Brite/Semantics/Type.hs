@@ -25,8 +25,6 @@ module Brite.Semantics.Type
   , bottom
   , quantify
   , Polarity(..)
-  , flipPolarity
-  , polarityFlexibility
   , normal
   ) where
 
@@ -201,16 +199,6 @@ quantify bindings body =
 -- polarity because it is in a negative position (function parameter) and a negative position again
 -- (function parameter of a function parameter) so a negative times a negative is a positive.
 data Polarity = Positive | Negative
-
--- Flips the polarity from positive to negative and vice-versa.
-flipPolarity :: Polarity -> Polarity
-flipPolarity Positive = Negative
-flipPolarity Negative = Positive
-
--- The flexibility of a polytype bound in a position with the provided polarity.
-polarityFlexibility :: Polarity -> Flexibility
-polarityFlexibility Positive = Flexible
-polarityFlexibility Negative = Rigid
 
 -- Converts a polytype to normal form as described in Section 1.5.3 of the [MLF thesis][1].
 -- Returns a referentially equal type if the type is already in normal form.

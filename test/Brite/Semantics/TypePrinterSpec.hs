@@ -5,7 +5,6 @@ module Brite.Semantics.TypePrinterSpec (spec) where
 import Brite.Diagnostics
 import Brite.Semantics.AST (convertRecoverType)
 import Brite.Semantics.Check (checkPolytype)
-import Brite.Semantics.Type (Polarity(..))
 import Brite.Semantics.TypePrinter (printPolytype)
 import Brite.Syntax.Parser (parseType)
 import Brite.Syntax.Printer (printCompactType)
@@ -62,6 +61,14 @@ testData =
   , ("fun<A = !, B = fun<V>(V) -> A, A2, A>(A) -> fun(A2) -> B", "fun<A = !, B = fun<V>(V) -> A, A2, A>(A) -> fun(A2) -> B")
   , ("fun<T = !, U: fun<V>(V) -> T, T, T2>(T) -> fun(T2) -> U", "fun<T = !, T2, T3>(T2) -> fun(T3) -> fun<V>(V) -> T")
   , ("fun<T = !, U: fun<V>(V) -> T, T2, T>(T) -> fun(T2) -> U", "fun<T = !, T2, T3>(T3) -> fun(T2) -> fun<V>(V) -> T")
+  , ("fun(fun(!) -> !) -> !", "fun(fun(!) -> !) -> !")
+  , ("fun(fun(fun(!) -> !) -> !) -> !", "fun(fun(fun(!) -> !) -> !) -> !")
+  , ("fun(fun(fun(fun(!) -> !) -> !) -> !) -> !", "fun(fun(fun(fun(!) -> !) -> !) -> !) -> !")
+  , ("fun(X) -> fun<T: fun(X) -> !>(T) -> T", "fun(X) -> fun<T: fun(X) -> !>(T) -> T")
+  , ("fun(X) -> fun<T: fun(X) -> fun<T: fun(X) -> !>(T) -> T>(T) -> T", "fun(X) -> fun<T: fun(X) -> fun<T: fun(X) -> !>(T) -> T>(T) -> T")
+  , ("fun(fun<T = fun(!) -> X>(T) -> T) -> X", "fun(fun<T = fun(!) -> X>(T) -> T) -> X")
+  , ("fun(fun<T = fun(fun<T = fun(!) -> X>(T) -> T) -> X>(T) -> T) -> X", "fun(fun<T = fun(fun<T = fun(!) -> X>(T) -> T) -> X>(T) -> T) -> X")
+  , ("fun(fun<T: fun(!) -> !>(T) -> Int) -> Int", "fun(fun<T: fun(!) -> !>(T) -> Int) -> Int")
   ]
 
 initialContext :: HashSet Identifier
@@ -73,10 +80,10 @@ spec = do
     it (Text.unpack input) $ do
       let (type1, ds1) = runDiagnosticWriter (parseType (tokenize input))
       mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
-      let (type2, _) = runDiagnosticWriter (checkPolytype Positive initialContext (convertRecoverType type1))
-      let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytype Positive type2)))
+      let (type2, _) = runDiagnosticWriter (checkPolytype initialContext (convertRecoverType type1))
+      let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytype type2)))
       let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))
-      let (type4, _) = runDiagnosticWriter (checkPolytype Positive initialContext (convertRecoverType type3))
-      let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytype Positive type4)))
+      let (type4, _) = runDiagnosticWriter (checkPolytype initialContext (convertRecoverType type3))
+      let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytype type4)))
       actualOutput `shouldBe` expectedOutput
       actualOutput2 `shouldBe` actualOutput

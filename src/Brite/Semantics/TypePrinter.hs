@@ -26,8 +26,8 @@ import Data.Maybe (fromMaybe)
 -- Otherwise we leave the quantification in place.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-printPolytype :: Polarity -> Polytype -> PrinterAST.Type
-printPolytype polarity type0 = case polytypeDescription type0 of
+printPolytype :: Polytype -> PrinterAST.Type
+printPolytype type0 = case polytypeDescription type0 of
   -- Since we are at the top-level of polytype printing we know that there are no bindings to be
   -- inlined, so just use our straightforward `printMonotypeWithoutInlining` implementation!
   Monotype' type1 -> printMonotypeWithoutInlining type1
@@ -37,11 +37,11 @@ printPolytype polarity type0 = case polytypeDescription type0 of
   -- If we have a quantified type then print it using our more complex
   -- `printPolytypeWithInlining` implementation.
   Quantify _ _ ->
-    printPolytypeWithInlining polarity type0 HashMap.empty $ \_ makeType ->
+    printPolytypeWithInlining type0 HashMap.empty $ \_ makeType ->
       makeType HashSet.empty HashMap.empty
 
 -- Prints a polytype while providing facilities for inlining bounds with only a single use at the
--- appropriate polarity.
+-- appropriate position.
 --
 -- This function uses [Continuation-passing style (CPS)][1]. To return we call a “yield” function
 -- which accepts the new reference list and a continuation which will be called after collecting
@@ -49,13 +49,13 @@ printPolytype polarity type0 = case polytypeDescription type0 of
 --
 -- [1]: https://en.wikipedia.org/wiki/Continuation-passing_style
 printPolytypeWithInlining ::
-  Polarity -> Polytype -> HashMap Identifier (Int, Int) ->
+  Polytype -> HashMap Identifier (Int, Int) ->
     (HashMap Identifier (Int, Int) -> (HashSet Identifier -> HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
       -> a
-printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescription type1 of
+printPolytypeWithInlining type0 references0 yield = case polytypeDescription type1 of
   -- Print our monotype with inlining.
   Monotype' type2 ->
-    printMonotypeWithInlining polarity type2 references0 $ \references1 makeType ->
+    printMonotypeWithInlining Positive type2 references0 $ \references1 makeType ->
       yield references1 (\_ substitutions -> makeType substitutions)
 
   -- Bottom types don’t care about references. They only yield their type.
@@ -97,7 +97,7 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
       -- When we have iterated through all our bindings, print our monotype and call `next`. Calling
       -- `next` will iterate back through our bindings.
       loop [] next =
-        printMonotypeWithInlining polarity body references0 $ \references1 makeBody ->
+        printMonotypeWithInlining Positive body references0 $ \references1 makeBody ->
           next references1 $ \_ _ substitutions ->
             ([], makeBody substitutions)
 
@@ -114,7 +114,7 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
           (bindingReferences, references2) =
             HashMap.alterF (\value -> (value, Nothing)) (bindingName binding) references1
         in
-          printPolytypeWithInlining polarity (bindingType binding) references2 $ \references3 makeBindingType ->
+          printPolytypeWithInlining (bindingType binding) references2 $ \references3 makeBindingType ->
             next references3 $ \seen captured substitutions ->
               case (bindingFlexibility binding, bindingReferences) of
                 -- If there are no references to this binding then ignore it. These branches should
@@ -198,7 +198,7 @@ printPolytypeWithInlining polarity type0 references0 yield = case polytypeDescri
     type1 = normal type0
 
 -- Prints a monotype while providing facilities for inlining bounds with only a single use at the
--- appropriate polarity.
+-- appropriate position.
 --
 -- This function uses [Continuation-passing style (CPS)][1]. To return we call a “yield” function
 -- which accepts the new reference list and a continuation which will be called after collecting
@@ -209,7 +209,7 @@ printMonotypeWithInlining ::
   Polarity -> Monotype -> HashMap Identifier (Int, Int) ->
     (HashMap Identifier (Int, Int) -> (HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
       -> a
-printMonotypeWithInlining polarity type' references0 yield = case monotypeDescription type' of
+printMonotypeWithInlining localPolarity type' references0 yield = case monotypeDescription type' of
   -- A variable adds a reference to our references map and then returns a continuation which will
   -- inline a binding for this variable if one was provided.
   Variable name ->
@@ -218,7 +218,7 @@ printMonotypeWithInlining polarity type' references0 yield = case monotypeDescri
         HashMap.alter
           (\entry ->
             let (a, b) = fromMaybe (0, 0) entry in
-              Just (case polarity of
+              Just (case localPolarity of
                 Positive -> (a + 1, b)
                 Negative -> (a, b + 1)))
           name
@@ -234,15 +234,15 @@ printMonotypeWithInlining polarity type' references0 yield = case monotypeDescri
   Integer -> yield references0 (\_ -> PrinterAST.variableType (unsafeIdentifier "Int"))
 
   Function parameter body ->
-    printMonotypeWithInlining (flipPolarity polarity) parameter references0 $ \references1 makeParameter ->
-      printMonotypeWithInlining polarity body references1 $ \references2 makeBody ->
+    printMonotypeWithInlining Negative parameter references0 $ \references1 makeParameter ->
+      printMonotypeWithInlining Positive body references1 $ \references2 makeBody ->
         yield references2 $ \substitutions ->
           PrinterAST.functionType [makeParameter substitutions] (makeBody substitutions)
 
 -- Prints a polytype to a `PrinterAST`. That printer AST will then be provided to our actual printer
 -- for display to the programmer.
 --
--- This printer will _not_ inline quantifiers with a single reference of the appropriate polarity.
+-- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
 printPolytypeWithoutInlining :: Polytype -> PrinterAST.Type
 printPolytypeWithoutInlining type' = case polytypeDescription type' of
   Monotype' t -> printMonotypeWithoutInlining t
@@ -254,7 +254,7 @@ printPolytypeWithoutInlining type' = case polytypeDescription type' of
 
 -- Prints a binding to a `PrinterAST` quantifier.
 --
--- This printer will _not_ inline quantifiers with a single reference of the appropriate polarity.
+-- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
 printBindingWithoutInlining :: Binding -> PrinterAST.Quantifier
 printBindingWithoutInlining binding | isUnboundBinding binding =
   PrinterAST.unboundQuantifier (bindingName binding)
@@ -264,7 +264,7 @@ printBindingWithoutInlining (Binding name flex type') =
 -- Prints a monotype to a `PrinterAST`. That printer AST will then be provided to our actual printer
 -- for display to the programmer.
 --
--- This printer will _not_ inline quantifiers with a single reference of the appropriate polarity.
+-- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
 printMonotypeWithoutInlining :: Monotype -> PrinterAST.Type
 printMonotypeWithoutInlining type' = case monotypeDescription type' of
   Variable name -> PrinterAST.variableType name

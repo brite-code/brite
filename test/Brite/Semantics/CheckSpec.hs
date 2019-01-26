@@ -5,7 +5,6 @@ module Brite.Semantics.CheckSpec (spec) where
 import Brite.Diagnostics
 import Brite.Semantics.AST (convertRecoverType)
 import Brite.Semantics.Check (checkPolytype)
-import Brite.Semantics.Type (Polarity(..))
 import Brite.Semantics.TypePrinter (printPolytypeWithoutInlining)
 import Brite.Syntax.Parser (parseType)
 import Brite.Syntax.Printer (printCompactType)
@@ -82,18 +81,18 @@ testData =
   , ("fun(fun<X>(X) -> X) -> X", "fun<Type1 = fun<X>(X) -> X>(Type1) -> X", [])
   , ("fun(X) -> fun<X>(X) -> X", "fun<Type1: fun<X>(X) -> X>(X) -> Type1", [])
   , ("fun(fun<T>(T) -> T) -> fun<T>(T) -> T", "fun<Type1 = fun<T>(T) -> T, Type2: fun<T>(T) -> T>(Type1) -> Type2", [])
-  , ("fun(fun(!) -> !) -> !", "fun<Type1, Type2 = !, Type3>(fun(Type1) -> Type2) -> Type3", [])
-  , ("fun(fun(fun(!) -> !) -> !) -> !", "fun<Type1 = !, Type2, Type3 = !, Type4>(fun(fun(Type1) -> Type2) -> Type3) -> Type4", [])
-  , ("fun(fun(fun(fun(!) -> !) -> !) -> !) -> !", "fun<Type1, Type2 = !, Type3, Type4 = !, Type5>(fun(fun(fun(Type1) -> Type2) -> Type3) -> Type4) -> Type5", [])
+  , ("fun(fun(!) -> !) -> !", "fun<Type1 = !, Type2, Type3>(fun(Type1) -> Type2) -> Type3", [])
+  , ("fun(fun(fun(!) -> !) -> !) -> !", "fun<Type1 = !, Type2, Type3, Type4>(fun(fun(Type1) -> Type2) -> Type3) -> Type4", [])
+  , ("fun(fun(fun(fun(!) -> !) -> !) -> !) -> !", "fun<Type1 = !, Type2, Type3, Type4, Type5>(fun(fun(fun(Type1) -> Type2) -> Type3) -> Type4) -> Type5", [])
   , ("fun(X) -> fun<T: fun(X) -> !>(T) -> T", "fun<Type1: fun<T: fun<Type1>(X) -> Type1>(T) -> T>(X) -> Type1", [])
   , ("fun(X) -> fun<T: fun(X) -> fun<T: fun(X) -> !>(T) -> T>(T) -> T", "fun<Type1: fun<T: fun<Type1: fun<T: fun<Type1>(X) -> Type1>(T) -> T>(X) -> Type1>(T) -> T>(X) -> Type1", [])
   , ("fun(T) -> fun<T: fun(T) -> !>(T) -> T", "fun<Type1 = !, Type2: fun<T: fun<Type1 = !, Type2>(Type1) -> Type2>(T) -> T>(Type1) -> Type2", ["We could not find type `T`.", "We could not find type `T`."])
   , ("fun(T) -> fun<T: fun(T) -> fun<T: fun(T) -> !>(T) -> T>(T) -> T", "fun<Type1 = !, Type2: fun<T: fun<Type1 = !, Type2: fun<T: fun<Type1 = !, Type2>(Type1) -> Type2>(T) -> T>(Type1) -> Type2>(T) -> T>(Type1) -> Type2", ["We could not find type `T`.", "We could not find type `T`.", "We could not find type `T`."])
-  , ("fun(fun<T = fun(!) -> X>(T) -> T) -> X", "fun<Type1 = fun<T = fun<Type1>(Type1) -> X>(T) -> T>(Type1) -> X", [])
-  , ("fun(fun<T = fun(fun<T = fun(!) -> X>(T) -> T) -> X>(T) -> T) -> X", "fun<Type1 = fun<T = fun<Type1: fun<T = fun<Type1 = !>(Type1) -> X>(T) -> T>(Type1) -> X>(T) -> T>(Type1) -> X", [])
-  , ("fun(fun<T = fun(!) -> T>(T) -> T) -> T", "fun<Type1 = fun<T = fun<Type1, Type2 = !>(Type1) -> Type2>(T) -> T, Type2>(Type1) -> Type2", ["We could not find type `T`.", "We could not find type `T`."])
-  , ("fun(fun<T = fun(fun<T = fun(!) -> T>(T) -> T) -> T>(T) -> T) -> T", "fun<Type1 = fun<T = fun<Type1: fun<T = fun<Type1 = !, Type2>(Type1) -> Type2>(T) -> T, Type2 = !>(Type1) -> Type2>(T) -> T, Type2>(Type1) -> Type2", ["We could not find type `T`.", "We could not find type `T`.", "We could not find type `T`."])
-  , ("fun(fun<T: fun(!) -> !>(T) -> Int) -> Int", "fun<Type1 = fun<T: fun<Type1, Type2 = !>(Type1) -> Type2>(T) -> Int>(Type1) -> Int", [])
+  , ("fun(fun<T = fun(!) -> X>(T) -> T) -> X", "fun<Type1 = fun<T = fun<Type1 = !>(Type1) -> X>(T) -> T>(Type1) -> X", [])
+  , ("fun(fun<T = fun(fun<T = fun(!) -> X>(T) -> T) -> X>(T) -> T) -> X", "fun<Type1 = fun<T = fun<Type1 = fun<T = fun<Type1 = !>(Type1) -> X>(T) -> T>(Type1) -> X>(T) -> T>(Type1) -> X", [])
+  , ("fun(fun<T = fun(!) -> T>(T) -> T) -> T", "fun<Type1 = fun<T = fun<Type1 = !, Type2>(Type1) -> Type2>(T) -> T, Type2>(Type1) -> Type2", ["We could not find type `T`.", "We could not find type `T`."])
+  , ("fun(fun<T = fun(fun<T = fun(!) -> T>(T) -> T) -> T>(T) -> T) -> T", "fun<Type1 = fun<T = fun<Type1 = fun<T = fun<Type1 = !, Type2>(Type1) -> Type2>(T) -> T, Type2>(Type1) -> Type2>(T) -> T, Type2>(Type1) -> Type2", ["We could not find type `T`.", "We could not find type `T`.", "We could not find type `T`."])
+  , ("fun(fun<T: fun(!) -> !>(T) -> Int) -> Int", "fun<Type1 = fun<T: fun<Type1 = !, Type2>(Type1) -> Type2>(T) -> Int>(Type1) -> Int", [])
   , ("fun<Type1>(Type1) -> !", "fun<Type1, Type2>(Type1) -> Type2", [])
   , ("fun<Type2>(Type2) -> !", "fun<Type2, Type1>(Type2) -> Type1", [])
   , ("fun(Type1) -> !", "fun<Type1 = !, Type2>(Type1) -> Type2", ["We could not find type `Type1`."])
@@ -108,6 +107,8 @@ testData =
   , ("fun(😈) -> 😈", "fun<Type1 = !, Type2>(Type1) -> Type2", [])
   , ("😈 X", "X", [])
   , ("fun(😈 X) -> 😈 X", "fun(X) -> X", [])
+  , ("fun<T, U = fun<V>(V) -> T, T: fun<V>(V) -> V>(U) -> T", "fun<T, U = fun<V>(V) -> T, T: fun<V>(V) -> V>(U) -> T", [])
+  , ("fun(fun<V>(V) -> !) -> fun<V>(V) -> V", "fun<Type1 = fun<V, Type1>(V) -> Type1, Type2: fun<V>(V) -> V>(Type1) -> Type2", [])
   ]
 
 initialContext :: HashSet Identifier
@@ -119,11 +120,11 @@ spec = do
     flip traverse_ testData $ \(input, expectedOutput, expectedDiagnostics) ->
       it (Text.unpack input) $ do
         let (type1, _) = runDiagnosticWriter (parseType (tokenize input))
-        let (type2, ds) = runDiagnosticWriter (checkPolytype Positive initialContext (convertRecoverType type1))
+        let (type2, ds) = runDiagnosticWriter (checkPolytype initialContext (convertRecoverType type1))
         let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type2)))
         let actualDiagnostics = map (Text.Lazy.toStrict . Text.Builder.toLazyText . diagnosticMessageText) (toList ds)
         let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))
-        let (type4, _) = runDiagnosticWriter (checkPolytype Positive initialContext (convertRecoverType type3))
+        let (type4, _) = runDiagnosticWriter (checkPolytype initialContext (convertRecoverType type3))
         let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type4)))
         actualOutput `shouldBe` expectedOutput
         actualDiagnostics `shouldBe` expectedDiagnostics
