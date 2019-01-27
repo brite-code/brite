@@ -16,6 +16,7 @@
 module Brite.Syntax.Printer
   ( printModule
   , printCompactType
+  , printCompactQuantifierList
   ) where
 
 import Brite.Syntax.CST (recoverStatementTokens)
@@ -35,6 +36,11 @@ printModule = printDocument maxWidth . printStatementSequence . moduleStatements
 -- Pretty prints a type compactly. The type must be from the printer AST.
 printCompactType :: Type -> Text.Builder
 printCompactType = printCompactDocument . printType
+
+-- Prints a quantifier list compactly. The quantifier list must come from the printer AST.
+printCompactQuantifierList :: [Quantifier] -> Text.Builder
+printCompactQuantifierList [] = Text.Builder.fromText "<>"
+printCompactQuantifierList qs = printCompactDocument (printQuantifierList (map (\x -> Right (x, [])) qs))
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
 -- GitHub, Terminals. It is also the best for plain text comments.

@@ -6,6 +6,7 @@
 module Brite.Semantics.TypePrinter
   ( printPolytype
   , printPolytypeWithoutInlining
+  , printBindingWithoutInlining
   ) where
 
 import Brite.Semantics.Namer

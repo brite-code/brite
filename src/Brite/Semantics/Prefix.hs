@@ -17,6 +17,8 @@ module Brite.Semantics.Prefix
   , generalize
   , update
   , mergeUpdate
+  , allBindingNames
+  , allBindings
   ) where
 
 import Prelude hiding (lookup)
@@ -29,6 +31,7 @@ import qualified Brite.Semantics.Type as Type
 import Control.Monad.ST
 import Data.Foldable (foldlM, traverse_)
 import qualified Data.HashMap.Lazy as HashMap
+import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
@@ -439,3 +442,37 @@ mergeUpdate prefix name1 name2 flex type' = do
             writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 Type.Rigid (Type.polytype (Type.variable name2)))
             levelUp prefix entryLevel2 type'
             return (Right ())
+
+-- Gets a set of all the binding names in the prefix for debugging.
+--
+-- We return a set instead of a list because the bindings in the prefix are unordered.
+allBindingNames :: Prefix s -> Check s (HashSet Identifier)
+allBindingNames prefix = liftST $
+  HashTable.foldM
+    (\names (name, _) -> return (HashSet.insert name names))
+    HashSet.empty
+    (prefixEntries prefix)
+
+-- Collects all the current bounds of the prefix into the list. The bounds are sorted in dependency
+-- order. That is, dependents are listed after their dependencies.
+allBindings :: Prefix s -> Check s [Type.Binding]
+allBindings prefix = liftST $ do
+  visited <- HashTable.new
+  let
+    visit bindings0 name = do
+      alreadyVisited <- isJust <$> HashTable.lookup visited name
+      if alreadyVisited then return bindings0 else do
+        HashTable.insert visited name ()
+        maybeEntry <- HashTable.lookup (prefixEntries prefix) name
+        case maybeEntry of
+          Nothing -> return bindings0
+          Just entry -> do
+            binding <- readSTRef (prefixEntryBinding entry)
+            bindings2 <-
+              HashSet.foldl'
+                (\bindings1 freeName -> bindings1 >>= flip visit freeName)
+                (return bindings0)
+                (Type.polytypeFreeVariables (Type.bindingType binding))
+            return (binding : bindings2)
+  reverse <$>
+    HashTable.foldM (\bindings (name, _) -> visit bindings name) [] (prefixEntries prefix)

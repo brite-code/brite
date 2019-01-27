@@ -8,14 +8,18 @@ import Brite.Semantics.Check (checkPolytype)
 import Brite.Semantics.CheckMonad
 import qualified Brite.Semantics.Prefix as Prefix
 import qualified Brite.Semantics.Type as Type
+import Brite.Semantics.TypePrinter
+import Brite.Semantics.Unify
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
+import Brite.Syntax.Printer
 import Brite.Syntax.Tokens
 import Data.Foldable (traverse_, toList)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
+import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import Test.Hspec
 
@@ -347,7 +351,7 @@ unifyParser = identifier *> glyph ParenLeft *> args <* glyph ParenRight
 
 spec :: Spec
 spec =
-  flip traverse_ testData $ \(input, expectedOutput, expectedDiagnostics) ->
+  flip traverse_ testData $ \(input, expectedPrefix, expectedDiagnostics) ->
     it (Text.unpack input) $ do
       let ((cqs, ct1, ct2), ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
       traverse_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
@@ -359,19 +363,33 @@ spec =
           Fatal _ _ -> undefined
           Ok cqs' -> CST.QuantifiedType cqs' (Ok (CST.VariableType (CST.Name (unsafeIdentifier "Bool") undefined)))
 
-        ((), ds3) = runCheck $ do
+        -- Run some code in the check monad...
+        (allBindings, ds3) = runCheck $ do
           prefix <- Prefix.new
           Prefix.withLevel prefix $ do
-            -- Instantiate the mock type we created in our prefix.
+            -- Instantiate the quantifications for the mock type we created.
             case Type.polytypeDescription t3 of
               Type.Quantify bindings body -> Prefix.instantiate prefix bindings body *> return ()
               _ -> return ()
+            -- Get all the names currently bound in our prefix.
+            ctx <- Prefix.allBindingNames prefix
+            pt1 <- liftDiagnosticWriter (checkPolytype ctx (AST.convertRecoverType ct1))
+            pt2 <- liftDiagnosticWriter (checkPolytype ctx (AST.convertRecoverType ct2))
+            -- We need monotypes. We can’t take polytypes.
+            let t1 = case Type.polytypeDescription pt1 of { Type.Monotype' t -> t; _ -> undefined }
+            let t2 = case Type.polytypeDescription pt2 of { Type.Monotype' t -> t; _ -> undefined }
+            -- Yay! We can actually call unify now 😉
+            _ <- unify prefix t1 t2
+            -- Return a list of all the bindings in our prefix.
+            Prefix.allBindings prefix
 
-            return ()
-
-        -- (t1, ds4) = runDiagnosticWriter (checkPolytype mempty (AST.convertRecoverType ct1))
-        -- (t2, ds5) = runDiagnosticWriter (checkPolytype mempty (AST.convertRecoverType ct2))
+      -- Compare the actual prefix to the expected prefix.
+      let actualPrefix = strictify (printCompactQuantifierList (map printBindingWithoutInlining allBindings))
+      actualPrefix `shouldBe` expectedPrefix
 
       -- Compare all the expected diagnostics to each other.
-      let actualDiagnostics = map (Text.Lazy.toStrict . Text.Builder.toLazyText . diagnosticMessageText) (toList (ds2 <> ds3))
-      if not (null actualDiagnostics) then expectedDiagnostics `shouldBe` actualDiagnostics else mempty -- TODO: Remove this. It is only to pretty up our test output.
+      let actualDiagnostics = map (strictify . diagnosticMessageText) (toList (ds2 <> ds3))
+      if not (null actualDiagnostics) then actualDiagnostics `shouldBe` expectedDiagnostics else mempty -- TODO: Remove this. It is only to pretty up our test output.
+
+strictify :: Text.Builder -> Text
+strictify = Text.Lazy.toStrict . Text.Builder.toLazyText

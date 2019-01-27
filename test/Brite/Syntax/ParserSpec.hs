@@ -7,7 +7,6 @@ import qualified Brite.Semantics.AST as AST
 import qualified Brite.Semantics.ASTDebug as AST
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
-import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
 import qualified Data.Sequence as Seq
 import Data.Text (Text)

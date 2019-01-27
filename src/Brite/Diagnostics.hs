@@ -51,6 +51,7 @@ module Brite.Diagnostics
   , DiagnosticMonad(..)
   , DiagnosticWriter
   , runDiagnosticWriter
+  , runDiagnosticWriterAdvanced
   , ExpectedToken(..)
   , unexpectedToken
   , unexpectedEnding
@@ -155,6 +156,12 @@ instance DiagnosticMonad DiagnosticWriter where
 -- Runs a `DiagnosticWriter` monad.
 runDiagnosticWriter :: DiagnosticWriter a -> (a, Seq Diagnostic)
 runDiagnosticWriter wa = unDiagnosticWriter wa Seq.empty
+{-# INLINE runDiagnosticWriter #-}
+
+-- Runs a `DiagnosticWriter` monad while allowing an initial sequence of diagnostics to be provided.
+runDiagnosticWriterAdvanced :: DiagnosticWriter a -> Seq Diagnostic -> (a, Seq Diagnostic)
+runDiagnosticWriterAdvanced = unDiagnosticWriter
+{-# INLINE runDiagnosticWriterAdvanced #-}
 
 -- What token did we expect?
 data ExpectedToken

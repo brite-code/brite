@@ -4,6 +4,7 @@ module Brite.Semantics.CheckMonad
   ( Check
   , runCheck
   , liftST
+  , liftDiagnosticWriter
   ) where
 
 import Brite.Diagnostics
@@ -54,6 +55,15 @@ runCheck ca = runST $ do
 liftST :: ST s a -> Check s a
 liftST sa = Check $ \_ -> sa
 {-# INLINE liftST #-}
+
+-- Lifts the `DiagnosticWriter` monad into the `Check` monad.
+liftDiagnosticWriter :: DiagnosticWriter a -> Check s a
+liftDiagnosticWriter da = Check $ \ds -> do
+  ds1 <- readSTRef ds
+  let (a, ds2) = runDiagnosticWriterAdvanced da ds1
+  writeSTRef ds ds2
+  return a
+{-# INLINE liftDiagnosticWriter #-}
 
 instance DiagnosticMonad (Check s) where
   report d = Check $ \ds -> do
