@@ -147,7 +147,48 @@ unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDe
 -- type is an instance of both our input types. That is if `t1` and `t2` are our inputs and
 -- `t1 ≡ t2` holds then we return `t3` where both `t1 ⊑ t3` and `t2 ⊑ t3` hold.
 unifyPolytype :: Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
-unifyPolytype prefix type1 type2 = error "TODO: unimplemented"
+unifyPolytype prefix type1 type2 = case (Type.polytypeDescription type1, Type.polytypeDescription type2) of
+  -- If either is bottom then return the other one.
+  (Bottom, _) -> return (Right type2)
+  (_, Bottom) -> return (Right type1)
+
+  -- If we have two monotypes then unify them. Don’t bother with creating a new level
+  -- or generalizing.
+  (Monotype' monotype1, Monotype' monotype2) -> do
+    result <- unify prefix monotype1 monotype2
+    case result of
+      Left e -> return (Left e)
+      Right () -> return (Right (Type.polytype monotype1))
+
+  -- When two quantified types unify we instantiate their local bounds in the prefix. We consider a
+  -- monotype to be a quantified type with an empty bounds list. We then unify the body of the two
+  -- quantified types in the new prefix. If unification is successful then we know that the two
+  -- types we unified must be equivalent. We then generalize type1 and return it. Since we know our
+  -- types to be equivalent it does not matter which one we return. If unification returned an error
+  -- then we also return that error. We do all this in an isolated level so that we don’t quantify
+  -- type variables that are needed at an earlier level.
+
+  (Quantify bindings1 body1, Monotype' monotype2) -> Prefix.withLevel prefix $ do
+    newBody1 <- Prefix.instantiate prefix bindings1 body1
+    result <- unify prefix newBody1 monotype2
+    case result of
+      Left e -> return (Left e)
+      Right () -> Right <$> Prefix.generalize prefix newBody1
+
+  (Monotype' monotype1, Quantify bindings2 body2) -> Prefix.withLevel prefix $ do
+    newBody2 <- Prefix.instantiate prefix bindings2 body2
+    result <- unify prefix monotype1 newBody2
+    case result of
+      Left e -> return (Left e)
+      Right () -> Right <$> Prefix.generalize prefix newBody2
+
+  (Quantify bindings1 body1, Quantify bindings2 body2) -> Prefix.withLevel prefix $ do
+    newBody1 <- Prefix.instantiate prefix bindings1 body1
+    newBody2 <- Prefix.instantiate prefix bindings2 body2
+    result <- unify prefix newBody1 newBody2
+    case result of
+      Left e -> return (Left e)
+      Right () -> Right <$> Prefix.generalize prefix newBody1
 
 -- If the first `Either` is `Right` we return the second. If the first `Either` is `Left` we return
 -- the first. So we return the first `Either` with an error.
