@@ -3,11 +3,16 @@
 module Brite.Semantics.UnifySpec (spec) where
 
 import Brite.Diagnostics
+import qualified Brite.Semantics.AST as AST
+import Brite.Semantics.Check (checkPolytype)
+import Brite.Semantics.CheckMonad
+import qualified Brite.Semantics.Prefix as Prefix
+import qualified Brite.Semantics.Type as Type
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
-import Data.Foldable (traverse_)
+import Data.Foldable (traverse_, toList)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
@@ -307,27 +312,27 @@ testData =
   , ("unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)", "<Y = fun<C>(fun(C) -> C) -> fun(C) -> C, X = Y>", [])
   , ("unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)", "<Y: fun<C>(fun(C) -> C) -> fun(C) -> C, X = <A: fun<B>(B) -> B> fun(A) -> A>", ["<A: fun<B>(B) -> B> fun(A) -> A ≢ fun<C>(fun(C) -> C) -> fun(C) -> C"])
   , ("unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)", "<Y: fun<C>(fun(C) -> C) -> fun(C) -> C, X = Y>", [])
-  , ("unify(<T = nope>, T, T)", "<T = %error>", ["Unbound variable `nope`."])
-  , ("unify(<T1 = nope, T2 = nope>, T1, T2)", "<T1 = %error, T2 = %error>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
+  , ("unify(<T = nope>, T, T)", "<T = %error>", ["We could not find type `nope`."])
+  , ("unify(<T1 = nope, T2 = nope>, T1, T2)", "<T1 = %error, T2 = %error>", ["We could not find type `nope`.", "We could not find type `nope`."])
   , ("unify(<X, Y = Int>, X, Y)", "<Y = Int, X = Int>", [])
   , ("unify(<X, Y = Int>, Y, X)", "<Y = Int, X = Int>", [])
-  , ("unify(<X, Y = nope>, X, Y)", "<Y = %error, X = %error>", ["Unbound variable `nope`."])
-  , ("unify(<X, Y = nope>, Y, X)", "<Y = %error, X = %error>", ["Unbound variable `nope`."])
-  , ("unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, A, B)", "<A = fun<Z>(Z) -> %error, B = fun<Z>(Z) -> %error>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
-  , ("unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, B, A)", "<A = fun<Z>(Z) -> %error, B = fun<Z>(Z) -> %error>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
-  , ("unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, A, B)", "<C = %error, A = fun<Z>(Z) -> C, B = A>", ["Unbound variable `nope`."])
-  , ("unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, B, A)", "<C = %error, B = fun<Z>(Z) -> C, A = B>", ["Unbound variable `nope`."])
+  , ("unify(<X, Y = nope>, X, Y)", "<Y = %error, X = %error>", ["We could not find type `nope`."])
+  , ("unify(<X, Y = nope>, Y, X)", "<Y = %error, X = %error>", ["We could not find type `nope`."])
+  , ("unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, A, B)", "<A = fun<Z>(Z) -> %error, B = fun<Z>(Z) -> %error>", ["We could not find type `nope`.", "We could not find type `nope`."])
+  , ("unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, B, A)", "<A = fun<Z>(Z) -> %error, B = fun<Z>(Z) -> %error>", ["We could not find type `nope`.", "We could not find type `nope`."])
+  , ("unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, A, B)", "<C = %error, A = fun<Z>(Z) -> C, B = A>", ["We could not find type `nope`."])
+  , ("unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, B, A)", "<C = %error, B = fun<Z>(Z) -> C, A = B>", ["We could not find type `nope`."])
   , ("unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)", "<Y = fun<Z>(Z) -> Int, X = fun<Z>(Z) -> Int, T = fun(X) -> Y>", [])
   , ("unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)", "<Y = fun<Z>(Z) -> Int, X = fun<Z>(Z) -> Int, T = fun(X) -> Y>", [])
-  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, T, fun(X) -> Y)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(X) -> Y, T)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, T, fun(X) -> Y)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(X) -> Y, T)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Z>(Z) -> %error, X = Y, T = fun(X) -> Y>", ["Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
-  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["Unbound variable `nope`.", "Unbound variable `nope`."])
+  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`."])
+  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`."])
+  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, T, fun(X) -> Y)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
+  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(X) -> Y, T)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
+  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, T, fun(X) -> Y)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
+  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(X) -> Y, T)", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
+  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Z>(Z) -> %error, X = Y, T = fun(X) -> Y>", ["We could not find type `nope`."])
+  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
+  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Z>(Z) -> %error, X = fun<Z>(Z) -> %error, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
   , ("unify(<A, B>, A, B)", "<A, B = A>", [])
   ]
 
@@ -344,6 +349,29 @@ spec :: Spec
 spec =
   flip traverse_ testData $ \(input, expectedOutput, expectedDiagnostics) ->
     it (Text.unpack input) $ do
-      let (_, ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
+      let ((cqs, ct1, ct2), ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
       traverse_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
-      True `shouldBe` True
+      let
+        -- Use the quantifier list to quantify a boolean type. Could be anything really. We just
+        -- need to send it through our conversion and type checking pipeline.
+        (t3, ds2) = runDiagnosticWriter . checkPolytype mempty . AST.convertRecoverType . Ok $ case cqs of
+          Recover _ _ _ -> undefined
+          Fatal _ _ -> undefined
+          Ok cqs' -> CST.QuantifiedType cqs' (Ok (CST.VariableType (CST.Name (unsafeIdentifier "Bool") undefined)))
+
+        ((), ds3) = runCheck $ do
+          prefix <- Prefix.new
+          Prefix.withLevel prefix $ do
+            -- Instantiate the mock type we created in our prefix.
+            case Type.polytypeDescription t3 of
+              Type.Quantify bindings body -> Prefix.instantiate prefix bindings body *> return ()
+              _ -> return ()
+
+            return ()
+
+        -- (t1, ds4) = runDiagnosticWriter (checkPolytype mempty (AST.convertRecoverType ct1))
+        -- (t2, ds5) = runDiagnosticWriter (checkPolytype mempty (AST.convertRecoverType ct2))
+
+      -- Compare all the expected diagnostics to each other.
+      let actualDiagnostics = map (Text.Lazy.toStrict . Text.Builder.toLazyText . diagnosticMessageText) (toList (ds2 <> ds3))
+      if not (null actualDiagnostics) then expectedDiagnostics `shouldBe` actualDiagnostics else mempty -- TODO: Remove this. It is only to pretty up our test output.
