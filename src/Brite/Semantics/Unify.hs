@@ -98,7 +98,29 @@ unify prefix type1 type2 =
                 Left e -> return (Left e)
                 Right _ -> Prefix.update prefix (Type.Binding name1 Type.Rigid polytype2)
 
-    (_, Variable _) -> error "TODO: unimplemented"
+    -- Unify `type2` with some other monotype. The other monotype is guaranteed to not be a variable
+    -- since that case would be caught by the match case above.
+    (_, Variable name2) -> do
+      -- Lookup the variable’s binding. If it does not exist then we have an internal error!
+      -- Immediately stop trying to unify this type.
+      maybeBinding2 <- Prefix.lookup prefix name2
+      case maybeBinding2 of
+        Nothing -> error "TODO: diagnostic"
+        Just binding2 -> do
+          -- Pattern match with our binding type and our second monotype.
+          case Type.polytypeDescription (Type.bindingType binding2) of
+            -- If the bound for our variable is a monotype then recursively call `unify` with that
+            -- monotype. As per the normal-form monotype bound rewrite rule.
+            Monotype' monotype2 -> unify prefix type1 monotype2
+
+            -- Unify the polymorphic bound type with our other monotype. If the unification is
+            -- successful then update the type variable in our prefix to our monotype.
+            _ -> do
+              let polytype1 = Type.polytype type1
+              result <- unifyPolytype prefix polytype1 (Type.bindingType binding2)
+              case result of
+                Left e -> return (Left e)
+                Right _ -> Prefix.update prefix (Type.Binding name2 Type.Rigid polytype1)
 
     -- Primitive intrinsic types unify with each other no problem.
     (Boolean, Boolean) -> return (Right ())
@@ -120,10 +142,10 @@ unify prefix type1 type2 =
     (Function _ _, _) -> incompatibleTypes
 
   where
-    incompatibleTypes = error "unimplemented"
+    incompatibleTypes = error "TODO: unimplemented"
 
 unifyPolytype :: Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
-unifyPolytype = error "unimplemented"
+unifyPolytype = error "TODO: unimplemented"
 
 -- If the first `Either` is `Right` we return the second. If the first `Either` is `Left` we return
 -- the first. So we return the first `Either` with an error.
