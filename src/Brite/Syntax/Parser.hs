@@ -1,6 +1,8 @@
 module Brite.Syntax.Parser
   ( parseModule
   , parseType
+  , typeParser
+  , tryQuantifierListParser
   ) where
 
 import Brite.Diagnostics
@@ -22,6 +24,14 @@ parseModule tokens = do
 -- Parses a Brite type from a stream of tokens.
 parseType :: TokenStream -> DiagnosticWriter (Recover Type)
 parseType tokens = fst <$> runParser type_ tokens
+
+-- Parses a Brite type.
+typeParser :: Parser (Recover Type)
+typeParser = type_
+
+-- Try parser for a quantifier list.
+tryQuantifierListParser :: TryParser QuantifierList
+tryQuantifierListParser = tryQuantifierList
 
 name :: Parser (Recover Name)
 name = retry tryName
