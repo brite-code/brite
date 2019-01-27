@@ -15,9 +15,12 @@ module Brite.Semantics.Prefix
   , lookup
   , instantiate
   , generalize
+  , update
+  , mergeUpdate
   ) where
 
 import Prelude hiding (lookup)
+import Brite.Diagnostics
 import Brite.Semantics.AST (Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
@@ -334,3 +337,104 @@ levelUp prefix newLevel type0 =
       else
         return ())
 
+-- Performs the checks which must pass for an update to be safe.
+updateCheck :: Prefix s -> Polytype -> Type.Binding -> Check s (Either Diagnostic ())
+updateCheck prefix _oldType newBinding = do
+  -- TODO: kinds
+  -- TODO: abstraction
+
+  -- Run an “occurs” check to make sure that we aren’t creating an infinite type with this update.
+  -- If we would create an infinite type then return an error.
+  nameOccurs <- liftST $ occurs prefix (Type.bindingName newBinding) (Type.bindingType newBinding)
+  if nameOccurs then
+    error "TODO: diagnostic"
+  else
+    -- The update is ok. You may proceed to commit changes...
+    return (Right ())
+
+-- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Where `t1` is the old type and `t2` is the new
+-- type. Do not call this function with two types which do not uphold this relation!
+--
+-- The update algorithm replaces the bound of a type variable in our prefix with a new one. This
+-- operation only succeeds if the prefix after updating is strictly an instance of the prefix before
+-- updating. In other words `Q ⊑ Q'` must hold. We also must not add a circular dependency to our
+-- prefix as this breaks the theoretical prefix ordering. So our update function has
+-- these invariants:
+--
+-- 1. The binding already exists in the prefix.
+-- 2. If `bound` or any of the referenced type variables in `bound` contain a
+--    reference to `name` we return an error.
+-- 3. If `Q ⊑ Q'` would not hold after applying this update we return an error.
+--
+-- We assume that the new type is an instance of the old type. However, we do check to ensure that
+-- the new type is an abstraction of the old type for rigid bindings.
+update :: Prefix s -> Type.Binding -> Check s (Either Diagnostic ())
+update prefix binding = do
+  -- Lookup the existing binding entry in the prefix. If it does not exist then report an error
+  -- diagnostic and abort.
+  maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) (Type.bindingName binding)
+  case maybeEntry of
+    Nothing -> error "TODO: Internal error diagnostic"
+    Just entry -> do
+      -- Make sure our update is safe.
+      oldBinding <- liftST $ readSTRef (prefixEntryBinding entry)
+      updateCheckResult <- updateCheck prefix (Type.bindingType oldBinding) binding
+      case updateCheckResult of
+        -- If the update is not safe then return an error without committing anything.
+        Left e -> return (Left e)
+        -- If the update is safe then update our entry and update the levels of our new
+        -- type’s dependencies.
+        Right () -> liftST $ do
+          writeSTRef (prefixEntryBinding entry) binding
+          entryLevel <- readSTRef (prefixEntryLevel entry)
+          levelUp prefix entryLevel (Type.bindingType binding)
+          return (Right ())
+
+-- IMPORTANT: We assume that `(Q) t1 ⊑ t3` and `(Q) t2 ⊑ t3` hold. Where `t1` and `t2` are the old
+-- types for both type variables respectively and `t3` is the new type. Do not call this function
+-- with types which do not uphold this relation!
+--
+-- Updates two types to the same bound. Corresponds to the merge algorithm in the [MLF Thesis][1]
+-- along with two calls to update. It is important we do these two updates together in a transaction
+-- so a single error means we don’t commit anything.
+--
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+mergeUpdate :: Prefix s -> Identifier -> Identifier -> Type.Flexibility -> Polytype -> Check s (Either Diagnostic ())
+mergeUpdate prefix name1 name2 flex type' = do
+  let binding1 = Type.Binding name1 flex type'
+  let binding2 = Type.Binding name2 flex type'
+  -- Lookup both types in our hash table. Both _must_ exist. If one of them doesn’t then report an
+  -- internal error diagnostic.
+  maybeEntry1 <- liftST $ HashTable.lookup (prefixEntries prefix) name1
+  maybeEntry2 <- liftST $ HashTable.lookup (prefixEntries prefix) name2
+  case (maybeEntry1, maybeEntry2) of
+    (Nothing, _) -> error "TODO: Internal error diagnostic"
+    (_, Nothing) -> error "TODO: Internal error diagnostic"
+    (Just entry1, Just entry2) -> do
+      -- Make sure _both_ our updates are safe.
+      oldBinding1 <- liftST $ readSTRef (prefixEntryBinding entry1)
+      oldBinding2 <- liftST $ readSTRef (prefixEntryBinding entry2)
+      updateCheckResult1 <- updateCheck prefix (Type.bindingType oldBinding1) binding1
+      updateCheckResult2 <- updateCheck prefix (Type.bindingType oldBinding2) binding2
+      case (updateCheckResult1, updateCheckResult2) of
+        -- If the update is not safe then return an error without committing anything.
+        (Left e, _) -> return (Left e)
+        (_, Left e) -> return (Left e)
+        -- If the update is safe then update our entry and update the levels of our new
+        -- type’s dependencies.
+        (Right (), Right ()) -> liftST $ do
+          -- Update one of the entries to equal the provided bound. Then, link the other entry to
+          -- the updated entry. We let the entry which will live longer be the one to hold our
+          -- bound. We let the entry which will live shorter be our link.
+          entryLevel1 <- readSTRef (prefixEntryLevel entry1)
+          entryLevel2 <- readSTRef (prefixEntryLevel entry2)
+          if prefixLevelIndex entryLevel1 <= prefixLevelIndex entryLevel2 then do
+            writeSTRef (prefixEntryBinding entry1) binding1
+            writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 Type.Rigid (Type.polytype (Type.variable name1)))
+            levelUp prefix entryLevel1 type'
+            return (Right ())
+          else do
+            writeSTRef (prefixEntryBinding entry2) binding2
+            writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 Type.Rigid (Type.polytype (Type.variable name2)))
+            levelUp prefix entryLevel2 type'
+            return (Right ())
