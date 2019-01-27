@@ -3,9 +3,15 @@ module Brite.Semantics.Unify
   ) where
 
 import Brite.Diagnostics
-import Brite.Semantics.Type (Monotype, MonotypeDescription(..))
+import Brite.Semantics.CheckMonad
+import Brite.Semantics.Prefix (Prefix)
+import qualified Brite.Semantics.Prefix as Prefix
+import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..))
 import qualified Brite.Semantics.Type as Type
 
+-- IMPORTANT: It is expected that all free type variables are bound in the prefix! If this is not
+-- true we will report internal error diagnostics.
+--
 -- The unification algorithm takes a prefix and two monotypes asserting that the types are
 -- equivalent under the prefix. However, what makes unification extra special is that at the same
 -- time if we encounter flexible bounds in the prefix then we update our prefix so that the types
@@ -22,34 +28,90 @@ import qualified Brite.Semantics.Type as Type
 -- are _not_ equivalent. That is `(Q') t1 ≡ t2` does _not_ hold. The prefix after unification will
 -- always be an instance of the prefix before unification. That is `Q ⊑ Q'` always holds.
 --
--- The caller of the unification algorithm which depends on equivalent types for soundness must
--- handle the error locally.
+-- If the caller of the unification algorithm depends on equivalent types for soundness then they
+-- must handle the error locally. Typically this is done by panicking at runtime. That is if the
+-- types are not equivalent then we will use a fresh type variable which will always be equivalent
+-- when unified.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
-unify :: Monotype -> Monotype -> Either Diagnostic ()
-unify type1 type2 =
+unify :: Prefix s -> Monotype -> Monotype -> Check s (Either Diagnostic ())
+unify prefix type1 type2 =
   case (Type.monotypeDescription type1, Type.monotypeDescription type2) of
-    -- Variables with the same ID unify without any further analysis. We make sure to give every
-    -- type variable a globally unique ID so that they’ll never conflict.
-    (Variable id1, Variable id2) | id1 == id2 -> Right ()
+    -- Variables with the same name unify without any further analysis. We rename variables in
+    -- `type1` and `type2` so that the same variable name does not represent different bounds.
+    (Variable name1, Variable name2) | name1 == name2 -> return (Right ())
 
-    (Variable _, _) -> error "TODO: unimplemented"
+    -- Unify `type1` with some other monotype. If the monotype is a variable then we will perform
+    -- some special handling.
+    (Variable name1, description2) -> do
+      -- Lookup the variable’s binding. If it does not exist then we have an internal error!
+      -- Immediately stop trying to unify this type.
+      maybeBinding1 <- Prefix.lookup prefix name1
+      case maybeBinding1 of
+        Nothing -> error "TODO: diagnostic"
+        Just binding1 -> do
+          -- Pattern match with our binding type and our second monotype.
+          case (Type.polytypeDescription (Type.bindingType binding1), description2) of
+            -- If the bound for our variable is a monotype then recursively call `unify` with that
+            -- monotype. As per the normal-form monotype bound rewrite rule.
+            (Monotype' monotype1, _) -> unify prefix monotype1 type2
+
+            -- Two variables with different names were unified with one another. This case is
+            -- different from the variable branch below because we need to merge the two
+            -- variables together.
+            (_, Variable name2) -> do
+              -- Lookup the variable’s binding. If it does not exist then we have an internal error!
+              -- Immediately stop trying to unify this type.
+              maybeBinding2 <- Prefix.lookup prefix name2
+              case maybeBinding2 of
+                Nothing -> error "TODO: diagnostic"
+                Just binding2 ->
+                  case Type.polytypeDescription (Type.bindingType binding2) of
+                    -- If the bound for our variable is a monotype then recursively call `unify`
+                    -- with that monotype. As per the normal-form monotype bound rewrite rule. Make
+                    -- sure we don’t fall into the next case where we try to update the types to
+                    -- each other!
+                    Monotype' monotype2 -> unify prefix type1 monotype2
+
+                    -- Actually merge the two type variables together.
+                    _ -> do
+                      result <- unifyPolytype prefix (Type.bindingType binding1) (Type.bindingType binding2)
+                      case result of
+                        -- If the two types are not equivalent we don’t want to merge them together
+                        -- in the prefix!
+                        Left e -> return (Left e)
+                        Right newType -> do
+                          let
+                            -- Our merged binding is only flexible if both bindings are flexible.
+                            flexibility = case (Type.bindingFlexibility binding1, Type.bindingFlexibility binding2) of
+                              (Type.Flexible, Type.Flexible) -> Type.Flexible
+                              _ -> Type.Rigid
+                          -- Merge the two type variables together! Huzzah!
+                          Prefix.mergeUpdate prefix name1 name2 flexibility newType
+
+            -- Unify the polymorphic bound type with our other monotype. If the unification is
+            -- successful then update the type variable in our prefix to our monotype.
+            _ -> do
+              let polytype2 = Type.polytype type2
+              result <- unifyPolytype prefix (Type.bindingType binding1) polytype2
+              case result of
+                Left e -> return (Left e)
+                Right _ -> Prefix.update prefix (Type.Binding name1 Type.Rigid polytype2)
+
     (_, Variable _) -> error "TODO: unimplemented"
 
     -- Primitive intrinsic types unify with each other no problem.
-    (Boolean, Boolean) -> Right ()
-    (Integer, Integer) -> Right ()
+    (Boolean, Boolean) -> return (Right ())
+    (Integer, Integer) -> return (Right ())
 
     -- Functions unify if the parameters and bodies unify.
     --
     -- If both the unification of the parameters and bodies fail then we will report two error
     -- diagnostics. However, we will only return the first error from unify.
-    (Function parameter1 body1, Function parameter2 body2) ->
-      let
-        result1 = unify parameter1 parameter2
-        result2 = unify body1 body2
-      in
-        result1 `eitherOr` result2
+    (Function parameter1 body1, Function parameter2 body2) -> do
+      result1 <- unify prefix parameter1 parameter2
+      result2 <- unify prefix body1 body2
+      return (result1 `eitherOr` result2)
 
     -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
     -- want a compiler warning telling us to add a case for that type to unification.
@@ -59,6 +121,9 @@ unify type1 type2 =
 
   where
     incompatibleTypes = error "unimplemented"
+
+unifyPolytype :: Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
+unifyPolytype = error "unimplemented"
 
 -- If the first `Either` is `Right` we return the second. If the first `Either` is `Left` we return
 -- the first. So we return the first `Either` with an error.

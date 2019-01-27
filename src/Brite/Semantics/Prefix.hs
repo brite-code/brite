@@ -184,7 +184,7 @@ freshWithBound prefix k t = liftST $
 
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
 -- return nothing. The bound returned will always be in normal form.
-lookup :: Prefix s -> Identifier -> Check s (Maybe Polytype)
+lookup :: Prefix s -> Identifier -> Check s (Maybe Type.Binding)
 lookup prefix name = liftST $ do
   -- Lookup the entry in the table. If the type is not in normal form we want to convert the type
   -- before returning.
@@ -196,10 +196,11 @@ lookup prefix name = liftST $ do
     -- our entry.
     if not (Type.polytypeNormal (Type.bindingType binding)) then do
       let newType = Type.normal (Type.bindingType binding)
-      writeSTRef (prefixEntryBinding entry) (binding { Type.bindingType = newType })
-      return newType
+      let newBinding = binding { Type.bindingType = newType }
+      writeSTRef (prefixEntryBinding entry) newBinding
+      return newBinding
     else
-      return (Type.bindingType binding)
+      return binding
 
 -- Merges the bounds of a quantified type into the prefix. If any of the bound names already exist
 -- in the prefix then we need to generate new names. Those names will be substituted in the bounds
