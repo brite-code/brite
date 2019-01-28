@@ -62,7 +62,7 @@ module Brite.Diagnostics
   ) where
 
 import Brite.DiagnosticsMarkup
-import Brite.Syntax.Tokens (Range, debugRange, Identifier, identifierText, TokenKind(..), Glyph, glyphText)
+import Brite.Syntax.Tokens
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import qualified Data.Text as Text
@@ -103,7 +103,7 @@ data DiagnosticMessage
 
 data ErrorDiagnosticMessage
   -- The parser ran into a token it did not recognize.
-  = UnexpectedToken TokenKind ExpectedToken
+  = UnexpectedToken ActualToken ExpectedToken
   -- The parser ran into the end of the source document unexpectedly.
   | UnexpectedEnding ExpectedToken
   -- The type checker ran into a type variable which it could not find a binding for.
@@ -163,6 +163,12 @@ runDiagnosticWriterAdvanced :: DiagnosticWriter a -> Seq Diagnostic -> (a, Seq D
 runDiagnosticWriterAdvanced = unDiagnosticWriter
 {-# INLINE runDiagnosticWriterAdvanced #-}
 
+-- What token did we actually get?
+data ActualToken
+  = ActualGlyph Glyph
+  | ActualIdentifier
+  | ActualChar Char
+
 -- What token did we expect?
 data ExpectedToken
   = ExpectedGlyph Glyph
@@ -175,9 +181,14 @@ data ExpectedToken
   | ExpectedType
 
 -- The parser ran into a token it did not recognize.
-unexpectedToken :: DiagnosticMonad m => Range -> TokenKind -> ExpectedToken -> m Diagnostic
-unexpectedToken range unexpected expected = report $ Diagnostic range $ Error $
+unexpectedToken :: DiagnosticMonad m => Token -> ExpectedToken -> m Diagnostic
+unexpectedToken token expected = report $ Diagnostic (tokenRange token) $ Error $
   UnexpectedToken unexpected expected
+  where
+    unexpected = case tokenKind token of
+      Glyph glyph -> ActualGlyph glyph
+      IdentifierToken _ -> ActualIdentifier
+      UnexpectedChar c -> ActualChar c
 
 -- The parser ran into the end of the source document unexpectedly.
 unexpectedEnding :: DiagnosticMonad m => Range -> ExpectedToken -> m Diagnostic
@@ -232,9 +243,9 @@ diagnosticErrorMessage (UnexpectedToken unexpected expected) =
     <> plain "."
   where
     unexpectedDescription = case unexpected of
-      Glyph glyph -> code (glyphText glyph)
-      IdentifierToken _ -> plain "a variable name"
-      UnexpectedChar c -> code (Text.singleton c)
+      ActualGlyph glyph -> code (glyphText glyph)
+      ActualIdentifier -> plain "a variable name"
+      ActualChar c -> code (Text.singleton c)
 
 -- Follows the same format as the unexpected token error. Except instead of saying “we found the end
 -- of the file” we say “We wanted an expression but the file ended.” This is less abstract than
