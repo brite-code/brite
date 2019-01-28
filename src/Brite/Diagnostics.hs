@@ -48,10 +48,6 @@
 module Brite.Diagnostics
   ( Diagnostic
   , diagnosticRange
-  , DiagnosticMonad(..)
-  , DiagnosticWriter
-  , runDiagnosticWriter
-  , runDiagnosticWriterAdvanced
   , ExpectedToken(..)
   , unexpectedToken
   , unexpectedEnding
@@ -59,6 +55,10 @@ module Brite.Diagnostics
   , diagnosticMessage
   , diagnosticMessageText
   , debugDiagnostic
+  , DiagnosticMonad(..)
+  , DiagnosticWriter
+  , runDiagnosticWriter
+  , runDiagnosticWriterAdvanced
   ) where
 
 import Brite.DiagnosticsMarkup
@@ -112,56 +112,6 @@ data ErrorDiagnosticMessage
 data WarningDiagnosticMessage
 
 data InfoDiagnosticMessage
-
--- A diagnostic monad will allow us to report diagnostics. The diagnostics we report will go into
--- a list where they may be read from later.
-class Monad m => DiagnosticMonad m where
-  report :: Diagnostic -> m Diagnostic
-
--- A simple diagnostic writer monad which writes diagnostics to a sequence.
---
--- [1]: http://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Monoid.html#t:Endo
-data DiagnosticWriter a = DiagnosticWriter
-  { unDiagnosticWriter :: Seq Diagnostic -> (a, Seq Diagnostic)
-  }
-
-instance Functor DiagnosticWriter where
-  fmap f wa = DiagnosticWriter $ \ds0 ->
-    let (a, ds1) = unDiagnosticWriter wa ds0 in
-      (f a, ds1)
-  {-# INLINE fmap #-}
-
-instance Applicative DiagnosticWriter where
-  pure a = DiagnosticWriter (\ds -> (a, ds))
-  {-# INLINE pure #-}
-
-  wf <*> wa = DiagnosticWriter $ \ds0 ->
-    let
-      (f, ds1) = unDiagnosticWriter wf ds0
-      (a, ds2) = unDiagnosticWriter wa ds1
-    in
-      (f a, ds2)
-  {-# INLINE (<*>) #-}
-
-instance Monad DiagnosticWriter where
-  wa >>= f = DiagnosticWriter $ \ds0 ->
-    let (a, ds1) = unDiagnosticWriter wa ds0 in
-      unDiagnosticWriter (f a) ds1
-  {-# INLINE (>>=) #-}
-
-instance DiagnosticMonad DiagnosticWriter where
-  report d = DiagnosticWriter (\ds -> (d, ds |> d))
-  {-# INLINE report #-}
-
--- Runs a `DiagnosticWriter` monad.
-runDiagnosticWriter :: DiagnosticWriter a -> (a, Seq Diagnostic)
-runDiagnosticWriter wa = unDiagnosticWriter wa Seq.empty
-{-# INLINE runDiagnosticWriter #-}
-
--- Runs a `DiagnosticWriter` monad while allowing an initial sequence of diagnostics to be provided.
-runDiagnosticWriterAdvanced :: DiagnosticWriter a -> Seq Diagnostic -> (a, Seq Diagnostic)
-runDiagnosticWriterAdvanced = unDiagnosticWriter
-{-# INLINE runDiagnosticWriterAdvanced #-}
 
 -- What token did we actually get?
 data ActualToken
@@ -284,3 +234,53 @@ debugDiagnostic diagnostic =
     <> debugRange (diagnosticRange diagnostic)
     <> Text.Builder.fromText ") "
     <> toText (diagnosticMessage diagnostic)
+
+-- A diagnostic monad will allow us to report diagnostics. The diagnostics we report will go into
+-- a list where they may be read from later.
+class Monad m => DiagnosticMonad m where
+  report :: Diagnostic -> m Diagnostic
+
+-- A simple diagnostic writer monad which writes diagnostics to a sequence.
+--
+-- [1]: http://hackage.haskell.org/package/base-4.12.0.0/docs/Data-Monoid.html#t:Endo
+data DiagnosticWriter a = DiagnosticWriter
+  { unDiagnosticWriter :: Seq Diagnostic -> (a, Seq Diagnostic)
+  }
+
+instance Functor DiagnosticWriter where
+  fmap f wa = DiagnosticWriter $ \ds0 ->
+    let (a, ds1) = unDiagnosticWriter wa ds0 in
+      (f a, ds1)
+  {-# INLINE fmap #-}
+
+instance Applicative DiagnosticWriter where
+  pure a = DiagnosticWriter (\ds -> (a, ds))
+  {-# INLINE pure #-}
+
+  wf <*> wa = DiagnosticWriter $ \ds0 ->
+    let
+      (f, ds1) = unDiagnosticWriter wf ds0
+      (a, ds2) = unDiagnosticWriter wa ds1
+    in
+      (f a, ds2)
+  {-# INLINE (<*>) #-}
+
+instance Monad DiagnosticWriter where
+  wa >>= f = DiagnosticWriter $ \ds0 ->
+    let (a, ds1) = unDiagnosticWriter wa ds0 in
+      unDiagnosticWriter (f a) ds1
+  {-# INLINE (>>=) #-}
+
+instance DiagnosticMonad DiagnosticWriter where
+  report d = DiagnosticWriter (\ds -> (d, ds |> d))
+  {-# INLINE report #-}
+
+-- Runs a `DiagnosticWriter` monad.
+runDiagnosticWriter :: DiagnosticWriter a -> (a, Seq Diagnostic)
+runDiagnosticWriter wa = unDiagnosticWriter wa Seq.empty
+{-# INLINE runDiagnosticWriter #-}
+
+-- Runs a `DiagnosticWriter` monad while allowing an initial sequence of diagnostics to be provided.
+runDiagnosticWriterAdvanced :: DiagnosticWriter a -> Seq Diagnostic -> (a, Seq Diagnostic)
+runDiagnosticWriterAdvanced = unDiagnosticWriter
+{-# INLINE runDiagnosticWriterAdvanced #-}
