@@ -271,7 +271,7 @@ diagnosticErrorMessage :: ErrorDiagnosticMessage -> Markup
 --   variable name, 80% of the time the programmer will write a variable name.
 diagnosticErrorMessage (UnexpectedToken unexpected expected) =
   plain "We wanted "
-    <> expectedTokenDescription expected
+    <> expectedTokenMessage expected
     <> plain " but we found "
     <> unexpectedDescription
     <> plain "."
@@ -287,7 +287,7 @@ diagnosticErrorMessage (UnexpectedToken unexpected expected) =
 -- of a file is a bit weird. It makes sense from the perspective of parsing but not from the user’s
 -- perspective which we are designing for.
 diagnosticErrorMessage (UnexpectedEnding expected) =
-  plain "We wanted " <> expectedTokenDescription expected <> plain " but the file ended."
+  plain "We wanted " <> expectedTokenMessage expected <> plain " but the file ended."
 
 -- Other options considered include:
 --
@@ -301,15 +301,15 @@ diagnosticErrorMessage (UnboundTypeVariable name) =
   plain "We could not find type " <> code (identifierText name) <> plain "."
 
 -- Get the description of an expected token.
-expectedTokenDescription :: ExpectedToken -> Markup
-expectedTokenDescription (ExpectedGlyph glyph) = code (glyphText glyph)
-expectedTokenDescription ExpectedIdentifier = plain "a variable name"
-expectedTokenDescription ExpectedEnd = plain "nothing more"
-expectedTokenDescription ExpectedBlockCommentEnd = code "*/"
-expectedTokenDescription ExpectedStatement = plain "a statement"
-expectedTokenDescription ExpectedExpression = plain "an expression"
-expectedTokenDescription ExpectedPattern = plain "a variable name"
-expectedTokenDescription ExpectedType = plain "a type"
+expectedTokenMessage :: ExpectedToken -> Markup
+expectedTokenMessage (ExpectedGlyph glyph) = code (glyphText glyph)
+expectedTokenMessage ExpectedIdentifier = plain "a variable name"
+expectedTokenMessage ExpectedEnd = plain "nothing more"
+expectedTokenMessage ExpectedBlockCommentEnd = code "*/"
+expectedTokenMessage ExpectedStatement = plain "a statement"
+expectedTokenMessage ExpectedExpression = plain "an expression"
+expectedTokenMessage ExpectedPattern = plain "a variable name"
+expectedTokenMessage ExpectedType = plain "a type"
 
 -- Prints a diagnostic for debugging purposes.
 debugDiagnostic :: Diagnostic -> Text.Builder
