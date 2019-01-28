@@ -300,7 +300,40 @@ diagnosticErrorMessage (UnexpectedEnding expected) =
 diagnosticErrorMessage (UnboundTypeVariable name) =
   plain "We could not find type " <> code (identifierText name) <> plain "."
 
--- Get the description of an expected token.
+-- A Brite programmer will see this error message quite frequently so we need to take some time and
+-- make sure it’s real good.
+--
+-- We get an incompatible types error message when during unification we find two types that are
+-- incompatible. We will add those two types in an error message in addition to the unification
+-- stack at that point. The unification stack allows us to keep track of where we are during
+-- unification to provide the best possible error message.
+--
+-- We start our error message by referencing the unification operation. “Cannot call”,
+-- “Cannot assign”, etc. This allows us to tie our incompatibility _to an actual place in the
+-- programmer’s code_. We don’t just say “these two types are incompatible”, we say “you can’t do
+-- this _because_ you didn’t provide the right types”.
+--
+-- We then tell the programmer the type we found and _then_ the type we expected. This order was
+-- carefully thought of. The expected type is pretty static. It doesn’t change much over time.
+-- However, the programmer is constantly changing which values should flow into the expected type.
+-- Even if, say, the programmer changes the type of a function parameter (an example of an expected
+-- type) they will then go to _all_ the code sites where that function was called and update the
+-- values being passed.
+--
+-- Finally, there’s the matter of the unification stack frames. We currently don’t report the
+-- unification stack frames. Mostly because I want to wait until I have some examples of when the
+-- unification stack frames will be useful for debugging an error. For now we keep the diagnostic
+-- error messages short, sweet, and to the point.
+diagnosticErrorMessage (IncompatibleTypes type1 type2 stack) =
+  operationMessage <> plain " because we see " <> typeMessage type1 <> plain " when we want " <>
+  typeMessage type2 <> plain "."
+  where
+    operationMessage = loop stack
+
+    loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
+    loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
+
+-- Get the message for an expected token.
 expectedTokenMessage :: ExpectedToken -> Markup
 expectedTokenMessage (ExpectedGlyph glyph) = code (glyphText glyph)
 expectedTokenMessage ExpectedIdentifier = plain "a variable name"
@@ -310,6 +343,16 @@ expectedTokenMessage ExpectedStatement = plain "a statement"
 expectedTokenMessage ExpectedExpression = plain "an expression"
 expectedTokenMessage ExpectedPattern = plain "a variable name"
 expectedTokenMessage ExpectedType = plain "a type"
+
+-- Get the message for a type message.
+typeMessage :: TypeMessage -> Markup
+typeMessage BooleanMessage = plain "a boolean"
+typeMessage IntegerMessage = plain "an integer"
+typeMessage FunctionMessage = plain "a function"
+
+-- Get the message for a unification stack operation.
+unifyStackOperationMessage :: UnifyStackOperation -> Markup
+unifyStackOperationMessage UnifyTest = plain "Test failed" -- NOTE: We should only see this during testing.
 
 -- Prints a diagnostic for debugging purposes.
 debugDiagnostic :: Diagnostic -> Text.Builder
