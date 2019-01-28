@@ -48,13 +48,25 @@
 module Brite.Diagnostic
   ( Diagnostic
   , diagnosticRange
+
+  -- Diagnostic constructors.
   , ExpectedToken(..)
   , unexpectedToken
   , unexpectedEnding
   , unboundTypeVariable
+
+  -- Diagnostic unification stacks.
+  , UnifyStack
+  , testStack
+  , functionParameterFrame
+  , functionBodyFrame
+
+  -- Diagnostic message printers.
   , diagnosticMessage
   , diagnosticMessageText
   , debugDiagnostic
+
+  -- Diagnostic reporting monad.
   , DiagnosticMonad(..)
   , DiagnosticWriter
   , runDiagnosticWriter
@@ -149,6 +161,47 @@ unexpectedEnding range expected = report $ Diagnostic range $ Error $
 unboundTypeVariable :: DiagnosticMonad m => Range -> Identifier -> m Diagnostic
 unboundTypeVariable range name = report $ Diagnostic range $ Error $
   UnboundTypeVariable name
+
+-- For error reporting we keep track of the unification “stack”. The unification stack has an
+-- operation which represents _why_ the unification is happening. The unification stack also has a
+-- list of stack frames which are used to describe _where_ unification went wrong.
+--
+-- The unify stack is entirely for error message presentation. It should contribute to type checking
+-- in any way! To enforce this, we don’t expose the underlying `UnifyStack` data type. Which means
+-- you can’t pattern match against it outside of this module. Instead we expose constructors.
+data UnifyStack
+  -- Each unification stack operation holds the range at which the operation occurs along with a
+  -- description of the operation.
+  = UnifyStackOperation Range UnifyStackOperation
+
+  -- Each unification stack frame holds two ranges. Each range represents the left and right types
+  -- of the unification respectively.
+  --
+  -- In error message we use the left type as the “actual” type and the right type as the “expected
+  -- type. In the unification algorithm the order of the types doesn’t matter, but for error
+  -- messages we do take the order into consideration since we can provide a better error message.
+  -- Some frames will “flip” what types we think of as actual and expected. This is based on whether
+  -- we are unifying in an input or output position.
+  | UnifyStackFrame {- Range Range -} UnifyStackFrame UnifyStack
+
+data UnifyStackOperation
+  = UnifyTest
+
+data UnifyStackFrame
+  = UnifyFunctionParameter
+  | UnifyFunctionBody
+
+-- An operation we use in testing of Brite itself. We should never use this in release code!
+testStack :: Range -> UnifyStack
+testStack range = UnifyStackOperation range UnifyTest
+
+-- Adds a function parameter frame to the unification stack.
+functionParameterFrame :: UnifyStack -> UnifyStack
+functionParameterFrame = UnifyStackFrame UnifyFunctionParameter
+
+-- Adds a function body frame to the unification stack.
+functionBodyFrame :: UnifyStack -> UnifyStack
+functionBodyFrame = UnifyStackFrame UnifyFunctionBody
 
 -- Creates the human readable diagnostic message for a given diagnostic. Remember that this
 -- generates a new message every time it is called instead of fetching a pre-generated message.

@@ -33,9 +33,13 @@ import qualified Brite.Semantics.Type as Type
 -- types are not equivalent then we will use a fresh type variable which will always be equivalent
 -- when unified.
 --
+-- NOTE: While the order of the types does not matter for unification correctness, we should take
+-- care to keep the order the same. To never switch the types. This is because error reporting
+-- _does_ depend on the order of types to provide a better error message.
+--
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
-unify :: Prefix s -> Monotype -> Monotype -> Check s (Either Diagnostic ())
-unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDescription type2) of
+unify :: UnifyStack -> Prefix s -> Monotype -> Monotype -> Check s (Either Diagnostic ())
+unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDescription type2) of
   -- Variables with the same name unify without any further analysis. We rename variables in
   -- `type1` and `type2` so that the same variable name does not represent different bounds.
   (Variable name1, Variable name2) | name1 == name2 -> return (Right ())
@@ -53,7 +57,7 @@ unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDe
         case (Type.polytypeDescription (Type.bindingType binding1), description2) of
           -- If the bound for our variable is a monotype then recursively call `unify` with that
           -- monotype. As per the normal-form monotype bound rewrite rule.
-          (Monotype' monotype1, _) -> unify prefix monotype1 type2
+          (Monotype' monotype1, _) -> unify stack prefix monotype1 type2
 
           -- Two variables with different names were unified with one another. This case is
           -- different from the variable branch below because we need to merge the two
@@ -70,11 +74,11 @@ unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDe
                   -- with that monotype. As per the normal-form monotype bound rewrite rule. Make
                   -- sure we don’t fall into the next case where we try to update the types to
                   -- each other!
-                  Monotype' monotype2 -> unify prefix type1 monotype2
+                  Monotype' monotype2 -> unify stack prefix type1 monotype2
 
                   -- Actually merge the two type variables together.
                   _ -> do
-                    result <- unifyPolytype prefix (Type.bindingType binding1) (Type.bindingType binding2)
+                    result <- unifyPolytype stack prefix (Type.bindingType binding1) (Type.bindingType binding2)
                     case result of
                       -- If the two types are not equivalent we don’t want to merge them together
                       -- in the prefix!
@@ -92,7 +96,7 @@ unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDe
           -- successful then update the type variable in our prefix to our monotype.
           _ -> do
             let polytype2 = Type.polytype type2
-            result <- unifyPolytype prefix (Type.bindingType binding1) polytype2
+            result <- unifyPolytype stack prefix (Type.bindingType binding1) polytype2
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update prefix (Type.Binding name1 Type.Rigid polytype2)
@@ -110,13 +114,13 @@ unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDe
         case Type.polytypeDescription (Type.bindingType binding2) of
           -- If the bound for our variable is a monotype then recursively call `unify` with that
           -- monotype. As per the normal-form monotype bound rewrite rule.
-          Monotype' monotype2 -> unify prefix type1 monotype2
+          Monotype' monotype2 -> unify stack prefix type1 monotype2
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
           -- successful then update the type variable in our prefix to our monotype.
           _ -> do
             let polytype1 = Type.polytype type1
-            result <- unifyPolytype prefix polytype1 (Type.bindingType binding2)
+            result <- unifyPolytype stack prefix polytype1 (Type.bindingType binding2)
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update prefix (Type.Binding name2 Type.Rigid polytype1)
@@ -130,8 +134,8 @@ unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDe
   -- If both the unification of the parameters and bodies fail then we will report two error
   -- diagnostics. However, we will only return the first error from unify.
   (Function parameter1 body1, Function parameter2 body2) -> do
-    result1 <- unify prefix parameter1 parameter2
-    result2 <- unify prefix body1 body2
+    result1 <- unify (functionParameterFrame stack) prefix parameter1 parameter2
+    result2 <- unify (functionBodyFrame stack) prefix body1 body2
     return (result1 `eitherOr` result2)
 
   -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
@@ -146,8 +150,8 @@ unify prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDe
 -- Unifies two polytypes. When the two types are equivalent we return an ok result with a type. This
 -- type is an instance of both our input types. That is if `t1` and `t2` are our inputs and
 -- `t1 ≡ t2` holds then we return `t3` where both `t1 ⊑ t3` and `t2 ⊑ t3` hold.
-unifyPolytype :: Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
-unifyPolytype prefix type1 type2 = case (Type.polytypeDescription type1, Type.polytypeDescription type2) of
+unifyPolytype :: UnifyStack -> Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
+unifyPolytype stack prefix type1 type2 = case (Type.polytypeDescription type1, Type.polytypeDescription type2) of
   -- If either is bottom then return the other one.
   (Bottom, _) -> return (Right type2)
   (_, Bottom) -> return (Right type1)
@@ -155,7 +159,7 @@ unifyPolytype prefix type1 type2 = case (Type.polytypeDescription type1, Type.po
   -- If we have two monotypes then unify them. Don’t bother with creating a new level
   -- or generalizing.
   (Monotype' monotype1, Monotype' monotype2) -> do
-    result <- unify prefix monotype1 monotype2
+    result <- unify stack prefix monotype1 monotype2
     case result of
       Left e -> return (Left e)
       Right () -> return (Right (Type.polytype monotype1))
@@ -170,14 +174,14 @@ unifyPolytype prefix type1 type2 = case (Type.polytypeDescription type1, Type.po
 
   (Quantify bindings1 body1, Monotype' monotype2) -> Prefix.withLevel prefix $ do
     newBody1 <- Prefix.instantiate prefix bindings1 body1
-    result <- unify prefix newBody1 monotype2
+    result <- unify stack prefix newBody1 monotype2
     case result of
       Left e -> return (Left e)
       Right () -> Right <$> Prefix.generalize prefix newBody1
 
   (Monotype' monotype1, Quantify bindings2 body2) -> Prefix.withLevel prefix $ do
     newBody2 <- Prefix.instantiate prefix bindings2 body2
-    result <- unify prefix monotype1 newBody2
+    result <- unify stack prefix monotype1 newBody2
     case result of
       Left e -> return (Left e)
       Right () -> Right <$> Prefix.generalize prefix newBody2
@@ -185,7 +189,7 @@ unifyPolytype prefix type1 type2 = case (Type.polytypeDescription type1, Type.po
   (Quantify bindings1 body1, Quantify bindings2 body2) -> Prefix.withLevel prefix $ do
     newBody1 <- Prefix.instantiate prefix bindings1 body1
     newBody2 <- Prefix.instantiate prefix bindings2 body2
-    result <- unify prefix newBody1 newBody2
+    result <- unify stack prefix newBody1 newBody2
     case result of
       Left e -> return (Left e)
       Right () -> Right <$> Prefix.generalize prefix newBody1

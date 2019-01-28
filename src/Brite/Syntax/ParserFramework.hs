@@ -22,6 +22,7 @@ module Brite.Syntax.ParserFramework
   , unexpected
   , unexpectedGlyph
   , skipIdentifier
+  , captureRange
   , CommaList(..)
   , commaListItems
   , commaList
@@ -422,6 +423,19 @@ skipIdentifier p = Parser $ \ok yield1 yield2 ->
         Right (t @ Token { tokenKind = IdentifierToken _ }, ts) -> k t (skipToken ts s)
         _ -> yield1 a k s)
     yield2
+
+-- Captures the range parsed by the provided parser without affecting parsing behavior.
+captureRange :: Parser a -> Parser (Range, a)
+captureRange p = Parser $ \ok yield1 yield2 state0 ->
+  let
+    start = tokenStreamStepPosition (parserStep state0)
+    end state1 = (,) (Range start (tokenStreamStepPosition (parserStep state1)))
+  in
+    parser p
+      (\a state1 -> ok (end state1 <$> a) state1)
+      (\a k state1 -> yield1 (end state1 <$> a) k state1)
+      (\a k state1 -> yield2 (end state1 <$> a) k state1)
+      state0
 
 -- A comma separated list of values which may optionally have a trailing comma. If there is a
 -- trailing comma then `commaListLastItem` will be `Nothing`.

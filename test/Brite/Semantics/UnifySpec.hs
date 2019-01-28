@@ -340,8 +340,8 @@ testData =
   , ("unify(<A, B>, A, B)", "<A, B = A>", [])
   ]
 
-unifyParser :: Parser (Recover CST.QuantifierList, Recover CST.Type, Recover CST.Type)
-unifyParser = identifier *> glyph ParenLeft *> args <* glyph ParenRight
+unifyParser :: Parser (Range, (Recover CST.QuantifierList, Recover CST.Type, Recover CST.Type))
+unifyParser = captureRange (identifier *> glyph ParenLeft *> args <* glyph ParenRight)
   where
     args =
       (,,)
@@ -353,7 +353,7 @@ spec :: Spec
 spec =
   flip traverse_ testData $ \(input, expectedPrefix, expectedDiagnostics) ->
     it (Text.unpack input) $ do
-      let ((cqs, ct1, ct2), ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
+      let ((r, (cqs, ct1, ct2)), ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
       traverse_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
       let
         -- Use the quantifier list to quantify a boolean type. Could be anything really. We just
@@ -379,7 +379,7 @@ spec =
             let t1 = case Type.polytypeDescription pt1 of { Type.Monotype' t -> t; _ -> undefined }
             let t2 = case Type.polytypeDescription pt2 of { Type.Monotype' t -> t; _ -> undefined }
             -- Yay! We can actually call unify now 😉
-            _ <- unify prefix t1 t2
+            _ <- unify (testStack r) prefix t1 t2
             -- Return a list of all the bindings in our prefix.
             Prefix.allBindings prefix
 
