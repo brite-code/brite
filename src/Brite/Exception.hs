@@ -15,7 +15,7 @@ module Brite.Exception
   , catchEverything
   ) where
 
-import Brite.DiagnosticsMarkup
+import Brite.DiagnosticMarkup
 import Brite.Project.FileNames (configFileName)
 import Control.Exception hiding (throw)
 import qualified Data.Text as Text
@@ -57,7 +57,7 @@ throw = throwIO
 -- Get a human-readable message for our Brite exception. We use the same diagnostic markup data type
 -- to build the message.
 --
--- Follow the same rules as `Brite.Diagnostics` to write exception messages.
+-- Follow the same rules as `Brite.Diagnostic` to write exception messages.
 briteExceptionMessage :: BriteException -> Markup
 
 -- Tell the user we couldn’t find a Brite file in their directory. Technically we also looked in

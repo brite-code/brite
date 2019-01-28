@@ -2,7 +2,7 @@
 
 module Brite.Semantics.UnifySpec (spec) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.Check (checkPolytype)
 import Brite.Semantics.CheckMonad

@@ -7,7 +7,7 @@ module Brite.Semantics.CheckMonad
   , liftDiagnosticWriter
   ) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Control.Monad.ST
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq

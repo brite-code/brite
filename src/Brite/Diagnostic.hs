@@ -45,7 +45,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Diagnostics
+module Brite.Diagnostic
   ( Diagnostic
   , diagnosticRange
   , ExpectedToken(..)
@@ -61,7 +61,7 @@ module Brite.Diagnostics
   , runDiagnosticWriterAdvanced
   ) where
 
-import Brite.DiagnosticsMarkup
+import Brite.DiagnosticMarkup
 import Brite.Syntax.Tokens
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq

@@ -2,7 +2,7 @@ module Brite.Semantics.Unify
   ( unify
   ) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix

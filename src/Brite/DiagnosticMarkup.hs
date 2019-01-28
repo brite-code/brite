@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.DiagnosticsMarkup
+module Brite.DiagnosticMarkup
   ( Markup
   , plain
   , code

@@ -1,7 +1,7 @@
 module Brite.CLI (main) where
 
 import Brite.Dev
-import Brite.DiagnosticsMarkup (toANSIDoc)
+import Brite.DiagnosticMarkup (toANSIDoc)
 import Brite.Exception
 import Brite.Project.Build (buildProject, buildProjectFiles)
 import Brite.Project.Cache (withCache)

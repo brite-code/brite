@@ -2,7 +2,7 @@
 
 module Brite.Syntax.ParserSpec (spec) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import qualified Brite.Semantics.AST as AST
 import qualified Brite.Semantics.ASTDebug as AST
 import qualified Brite.Syntax.CST as CST

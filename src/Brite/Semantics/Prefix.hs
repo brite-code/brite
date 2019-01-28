@@ -22,7 +22,7 @@ module Brite.Semantics.Prefix
   ) where
 
 import Prelude hiding (lookup)
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Semantics.AST (Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer

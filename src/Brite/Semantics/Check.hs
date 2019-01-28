@@ -6,7 +6,7 @@ module Brite.Semantics.Check
   ( checkPolytype
   ) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Semantics.AST (Identifier)
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT

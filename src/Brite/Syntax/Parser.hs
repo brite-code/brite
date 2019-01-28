@@ -5,7 +5,7 @@ module Brite.Syntax.Parser
   , tryQuantifierListParser
   ) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Syntax.CST
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens

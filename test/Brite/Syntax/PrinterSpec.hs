@@ -2,7 +2,7 @@
 
 module Brite.Syntax.PrinterSpec (spec) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Syntax.Parser
 import Brite.Syntax.Printer
 import qualified Brite.Syntax.PrinterAST as PrinterAST

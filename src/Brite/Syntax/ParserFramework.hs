@@ -27,7 +27,7 @@ module Brite.Syntax.ParserFramework
   , commaList
   ) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Syntax.Tokens
 import Control.Applicative (liftA2)
 import Data.Maybe (maybeToList)

@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.DiagnosticsMarkupSpec (spec) where
+module Brite.DiagnosticMarkupSpec (spec) where
 
-import Brite.DiagnosticsMarkup
+import Brite.DiagnosticMarkup
 import Test.Hspec
 import qualified Text.PrettyPrint.ANSI.Leijen as Doc
 

@@ -2,7 +2,7 @@
 
 module Brite.Semantics.TypePrinterSpec (spec) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Semantics.AST (convertRecoverType)
 import Brite.Semantics.Check (checkPolytype)
 import Brite.Semantics.TypePrinter (printPolytype)

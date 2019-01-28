@@ -52,6 +52,7 @@ spec = around withTemporaryDirectory $ do
       testWithCache dir (const (return ())) `shouldThrow` \e ->
         case e of
           ProjectCacheUnrecognizedVersion -> True
+          _ -> False
 
     it "enables foreign key constraints" $ \dir -> do
       withConnection "foreign-keys-test.db" $ \c -> do

@@ -43,7 +43,7 @@ module Brite.Semantics.AST
   , convertRecoverType
   ) where
 
-import Brite.Diagnostics
+import Brite.Diagnostic
 import Brite.Syntax.CST (Recover(..), PrefixOperator(..), Flexibility(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, identifierText, Token(..), EndToken(..))
