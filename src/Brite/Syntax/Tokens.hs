@@ -10,6 +10,7 @@ module Brite.Syntax.Tokens
   , utf16Length
   , Range(..)
   , rangeBetween
+  , rangeContains
   , Identifier
   , unsafeIdentifier
   , identifierText
@@ -64,7 +65,7 @@ import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
 --
 -- [1]: https://microsoft.github.io/language-server-protocol/specification
 data Position = Position { positionLine :: !Int, positionCharacter :: !Int }
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Show Position where
   show = Text.Lazy.unpack . B.toLazyText . debugPosition
@@ -105,6 +106,11 @@ instance Show Range where
 rangeBetween :: Range -> Range -> Range
 rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 {-# INLINE rangeBetween #-}
+
+-- True if the first range completely contains the second.
+rangeContains :: Range -> Range -> Bool
+rangeContains (Range p1 p2) (Range p3 p4) = p1 <= p2 && p3 <= p4
+{-# INLINE rangeContains #-}
 
 -- A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
 -- Specification][1] including the optional underscore (`_`) character.

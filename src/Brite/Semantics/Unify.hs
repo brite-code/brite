@@ -37,6 +37,10 @@ import qualified Brite.Semantics.Type as Type
 -- care to keep the order the same. To never switch the types. This is because error reporting
 -- _does_ depend on the order of types to provide a better error message.
 --
+-- For the purpose of error reporting, the first type in a unification is the “actual” type. The
+-- type of a value in source code that we are comparing against the second type, the “expected”
+-- type, which could be some type annotation the programmer wrote.
+--
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
 unify :: UnifyStack -> Prefix s -> Monotype -> Monotype -> Check s (Either Diagnostic ())
 unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDescription type2) of
@@ -134,20 +138,30 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
   -- If both the unification of the parameters and bodies fail then we will report two error
   -- diagnostics. However, we will only return the first error from unify.
   (Function parameter1 body1, Function parameter2 body2) -> do
-    let parameterFrame = functionParameterFrame (Type.monotypeRange parameter1) (Type.monotypeRange parameter2) stack
-    let bodyFrame = functionBodyFrame (Type.monotypeRange body1) (Type.monotypeRange body2) stack
+    let parameterFrame = functionParameterFrame (Type.monotypeRange parameter1) stack
+    let bodyFrame = functionBodyFrame (Type.monotypeRange body1) stack
     result1 <- unify parameterFrame prefix parameter1 parameter2
     result2 <- unify bodyFrame prefix body1 body2
     return (result1 `eitherOr` result2)
 
   -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
   -- want a compiler warning telling us to add a case for that type to unification.
-  (Boolean, _) -> incompatibleTypes
-  (Integer, _) -> incompatibleTypes
-  (Function _ _, _) -> incompatibleTypes
+  (Boolean, _) -> incompatibleTypesError
+  (Integer, _) -> incompatibleTypesError
+  (Function _ _, _) -> incompatibleTypesError
 
   where
-    incompatibleTypes = error "TODO: unimplemented"
+    -- Report an incompatible types error with both of the types and return it.
+    incompatibleTypesError = Left <$>
+      incompatibleTypes (Type.monotypeRange type1) (typeMessage type1) (typeMessage type2) stack
+
+    typeMessage type3 = case Type.monotypeDescription type3 of
+      -- All variables should be handled by unification. No matter what they unify to.
+      Variable _ -> undefined
+
+      Boolean -> BooleanMessage
+      Integer -> IntegerMessage
+      Function _ _ -> FunctionMessage
 
 -- Unifies two polytypes. When the two types are equivalent we return an ok result with a type. This
 -- type is an instance of both our input types. That is if `t1` and `t2` are our inputs and

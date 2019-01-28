@@ -51,9 +51,11 @@ module Brite.Diagnostic
 
   -- Diagnostic constructors.
   , ExpectedToken(..)
+  , TypeMessage(..)
   , unexpectedToken
   , unexpectedEnding
   , unboundTypeVariable
+  , incompatibleTypes
 
   -- Diagnostic unification stacks.
   , UnifyStack
@@ -120,6 +122,8 @@ data ErrorDiagnosticMessage
   | UnexpectedEnding ExpectedToken
   -- The type checker ran into a type variable which it could not find a binding for.
   | UnboundTypeVariable Identifier
+  -- We found two types that were incompatible with one another during unification.
+  | IncompatibleTypes TypeMessage TypeMessage UnifyStack
 
 data WarningDiagnosticMessage
 
@@ -142,6 +146,13 @@ data ExpectedToken
   | ExpectedPattern
   | ExpectedType
 
+-- A short description of a type that is used in error messages. Designed to not reveal the
+-- underlying implementation of the Brite type checker.
+data TypeMessage
+  = BooleanMessage
+  | IntegerMessage
+  | FunctionMessage
+
 -- The parser ran into a token it did not recognize.
 unexpectedToken :: DiagnosticMonad m => Token -> ExpectedToken -> m Diagnostic
 unexpectedToken token expected = report $ Diagnostic (tokenRange token) $ Error $
@@ -162,6 +173,14 @@ unboundTypeVariable :: DiagnosticMonad m => Range -> Identifier -> m Diagnostic
 unboundTypeVariable range name = report $ Diagnostic range $ Error $
   UnboundTypeVariable name
 
+-- We found two types that were incompatible with one another during unification.
+incompatibleTypes :: DiagnosticMonad m => Range -> TypeMessage -> TypeMessage -> UnifyStack -> m Diagnostic
+incompatibleTypes actualRange type1 type2 stack = report $ Diagnostic range $ Error $
+  IncompatibleTypes type1 type2 stack
+  where
+    stackRange = unifyStackRange stack
+    range = if rangeContains stackRange actualRange then actualRange else stackRange
+
 -- For error reporting we keep track of the unification “stack”. The unification stack has an
 -- operation which represents _why_ the unification is happening. The unification stack also has a
 -- list of stack frames which are used to describe _where_ unification went wrong.
@@ -174,15 +193,15 @@ data UnifyStack
   -- description of the operation.
   = UnifyStackOperation Range UnifyStackOperation
 
-  -- Each unification stack frame holds two ranges. Each range represents the left and right types
-  -- of the unification respectively.
+  -- Each unification stack frame holds the range of the _actual_ type being unified. (As opposed to
+  -- the _expected_ type.) Our unification algorithm never changes the order of the types being
+  -- unified even though the unification algorithm doesn’t care about the order of the types.
+  -- However, error reporting does care about the order.
   --
-  -- In error message we use the left type as the “actual” type and the right type as the “expected
-  -- type. In the unification algorithm the order of the types doesn’t matter, but for error
-  -- messages we do take the order into consideration since we can provide a better error message.
-  -- Some frames will “flip” what types we think of as actual and expected. This is based on whether
-  -- we are unifying in an input or output position.
-  | UnifyStackFrame Range Range UnifyStackFrame UnifyStack
+  -- For the purpose of error reporting, the first type in a unification is the “actual” type. The
+  -- type of a value in source code that we are comparing against the second type. The “expected”
+  -- type which could be some type annotation the programmer wrote.
+  | UnifyStackFrame Range UnifyStackFrame UnifyStack
 
 data UnifyStackOperation
   = UnifyTest
@@ -191,17 +210,29 @@ data UnifyStackFrame
   = UnifyFunctionParameter
   | UnifyFunctionBody
 
+-- Gets the range of a unification stack. We start with the range of the operation and select the
+-- smallest range inside of the unification stack that is still contained by the operation range.
+unifyStackRange :: UnifyStack -> Range
+unifyStackRange (UnifyStackOperation range _) = range
+unifyStackRange (UnifyStackFrame range1 _ stack) =
+  let range2 = unifyStackRange stack in
+    if rangeContains range2 range1 then range1 else range2
+
 -- An operation we use in testing of Brite itself. We should never use this in release code!
 testStack :: Range -> UnifyStack
 testStack r = UnifyStackOperation r UnifyTest
 
 -- Adds a function parameter frame to the unification stack.
-functionParameterFrame :: Range -> Range -> UnifyStack -> UnifyStack
-functionParameterFrame r1 r2 s = UnifyStackFrame r1 r2 UnifyFunctionParameter s
+--
+-- The range provided should be the range of the _actual_ type in unification.
+functionParameterFrame :: Range -> UnifyStack -> UnifyStack
+functionParameterFrame r s = UnifyStackFrame r UnifyFunctionParameter s
 
 -- Adds a function body frame to the unification stack.
-functionBodyFrame :: Range -> Range -> UnifyStack -> UnifyStack
-functionBodyFrame r1 r2 s = UnifyStackFrame r1 r2 UnifyFunctionBody s
+--
+-- The range provided should be the range of the _actual_ type in unification.
+functionBodyFrame :: Range -> UnifyStack -> UnifyStack
+functionBodyFrame r s = UnifyStackFrame r UnifyFunctionBody s
 
 -- Creates the human readable diagnostic message for a given diagnostic. Remember that this
 -- generates a new message every time it is called instead of fetching a pre-generated message.
