@@ -33,6 +33,16 @@
 -- never have dependents. (Brite disallows dependency cycles between files so a virtual file is
 -- never a dependent of itself. This is important and one of the reasons we don’t allow cycles
 -- between files.)
+--
+-- ## Parallelization
+--
+-- Let’s also think about the parallelization of each step in the process.
+--
+-- 1. Discover source files: Completely parallelizable.
+-- 2. Parse source files: Completely parallelizable.
+-- 3. Type check source files: Must be ordered by dependencies. Leaves are parallelizable.
+-- 4. Pre-evaluate source files: Must be ordered by dependencies. Leaves are parallelizable.
+-- 5. Compile build units: Completely parallelizable. Assuming type-checking gives us enough info.
 
 module Brite.Project.Build
   ( buildProject
