@@ -23,7 +23,7 @@ module Brite.Semantics.Prefix
 
 import Prelude hiding (lookup)
 import Brite.Diagnostic
-import Brite.Semantics.AST (Identifier)
+import Brite.Semantics.AST (Range, Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
@@ -144,8 +144,9 @@ addAssumingThatNameIsUnbound prefix binding = do
     HashTable.insert (prefixEntries prefix) (Type.bindingName binding) entry
 
 -- Adds a type binding to our prefix. If the name is already bound in the prefix then we generate a
--- unique name and try again.
-add :: Prefix s -> Type.Binding -> Check s (Maybe Monotype)
+-- unique name. We return `Nothing` if we did not need to generate a new name. We return `Just` if
+-- we did need to generate a new name.
+add :: Prefix s -> Type.Binding -> Check s (Maybe (Range -> Monotype))
 add prefix binding = liftST $ do
   newName <- uniqueNameM (exists prefix) (Type.bindingName binding)
   -- If we did not generate a new name then we can use our binding unchanged.
@@ -155,7 +156,7 @@ add prefix binding = liftST $ do
   else do
     -- Otherwise we need to add a binding with our new name to the prefix.
     addAssumingThatNameIsUnbound prefix (binding { Type.bindingName = newName })
-    return (Just (Type.variable newName))
+    return (Just (\range -> Type.variable range newName))
 
 -- Generates a fresh type variable name.
 freshName :: Prefix s -> ST s Identifier
@@ -165,25 +166,25 @@ freshName prefix = do
   writeSTRef (prefixCounter prefix) (newCounter)
   return name
 
--- Creates a fresh type variable with no bound.
-fresh :: Prefix s -> Check s Monotype
-fresh prefix = liftST $ do
+-- Creates a fresh type variable with no bound and returns the name of the type variable.
+fresh :: Prefix s -> Range -> Check s Monotype
+fresh prefix range = liftST $ do
   name <- freshName prefix
-  addAssumingThatNameIsUnbound prefix (Type.Binding name Type.Flexible Type.bottom)
-  return (Type.variable name)
+  addAssumingThatNameIsUnbound prefix (Type.Binding name Type.Flexible (Type.bottom range))
+  return (Type.variable range name)
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
 -- monotype then we return the monotype directly instead of creating a fresh type variable.
-freshWithBound :: Prefix s -> Type.Flexibility -> Polytype -> Check s Monotype
-freshWithBound prefix k t = liftST $
+freshWithBound :: Prefix s -> Range -> Type.Flexibility -> Polytype -> Check s Monotype
+freshWithBound prefix range flexibility type0 = liftST $
   -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
   -- always inlined in normal form anyway.
-  case Type.polytypeDescription t of
-    Type.Monotype' t' -> return t'
+  case Type.polytypeDescription type0 of
+    Type.Monotype' type1 -> return type1
     _ -> do
       name <- freshName prefix
-      addAssumingThatNameIsUnbound prefix (Type.Binding name k t)
-      return (Type.variable name)
+      addAssumingThatNameIsUnbound prefix (Type.Binding name flexibility type0)
+      return (Type.variable range name)
 
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
 -- return nothing. The bound returned will always be in normal form.
@@ -433,13 +434,15 @@ mergeUpdate prefix name1 name2 flex type' = do
           entryLevel1 <- readSTRef (prefixEntryLevel entry1)
           entryLevel2 <- readSTRef (prefixEntryLevel entry2)
           if prefixLevelIndex entryLevel1 <= prefixLevelIndex entryLevel2 then do
+            let linkType = Type.polytype (Type.variable (Type.polytypeRange type') name1)
             writeSTRef (prefixEntryBinding entry1) binding1
-            writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 Type.Rigid (Type.polytype (Type.variable name1)))
+            writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 Type.Rigid linkType)
             levelUp prefix entryLevel1 type'
             return (Right ())
           else do
+            let linkType = Type.polytype (Type.variable (Type.polytypeRange type') name2)
             writeSTRef (prefixEntryBinding entry2) binding2
-            writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 Type.Rigid (Type.polytype (Type.variable name2)))
+            writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 Type.Rigid linkType)
             levelUp prefix entryLevel2 type'
             return (Right ())
 

@@ -134,8 +134,10 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
   -- If both the unification of the parameters and bodies fail then we will report two error
   -- diagnostics. However, we will only return the first error from unify.
   (Function parameter1 body1, Function parameter2 body2) -> do
-    result1 <- unify (functionParameterFrame stack) prefix parameter1 parameter2
-    result2 <- unify (functionBodyFrame stack) prefix body1 body2
+    let parameterFrame = functionParameterFrame (Type.monotypeRange parameter1) (Type.monotypeRange parameter2) stack
+    let bodyFrame = functionBodyFrame (Type.monotypeRange body1) (Type.monotypeRange body2) stack
+    result1 <- unify parameterFrame prefix parameter1 parameter2
+    result2 <- unify bodyFrame prefix body1 body2
     return (result1 `eitherOr` result2)
 
   -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
@@ -153,8 +155,8 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
 unifyPolytype :: UnifyStack -> Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
 unifyPolytype stack prefix type1 type2 = case (Type.polytypeDescription type1, Type.polytypeDescription type2) of
   -- If either is bottom then return the other one.
-  (Bottom, _) -> return (Right type2)
-  (_, Bottom) -> return (Right type1)
+  (Bottom _, _) -> return (Right type2)
+  (_, Bottom _) -> return (Right type1)
 
   -- If we have two monotypes then unify them. Don’t bother with creating a new level
   -- or generalizing.

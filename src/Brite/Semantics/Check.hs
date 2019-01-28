@@ -69,16 +69,16 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
   --
   -- TODO: Replace this with proper handling. When doing so also delete the `OverloadedStrings`
   -- language extension.
-  AST.VariableType name | identifierText name == "Bool" -> return (Type.polytype Type.boolean)
-  AST.VariableType name | identifierText name == "Int" -> return (Type.polytype Type.integer)
+  AST.VariableType name | identifierText name == "Bool" -> return (Type.polytype (Type.boolean range))
+  AST.VariableType name | identifierText name == "Int" -> return (Type.polytype (Type.integer range))
 
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
   AST.VariableType name ->
-    if HashSet.member name context0 then return (Type.polytype (Type.variable name))
+    if HashSet.member name context0 then return (Type.polytype (Type.variable range name))
     else unboundTypeVariable range name >>= errorType
 
-  AST.BottomType -> return Type.bottom
+  AST.BottomType -> return (Type.bottom range)
 
   -- Check a function type with its quantifiers.
   AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
@@ -86,7 +86,7 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
     let counter0 = initialFreshCounter
     (counter1, bindings2, parameterType) <- checkMonotype Type.Negative context1 counter0 bindings1 uncheckedParameterType
     (_, bindings3, bodyType) <- checkMonotype Type.Positive context1 counter1 bindings2 uncheckedBodyType
-    return (Type.quantify (toList bindings3) (Type.function parameterType bodyType))
+    return (Type.quantify (toList bindings3) (Type.function range parameterType bodyType))
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
   -- inline those bindings into our prefix as well.
@@ -112,7 +112,7 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
     -- don’t include the diagnostic in our internal type structure since there is no obvious place
     -- to throw that error at runtime.
     errorType :: Diagnostic -> DiagnosticWriter Polytype
-    errorType _ = return Type.bottom
+    errorType _ = return (Type.bottom range)
 
 -- Check all the AST type quantifiers and convert them into a list of bindings.
 checkQuantifiers ::
@@ -123,7 +123,7 @@ checkQuantifiers context0 (AST.Quantifier name bound : quantifiers) bindings = d
   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
   binding <- case bound of
-    Nothing -> return (Type.Binding (AST.nameIdentifier name) Type.Flexible Type.bottom)
+    Nothing -> return (Type.Binding (AST.nameIdentifier name) Type.Flexible (Type.bottom (AST.nameRange name)))
     Just (flexibility, boundType) ->
       Type.Binding (AST.nameIdentifier name) flexibility <$> checkPolytype context0 boundType
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
@@ -173,27 +173,27 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
   --
   -- TODO: Replace this with proper handling. When doing so also delete the `OverloadedStrings`
   -- language extension.
-  AST.VariableType name | identifierText name == "Bool" -> return (counter0, bindings0, Type.boolean)
-  AST.VariableType name | identifierText name == "Int" -> return (counter0, bindings0, Type.integer)
+  AST.VariableType name | identifierText name == "Bool" -> return (counter0, bindings0, Type.boolean range)
+  AST.VariableType name | identifierText name == "Int" -> return (counter0, bindings0, Type.integer range)
 
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
   AST.VariableType name ->
-    if HashSet.member name context then return (counter0, bindings0, Type.variable name)
+    if HashSet.member name context then return (counter0, bindings0, Type.variable range name)
     else unboundTypeVariable range name >>= errorType
 
   -- If we see a bottom type when we are expecting a monotype then create a fresh type variable
   -- which we will place in our polytype prefix.
   AST.BottomType -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-    let binding = Type.Binding name localFlexibility Type.bottom
-    return (counter1, bindings0 |> binding, Type.variable name)
+    let binding = Type.Binding name localFlexibility (Type.bottom range)
+    return (counter1, bindings0 |> binding, Type.variable range name)
 
   -- Check the parameter and body type of a function.
   AST.FunctionType [] [uncheckedParameterType] uncheckedBodyType -> do
     (counter1, bindings1, parameterType) <- checkMonotype Type.Negative context counter0 bindings0 uncheckedParameterType
     (counter2, bindings2, bodyType) <- checkMonotype Type.Positive context counter1 bindings1 uncheckedBodyType
-    return (counter2, bindings2, Type.function parameterType bodyType)
+    return (counter2, bindings2, Type.function range parameterType bodyType)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
   -- with a bound of this quantified type which we will place in our polytype prefix.
@@ -203,7 +203,7 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
   AST.QuantifiedType _ _ -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
     binding <- Type.Binding name localFlexibility <$> checkPolytype context type0
-    return (counter1, bindings0 |> binding, Type.variable name)
+    return (counter1, bindings0 |> binding, Type.variable range name)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
   -- with a bound of this quantified type which we will place in our polytype prefix.
@@ -215,7 +215,7 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
   AST.FunctionType (_ : _) _ _ -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
     binding <- Type.Binding name localFlexibility <$> checkPolytype context type0
-    return (counter1, bindings0 |> binding, Type.variable name)
+    return (counter1, bindings0 |> binding, Type.variable range name)
 
   AST.WrappedType type1 ->
     checkMonotype localPolarity context counter0 bindings0 type1
@@ -241,5 +241,5 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
     errorType :: Diagnostic -> DiagnosticWriter (FreshCounter, Seq Type.Binding, Monotype)
     errorType _ = do
       let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-      let binding = Type.Binding name localFlexibility Type.bottom
-      return (counter1, bindings0 |> binding, Type.variable name)
+      let binding = Type.Binding name localFlexibility (Type.bottom range)
+      return (counter1, bindings0 |> binding, Type.variable range name)

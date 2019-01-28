@@ -36,7 +36,7 @@ printPolytype type0 = case polytypeDescription type0 of
   -- inlined, so just use our straightforward `printMonotypeWithoutInlining` implementation!
   Monotype' type1 -> printMonotypeWithoutInlining type1
 
-  Bottom -> PrinterAST.bottomType
+  Bottom _ -> PrinterAST.bottomType
 
   -- If we have a quantified type then print it using our more complex
   -- `printPolytypeWithInlining` implementation.
@@ -63,7 +63,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
       yield references1 (\_ substitutions -> makeType substitutions)
 
   -- Bottom types don’t care about references. They only yield their type.
-  Bottom -> yield references0 (\_ _ -> PrinterAST.bottomType)
+  Bottom _ -> yield references0 (\_ _ -> PrinterAST.bottomType)
 
   -- If we have a quantified then we’ve got some work to do!
   Quantify initialBindings body ->
@@ -250,7 +250,7 @@ printMonotypeWithInlining localPolarity type' references0 yield = case monotypeD
 printPolytypeWithoutInlining :: Polytype -> PrinterAST.Type
 printPolytypeWithoutInlining type' = case polytypeDescription type' of
   Monotype' t -> printMonotypeWithoutInlining t
-  Bottom -> PrinterAST.bottomType
+  Bottom _ -> PrinterAST.bottomType
   Quantify bindings body ->
     PrinterAST.quantifiedType
       (map printBindingWithoutInlining bindings)

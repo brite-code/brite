@@ -182,7 +182,7 @@ data UnifyStack
   -- messages we do take the order into consideration since we can provide a better error message.
   -- Some frames will “flip” what types we think of as actual and expected. This is based on whether
   -- we are unifying in an input or output position.
-  | UnifyStackFrame {- Range Range -} UnifyStackFrame UnifyStack
+  | UnifyStackFrame Range Range UnifyStackFrame UnifyStack
 
 data UnifyStackOperation
   = UnifyTest
@@ -193,15 +193,15 @@ data UnifyStackFrame
 
 -- An operation we use in testing of Brite itself. We should never use this in release code!
 testStack :: Range -> UnifyStack
-testStack range = UnifyStackOperation range UnifyTest
+testStack r = UnifyStackOperation r UnifyTest
 
 -- Adds a function parameter frame to the unification stack.
-functionParameterFrame :: UnifyStack -> UnifyStack
-functionParameterFrame = UnifyStackFrame UnifyFunctionParameter
+functionParameterFrame :: Range -> Range -> UnifyStack -> UnifyStack
+functionParameterFrame r1 r2 s = UnifyStackFrame r1 r2 UnifyFunctionParameter s
 
 -- Adds a function body frame to the unification stack.
-functionBodyFrame :: UnifyStack -> UnifyStack
-functionBodyFrame = UnifyStackFrame UnifyFunctionBody
+functionBodyFrame :: Range -> Range -> UnifyStack -> UnifyStack
+functionBodyFrame r1 r2 s = UnifyStackFrame r1 r2 UnifyFunctionBody s
 
 -- Creates the human readable diagnostic message for a given diagnostic. Remember that this
 -- generates a new message every time it is called instead of fetching a pre-generated message.
