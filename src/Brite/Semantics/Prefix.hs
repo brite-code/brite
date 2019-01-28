@@ -148,7 +148,12 @@ addAssumingThatNameIsUnbound prefix binding = do
 -- we did need to generate a new name.
 add :: Prefix s -> Type.Binding -> Check s (Maybe (Range -> Monotype))
 add prefix binding = liftST $ do
-  newName <- uniqueNameM (exists prefix) (Type.bindingName binding)
+  -- If the binding has the name of a fresh type then let’s generate a fresh type name instead of
+  -- using `uniqueNameM`. We have a much smaller chance of collision that way since the prefix may
+  -- contain any number of fresh type names already.
+  newName <-
+    if isFreshTypeName (Type.bindingName binding) then freshName prefix
+    else uniqueNameM (exists prefix) (Type.bindingName binding)
   -- If we did not generate a new name then we can use our binding unchanged.
   if newName == Type.bindingName binding then do
     addAssumingThatNameIsUnbound prefix binding
