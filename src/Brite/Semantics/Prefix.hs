@@ -27,6 +27,7 @@ import Brite.Semantics.AST (Range, Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
+import Brite.Semantics.UnifyAbstraction
 import qualified Brite.Semantics.Type as Type
 import Control.Monad.ST
 import Data.Foldable (foldlM, traverse_)
@@ -37,6 +38,7 @@ import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.List (sort)
 import Data.Maybe (isJust, fromMaybe)
+import qualified Data.Set as Set
 import Data.STRef
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
@@ -296,7 +298,7 @@ generalize prefix body = liftST $ do
 -- variables recursively. If it does then we can’t update the type variable at `name` with the
 -- provided type.
 occurs :: Prefix s -> Identifier -> Polytype -> ST s Bool
-occurs prefix targetName type0 = if HashSet.null (Type.polytypeFreeVariables type0) then return False else do
+occurs prefix targetName type0 = if Set.null (Type.polytypeFreeVariables type0) then return False else do
   -- Cache for type variables we have seen before so we don’t need to check them twice.
   seen <- HashTable.new
   let
@@ -304,11 +306,9 @@ occurs prefix targetName type0 = if HashSet.null (Type.polytypeFreeVariables typ
       -- Lazily search through all the type’s free variables. The lazy part is important here since
       -- we want to stop searching when we first find an occurrence.
       --
-      -- NOTE: Validate that we stop at the first occurrence since `HashSet` does not implement
-      -- `Foldable`. Instead it implements its own primitives.
-      HashSet.foldr
-        (\name seenOccurrenceM -> do
-          seenOccurrence <- seenOccurrenceM
+      -- NOTE: Validate that we stop at the first occurrence.
+      foldlM
+        (\seenOccurrence name -> do
           if seenOccurrence then return True else
             if targetName == name then return True else do
               seenName <- isJust <$> HashTable.lookup seen name
@@ -317,7 +317,7 @@ occurs prefix targetName type0 = if HashSet.null (Type.polytypeFreeVariables typ
                 HashTable.lookup (prefixEntries prefix) name >>=
                   mapM (readSTRef . prefixEntryBinding) >>=
                   maybe (return False) (loop . Type.bindingType))
-        (return False)
+        False
         (Type.polytypeFreeVariables type1)
   -- Start our check with the initial type.
   loop type0
@@ -358,11 +358,17 @@ updateCheck stack prefix oldBinding newType = do
   nameOccurs <- liftST $ occurs prefix (Type.bindingName oldBinding) newType
   if nameOccurs then
     Left <$> infiniteType stack
-  else if Type.bindingFlexibility oldBinding == Type.Rigid then
-    error "TODO: update rigid bound"
-  else
-    -- The update is ok. You may proceed to commit changes...
-    return (Right ())
+  else do
+    -- If the old bound is rigid then we check to make sure that the new type is an abstraction of
+    -- the old type. If it is not then we have an invalid update!
+    abstractionCheckSucceeds <-
+      if Type.bindingFlexibility oldBinding /= Type.Rigid then return True else
+        abstractionCheck (lookup prefix) (Type.bindingType oldBinding) newType
+    if not abstractionCheckSucceeds then
+      error "TODO: abstraction check failed"
+    else
+      -- The update is ok. You may proceed to commit changes...
+      return (Right ())
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Where `t1` is the old type and `t2` is the new
 -- type. Do not call this function with two types which do not uphold this relation!
@@ -478,6 +484,6 @@ allBindings prefix = liftST $ do
           Nothing -> return bindings0
           Just entry -> do
             binding <- readSTRef (prefixEntryBinding entry)
-            let freeVariables = sort (HashSet.toList (Type.polytypeFreeVariables (Type.bindingType binding)))
+            let freeVariables = Type.polytypeFreeVariables (Type.bindingType binding)
             bindings1 <- foldlM (visit visited) bindings0 freeVariables
             return (binding : bindings1)

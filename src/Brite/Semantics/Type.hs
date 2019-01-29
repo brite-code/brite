@@ -41,6 +41,8 @@ import qualified Data.HashSet as HashSet
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Maybe (fromMaybe)
+import Data.Set (Set)
+import qualified Data.Set as Set
 
 -- Types that do not contain quantifiers.
 data Monotype = Monotype
@@ -51,7 +53,11 @@ data Monotype = Monotype
   -- variable’s binding.
   { monotypeRange :: Range
   -- The free variables in this monotype.
-  , monotypeFreeVariables :: HashSet Identifier
+  --
+  -- NOTE: Order does matter so we use a `Set` instead of a `HashSet`. Also, from a cursory glance
+  -- it looks like `Set` has a better algorithmic complexity for the `union` operation which is very
+  -- common for our types.
+  , monotypeFreeVariables :: Set Identifier
   -- The representation of this monotype.
   , monotypeDescription :: MonotypeDescription
   }
@@ -82,7 +88,11 @@ data Polytype = Polytype
   -- form if `False`.
   { polytypeNormal :: Bool
   -- The free variables in this polytype.
-  , polytypeFreeVariables :: HashSet Identifier
+  --
+  -- NOTE: Order does matter so we use a `Set` instead of a `HashSet`. Also, from a cursory glance
+  -- it looks like `Set` has a better algorithmic complexity for the `union` operation which is very
+  -- common for our types.
+  , polytypeFreeVariables :: Set Identifier
   -- The representation of this polytype.
   , polytypeDescription :: PolytypeDescription
   }
@@ -139,7 +149,7 @@ variable :: Range -> Identifier -> Monotype
 variable range identifier =
   Monotype
     { monotypeRange = range
-    , monotypeFreeVariables = HashSet.singleton identifier
+    , monotypeFreeVariables = Set.singleton identifier
     , monotypeDescription = Variable identifier
     }
 
@@ -148,7 +158,7 @@ boolean :: Range -> Monotype
 boolean range =
   Monotype
     { monotypeRange = range
-    , monotypeFreeVariables = HashSet.empty
+    , monotypeFreeVariables = Set.empty
     , monotypeDescription = Boolean
     }
 
@@ -157,7 +167,7 @@ integer :: Range -> Monotype
 integer range =
   Monotype
     { monotypeRange = range
-    , monotypeFreeVariables = HashSet.empty
+    , monotypeFreeVariables = Set.empty
     , monotypeDescription = Integer
     }
 
@@ -166,7 +176,7 @@ function :: Range -> Monotype -> Monotype -> Monotype
 function range parameter body =
   Monotype
     { monotypeRange = range
-    , monotypeFreeVariables = HashSet.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
+    , monotypeFreeVariables = Set.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
     , monotypeDescription = Function parameter body
     }
 
@@ -184,7 +194,7 @@ bottom :: Range -> Polytype
 bottom range =
   Polytype
     { polytypeNormal = True
-    , polytypeFreeVariables = HashSet.empty
+    , polytypeFreeVariables = Set.empty
     , polytypeDescription = Bottom range
     }
 
@@ -201,10 +211,10 @@ quantify bindings body =
     , polytypeFreeVariables =
         foldr
           (\binding free ->
-            if not (HashSet.member (bindingName binding) free) then free else
-              HashSet.union
+            if not (Set.member (bindingName binding) free) then free else
+              Set.union
                 (polytypeFreeVariables (bindingType binding))
-                (HashSet.delete (bindingName binding) free))
+                (Set.delete (bindingName binding) free))
           (monotypeFreeVariables body)
           bindings
     , polytypeDescription = Quantify bindings body
@@ -261,7 +271,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
   --
   -- We know from the above pre-condition that this quantified type _must_ be changed.
   Quantify initialBindings initialBody ->
-    Just (loop initialSeen HashSet.empty initialSubstitutions initialBindings [])
+    Just (loop initialSeen Set.empty initialSubstitutions initialBindings [])
     where
       -- The first `loop` function takes all the monotype bounds and substitutes them inside the
       -- quantified type’s body and subsequent bounds. While doing so we accumulate a list of the
@@ -280,7 +290,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
       -- in our normalized, quantified, type and uses that to drop any unused bindings. Also, if the
       -- quantified type’s body is a variable we will inline the binding for that variable.
 
-      loop :: HashSet Identifier -> HashSet Identifier -> HashMap Identifier (Range -> Monotype) -> [Binding] -> [Binding] -> Polytype
+      loop :: HashSet Identifier -> Set Identifier -> HashMap Identifier (Range -> Monotype) -> [Binding] -> [Binding] -> Polytype
 
       loop _ _ substitutions [] bindingsRev =
         -- Apply the substitutions to our body and call the next step, `loopRev`.
@@ -300,14 +310,14 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
             Monotype' t ->
               let
                 newSubstitutions = HashMap.insert (bindingName binding) (const t) substitutions
-                newCaptured = HashSet.union (monotypeFreeVariables t) captured
+                newCaptured = Set.union (monotypeFreeVariables t) captured
               in
                 loop seen newCaptured newSubstitutions bindings bindingsRev
 
             _ ->
               -- If this binding has a captured name (a name that is free in `substitutions`) then
               -- we need to generate a new name for this binding.
-              if HashSet.member (bindingName binding) captured then
+              if Set.member (bindingName binding) captured then
                 let
                   -- Generate a new name for our binding that is unique. We can’t use a name that
                   -- we’ve already seen since that name might be used at some future point.
@@ -330,7 +340,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
                   -- this binding. Insert our new name into `captured` because the name was
                   -- “captured” in our substitutions map.
                   newSeen = HashSet.insert newName seen
-                  newCaptured = HashSet.insert newName captured
+                  newCaptured = Set.insert newName captured
                 in
                   loop newSeen newCaptured newSubstitutions bindings (newBinding : bindingsRev)
 
@@ -373,13 +383,13 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
       loopRev free body bindings (binding : bindingsRev) =
         -- If our binding does not exist in our set of free variables then drop the binding
         -- as unused!
-        if HashSet.member (bindingName binding) free then
+        if Set.member (bindingName binding) free then
           let
             -- Remove this binding from our set of free variables and add all the free variables
             -- from our binding type.
-            newFree = HashSet.union
+            newFree = Set.union
               (polytypeFreeVariables (bindingType binding))
-              (HashSet.delete (bindingName binding) free)
+              (Set.delete (bindingName binding) free)
           in
             loopRev newFree body (binding : bindings) bindingsRev
         else
@@ -438,9 +448,9 @@ substituteMonotype substitutions t0 = case monotypeDescription t0 of
 
 -- Determines if a type needs some substitutions by looking at the type’s free variables. If a
 -- substitution exists for any free variable then we return true.
-needsSubstitution :: HashMap Identifier a -> HashSet Identifier -> Bool
+needsSubstitution :: HashMap Identifier a -> Set Identifier -> Bool
 needsSubstitution substitutions freeVariables =
-  if HashMap.null substitutions || HashSet.null freeVariables then False else
+  if HashMap.null substitutions || Set.null freeVariables then False else
     -- NOTE: If `substitutions` is smaller then it would be faster to search through that map.
     -- Looking up the size of Haskell containers is O(n) so we don’t bother. We assume that in most
     -- cases `freeVariables` is smaller.

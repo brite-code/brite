@@ -18,6 +18,7 @@ import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.Maybe (fromMaybe)
+import qualified Data.Set as Set
 
 -- Prints a polytype to a Brite printer AST which may then be printed to text. This printer also
 -- applies a heuristic to simplify [MLF types][1]. All quantifications in MLF may not be written
@@ -72,7 +73,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
     -- those into one printer AST type.
     loop initialBindings $ \references1 makeQuantifiedBody ->
       yield references1 $ \seen substitutions ->
-        let (qs, t) = makeQuantifiedBody seen HashSet.empty substitutions in
+        let (qs, t) = makeQuantifiedBody seen Set.empty substitutions in
           PrinterAST.quantifiedType qs t
     where
       -- This loop function is pretty gnarly. Here’s what it does:
@@ -129,13 +130,13 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                 -- If a flexible binding has just one positive reference then inline the
                 -- binding type.
                 (Flexible, Just (1, 0)) ->
-                  let newCaptured = HashSet.union (polytypeFreeVariables (bindingType binding)) captured in
+                  let newCaptured = Set.union (polytypeFreeVariables (bindingType binding)) captured in
                     makeQuantifiedBody seen newCaptured $
                       HashMap.insert (bindingName binding) (makeBindingType seen substitutions) substitutions
 
                 -- If a rigid binding has just one negative reference then inline the binding type.
                 (Rigid, Just (0, 1)) ->
-                  let newCaptured = HashSet.union (polytypeFreeVariables (bindingType binding)) captured in
+                  let newCaptured = Set.union (polytypeFreeVariables (bindingType binding)) captured in
                     makeQuantifiedBody seen newCaptured $
                       HashMap.insert (bindingName binding) (makeBindingType seen substitutions) substitutions
 
@@ -144,7 +145,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                 _ ->
                   -- If this binding is captured in our `substitutions` map then we need to pick a
                   -- new name for it.
-                  if HashSet.member (bindingName binding) captured then
+                  if Set.member (bindingName binding) captured then
                     let
                       -- Generate a new, unique, name that we have not seen before and is
                       -- not captured.
@@ -169,7 +170,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                       (qs, t) =
                         makeQuantifiedBody
                           (HashSet.insert newBindingName seen)
-                          (HashSet.insert newBindingName captured)
+                          (Set.insert newBindingName captured)
                           (HashMap.insert (bindingName binding) (PrinterAST.variableType newBindingName) substitutions)
                     in
                       (q : qs, t)
