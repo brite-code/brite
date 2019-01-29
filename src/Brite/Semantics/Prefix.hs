@@ -35,6 +35,7 @@ import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
+import Data.List (sort)
 import Data.Maybe (isJust, fromMaybe)
 import Data.STRef
 
@@ -348,16 +349,18 @@ levelUp prefix newLevel type0 =
         return ())
 
 -- Performs the checks which must pass for an update to be safe.
-updateCheck :: Prefix s -> Polytype -> Type.Binding -> Check s (Either Diagnostic ())
-updateCheck prefix _oldType newBinding = do
+updateCheck :: Prefix s -> Type.Binding -> Polytype -> Check s (Either Diagnostic ())
+updateCheck prefix oldBinding newType = do
   -- TODO: kinds
   -- TODO: abstraction
 
   -- Run an “occurs” check to make sure that we aren’t creating an infinite type with this update.
   -- If we would create an infinite type then return an error.
-  nameOccurs <- liftST $ occurs prefix (Type.bindingName newBinding) (Type.bindingType newBinding)
+  nameOccurs <- liftST $ occurs prefix (Type.bindingName oldBinding) newType
   if nameOccurs then
     error "TODO: diagnostic"
+  else if Type.bindingFlexibility oldBinding == Type.Rigid then
+    error "TODO: update rigid bound"
   else
     -- The update is ok. You may proceed to commit changes...
     return (Right ())
@@ -378,26 +381,26 @@ updateCheck prefix _oldType newBinding = do
 --
 -- We assume that the new type is an instance of the old type. However, we do check to ensure that
 -- the new type is an abstraction of the old type for rigid bindings.
-update :: Prefix s -> Type.Binding -> Check s (Either Diagnostic ())
-update prefix binding = do
+update :: Prefix s -> Identifier -> Polytype -> Check s (Either Diagnostic ())
+update prefix name newType = do
   -- Lookup the existing binding entry in the prefix. If it does not exist then report an error
   -- diagnostic and abort.
-  maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) (Type.bindingName binding)
+  maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
   case maybeEntry of
     Nothing -> error "TODO: Internal error diagnostic"
     Just entry -> do
       -- Make sure our update is safe.
       oldBinding <- liftST $ readSTRef (prefixEntryBinding entry)
-      updateCheckResult <- updateCheck prefix (Type.bindingType oldBinding) binding
+      updateCheckResult <- updateCheck prefix oldBinding newType
       case updateCheckResult of
         -- If the update is not safe then return an error without committing anything.
         Left e -> return (Left e)
         -- If the update is safe then update our entry and update the levels of our new
         -- type’s dependencies.
         Right () -> liftST $ do
-          writeSTRef (prefixEntryBinding entry) binding
+          writeSTRef (prefixEntryBinding entry) (Type.Binding name Type.Rigid newType)
           entryLevel <- readSTRef (prefixEntryLevel entry)
-          levelUp prefix entryLevel (Type.bindingType binding)
+          levelUp prefix entryLevel newType
           return (Right ())
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t3` and `(Q) t2 ⊑ t3` hold. Where `t1` and `t2` are the old
@@ -410,9 +413,7 @@ update prefix binding = do
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 mergeUpdate :: Prefix s -> Identifier -> Identifier -> Type.Flexibility -> Polytype -> Check s (Either Diagnostic ())
-mergeUpdate prefix name1 name2 flex type' = do
-  let binding1 = Type.Binding name1 flex type'
-  let binding2 = Type.Binding name2 flex type'
+mergeUpdate prefix name1 name2 flex newType = do
   -- Lookup both types in our hash table. Both _must_ exist. If one of them doesn’t then report an
   -- internal error diagnostic.
   maybeEntry1 <- liftST $ HashTable.lookup (prefixEntries prefix) name1
@@ -424,8 +425,8 @@ mergeUpdate prefix name1 name2 flex type' = do
       -- Make sure _both_ our updates are safe.
       oldBinding1 <- liftST $ readSTRef (prefixEntryBinding entry1)
       oldBinding2 <- liftST $ readSTRef (prefixEntryBinding entry2)
-      updateCheckResult1 <- updateCheck prefix (Type.bindingType oldBinding1) binding1
-      updateCheckResult2 <- updateCheck prefix (Type.bindingType oldBinding2) binding2
+      updateCheckResult1 <- updateCheck prefix oldBinding1 newType
+      updateCheckResult2 <- updateCheck prefix oldBinding2 newType
       case (updateCheckResult1, updateCheckResult2) of
         -- If the update is not safe then return an error without committing anything.
         (Left e, _) -> return (Left e)
@@ -439,16 +440,16 @@ mergeUpdate prefix name1 name2 flex type' = do
           entryLevel1 <- readSTRef (prefixEntryLevel entry1)
           entryLevel2 <- readSTRef (prefixEntryLevel entry2)
           if prefixLevelIndex entryLevel1 <= prefixLevelIndex entryLevel2 then do
-            let linkType = Type.polytype (Type.variable (Type.polytypeRange type') name1)
-            writeSTRef (prefixEntryBinding entry1) binding1
+            let linkType = Type.polytype (Type.variable (Type.polytypeRange newType) name1)
+            writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 flex newType)
             writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 Type.Rigid linkType)
-            levelUp prefix entryLevel1 type'
+            levelUp prefix entryLevel1 newType
             return (Right ())
           else do
-            let linkType = Type.polytype (Type.variable (Type.polytypeRange type') name2)
-            writeSTRef (prefixEntryBinding entry2) binding2
+            let linkType = Type.polytype (Type.variable (Type.polytypeRange newType) name2)
+            writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 flex newType)
             writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 Type.Rigid linkType)
-            levelUp prefix entryLevel2 type'
+            levelUp prefix entryLevel2 newType
             return (Right ())
 
 -- Gets a set of all the binding names in the prefix for debugging.
@@ -466,8 +467,10 @@ allBindingNames prefix = liftST $
 allBindings :: Prefix s -> Check s [Type.Binding]
 allBindings prefix = liftST $ do
   visited <- HashTable.new
-  let
-    visit bindings0 name = do
+  allVariables <- sort <$> HashTable.foldM (\names (name, _) -> return (name : names)) [] (prefixEntries prefix)
+  reverse <$> foldlM (visit visited) [] allVariables
+  where
+    visit visited bindings0 name = do
       alreadyVisited <- isJust <$> HashTable.lookup visited name
       if alreadyVisited then return bindings0 else do
         HashTable.insert visited name ()
@@ -476,11 +479,6 @@ allBindings prefix = liftST $ do
           Nothing -> return bindings0
           Just entry -> do
             binding <- readSTRef (prefixEntryBinding entry)
-            bindings2 <-
-              HashSet.foldl'
-                (\bindings1 freeName -> bindings1 >>= flip visit freeName)
-                (return bindings0)
-                (Type.polytypeFreeVariables (Type.bindingType binding))
-            return (binding : bindings2)
-  reverse <$>
-    HashTable.foldM (\bindings (name, _) -> visit bindings name) [] (prefixEntries prefix)
+            let freeVariables = sort (HashSet.toList (Type.polytypeFreeVariables (Type.bindingType binding)))
+            bindings1 <- foldlM (visit visited) bindings0 freeVariables
+            return (binding : bindings1)

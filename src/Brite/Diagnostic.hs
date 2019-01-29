@@ -17,12 +17,18 @@
 -- * Use correct English grammar. It can be hard to make a program which produces correct English
 --   grammar. If you must, consult a spellchecker.
 --
--- * Write messages in first-person plural. That is, use “we”. For example “we found an error”.
+-- * Write messages in first-person plural. That is, use “we”. For example “we see an error”.
 --   This personifies our type checker as a team of people looking for bugs in the programmer’s
 --   code. By personifying our type checker error messages feel like a dialogue. Elm’s error
---   messages are famous for using first-person tense. I (Caleb) always found messages like “I
---   found an error” to be a bit annoying since the type checker is certainly not a person nor is
---   it built by a single person. Hopefully “we” will be a nice compromise.
+--   messages are famous for using first-person. I (Caleb) always found messages like “I found an
+--   error” to be a bit annoying since the type checker is certainly not a person nor is it built by
+--   a single person. Hopefully “we” will be a nice compromise.
+--
+-- * When speaking, present tense instead of past tense. Instead of “we found” say “we see”. An
+--   error in the programmer’s code is not a point in time, but rather a state in which the code
+--   will remain until the bug is fixed. While yes, the type checker runs at discrete points in time
+--   we want to give the user the perception that Brite is alive and reacting to their input. Not
+--   spinning in a background thread and then spitting out errors every once in a while.
 --
 -- * Use language the programmer will understand. Not language the compiler understands. Words
 --   like “identifier”, “token”, and “expression” are compiler speak. Instead of compiler speak
@@ -269,6 +275,9 @@ diagnosticErrorMessage :: ErrorDiagnosticMessage -> Markup
 -- * For unexpected tokens when we expected a pattern we say “We found `=` when we wanted a variable
 --   name.” because the word “pattern” is compiler speak. Even though patterns can be more than a
 --   variable name, 80% of the time the programmer will write a variable name.
+--
+-- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
+-- should change the message.
 diagnosticErrorMessage (UnexpectedToken unexpected expected) =
   plain "We wanted "
     <> expectedTokenMessage expected
@@ -286,6 +295,9 @@ diagnosticErrorMessage (UnexpectedToken unexpected expected) =
 -- saying “we found the file’s end.” The end of a file is an abstract concept and so finding the end
 -- of a file is a bit weird. It makes sense from the perspective of parsing but not from the user’s
 -- perspective which we are designing for.
+--
+-- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
+-- should change the message.
 diagnosticErrorMessage (UnexpectedEnding expected) =
   plain "We wanted " <> expectedTokenMessage expected <> plain " but the file ended."
 
@@ -297,6 +309,9 @@ diagnosticErrorMessage (UnexpectedEnding expected) =
 --   from the programmer to the compiler.
 -- * “We cannot find type `T`.” I like the sound of “could not” better than “cannot” or “can’t”.
 -- * “We could not find name `T`.” We use “type” instead of “name” to be more specific here.
+--
+-- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
+-- should change the message.
 diagnosticErrorMessage (UnboundTypeVariable name) =
   plain "We could not find type " <> code (identifierText name) <> plain "."
 
@@ -325,7 +340,7 @@ diagnosticErrorMessage (UnboundTypeVariable name) =
 -- unification stack frames will be useful for debugging an error. For now we keep the diagnostic
 -- error messages short, sweet, and to the point.
 diagnosticErrorMessage (IncompatibleTypes type1 type2 stack) =
-  operationMessage <> plain " because we see " <> typeMessage type1 <> plain " when we want " <>
+  operationMessage <> plain " because we have " <> typeMessage type1 <> plain " but we want " <>
   typeMessage type2 <> plain "."
   where
     operationMessage = loop stack

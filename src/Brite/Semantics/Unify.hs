@@ -103,7 +103,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
             result <- unifyPolytype stack prefix (Type.bindingType binding1) polytype2
             case result of
               Left e -> return (Left e)
-              Right _ -> Prefix.update prefix (Type.Binding name1 Type.Rigid polytype2)
+              Right _ -> Prefix.update prefix name1 polytype2
 
   -- Unify `type2` with some other monotype. The other monotype is guaranteed to not be a variable
   -- since that case would be caught by the match case above.
@@ -127,7 +127,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
             result <- unifyPolytype stack prefix polytype1 (Type.bindingType binding2)
             case result of
               Left e -> return (Left e)
-              Right _ -> Prefix.update prefix (Type.Binding name2 Type.Rigid polytype1)
+              Right _ -> Prefix.update prefix name2 polytype1
 
   -- Primitive intrinsic types unify with each other no problem.
   (Boolean, Boolean) -> return (Right ())

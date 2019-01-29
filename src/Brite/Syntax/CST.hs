@@ -506,6 +506,7 @@ data QuantifierBound = QuantifierBound Flexibility Token (Recover Type)
 
 -- `:` or `=`
 data Flexibility = Rigid | Flexible
+  deriving (Eq)
 
 -- `: T`
 data TypeAnnotation = TypeAnnotation Token (Recover Type)

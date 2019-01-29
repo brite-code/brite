@@ -3,7 +3,6 @@
 module Brite.Syntax.TokensSpec (spec) where
 
 import Brite.Syntax.Tokens
-import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy

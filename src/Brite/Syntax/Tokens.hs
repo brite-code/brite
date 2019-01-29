@@ -125,7 +125,7 @@ rangeContains (Range p1 p2) (Range p3 p4) = p1 <= p2 && p3 <= p4
 --
 -- [1]: http://www.unicode.org/reports/tr31
 newtype Identifier = Identifier Text
-  deriving (Eq, Hashable)
+  deriving (Eq, Ord, Hashable)
 
 instance Show Identifier where
   show (Identifier t) = T.unpack t
