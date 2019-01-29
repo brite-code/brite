@@ -390,7 +390,7 @@ spec =
 
       -- Compare all the expected diagnostics to each other.
       let actualDiagnostics = map (strictify . diagnosticMessageText) (toList (ds2 <> ds3))
-      if not (null actualDiagnostics) then actualDiagnostics `shouldBe` expectedDiagnostics else mempty -- TODO: Remove this. It is only to pretty up our test output.
+      actualDiagnostics `shouldBe` expectedDiagnostics
 
 strictify :: Text.Builder -> Text
 strictify = Text.Lazy.toStrict . Text.Builder.toLazyText

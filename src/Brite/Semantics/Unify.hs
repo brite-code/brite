@@ -55,7 +55,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
     -- Immediately stop trying to unify this type.
     maybeBinding1 <- Prefix.lookup prefix name1
     case maybeBinding1 of
-      Nothing -> error "TODO: diagnostic"
+      Nothing -> Left <$> expectedTypeVariableToExistInPrefix name1 stack
       Just binding1 -> do
         -- Pattern match with our binding type and our second monotype.
         case (Type.polytypeDescription (Type.bindingType binding1), description2) of
@@ -71,7 +71,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
             -- Immediately stop trying to unify this type.
             maybeBinding2 <- Prefix.lookup prefix name2
             case maybeBinding2 of
-              Nothing -> error "TODO: diagnostic"
+              Nothing -> Left <$> expectedTypeVariableToExistInPrefix name2 stack
               Just binding2 ->
                 case Type.polytypeDescription (Type.bindingType binding2) of
                   -- If the bound for our variable is a monotype then recursively call `unify`
@@ -112,7 +112,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
     -- Immediately stop trying to unify this type.
     maybeBinding2 <- Prefix.lookup prefix name2
     case maybeBinding2 of
-      Nothing -> error "TODO: diagnostic"
+      Nothing -> Left <$> expectedTypeVariableToExistInPrefix name2 stack
       Just binding2 -> do
         -- Pattern match with our binding type and our second monotype.
         case Type.polytypeDescription (Type.bindingType binding2) of

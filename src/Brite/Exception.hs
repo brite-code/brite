@@ -15,6 +15,7 @@ module Brite.Exception
   , catchEverything
   ) where
 
+import Brite.Diagnostic (issueTrackerMessage)
 import Brite.DiagnosticMarkup
 import Brite.Project.FileNames (configFileName)
 import Control.Exception hiding (throw)
@@ -129,14 +130,6 @@ sqliteResultErrorMessage _ = sqliteGenericErrorMessage
 
 sqliteFormatErrorMessage :: SQLLite.FormatError -> Markup
 sqliteFormatErrorMessage _ = sqliteGenericErrorMessage
-
--- A message for pushing people to our issue tracker when they encounter an unexpected error.
---
--- We use the word “issue” instead of the word “bug” because the meaning of “bug” is subjective. An
--- error might be expected behavior and we just haven’t created a better error message for it yet.
-issueTrackerMessage :: Markup
-issueTrackerMessage =
-  plain "See if this issue was already reported: https://github.com/brite-code/brite/issues"
 
 -- Catch all errors and print them to a diagnostic markup error message.
 catchEverything :: IO a -> IO (Either Markup a)

@@ -354,8 +354,6 @@ levelUp prefix newLevel type0 =
 -- Performs the checks which must pass for an update to be safe.
 updateCheck :: UnifyStack -> Prefix s -> Type.Binding -> Polytype -> Check s (Either Diagnostic ())
 updateCheck stack prefix oldBinding newType = do
-  -- TODO: kinds
-
   -- Run an “occurs” check to make sure that we aren’t creating an infinite type with this update.
   -- If we would create an infinite type then return an error.
   nameOccurs <- liftST $ occurs prefix (Type.bindingName oldBinding) newType
@@ -408,7 +406,7 @@ update stack prefix name newType = do
   -- diagnostic and abort.
   maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
   case maybeEntry of
-    Nothing -> error "TODO: Internal error diagnostic"
+    Nothing -> Left <$> expectedTypeVariableToExistInPrefix name stack
     Just entry -> do
       -- Make sure our update is safe.
       oldBinding <- liftST $ readSTRef (prefixEntryBinding entry)
@@ -440,8 +438,8 @@ mergeUpdate stack prefix name1 name2 flex newType = do
   maybeEntry1 <- liftST $ HashTable.lookup (prefixEntries prefix) name1
   maybeEntry2 <- liftST $ HashTable.lookup (prefixEntries prefix) name2
   case (maybeEntry1, maybeEntry2) of
-    (Nothing, _) -> error "TODO: Internal error diagnostic"
-    (_, Nothing) -> error "TODO: Internal error diagnostic"
+    (Nothing, _) -> Left <$> expectedTypeVariableToExistInPrefix name1 stack
+    (_, Nothing) -> Left <$> expectedTypeVariableToExistInPrefix name2 stack
     (Just entry1, Just entry2) -> do
       -- Make sure _both_ our updates are safe.
       oldBinding1 <- liftST $ readSTRef (prefixEntryBinding entry1)

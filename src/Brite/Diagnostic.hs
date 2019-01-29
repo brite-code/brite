@@ -63,6 +63,7 @@ module Brite.Diagnostic
   , unboundTypeVariable
   , incompatibleTypes
   , infiniteType
+  , expectedTypeVariableToExistInPrefix
 
   -- Diagnostic unification stacks.
   , UnifyStack
@@ -74,6 +75,9 @@ module Brite.Diagnostic
   , diagnosticMessage
   , diagnosticMessageText
   , debugDiagnostic
+
+  -- Shared messages.
+  , issueTrackerMessage
 
   -- Diagnostic reporting monad.
   , DiagnosticMonad(..)
@@ -124,8 +128,10 @@ data DiagnosticMessage
   | Info InfoDiagnosticMessage
 
 data ErrorDiagnosticMessage
+  -- An internal error ocurred which should never happen in production code.
+  = InternalError InternalErrorDiagnosticMessage
   -- The parser ran into a token it did not recognize.
-  = UnexpectedToken ActualToken ExpectedToken
+  | UnexpectedToken ActualToken ExpectedToken
   -- The parser ran into the end of the source document unexpectedly.
   | UnexpectedEnding ExpectedToken
   -- The type checker ran into a type variable which it could not find a binding for.
@@ -134,6 +140,10 @@ data ErrorDiagnosticMessage
   | IncompatibleTypes TypeMessage TypeMessage UnifyStack
   -- While trying to infer the type for some code we ran into an infinite type.
   | InfiniteType UnifyStack
+
+data InternalErrorDiagnosticMessage
+  -- We expected a type variable to exist in the prefix and it didn’t we throw this error.
+  = ExpectedTypeVariableToExistInPrefix Identifier
 
 data WarningDiagnosticMessage
 
@@ -196,6 +206,11 @@ incompatibleTypes actualRange type1 type2 stack = report $ Diagnostic range $ Er
 infiniteType :: DiagnosticMonad m => UnifyStack -> m Diagnostic
 infiniteType stack = report $ Diagnostic (unifyStackRange stack) $ Error $
   InfiniteType stack
+
+-- We expected a type variable to exist in the prefix and it didn’t we throw this error.
+expectedTypeVariableToExistInPrefix :: DiagnosticMonad m => Identifier -> UnifyStack -> m Diagnostic
+expectedTypeVariableToExistInPrefix name stack = report $ Diagnostic (unifyStackRange stack) $ Error $ InternalError $
+  ExpectedTypeVariableToExistInPrefix name
 
 -- For error reporting we keep track of the unification “stack”. The unification stack has an
 -- operation which represents _why_ the unification is happening. The unification stack also has a
@@ -385,6 +400,14 @@ diagnosticErrorMessage (InfiniteType stack) =
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
 
+-- If a user sees an internal error diagnostic then there’s a bug in Brite. Refer users to the issue
+-- tracker so they can report their problem.
+diagnosticErrorMessage (InternalError x) =
+  plain "Internal Error: " <> internalErrorDiagnosticMessage x <> plain " " <> issueTrackerMessage
+  where
+    internalErrorDiagnosticMessage (ExpectedTypeVariableToExistInPrefix name) =
+      plain "Expected type variable " <> code (identifierText name) <> plain " to exist in the prefix."
+
 -- Get the message for an expected token.
 expectedTokenMessage :: ExpectedToken -> Markup
 expectedTokenMessage (ExpectedGlyph glyph) = code (glyphText glyph)
@@ -406,6 +429,14 @@ typeMessage FunctionMessage = plain "a function"
 -- Get the message for a unification stack operation.
 unifyStackOperationMessage :: UnifyStackOperation -> Markup
 unifyStackOperationMessage UnifyTest = plain "Test failed" -- NOTE: We should only see this during testing.
+
+-- A message for pushing people to our issue tracker when they encounter an unexpected error.
+--
+-- We use the word “issue” instead of the word “bug” because the meaning of “bug” is subjective. An
+-- error might be expected behavior and we just haven’t created a better error message for it yet.
+issueTrackerMessage :: Markup
+issueTrackerMessage =
+  plain "See if this issue was already reported: https://github.com/brite-code/brite/issues"
 
 -- Prints a diagnostic for debugging purposes.
 debugDiagnostic :: Diagnostic -> Text.Builder
