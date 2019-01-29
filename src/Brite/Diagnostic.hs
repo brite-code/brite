@@ -63,7 +63,7 @@ module Brite.Diagnostic
   , unboundTypeVariable
   , incompatibleTypes
   , infiniteType
-  , expectedTypeVariableToExistInPrefix
+  , expectedTypeVariableToExist
 
   -- Diagnostic unification stacks.
   , UnifyStack
@@ -143,7 +143,7 @@ data ErrorDiagnosticMessage
 
 data InternalErrorDiagnosticMessage
   -- We expected a type variable to exist in the prefix and it didn’t we throw this error.
-  = ExpectedTypeVariableToExistInPrefix Identifier
+  = ExpectedTypeVariableToExist Identifier
 
 data WarningDiagnosticMessage
 
@@ -208,9 +208,9 @@ infiniteType stack = report $ Diagnostic (unifyStackRange stack) $ Error $
   InfiniteType stack
 
 -- We expected a type variable to exist in the prefix and it didn’t we throw this error.
-expectedTypeVariableToExistInPrefix :: DiagnosticMonad m => Identifier -> UnifyStack -> m Diagnostic
-expectedTypeVariableToExistInPrefix name stack = report $ Diagnostic (unifyStackRange stack) $ Error $ InternalError $
-  ExpectedTypeVariableToExistInPrefix name
+expectedTypeVariableToExist :: DiagnosticMonad m => Identifier -> UnifyStack -> m Diagnostic
+expectedTypeVariableToExist name stack = report $ Diagnostic (unifyStackRange stack) $ Error $ InternalError $
+  ExpectedTypeVariableToExist name
 
 -- For error reporting we keep track of the unification “stack”. The unification stack has an
 -- operation which represents _why_ the unification is happening. The unification stack also has a
@@ -405,7 +405,7 @@ diagnosticErrorMessage (InfiniteType stack) =
 diagnosticErrorMessage (InternalError x) =
   plain "Internal Error: " <> internalErrorDiagnosticMessage x <> plain " " <> issueTrackerMessage
   where
-    internalErrorDiagnosticMessage (ExpectedTypeVariableToExistInPrefix name) =
+    internalErrorDiagnosticMessage (ExpectedTypeVariableToExist name) =
       plain "Expected type variable " <> code (identifierText name) <> plain " to exist in the prefix."
 
 -- Get the message for an expected token.

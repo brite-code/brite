@@ -406,7 +406,7 @@ update stack prefix name newType = do
   -- diagnostic and abort.
   maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
   case maybeEntry of
-    Nothing -> Left <$> expectedTypeVariableToExistInPrefix name stack
+    Nothing -> Left <$> expectedTypeVariableToExist name stack
     Just entry -> do
       -- Make sure our update is safe.
       oldBinding <- liftST $ readSTRef (prefixEntryBinding entry)
@@ -438,8 +438,8 @@ mergeUpdate stack prefix name1 name2 flex newType = do
   maybeEntry1 <- liftST $ HashTable.lookup (prefixEntries prefix) name1
   maybeEntry2 <- liftST $ HashTable.lookup (prefixEntries prefix) name2
   case (maybeEntry1, maybeEntry2) of
-    (Nothing, _) -> Left <$> expectedTypeVariableToExistInPrefix name1 stack
-    (_, Nothing) -> Left <$> expectedTypeVariableToExistInPrefix name2 stack
+    (Nothing, _) -> Left <$> expectedTypeVariableToExist name1 stack
+    (_, Nothing) -> Left <$> expectedTypeVariableToExist name2 stack
     (Just entry1, Just entry2) -> do
       -- Make sure _both_ our updates are safe.
       oldBinding1 <- liftST $ readSTRef (prefixEntryBinding entry1)
