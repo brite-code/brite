@@ -86,6 +86,7 @@ import Brite.DiagnosticMarkup
 import Brite.Syntax.Tokens
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
+import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
@@ -158,7 +159,8 @@ data ExpectedToken
 -- A short description of a type that is used in error messages. Designed to not reveal the
 -- underlying implementation of the Brite type checker.
 data TypeMessage
-  = BooleanMessage
+  = CodeMessage Text
+  | BooleanMessage
   | IntegerMessage
   | FunctionMessage
 
@@ -396,6 +398,7 @@ expectedTokenMessage ExpectedType = plain "a type"
 
 -- Get the message for a type message.
 typeMessage :: TypeMessage -> Markup
+typeMessage (CodeMessage t) = code t
 typeMessage BooleanMessage = plain "a boolean"
 typeMessage IntegerMessage = plain "an integer"
 typeMessage FunctionMessage = plain "a function"

@@ -27,8 +27,10 @@ import Brite.Semantics.AST (Range, Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
-import Brite.Semantics.UnifyAbstraction
 import qualified Brite.Semantics.Type as Type
+import Brite.Semantics.TypePrinter (printPolytype)
+import Brite.Semantics.UnifyAbstraction
+import Brite.Syntax.Printer (printCompactType)
 import Control.Monad.ST
 import Data.Foldable (foldlM, traverse_)
 import qualified Data.HashMap.Lazy as HashMap
@@ -40,6 +42,7 @@ import Data.List (sort)
 import Data.Maybe (isJust, fromMaybe)
 import qualified Data.Set as Set
 import Data.STRef
+import qualified Data.Text.Builder.Custom as Text.Builder
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
 -- `ST` monad for mutability. Unlike other immutable Haskell data types.
@@ -365,10 +368,23 @@ updateCheck stack prefix oldBinding newType = do
       if Type.bindingFlexibility oldBinding /= Type.Rigid then return True else
         abstractionCheck (lookup prefix) (Type.bindingType oldBinding) newType
     if not abstractionCheckSucceeds then
-      error "TODO: abstraction check failed"
+      -- We reuse the “incompatible types” error from unification when an abstraction check fails.
+      -- While in our implementation this error is reported from a _very_ different place, to the
+      -- user it is the same error. We could not perform their operation because two types were
+      -- dissimilar in some way. However, the underlying difference in both cases is different.
+      Left <$>
+        incompatibleTypes
+          (Type.polytypeRange newType)
+          (rawPolytypeMessage newType)
+          (rawPolytypeMessage (Type.bindingType oldBinding))
+          stack
     else
       -- The update is ok. You may proceed to commit changes...
       return (Right ())
+
+-- Prints a polytype to a `TypeMessage` directly.
+rawPolytypeMessage :: Polytype -> TypeMessage
+rawPolytypeMessage = CodeMessage . Text.Builder.toStrictText . printCompactType . printPolytype
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Where `t1` is the old type and `t2` is the new
 -- type. Do not call this function with two types which do not uphold this relation!
