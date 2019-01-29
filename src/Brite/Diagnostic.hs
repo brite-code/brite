@@ -62,6 +62,7 @@ module Brite.Diagnostic
   , unexpectedEnding
   , unboundTypeVariable
   , incompatibleTypes
+  , infiniteType
 
   -- Diagnostic unification stacks.
   , UnifyStack
@@ -130,6 +131,8 @@ data ErrorDiagnosticMessage
   | UnboundTypeVariable Identifier
   -- We found two types that were incompatible with one another during unification.
   | IncompatibleTypes TypeMessage TypeMessage UnifyStack
+  -- While trying to infer the type for some code we ran into an infinite type.
+  | InfiniteType UnifyStack
 
 data WarningDiagnosticMessage
 
@@ -186,6 +189,11 @@ incompatibleTypes actualRange type1 type2 stack = report $ Diagnostic range $ Er
   where
     stackRange = unifyStackRange stack
     range = if rangeContains stackRange actualRange then actualRange else stackRange
+
+-- While trying to infer the type for some code we ran into an infinite type.
+infiniteType :: DiagnosticMonad m => UnifyStack -> m Diagnostic
+infiniteType stack = report $ Diagnostic (unifyStackRange stack) $ Error $
+  InfiniteType stack
 
 -- For error reporting we keep track of the unification “stack”. The unification stack has an
 -- operation which represents _why_ the unification is happening. The unification stack also has a
@@ -342,6 +350,26 @@ diagnosticErrorMessage (UnboundTypeVariable name) =
 diagnosticErrorMessage (IncompatibleTypes type1 type2 stack) =
   operationMessage <> plain " because we have " <> typeMessage type1 <> plain " but we want " <>
   typeMessage type2 <> plain "."
+  where
+    operationMessage = loop stack
+
+    loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
+    loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
+
+-- Infinite types are rare and tricky to understand. We don’t expect beginner programmers to see
+-- this error. To see this error you need to be using both recursion and lots of polymorphism. Both
+-- are features beginners tend to avoid.
+--
+-- We really only expect intermediate to advanced programmers to encounter this error. These
+-- programmers will either be able to solve this error on their own or will be able to correctly
+-- phrase a question on their favored Brite support forums.
+--
+-- The error message is intentionally vague. It is very unlikely that the compiler will be able to
+-- spot the actual problem. Only a human will be able to spot it. If the compiler tries to guess and
+-- it guesses wrong then the programmer will spend too much time trying to understand the compiler’s
+-- output and not enough time trying to understand what in their code caused the error.
+diagnosticErrorMessage (InfiniteType stack) =
+  operationMessage <> plain " because of an infinite type inference."
   where
     operationMessage = loop stack
 

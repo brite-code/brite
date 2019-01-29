@@ -349,8 +349,8 @@ levelUp prefix newLevel type0 =
         return ())
 
 -- Performs the checks which must pass for an update to be safe.
-updateCheck :: Prefix s -> Type.Binding -> Polytype -> Check s (Either Diagnostic ())
-updateCheck prefix oldBinding newType = do
+updateCheck :: UnifyStack -> Prefix s -> Type.Binding -> Polytype -> Check s (Either Diagnostic ())
+updateCheck stack prefix oldBinding newType = do
   -- TODO: kinds
   -- TODO: abstraction
 
@@ -358,7 +358,7 @@ updateCheck prefix oldBinding newType = do
   -- If we would create an infinite type then return an error.
   nameOccurs <- liftST $ occurs prefix (Type.bindingName oldBinding) newType
   if nameOccurs then
-    error "TODO: diagnostic"
+    Left <$> infiniteType stack
   else if Type.bindingFlexibility oldBinding == Type.Rigid then
     error "TODO: update rigid bound"
   else
@@ -381,8 +381,8 @@ updateCheck prefix oldBinding newType = do
 --
 -- We assume that the new type is an instance of the old type. However, we do check to ensure that
 -- the new type is an abstraction of the old type for rigid bindings.
-update :: Prefix s -> Identifier -> Polytype -> Check s (Either Diagnostic ())
-update prefix name newType = do
+update :: UnifyStack -> Prefix s -> Identifier -> Polytype -> Check s (Either Diagnostic ())
+update stack prefix name newType = do
   -- Lookup the existing binding entry in the prefix. If it does not exist then report an error
   -- diagnostic and abort.
   maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
@@ -391,7 +391,7 @@ update prefix name newType = do
     Just entry -> do
       -- Make sure our update is safe.
       oldBinding <- liftST $ readSTRef (prefixEntryBinding entry)
-      updateCheckResult <- updateCheck prefix oldBinding newType
+      updateCheckResult <- updateCheck stack prefix oldBinding newType
       case updateCheckResult of
         -- If the update is not safe then return an error without committing anything.
         Left e -> return (Left e)
@@ -412,8 +412,8 @@ update prefix name newType = do
 -- so a single error means we don’t commit anything.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-mergeUpdate :: Prefix s -> Identifier -> Identifier -> Type.Flexibility -> Polytype -> Check s (Either Diagnostic ())
-mergeUpdate prefix name1 name2 flex newType = do
+mergeUpdate :: UnifyStack -> Prefix s -> Identifier -> Identifier -> Type.Flexibility -> Polytype -> Check s (Either Diagnostic ())
+mergeUpdate stack prefix name1 name2 flex newType = do
   -- Lookup both types in our hash table. Both _must_ exist. If one of them doesn’t then report an
   -- internal error diagnostic.
   maybeEntry1 <- liftST $ HashTable.lookup (prefixEntries prefix) name1
@@ -425,8 +425,8 @@ mergeUpdate prefix name1 name2 flex newType = do
       -- Make sure _both_ our updates are safe.
       oldBinding1 <- liftST $ readSTRef (prefixEntryBinding entry1)
       oldBinding2 <- liftST $ readSTRef (prefixEntryBinding entry2)
-      updateCheckResult1 <- updateCheck prefix oldBinding1 newType
-      updateCheckResult2 <- updateCheck prefix oldBinding2 newType
+      updateCheckResult1 <- updateCheck stack prefix oldBinding1 newType
+      updateCheckResult2 <- updateCheck stack prefix oldBinding2 newType
       case (updateCheckResult1, updateCheckResult2) of
         -- If the update is not safe then return an error without committing anything.
         (Left e, _) -> return (Left e)
