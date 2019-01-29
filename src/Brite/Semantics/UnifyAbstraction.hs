@@ -6,7 +6,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 
-module Brite.Semantics.UnifyAbstraction () where
+module Brite.Semantics.UnifyAbstraction
+  ( abstractionCheck
+  ) where
 
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, MonotypeDescription(..))
@@ -38,7 +40,7 @@ newtype Locals = Locals { getLocals :: HashMap Identifier (Locals, Polytype) }
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 projectionsEqual :: forall s. (Identifier -> Check s (Maybe Type.Binding)) -> Polytype -> Polytype -> Check s Bool
-projectionsEqual prefix = error "unimplemented"
+projectionsEqual prefix = polytypeProjectionsEqual (Locals HashMap.empty) (Locals HashMap.empty)
   where
     monotypeProjectionsEqual :: Locals -> Locals -> Monotype -> Monotype -> Check s Bool
     monotypeProjectionsEqual locals1 locals2 type1 type2 =
@@ -300,3 +302,39 @@ flexibleBindersUnchanged type1 type2 =
                     (Z, _)             -> loop Z acc1 xs ys (zs + 1) t1)
               acc0
               bindings
+
+-- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Do not call this function with two types which do
+-- not uphold this relation!
+--
+-- The abstraction check algorithm defined in Figure 4.1 of the [MLF Thesis][1]. Also see Lemma
+-- 2.7.8 as it provides more context as to why this algorithm is correct.
+--
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+abstractionCheck :: (Identifier -> Check s (Maybe Type.Binding)) -> Polytype -> Polytype -> Check s Bool
+abstractionCheck prefix initialType1 initialType2 = do
+  -- If the projections of the two types are not equal then the check fails by Property 2.1.3 (i).
+  equal <- projectionsEqual prefix initialType1 initialType2
+  if not equal then return False else loop initialType1 initialType2
+  where
+    loop type1 type2 =
+      case (Type.polytypeDescription type1, Type.polytypeDescription type2) of
+        -- If the left type is a monotype then we may shortcut the following steps and return true.
+        (Monotype' _, _) -> return True
+
+        -- If the right type is a variable our algorithm won’t work so try to find the bound of this
+        -- variable and recurse with that bound’s type. If the bound is not rigid then our
+        -- check fails.
+        --
+        -- In the presentation of the abstraction-check algorithm in figure 4.1 every time we
+        -- recurse we also check whether or not the projections are equal again. However, this check
+        -- is computationally wasteful. Projections will always be equal so we don’t perform that
+        -- check again.
+        (_, Monotype' (Type.monotypeDescription -> Variable name2)) -> do
+          maybeBinding <- prefix name2
+          case maybeBinding of
+            Nothing -> return False
+            Just binding | Type.bindingFlexibility binding /= Type.Rigid -> return False
+            Just binding -> loop type1 (Type.bindingType binding)
+
+        -- Finally, we expect the flexible binders to not have changed between the two types.
+        _ -> return (flexibleBindersUnchanged type1 type2)
