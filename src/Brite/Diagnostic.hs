@@ -362,14 +362,21 @@ diagnosticErrorMessage (IncompatibleTypes type1 type2 stack) =
 --
 -- We really only expect intermediate to advanced programmers to encounter this error. These
 -- programmers will either be able to solve this error on their own or will be able to correctly
--- phrase a question on their favored Brite support forums.
+-- phrase a question on their favored Brite support forums. This is why we use explicit compiler-y
+-- names like “type checker”, “inference”, and “infinite type”. An advanced user will be helped by
+-- being explicit about which particular components are at fault.
 --
 -- The error message is intentionally vague. It is very unlikely that the compiler will be able to
 -- spot the actual problem. Only a human will be able to spot it. If the compiler tries to guess and
 -- it guesses wrong then the programmer will spend too much time trying to understand the compiler’s
 -- output and not enough time trying to understand what in their code caused the error.
+--
+-- For instance, the error is triggered by an “occurs” check when updating a type variable. We check
+-- to see if the type variable exists already in the type it is being updated to. Just because the
+-- occurs check fails, we don’t know that it’s that type variable that is the problem. The type
+-- variable we were updating just got unlucky. It could be any type variable in that type.
 diagnosticErrorMessage (InfiniteType stack) =
-  operationMessage <> plain " because of an infinite type inference."
+  operationMessage <> plain " because the type checker infers an infinite type."
   where
     operationMessage = loop stack
 
