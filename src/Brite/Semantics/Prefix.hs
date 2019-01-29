@@ -352,7 +352,6 @@ levelUp prefix newLevel type0 =
 updateCheck :: UnifyStack -> Prefix s -> Type.Binding -> Polytype -> Check s (Either Diagnostic ())
 updateCheck stack prefix oldBinding newType = do
   -- TODO: kinds
-  -- TODO: abstraction
 
   -- Run an “occurs” check to make sure that we aren’t creating an infinite type with this update.
   -- If we would create an infinite type then return an error.

@@ -12,8 +12,11 @@ import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, MonotypeDescription(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Syntax.Tokens (Identifier)
+import Data.Foldable (foldl')
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 
 -- A data-type is needed here to make the type recursive.
@@ -173,3 +176,127 @@ projectionsEqual prefix = error "unimplemented"
     -- referenced at.
     addBindingsToLocals = foldl $ \locals binding ->
       Locals (HashMap.insert (Type.bindingName binding) (locals, Type.bindingType binding) (getLocals locals))
+
+-- See Section 2.7.1 of the [MLF thesis][1].
+--
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+data PolynomialVariable = X | Y | Z
+  deriving (Eq)
+
+-- Represents a polynomial. Each entry represents a term. The key of an entry represents the _power_
+-- of each polynomial variable (`X`, `Y`, and `Z`) and the value represents the integer coefficient.
+--
+-- For example, an entry with a key of `(1, 2, 0)` and a value of `3` represents the term `3XY²`.
+-- All entries are added together to get our polynomial.
+type Polynomial = Map (Int, Int, Int) Int
+
+-- This is an interesting little function. In this function we detect if the _quantity_ of flexible
+-- binders are different in the two types we are provided. It can be tricky to understand _why_ this
+-- is important. Consider the program:
+--
+-- ```
+-- // add1: number → number
+-- let auto = λ(x: ∀a.a → a).x x in // auto: ∀(x = ∀a.a → a).x → x
+-- auto add1
+-- ```
+--
+-- We better reject this program since we can’t call `add1 add1`! That program would be ill-formed.
+-- This is what rigid bindings represent. The refusal to instantiate a given type bound to a new
+-- type. We can’t update the bound `b = ∀a.a → a` to `b = number → number` since that would be an
+-- instantiation of `a`.
+--
+-- This program is rejected when the `projectionsEqual` function above returns false. Here’s a
+-- program which needs `flexibleBindersUnchanged` to be properly rejected:
+--
+-- ```
+-- // add1: number → number
+-- let auto = λ(x: ∀a.a → a).x x in // auto: ∀(x = ∀a.a → a).x → x
+-- (auto: ∀(x ≥ ∀a.a → a).x → x) add1
+-- ```
+--
+-- In this program we try to “loosen” the type of `auto` to `∀(x ≥ ∀a.a → a).x → x` so that we can
+-- apply `add1`. Similarly, we must reject this program or else we execute `add1 add1` which is
+-- unsound! To reject this program `flexibleBindersUnchanged` observes that we have a new flexible
+-- binder in the annotation.
+--
+-- So why does this implementation work? Formally the [MLF thesis][1] describes this operation in
+-- Lemma 2.7.8 as:
+--
+-- > X ∉ w(o1) − w(o2)
+--
+-- What is `X`? What is `w()`? Why are we subtracting? How is `X` an element of a number? This makes
+-- sense if you read section 2.7.1, section 2.7.2, and lemma 2.7.8.
+--
+-- What’s happening is that `w(t)` calculates a “weight” number based on the position of bindings in
+-- `t`. Except the “weight” isn’t really a number. It’s a polynomial. A polynomial with three
+-- abstract variables `X`, `Y`, and `Z`. So a weight looks like `X + X² + XY + Y² + YZ`. Except you
+-- can think of each polynomial as a path. So `X * X` is actually the path to a bottom (`⊥`)
+-- quantification of `≥≥`.
+--
+-- Ok, look, I tried explaining it, but you should really just read section 2.7. It has nice and
+-- helpful pictures for understanding the theory of this function. Once you’re done with that come
+-- back here.
+--
+-- ...
+--
+-- Oh good, you’re back! In the implementation of `flexibleBindersUnchanged` we represent a
+-- polynomial as a map which takes a triple as the key. The triple consists of the power of `X`,
+-- `Y`, and `Z` respectively. The value represents the integer coefficient of the polynomial entry.
+-- For example the polynomial `X + X² + XY + 2Z²` is represented by the map:
+--
+-- ```
+-- (X, Y, Z) -> n
+-- --------------
+-- (1, 0, 0) -> 1
+-- (2, 0, 0) -> 1
+-- (1, 1, 0) -> 1
+-- (0, 0, 2) -> 2
+-- ```
+--
+-- Except we don’t care about entries where the power of `X` is 0 for the final check, so the map we
+-- build does not contain those terms. Instead of trying to subtract polynomials and then checking
+-- `X ∉ w(o1) − w(o2)` we check to see that the two maps are equal for all terms that contain an
+-- `X`. If they are equal that is the same as performing a subtraction and checking for bindings
+-- that contain an `X`.
+--
+-- NOTE: Both types should be in normal form!
+--
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+flexibleBindersUnchanged :: Polytype -> Polytype -> Bool
+flexibleBindersUnchanged type1 type2 =
+  -- Create the polynomials for both of our types and check to make sure they are equal. Remember
+  -- that these polynomials exclude terms which do not have an `X` variable.
+  let
+    polynomial1 = loop X Map.empty 0 0 0 type1
+    polynomial2 = loop X Map.empty 0 0 0 type2
+  in
+    polynomial1 == polynomial2
+  where
+    -- Create a polynomial for the provided type.
+    loop :: PolynomialVariable -> Polynomial -> Int -> Int -> Int -> Polytype -> Polynomial
+    loop state acc0 xs ys zs t0 =
+      -- If we will never have the opportunity to add another `X` to our polynomial and we have no
+      -- `xs` then we can short-circuit since we know, logically, no more entries will be added.
+      if state /= X && xs == 0 then acc0 else
+        case Type.polytypeDescription t0 of
+          -- Monotypes do not contain binders.
+          Monotype' _ -> acc0
+
+          -- If we find a bottom type and we have some `xs` then add this path to our polynomial.
+          -- The short-circuit above depends on our `xs = 0` check here for correctness.
+          Bottom _ -> if xs == 0 then acc0 else Map.insertWith (+) (xs, ys, zs) 1 acc0
+
+          -- For quantifications add one to the correct polynomial variable and recurse into the
+          -- polynomial’s bound. Also make sure to proceed to the next state correctly.
+          Quantify bindings _ ->
+            foldl'
+              (\acc1 binding ->
+                let t1 = Type.bindingType binding in
+                  case (state, Type.bindingFlexibility binding) of
+                    (X, Type.Flexible) -> loop X acc1 (xs + 1) ys zs t1
+                    (X, Type.Rigid)    -> loop Y acc1 xs (ys + 1) zs t1
+                    (Y, Type.Flexible) -> loop Z acc1 xs ys (zs + 1) t1
+                    (Y, Type.Rigid)    -> loop Y acc1 xs (ys + 1) zs t1
+                    (Z, _)             -> loop Z acc1 xs ys (zs + 1) t1)
+              acc0
+              bindings
