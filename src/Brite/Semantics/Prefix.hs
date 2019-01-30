@@ -40,6 +40,8 @@ import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.List (sort)
 import Data.Maybe (isJust, fromMaybe)
+import Data.Sequence (Seq, (|>))
+import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.STRef
 import qualified Data.Text.Builder.Custom as Text.Builder
@@ -220,7 +222,7 @@ lookup prefix name = liftST $ do
 -- Merges the bounds of a quantified type into the prefix. If any of the bound names already exist
 -- in the prefix then we need to generate new names. Those names will be substituted in the bounds
 -- and the provided body type. The new body type with substituted names will be returned.
-instantiate :: Prefix s -> [Type.Binding] -> Monotype -> Check s Monotype
+instantiate :: Prefix s -> Seq Type.Binding -> Monotype -> Check s Monotype
 instantiate prefix bindings body = do
   -- Loop through our bindings and add them to our prefix. All of the bindings with a naming
   -- conflict in our prefix will add a substitution to our substitutions map.
@@ -262,7 +264,7 @@ generalize prefix body = liftST $ do
     -- Create a hash table for tracking the type variables we’ve visited. Also create a list of the
     -- bounds we are going to quantify.
     visited <- HashTable.new
-    bindingsRef <- newSTRef []
+    bindingsRef <- newSTRef Seq.empty
     -- Our visitor will look at each free type variable and possibly add it to our bounds list
     -- and recurse.
     let
@@ -285,7 +287,7 @@ generalize prefix body = liftST $ do
               -- Add our bound to the list we will use to quantify. It is important we do this after
               -- recursing! Since the bound we add depends on the bounds we might add
               -- while recursing.
-              modifySTRef bindingsRef (entryBinding :)
+              modifySTRef bindingsRef (|> entryBinding)
             else
               return ())
         else
@@ -294,8 +296,8 @@ generalize prefix body = liftST $ do
     traverse_ visit (Type.monotypeFreeVariables body)
     -- Quantify the type by the list of bounds we collected. Also convert the type to normal form.
     bindings <- readSTRef bindingsRef
-    if null bindings then return (Type.polytype body)
-    else return (Type.normal (Type.quantify (reverse bindings) body))
+    if Seq.null bindings then return (Type.polytype body)
+    else return (Type.normal (Type.quantify bindings body))
 
 -- Checks to see if the provided name occurs anywhere in the type or in the bounds of any free type
 -- variables recursively. If it does then we can’t update the type variable at `name` with the
@@ -483,11 +485,11 @@ allBindingNames prefix = liftST $
 
 -- Collects all the current bounds of the prefix into the list. The bounds are sorted in dependency
 -- order. That is, dependents are listed after their dependencies.
-allBindings :: Prefix s -> Check s [Type.Binding]
+allBindings :: Prefix s -> Check s (Seq Type.Binding)
 allBindings prefix = liftST $ do
   visited <- HashTable.new
   allVariables <- sort <$> HashTable.foldM (\names (name, _) -> return (name : names)) [] (prefixEntries prefix)
-  reverse <$> foldlM (visit visited) [] allVariables
+  foldlM (visit visited) Seq.empty allVariables
   where
     visit visited bindings0 name = do
       alreadyVisited <- isJust <$> HashTable.lookup visited name
@@ -500,4 +502,4 @@ allBindings prefix = liftST $ do
             binding <- readSTRef (prefixEntryBinding entry)
             let freeVariables = Type.polytypeFreeVariables (Type.bindingType binding)
             bindings1 <- foldlM (visit visited) bindings0 freeVariables
-            return (binding : bindings1)
+            return (bindings1 |> binding)

@@ -2,6 +2,7 @@
 -- give the printer AST to the printer which will build source code.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Brite.Semantics.TypePrinter
   ( printPolytype
@@ -13,11 +14,13 @@ import Brite.Semantics.Namer
 import Brite.Semantics.Type
 import qualified Brite.Syntax.PrinterAST as PrinterAST
 import Brite.Syntax.Tokens (Identifier, unsafeIdentifier)
+import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.Maybe (fromMaybe)
+import Data.Sequence (Seq(..))
 import qualified Data.Set as Set
 
 -- Prints a polytype to a Brite printer AST which may then be printed to text. This printer also
@@ -101,7 +104,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
 
       -- When we have iterated through all our bindings, print our monotype and call `next`. Calling
       -- `next` will iterate back through our bindings.
-      loop [] next =
+      loop Empty next =
         printMonotypeWithInlining Positive body references0 $ \references1 makeBody ->
           next references1 $ \_ _ substitutions ->
             ([], makeBody substitutions)
@@ -112,7 +115,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
       -- * Determine if the binding needs to be inlined.
       -- * If the binding needs to be inlined, capture its free variables and rename them if we
       --   see them again.
-      loop (binding : bindings) next = loop bindings $ \references1 makeQuantifiedBody ->
+      loop (binding :<| bindings) next = loop bindings $ \references1 makeQuantifiedBody ->
         let
           -- Both delete the references for this binding from our map and at the same time
           -- return the old value before it is deleted.
@@ -256,7 +259,7 @@ printPolytypeWithoutInlining type' = case polytypeDescription type' of
   Bottom _ -> PrinterAST.bottomType
   Quantify bindings body ->
     PrinterAST.quantifiedType
-      (map printBindingWithoutInlining bindings)
+      (map printBindingWithoutInlining (toList bindings))
       (printMonotypeWithoutInlining body)
 
 -- Prints a binding to a `PrinterAST` quantifier.

@@ -388,7 +388,7 @@ spec =
             Prefix.allBindings prefix
 
       -- Compare the actual prefix to the expected prefix.
-      let actualPrefix = strictify (printCompactQuantifierList (map printBindingWithoutInlining allBindings))
+      let actualPrefix = strictify (printCompactQuantifierList (map printBindingWithoutInlining (toList allBindings)))
       actualPrefix `shouldBe` expectedPrefix
 
       -- Compare all the expected diagnostics to each other.

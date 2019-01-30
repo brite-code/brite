@@ -5,6 +5,8 @@
 -- import qualified Brite.Semantics.Type as Type
 -- ```
 
+{-# LANGUAGE PatternSynonyms #-}
+
 module Brite.Semantics.Type
   ( Monotype
   , MonotypeDescription(..)
@@ -42,8 +44,11 @@ import qualified Data.HashSet as HashSet
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Maybe (fromMaybe)
+import Data.Sequence (Seq(..), (|>), (<|))
+import qualified Data.Sequence as Seq
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Traversable (mapAccumL)
 
 -- Types that do not contain quantifiers.
 data Monotype = Monotype
@@ -117,7 +122,7 @@ data PolytypeDescription
   --
   -- In academic literature we write `∀(a = T1).T2` and `∀(a ≥ T1).T2` for rigid and flexible
   -- universal quantification respectively. We also write `∀a.T` as shorthand for `∀(a ≥ ⊥).T`.
-  | Quantify [Binding] Monotype
+  | Quantify (Seq Binding) Monotype
 
 -- The range at which our polytype was defined in source code. If the polytype is a quantified type
 -- then the range does _not_ include the bindings. Since bindings are often invented by our
@@ -214,9 +219,8 @@ bottom range =
 --
 -- We will not add the free variables of unused bounds to the free variables of our polytype. Since
 -- in normal form these bounds will be dropped.
-quantify :: [Binding] -> Monotype -> Polytype
-quantify [] body = polytype body
-quantify bindings body =
+quantify :: Seq Binding -> Monotype -> Polytype
+quantify bindings body = if Seq.null bindings then polytype body else
   Polytype
     { polytypeNormal = False
     , polytypeFreeVariables =
@@ -282,7 +286,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
   --
   -- We know from the above pre-condition that this quantified type _must_ be changed.
   Quantify initialBindings initialBody ->
-    Just (loop initialSeen Set.empty initialSubstitutions initialBindings [])
+    Just (loop initialSeen Set.empty initialSubstitutions initialBindings Seq.empty)
     where
       -- The first `loop` function takes all the monotype bounds and substitutes them inside the
       -- quantified type’s body and subsequent bounds. While doing so we accumulate a list of the
@@ -301,14 +305,14 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
       -- in our normalized, quantified, type and uses that to drop any unused bindings. Also, if the
       -- quantified type’s body is a variable we will inline the binding for that variable.
 
-      loop :: HashSet Identifier -> Set Identifier -> HashMap Identifier (Range -> Monotype) -> [Binding] -> [Binding] -> Polytype
+      loop :: HashSet Identifier -> Set Identifier -> HashMap Identifier (Range -> Monotype) -> Seq Binding -> Seq Binding -> Polytype
 
-      loop _ _ substitutions [] bindingsRev =
+      loop _ _ substitutions Empty bindingsRev =
         -- Apply the substitutions to our body and call the next step, `loopRev`.
         let body = fromMaybe initialBody (substituteMonotype substitutions initialBody) in
-          loopRev (monotypeFreeVariables body) body [] bindingsRev
+          loopRev (monotypeFreeVariables body) body Empty bindingsRev
 
-      loop seen captured substitutions (oldBinding : bindings) bindingsRev =
+      loop seen captured substitutions (oldBinding :<| bindings) bindingsRev =
         let
           -- Convert the bound’s type to normal form if necessary.
           binding = case substituteAndNormalizePolytype seen substitutions (bindingType oldBinding) of
@@ -353,7 +357,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
                   newSeen = HashSet.insert newName seen
                   newCaptured = Set.insert newName captured
                 in
-                  loop newSeen newCaptured newSubstitutions bindings (newBinding : bindingsRev)
+                  loop newSeen newCaptured newSubstitutions bindings (bindingsRev |> newBinding)
 
               -- Otherwise, we can use the binding’s name.
               else
@@ -362,11 +366,13 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
                   newSubstitutions = HashMap.delete (bindingName binding) substitutions
                   newSeen = HashSet.insert (bindingName binding) seen
                 in
-                  loop newSeen captured newSubstitutions bindings (binding : bindingsRev)
+                  loop newSeen captured newSubstitutions bindings (bindingsRev |> binding)
+
+      loopRev :: Set Identifier -> Monotype -> Seq Binding -> Seq Binding -> Polytype
 
       -- Add the end of `loopRev` create a quantified type with our new bindings. Hooray!
-      loopRev _ body [] [] = polytype body
-      loopRev free body bindings [] =
+      loopRev _ body Empty Empty = polytype body
+      loopRev free body bindings Empty =
         Polytype
           { polytypeNormal = True
           , polytypeFreeVariables = free
@@ -375,14 +381,13 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
 
       -- If the body of our new quantified type is a variable that references the current binding
       -- then we want to inline that binding as the new quantified type’s body.
-      loopRev _ (Monotype { monotypeDescription = Variable name }) [] (binding : bindingsRev)
-        | name == bindingName binding =
+      loopRev _ (Monotype { monotypeDescription = Variable name }) Empty (bindingsRev :|> binding) | name == bindingName binding =
           case polytypeDescription (bindingType binding) of
             -- If we are inlining the bottom type then return it and stop looping! We know that all
             -- other bindings will be unused because bottom will never have any free variables.
             Bottom _ -> bindingType binding
             -- If our binding is a monotype then inline it and continue!
-            Monotype' newBody -> loopRev free newBody [] bindingsRev
+            Monotype' newBody -> loopRev free newBody Seq.empty bindingsRev
             -- If our binding is a quantified type then inline the quantified type’s bindings and
             -- set the bindings list to our quantified type’s binding list. We can do this safely
             -- because all bounds have already been successfully normalized in `loop`. So we know
@@ -391,7 +396,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
           where
             free = polytypeFreeVariables (bindingType binding)
 
-      loopRev free body bindings (binding : bindingsRev) =
+      loopRev free body bindings (bindingsRev :|> binding) =
         -- If our binding does not exist in our set of free variables then drop the binding
         -- as unused!
         if Set.member (bindingName binding) free then
@@ -402,7 +407,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
               (polytypeFreeVariables (bindingType binding))
               (Set.delete (bindingName binding) free)
           in
-            loopRev newFree body (binding : bindings) bindingsRev
+            loopRev newFree body (binding <| bindings) bindingsRev
         else
           loopRev free body bindings bindingsRev
 
@@ -425,20 +430,25 @@ substitutePolytype substitutions0 t0 = case polytypeDescription t0 of
   -- Assumes that the quantified type needs substitution. Iterates through all the bindings. If a
   -- binding shadows a variable which was substituted then we need to remove it from the
   -- substitutions map.
-  Quantify initialBindings body ->
-    Just (t0 { polytypeDescription = uncurry Quantify (loop substitutions0 initialBindings) })
-    where
-      loop substitutions1 [] = ([], fromMaybe body (substituteMonotype substitutions1 body))
-      loop substitutions1 (binding : bindings) =
-        let
-          newBinding = case substitutePolytype substitutions1 (bindingType binding) of
-            Nothing -> binding
-            Just newType -> binding { bindingType = newType }
+  Quantify bindings body ->
+    let
+      (substitutions3, newBindings) =
+        mapAccumL
+          (\substitutions1 binding ->
+            let
+              newBinding = case substitutePolytype substitutions1 (bindingType binding) of
+                Nothing -> binding
+                Just newType -> binding { bindingType = newType }
 
-          (newBindings, newBody) =
-            loop (HashMap.delete (bindingName binding) substitutions1) bindings
-        in
-          (newBinding : newBindings, newBody)
+              substitutions2 = HashMap.delete (bindingName binding) substitutions1
+            in
+              (substitutions2, newBinding))
+          substitutions0
+          bindings
+
+      newBody = fromMaybe body (substituteMonotype substitutions3 body)
+    in
+      Just (t0 { polytypeDescription = Quantify newBindings newBody })
 
 -- Substitutes the free variables of the provided monotype with a substitution if one was made
 -- available in the substitutions map. Returns nothing if no substitution was made.

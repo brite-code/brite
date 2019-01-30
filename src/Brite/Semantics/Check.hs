@@ -18,7 +18,6 @@ import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Brite.Syntax.Tokens (identifierText)
-import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
@@ -148,14 +147,14 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
     let counter0 = initialFreshCounter
     (counter1, bindings2, parameterType) <- checkMonotype Type.Negative context1 counter0 bindings1 uncheckedParameterType
     (_, bindings3, bodyType) <- checkMonotype Type.Positive context1 counter1 bindings2 uncheckedBodyType
-    return (Type.quantify (toList bindings3) (Type.function range parameterType bodyType))
+    return (Type.quantify bindings3 (Type.function range parameterType bodyType))
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
   -- inline those bindings into our prefix as well.
   AST.QuantifiedType quantifiers uncheckedBodyType -> do
     (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
     (_, bindings2, bodyType) <- checkMonotype Type.Positive context1 initialFreshCounter bindings1 uncheckedBodyType
-    return (Type.quantify (toList bindings2) bodyType)
+    return (Type.quantify bindings2 bodyType)
 
   AST.WrappedType type1 -> checkPolytype context0 type1
 
