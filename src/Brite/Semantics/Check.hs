@@ -51,26 +51,26 @@ type Context = HashMap Identifier Polytype
 --   type check, but we also build an AVT which is semantically equivalent to our input AST.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-checkExpression :: Prefix s -> Context -> AST.Expression -> Check s Expression
+checkExpression :: Prefix s -> Context -> AST.Expression -> Check s (Polytype, Expression)
 checkExpression prefix context0 astExpression = case AST.expressionNode astExpression of
   -- Constant expressions are nice and simple.
   AST.ConstantExpression astConstant ->
     let (constantType, constant) = checkConstant range astConstant in
-      return (Expression range constantType (ConstantExpression constant))
+      return (constantType, Expression range (ConstantExpression constant))
 
   -- Lookup a variable in our context. If it exists then return a new variable expression with the
   -- variable’s type in context. Otherwise report a diagnostic and return an `ErrorExpression` with
   -- a bottom type which will panic at runtime.
   AST.VariableExpression name ->
     case HashMap.lookup name context0 of
-      Just t -> return (Expression range t (VariableExpression name))
+      Just t -> return (t, Expression range (VariableExpression name))
       Nothing -> do
         diagnostic <- unboundVariable range name
-        return (Expression range (Type.bottom range) (ErrorExpression diagnostic Nothing))
+        return (Type.bottom range, Expression range (ErrorExpression diagnostic Nothing))
 
   AST.FunctionExpression (AST.Function [] [AST.FunctionParameter astPattern Nothing] Nothing astBody) ->
     Prefix.withLevel prefix $ do
-      (context1, parameter) <- checkPattern prefix context0 astPattern
+      (context1, parameterType, parameter) <- checkPattern prefix context0 astPattern
       (bodyType, body) <- checkBlock prefix context1 astBody
       error "unimplemented"
 
@@ -90,63 +90,56 @@ checkBlock :: Prefix s -> Context -> AST.Block -> Check s (Polytype, Block)
 checkBlock prefix context0 astBlock = do
   -- Check all the statements in the block. Each statement might add some new variables to
   -- the context.
-  (statements, (context3, lastStatement)) <-
+  (statements, (_, lastStatementType)) <-
     runStateT
       (traverse
         (\astStatement -> StateT $ \(context1, _) -> do
-          (context2, statement) <- checkStatement prefix context1 astStatement
-          return (statement, (context2, Just statement)))
+          (context2, maybeExpressionType, statement) <- checkStatement prefix context1 astStatement
+          let statementType = maybe (Left (AST.statementRange astStatement)) Right maybeExpressionType
+          return (statement, (context2, statementType)))
         (AST.blockStatements astBlock))
-      (context0, Nothing)
+      (context0, Left (AST.blockRange astBlock))
 
   -- Look at the last statement in our block to get the block’s return type. If the last statement
   -- is an expression statement then we return that from the block. Otherwise the block returns a
   -- void type.
   --
   -- TODO: Test the void type range.
-  let
-    blockType =
-      case lastStatement of
-        Nothing -> Type.polytype (Type.void (AST.blockRange astBlock))
-        Just (Statement { statementNode = ExpressionStatement expression }) -> expressionType expression
-        Just statement -> Type.polytype (Type.void (statementRange statement))
+  let blockType = either (Type.polytype . Type.void) id lastStatementType
 
   -- Return the block type along with the checked block.
   return (blockType, Block statements)
 
 -- Checks a pattern. This _will_ create fresh type variables in the prefix so we expect to be inside
 -- a prefix level. We will also add an entry of all names bound to the `Context`.
-checkPattern :: Prefix s -> Context -> AST.Pattern -> Check s (Context, Pattern)
+checkPattern :: Prefix s -> Context -> AST.Pattern -> Check s (Context, Polytype, Pattern)
 checkPattern prefix context0 astPattern = case AST.patternNode astPattern of
   -- Generate a fresh type for our variable pattern and add it to our context.
   AST.VariablePattern name -> do
     variableType <- Type.polytype <$> Prefix.fresh prefix range
     let context1 = HashMap.insert name variableType context0
-    return (context1, Pattern range variableType (VariablePattern name))
+    return (context1, variableType, Pattern range (VariablePattern name))
 
   where
     range = AST.patternRange astPattern
 
 -- Checks a statement. Statements may add variables to the context. So it returns a new context with
 -- all the bound variables.
-checkStatement :: Prefix s -> Context -> AST.Statement -> Check s (Context, Statement)
+checkStatement :: Prefix s -> Context -> AST.Statement -> Check s (Context, Maybe Polytype, Statement)
 checkStatement prefix context0 astStatement = case AST.statementNode astStatement of
   -- Check an expression statement and return it. Expression statements do not add any variables to
   -- the context.
   AST.ExpressionStatement astExpression -> do
-    expression <- checkExpression prefix context0 astExpression
-    return (context0, Statement range (ExpressionStatement expression))
+    (expressionType, expression) <- checkExpression prefix context0 astExpression
+    return (context0, Just expressionType, Statement (ExpressionStatement expression))
 
   -- Optimization: If we are binding directly to a variable pattern then we don’t need to create an
   -- intermediate type variable. Which `checkPattern` will do.
   AST.BindingStatement astPattern@(AST.Pattern { AST.patternNode = AST.VariablePattern name }) Nothing astExpression -> do
-    expression <- checkExpression prefix context0 astExpression
-    let context1 = HashMap.insert name (expressionType expression) context0
-    let pattern = Pattern (AST.patternRange astPattern) (expressionType expression) (VariablePattern name)
-    return (context1, Statement range (BindingStatement pattern expression))
-
-  where
-    range = AST.statementRange astStatement
+    (expressionType, expression) <- checkExpression prefix context0 astExpression
+    let context1 = HashMap.insert name expressionType context0
+    let pattern = Pattern (AST.patternRange astPattern) (VariablePattern name)
+    return (context1, Nothing, Statement (BindingStatement pattern expression))
 
 -- Checks an AST type and turns it into a polytype.
 --

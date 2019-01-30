@@ -13,14 +13,11 @@ module Brite.Semantics.AVT
   ) where
 
 import Brite.Diagnostic
-import Brite.Semantics.Type (Polytype)
 import Brite.Syntax.Tokens (Range(..), Identifier)
 
-data Statement = Statement
-  -- The range of source code covered by this statement.
-  { statementRange :: Range
+newtype Statement = Statement
   -- The representation of this statement.
-  , statementNode :: StatementNode
+  { statementNode :: StatementNode
   }
 
 data StatementNode
@@ -44,8 +41,6 @@ data Constant
 data Expression = Expression
   -- The range of source code covered by this expression.
   { expressionRange :: Range
-  -- The type of this expression.
-  , expressionType :: Polytype
   -- The representation of this expression.
   , expressionNode :: ExpressionNode
   }
@@ -66,8 +61,6 @@ data ExpressionNode
 data Pattern = Pattern
   -- The range of source code covered by this pattern.
   { patternRange :: Range
-  -- The type of the value bound by this pattern.
-  , patternType :: Polytype
   -- The representation of this pattern.
   , patternNode :: PatternNode
   }
