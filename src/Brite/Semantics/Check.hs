@@ -124,6 +124,9 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
 
   AST.BottomType -> return (Type.bottom range)
 
+  -- The void type is easy since it is a monotype defined by a keyword.
+  AST.VoidType -> return (Type.polytype (Type.void range))
+
   -- Check a function type with its quantifiers.
   AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
     (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
@@ -232,6 +235,9 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
     let binding = Type.Binding name localFlexibility (Type.bottom range)
     return (counter1, bindings0 |> binding, Type.variable range name)
+
+  -- The void type is easy since it is a monotype defined by a keyword.
+  AST.VoidType -> return (counter0, bindings0, Type.void range)
 
   -- Check the parameter and body type of a function.
   AST.FunctionType [] [uncheckedParameterType] uncheckedBodyType -> do

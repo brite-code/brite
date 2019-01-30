@@ -339,6 +339,9 @@ testData =
   , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<E2 = !, E1 = E2, Y = fun<Z>(Z) -> E2, X = Y, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
   , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Type1, Z>(Z) -> Type1, X = Y, T = fun(X) -> Y>", ["We could not find type `nope`.", "We could not find type `nope`."])
   , ("unify(<A, B>, A, B)", "<A, B = A>", [])
+  , ("unify(<>, void, void)", "<>", [])
+  , ("unify(<>, Bool, void)", "<>", ["Test failed because we have a boolean but we want void."])
+  , ("unify(<>, void, Bool)", "<>", ["Test failed because we have void but we want a boolean."])
   ]
 
 unifyParser :: Parser (Range, (Recover CST.QuantifierList, Recover CST.Type, Recover CST.Type))

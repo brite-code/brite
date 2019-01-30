@@ -176,8 +176,10 @@ data Block = Block
 
 -- Some constant value in our program.
 data Constant
+  -- `void`
+  = VoidConstant Token
   -- `true`, `false`
-  = BooleanConstant Bool Token
+  | BooleanConstant Bool Token
 
 -- Some instructions our programming language interprets to return a value and possibly perform
 -- some side effects.
@@ -432,6 +434,9 @@ data Type
   -- NOTE: Are we sure we want this as the syntax for bottom types?
   | BottomType Token
 
+  -- `void`
+  | VoidType Token
+
   -- ```
   -- fun(...) -> T
   -- fun<T>(...) -> U
@@ -541,6 +546,7 @@ statementFirstToken (FunctionDeclaration t _ _) = t
 
 -- Gets the first token of an expression.
 expressionFirstToken :: Expression -> Token
+expressionFirstToken (ConstantExpression (VoidConstant t)) = t
 expressionFirstToken (ConstantExpression (BooleanConstant _ t)) = t
 expressionFirstToken (VariableExpression (Name _ t)) = t
 expressionFirstToken (FunctionExpression t _) = t
@@ -629,6 +635,7 @@ blockTokens (Block t1 ss t2) =
 
 -- Get tokens from a constant.
 constantTokens :: Constant -> Tokens
+constantTokens (VoidConstant t) = singletonToken t
 constantTokens (BooleanConstant _ t) = singletonToken t
 
 -- Get tokens from an expression.
@@ -721,6 +728,7 @@ patternTokens (WrappedPattern t1 p t2) =
 typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
 typeTokens (BottomType t) = singletonToken t
+typeTokens (VoidType t) = singletonToken t
 
 typeTokens (FunctionType t1 qs t2 ps t3 t4 r) =
   singletonToken t1

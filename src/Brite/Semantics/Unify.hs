@@ -130,6 +130,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
               Right _ -> Prefix.update stack prefix name2 polytype1
 
   -- Primitive intrinsic types unify with each other no problem.
+  (Void, Void) -> return (Right ())
   (Boolean, Boolean) -> return (Right ())
   (Integer, Integer) -> return (Right ())
 
@@ -146,6 +147,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
 
   -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
   -- want a compiler warning telling us to add a case for that type to unification.
+  (Void, _) -> incompatibleTypesError
   (Boolean, _) -> incompatibleTypesError
   (Integer, _) -> incompatibleTypesError
   (Function _ _, _) -> incompatibleTypesError
@@ -159,6 +161,7 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
       -- All variables should be handled by unification. No matter what they unify to.
       Variable _ -> undefined
 
+      Void -> VoidMessage
       Boolean -> BooleanMessage
       Integer -> IntegerMessage
       Function _ _ -> FunctionMessage

@@ -234,6 +234,8 @@ printMonotypeWithInlining localPolarity type' references0 yield = case monotypeD
           Nothing -> PrinterAST.variableType name
           Just t -> t
 
+  Void -> yield references0 (\_ -> PrinterAST.voidType)
+
   -- TODO: Use scoping rules to pick a proper name for these types.
   Boolean -> yield references0 (\_ -> PrinterAST.variableType (unsafeIdentifier "Bool"))
   Integer -> yield references0 (\_ -> PrinterAST.variableType (unsafeIdentifier "Int"))
@@ -273,6 +275,8 @@ printBindingWithoutInlining (Binding name flex type') =
 printMonotypeWithoutInlining :: Monotype -> PrinterAST.Type
 printMonotypeWithoutInlining type' = case monotypeDescription type' of
   Variable name -> PrinterAST.variableType name
+
+  Void -> PrinterAST.voidType
 
   -- TODO: Use scoping rules to pick a proper name for these types.
   Boolean -> PrinterAST.variableType (unsafeIdentifier "Bool")

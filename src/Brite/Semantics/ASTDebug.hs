@@ -78,10 +78,18 @@ debugBlock (Block ss) =
     (A "block")
     ss
 
+debugConstant :: Range -> Constant -> S
+debugConstant range constant = case constant of
+  VoidConstant -> (symbol "void")
+  BooleanConstant True -> (symbol "bool") `E` (A "true")
+  BooleanConstant False -> (symbol "bool") `E` (A "false")
+  where
+    symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
+      Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange range
+
 debugExpression :: Expression -> S
 debugExpression x0 = case expressionNode x0 of
-  ConstantExpression (BooleanConstant True) -> (symbol "bool") `E` (A "true")
-  ConstantExpression (BooleanConstant False) -> (symbol "bool") `E` (A "false")
+  ConstantExpression c -> debugConstant (expressionRange x0) c
 
   VariableExpression ident -> (symbol "var") `E` (A (identifierText ident))
 
@@ -183,8 +191,7 @@ debugExpression x0 = case expressionNode x0 of
 
 debugPattern :: Pattern -> S
 debugPattern x0 = case patternNode x0 of
-  ConstantPattern (BooleanConstant True) -> (symbol "bool") `E` (A "true")
-  ConstantPattern (BooleanConstant False) -> (symbol "bool") `E` (A "false")
+  ConstantPattern c -> debugConstant (patternRange x0) c
 
   VariablePattern ident -> (symbol "var") `E` (A (identifierText ident))
 
@@ -221,6 +228,8 @@ debugType x0 = case typeNode x0 of
   VariableType ident -> (symbol "var") `E` (A (identifierText ident))
 
   BottomType -> (symbol "bottom")
+
+  VoidType -> (symbol "void")
 
   FunctionType qs ps x ->
     let

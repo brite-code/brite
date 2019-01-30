@@ -21,6 +21,7 @@ module Brite.Semantics.Type
   , Flexibility(..)
   , isUnboundBinding
   , variable
+  , void
   , boolean
   , integer
   , function
@@ -68,9 +69,10 @@ data MonotypeDescription
   -- The variable referenced by this monotype.
   = Variable Identifier
 
-  -- `Bool`, `Int`
+  -- `void`, `Bool`, `Int`
   --
   -- Primitive types with an arity of zero. Like booleans and numbers.
+  | Void
   | Boolean
   | Integer
 
@@ -151,6 +153,15 @@ variable range identifier =
     { monotypeRange = range
     , monotypeFreeVariables = Set.singleton identifier
     , monotypeDescription = Variable identifier
+    }
+
+-- A void monotype.
+void :: Range -> Monotype
+void range =
+  Monotype
+    { monotypeRange = range
+    , monotypeFreeVariables = Set.empty
+    , monotypeDescription = Void
     }
 
 -- A boolean monotype.
@@ -436,6 +447,7 @@ substituteMonotype substitutions t0 = case monotypeDescription t0 of
   -- Try to find a substitution for this variable.
   Variable name -> ($ monotypeRange t0) <$> HashMap.lookup name substitutions
   -- Types which will never have substitutions.
+  Void -> Nothing
   Boolean -> Nothing
   Integer -> Nothing
   -- If we don’t need a substitution then immediately return our type without recursing.

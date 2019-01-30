@@ -857,6 +857,14 @@ testData =
   , "let {a: b,"
   , "let {a,"
   , "let a = b; 😈 let c = d;"
+  , "let x = void;"
+  , "let void = x;"
+  , "let void = void;"
+  , "let x: void = void;"
+  , "let void: x = void;"
+  , "let void: void = x;"
+  , "let void: void = void;"
+  , "let Void: Void = Void;"
   ]
 
 openSnapshotFile :: IO Handle

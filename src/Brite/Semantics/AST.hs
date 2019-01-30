@@ -123,8 +123,10 @@ newtype Block = Block
   }
 
 data Constant
+  -- `void`
+  = VoidConstant
   -- `true`, `false`
-  = BooleanConstant Bool
+  | BooleanConstant Bool
 
 data Expression = Expression
   -- The range covered by an expression in a document.
@@ -288,6 +290,9 @@ data TypeNode
 
   -- `!`
   | BottomType
+
+  -- `void`
+  | VoidType
 
   -- `fun() -> T`
   | FunctionType [Quantifier] [Type] Type
@@ -541,6 +546,12 @@ convertBlock (CST.Block t1 ss' t2) = do
 
   return (range, Block ss)
 
+-- Converts a CST constant into an AST constant accompanied with a range.
+convertConstant :: CST.Constant -> (Range, Constant)
+convertConstant c = case c of
+  CST.VoidConstant t -> (tokenRange t, VoidConstant)
+  CST.BooleanConstant b t -> (tokenRange t, BooleanConstant b)
+
 -- Takes an expression and makes it an error expression. If the expression is already an error
 -- expression then we replace the current error with our new one.
 --
@@ -560,9 +571,10 @@ fatalErrorExpression ts e =
 -- Converts a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Expression
 convertExpression x0 = case x0 of
-  -- Boolean constants are easy since they are a single token.
-  CST.ConstantExpression (CST.BooleanConstant b t) ->
-    Expression (tokenRange t) (ConstantExpression (BooleanConstant b))
+  -- Convert all constant expressions.
+  CST.ConstantExpression c0 ->
+    let (r, c1) = convertConstant c0 in
+      Expression r (ConstantExpression c1)
 
   -- Variable expressions are easy since they are a single token.
   CST.VariableExpression (CST.Name n t) ->
@@ -786,9 +798,10 @@ fatalErrorPattern ts e =
 -- Converts a CST pattern into an AST pattern.
 convertPattern :: CST.Pattern -> Pattern
 convertPattern x0 = case x0 of
-  -- Boolean constants are easy since they are a single token.
-  CST.ConstantPattern (CST.BooleanConstant b t) ->
-    Pattern (tokenRange t) (ConstantPattern (BooleanConstant b))
+  -- Convert all constant patterns.
+  CST.ConstantPattern c0 ->
+    let (r, c1) = convertConstant c0 in
+      Pattern r (ConstantPattern c1)
 
   -- Variable patterns are easy since they are a single token.
   CST.VariablePattern (CST.Name n t) ->
@@ -880,6 +893,10 @@ convertType x0 = case x0 of
   -- Bottom types are easy since they are a single token.
   CST.BottomType t ->
     Type (tokenRange t) BottomType
+
+  -- Void types are easy since they are a single token.
+  CST.VoidType t ->
+    Type (tokenRange t) VoidType
 
   -- Converts a CST function type to an AST function type. Pretty involved because there are a lot
   -- of moving parts in a function type’s CST.

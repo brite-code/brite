@@ -90,10 +90,12 @@ projectionsEqual prefix = polytypeProjectionsEqual (Locals HashMap.empty) (Local
             <*> monotypeProjectionsEqual locals1 locals2 body1 body2
 
         -- Scalars are only equivalent with each other.
+        (Void, Void) -> return True
         (Boolean, Boolean) -> return True
         (Integer, Integer) -> return True
 
         -- Exhaustive failure cases.
+        (Void, _) -> return False
         (Boolean, _) -> return False
         (Integer, _) -> return False
         (Function _ _, _) -> return False

@@ -21,6 +21,7 @@ import Test.Hspec
 testData :: [(Text, Text)]
 testData =
   [ ("X", "X")
+  , ("void", "void")
   , ("Bool", "Bool")
   , ("Int", "Int")
   , ("!", "!")

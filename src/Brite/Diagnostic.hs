@@ -173,6 +173,7 @@ data ExpectedToken
 -- underlying implementation of the Brite type checker.
 data TypeMessage
   = CodeMessage Text
+  | VoidMessage
   | BooleanMessage
   | IntegerMessage
   | FunctionMessage
@@ -442,6 +443,7 @@ expectedTokenMessage ExpectedType = plain "a type"
 -- Get the message for a type message.
 typeMessage :: TypeMessage -> Markup
 typeMessage (CodeMessage t) = code t
+typeMessage VoidMessage = plain "void"
 typeMessage BooleanMessage = plain "a boolean"
 typeMessage IntegerMessage = plain "an integer"
 typeMessage FunctionMessage = plain "a function"

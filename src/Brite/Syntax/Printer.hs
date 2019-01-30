@@ -314,11 +314,17 @@ printUngroupedBlock (Block ss) =
 printBlock :: Block -> Document
 printBlock = group . printUngroupedBlock
 
+-- Prints a constant.
+printConstant :: Constant -> Document
+printConstant c = case c of
+  VoidConstant -> text "void"
+  BooleanConstant True -> text "true"
+  BooleanConstant False -> text "false"
+
 -- Prints an expression.
 printExpression :: Precedence -> Expression -> Document
 printExpression p0 x0' = build $ case expressionNode x0 of
-  ConstantExpression (BooleanConstant True) -> text "true"
-  ConstantExpression (BooleanConstant False) -> text "false"
+  ConstantExpression c -> printConstant c
 
   VariableExpression n -> text (identifierText n)
 
@@ -577,8 +583,7 @@ data Precedence
 -- Prints a pattern.
 printPattern :: Pattern -> Document
 printPattern x0 = build $ case patternNode x0 of
-  ConstantPattern (BooleanConstant True) -> text "true"
-  ConstantPattern (BooleanConstant False) -> text "false"
+  ConstantPattern c -> printConstant c
 
   VariablePattern n -> text (identifierText n)
 
@@ -640,6 +645,8 @@ printType x0 = build $ case typeNode x0 of
 
   BottomType -> text "!"
 
+  VoidType -> text "void"
+
   FunctionType qs ps t ->
     text "fun" <>
     printQuantifierList qs <>
@@ -689,6 +696,7 @@ printType x0 = build $ case typeNode x0 of
     case typeNode t1 of
       VariableType _ -> normal
       BottomType -> normal
+      VoidType -> normal
       FunctionType [] ps r -> printType (t1 { typeNode = FunctionType qs1 ps r })
       FunctionType qs2 ps r -> printType (t1 { typeNode = FunctionType (qs1 ++ qs2) ps r })
       ObjectType _ _ -> normal
@@ -863,6 +871,7 @@ takeTypeTrailingComments x0 =
   case typeNode x0 of
     VariableType _ -> noTrailing
     BottomType -> noTrailing
+    VoidType -> noTrailing
     FunctionType qs ps x1 -> trailing (FunctionType qs ps) x1
     ObjectType _ _ -> noTrailing
     QuantifiedType qs x1 -> trailing (QuantifiedType qs) x1

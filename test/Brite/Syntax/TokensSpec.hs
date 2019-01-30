@@ -57,6 +57,7 @@ testData =
   , "_"
   , "true"
   , "false"
+  , "void"
   , "let"
   , "if"
   , "else"

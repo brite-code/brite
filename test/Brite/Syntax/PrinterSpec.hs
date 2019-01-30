@@ -998,6 +998,7 @@ testData =
   , "(x: /* a */ <T> /* b */ (/* c */ <U> /* d */ T /* e */))"
   , "(x: /* a */ <T> /* b */ fun<U>() -> T /* c */)"
   , "(x: /* a */ <T> /* b */ (/* c */ fun<U>() -> T /* d */))"
+  , "let void: void = void;"
   ]
 
 openSnapshotFile :: IO Handle

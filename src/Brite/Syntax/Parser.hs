@@ -110,7 +110,10 @@ block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
 
 tryConstant :: TryParser Constant
-tryConstant = tryBooleanTrue <|> tryBooleanFalse
+tryConstant = tryBooleanTrue <|> tryBooleanFalse <|> tryVoidConstant
+
+tryVoidConstant :: TryParser Constant
+tryVoidConstant = VoidConstant <$> tryKeyword Void
 
 tryBooleanTrue :: TryParser Constant
 tryBooleanTrue = BooleanConstant True <$> tryKeyword True'
@@ -448,6 +451,7 @@ tryType =
   tryVariableType
     <|> tryObjectType
     <|> tryFunctionType
+    <|> tryVoidType
     <|> tryQuantifiedType
     <|> tryBottomType
     <|> tryWrappedType
@@ -461,6 +465,9 @@ tryVariableType = VariableType <$> tryName
 
 tryBottomType :: TryParser Type
 tryBottomType = BottomType <$> tryGlyph Bang
+
+tryVoidType :: TryParser Type
+tryVoidType = VoidType <$> tryKeyword Void
 
 tryFunctionType :: TryParser Type
 tryFunctionType =

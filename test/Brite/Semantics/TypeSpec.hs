@@ -23,6 +23,7 @@ testData :: [(Text, Text)]
 testData =
   [ ("X", "X")
   , ("!", "!")
+  , ("void", "void")
   , ("fun<A, B = Int>(A) -> B", "fun<A>(A) -> Int")
   , ("fun<A, B: Int>(A) -> B", "fun<A>(A) -> Int")
   , ("fun<B = Int, C = fun<A>(A) -> B>(C) -> C", "fun<C = fun<A>(A) -> Int>(C) -> C")

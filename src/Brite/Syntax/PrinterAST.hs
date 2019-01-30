@@ -47,6 +47,7 @@ module Brite.Syntax.PrinterAST
   , Flexibility(..)
   , variableType
   , bottomType
+  , voidType
   , functionType
   , quantifiedFunctionType
   , quantifiedType
@@ -189,8 +190,10 @@ newtype Block = Block
   }
 
 data Constant
+  -- `void`
+  = VoidConstant
   -- `true`, `false`
-  = BooleanConstant Bool
+  | BooleanConstant Bool
 
 data Expression = Expression
   -- The leading comments that are attached to this expression.
@@ -361,6 +364,9 @@ data TypeNode
   -- `!`
   | BottomType
 
+  -- `void`
+  | VoidType
+
   -- `fun() -> T`
   --
   -- The programmer may write comments between properties and parameters.
@@ -398,6 +404,10 @@ variableType name = Type [] [] (VariableType name)
 -- `!`
 bottomType :: Type
 bottomType = Type [] [] BottomType
+
+-- `void`
+voidType :: Type
+voidType = Type [] [] VoidType
 
 -- `fun() -> T`
 functionType :: [Type] -> Type -> Type
@@ -894,11 +904,16 @@ convertBlock (CST.Block t1' ss t2') = do
   let block = (\cs -> Block (convertStatementSequence (map Left cs) ss)) <$> comments
   return (token t1 *> block <* token t2)
 
+-- Convert a CST constant into an AST constant.
+convertConstant :: CST.Constant -> Conversion Constant
+convertConstant c = case c of
+  CST.VoidConstant t -> token t *> pure VoidConstant
+  CST.BooleanConstant b t -> token t *> pure (BooleanConstant b)
+
 -- Convert a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Panic (Conversion Expression)
 convertExpression x0 = case x0 of
-  CST.ConstantExpression (CST.BooleanConstant b t) ->
-    return (group Expression (token t *> pure (ConstantExpression (BooleanConstant b))))
+  CST.ConstantExpression c -> return (group Expression (ConstantExpression <$> convertConstant c))
 
   CST.VariableExpression (CST.Name n t) ->
     return (group Expression (token t *> pure (VariableExpression n)))
@@ -1026,8 +1041,7 @@ convertExpression x0 = case x0 of
 -- Convert a CST pattern into an AST pattern.
 convertPattern :: CST.Pattern -> Panic (Conversion Pattern)
 convertPattern x0 = case x0 of
-  CST.ConstantPattern (CST.BooleanConstant b t) ->
-    return (group Pattern (token t *> pure (ConstantPattern (BooleanConstant b))))
+  CST.ConstantPattern c -> return (group Pattern (ConstantPattern <$> convertConstant c))
 
   CST.VariablePattern (CST.Name n t) ->
     return (group Pattern (token t *> pure (VariablePattern n)))
@@ -1092,6 +1106,9 @@ convertType x0 = case x0 of
 
   CST.BottomType t ->
     return (group Type (token t *> pure BottomType))
+
+  CST.VoidType t ->
+    return (group Type (token t *> pure VoidType))
 
   CST.FunctionType t1 qs' t2' ps' t3' t4' r' -> do
     qs <- fromMaybe (pure []) <$> (recoverMaybe qs' >>= mapM convertQuantifierList)
