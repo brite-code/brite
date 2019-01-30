@@ -72,11 +72,14 @@ debugFunction r n (Function qs ps ret b) =
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange r
 
 debugBlock :: Block -> S
-debugBlock (Block ss) =
+debugBlock (Block r ss) =
   foldl
     (\e s -> e `E` (debugStatement s))
-    (A "block")
+    symbol
     ss
+  where
+    symbol = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
+      Text.Builder.fromText "block " <> debugRange r
 
 debugConstant :: Range -> Constant -> S
 debugConstant range constant = case constant of
@@ -166,13 +169,13 @@ debugExpression x0 = case expressionNode x0 of
       consequent (ConditionalExpressionIf x2 b2 (Just a2)) =
         (A "if") `E` (debugExpression x2) `E` (debugBlock b2) `E` (alternate a2)
 
-  BlockExpression (Block ss) ->
+  BlockExpression (Block _ ss) ->
     foldl
       (\e s -> e `E` (debugStatement s))
       (symbol "block")
       ss
 
-  LoopExpression (Block ss) ->
+  LoopExpression (Block _ ss) ->
     foldl
       (\e s -> e `E` (debugStatement s))
       (symbol "loop")

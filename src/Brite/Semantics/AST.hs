@@ -118,8 +118,9 @@ functionParameterRange (FunctionParameter p Nothing) = patternRange p
 functionParameterRange (FunctionParameter p (Just t)) = rangeBetween (patternRange p) (typeRange t)
 
 -- `{ ... }`
-newtype Block = Block
-  { blockStatements :: [Statement]
+data Block = Block
+  { blockRange :: Range
+  , blockStatements :: [Statement]
   }
 
 data Constant
@@ -487,8 +488,9 @@ convertStatement s0 = case s0 of
       Ok n -> return (Right (convertName n))
       Recover _ e n -> tell (pure e) *> return (Right (convertName n))
       Fatal _ e -> return (Left e)
-    (r, f) <- convertFunction (tokenRange t) f'
-    return $ Statement r (FunctionDeclaration n f)
+    let r1 = rangeBetweenMaybe (tokenRange t) (nameRange <$> either (const Nothing) Just n)
+    (r2, f) <- convertFunction r1 f'
+    return $ Statement r2 (FunctionDeclaration n f)
 
   where
     -- A small utility for adding the first error to the statement we find if any.
@@ -504,12 +506,16 @@ convertFunction r (CST.Function qs' t1 ps' t2 ret' b') = do
   r1 <- recoverTokenRange t1
   ps <- convertCommaList convertFunctionParameter ps'
   r2 <- recoverTokenRange t2
-  let ret = convertFunctionReturn <$> ret'
-  (r3, b) <- convertBlock b'
+  let
+    ret = convertFunctionReturn <$> ret'
+
+    -- Get the last position _before_ the block.
+    p =
+      rangeEnd (fromMaybe r ((typeRange <$> ret) <|> r2 <|>
+        (functionParameterRange <$> lastMaybe ps) <|> r1 <|> (quantifierRange <$> lastMaybe qs)))
+  b <- convertBlock p b'
   return $
-    ( rangeBetweenMaybe r
-        (r3 <|> (typeRange <$> ret) <|> r2 <|> (functionParameterRange <$> lastMaybe ps)
-          <|> r1 <|> (quantifierRange <$> lastMaybe qs))
+    ( rangeBetween r (blockRange b)
     , Function qs ps ret b
     )
   where
@@ -528,8 +534,11 @@ convertFunction r (CST.Function qs' t1 ps' t2 ret' b') = do
       fatalErrorType ts e
 
 -- Converts a CST block into an AST block.
-convertBlock :: CST.Block -> Conversion (Maybe Range, Block)
-convertBlock (CST.Block t1 ss' t2) = do
+--
+-- It’s possible to parse a block with no tokens with sufficient syntax errors. So a starting
+-- position must be provided.
+convertBlock :: Position -> CST.Block -> Conversion Block
+convertBlock prevStart (CST.Block t1 ss' t2) = do
   r1 <- recoverTokenRange t1
   let ss = convertStatementSequence ss'
   r2 <- recoverTokenRange t2
@@ -539,12 +548,12 @@ convertBlock (CST.Block t1 ss' t2) = do
     start' = r1 <|> (if not (null ss) then Just (statementRange (head ss)) else Nothing)
     end' = r2 <|> (if not (null ss) then Just (statementRange (last ss)) else Nothing)
     range = case (start', end') of
-      (Nothing, Nothing) -> Nothing
-      (Just start, Nothing) -> Just start
-      (Nothing, Just end) -> Just end
-      (Just start, Just end) -> Just (rangeBetween start end)
+      (Nothing, Nothing) -> Range prevStart prevStart
+      (Just start, Nothing) -> start
+      (Nothing, Just end) -> end
+      (Just start, Just end) -> rangeBetween start end
 
-  return (range, Block ss)
+  return (Block range ss)
 
 -- Converts a CST constant into an AST constant accompanied with a range.
 convertConstant :: CST.Constant -> (Range, Constant)
@@ -633,10 +642,10 @@ convertExpression x0 = case x0 of
     where
       consequent (CST.ConditionalExpressionIf t1 x' b' a') = do
         let x = convertRecoverExpression x'
-        (r2, b) <- convertBlock b'
+        b <- convertBlock (rangeEnd (expressionRange x)) b'
         case a' of
           Nothing ->
-            return (rangeBetweenMaybe (tokenRange t1) r2, ConditionalExpressionIf x b Nothing)
+            return (rangeBetween (tokenRange t1) (blockRange b), ConditionalExpressionIf x b Nothing)
           Just (Ok a'') -> do
             (r3, a) <- alternate a''
             return (rangeBetween (tokenRange t1) r3, ConditionalExpressionIf x b (Just a))
@@ -646,11 +655,11 @@ convertExpression x0 = case x0 of
             return (rangeBetween (tokenRange t1) r3, ConditionalExpressionIf x b (Just a))
           Just (Fatal _ e) -> do
             tell (pure e)
-            return (rangeBetweenMaybe (tokenRange t1) r2, ConditionalExpressionIf x b Nothing)
+            return (rangeBetween (tokenRange t1) (blockRange b), ConditionalExpressionIf x b Nothing)
 
       alternate (CST.ConditionalExpressionElse t1 b') = do
-        (r2, b) <- convertBlock b'
-        return (rangeBetweenMaybe (tokenRange t1) r2, ConditionalExpressionElse b)
+        b <- convertBlock (rangeEnd (tokenRange t1)) b'
+        return (rangeBetween (tokenRange t1) (blockRange b), ConditionalExpressionElse b)
 
       alternate (CST.ConditionalExpressionElseIf t1 c') = do
         (r2, c) <- consequent c'
@@ -658,16 +667,16 @@ convertExpression x0 = case x0 of
 
   -- Convert a block CST expression to a block AST expression.
   CST.BlockExpression t b' -> build $ do
-    (r, b) <- convertBlock b'
+    b <- convertBlock (rangeEnd (tokenRange t)) b'
     return $ Expression
-      (rangeBetweenMaybe (tokenRange t) r)
+      (rangeBetween (tokenRange t) (blockRange b))
       (BlockExpression b)
 
   -- Convert a loop CST expression to a block AST expression.
   CST.LoopExpression t b' -> build $ do
-    (r, b) <- convertBlock b'
+    b <- convertBlock (rangeEnd (tokenRange t)) b'
     return $ Expression
-      (rangeBetweenMaybe (tokenRange t) r)
+      (rangeBetween (tokenRange t) (blockRange b))
       (LoopExpression b)
 
   CST.WrappedExpression t1 x' t' t2 -> build $ do
