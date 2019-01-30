@@ -60,6 +60,7 @@ module Brite.Diagnostic
   , TypeMessage(..)
   , unexpectedToken
   , unexpectedEnding
+  , unboundVariable
   , unboundTypeVariable
   , incompatibleTypes
   , infiniteType
@@ -134,6 +135,8 @@ data ErrorDiagnosticMessage
   | UnexpectedToken ActualToken ExpectedToken
   -- The parser ran into the end of the source document unexpectedly.
   | UnexpectedEnding ExpectedToken
+  -- The type checker ran into a variable which it could not find a binding for.
+  | UnboundVariable Identifier
   -- The type checker ran into a type variable which it could not find a binding for.
   | UnboundTypeVariable Identifier
   -- We found two types that were incompatible with one another during unification.
@@ -188,6 +191,11 @@ unexpectedToken token expected = report $ Diagnostic (tokenRange token) $ Error 
 unexpectedEnding :: DiagnosticMonad m => Range -> ExpectedToken -> m Diagnostic
 unexpectedEnding range expected = report $ Diagnostic range $ Error $
   UnexpectedEnding expected
+
+-- The type checker ran into a variable which it could not find a binding for.
+unboundVariable :: DiagnosticMonad m => Range -> Identifier -> m Diagnostic
+unboundVariable range name = report $ Diagnostic range $ Error $
+  UnboundVariable name
 
 -- The type checker ran into a type variable which it could not find a binding for.
 unboundTypeVariable :: DiagnosticMonad m => Range -> Identifier -> m Diagnostic
@@ -325,6 +333,18 @@ diagnosticErrorMessage (UnexpectedToken unexpected expected) =
 -- should change the message.
 diagnosticErrorMessage (UnexpectedEnding expected) =
   plain "We wanted " <> expectedTokenMessage expected <> plain " but the file ended."
+
+-- Instead of saying “we could not find value `X`” or “we could not find name `X`” we say “we could
+-- not find `X`” since it should be pretty obvious to the programmer that we are referring to
+-- a variable. We say “we could not find type `X`” for type error messages to be more clear since
+-- types are generally more abstract.
+--
+-- See `UnboundTypeVariable` for more thought that went into this message.
+--
+-- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
+-- should change the message.
+diagnosticErrorMessage (UnboundVariable name) =
+  plain "We could not find " <> code (identifierText name) <> plain "."
 
 -- Other options considered include:
 --

@@ -12,14 +12,20 @@ import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
+import Brite.Semantics.Prefix (Prefix)
+import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Brite.Syntax.Tokens (identifierText)
 import Data.Foldable (toList)
+import Data.HashMap.Lazy (HashMap)
+import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
+
+type Context = HashMap Identifier Polytype
 
 -- Type checks an expression AST and returns a typed AVT expression.
 --
@@ -44,9 +50,47 @@ import qualified Data.Sequence as Seq
 --   type check, but we also build an AVT which is semantically equivalent to our input AST.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-checkExpression :: AST.Expression -> Check s Expression
-checkExpression astExpression =
-  error "TODO"
+checkExpression :: Prefix s -> Context -> AST.Expression -> Check s Expression
+checkExpression prefix context0 expression = case AST.expressionNode expression of
+  -- Constant booleans are nice and simple.
+  AST.ConstantExpression (AST.BooleanConstant value) ->
+    return (Expression range (Type.polytype (Type.boolean range)) (ConstantExpression (BooleanConstant value)))
+
+  -- Lookup a variable in our context. If it exists then return a new variable expression with the
+  -- variable’s type in context. Otherwise report a diagnostic and return an `ErrorExpression` with
+  -- a bottom type which will panic at runtime.
+  AST.VariableExpression name ->
+    case HashMap.lookup name context0 of
+      Just t -> return (Expression range t (VariableExpression name))
+      Nothing -> do
+        diagnostic <- unboundVariable range name
+        return (Expression range (Type.bottom range) (ErrorExpression diagnostic Nothing))
+
+  AST.FunctionExpression (AST.Function [] [AST.FunctionParameter astPattern Nothing] Nothing astBody) ->
+    Prefix.withLevel prefix $ do
+      (context1, parameter) <- checkPattern prefix context0 astPattern
+      (bodyType, body) <- checkBlock prefix context1 astBody
+      error "unimplemented"
+
+  where
+    range = AST.expressionRange expression
+
+-- Checks a block and returns the type returned by the block.
+checkBlock :: Prefix s -> Context -> AST.Block -> Check s (Polytype, Block)
+checkBlock = error "unimplemented"
+
+-- Checks a pattern. This _will_ create fresh type variables in the prefix so we expect to be inside
+-- a prefix level. We will also add an entry of all names bound to the `Context`.
+checkPattern :: Prefix s -> Context -> AST.Pattern -> Check s (Context, Pattern)
+checkPattern prefix context0 pattern = case AST.patternNode pattern of
+  -- Generate a fresh type for our variable pattern and add it to our context.
+  AST.VariablePattern name -> do
+    variableType <- Type.polytype <$> Prefix.fresh prefix range
+    let context1 = HashMap.insert name variableType context0
+    return (context1, Pattern range variableType (VariablePattern name))
+
+  where
+    range = AST.patternRange pattern
 
 -- Checks an AST type and turns it into a polytype.
 --
