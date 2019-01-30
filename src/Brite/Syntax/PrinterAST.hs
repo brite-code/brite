@@ -62,6 +62,7 @@ import Brite.Syntax.Tokens
 import Control.Applicative ((<|>))
 import Data.Foldable (foldlM, foldrM)
 import Data.Maybe (fromMaybe)
+import Data.Sequence ((<|))
 
 -- A Brite printer AST module.
 newtype Module = Module
@@ -1020,7 +1021,7 @@ convertExpression x0 = case x0 of
             Recover _ _ _ -> panic
             Fatal _ _ -> panic)
         x1
-        (Ok y' : ys')
+        (Ok y' <| ys')
     -- We’re done!
     return x3
 

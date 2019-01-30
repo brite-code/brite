@@ -1,3 +1,5 @@
+{-# LANGUAGE PatternSynonyms #-}
+
 module Brite.Syntax.Parser
   ( parseModule
   , parseType
@@ -9,6 +11,8 @@ import Brite.Diagnostic
 import Brite.Syntax.CST
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Tokens
+import Data.Sequence (Seq(..), (|>))
+import qualified Data.Sequence as Seq
 
 -- Parses a Brite module from a stream of tokens.
 parseModule :: TokenStream -> DiagnosticWriter Module
@@ -57,7 +61,7 @@ tryBindingStatement :: TryParser Statement
 tryBindingStatement =
   BindingStatement
     <$> tryKeyword Let
-    <&> pattern
+    <&> pattern_
     <&> optional tryTypeAnnotation
     <&> glyph Equals_
     <&> expression
@@ -268,10 +272,10 @@ tryInfixExpression :: TryParser Expression
 tryInfixExpression = build' <$> tryInfixExpressionOperand <&> many tryInfixExpressionOperation
   where
     build' x [] = x
-    build' x ops = build x [] ops
+    build' x ops = build x Seq.empty ops
 
-    build x ops [] = into x (reverse ops)
-    build x ops [op] = into x (reverse (op : ops))
+    build x ops [] = into x ops
+    build x ops [op] = into x (ops |> op)
     build x ops1 (op1 : ops2@(op2 : _)) =
       let
         p1 = infixExpressionOperationPrecedence op1
@@ -279,40 +283,40 @@ tryInfixExpression = build' <$> tryInfixExpressionOperand <&> many tryInfixExpre
       in
         -- `* E`, `+ E`
         if p1 < p2 then
-          build (into x (reverse (op1 : ops1))) [] ops2
+          build (into x (ops1 |> op1)) Seq.empty ops2
 
         -- `+ E`, `* E`
         else if p1 > p2 then
           case op1 of
             Ok (InfixExpressionOperation op t (Ok y)) ->
-              let op1' = Ok (InfixExpressionOperation op t (Ok (build y [] ops2))) in
-                into x (reverse (op1' : ops1))
+              let op1' = Ok (InfixExpressionOperation op t (Ok (build y Seq.empty ops2))) in
+                into x (ops1 |> op1')
             Recover ts e (InfixExpressionOperation op t (Ok y)) ->
-              let op1' = Recover ts e (InfixExpressionOperation op t (Ok (build y [] ops2))) in
-                into x (reverse (op1' : ops1))
+              let op1' = Recover ts e (InfixExpressionOperation op t (Ok (build y Seq.empty ops2))) in
+                into x (ops1 |> op1')
             Ok (InfixExpressionOperation op t (Recover ts e y)) ->
-              let op1' = Ok (InfixExpressionOperation op t (Recover ts e (build y [] ops2))) in
-                into x (reverse (op1' : ops1))
+              let op1' = Ok (InfixExpressionOperation op t (Recover ts e (build y Seq.empty ops2))) in
+                into x (ops1 |> op1')
             Recover ts1 e1 (InfixExpressionOperation op t (Recover ts2 e2 y)) ->
-              let op1' = Recover ts1 e1 (InfixExpressionOperation op t (Recover ts2 e2 (build y [] ops2))) in
-                into x (reverse (op1' : ops1))
+              let op1' = Recover ts1 e1 (InfixExpressionOperation op t (Recover ts2 e2 (build y Seq.empty ops2))) in
+                into x (ops1 |> op1')
 
             -- NOTE: These cases should be unreachable since in `infixExpressionOperationPrecedence`
             -- we give fatal `FatalPrecedence` which is the smallest precedence. Therefore it is
             -- impossible for a precedence to ever be greater than `FatalPrecedence`. Use a dummy
             -- implementation instead of throwing with `error`, though, because you never know.
-            Ok (InfixExpressionOperation _ _ (Fatal _ _)) -> build x (op1 : ops1) ops2
-            Recover _ _ (InfixExpressionOperation _ _ (Fatal _ _)) -> build x (op1 : ops1) ops2
-            Fatal _ _ -> build x (op1 : ops1) ops2
+            Ok (InfixExpressionOperation _ _ (Fatal _ _)) -> build x (ops1 |> op1) ops2
+            Recover _ _ (InfixExpressionOperation _ _ (Fatal _ _)) -> build x (ops1 |> op1) ops2
+            Fatal _ _ -> build x (ops1 |> op1) ops2
 
         -- `+ E`, `+ E`
         else
-          build x (op1 : ops1) ops2
+          build x (ops1 |> op1) ops2
 
-    into x [] = x
-    into x (Ok op : ops) = ExpressionExtra x (Ok (InfixExpressionExtra op ops))
-    into x (Recover ts e op : ops) = ExpressionExtra x (Recover ts e (InfixExpressionExtra op ops))
-    into x (Fatal ts e : ops) = into (ExpressionExtra x (Fatal ts e)) ops
+    into x Empty = x
+    into x (Ok op :<| ops) = ExpressionExtra x (Ok (InfixExpressionExtra op ops))
+    into x (Recover ts e op :<| ops) = ExpressionExtra x (Recover ts e (InfixExpressionExtra op ops))
+    into x (Fatal ts e :<| ops) = into (ExpressionExtra x (Fatal ts e)) ops
 
 tryInfixExpressionOperand :: TryParser Expression
 tryInfixExpressionOperand = tryPrefixExpression
@@ -395,8 +399,8 @@ tryExpression = tryInfixExpression
 expression :: Parser (Recover Expression)
 expression = retry tryExpression
 
-pattern :: Parser (Recover Pattern)
-pattern = retry tryPattern
+pattern_ :: Parser (Recover Pattern)
+pattern_ = retry tryPattern
 
 tryPattern :: TryParser Pattern
 tryPattern =
@@ -431,19 +435,19 @@ tryObjectPatternProperty =
     <&> optional tryObjectPatternPropertyValue
 
 tryObjectPatternPropertyValue :: TryParser ObjectPatternPropertyValue
-tryObjectPatternPropertyValue = ObjectPatternPropertyValue <$> tryGlyph Colon <&> pattern
+tryObjectPatternPropertyValue = ObjectPatternPropertyValue <$> tryGlyph Colon <&> pattern_
 
 tryObjectPatternExtension :: TryParser ObjectPatternExtension
 tryObjectPatternExtension =
   ObjectPatternExtension
     <$> tryGlyph Bar
-    <&> pattern
+    <&> pattern_
 
 tryWrappedPattern :: TryParser Pattern
 tryWrappedPattern =
   WrappedPattern
     <$> tryGlyph ParenLeft
-    <&> pattern
+    <&> pattern_
     <&> glyph ParenRight
 
 tryType :: TryParser Type

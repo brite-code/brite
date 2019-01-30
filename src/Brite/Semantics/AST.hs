@@ -52,6 +52,7 @@ import Control.Monad.Writer
 import Data.Foldable (foldrM, mapM_)
 import Data.Maybe (fromMaybe)
 import Data.Monoid (Alt(..), Dual(..))
+import Data.Sequence ((<|))
 
 data Name = Name
   -- The range covered by a name in a document.
@@ -725,7 +726,7 @@ convertExpression x0 = case x0 of
             -- If we failed to parse a infix expression operation then annotate our left-hand side
             -- expression with the error.
             Fatal _ e -> errorExpression e l)
-        x (Ok y' : ys')
+        x (Ok y' <| ys')
     where
       make r x CST.Add y = Expression r (InfixExpression x Add y)
       make r x CST.Subtract y = Expression r (InfixExpression x Subtract y)

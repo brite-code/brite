@@ -55,7 +55,9 @@ module Brite.Syntax.CST
 
 import Brite.Syntax.ParserFramework (Recover(..), CommaList(..), commaListItems)
 import Brite.Syntax.Tokens
+import Data.Foldable (foldMap)
 import Data.Monoid (Endo(..))
+import Data.Sequence (Seq)
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 
 -- A single Brite file is a module. A module is made up of a list of statements.
@@ -357,7 +359,7 @@ data ConditionalExpressionElse
 -- parser implementation.
 data ExpressionExtra
   -- `E + E`
-  = InfixExpressionExtra InfixExpressionOperation [Recover InfixExpressionOperation]
+  = InfixExpressionExtra InfixExpressionOperation (Seq (Recover InfixExpressionOperation))
   -- `E.p`
   | PropertyExpressionExtra Token (Recover Name)
   -- `f(...)`
@@ -690,7 +692,7 @@ expressionTokens (ExpressionExtra e ext) =
   expressionTokens e <> recoverTokens extraTokens ext
   where
     extraTokens (InfixExpressionExtra op ops) =
-      infixOperation op <> mconcat (map (recoverTokens infixOperation) ops)
+      infixOperation op <> foldMap (recoverTokens infixOperation) ops
     extraTokens (PropertyExpressionExtra t l) =
       singletonToken t <> recoverTokens nameTokens l
     extraTokens (CallExpressionExtra t1 args t2) =
