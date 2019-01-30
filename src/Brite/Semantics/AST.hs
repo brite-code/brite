@@ -49,9 +49,9 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Tokens (Position(..), Range(..), rangeBetween, Identifier, identifierText, Token(..), EndToken(..))
 import Control.Applicative
 import Control.Monad.Writer
-import Data.Foldable (foldlM, mapM_)
+import Data.Foldable (foldrM, mapM_)
 import Data.Maybe (fromMaybe)
-import Data.Monoid (Alt(..))
+import Data.Monoid (Alt(..), Dual(..))
 
 data Name = Name
   -- The range covered by a name in a document.
@@ -365,12 +365,20 @@ rangeBetweenMaybe r1 (Just r2) = rangeBetween r1 r2
 -- a new value which we will return. See `convertRecoverCommaList` if you’d like for the comma list
 -- converter to handle error recovery.
 convertCommaList :: (Recover a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
-convertCommaList f (CST.CommaList as an) = do
-  bs <- foldlM (\bs (a, t) -> recoverToken t *> return (f a : bs)) [] as
-  -- Add the last element in the comma list and reverse.
-  case an of
-    Nothing -> return (reverse bs)
-    Just a -> return (reverse (f a : bs))
+convertCommaList f (CST.CommaList as an) = mapWriter (fmap getDual) $ do
+  -- Start the new comma list with the last element.
+  let
+    bs0 = case an of
+      Nothing -> []
+      Just a -> [f a]
+  -- Traverse through all of the comma list items.
+  --
+  -- TODO: Test that we report the first error from a comma list.
+  foldrM
+    (\(a, t) bs -> mapWriter (fmap Dual) $
+      recoverToken t *> return (f a : bs))
+    bs0
+    as
 
 -- Converts a comma list to a plain list using the provided conversion function. Using the writer
 -- monad we record the first syntax error we find in the comma list.
@@ -380,9 +388,17 @@ convertCommaList f (CST.CommaList as an) = do
 -- recovery for you. It will skip items with fatal errors and report errors from recovered items. If
 -- you’d like to handle error recovery yourself see `convertCommaList`.
 convertRecoverCommaList :: (a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
-convertRecoverCommaList f (CST.CommaList as an) = do
-  bs <- foldlM
-    (\bs (a', t) ->
+convertRecoverCommaList f (CST.CommaList as an) = mapWriter (fmap getDual) $ do
+  -- Start the new comma list with the last element.
+  bs0 <-
+    case an of
+      Nothing -> return []
+      Just (Ok a) -> return [f a]
+      Just (Recover _ e a) -> tell (pure (pure e)) *> return [f a]
+      Just (Fatal _ e) -> tell (pure (pure e)) *> return []
+  -- Traverse through the comma list items.
+  foldrM
+    (\(a', t) bs -> mapWriter (fmap Dual) $
       case a' of
         Ok a -> recoverToken t *> return (f a : bs)
         -- NOTE: Technically calling `recoverToken` here is a noop since adding the `Recover` and
@@ -390,14 +406,8 @@ convertRecoverCommaList f (CST.CommaList as an) = do
         -- error written.
         Recover _ e a -> tell (Alt (Just e)) *> recoverToken t *> return (f a : bs)
         Fatal _ e -> tell (Alt (Just e)) *> recoverToken t *> return bs)
-    []
+    bs0
     as
-  -- Add the last element in the comma list and reverse.
-  case an of
-    Nothing -> return (reverse bs)
-    Just (Ok a) -> return (reverse (f a : bs))
-    Just (Recover _ e a) -> tell (pure e) *> return (reverse (f a : bs))
-    Just (Fatal _ e) -> tell (pure e) *> return (reverse bs)
 
 -- Converts a CST module into an AST module.
 convertModule :: CST.Module -> Module
