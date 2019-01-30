@@ -2,7 +2,9 @@
 -- compilation and for serving IDE requests like hover-types.
 
 module Brite.Semantics.AVT
-  ( Block(..)
+  ( Statement(..)
+  , StatementNode(..)
+  , Block(..)
   , Constant(..)
   , Expression(..)
   , ExpressionNode(..)
@@ -14,7 +16,24 @@ import Brite.Diagnostic
 import Brite.Semantics.Type (Polytype)
 import Brite.Syntax.Tokens (Range(..), Identifier)
 
-data Block
+data Statement = Statement
+  -- The range of source code covered by this statement.
+  { statementRange :: Range
+  -- The representation of this statement.
+  , statementNode :: StatementNode
+  }
+
+data StatementNode
+  -- `E;`
+  = ExpressionStatement Expression
+
+  -- `let P = E;`
+  | BindingStatement Pattern Expression
+
+-- `{ ... }`
+newtype Block = Block
+  { blockStatements :: [Statement]
+  }
 
 data Constant
   -- `void`

@@ -122,6 +122,9 @@ data PolytypeDescription
   --
   -- In academic literature we write `∀(a = T1).T2` and `∀(a ≥ T1).T2` for rigid and flexible
   -- universal quantification respectively. We also write `∀a.T` as shorthand for `∀(a ≥ ⊥).T`.
+  --
+  -- We use a sequence (`Seq`) of bindings instead of a list (`[]`) because we want to have
+  -- efficient append to the end of the list and efficient concatenation.
   | Quantify (Seq Binding) Monotype
 
 -- The range at which our polytype was defined in source code. If the polytype is a quantified type

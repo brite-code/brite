@@ -18,6 +18,7 @@ import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Brite.Syntax.Tokens (identifierText)
+import Control.Monad.State.Strict
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
@@ -86,12 +87,32 @@ checkConstant range constant = case constant of
 -- Checks a block and returns the type returned by the block. If the last statement is not an
 -- expression statement then the block returns `void`.
 checkBlock :: Prefix s -> Context -> AST.Block -> Check s (Polytype, Block)
-checkBlock prefix context astBlock = do
-  error "TODO: unimplemented"
-  -- foldlM
-  --   ()
-  --   []
-  --   (AST.blockStatements astBlock)
+checkBlock prefix context0 astBlock = do
+  -- Check all the statements in the block. Each statement might add some new variables to
+  -- the context.
+  (statements, (context3, lastStatement)) <-
+    runStateT
+      (traverse
+        (\astStatement -> StateT $ \(context1, _) -> do
+          (context2, statement) <- checkStatement prefix context1 astStatement
+          return (statement, (context2, Just statement)))
+        (AST.blockStatements astBlock))
+      (context0, Nothing)
+
+  -- Look at the last statement in our block to get the block’s return type. If the last statement
+  -- is an expression statement then we return that from the block. Otherwise the block returns a
+  -- void type.
+  --
+  -- TODO: Test the void type range.
+  let
+    blockType =
+      case lastStatement of
+        Nothing -> Type.polytype (Type.void (AST.blockRange astBlock))
+        Just (Statement { statementNode = ExpressionStatement expression }) -> expressionType expression
+        Just statement -> Type.polytype (Type.void (statementRange statement))
+
+  -- Return the block type along with the checked block.
+  return (blockType, Block statements)
 
 -- Checks a pattern. This _will_ create fresh type variables in the prefix so we expect to be inside
 -- a prefix level. We will also add an entry of all names bound to the `Context`.
@@ -105,6 +126,27 @@ checkPattern prefix context0 astPattern = case AST.patternNode astPattern of
 
   where
     range = AST.patternRange astPattern
+
+-- Checks a statement. Statements may add variables to the context. So it returns a new context with
+-- all the bound variables.
+checkStatement :: Prefix s -> Context -> AST.Statement -> Check s (Context, Statement)
+checkStatement prefix context0 astStatement = case AST.statementNode astStatement of
+  -- Check an expression statement and return it. Expression statements do not add any variables to
+  -- the context.
+  AST.ExpressionStatement astExpression -> do
+    expression <- checkExpression prefix context0 astExpression
+    return (context0, Statement range (ExpressionStatement expression))
+
+  -- Optimization: If we are binding directly to a variable pattern then we don’t need to create an
+  -- intermediate type variable. Which `checkPattern` will do.
+  AST.BindingStatement astPattern@(AST.Pattern { AST.patternNode = AST.VariablePattern name }) Nothing astExpression -> do
+    expression <- checkExpression prefix context0 astExpression
+    let context1 = HashMap.insert name (expressionType expression) context0
+    let pattern = Pattern (AST.patternRange astPattern) (expressionType expression) (VariablePattern name)
+    return (context1, Statement range (BindingStatement pattern expression))
+
+  where
+    range = AST.statementRange astStatement
 
 -- Checks an AST type and turns it into a polytype.
 --
