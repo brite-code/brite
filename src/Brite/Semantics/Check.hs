@@ -3,11 +3,12 @@
 {-# LANGUAGE OverloadedStrings #-} -- TODO: Remove when removing `Bool` and `Int` special handling.
 
 module Brite.Semantics.Check
-  ( checkPolytype
+  ( checkExpression
+  , checkPolytype
   ) where
 
 import Brite.Diagnostic
-import Brite.Semantics.AST (Identifier)
+import Brite.Semantics.AST (Range, Identifier)
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
 import Brite.Semantics.CheckMonad
@@ -52,9 +53,10 @@ type Context = HashMap Identifier Polytype
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 checkExpression :: Prefix s -> Context -> AST.Expression -> Check s Expression
 checkExpression prefix context0 expression = case AST.expressionNode expression of
-  -- Constant booleans are nice and simple.
-  AST.ConstantExpression (AST.BooleanConstant value) ->
-    return (Expression range (Type.polytype (Type.boolean range)) (ConstantExpression (BooleanConstant value)))
+  -- Constant expressions are nice and simple.
+  AST.ConstantExpression astConstant ->
+    let (constantType, constant) = checkConstant range astConstant in
+      return (Expression range constantType (ConstantExpression constant))
 
   -- Lookup a variable in our context. If it exists then return a new variable expression with the
   -- variable’s type in context. Otherwise report a diagnostic and return an `ErrorExpression` with
@@ -74,6 +76,13 @@ checkExpression prefix context0 expression = case AST.expressionNode expression 
 
   where
     range = AST.expressionRange expression
+
+-- Checks a constant and returns the type of the constant and the AVT representation of
+-- the constant.
+checkConstant :: Range -> AST.Constant -> (Polytype, Constant)
+checkConstant range constant = case constant of
+  AST.VoidConstant -> (Type.polytype (Type.void range), VoidConstant)
+  AST.BooleanConstant value -> (Type.polytype (Type.boolean range), BooleanConstant value)
 
 -- Checks a block and returns the type returned by the block.
 checkBlock :: Prefix s -> Context -> AST.Block -> Check s (Polytype, Block)

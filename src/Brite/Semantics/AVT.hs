@@ -17,8 +17,10 @@ import Brite.Syntax.Tokens (Range(..), Identifier)
 data Block
 
 data Constant
+  -- `void`
+  = VoidConstant
   -- `true`, `false`
-  = BooleanConstant Bool
+  | BooleanConstant Bool
 
 data Expression = Expression
   -- The range of source code covered by this expression.
