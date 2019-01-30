@@ -52,7 +52,7 @@ type Context = HashMap Identifier Polytype
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 checkExpression :: Prefix s -> Context -> AST.Expression -> Check s Expression
-checkExpression prefix context0 expression = case AST.expressionNode expression of
+checkExpression prefix context0 astExpression = case AST.expressionNode astExpression of
   -- Constant expressions are nice and simple.
   AST.ConstantExpression astConstant ->
     let (constantType, constant) = checkConstant range astConstant in
@@ -75,7 +75,7 @@ checkExpression prefix context0 expression = case AST.expressionNode expression 
       error "unimplemented"
 
   where
-    range = AST.expressionRange expression
+    range = AST.expressionRange astExpression
 
 -- Checks a constant and returns the type of the constant and the AVT representation of
 -- the constant.
@@ -84,14 +84,20 @@ checkConstant range constant = case constant of
   AST.VoidConstant -> (Type.polytype (Type.void range), VoidConstant)
   AST.BooleanConstant value -> (Type.polytype (Type.boolean range), BooleanConstant value)
 
--- Checks a block and returns the type returned by the block.
+-- Checks a block and returns the type returned by the block. If the last statement is not an
+-- expression statement then the block returns `void`.
 checkBlock :: Prefix s -> Context -> AST.Block -> Check s (Polytype, Block)
-checkBlock = error "unimplemented"
+checkBlock prefix context astBlock = do
+  error "TODO: unimplemented"
+  -- foldlM
+  --   ()
+  --   []
+  --   (AST.blockStatements astBlock)
 
 -- Checks a pattern. This _will_ create fresh type variables in the prefix so we expect to be inside
 -- a prefix level. We will also add an entry of all names bound to the `Context`.
 checkPattern :: Prefix s -> Context -> AST.Pattern -> Check s (Context, Pattern)
-checkPattern prefix context0 pattern = case AST.patternNode pattern of
+checkPattern prefix context0 astPattern = case AST.patternNode astPattern of
   -- Generate a fresh type for our variable pattern and add it to our context.
   AST.VariablePattern name -> do
     variableType <- Type.polytype <$> Prefix.fresh prefix range
@@ -99,7 +105,7 @@ checkPattern prefix context0 pattern = case AST.patternNode pattern of
     return (context1, Pattern range variableType (VariablePattern name))
 
   where
-    range = AST.patternRange pattern
+    range = AST.patternRange astPattern
 
 -- Checks an AST type and turns it into a polytype.
 --
