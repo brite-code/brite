@@ -35,7 +35,7 @@ module Brite.Syntax.PrinterFramework
   , printCompactDocument
   ) where
 
-import Brite.Syntax.Token (utf16Length)
+import Brite.Syntax.Range (utf16Length)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as Text (Builder)

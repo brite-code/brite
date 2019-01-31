@@ -30,6 +30,7 @@ module Brite.Syntax.ParserFramework
   ) where
 
 import Brite.Diagnostic
+import Brite.Syntax.Range
 import Brite.Syntax.Token
 import Brite.Syntax.TokenStream
 import Control.Applicative (liftA2)

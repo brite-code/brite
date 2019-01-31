@@ -9,11 +9,7 @@
 -- CST node for infix expressions is a particularly good example of this.
 
 module Brite.Semantics.AST
-  ( Position(..)
-  , Range(..)
-  , Identifier
-  , identifierText
-  , Name(..)
+  ( Name(..)
   , Module(..)
   , Statement(..)
   , StatementNode(..)
@@ -46,6 +42,7 @@ module Brite.Semantics.AST
 import Brite.Diagnostic
 import Brite.Syntax.CST (Recover(..), PrefixOperator(..), Flexibility(..))
 import qualified Brite.Syntax.CST as CST
+import Brite.Syntax.Range
 import Brite.Syntax.Token
 import Control.Applicative
 import Control.Monad.Writer

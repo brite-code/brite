@@ -93,6 +93,7 @@ module Brite.Diagnostic
   ) where
 
 import Brite.DiagnosticMarkup
+import Brite.Syntax.Range
 import Brite.Syntax.Token
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq

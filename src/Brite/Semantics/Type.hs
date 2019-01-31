@@ -36,8 +36,10 @@ module Brite.Semantics.Type
   , substituteMonotype
   ) where
 
-import Brite.Semantics.AST (Range, Identifier, Flexibility(..))
+import Brite.Semantics.AST (Flexibility(..))
 import Brite.Semantics.Namer
+import Brite.Syntax.Range
+import Brite.Syntax.Token (Identifier)
 import Data.Foldable (any)
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet

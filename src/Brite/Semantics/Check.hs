@@ -8,7 +8,6 @@ module Brite.Semantics.Check
   ) where
 
 import Brite.Diagnostic
-import Brite.Semantics.AST (Range, Identifier)
 import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
 import Brite.Semantics.CheckMonad
@@ -18,7 +17,8 @@ import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype, Flexibility(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.Unify
-import Brite.Syntax.Token (identifierText)
+import Brite.Syntax.Token (Identifier, identifierText)
+import Brite.Syntax.Range
 import Control.Monad.State.Strict
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap

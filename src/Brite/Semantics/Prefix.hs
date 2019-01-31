@@ -23,7 +23,6 @@ module Brite.Semantics.Prefix
 
 import Prelude hiding (lookup)
 import Brite.Diagnostic
-import Brite.Semantics.AST (Range, Identifier)
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Type (Polytype, Monotype)
@@ -31,6 +30,8 @@ import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypePrinter (printPolytype)
 import Brite.Semantics.UnifyAbstraction
 import Brite.Syntax.Printer (printCompactType)
+import Brite.Syntax.Token (Identifier)
+import Brite.Syntax.Range
 import Control.Monad.ST
 import Data.Foldable (foldlM, traverse_)
 import qualified Data.HashMap.Lazy as HashMap
@@ -44,7 +45,7 @@ import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.STRef
-import qualified Data.Text.Builder.Custom as Text.Builder
+import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
 -- `ST` monad for mutability. Unlike other immutable Haskell data types.
