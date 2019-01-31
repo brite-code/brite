@@ -365,7 +365,7 @@ tryGlyph g = TryParser $ \ok _ throw s ->
   case parserStep s of
     Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g' -> eatToken t ts s >>= ok (pure t)
     Right (t, _) -> throw (unexpectedToken t (ExpectedGlyph g)) s
-    Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
+    Left t -> throw (unexpectedEnding (endTokenPosition t) (ExpectedGlyph g)) s
 
 -- Tries to parse a keyword.
 tryKeyword :: Keyword -> TryParser Token
@@ -377,7 +377,7 @@ tryIdentifier = TryParser $ \ok _ throw s ->
   case parserStep s of
     Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> eatToken t ts s >>= ok (pure (i, t))
     Right (t, _) -> throw (unexpectedToken t ExpectedIdentifier) s
-    Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) s
+    Left t -> throw (unexpectedEnding (endTokenPosition t) ExpectedIdentifier) s
 
 -- Tries running the `TryParser` once. If it fails then we defer to the full `Parser`. Remember that
 -- unlike the choice operator (`<|>`) combined with `retry` we won’t retry the `TryParser` in case
@@ -399,7 +399,7 @@ tryGlyphOnSameLine g = TryParser $ \ok _ throw s ->
     Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g'
       && parserLastLine s == positionLine (rangeStart (tokenRange t)) -> eatToken t ts s >>= ok (pure t)
     Right (t, _) -> throw (unexpectedToken t (ExpectedGlyph g)) s
-    Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
+    Left t -> throw (unexpectedEnding (endTokenPosition t) (ExpectedGlyph g)) s
 
 -- Always reports an unexpected token diagnostic. Typically used at the end of a choice operator
 -- chain to customize the error message.
@@ -407,7 +407,7 @@ unexpected :: ExpectedToken -> TryParser a
 unexpected ex = TryParser $ \_ _ throw s ->
   case parserStep s of
     Right (t, _) -> throw (unexpectedToken t ex) s
-    Left t -> throw (unexpectedEnding (endTokenRange t) ex) s
+    Left t -> throw (unexpectedEnding (endTokenPosition t) ex) s
 
 -- Always throws an unexpected token error if we see the provided glyph. Otherwise we run the
 -- provided parser. This is used to exclude certain tokens from a parser.
@@ -558,4 +558,4 @@ commaList p = Parser $ \_ yield1 yield2 ->
       case parserStep s of
         Right (t @ Token { tokenKind = Glyph Comma }, ts) -> eatToken t ts s >>= ok (pure t)
         Right (t, _) -> throw (unexpectedToken t (ExpectedGlyph Comma)) s
-        Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph Comma)) s
+        Left t -> throw (unexpectedEnding (endTokenPosition t) (ExpectedGlyph Comma)) s

@@ -59,6 +59,7 @@ module Brite.Diagnostic
   , ExpectedToken(..)
   , TypeMessage(..)
   , unexpectedToken
+  , unexpectedCharacter
   , unexpectedEnding
   , unboundVariable
   , unboundTypeVariable
@@ -168,6 +169,7 @@ data ExpectedToken
   | ExpectedIdentifier
   | ExpectedEnd
   | ExpectedBlockCommentEnd
+  | ExpectedBinaryDigit
   | ExpectedStatement
   | ExpectedExpression
   | ExpectedPattern
@@ -192,9 +194,16 @@ unexpectedToken token expected = report $ Diagnostic (tokenRange token) $ Error 
       IdentifierToken _ -> ActualIdentifier
       UnexpectedChar c -> ActualChar c
 
+-- The parser ran into a character it did not recognize.
+unexpectedCharacter :: DiagnosticMonad m => Position -> Char -> ExpectedToken -> m Diagnostic
+unexpectedCharacter position char expected = report $ Diagnostic range $ Error $
+  UnexpectedToken (ActualChar char) expected
+  where
+    range = Range position (nextPosition (utf16Length char) position)
+
 -- The parser ran into the end of the source document unexpectedly.
-unexpectedEnding :: DiagnosticMonad m => Range -> ExpectedToken -> m Diagnostic
-unexpectedEnding range expected = report $ Diagnostic range $ Error $
+unexpectedEnding :: DiagnosticMonad m => Position -> ExpectedToken -> m Diagnostic
+unexpectedEnding position expected = report $ Diagnostic (Range position position) $ Error $
   UnexpectedEnding expected
 
 -- The type checker ran into a variable which it could not find a binding for.
@@ -459,6 +468,7 @@ expectedTokenMessage (ExpectedGlyph glyph) = code (glyphText glyph)
 expectedTokenMessage ExpectedIdentifier = plain "a variable name"
 expectedTokenMessage ExpectedEnd = plain "nothing more"
 expectedTokenMessage ExpectedBlockCommentEnd = code "*/"
+expectedTokenMessage ExpectedBinaryDigit = plain "a binary digit"
 expectedTokenMessage ExpectedStatement = plain "a statement"
 expectedTokenMessage ExpectedExpression = plain "an expression"
 expectedTokenMessage ExpectedPattern = plain "a variable name"

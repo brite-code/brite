@@ -53,9 +53,10 @@ tokenStreamToList = loop []
 -- Advances the token stream. Either returns a token and the remainder of the token stream or
 -- returns the ending token in the stream.
 nextToken :: TokenStream -> DiagnosticWriter TokenStreamStep
-nextToken (TokenStream p0 t0) = do
+nextToken stream = do
   -- Leading trivia
-  (leadingTrivia, p1, t1) <- nextTrivia Leading [] p0 t0
+  (leadingTrivia, p1, t1) <-
+    nextTrivia Leading [] (tokenStreamPosition stream) (tokenStreamText stream)
 
   let
     -- Creates a token with trailing trivia
@@ -116,16 +117,40 @@ nextToken (TokenStream p0 t0) = do
           Just k -> token (Glyph (Keyword k)) n t2
           Nothing -> token (IdentifierToken (unsafeIdentifier ident)) n t2
 
-    -- -- Number
-    -- --
-    -- -- TODO: Must not be followed by an identifier.
-    -- -- TODO: Binary and hexadecimal must be followed by at least one digit.
-    -- Just (c0, t2) | Just d0 <- charDecimalDigit c0 ->
-    --   case (d0, T.uncons t2) of
-    --     (D0, Just c1) | c1 == 'b' || c == 'B' ->
-    --       error "unimplemented"
+    -- Number
+    --
+    -- TODO: Must not be followed by an identifier.
+    -- TODO: Binary and hexadecimal must be followed by at least one digit.
+    Just (c0, t2) | isDigit c0 ->
+      case (c0, T.uncons t2) of
+        -- Parse a binary integer
+        ('0', Just (c1, t3)) | c1 == 'b' || c1 == 'B' ->
+          let
+            -- Parse a binary number. Build up the value and count the number of digits.
+            (raw, (finalValue, finalDigits), t4) =
+              T.spanWithState
+                (\(value, digits) c2 ->
+                  case c2 of
+                    '0' -> Just (value * 2 + 0, digits + 1)
+                    '1' -> Just (value * 2 + 1, digits + 1)
+                    _ -> Nothing)
+                (0, 0)
+                t3
+          in
+            -- If we didn’t parse any digits then report an error.
+            if finalDigits == 0 then do
+              let actualRaw = T.singleton '0' `T.snoc` c1
+              let p2 = nextPosition 2 p1
+              diagnostic <- case T.uncons t4 of
+                Nothing -> unexpectedEnding p2 ExpectedBinaryDigit
+                Just (c2, _) -> unexpectedCharacter p2 c2 ExpectedBinaryDigit
+              error "TODO: unimplemented"
+              -- token (Number (ErrorNumber diagnostic actualRaw)) 2 t4
+            else
+              error "TODO: unimplemented"
 
-    --     (D0, Just c) | c == 'x' || c == 'X' -> error "TODO: unimplemented"
+        ('0', Just (c1, t3)) | c1 == 'x' || c1 == 'X' ->
+          error "TODO: unimplemented"
 
     -- Unexpected character
     Just (c, t2) -> token (UnexpectedChar c) (utf16Length c) t2
@@ -235,7 +260,7 @@ nextTrivia side acc p0 t0 =
         case finalState of
           FoundAsteriskSlash -> return (BlockComment (T.dropEnd 2 comment) True)
           _ -> do
-            _ <- unexpectedEnding (Range p2 p2) ExpectedBlockCommentEnd
+            _ <- unexpectedEnding p2 ExpectedBlockCommentEnd
             return (BlockComment comment False)
 
         -- Create the new `acc` value.

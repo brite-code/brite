@@ -18,6 +18,8 @@ module Brite.Syntax.Token
   , identifierText
   , isIdentifierStart
   , isIdentifierContinue
+  , Number(..)
+  , BinaryInteger(..)
   , Keyword(..)
   , textKeyword
   , keywordText
@@ -146,6 +148,38 @@ isIdentifierContinue c =
   isAsciiLower c || isAsciiUpper c || isDigit c || c == '_'
     || (c > '\x7f' && property XidContinue c)
 
+-- A number token. A number in Brite source code could be written in a few different ways:
+--
+-- * Integer: `42`
+-- * Binary integer: `0b1101`
+-- * Hexadecimal integer: `0xFFF`
+-- * Floating point: `3.1415`, `1e2`
+--
+-- For floating point numbers we use the same syntax as the [JSON specification][1] with the one
+-- modification that we permit leading zeroes.
+--
+-- We never parse a negative sign as part of our number syntax. Instead we use a negative operator
+-- in our language syntax.
+--
+-- [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
+data Number
+  -- `0b1101`
+  = BinaryNumber BinaryInteger
+  -- If we failed to parse a number then we add an `ErrorNumber` token which contains the diagnostic
+  -- that failed and the raw text we attempted to parse as a number.
+  | ErrorNumber {- TODO: Diagnostic -} Text
+  deriving (Show)
+
+-- An integer written in binary form.
+data BinaryInteger = BinaryInteger
+  -- Was the “b” after `0` uppercase or lowercase?
+  { binaryIntegerLowercaseB :: Bool
+  -- Non-empty binary integer source code written in zeroes and ones.
+  , binaryIntegerRaw :: Text
+  -- The integer value of our binary number.
+  , binaryIntegerValue :: Integer
+  } deriving (Show)
+
 -- Some word that is valid identifier syntax but we reserve for the purpose of parsing.
 data Keyword
   = Hole -- `_`
@@ -218,6 +252,7 @@ data Token = Token
 data TokenKind
   = Glyph Glyph
   | IdentifierToken Identifier
+  | Number Number
   | UnexpectedChar Char
   deriving (Show)
 
