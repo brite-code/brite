@@ -24,6 +24,7 @@ import Data.Char
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Custom as T
+import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 
 -- A stream of tokens. Call `nextToken` to advance the stream.
 data TokenStream = TokenStream
@@ -108,8 +109,6 @@ nextToken stream = do
     Just ('-', t2) -> token (Glyph Minus) 1 t2
 
     -- Identifier
-    --
-    -- TODO: Must not be followed by a number.
     Just (c, _) | isIdentifierStart c ->
       let
         (ident, n, t2) =
@@ -122,9 +121,6 @@ nextToken stream = do
           Nothing -> token (Identifier (unsafeIdentifier ident)) n t2
 
     -- Number
-    --
-    -- TODO: Must not be followed by an identifier.
-    -- TODO: Binary and hexadecimal must be followed by at least one digit.
     Just (c0, t2) | isDigit c0 ->
       case (c0, T.uncons t2) of
         -- Parse a binary integer
@@ -150,16 +146,48 @@ nextToken stream = do
                 Nothing -> unexpectedEnding p2 ExpectedBinaryDigit
                 Just (c2, _) -> unexpectedChar p2 c2 ExpectedBinaryDigit
               -- Return an invalid number token.
-              token (Number (InvalidNumberToken diagnostic actualRaw)) 2 t4
+              numberToken (InvalidNumberToken diagnostic actualRaw) ExpectedBinaryDigit 2 t4
 
             -- Otherwise we have a valid binary integer!
             else
               let n = BinaryInteger (c1 == 'b') raw finalValue in
-                token (Number (NumberToken n)) (2 + finalDigits) t4
+                numberToken (NumberToken n) ExpectedBinaryDigit (2 + finalDigits) t4
 
         -- Parse a hexadecimal integer
         ('0', Just (c1, _)) | c1 == 'x' || c1 == 'X' ->
           error "TODO: unimplemented"
+
+      where
+        -- Constructs a number token while also checking for characters we don’t allow to come after
+        -- a number token.
+        numberToken n expected ds1 t3 =
+          case T.uncons t3 of
+            -- If this character is one we don’t allow to come after an error token then report an
+            -- error diagnostic! Consume all invalid tokens before continuing.
+            Just (c1, _) | isIdentifierContinue c1 -> do
+              -- If we parsed an invalid number token the let’s use that diagnostic instead of
+              -- reporting a new diagnostic.
+              diagnostic <- case n of
+                InvalidNumberToken oldDiagnostic _ -> return oldDiagnostic
+                NumberToken _ -> unexpectedChar (nextPosition ds1 p1) c1 expected
+
+              let
+                -- Get the source up to this point of our number token.
+                source = case n of
+                  NumberToken n' -> Text.Builder.toStrictText (numberSource n')
+                  InvalidNumberToken _ raw -> raw
+
+                -- Get all the invalid characters which are immediately adjacent to our number.
+                (invalid, ds2, t4) =
+                  T.spanWithState
+                    (\n' c' -> if isIdentifierContinue c' then Just (n' + utf16Length c') else Nothing)
+                    ds1
+                    t3
+
+              token (Number (InvalidNumberToken diagnostic (source <> invalid))) ds2 t4
+
+            -- If this character is not one of our invalid characters then happily continue along.
+            _ -> token (Number n) ds1 t3
 
     -- Unexpected character
     Just (c, t2) -> token (UnexpectedChar c) (utf16Length c) t2

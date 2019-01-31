@@ -1891,6 +1891,12 @@ x /*
 
 ### Tokens
 ```
+0:0-0:3   | InvalidNumber `0b2`
+0:3       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `2`.
 
 --------------------------------------------------------------------------------
 
@@ -1901,6 +1907,12 @@ x /*
 
 ### Tokens
 ```
+0:0-0:3   | InvalidNumber `0B2`
+0:3       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `2`.
 
 --------------------------------------------------------------------------------
 
@@ -1911,8 +1923,7 @@ x /*
 
 ### Tokens
 ```
-0:0-0:2   | InvalidNumber `0b`
-0:2-0:3   | Identifier `c`
+0:0-0:3   | InvalidNumber `0bc`
 0:3       | End
 ```
 
@@ -1928,8 +1939,7 @@ x /*
 
 ### Tokens
 ```
-0:0-0:2   | InvalidNumber `0B`
-0:2-0:3   | Identifier `c`
+0:0-0:3   | InvalidNumber `0Bc`
 0:3       | End
 ```
 
@@ -2209,6 +2219,14 @@ x /*
 
 ### Tokens
 ```
++         | BlockComment
++         | Spaces 1
+0:5-0:8   | InvalidNumber `0b2`
+0:8       | End
+```
+
+### Errors
+- (0:7-0:8) We wanted a binary digit but we found `2`.
 
 --------------------------------------------------------------------------------
 
@@ -2219,6 +2237,14 @@ x /*
 
 ### Tokens
 ```
++         | BlockComment
++         | Spaces 1
+0:5-0:8   | InvalidNumber `0B2`
+0:8       | End
+```
+
+### Errors
+- (0:7-0:8) We wanted a binary digit but we found `2`.
 
 --------------------------------------------------------------------------------
 
@@ -2257,5 +2283,352 @@ x /*
 
 ### Errors
 - (0:7-0:9) We wanted a binary digit but we found `😈`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b02
+```
+
+### Tokens
+```
+0:0-0:4   | InvalidNumber `0b02`
+0:4       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `2`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0x
+```
+
+### Tokens
+```
+0:0-0:4   | InvalidNumber `0b0x`
+0:4       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0𐐷
+```
+
+### Tokens
+```
+0:0-0:5   | InvalidNumber `0b0𐐷`
+0:5       | End
+```
+
+### Errors
+- (0:3-0:5) We wanted a binary digit but we found `𐐷`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0x2
+```
+
+### Tokens
+```
+0:0-0:5   | InvalidNumber `0b0x2`
+0:5       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b02x
+```
+
+### Tokens
+```
+0:0-0:5   | InvalidNumber `0b02x`
+0:5       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `2`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0𐐷x
+```
+
+### Tokens
+```
+0:0-0:6   | InvalidNumber `0b0𐐷x`
+0:6       | End
+```
+
+### Errors
+- (0:3-0:5) We wanted a binary digit but we found `𐐷`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0x𐐷
+```
+
+### Tokens
+```
+0:0-0:6   | InvalidNumber `0b0x𐐷`
+0:6       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0x𐐷x
+```
+
+### Tokens
+```
+0:0-0:7   | InvalidNumber `0b0x𐐷x`
+0:7       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b02𐐷2
+```
+
+### Tokens
+```
+0:0-0:7   | InvalidNumber `0b02𐐷2`
+0:7       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `2`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b2
+```
+
+### Tokens
+```
+0:0-0:3   | InvalidNumber `0b2`
+0:3       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `2`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0bx
+```
+
+### Tokens
+```
+0:0-0:3   | InvalidNumber `0bx`
+0:3       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b𐐷
+```
+
+### Tokens
+```
+0:0-0:4   | InvalidNumber `0b𐐷`
+0:4       | End
+```
+
+### Errors
+- (0:2-0:4) We wanted a binary digit but we found `𐐷`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0bx2
+```
+
+### Tokens
+```
+0:0-0:4   | InvalidNumber `0bx2`
+0:4       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b2x
+```
+
+### Tokens
+```
+0:0-0:4   | InvalidNumber `0b2x`
+0:4       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `2`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b𐐷x
+```
+
+### Tokens
+```
+0:0-0:5   | InvalidNumber `0b𐐷x`
+0:5       | End
+```
+
+### Errors
+- (0:2-0:4) We wanted a binary digit but we found `𐐷`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0bx𐐷
+```
+
+### Tokens
+```
+0:0-0:5   | InvalidNumber `0bx𐐷`
+0:5       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0bx𐐷x
+```
+
+### Tokens
+```
+0:0-0:6   | InvalidNumber `0bx𐐷x`
+0:6       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `x`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b2𐐷2
+```
+
+### Tokens
+```
+0:0-0:6   | InvalidNumber `0b2𐐷2`
+0:6       | End
+```
+
+### Errors
+- (0:2-0:3) We wanted a binary digit but we found `2`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0 x
+```
+
+### Tokens
+```
+0:0-0:3   | BinaryInteger `0`
+-         | Spaces 1
+0:4-0:5   | Identifier `x`
+0:5       | End
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+x 0b0
+```
+
+### Tokens
+```
+0:0-0:1   | Identifier `x`
+-         | Spaces 1
+0:2-0:5   | BinaryInteger `0`
+0:5       | End
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+x0b0
+```
+
+### Tokens
+```
+0:0-0:4   | Identifier `x0b0`
+0:4       | End
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+0b0x
+```
+
+### Tokens
+```
+0:0-0:4   | InvalidNumber `0b0x`
+0:4       | End
+```
+
+### Errors
+- (0:3-0:4) We wanted a binary digit but we found `x`.
 
 --------------------------------------------------------------------------------
