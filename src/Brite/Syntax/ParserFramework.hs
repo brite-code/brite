@@ -378,7 +378,7 @@ tryKeyword = tryGlyph . Keyword
 tryIdentifier :: TryParser (Identifier, Token)
 tryIdentifier = TryParser $ \ok _ throw s ->
   case parserStep s of
-    Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> eatToken t ts s >>= ok (pure (i, t))
+    Right (t @ Token { tokenKind = Identifier i }, ts) -> eatToken t ts s >>= ok (pure (i, t))
     Right (t, _) -> throw (unexpectedToken t ExpectedIdentifier) s
     Left t -> throw (unexpectedEnding (endTokenPosition t) ExpectedIdentifier) s
 
@@ -433,7 +433,7 @@ skipIdentifier p = Parser $ \ok yield1 yield2 ->
     ok
     (\a k s ->
       case parserStep s of
-        Right (t @ Token { tokenKind = IdentifierToken _ }, ts) -> skipToken ts s >>= k t
+        Right (t @ Token { tokenKind = Identifier _ }, ts) -> skipToken ts s >>= k t
         _ -> yield1 a k s)
     yield2
 

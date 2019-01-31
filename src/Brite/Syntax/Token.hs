@@ -55,7 +55,7 @@ data Token = Token
 -- The kind of a token.
 data TokenKind
   = Glyph Glyph
-  | IdentifierToken Identifier
+  | Identifier Identifier
   | Number Number
   | UnexpectedChar Char
   deriving (Show)
@@ -66,7 +66,7 @@ unexpectedToken token expected = unexpectedSyntax (tokenRange token) unexpected 
   where
     unexpected = case tokenKind token of
       Glyph glyph -> ActualGlyph glyph
-      IdentifierToken _ -> ActualIdentifier
+      Identifier _ -> ActualIdentifier
       UnexpectedChar c -> ActualChar c
 
 -- The last token in a document. An end token has the position at which the document ended and all
@@ -165,7 +165,7 @@ tokenSource token =
 -- Gets the source code that a token kind was parsed from.
 tokenKindSource :: TokenKind -> Text
 tokenKindSource (Glyph g) = glyphText g
-tokenKindSource (IdentifierToken i) = identifierText i
+tokenKindSource (Identifier i) = identifierText i
 tokenKindSource (UnexpectedChar c) = Text.singleton c
 
 -- Gets the source code that an end token was parsed from.
@@ -219,7 +219,7 @@ tokenTrimmedSource token =
 -- add string literals then we will need to trim trailing whitespace inside string literals.
 tokenKindTrimmedSource :: TokenKind -> Text
 tokenKindTrimmedSource (t@(Glyph _)) = tokenKindSource t
-tokenKindTrimmedSource (t@(IdentifierToken _)) = tokenKindSource t
+tokenKindTrimmedSource (t@(Identifier _)) = tokenKindSource t
 tokenKindTrimmedSource (t@(UnexpectedChar _)) = tokenKindSource t
 
 -- Gets the source code that a list of trivia was parsed from. Trimming all whitespace that comes
@@ -285,7 +285,7 @@ debugToken (Token r k lt tt) =
   where
     content = case k of
       Glyph glyph -> Text.snoc (Text.append "Glyph `" (glyphText glyph)) '`'
-      IdentifierToken identifier -> Text.snoc (Text.append "Identifier `" (identifierText identifier)) '`'
+      Identifier identifier -> Text.snoc (Text.append "Identifier `" (identifierText identifier)) '`'
       UnexpectedChar c -> Text.snoc (Text.snoc "Unexpected `" c) '`'
 
 debugEndToken :: EndToken -> Text.Builder

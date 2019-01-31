@@ -118,7 +118,7 @@ nextToken stream = do
       in
         case textKeyword ident of
           Just k -> token (Glyph (Keyword k)) n t2
-          Nothing -> token (IdentifierToken (unsafeIdentifier ident)) n t2
+          Nothing -> token (Identifier (unsafeIdentifier ident)) n t2
 
     -- Number
     --
