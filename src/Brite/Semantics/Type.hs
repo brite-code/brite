@@ -38,8 +38,8 @@ module Brite.Semantics.Type
 
 import Brite.Semantics.AST (Flexibility(..))
 import Brite.Semantics.Namer
+import Brite.Syntax.Identifier
 import Brite.Syntax.Range
-import Brite.Syntax.Token (Identifier)
 import Data.Foldable (any)
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet

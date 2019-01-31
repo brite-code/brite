@@ -20,6 +20,7 @@ module Brite.Syntax.Printer
   ) where
 
 import Brite.Syntax.CST (recoverStatementTokens)
+import Brite.Syntax.Identifier
 import Brite.Syntax.PrinterAST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Token

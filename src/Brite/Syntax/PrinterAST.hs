@@ -58,6 +58,7 @@ module Brite.Syntax.PrinterAST
 
 import Brite.Syntax.CST (Recover(..), PrefixOperator(..), InfixOperator(..), Flexibility(..))
 import qualified Brite.Syntax.CST as CST
+import Brite.Syntax.Identifier
 import Brite.Syntax.Token
 import Control.Applicative ((<|>))
 import Data.Foldable (foldlM, foldrM)

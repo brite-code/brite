@@ -15,6 +15,7 @@ module Brite.Syntax.TokenStream
   ) where
 
 import Brite.Diagnostic
+import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 import Brite.Syntax.Token
 import Data.Char

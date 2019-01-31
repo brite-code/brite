@@ -53,6 +53,7 @@ module Brite.Syntax.CST
   , statementFirstToken
   ) where
 
+import Brite.Syntax.Identifier
 import Brite.Syntax.ParserFramework (Recover(..), CommaList(..), commaListItems)
 import Brite.Syntax.Token
 import Data.Foldable (foldMap)

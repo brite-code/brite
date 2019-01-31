@@ -14,7 +14,7 @@ module Brite.Semantics.AVT
 
 import Brite.Diagnostic
 import Brite.Semantics.Type (Polytype)
-import Brite.Syntax.Token (Identifier)
+import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 
 newtype Statement = Statement

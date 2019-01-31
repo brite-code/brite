@@ -1,16 +1,10 @@
 -- Responsible for turning a Brite source text into a format which may be parsed. This includes
 -- tokenizing the document and determining positions.
 
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Syntax.Token
-  ( Identifier
-  , unsafeIdentifier
-  , identifierText
-  , isIdentifierStart
-  , isIdentifierContinue
-  , Number(..)
+  ( Number(..)
   , BinaryInteger(..)
   , Keyword(..)
   , textKeyword
@@ -33,55 +27,15 @@ module Brite.Syntax.Token
   , debugTokens
   ) where
 
+import Brite.Syntax.Identifier
 import Brite.Syntax.Range
-import Data.Bits ((.&.))
 import Data.Char
-import Data.Hashable (Hashable)
 import Data.Text (Text)
-import qualified Data.Text as T
+import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)
-import qualified Data.Text.Lazy.Builder as B
-import qualified Data.Text.Lazy.Builder.Int as B
-import Data.Text.ICU.Char (property, Bool_(XidStart, XidContinue))
-
--- A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
--- Specification][1] including the optional underscore (`_`) character.
---
--- Some strings which are valid identifier syntax are reserved as keywords to disambiguate parsing.
--- We try to reserve the minimum number of keywords possible.
---
--- We could only have keywords in certain positions. For instance, only reserve the keyword `fun`
--- when in an expression context. However, this introduces a potentially confusing rule. It also
--- means, in this example, code transformations could not easily make expression identifiers out of
--- pattern identifiers.
---
--- [1]: http://www.unicode.org/reports/tr31
-newtype Identifier = Identifier Text
-  deriving (Eq, Ord, Hashable)
-
-instance Show Identifier where
-  show (Identifier t) = T.unpack t
-
--- Unsafely creates an identifier without checking if it is in the correct format.
-unsafeIdentifier :: Text -> Identifier
-unsafeIdentifier = Identifier
-
--- Get the text representation of an identifier.
-identifierText :: Identifier -> Text
-identifierText (Identifier t) = t
-
--- Is this character the start of an identifier?
-isIdentifierStart :: Char -> Bool
-isIdentifierStart c =
-  isAsciiLower c || isAsciiUpper c || c == '_'
-    || (c > '\x7f' && property XidStart c)
-
--- Does this character continue an identifier?
-isIdentifierContinue :: Char -> Bool
-isIdentifierContinue c =
-  isAsciiLower c || isAsciiUpper c || isDigit c || c == '_'
-    || (c > '\x7f' && property XidContinue c)
+import qualified Data.Text.Lazy.Builder as Text.Builder
+import qualified Data.Text.Lazy.Builder.Int as Text.Builder
 
 -- A number token. A number in Brite source code could be written in a few different ways:
 --
@@ -345,14 +299,14 @@ isTriviaWhitespace (OtherWhitespace _) = True
 tokenSource :: Token -> Text.Builder
 tokenSource token =
   mconcat (map triviaSource (tokenLeadingTrivia token))
-    <> B.fromText (tokenKindSource (tokenKind token))
+    <> Text.Builder.fromText (tokenKindSource (tokenKind token))
     <> mconcat (map triviaSource (tokenTrailingTrivia token))
 
 -- Gets the source code that a token kind was parsed from.
 tokenKindSource :: TokenKind -> Text
 tokenKindSource (Glyph g) = glyphText g
 tokenKindSource (IdentifierToken i) = identifierText i
-tokenKindSource (UnexpectedChar c) = T.singleton c
+tokenKindSource (UnexpectedChar c) = Text.singleton c
 
 -- Gets the source code that an end token was parsed from.
 endTokenSource :: EndToken -> Text.Builder
@@ -360,15 +314,15 @@ endTokenSource endToken = mconcat (map triviaSource (endTokenTrivia endToken))
 
 -- Gets the source code that a trivia was parsed from.
 triviaSource :: Trivia -> Text.Builder
-triviaSource (Spaces n) = B.fromText (T.replicate n " ")
-triviaSource (Tabs n) = B.fromText (T.replicate n "\t")
-triviaSource (Newlines LF n) = B.fromText (T.replicate n "\n")
-triviaSource (Newlines CR n) = B.fromText (T.replicate n "\r")
-triviaSource (Newlines CRLF n) = B.fromText (T.replicate n "\r\n")
-triviaSource (Comment (LineComment comment)) = B.fromText "//" <> B.fromText comment
-triviaSource (Comment (BlockComment comment True)) = B.fromText "/*" <> B.fromText comment <> B.fromText "*/"
-triviaSource (Comment (BlockComment comment False)) = B.fromText "/*" <> B.fromText comment
-triviaSource (OtherWhitespace c) = B.singleton c
+triviaSource (Spaces n) = Text.Builder.fromText (Text.replicate n " ")
+triviaSource (Tabs n) = Text.Builder.fromText (Text.replicate n "\t")
+triviaSource (Newlines LF n) = Text.Builder.fromText (Text.replicate n "\n")
+triviaSource (Newlines CR n) = Text.Builder.fromText (Text.replicate n "\r")
+triviaSource (Newlines CRLF n) = Text.Builder.fromText (Text.replicate n "\r\n")
+triviaSource (Comment (LineComment comment)) = Text.Builder.fromText "//" <> Text.Builder.fromText comment
+triviaSource (Comment (BlockComment comment True)) = Text.Builder.fromText "/*" <> Text.Builder.fromText comment <> Text.Builder.fromText "*/"
+triviaSource (Comment (BlockComment comment False)) = Text.Builder.fromText "/*" <> Text.Builder.fromText comment
+triviaSource (OtherWhitespace c) = Text.Builder.singleton c
 
 -- Builds source code from from the provided tokens removing whitespace at the beginning of the
 -- code, ending of the code, and immediately before a new line (trailing whitespace).
@@ -395,7 +349,7 @@ tokensTrimmedSource = sourceStart
 tokenTrimmedSource :: Token -> Text.Builder
 tokenTrimmedSource token =
   triviaTrimmedSource (tokenLeadingTrivia token)
-    <> B.fromText (tokenKindTrimmedSource (tokenKind token))
+    <> Text.Builder.fromText (tokenKindTrimmedSource (tokenKind token))
     <> triviaTrimmedSource (tokenTrailingTrivia token)
 
 -- Gets the source code that a token kind was parsed from. Trimming all whitespace that comes
@@ -427,8 +381,8 @@ triviaTrimmedSource = loop mempty mempty
     loop source space (Comment (LineComment comment) : ts) =
       let
         newSource =
-          source <> space <> B.fromText "//"
-            <> B.fromText (T.dropWhileEnd isSpace comment)
+          source <> space <> Text.Builder.fromText "//"
+            <> Text.Builder.fromText (Text.dropWhileEnd isSpace comment)
       in
         loop newSource mempty ts
 
@@ -439,7 +393,8 @@ triviaTrimmedSource = loop mempty mempty
     loop source space (Comment (BlockComment comment _) : ts) =
       let
         newSource =
-          source <> space <> B.fromText "/*" <> removeTrailingSpaces comment <> B.fromText "*/"
+          source <> space <> Text.Builder.fromText "/*"
+            <> removeTrailingSpaces comment <> Text.Builder.fromText "*/"
       in
         loop newSource mempty ts
 
@@ -447,13 +402,13 @@ triviaTrimmedSource = loop mempty mempty
 -- left in place.
 removeTrailingSpaces :: Text -> Text.Builder
 removeTrailingSpaces t =
-  let (t1, t2) = T.span (\c -> c /= '\n' && c /= '\r') t in
-    if T.null t2 then
-      B.fromText t
+  let (t1, t2) = Text.span (\c -> c /= '\n' && c /= '\r') t in
+    if Text.null t2 then
+      Text.Builder.fromText t
     else
-      B.fromText (T.dropWhileEnd isSpace t1)
-        <> B.singleton (T.head t2)
-        <> removeTrailingSpaces (T.tail t2)
+      Text.Builder.fromText (Text.dropWhileEnd isSpace t1)
+        <> Text.Builder.singleton (Text.head t2)
+        <> removeTrailingSpaces (Text.tail t2)
 
 -- Debug a stream of tokens.
 debugTokens :: [Token] -> EndToken -> Text.Builder
@@ -462,39 +417,39 @@ debugTokens tokens endToken = mconcat (map debugToken tokens) <> debugEndToken e
 debugToken :: Token -> Text.Builder
 debugToken (Token r k lt tt) =
   mconcat (map (debugTrivia Leading) lt)
-    <> B.fromLazyText (Text.Lazy.justifyLeft 10 ' ' (B.toLazyText (debugRange r)))
-    <> B.fromText "| "
-    <> B.fromText content
-    <> B.singleton '\n'
+    <> Text.Builder.fromLazyText (Text.Lazy.justifyLeft 10 ' ' (Text.Builder.toLazyText (debugRange r)))
+    <> Text.Builder.fromText "| "
+    <> Text.Builder.fromText content
+    <> Text.Builder.singleton '\n'
     <> mconcat (map (debugTrivia Trailing) tt)
   where
     content = case k of
-      Glyph glyph -> T.snoc (T.append "Glyph `" (glyphText glyph)) '`'
-      IdentifierToken (Identifier identifier) -> T.snoc (T.append "Identifier `" identifier) '`'
-      UnexpectedChar c -> T.snoc (T.snoc "Unexpected `" c) '`'
+      Glyph glyph -> Text.snoc (Text.append "Glyph `" (glyphText glyph)) '`'
+      IdentifierToken identifier -> Text.snoc (Text.append "Identifier `" (identifierText identifier)) '`'
+      UnexpectedChar c -> Text.snoc (Text.snoc "Unexpected `" c) '`'
 
 debugEndToken :: EndToken -> Text.Builder
 debugEndToken (EndToken p lt) =
   mconcat (map (debugTrivia Leading) lt)
-    <> B.fromLazyText (Text.Lazy.justifyLeft 10 ' ' (B.toLazyText (debugPosition p)))
-    <> B.fromText "| End\n"
+    <> Text.Builder.fromLazyText (Text.Lazy.justifyLeft 10 ' ' (Text.Builder.toLazyText (debugPosition p)))
+    <> Text.Builder.fromText "| End\n"
 
 debugTrivia :: TriviaSide -> Trivia -> Text.Builder
 debugTrivia side trivia =
   (case side of { Leading -> "+"; Trailing -> "-" })
-    <> B.fromText (T.replicate 9 " ")
-    <> B.fromText "| "
+    <> Text.Builder.fromText (Text.replicate 9 " ")
+    <> Text.Builder.fromText "| "
     <> content
-    <> B.singleton '\n'
+    <> Text.Builder.singleton '\n'
   where
     content =
       case trivia of
-        Spaces n -> B.fromText "Spaces " <> B.decimal n
-        Tabs n -> B.fromText "Tabs " <> B.decimal n
-        Newlines LF n -> B.fromText "Newlines LF " <> B.decimal n
-        Newlines CR n -> B.fromText "Newlines CR " <> B.decimal n
-        Newlines CRLF n -> B.fromText "Newlines CRLF " <> B.decimal n
-        Comment (LineComment _) -> B.fromText "LineComment"
-        Comment (BlockComment _ True) -> B.fromText "BlockComment"
-        Comment (BlockComment _ False) -> B.fromText "BlockComment (unterminated)"
-        OtherWhitespace c -> B.fromText "OtherWhitespace `" <> B.singleton c <> B.singleton '`'
+        Spaces n -> Text.Builder.fromText "Spaces " <> Text.Builder.decimal n
+        Tabs n -> Text.Builder.fromText "Tabs " <> Text.Builder.decimal n
+        Newlines LF n -> Text.Builder.fromText "Newlines LF " <> Text.Builder.decimal n
+        Newlines CR n -> Text.Builder.fromText "Newlines CR " <> Text.Builder.decimal n
+        Newlines CRLF n -> Text.Builder.fromText "Newlines CRLF " <> Text.Builder.decimal n
+        Comment (LineComment _) -> Text.Builder.fromText "LineComment"
+        Comment (BlockComment _ True) -> Text.Builder.fromText "BlockComment"
+        Comment (BlockComment _ False) -> Text.Builder.fromText "BlockComment (unterminated)"
+        OtherWhitespace c -> Text.Builder.fromText "OtherWhitespace `" <> Text.Builder.singleton c <> Text.Builder.singleton '`'

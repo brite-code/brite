@@ -8,9 +8,9 @@ module Brite.Semantics.ASTDebug
   ) where
 
 import Brite.Semantics.AST
+import Brite.Syntax.Identifier
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Range
-import Brite.Syntax.Token (identifierText)
 import Data.Text (Text)
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)

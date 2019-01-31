@@ -42,6 +42,7 @@ module Brite.Semantics.AST
 import Brite.Diagnostic
 import Brite.Syntax.CST (Recover(..), PrefixOperator(..), Flexibility(..))
 import qualified Brite.Syntax.CST as CST
+import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 import Brite.Syntax.Token
 import Control.Applicative

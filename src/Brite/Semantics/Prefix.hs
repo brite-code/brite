@@ -29,8 +29,8 @@ import Brite.Semantics.Type (Polytype, Monotype)
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypePrinter (printPolytype)
 import Brite.Semantics.UnifyAbstraction
+import Brite.Syntax.Identifier
 import Brite.Syntax.Printer (printCompactType)
-import Brite.Syntax.Token (Identifier)
 import Brite.Syntax.Range
 import Control.Monad.ST
 import Data.Foldable (foldlM, traverse_)
