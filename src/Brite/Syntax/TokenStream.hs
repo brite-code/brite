@@ -146,7 +146,7 @@ nextToken stream = do
               let p2 = nextPosition 2 p1
               diagnostic <- case T.uncons t4 of
                 Nothing -> unexpectedEnding p2 ExpectedBinaryDigit
-                Just (c2, _) -> unexpectedCharacter p2 c2 ExpectedBinaryDigit
+                Just (c2, _) -> unexpectedChar p2 c2 ExpectedBinaryDigit
               error "TODO: unimplemented"
               -- token (Number (ErrorNumber diagnostic actualRaw)) 2 t4
             else

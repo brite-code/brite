@@ -56,11 +56,11 @@ module Brite.Diagnostic
   , diagnosticRange
 
   -- Diagnostic constructors.
-  , ActualSyntax(..)
+  , UnexpectedSyntax(..)
   , ExpectedSyntax(..)
   , TypeMessage(..)
   , unexpectedSyntax
-  , unexpectedCharacter
+  , unexpectedChar
   , unexpectedEnding
   , unboundVariable
   , unboundTypeVariable
@@ -140,7 +140,7 @@ data ErrorDiagnosticMessage
   -- An internal error ocurred which should never happen in production code.
   = InternalError InternalErrorDiagnosticMessage
   -- The parser ran into syntax it did not recognize.
-  | UnexpectedSyntax ActualSyntax ExpectedSyntax
+  | UnexpectedSyntax UnexpectedSyntax ExpectedSyntax
   -- The parser ran into the end of the source document unexpectedly.
   | UnexpectedEnding ExpectedSyntax
   -- The type checker ran into a variable which it could not find a binding for.
@@ -160,13 +160,13 @@ data WarningDiagnosticMessage
 
 data InfoDiagnosticMessage
 
--- What token did we actually get?
-data ActualSyntax
-  = ActualGlyph Glyph
-  | ActualIdentifier
-  | ActualChar Char
+-- What syntax did we not expect?
+data UnexpectedSyntax
+  = UnexpectedGlyph Glyph
+  | UnexpectedIdentifier
+  | UnexpectedChar' Char
 
--- What token did we expect?
+-- What syntax did we expect?
 data ExpectedSyntax
   = ExpectedGlyph Glyph
   | ExpectedIdentifier
@@ -188,13 +188,13 @@ data TypeMessage
   | FunctionMessage
 
 -- The parser ran into syntax it did not recognize.
-unexpectedSyntax :: DiagnosticMonad m => Range -> ActualSyntax -> ExpectedSyntax -> m Diagnostic
+unexpectedSyntax :: DiagnosticMonad m => Range -> UnexpectedSyntax -> ExpectedSyntax -> m Diagnostic
 unexpectedSyntax range unexpected expected = report $ Diagnostic range $ Error $
   UnexpectedSyntax unexpected expected
 
 -- The parser ran into a character it did not recognize.
-unexpectedCharacter :: DiagnosticMonad m => Position -> Char -> ExpectedSyntax -> m Diagnostic
-unexpectedCharacter position char expected = unexpectedSyntax range (ActualChar char) expected
+unexpectedChar :: DiagnosticMonad m => Position -> Char -> ExpectedSyntax -> m Diagnostic
+unexpectedChar position char expected = unexpectedSyntax range (UnexpectedChar' char) expected
   where range = Range position (nextPosition (utf16Length char) position)
 
 -- The parser ran into the end of the source document unexpectedly.
@@ -349,9 +349,9 @@ diagnosticErrorMessage (UnexpectedSyntax unexpected expected) =
     <> plain "."
   where
     unexpectedDescription = case unexpected of
-      ActualGlyph glyph -> code (glyphText glyph)
-      ActualIdentifier -> plain "a variable name"
-      ActualChar c -> code (Text.singleton c)
+      UnexpectedGlyph glyph -> code (glyphText glyph)
+      UnexpectedIdentifier -> plain "a variable name"
+      UnexpectedChar' c -> code (Text.singleton c)
 
 -- Follows the same format as the unexpected token error. Except instead of saying “we found the end
 -- of the file” we say “We wanted an expression but the file ended.” This is less abstract than

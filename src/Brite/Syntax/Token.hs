@@ -65,9 +65,9 @@ unexpectedToken :: DiagnosticMonad m => Token -> ExpectedSyntax -> m Diagnostic
 unexpectedToken token expected = unexpectedSyntax (tokenRange token) unexpected expected
   where
     unexpected = case tokenKind token of
-      Glyph glyph -> ActualGlyph glyph
-      Identifier _ -> ActualIdentifier
-      UnexpectedChar c -> ActualChar c
+      Glyph glyph -> UnexpectedGlyph glyph
+      Identifier _ -> UnexpectedIdentifier
+      UnexpectedChar c -> UnexpectedChar' c
 
 -- The last token in a document. An end token has the position at which the document ended and all
 -- the trivia between the last token and the ending.
