@@ -9,6 +9,8 @@ module Brite.Syntax.Parser
 
 import Brite.Diagnostic
 import Brite.Syntax.CST
+import Brite.Syntax.Glyph
+import Brite.Syntax.Identifier
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Token
 import Brite.Syntax.TokenStream

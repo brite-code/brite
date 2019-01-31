@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Syntax.Identifier
   ( Identifier
@@ -6,6 +7,9 @@ module Brite.Syntax.Identifier
   , identifierText
   , isIdentifierStart
   , isIdentifierContinue
+  , Keyword(..)
+  , textKeyword
+  , keywordText
   ) where
 
 import Data.Char
@@ -51,3 +55,53 @@ isIdentifierContinue :: Char -> Bool
 isIdentifierContinue c =
   isAsciiLower c || isAsciiUpper c || isDigit c || c == '_'
     || (c > '\x7f' && property XidContinue c)
+
+-- Some word that is valid identifier syntax but we reserve for the purpose of parsing.
+data Keyword
+  = Hole -- `_`
+  | True'
+  | False'
+  | Void
+  | Let
+  | If
+  | Else
+  | Do
+  | Fun
+  | Return
+  | Loop
+  | Break
+  deriving (Eq, Show)
+
+-- Tries to convert a text value into a keyword. Returns `Just` if the text value is a keyword.
+-- Returns `Nothing` if the text value is not a keyword.
+textKeyword :: Text -> Maybe Keyword
+textKeyword t =
+  case t of
+    "_" -> Just Hole
+    "true" -> Just True'
+    "false" -> Just False'
+    "void" -> Just Void
+    "let" -> Just Let
+    "if" -> Just If
+    "else" -> Just Else
+    "do" -> Just Do
+    "fun" -> Just Fun
+    "return" -> Just Return
+    "loop" -> Just Loop
+    "break" -> Just Break
+    _ -> Nothing
+
+-- Gets the raw text for a keyword.
+keywordText :: Keyword -> Text
+keywordText Hole = "_"
+keywordText True' = "true"
+keywordText False' = "false"
+keywordText Void = "void"
+keywordText Let = "let"
+keywordText If = "if"
+keywordText Else = "else"
+keywordText Do = "do"
+keywordText Fun = "fun"
+keywordText Return = "return"
+keywordText Loop = "loop"
+keywordText Break = "break"

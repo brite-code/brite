@@ -30,6 +30,7 @@ module Brite.Syntax.ParserFramework
   ) where
 
 import Brite.Diagnostic
+import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 import Brite.Syntax.Token
@@ -405,7 +406,7 @@ tryGlyphOnSameLine g = TryParser $ \ok _ throw s ->
 
 -- Always reports an unexpected token diagnostic. Typically used at the end of a choice operator
 -- chain to customize the error message.
-unexpected :: ExpectedToken -> TryParser a
+unexpected :: ExpectedSyntax -> TryParser a
 unexpected ex = TryParser $ \_ _ throw s ->
   case parserStep s of
     Right (t, _) -> throw (unexpectedToken t ex) s
@@ -413,7 +414,7 @@ unexpected ex = TryParser $ \_ _ throw s ->
 
 -- Always throws an unexpected token error if we see the provided glyph. Otherwise we run the
 -- provided parser. This is used to exclude certain tokens from a parser.
-unexpectedGlyph :: ExpectedToken -> Glyph -> TryParser a -> TryParser a
+unexpectedGlyph :: ExpectedSyntax -> Glyph -> TryParser a -> TryParser a
 unexpectedGlyph ex g p = TryParser $ \ok yield throw s ->
   case parserStep s of
     Right (t @ Token { tokenKind = Glyph g' }, _) | g == g' ->

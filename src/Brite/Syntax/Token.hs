@@ -4,17 +4,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Syntax.Token
-  ( Number(..)
-  , BinaryInteger(..)
-  , Keyword(..)
-  , textKeyword
-  , keywordText
-  , Token(..)
+  ( Token(..)
   , TokenKind(..)
+  , unexpectedToken
   , EndToken(..)
   , endTokenRange
-  , Glyph(..)
-  , glyphText
+  , Number(..)
+  , BinaryInteger(..)
   , Trivia(..)
   , Newline(..)
   , Comment(..)
@@ -27,6 +23,8 @@ module Brite.Syntax.Token
   , debugTokens
   ) where
 
+import Brite.Diagnostic
+import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 import Data.Char
@@ -36,6 +34,51 @@ import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Int as Text.Builder
+
+-- A token is a more semantic unit for describing Brite source code documents than a character.
+-- Through the tokenization of a document we add meaning by parsing low-level code elements like
+-- identifiers, numbers, strings, comments, and glyphs.
+--
+-- * The leading trivia of a token is all of the trivia which comes before the token which has not
+--   already been parsed. Comments, spaces, and newlines.
+--
+-- * The trailing trivia of a token is all of the trivia after a token _up until the first new
+--   line_. If a token is trailed by a line comment then that is part of the trailing trivia along
+--   with the newline which immediately follows but nothing else!
+data Token = Token
+  { tokenRange :: Range
+  , tokenKind :: TokenKind
+  , tokenLeadingTrivia :: [Trivia]
+  , tokenTrailingTrivia :: [Trivia]
+  } deriving (Show)
+
+-- The kind of a token.
+data TokenKind
+  = Glyph Glyph
+  | IdentifierToken Identifier
+  | Number Number
+  | UnexpectedChar Char
+  deriving (Show)
+
+-- The parser ran into a token it did not recognize.
+unexpectedToken :: DiagnosticMonad m => Token -> ExpectedSyntax -> m Diagnostic
+unexpectedToken token expected = unexpectedSyntax (tokenRange token) unexpected expected
+  where
+    unexpected = case tokenKind token of
+      Glyph glyph -> ActualGlyph glyph
+      IdentifierToken _ -> ActualIdentifier
+      UnexpectedChar c -> ActualChar c
+
+-- The last token in a document. An end token has the position at which the document ended and all
+-- the trivia between the last token and the ending.
+data EndToken = EndToken
+  { endTokenPosition :: Position
+  , endTokenTrivia :: [Trivia]
+  }
+
+-- Gets the range covered by the end token. Starts and ends at the end token position.
+endTokenRange :: EndToken -> Range
+endTokenRange (EndToken { endTokenPosition = p }) = Range p p
 
 -- A number token. A number in Brite source code could be written in a few different ways:
 --
@@ -68,189 +111,6 @@ data BinaryInteger = BinaryInteger
   -- The integer value of our binary number.
   , binaryIntegerValue :: Integer
   } deriving (Show)
-
--- Some word that is valid identifier syntax but we reserve for the purpose of parsing.
-data Keyword
-  = Hole -- `_`
-  | True'
-  | False'
-  | Void
-  | Let
-  | If
-  | Else
-  | Do
-  | Fun
-  | Return
-  | Loop
-  | Break
-  deriving (Eq, Show)
-
--- Tries to convert a text value into a keyword. Returns `Just` if the text value is a keyword.
--- Returns `Nothing` if the text value is not a keyword.
-textKeyword :: Text -> Maybe Keyword
-textKeyword t =
-  case t of
-    "_" -> Just Hole
-    "true" -> Just True'
-    "false" -> Just False'
-    "void" -> Just Void
-    "let" -> Just Let
-    "if" -> Just If
-    "else" -> Just Else
-    "do" -> Just Do
-    "fun" -> Just Fun
-    "return" -> Just Return
-    "loop" -> Just Loop
-    "break" -> Just Break
-    _ -> Nothing
-
--- Gets the raw text for a keyword.
-keywordText :: Keyword -> Text
-keywordText Hole = "_"
-keywordText True' = "true"
-keywordText False' = "false"
-keywordText Void = "void"
-keywordText Let = "let"
-keywordText If = "if"
-keywordText Else = "else"
-keywordText Do = "do"
-keywordText Fun = "fun"
-keywordText Return = "return"
-keywordText Loop = "loop"
-keywordText Break = "break"
-
--- A token is a more semantic unit for describing Brite source code documents than a character.
--- Through the tokenization of a document we add meaning by parsing low-level code elements like
--- identifiers, numbers, strings, comments, and glyphs.
---
--- * The leading trivia of a token is all of the trivia which comes before the token which has not
---   already been parsed. Comments, spaces, and newlines.
---
--- * The trailing trivia of a token is all of the trivia after a token _up until the first new
---   line_. If a token is trailed by a line comment then that is part of the trailing trivia along
---   with the newline which immediately follows but nothing else!
-data Token = Token
-  { tokenRange :: Range
-  , tokenKind :: TokenKind
-  , tokenLeadingTrivia :: [Trivia]
-  , tokenTrailingTrivia :: [Trivia]
-  }
-  deriving (Show)
-
--- The kind of a token.
-data TokenKind
-  = Glyph Glyph
-  | IdentifierToken Identifier
-  | Number Number
-  | UnexpectedChar Char
-  deriving (Show)
-
--- The last token in a document. An end token has the position at which the document ended and all
--- the trivia between the last token and the ending.
-data EndToken = EndToken
-  { endTokenPosition :: Position
-  , endTokenTrivia :: [Trivia]
-  }
-
--- Gets the range covered by the end token. Starts and ends at the end token position.
-endTokenRange :: EndToken -> Range
-endTokenRange (EndToken { endTokenPosition = p }) = Range p p
-
--- A glyph represents some constant sequence of characters that is used in Brite syntax.
-data Glyph
-  = Keyword Keyword
-  -- `&`
-  | Ampersand
-  -- `&&`
-  | AmpersandDouble
-  -- `->`
-  | Arrow
-  -- `*`
-  | Asterisk
-  -- `!`
-  | Bang
-  -- `|`
-  | Bar
-  -- `||`
-  | BarDouble
-  -- `{`
-  | BraceLeft
-  -- `}`
-  | BraceRight
-  -- `[`
-  | BracketLeft
-  -- `]`
-  | BracketRight
-  -- `^`
-  | Caret
-  -- `:`
-  | Colon
-  -- `,`
-  | Comma
-  -- `.`
-  | Dot
-  -- `=`
-  | Equals_
-  -- `==`
-  | EqualsDouble
-  -- `!=`
-  | EqualsNot
-  -- `>`
-  | GreaterThan_
-  -- `>=`
-  | GreaterThanOrEqual_
-  -- `<`
-  | LessThan_
-  -- `<=`
-  | LessThanOrEqual_
-  -- `-`
-  | Minus
-  -- `(`
-  | ParenLeft
-  -- `)`
-  | ParenRight
-  -- `%`
-  | Percent
-  -- `+`
-  | Plus
-  -- `;`
-  | Semicolon
-  -- `/`
-  | Slash
-  deriving (Eq, Show)
-
--- Gets the text representation of a glyph.
-glyphText :: Glyph -> Text
-glyphText (Keyword k) = keywordText k
-glyphText Ampersand = "&"
-glyphText AmpersandDouble = "&&"
-glyphText Arrow = "->"
-glyphText Asterisk = "*"
-glyphText Bang = "!"
-glyphText Bar = "|"
-glyphText BarDouble = "||"
-glyphText BraceLeft = "{"
-glyphText BraceRight = "}"
-glyphText BracketLeft = "["
-glyphText BracketRight = "]"
-glyphText Caret = "^"
-glyphText Colon = ":"
-glyphText Comma = ","
-glyphText Dot = "."
-glyphText Equals_ = "="
-glyphText EqualsDouble = "=="
-glyphText EqualsNot = "!="
-glyphText GreaterThan_ = ">"
-glyphText GreaterThanOrEqual_ = ">="
-glyphText LessThan_ = "<"
-glyphText LessThanOrEqual_ = "<="
-glyphText Minus = "-"
-glyphText ParenLeft = "("
-glyphText ParenRight = ")"
-glyphText Percent = "%"
-glyphText Plus = "+"
-glyphText Semicolon = ";"
-glyphText Slash = "/"
 
 -- Pieces of Brite syntax which (usually) don’t affect program behavior. Like comments or spaces.
 data Trivia

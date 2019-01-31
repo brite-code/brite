@@ -56,9 +56,10 @@ module Brite.Diagnostic
   , diagnosticRange
 
   -- Diagnostic constructors.
-  , ExpectedToken(..)
+  , ActualSyntax(..)
+  , ExpectedSyntax(..)
   , TypeMessage(..)
-  , unexpectedToken
+  , unexpectedSyntax
   , unexpectedCharacter
   , unexpectedEnding
   , unboundVariable
@@ -93,9 +94,9 @@ module Brite.Diagnostic
   ) where
 
 import Brite.DiagnosticMarkup
+import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
-import Brite.Syntax.Token
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
@@ -138,10 +139,10 @@ data DiagnosticMessage
 data ErrorDiagnosticMessage
   -- An internal error ocurred which should never happen in production code.
   = InternalError InternalErrorDiagnosticMessage
-  -- The parser ran into a token it did not recognize.
-  | UnexpectedToken ActualToken ExpectedToken
+  -- The parser ran into syntax it did not recognize.
+  | UnexpectedSyntax ActualSyntax ExpectedSyntax
   -- The parser ran into the end of the source document unexpectedly.
-  | UnexpectedEnding ExpectedToken
+  | UnexpectedEnding ExpectedSyntax
   -- The type checker ran into a variable which it could not find a binding for.
   | UnboundVariable Identifier
   -- The type checker ran into a type variable which it could not find a binding for.
@@ -160,13 +161,13 @@ data WarningDiagnosticMessage
 data InfoDiagnosticMessage
 
 -- What token did we actually get?
-data ActualToken
+data ActualSyntax
   = ActualGlyph Glyph
   | ActualIdentifier
   | ActualChar Char
 
 -- What token did we expect?
-data ExpectedToken
+data ExpectedSyntax
   = ExpectedGlyph Glyph
   | ExpectedIdentifier
   | ExpectedEnd
@@ -186,25 +187,18 @@ data TypeMessage
   | IntegerMessage
   | FunctionMessage
 
--- The parser ran into a token it did not recognize.
-unexpectedToken :: DiagnosticMonad m => Token -> ExpectedToken -> m Diagnostic
-unexpectedToken token expected = report $ Diagnostic (tokenRange token) $ Error $
-  UnexpectedToken unexpected expected
-  where
-    unexpected = case tokenKind token of
-      Glyph glyph -> ActualGlyph glyph
-      IdentifierToken _ -> ActualIdentifier
-      UnexpectedChar c -> ActualChar c
+-- The parser ran into syntax it did not recognize.
+unexpectedSyntax :: DiagnosticMonad m => Range -> ActualSyntax -> ExpectedSyntax -> m Diagnostic
+unexpectedSyntax range unexpected expected = report $ Diagnostic range $ Error $
+  UnexpectedSyntax unexpected expected
 
 -- The parser ran into a character it did not recognize.
-unexpectedCharacter :: DiagnosticMonad m => Position -> Char -> ExpectedToken -> m Diagnostic
-unexpectedCharacter position char expected = report $ Diagnostic range $ Error $
-  UnexpectedToken (ActualChar char) expected
-  where
-    range = Range position (nextPosition (utf16Length char) position)
+unexpectedCharacter :: DiagnosticMonad m => Position -> Char -> ExpectedSyntax -> m Diagnostic
+unexpectedCharacter position char expected = unexpectedSyntax range (ActualChar char) expected
+  where range = Range position (nextPosition (utf16Length char) position)
 
 -- The parser ran into the end of the source document unexpectedly.
-unexpectedEnding :: DiagnosticMonad m => Position -> ExpectedToken -> m Diagnostic
+unexpectedEnding :: DiagnosticMonad m => Position -> ExpectedSyntax -> m Diagnostic
 unexpectedEnding position expected = report $ Diagnostic (Range position position) $ Error $
   UnexpectedEnding expected
 
@@ -347,9 +341,9 @@ diagnosticErrorMessage :: ErrorDiagnosticMessage -> Markup
 --
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
-diagnosticErrorMessage (UnexpectedToken unexpected expected) =
+diagnosticErrorMessage (UnexpectedSyntax unexpected expected) =
   plain "We wanted "
-    <> expectedTokenMessage expected
+    <> expectedSyntaxMessage expected
     <> plain " but we found "
     <> unexpectedDescription
     <> plain "."
@@ -368,7 +362,7 @@ diagnosticErrorMessage (UnexpectedToken unexpected expected) =
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
 diagnosticErrorMessage (UnexpectedEnding expected) =
-  plain "We wanted " <> expectedTokenMessage expected <> plain " but the file ended."
+  plain "We wanted " <> expectedSyntaxMessage expected <> plain " but the file ended."
 
 -- Instead of saying “we could not find value `X`” or “we could not find name `X`” we say “we could
 -- not find `X`” since it should be pretty obvious to the programmer that we are referring to
@@ -465,16 +459,16 @@ diagnosticErrorMessage (InternalError x) =
       plain "Expected type variable " <> code (identifierText name) <> plain " to exist in the prefix."
 
 -- Get the message for an expected token.
-expectedTokenMessage :: ExpectedToken -> Markup
-expectedTokenMessage (ExpectedGlyph glyph) = code (glyphText glyph)
-expectedTokenMessage ExpectedIdentifier = plain "a variable name"
-expectedTokenMessage ExpectedEnd = plain "nothing more"
-expectedTokenMessage ExpectedBlockCommentEnd = code "*/"
-expectedTokenMessage ExpectedBinaryDigit = plain "a binary digit"
-expectedTokenMessage ExpectedStatement = plain "a statement"
-expectedTokenMessage ExpectedExpression = plain "an expression"
-expectedTokenMessage ExpectedPattern = plain "a variable name"
-expectedTokenMessage ExpectedType = plain "a type"
+expectedSyntaxMessage :: ExpectedSyntax -> Markup
+expectedSyntaxMessage (ExpectedGlyph glyph) = code (glyphText glyph)
+expectedSyntaxMessage ExpectedIdentifier = plain "a variable name"
+expectedSyntaxMessage ExpectedEnd = plain "nothing more"
+expectedSyntaxMessage ExpectedBlockCommentEnd = code "*/"
+expectedSyntaxMessage ExpectedBinaryDigit = plain "a binary digit"
+expectedSyntaxMessage ExpectedStatement = plain "a statement"
+expectedSyntaxMessage ExpectedExpression = plain "an expression"
+expectedSyntaxMessage ExpectedPattern = plain "a variable name"
+expectedSyntaxMessage ExpectedType = plain "a type"
 
 -- Get the message for a type message.
 typeMessage :: TypeMessage -> Markup

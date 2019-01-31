@@ -13,7 +13,7 @@ module Brite.Semantics.UnifyAbstraction
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, MonotypeDescription(..))
 import qualified Brite.Semantics.Type as Type
-import Brite.Syntax.Identifier
+import Brite.Syntax.Identifier (Identifier)
 import Data.Foldable (foldl')
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap

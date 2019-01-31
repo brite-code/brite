@@ -38,7 +38,7 @@ module Brite.Semantics.Type
 
 import Brite.Semantics.AST (Flexibility(..))
 import Brite.Semantics.Namer
-import Brite.Syntax.Identifier
+import Brite.Syntax.Identifier (Identifier)
 import Brite.Syntax.Range
 import Data.Foldable (any)
 import Data.HashSet (HashSet)
