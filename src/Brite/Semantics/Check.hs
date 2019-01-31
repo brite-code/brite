@@ -68,11 +68,17 @@ checkExpression prefix context0 astExpression = case AST.expressionNode astExpre
         diagnostic <- unboundVariable range name
         return (Type.bottom range, Expression range (ErrorExpression diagnostic Nothing))
 
+  -- Functions create a fresh type variable for their parameters which were not annotated and then
+  -- check the body type with that type variable. It is expected that through unification the
+  -- parameter type will be solved. At the very end we generalize the type variables created at this
+  -- level which weren’t updated to a higher level.
   AST.FunctionExpression (AST.Function [] [AST.FunctionParameter astPattern Nothing] Nothing astBody) ->
     Prefix.withLevel prefix $ do
       (context1, parameterType, parameter) <- checkPattern prefix context0 astPattern
       (bodyType, body) <- checkBlock prefix context1 astBody
-      error "unimplemented"
+      bodyMonotype <- Prefix.freshWithBound prefix (Type.polytypeRange bodyType) Type.Flexible bodyType
+      functionType <- Prefix.generalize prefix (Type.function range parameterType bodyMonotype)
+      return (functionType, Expression range (FunctionExpression parameter body))
 
   where
     range = AST.expressionRange astExpression
@@ -112,12 +118,12 @@ checkBlock prefix context0 astBlock = do
 
 -- Checks a pattern. This _will_ create fresh type variables in the prefix so we expect to be inside
 -- a prefix level. We will also add an entry of all names bound to the `Context`.
-checkPattern :: Prefix s -> Context -> AST.Pattern -> Check s (Context, Polytype, Pattern)
+checkPattern :: Prefix s -> Context -> AST.Pattern -> Check s (Context, Monotype, Pattern)
 checkPattern prefix context0 astPattern = case AST.patternNode astPattern of
   -- Generate a fresh type for our variable pattern and add it to our context.
   AST.VariablePattern name -> do
-    variableType <- Type.polytype <$> Prefix.fresh prefix range
-    let context1 = HashMap.insert name variableType context0
+    variableType <- Prefix.fresh prefix range
+    let context1 = HashMap.insert name (Type.polytype variableType) context0
     return (context1, variableType, Pattern range (VariablePattern name))
 
   where

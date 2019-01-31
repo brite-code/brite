@@ -52,6 +52,9 @@ data ExpressionNode
   -- `x`
   | VariableExpression Identifier
 
+  -- `fun() {}`
+  | FunctionExpression Pattern Block
+
   -- Marks the position of some error in the AVT. We may or may not have been able to recover from
   -- the error. If we recovered then the AVT node will be `Just` otherwise it will be `Nothing`.
   --
