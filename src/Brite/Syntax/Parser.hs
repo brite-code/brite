@@ -59,7 +59,7 @@ tryBindingStatement =
     <$> tryKeyword Let
     <&> pattern_
     <&> optional tryTypeAnnotation
-    <&> glyph Equals_
+    <&> glyph Equals'
     <&> expression
     <&> semicolon
 
@@ -345,10 +345,10 @@ tryInfixExpressionOperation =
     exponent_ = make Exponent <$> tryGlyph Caret <&> operand
     equals = make Equals <$> tryGlyph EqualsDouble <&> operand
     notEquals = make NotEquals <$> tryGlyph EqualsNot <&> operand
-    lessThan = make LessThan <$> tryGlyph LessThan_ <&> operand
-    lessThanOrEqual = make LessThanOrEqual <$> tryGlyph LessThanOrEqual_ <&> operand
-    greaterThan = make GreaterThan <$> tryGlyph GreaterThan_ <&> operand
-    greaterThanOrEqual = make GreaterThanOrEqual <$> tryGlyph GreaterThanOrEqual_ <&> operand
+    lessThan = make LessThan <$> tryGlyph LessThan' <&> operand
+    lessThanOrEqual = make LessThanOrEqual <$> tryGlyph LessThanOrEqual' <&> operand
+    greaterThan = make GreaterThan <$> tryGlyph GreaterThan' <&> operand
+    greaterThanOrEqual = make GreaterThanOrEqual <$> tryGlyph GreaterThanOrEqual' <&> operand
     and_ = make And <$> tryGlyph AmpersandDouble <&> operand
     or_ = make Or <$> tryGlyph BarDouble <&> operand
 
@@ -507,16 +507,16 @@ tryQuantifiedType = QuantifiedType <$> tryQuantifierList <&> type_
 tryQuantifierList :: TryParser QuantifierList
 tryQuantifierList =
   QuantifierList
-    <$> tryGlyph LessThan_
+    <$> tryGlyph LessThan'
     <&> commaList tryQuantifier
-    <&> glyph GreaterThan_
+    <&> glyph GreaterThan'
 
 tryQuantifier :: TryParser Quantifier
 tryQuantifier = Quantifier <$> tryName <&> optional tryBound
   where
     tryBound =
       (QuantifierBound Flexible <$> tryGlyph Colon <&> type_)
-        <|> (QuantifierBound Rigid <$> tryGlyph Equals_ <&> type_)
+        <|> (QuantifierBound Rigid <$> tryGlyph Equals' <&> type_)
 
 tryWrappedType :: TryParser Type
 tryWrappedType =

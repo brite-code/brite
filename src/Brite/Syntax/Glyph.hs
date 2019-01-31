@@ -42,19 +42,19 @@ data Glyph
   -- `.`
   | Dot
   -- `=`
-  | Equals_
+  | Equals'
   -- `==`
   | EqualsDouble
   -- `!=`
   | EqualsNot
   -- `>`
-  | GreaterThan_
+  | GreaterThan'
   -- `>=`
-  | GreaterThanOrEqual_
+  | GreaterThanOrEqual'
   -- `<`
-  | LessThan_
+  | LessThan'
   -- `<=`
-  | LessThanOrEqual_
+  | LessThanOrEqual'
   -- `-`
   | Minus
   -- `(`
@@ -89,13 +89,13 @@ glyphText Caret = "^"
 glyphText Colon = ":"
 glyphText Comma = ","
 glyphText Dot = "."
-glyphText Equals_ = "="
+glyphText Equals' = "="
 glyphText EqualsDouble = "=="
 glyphText EqualsNot = "!="
-glyphText GreaterThan_ = ">"
-glyphText GreaterThanOrEqual_ = ">="
-glyphText LessThan_ = "<"
-glyphText LessThanOrEqual_ = "<="
+glyphText GreaterThan' = ">"
+glyphText GreaterThanOrEqual' = ">="
+glyphText LessThan' = "<"
+glyphText LessThanOrEqual' = "<="
 glyphText Minus = "-"
 glyphText ParenLeft = "("
 glyphText ParenRight = ")"

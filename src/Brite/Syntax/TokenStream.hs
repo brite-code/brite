@@ -96,13 +96,13 @@ nextToken stream = do
     Just ('|', t2) | not (T.null t2) && T.head t2 == '|' -> token (Glyph BarDouble) 2 (T.tail t2)
     Just ('|', t2) -> token (Glyph Bar) 1 t2
     Just ('=', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsDouble) 2 (T.tail t2)
-    Just ('=', t2) -> token (Glyph Equals_) 1 t2
+    Just ('=', t2) -> token (Glyph Equals') 1 t2
     Just ('!', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsNot) 2 (T.tail t2)
     Just ('!', t2) -> token (Glyph Bang) 1 t2
-    Just ('>', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph GreaterThanOrEqual_) 2 (T.tail t2)
-    Just ('>', t2) -> token (Glyph GreaterThan_) 1 t2
-    Just ('<', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph LessThanOrEqual_) 2 (T.tail t2)
-    Just ('<', t2) -> token (Glyph LessThan_) 1 t2
+    Just ('>', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph GreaterThanOrEqual') 2 (T.tail t2)
+    Just ('>', t2) -> token (Glyph GreaterThan') 1 t2
+    Just ('<', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph LessThanOrEqual') 2 (T.tail t2)
+    Just ('<', t2) -> token (Glyph LessThan') 1 t2
     Just ('-', t2) | not (T.null t2) && T.head t2 == '>' -> token (Glyph Arrow) 2 (T.tail t2)
     Just ('-', t2) -> token (Glyph Minus) 1 t2
 
