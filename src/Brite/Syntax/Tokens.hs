@@ -44,6 +44,7 @@ module Brite.Syntax.Tokens
   , debugTokens
   ) where
 
+import Brite.Syntax.TokensNumber
 import Data.Bits ((.&.))
 import Data.Char
 import Data.Hashable (Hashable)
@@ -447,6 +448,8 @@ nextToken (TokenStream p0 t0) =
     Just ('-', t2) -> token (Glyph Minus) 1 t2
 
     -- Identifier
+    --
+    -- TODO: Must not be followed by a number.
     Just (c, _) | isIdentifierStart c ->
       let
         (ident, n, t2) =
@@ -457,6 +460,17 @@ nextToken (TokenStream p0 t0) =
         case keyword ident of
           Just k -> token (Glyph (Keyword k)) n t2
           Nothing -> token (IdentifierToken (Identifier ident)) n t2
+
+    -- Number
+    --
+    -- TODO: Must not be followed by an identifier.
+    -- TODO: Binary and hexadecimal must be followed by at least one digit.
+    Just (c0, t2) | Just d0 <- charDecimalDigit c0 ->
+      case (d0, T.uncons t2) of
+        (D0, Just c1) | c1 == 'b' || c == 'B' ->
+          error "unimplemented"
+
+        (D0, Just c) | c == 'x' || c == 'X' -> error "TODO: unimplemented"
 
     -- Unexpected character
     Just (c, t2) -> token (UnexpectedChar c) (utf16Length c) t2
