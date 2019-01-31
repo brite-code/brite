@@ -18,6 +18,7 @@ module Brite.Syntax.ParserFramework
   , tryGlyph
   , tryKeyword
   , tryIdentifier
+  , tryNumber
   , tryOnce
   , tryGlyphOnSameLine
   , unexpected
@@ -381,6 +382,14 @@ tryIdentifier = TryParser $ \ok _ throw s ->
     Right (t @ Token { tokenKind = Identifier i }, ts) -> eatToken t ts s >>= ok (pure (i, t))
     Right (t, _) -> throw (unexpectedToken t ExpectedIdentifier) s
     Left t -> throw (unexpectedEnding (endTokenPosition t) ExpectedIdentifier) s
+
+-- Tries to parse a number.
+tryNumber :: TryParser (NumberToken, Token)
+tryNumber = TryParser $ \ok _ throw s ->
+  case parserStep s of
+    Right (t @ Token { tokenKind = Number n }, ts) -> eatToken t ts s >>= ok (pure (n, t))
+    Right (t, _) -> throw (unexpectedToken t ExpectedNumber) s
+    Left t -> throw (unexpectedEnding (endTokenPosition t) ExpectedNumber) s
 
 -- Tries running the `TryParser` once. If it fails then we defer to the full `Parser`. Remember that
 -- unlike the choice operator (`<|>`) combined with `retry` we won’t retry the `TryParser` in case

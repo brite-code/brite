@@ -183,6 +183,8 @@ data Constant
   = VoidConstant Token
   -- `true`, `false`
   | BooleanConstant Bool Token
+  -- `42`, `3.1415`
+  | NumberConstant NumberToken Token
 
 -- Some instructions our programming language interprets to return a value and possibly perform
 -- some side effects.
@@ -551,6 +553,7 @@ statementFirstToken (FunctionDeclaration t _ _) = t
 expressionFirstToken :: Expression -> Token
 expressionFirstToken (ConstantExpression (VoidConstant t)) = t
 expressionFirstToken (ConstantExpression (BooleanConstant _ t)) = t
+expressionFirstToken (ConstantExpression (NumberConstant _ t)) = t
 expressionFirstToken (VariableExpression (Name _ t)) = t
 expressionFirstToken (FunctionExpression t _) = t
 expressionFirstToken (ObjectExpression t _ _ _) = t
@@ -640,6 +643,7 @@ blockTokens (Block t1 ss t2) =
 constantTokens :: Constant -> Tokens
 constantTokens (VoidConstant t) = singletonToken t
 constantTokens (BooleanConstant _ t) = singletonToken t
+constantTokens (NumberConstant _ t) = singletonToken t
 
 -- Get tokens from an expression.
 expressionTokens :: Expression -> Tokens

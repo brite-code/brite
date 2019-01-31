@@ -59,6 +59,7 @@ module Brite.Syntax.PrinterAST
 import Brite.Syntax.CST (Recover(..), PrefixOperator(..), InfixOperator(..), Flexibility(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Identifier
+import Brite.Syntax.Number
 import Brite.Syntax.Token
 import Control.Applicative ((<|>))
 import Data.Foldable (foldlM, foldrM)
@@ -196,6 +197,8 @@ data Constant
   = VoidConstant
   -- `true`, `false`
   | BooleanConstant Bool
+  -- `42`, `3.1415`
+  | NumberConstant Number
 
 data Expression = Expression
   -- The leading comments that are attached to this expression.
@@ -907,15 +910,19 @@ convertBlock (CST.Block t1' ss t2') = do
   return (token t1 *> block <* token t2)
 
 -- Convert a CST constant into an AST constant.
-convertConstant :: CST.Constant -> Conversion Constant
+convertConstant :: CST.Constant -> Panic (Conversion Constant)
 convertConstant c = case c of
-  CST.VoidConstant t -> token t *> pure VoidConstant
-  CST.BooleanConstant b t -> token t *> pure (BooleanConstant b)
+  CST.VoidConstant t -> return (token t *> pure VoidConstant)
+  CST.BooleanConstant b t -> return (token t *> pure (BooleanConstant b))
+  CST.NumberConstant (InvalidNumberToken _ _) _ -> panic
+  CST.NumberConstant (NumberToken n) t -> return (token t *> pure (NumberConstant n))
 
 -- Convert a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Panic (Conversion Expression)
 convertExpression x0 = case x0 of
-  CST.ConstantExpression c -> return (group Expression (ConstantExpression <$> convertConstant c))
+  CST.ConstantExpression c' -> do
+    c <- convertConstant c'
+    return (group Expression (ConstantExpression <$> c))
 
   CST.VariableExpression (CST.Name n t) ->
     return (group Expression (token t *> pure (VariableExpression n)))
@@ -1043,7 +1050,9 @@ convertExpression x0 = case x0 of
 -- Convert a CST pattern into an AST pattern.
 convertPattern :: CST.Pattern -> Panic (Conversion Pattern)
 convertPattern x0 = case x0 of
-  CST.ConstantPattern c -> return (group Pattern (ConstantPattern <$> convertConstant c))
+  CST.ConstantPattern c' -> do
+    c <- convertConstant c'
+    return (group Pattern (ConstantPattern <$> c))
 
   CST.VariablePattern (CST.Name n t) ->
     return (group Pattern (token t *> pure (VariablePattern n)))

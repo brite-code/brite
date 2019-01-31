@@ -171,6 +171,7 @@ data UnexpectedSyntax
 data ExpectedSyntax
   = ExpectedGlyph Glyph
   | ExpectedIdentifier
+  | ExpectedNumber
   | ExpectedEnd
   | ExpectedBlockCommentEnd
   | ExpectedDecimalDigit
@@ -466,6 +467,7 @@ diagnosticErrorMessage (InternalError x) =
 expectedSyntaxMessage :: ExpectedSyntax -> Markup
 expectedSyntaxMessage (ExpectedGlyph glyph) = code (glyphText glyph)
 expectedSyntaxMessage ExpectedIdentifier = plain "a variable name"
+expectedSyntaxMessage ExpectedNumber = plain "a number"
 expectedSyntaxMessage ExpectedEnd = plain "nothing more"
 expectedSyntaxMessage ExpectedBlockCommentEnd = code "*/"
 

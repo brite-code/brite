@@ -884,6 +884,22 @@ testData =
   , "fun<T>"
   , "fun()"
   , "fun() -> T"
+  , "0"
+  , "1"
+  , "3.1415"
+  , "1e2"
+  , "1e+2"
+  , "1e-2"
+  , "0b101"
+  , "0xCO55EE"
+  , "let 0 = x"
+  , "let 1 = x"
+  , "let 3.1415 = x"
+  , "let 1e2 = x"
+  , "let 1e+2 = x"
+  , "let 1e-2 = x"
+  , "let 0b101 = x"
+  , "let 0xCO55EE = x"
   ]
 
 openSnapshotFile :: IO Handle

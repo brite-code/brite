@@ -21,10 +21,11 @@ module Brite.Syntax.Printer
 
 import Brite.Syntax.CST (recoverStatementTokens)
 import Brite.Syntax.Identifier
+import Brite.Syntax.Number
 import Brite.Syntax.PrinterAST
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Token
-import Data.Char (isSpace)
+import Data.Char (isDigit, isSpace)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)
@@ -317,10 +318,46 @@ printBlock = group . printUngroupedBlock
 
 -- Prints a constant.
 printConstant :: Constant -> Document
-printConstant c = case c of
+printConstant constant = case constant of
   VoidConstant -> text "void"
   BooleanConstant True -> text "true"
   BooleanConstant False -> text "false"
+  NumberConstant (DecimalInteger raw _) -> text raw
+  NumberConstant (BinaryInteger _ raw _) -> text "0b" <> text raw
+
+  -- Convert all the letters in a hexadecimal integer to uppercase.
+  NumberConstant (HexadecimalInteger _ raw _) -> text "0x" <> text (Text.toUpper raw)
+
+  -- We do a couple of things to pretty print a float:
+  --
+  -- * If a `.` is at the very beginning of the number then add a 0 to the number’s beginning.
+  -- * If a `.` is not followed by a digit then we remove it.
+  -- * Lowercase `E` to `e`.
+  -- * Drop the `+` in `e+`.
+  NumberConstant (DecimalFloat raw0 _) -> text $
+    Text.unfoldr
+      (\acc ->
+        let
+          loop (first, raw1) =
+            case (first, Text.uncons raw1) of
+              -- If we see a `.` at the very beginning of our number, then insert a 0.
+              (True, Just ('.', _)) -> Just ('0', (False, raw1))
+
+              -- If we see a `.` which is not immediately followed by a digit then drop the `.`.
+              (_, Just ('.', raw2)) | not (not (Text.null raw2) && isDigit (Text.head raw2)) -> loop (False, raw2)
+
+              -- Convert an uppercase `E` into a lower case `e` and if we see a `+` immediately
+              -- following the `e`, remove it.
+              (_, Just ('e', raw2)) | not (Text.null raw2) && Text.head raw2 == '+' -> Just ('e', (False, Text.tail raw2))
+              (_, Just ('E', raw2)) | not (Text.null raw2) && Text.head raw2 == '+' -> Just ('e', (False, Text.tail raw2))
+              (_, Just ('E', raw2)) -> Just ('e', (False, raw2))
+
+              -- Add to the number like normal.
+              (_, Just (c, raw2)) -> Just (c, (False, raw2))
+              (_, Nothing) -> Nothing
+        in
+          loop acc)
+      (True, raw0)
 
 -- Prints an expression.
 printExpression :: Precedence -> Expression -> Document

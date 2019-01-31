@@ -110,7 +110,7 @@ block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
 
 tryConstant :: TryParser Constant
-tryConstant = tryBooleanTrue <|> tryBooleanFalse <|> tryVoidConstant
+tryConstant = tryBooleanTrue <|> tryBooleanFalse <|> tryNumberConstant <|> tryVoidConstant
 
 tryVoidConstant :: TryParser Constant
 tryVoidConstant = VoidConstant <$> tryKeyword Void
@@ -120,6 +120,9 @@ tryBooleanTrue = BooleanConstant True <$> tryKeyword True'
 
 tryBooleanFalse :: TryParser Constant
 tryBooleanFalse = BooleanConstant False <$> tryKeyword False'
+
+tryNumberConstant :: TryParser Constant
+tryNumberConstant = uncurry NumberConstant <$> tryNumber
 
 -- Ordered roughly by frequency. Parsers that are more likely to match go first.
 tryPrimaryExpression :: TryParser Expression
