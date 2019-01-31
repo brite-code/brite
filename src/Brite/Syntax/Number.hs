@@ -29,9 +29,17 @@ data Number
   -- An integer written in binary form. The boolean is true if the “b” after `0` was lowercase. Then
   -- we have the integer’s raw text form and value.
   = BinaryInteger Bool Text Integer
+
+  -- `0xFFF`
+  --
+  -- An integer written in hexadecimal form. The boolean is true if the “x” after `0` was lowercase.
+  -- Then we have the integer’s raw text form and value.
+  | HexadecimalInteger Bool Text Integer
   deriving (Show)
 
 -- Gets the source code for a number.
 numberSource :: Number -> Text.Builder
 numberSource (BinaryInteger True raw _) = Text.Builder.fromText "0b" <> Text.Builder.fromText raw
 numberSource (BinaryInteger False raw _) = Text.Builder.fromText "0B" <> Text.Builder.fromText raw
+numberSource (HexadecimalInteger True raw _) = Text.Builder.fromText "0x" <> Text.Builder.fromText raw
+numberSource (HexadecimalInteger False raw _) = Text.Builder.fromText "0X" <> Text.Builder.fromText raw

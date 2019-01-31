@@ -174,6 +174,7 @@ data ExpectedSyntax
   | ExpectedEnd
   | ExpectedBlockCommentEnd
   | ExpectedBinaryDigit
+  | ExpectedHexadecimalDigit
   | ExpectedStatement
   | ExpectedExpression
   | ExpectedPattern
@@ -467,6 +468,7 @@ expectedSyntaxMessage ExpectedIdentifier = plain "a variable name"
 expectedSyntaxMessage ExpectedEnd = plain "nothing more"
 expectedSyntaxMessage ExpectedBlockCommentEnd = code "*/"
 expectedSyntaxMessage ExpectedBinaryDigit = plain "a binary digit"
+expectedSyntaxMessage ExpectedHexadecimalDigit = plain "a hexadecimal digit"
 expectedSyntaxMessage ExpectedStatement = plain "a statement"
 expectedSyntaxMessage ExpectedExpression = plain "an expression"
 expectedSyntaxMessage ExpectedPattern = plain "a variable name"

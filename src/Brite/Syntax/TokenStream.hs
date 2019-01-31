@@ -154,8 +154,54 @@ nextToken stream = do
                 numberToken (NumberToken n) ExpectedBinaryDigit (2 + finalDigits) t4
 
         -- Parse a hexadecimal integer
-        ('0', Just (c1, _)) | c1 == 'x' || c1 == 'X' ->
-          error "TODO: unimplemented"
+        ('0', Just (c1, t3)) | c1 == 'x' || c1 == 'X' ->
+          let
+            -- Parse a hexadecimal number. Build up the value and count the number of digits.
+            (raw, (finalValue, finalDigits), t4) =
+              T.spanWithState
+                (\(value, digits) c2 ->
+                  case c2 of
+                    '0' -> Just (value * 16 + 0, digits + 1)
+                    '1' -> Just (value * 16 + 1, digits + 1)
+                    '2' -> Just (value * 16 + 2, digits + 1)
+                    '3' -> Just (value * 16 + 3, digits + 1)
+                    '4' -> Just (value * 16 + 4, digits + 1)
+                    '5' -> Just (value * 16 + 5, digits + 1)
+                    '6' -> Just (value * 16 + 6, digits + 1)
+                    '7' -> Just (value * 16 + 7, digits + 1)
+                    '8' -> Just (value * 16 + 8, digits + 1)
+                    '9' -> Just (value * 16 + 9, digits + 1)
+                    'a' -> Just (value * 16 + 10, digits + 1)
+                    'b' -> Just (value * 16 + 11, digits + 1)
+                    'c' -> Just (value * 16 + 12, digits + 1)
+                    'd' -> Just (value * 16 + 13, digits + 1)
+                    'e' -> Just (value * 16 + 14, digits + 1)
+                    'f' -> Just (value * 16 + 15, digits + 1)
+                    'A' -> Just (value * 16 + 10, digits + 1)
+                    'B' -> Just (value * 16 + 11, digits + 1)
+                    'C' -> Just (value * 16 + 12, digits + 1)
+                    'D' -> Just (value * 16 + 13, digits + 1)
+                    'E' -> Just (value * 16 + 14, digits + 1)
+                    'F' -> Just (value * 16 + 15, digits + 1)
+                    _ -> Nothing)
+                (0, 0)
+                t3
+          in
+            -- If we didn’t parse any digits then report an error.
+            if finalDigits == 0 then do
+              let actualRaw = T.singleton '0' `T.snoc` c1
+              let p2 = nextPosition 2 p1
+              -- Report a diagnostic saying that we expected a hexadecimal digit.
+              diagnostic <- case T.uncons t4 of
+                Nothing -> unexpectedEnding p2 ExpectedHexadecimalDigit
+                Just (c2, _) -> unexpectedChar p2 c2 ExpectedHexadecimalDigit
+              -- Return an invalid number token.
+              numberToken (InvalidNumberToken diagnostic actualRaw) ExpectedHexadecimalDigit 2 t4
+
+            -- Otherwise we have a valid hexadecimal integer!
+            else
+              let n = HexadecimalInteger (c1 == 'x') raw finalValue in
+                numberToken (NumberToken n) ExpectedHexadecimalDigit (2 + finalDigits) t4
 
       where
         -- Constructs a number token while also checking for characters we don’t allow to come after

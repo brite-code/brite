@@ -278,6 +278,9 @@ debugToken (Token r k lt tt) =
               go 1 = Text.Builder.singleton '1'
               go n = go (n `quot` 2) <> go (n `rem` 2)
 
+      Number (NumberToken (HexadecimalInteger _ _ value)) ->
+        Text.Builder.fromText "HexadecimalInteger `" <> Text.Builder.hexadecimal value <> Text.Builder.singleton '`'
+
       Number (InvalidNumberToken _ raw) ->
         Text.Builder.fromText "InvalidNumber `" <> Text.Builder.fromText raw <> Text.Builder.singleton '`'
 
