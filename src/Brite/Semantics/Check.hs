@@ -54,7 +54,7 @@ type Context = HashMap Identifier Polytype
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 checkExpression :: Prefix s -> Context -> AST.Expression -> Check s (Polytype, Expression)
-checkExpression prefix context0 astExpression = case AST.expressionNode astExpression of
+checkExpression prefix context astExpression = case AST.expressionNode astExpression of
   -- Constant expressions are nice and simple.
   AST.ConstantExpression astConstant ->
     let (constantType, constant) = checkConstant range astConstant in
@@ -64,7 +64,7 @@ checkExpression prefix context0 astExpression = case AST.expressionNode astExpre
   -- variable’s type in context. Otherwise report a diagnostic and return an `ErrorExpression` with
   -- a bottom type which will panic at runtime.
   AST.VariableExpression name ->
-    case HashMap.lookup name context0 of
+    case HashMap.lookup name context of
       Just t -> return (t, Expression range (VariableExpression name))
       Nothing -> do
         diagnostic <- unboundVariable range name
@@ -76,7 +76,7 @@ checkExpression prefix context0 astExpression = case AST.expressionNode astExpre
   -- level which weren’t updated to a higher level.
   AST.FunctionExpression (AST.Function [] [AST.FunctionParameter astPattern Nothing] Nothing astBody) ->
     Prefix.withLevel prefix $ do
-      (context1, parameterType, parameter) <- checkPattern prefix context0 astPattern
+      (context1, parameterType, parameter) <- checkPattern prefix context astPattern
       (bodyType, body) <- checkBlock prefix context1 astBody
       bodyMonotype <- Prefix.freshWithBound prefix Flexible bodyType
       functionType <- Prefix.generalize prefix (Type.function range parameterType bodyMonotype)
@@ -89,8 +89,8 @@ checkExpression prefix context0 astExpression = case AST.expressionNode astExpre
   -- updated to a higher level.
   AST.CallExpression astCallee [astArgument] -> do
     -- Type check the callee and argument.
-    (calleeType, callee) <- checkExpression prefix context0 astCallee
-    (argumentType, argument) <- checkExpression prefix context0 astArgument
+    (calleeType, callee) <- checkExpression prefix context astCallee
+    (argumentType, argument) <- checkExpression prefix context astArgument
     -- Create a new prefix level...
     Prefix.withLevel prefix $ do
       -- Convert the callee and argument polytypes into monotypes.
@@ -120,6 +120,11 @@ checkExpression prefix context0 astExpression = case AST.expressionNode astExpre
           name <- functionName object
           return (name `Text.snoc` '.' `Text.append` identifierText (AST.nameIdentifier property))
         _ -> Nothing
+
+  -- Type checking a block expression defers to `checkBlock`.
+  AST.BlockExpression astBlock -> do
+    (blockType, block) <- checkBlock prefix context astBlock
+    return (blockType, Expression range (BlockExpression block))
 
   where
     range = AST.expressionRange astExpression
