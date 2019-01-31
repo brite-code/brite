@@ -13,6 +13,7 @@ module Brite.Semantics.AVT
   ) where
 
 import Brite.Diagnostic
+import Brite.Semantics.Type (Polytype)
 import Brite.Syntax.Tokens (Range(..), Identifier)
 
 newtype Statement = Statement
@@ -60,6 +61,12 @@ data ExpressionNode
 
   -- `do {}`
   | BlockExpression Block
+
+  -- `(E: T)`
+  --
+  -- NOTE: We only remember wrapped expressions with a type annotation in our AVT. We don’t remember
+  -- plain ol’ wrapped expressions with no type annotation.
+  | WrappedExpression Expression Polytype
 
   -- Marks the position of some error in the AVT. We may or may not have been able to recover from
   -- the error. If we recovered then the AVT node will be `Just` otherwise it will be `Nothing`.

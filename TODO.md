@@ -1,5 +1,9 @@
 # TODO
 
+1. IDE tooling
+2. Linting
+3. Modules
+
 ## Misc Ideas
 
 - Relational expressions form a complete relation. e.g. `a < b < c` is the same

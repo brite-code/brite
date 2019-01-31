@@ -70,6 +70,7 @@ module Brite.Diagnostic
   , UnifyStack
   , testStack
   , functionCallStack
+  , expressionAnnotationStack
   , functionParameterFrame
   , functionBodyFrame
 
@@ -247,6 +248,7 @@ data UnifyStack
 data UnifyStackOperation
   = UnifyTest
   | UnifyFunctionCall (Maybe Text)
+  | UnifyExpressionAnnotation
 
 data UnifyStackFrame
   = UnifyFunctionParameter
@@ -267,6 +269,10 @@ testStack range = UnifyStackOperation range UnifyTest
 -- A function call operation.
 functionCallStack :: Range -> Maybe Text -> UnifyStack
 functionCallStack range name = UnifyStackOperation range (UnifyFunctionCall name)
+
+-- An expression annotation operation.
+expressionAnnotationStack :: Range -> UnifyStack
+expressionAnnotationStack range = UnifyStackOperation range UnifyExpressionAnnotation
 
 -- Adds a function parameter frame to the unification stack.
 --
@@ -461,6 +467,12 @@ unifyStackOperationMessage UnifyTest = plain "Test failed" -- NOTE: We should on
 -- We use “Can not” instead of “Cannot” because the former is simpler to read.
 unifyStackOperationMessage (UnifyFunctionCall Nothing) = plain "Can not call function"
 unifyStackOperationMessage (UnifyFunctionCall (Just name)) = plain "Can not call " <> code name
+
+-- We don’t want to use the word “cast” even though that’s pretty common programming language
+-- terminology. Instead the simpler phrasing of “changing a type” will do.
+--
+-- TODO: Change “cannot change this type” to “Cannot change `x`’s type”
+unifyStackOperationMessage UnifyExpressionAnnotation = plain "Can not change this type"
 
 -- A message for pushing people to our issue tracker when they encounter an unexpected error.
 --

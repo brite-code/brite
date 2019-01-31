@@ -91,7 +91,7 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
     -- Type check the callee and argument.
     (calleeType, callee) <- checkExpression prefix context astCallee
     (argumentType, argument) <- checkExpression prefix context astArgument
-    -- Create a new prefix level...
+
     Prefix.withLevel prefix $ do
       -- Convert the callee and argument polytypes into monotypes.
       calleeMonotype <- Prefix.freshWithBound prefix Flexible calleeType
@@ -104,13 +104,11 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
       -- Unify with a function call operation. Use the name of a variable or property expression in
       -- the error message.
       let stack = functionCallStack range (functionName astCallee)
-      unifyResult <- unify stack prefix calleeMonotype expectedCalleeType
+      result <- unify stack prefix calleeMonotype expectedCalleeType
       -- Generalize the body type so we don’t lose the type variables it references!
       bodyType <- Prefix.generalize prefix bodyMonotype
       -- If unification failed then insert an `ErrorExpression` so that we’ll panic at runtime.
-      case unifyResult of
-        Right () -> return (bodyType, Expression range (CallExpression callee [argument]))
-        Left err -> return (bodyType, Expression range (ErrorExpression err (Just (CallExpression callee [argument]))))
+      return (bodyType, addError result (Expression range (CallExpression callee [argument])))
     where
       -- Gets a name that we can use in an error message from an AST expression.
       functionName x = case AST.expressionNode x of
@@ -126,8 +124,39 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
     (blockType, block) <- checkBlock prefix context astBlock
     return (blockType, Expression range (BlockExpression block))
 
+  -- A type annotation tests whether the annotated value has a type equivalent to the annotation. We
+  -- test the equivalence of the two types with unification.
+  --
+  -- Notably we use a rigid type bound for the annotation. This is because we don’t want to
+  -- instantiate bounds of the annotation. Otherwise we might let `(add1: ∀a.a → a)` pass type
+  -- checking! This would allow us to pass _any value_ to the `add1` function whose signature is
+  -- `number → number`. This would be bad. We need to error.
+  AST.WrappedExpression astWrapped (Just astAnnotation) -> do
+    -- Type check the wrapped expression and its type annotation.
+    (wrappedType, wrapped) <- checkExpression prefix context astWrapped
+    annotation <- liftDiagnosticWriter $ checkPolytype HashSet.empty astAnnotation
+
+    Prefix.withLevel prefix $ do
+      -- Convert the appropriate types to monotypes.
+      wrappedMonotype <- Prefix.freshWithBound prefix Flexible wrappedType
+      annotationMonotype <- Prefix.freshWithBound prefix Rigid annotation
+      -- Unify the actual wrapped value’s type with the annotation type.
+      let stack = expressionAnnotationStack range
+      result <- unify stack prefix wrappedMonotype annotationMonotype
+      -- Return a wrapped expression and add the resulting error.
+      --
+      -- TODO: Test hover diagnostics for wrapped types.
+      return (annotation, addError result (Expression range (WrappedExpression wrapped annotation)))
+
+  -- Wrapped expressions with no annotation do nothing.
+  AST.WrappedExpression astWrapped Nothing ->
+    checkExpression prefix context astWrapped
+
   where
     range = AST.expressionRange astExpression
+
+    addError (Right ()) x = x
+    addError (Left e) (Expression r x) = Expression r (ErrorExpression e (Just x))
 
 -- Checks a constant and returns the type of the constant and the AVT representation of
 -- the constant.
