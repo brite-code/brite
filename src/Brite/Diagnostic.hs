@@ -173,6 +173,7 @@ data ExpectedSyntax
   | ExpectedIdentifier
   | ExpectedEnd
   | ExpectedBlockCommentEnd
+  | ExpectedDecimalDigit
   | ExpectedBinaryDigit
   | ExpectedHexadecimalDigit
   | ExpectedStatement
@@ -467,8 +468,17 @@ expectedSyntaxMessage (ExpectedGlyph glyph) = code (glyphText glyph)
 expectedSyntaxMessage ExpectedIdentifier = plain "a variable name"
 expectedSyntaxMessage ExpectedEnd = plain "nothing more"
 expectedSyntaxMessage ExpectedBlockCommentEnd = code "*/"
+
+-- If the user types `0b` or `0x` then, presumably, they know what they are doing and want a binary
+-- or hexadecimal number. So using phrasing like “hexadecimal digit” will confuse them. If a
+-- beginner stumbles upon the error message accidentally they have something clear to search for.
+--
+-- Otherwise, if the user types an incorrect number like `0px` we will say that we expect a _number_
+-- instead of expected a “digit” because “number” is simpler vocabulary.
+expectedSyntaxMessage ExpectedDecimalDigit = plain "a number"
 expectedSyntaxMessage ExpectedBinaryDigit = plain "a binary digit"
 expectedSyntaxMessage ExpectedHexadecimalDigit = plain "a hexadecimal digit"
+
 expectedSyntaxMessage ExpectedStatement = plain "a statement"
 expectedSyntaxMessage ExpectedExpression = plain "an expression"
 expectedSyntaxMessage ExpectedPattern = plain "a variable name"

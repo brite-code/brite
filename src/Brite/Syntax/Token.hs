@@ -268,6 +268,9 @@ debugToken (Token r k lt tt) =
       Identifier identifier ->
         Text.Builder.fromText "Identifier `" <> Text.Builder.fromText (identifierText identifier) <> Text.Builder.singleton '`'
 
+      Number (NumberToken (DecimalInteger _ value)) ->
+        Text.Builder.fromText "DecimalInteger `" <> Text.Builder.decimal value <> Text.Builder.singleton '`'
+
       Number (NumberToken (BinaryInteger _ _ value)) ->
         Text.Builder.fromText "BinaryInteger `" <> binary value <> Text.Builder.singleton '`'
         where
@@ -280,6 +283,9 @@ debugToken (Token r k lt tt) =
 
       Number (NumberToken (HexadecimalInteger _ _ value)) ->
         Text.Builder.fromText "HexadecimalInteger `" <> Text.Builder.hexadecimal value <> Text.Builder.singleton '`'
+
+      Number (NumberToken (DecimalFloat _ value)) ->
+        Text.Builder.fromText "DecimalFloat `" <> Text.Builder.fromString (show value) <> Text.Builder.singleton '`'
 
       Number (InvalidNumberToken _ raw) ->
         Text.Builder.fromText "InvalidNumber `" <> Text.Builder.fromText raw <> Text.Builder.singleton '`'

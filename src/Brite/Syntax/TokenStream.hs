@@ -84,7 +84,6 @@ nextToken stream = do
     Just ('^', t2) -> token (Glyph Caret) 1 t2
     Just (':', t2) -> token (Glyph Colon) 1 t2
     Just (',', t2) -> token (Glyph Comma) 1 t2
-    Just ('.', t2) -> token (Glyph Dot) 1 t2
     Just ('(', t2) -> token (Glyph ParenLeft) 1 t2
     Just (')', t2) -> token (Glyph ParenRight) 1 t2
     Just ('%', t2) -> token (Glyph Percent) 1 t2
@@ -97,6 +96,7 @@ nextToken stream = do
     Just ('&', t2) -> token (Glyph Ampersand) 1 t2
     Just ('|', t2) | not (T.null t2) && T.head t2 == '|' -> token (Glyph BarDouble) 2 (T.tail t2)
     Just ('|', t2) -> token (Glyph Bar) 1 t2
+    Just ('.', t2) | not (not (T.null t2) && isDigit (T.head t2)) -> token (Glyph Dot) 1 t2
     Just ('=', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsDouble) 2 (T.tail t2)
     Just ('=', t2) -> token (Glyph Equals') 1 t2
     Just ('!', t2) | not (T.null t2) && T.head t2 == '=' -> token (Glyph EqualsNot) 2 (T.tail t2)
@@ -121,7 +121,7 @@ nextToken stream = do
           Nothing -> token (Identifier (unsafeIdentifier ident)) n t2
 
     -- Number
-    Just (c0, t2) | isDigit c0 ->
+    Just (c0, t2) | isDigit c0 || c0 == '.' ->
       case (c0, T.uncons t2) of
         -- Parse a binary integer
         ('0', Just (c1, t3)) | c1 == 'b' || c1 == 'B' ->
@@ -140,8 +140,8 @@ nextToken stream = do
             -- If we didn’t parse any digits then report an error.
             if finalDigits == 0 then do
               let actualRaw = T.singleton '0' `T.snoc` c1
-              let p2 = nextPosition 2 p1
               -- Report a diagnostic saying that we expected a binary digit.
+              let p2 = nextPosition 2 p1
               diagnostic <- case T.uncons t4 of
                 Nothing -> unexpectedEnding p2 ExpectedBinaryDigit
                 Just (c2, _) -> unexpectedChar p2 c2 ExpectedBinaryDigit
@@ -190,8 +190,8 @@ nextToken stream = do
             -- If we didn’t parse any digits then report an error.
             if finalDigits == 0 then do
               let actualRaw = T.singleton '0' `T.snoc` c1
-              let p2 = nextPosition 2 p1
               -- Report a diagnostic saying that we expected a hexadecimal digit.
+              let p2 = nextPosition 2 p1
               diagnostic <- case T.uncons t4 of
                 Nothing -> unexpectedEnding p2 ExpectedHexadecimalDigit
                 Just (c2, _) -> unexpectedChar p2 c2 ExpectedHexadecimalDigit
@@ -202,6 +202,72 @@ nextToken stream = do
             else
               let n = HexadecimalInteger (c1 == 'x') raw finalValue in
                 numberToken (NumberToken n) ExpectedHexadecimalDigit (2 + finalDigits) t4
+
+        -- Parse either a decimal integer or a floating point number.
+        _ ->
+          let
+            -- Scan through either an integer or a floating point number. Keep track of the state
+            -- so that we don’t incorrectly parse a number.
+            (raw, (finalState, cs2), t3) =
+              T.spanWithState
+                (\(state, cs1) c1 ->
+                  case (state, c1) of
+                    -- Always add digits to the state. Some states will need to be changed.
+                    (_, _) | isDigit c1 ->
+                      let newState = case state of { ExponentStart -> Exponent; ExponentSign -> Exponent; _ -> state } in
+                        Just (newState, cs1 + 1)
+
+                    -- Change state based on the different characters we see.
+                    (Whole, '.') -> Just (Fraction, cs1 + 1)
+                    (Whole, 'e') -> Just (ExponentStart, cs1 + 1)
+                    (Whole, 'E') -> Just (ExponentStart, cs1 + 1)
+                    (Fraction, 'e') -> Just (ExponentStart, cs1 + 1)
+                    (Fraction, 'E') -> Just (ExponentStart, cs1 + 1)
+                    (ExponentStart, '+') -> Just (ExponentSign, cs1 + 1)
+                    (ExponentStart, '-') -> Just (ExponentSign, cs1 + 1)
+
+                    _ -> Nothing)
+                (Whole, 0)
+                t1
+          in
+            case finalState of
+              -- A whole number parses as an integer of arbitrary precision. Use the Haskell prelude
+              -- `read` function to parse a string into an integer.
+              Whole ->
+                let n = DecimalInteger raw (read (T.unpack raw)) in
+                  numberToken (NumberToken n) ExpectedDecimalDigit cs2 t3
+
+              -- If there was no digit after the start of an exponent then we need to error. We must
+              -- have a decimal digit after the exponent start.
+              ExponentStart -> do
+                -- Report a diagnostic saying that we expected a decimal digit.
+                let p2 = nextPosition cs2 p1
+                diagnostic <- case T.uncons t3 of
+                  Nothing -> unexpectedEnding p2 ExpectedDecimalDigit
+                  Just (c2, _) -> unexpectedChar p2 c2 ExpectedDecimalDigit
+                -- Return an invalid number token.
+                numberToken (InvalidNumberToken diagnostic raw) ExpectedDecimalDigit cs2 t3
+
+              -- If there was no digit after the sign of an exponent then we need to error. We must
+              -- have a decimal digit after the exponent sign.
+              ExponentSign -> do
+                -- Report a diagnostic saying that we expected a decimal digit.
+                let p2 = nextPosition cs2 p1
+                diagnostic <- case T.uncons t3 of
+                  Nothing -> unexpectedEnding p2 ExpectedDecimalDigit
+                  Just (c2, _) -> unexpectedChar p2 c2 ExpectedDecimalDigit
+                -- Return an invalid number token.
+                numberToken (InvalidNumberToken diagnostic raw) ExpectedDecimalDigit cs2 t3
+
+              -- If we parsed a fraction part then we have a decimal float.
+              Fraction ->
+                let n = DecimalFloat raw (read (toHaskellFloatSyntax (T.unpack raw))) in
+                  numberToken (NumberToken n) ExpectedDecimalDigit cs2 t3
+
+              -- If we parsed an exponent part then we have a decimal float.
+              Exponent ->
+                let n = DecimalFloat raw (read (toHaskellFloatSyntax (T.unpack raw))) in
+                  numberToken (NumberToken n) ExpectedDecimalDigit cs2 t3
 
       where
         -- Constructs a number token while also checking for characters we don’t allow to come after
@@ -234,6 +300,21 @@ nextToken stream = do
 
             -- If this character is not one of our invalid characters then happily continue along.
             _ -> token (Number n) ds1 t3
+
+        -- We use the Haskell function `read` for parsing a string into a floating point number.
+        -- However, our syntax for floating point numbers differs from [Haskell’s syntax][1] in a
+        -- couple of ways. This function converts a string of a float in our syntax to the string of a
+        -- float in Haskell syntax.
+        --
+        -- [1]: https://www.haskell.org/onlinereport/lexemes.html
+        toHaskellFloatSyntax :: String -> String
+        toHaskellFloatSyntax ('.' : cs) = toHaskellFloatSyntax ('0' : '.' : cs)
+        toHaskellFloatSyntax cs0 = loop cs0
+          where
+            loop ('.' : []) = ".0"
+            loop ('.' : c : cs) = if isDigit c then '.' : c : cs else '.' : '0' : c : cs
+            loop (c : cs) = c : loop cs
+            loop [] = []
 
     -- Unexpected character
     Just (c, t2) -> token (UnexpectedChar c) (utf16Length c) t2
@@ -362,6 +443,14 @@ nextTrivia side acc p0 t0 =
 
     -- Return trivia if there isn’t more.
     _ -> return (reverse acc, p0, t0)
+
+data NumberState
+  = Whole
+  | Fraction
+  | ExponentStart
+  | ExponentSign
+  | Exponent
+  deriving (Eq)
 
 data BlockCommentState
   = Normal

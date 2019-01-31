@@ -24,22 +24,37 @@ import qualified Data.Text.Lazy.Builder as Text.Builder
 --
 -- [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
 data Number
+  -- `42`
+  --
+  -- A base 10 integer. We have the raw text representation of the integer in addition to its value.
+  = DecimalInteger Text Integer
+
   -- `0b1101`
   --
   -- An integer written in binary form. The boolean is true if the “b” after `0` was lowercase. Then
   -- we have the integer’s raw text form and value.
-  = BinaryInteger Bool Text Integer
+  | BinaryInteger Bool Text Integer
 
   -- `0xFFF`
   --
   -- An integer written in hexadecimal form. The boolean is true if the “x” after `0` was lowercase.
   -- Then we have the integer’s raw text form and value.
   | HexadecimalInteger Bool Text Integer
+
+  -- `3.1415`, `1e2`
+  --
+  -- A 64-bit floating point number. We aim for our floating point syntax to be compatible with the
+  -- [JSON specification][1].
+  --
+  -- [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
+  | DecimalFloat Text Double
   deriving (Show)
 
 -- Gets the source code for a number.
 numberSource :: Number -> Text.Builder
+numberSource (DecimalInteger raw _) = Text.Builder.fromText raw
 numberSource (BinaryInteger True raw _) = Text.Builder.fromText "0b" <> Text.Builder.fromText raw
 numberSource (BinaryInteger False raw _) = Text.Builder.fromText "0B" <> Text.Builder.fromText raw
 numberSource (HexadecimalInteger True raw _) = Text.Builder.fromText "0x" <> Text.Builder.fromText raw
 numberSource (HexadecimalInteger False raw _) = Text.Builder.fromText "0X" <> Text.Builder.fromText raw
+numberSource (DecimalFloat raw _) = Text.Builder.fromText raw
