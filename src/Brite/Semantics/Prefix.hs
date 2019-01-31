@@ -188,8 +188,12 @@ fresh prefix range = liftST $ do
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
 -- monotype then we return the monotype directly instead of creating a fresh type variable.
-freshWithBound :: Prefix s -> Range -> Type.Flexibility -> Polytype -> Check s Monotype
-freshWithBound prefix range flexibility type0 = liftST $
+--
+-- We use the range of the provided type as the range of the returned variable. This matches the
+-- intuition that we are lifting a polytype to be usable in a monotype position. Also,
+-- `Type.monotypeRange` will always returns the same thing whether or not we inline.
+freshWithBound :: Prefix s -> Type.Flexibility -> Polytype -> Check s Monotype
+freshWithBound prefix flexibility type0 = liftST $
   -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
   -- always inlined in normal form anyway.
   case Type.polytypeDescription type0 of
@@ -197,7 +201,7 @@ freshWithBound prefix range flexibility type0 = liftST $
     _ -> do
       name <- freshName prefix
       addAssumingThatNameIsUnbound prefix (Type.Binding name flexibility type0)
-      return (Type.variable range name)
+      return (Type.variable (Type.polytypeRange type0) name)
 
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
 -- return nothing. The bound returned will always be in normal form.

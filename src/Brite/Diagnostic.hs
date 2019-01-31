@@ -69,6 +69,7 @@ module Brite.Diagnostic
   -- Diagnostic unification stacks.
   , UnifyStack
   , testStack
+  , functionCallStack
   , functionParameterFrame
   , functionBodyFrame
 
@@ -245,6 +246,7 @@ data UnifyStack
 
 data UnifyStackOperation
   = UnifyTest
+  | UnifyFunctionCall (Maybe Text)
 
 data UnifyStackFrame
   = UnifyFunctionParameter
@@ -260,7 +262,11 @@ unifyStackRange (UnifyStackFrame range1 _ stack) =
 
 -- An operation we use in testing of Brite itself. We should never use this in release code!
 testStack :: Range -> UnifyStack
-testStack r = UnifyStackOperation r UnifyTest
+testStack range = UnifyStackOperation range UnifyTest
+
+-- A function call operation.
+functionCallStack :: Range -> Maybe Text -> UnifyStack
+functionCallStack range name = UnifyStackOperation range (UnifyFunctionCall name)
 
 -- Adds a function parameter frame to the unification stack.
 --
@@ -451,6 +457,10 @@ typeMessage FunctionMessage = plain "a function"
 -- Get the message for a unification stack operation.
 unifyStackOperationMessage :: UnifyStackOperation -> Markup
 unifyStackOperationMessage UnifyTest = plain "Test failed" -- NOTE: We should only see this during testing.
+
+-- We use “Can not” instead of “Cannot” because the former is simpler to read.
+unifyStackOperationMessage (UnifyFunctionCall Nothing) = plain "Can not call function"
+unifyStackOperationMessage (UnifyFunctionCall (Just name)) = plain "Can not call " <> code name
 
 -- A message for pushing people to our issue tracker when they encounter an unexpected error.
 --

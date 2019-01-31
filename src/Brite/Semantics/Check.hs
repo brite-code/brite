@@ -15,8 +15,9 @@ import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
 import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
-import Brite.Semantics.Type (Polytype, Monotype)
+import Brite.Semantics.Type (Polytype, Monotype, Flexibility(..))
 import qualified Brite.Semantics.Type as Type
+import Brite.Semantics.Unify
 import Brite.Syntax.Tokens (identifierText)
 import Control.Monad.State.Strict
 import Data.HashMap.Lazy (HashMap)
@@ -25,6 +26,7 @@ import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
+import qualified Data.Text as Text
 
 type Context = HashMap Identifier Polytype
 
@@ -76,9 +78,48 @@ checkExpression prefix context0 astExpression = case AST.expressionNode astExpre
     Prefix.withLevel prefix $ do
       (context1, parameterType, parameter) <- checkPattern prefix context0 astPattern
       (bodyType, body) <- checkBlock prefix context1 astBody
-      bodyMonotype <- Prefix.freshWithBound prefix (Type.polytypeRange bodyType) Type.Flexible bodyType
+      bodyMonotype <- Prefix.freshWithBound prefix Flexible bodyType
       functionType <- Prefix.generalize prefix (Type.function range parameterType bodyMonotype)
       return (functionType, Expression range (FunctionExpression parameter body))
+
+  -- For function calls infer the type of the callee and argument. Then unify the type of the callee
+  -- with a function type with the argument as the parameter and a fresh type variable as the body.
+  -- Through unification the fresh type variable should be solved for. At the very end generalize
+  -- the body type and associated referenced type variables created at this level which weren’t
+  -- updated to a higher level.
+  AST.CallExpression astCallee [astArgument] -> do
+    -- Type check the callee and argument.
+    (calleeType, callee) <- checkExpression prefix context0 astCallee
+    (argumentType, argument) <- checkExpression prefix context0 astArgument
+    -- Create a new prefix level...
+    Prefix.withLevel prefix $ do
+      -- Convert the callee and argument polytypes into monotypes.
+      calleeMonotype <- Prefix.freshWithBound prefix Flexible calleeType
+      argumentMonotype <- Prefix.freshWithBound prefix Flexible argumentType
+      -- Create a fresh type variable from the body which we will infer from the callee type.
+      bodyMonotype <- Prefix.fresh prefix range
+      -- We expect the callee to have the appropriate argument type. Unification will “fill in” the
+      -- body type since our body type is a fresh variable.
+      let expectedCalleeType = Type.function range argumentMonotype bodyMonotype
+      -- Unify with a function call operation. Use the name of a variable or property expression in
+      -- the error message.
+      let stack = functionCallStack range (functionName astCallee)
+      unifyResult <- unify stack prefix calleeMonotype expectedCalleeType
+      -- Generalize the body type so we don’t lose the type variables it references!
+      bodyType <- Prefix.generalize prefix bodyMonotype
+      -- If unification failed then insert an `ErrorExpression` so that we’ll panic at runtime.
+      case unifyResult of
+        Right () -> return (bodyType, Expression range (CallExpression callee [argument]))
+        Left err -> return (bodyType, Expression range (ErrorExpression err (Just (CallExpression callee [argument]))))
+    where
+      -- Gets a name that we can use in an error message from an AST expression.
+      functionName x = case AST.expressionNode x of
+        AST.VariableExpression name -> return (identifierText name)
+        -- TODO: Test that we use property expressions in function call error messages.
+        AST.PropertyExpression object property -> do
+          name <- functionName object
+          return (name `Text.snoc` '.' `Text.append` identifierText (AST.nameIdentifier property))
+        _ -> Nothing
 
   where
     range = AST.expressionRange astExpression
@@ -225,7 +266,7 @@ checkQuantifiers context0 (AST.Quantifier name bound : quantifiers) bindings = d
   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
   binding <- case bound of
-    Nothing -> return (Type.Binding (AST.nameIdentifier name) Type.Flexible (Type.bottom (AST.nameRange name)))
+    Nothing -> return (Type.Binding (AST.nameIdentifier name) Flexible (Type.bottom (AST.nameRange name)))
     Just (flexibility, boundType) ->
       Type.Binding (AST.nameIdentifier name) flexibility <$> checkPolytype context0 boundType
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
@@ -337,8 +378,8 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
     range = AST.typeRange type0
 
     localFlexibility = case localPolarity of
-      Type.Positive -> Type.Flexible
-      Type.Negative -> Type.Rigid
+      Type.Positive -> Flexible
+      Type.Negative -> Rigid
 
     -- Forces the programmer to provide proof that they reported an error diagnostic. However, we
     -- don’t include the diagnostic in our internal type structure since there is no obvious place
