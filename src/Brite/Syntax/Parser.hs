@@ -17,14 +17,7 @@ import qualified Data.Sequence as Seq
 
 -- Parses a Brite module from a stream of tokens.
 parseModule :: TokenStream -> DiagnosticWriter Module
-parseModule tokens = do
-  m <- uncurry Module <$> runParser (many tryStatement) tokens
-  let endTrivia = endTokenTrivia (moduleEnd m)
-  if not (null endTrivia) && isUnterminatedBlockComment (last endTrivia) then do
-    _ <- unexpectedEnding (endTokenRange (moduleEnd m)) ExpectedBlockCommentEnd
-    return m
-  else
-    return m
+parseModule tokens = uncurry Module <$> runParser (many tryStatement) tokens
 
 -- Parses a Brite type from a stream of tokens.
 parseType :: TokenStream -> DiagnosticWriter (Recover Type)

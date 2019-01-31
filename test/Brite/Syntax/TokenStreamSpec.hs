@@ -2,8 +2,10 @@
 
 module Brite.Syntax.TokenStreamSpec (spec) where
 
+import Brite.Diagnostic
 import Brite.Syntax.Token
 import Brite.Syntax.TokenStream
+import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
@@ -135,6 +137,7 @@ testData =
   , "/* /* */ /* */ x"
   , "/* /* */ /* */ */ x"
   , "/* */* */ x"
+  , "x /*"
   ]
 
 openSnapshotFile :: IO Handle
@@ -154,7 +157,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
   flip mapM_ testData $ \source ->
     it (Text.unpack (escape source)) $ \h ->
       let
-        (tokens, endToken) = tokenStreamToList (tokenize source)
+        ((tokens, endToken), diagnostics) = runDiagnosticWriter (tokenStreamToList (tokenize source))
         rebuiltSource = Text.Lazy.toStrict $ Text.Builder.toLazyText $
           mconcat (map tokenSource tokens) <> endTokenSource endToken
       in do
@@ -170,6 +173,12 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         hPutStrLn h "```"
         hPutStr h (Text.Lazy.unpack (Text.Builder.toLazyText (debugTokens tokens endToken)))
         hPutStrLn h "```"
+        if Seq.null diagnostics then return () else (do
+          hPutStrLn h ""
+          hPutStrLn h "### Errors"
+          flip mapM_ diagnostics (\diagnostic ->
+            hPutStrLn h (Text.Lazy.unpack (Text.Builder.toLazyText
+              (Text.Builder.fromText "- " <> debugDiagnostic diagnostic)))))
         rebuiltSource `shouldBe` source
 
 escape :: Text -> Text

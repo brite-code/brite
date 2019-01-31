@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE Rank2Types #-}
 
 module Brite.Syntax.ParserFramework
@@ -76,10 +77,10 @@ import Data.Maybe (maybeToList)
 -- `yield2` will continue from the current parser.
 newtype Parser a = Parser
   { parser :: forall b.
-         (DiagnosticWriter a -> ParserState -> b)                                -- ok
-      -> (DiagnosticWriter a -> (Token -> ParserState -> b) -> ParserState -> b) -- yield1
-      -> (DiagnosticWriter a -> (Token -> ParserState -> b) -> ParserState -> b) -- yield2
-      -> ParserState -> b
+         (DiagnosticWriter a -> ParserState -> K b)                                  -- ok
+      -> (DiagnosticWriter a -> (Token -> ParserState -> K b) -> ParserState -> K b) -- yield1
+      -> (DiagnosticWriter a -> (Token -> ParserState -> K b) -> ParserState -> K b) -- yield2
+      -> ParserState -> K b
   }
 
 -- See the documentation for `Parser`.
@@ -98,11 +99,20 @@ newtype Parser a = Parser
 -- is inefficient!
 newtype TryParser a = TryParser
   { tryParser :: forall b.
-         (DiagnosticWriter a -> ParserState -> b)                                -- ok
-      -> (DiagnosticWriter a -> (Token -> ParserState -> b) -> ParserState -> b) -- yield2
-      -> (DiagnosticWriter Diagnostic -> ParserState -> b)                       -- throw
-      -> ParserState -> b
+         (DiagnosticWriter a -> ParserState -> K b)                                  -- ok
+      -> (DiagnosticWriter a -> (Token -> ParserState -> K b) -> ParserState -> K b) -- yield2
+      -> (DiagnosticWriter Diagnostic -> ParserState -> K b)                         -- throw
+      -> ParserState -> K b
   }
+
+-- We wrap the parser continuation result in a `K` monad which is simply a wrapper around
+-- `DiagnosticWriter`. We do this to discourage discharging diagnostics from a value into
+-- the result. If your result has a diagnostic then put it in the value itself! Since all values are
+-- speculative this maintains the correct ordering.
+--
+-- The `DiagnosticWriter` returned by continuations is for _parser internal state only_!
+newtype K a = K { unK :: DiagnosticWriter a }
+  deriving (Functor, Applicative, Monad)
 
 -- When parsing a value we may find some unexpected tokens. After skipping over those tokens we may
 -- either be able to parse our value or we’ll be able to continue parsing something else.
@@ -126,24 +136,21 @@ instance Functor Recover where
 -- We expect the parser to consume all tokens. If it does not then we will report an unexpected
 -- token diagnostic up until the end of the file.
 runParser :: Parser a -> TokenStream -> DiagnosticWriter (a, EndToken)
-runParser p ts0 = parser p ok yield yield s0
+runParser p ts0 = do
+  step0 <- nextToken ts0
+  let s0 = ParserState step0 (positionLine (tokenStreamPosition ts0))
+  unK (parser p ok yield yield s0)
   where
-    s0 =
-      ParserState
-        { parserStep = nextToken ts0
-        , parserLastLine = positionLine (tokenStreamPosition ts0)
-        }
-
-    ok a s1 = (,) <$> a <*> toEnd (parserStep s1)
+    ok a s1 = K ((,) <$> a <*> toEnd (parserStep s1))
 
     toEnd (Left t) = return t
     toEnd (Right (t, ts)) =
-      unexpectedToken t ExpectedEnd *> toEnd (nextToken ts)
+      unexpectedToken t ExpectedEnd *> (nextToken ts >>= toEnd)
 
     yield a k s =
       case parserStep s of
-        Right (t, ts) -> k t (skipToken ts s)
-        Left t -> (,) <$> a <*> pure t
+        Right (t, ts) -> skipToken ts s >>= k t
+        Left t -> K (flip (,) t <$> a)
 
 -- The internal state of the parser.
 data ParserState = ParserState
@@ -155,17 +162,19 @@ data ParserState = ParserState
   }
 
 -- Skips the next token in the provided token stream.
-skipToken :: TokenStream -> ParserState -> ParserState
-skipToken ts s = s { parserStep = nextToken ts }
+skipToken :: TokenStream -> ParserState -> K ParserState
+skipToken ts s = K $ do
+  step <- nextToken ts
+  return (s { parserStep = step })
 
 -- Uses the next token in the provided token stream.
 --
 -- `parserLastLine` is updated when calling this.
-eatToken :: Token -> TokenStream -> ParserState -> ParserState
-eatToken t ts s = s
-  { parserStep = nextToken ts
-  , parserLastLine = positionLine (rangeEnd (tokenRange t))
-  }
+eatToken :: Token -> TokenStream -> ParserState -> K ParserState
+eatToken t ts s = K $ do
+  step <- nextToken ts
+  let lastLine = positionLine (rangeEnd (tokenRange t))
+  return (s { parserStep = step, parserLastLine = lastLine })
 
 instance Functor Parser where
   fmap f p = Parser $ \ok yield1 yield2 ->
@@ -228,10 +237,10 @@ p1 <&> p2 = TryParser $ \ok yield2 throw ->
 -- call the continuation function provided to “yield” when we see an `UnexpectedChar`.
 --
 -- NOTE: Does this actually help performance? Maybe it hurts performance? We should test!
-shortcut :: (a -> (Token -> ParserState -> b) -> ParserState -> b) -> (a -> (Token -> ParserState -> b) -> ParserState -> b)
+shortcut :: (a -> (Token -> ParserState -> K b) -> ParserState -> K b) -> (a -> (Token -> ParserState -> K b) -> ParserState -> K b)
 shortcut f a k s =
   case parserStep s of
-    Right (t @ Token { tokenKind = UnexpectedChar _ }, ts) -> k t (skipToken ts s)
+    Right (t @ Token { tokenKind = UnexpectedChar _ }, ts) -> skipToken ts s >>= k t
     _ -> f a k s
 {-# INLINE shortcut #-}
 
@@ -354,7 +363,7 @@ identifier = retry tryIdentifier
 tryGlyph :: Glyph -> TryParser Token
 tryGlyph g = TryParser $ \ok _ throw s ->
   case parserStep s of
-    Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g' -> ok (pure t) (eatToken t ts s)
+    Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g' -> eatToken t ts s >>= ok (pure t)
     Right (t, _) -> throw (unexpectedToken t (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
@@ -366,7 +375,7 @@ tryKeyword = tryGlyph . Keyword
 tryIdentifier :: TryParser (Identifier, Token)
 tryIdentifier = TryParser $ \ok _ throw s ->
   case parserStep s of
-    Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> ok (pure (i, t)) (eatToken t ts s)
+    Right (t @ Token { tokenKind = IdentifierToken i }, ts) -> eatToken t ts s >>= ok (pure (i, t))
     Right (t, _) -> throw (unexpectedToken t ExpectedIdentifier) s
     Left t -> throw (unexpectedEnding (endTokenRange t) ExpectedIdentifier) s
 
@@ -388,7 +397,7 @@ tryGlyphOnSameLine :: Glyph -> TryParser Token
 tryGlyphOnSameLine g = TryParser $ \ok _ throw s ->
   case parserStep s of
     Right (t @ Token { tokenKind = Glyph g' }, ts) | g == g'
-      && parserLastLine s == positionLine (rangeStart (tokenRange t)) -> ok (pure t) (eatToken t ts s)
+      && parserLastLine s == positionLine (rangeStart (tokenRange t)) -> eatToken t ts s >>= ok (pure t)
     Right (t, _) -> throw (unexpectedToken t (ExpectedGlyph g)) s
     Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph g)) s
 
@@ -421,7 +430,7 @@ skipIdentifier p = Parser $ \ok yield1 yield2 ->
     ok
     (\a k s ->
       case parserStep s of
-        Right (t @ Token { tokenKind = IdentifierToken _ }, ts) -> k t (skipToken ts s)
+        Right (t @ Token { tokenKind = IdentifierToken _ }, ts) -> skipToken ts s >>= k t
         _ -> yield1 a k s)
     yield2
 
@@ -544,9 +553,9 @@ commaList p = Parser $ \_ yield1 yield2 ->
     -- Conveniently, a single glyph parser never calls its “yield” callback. So inline the
     -- implementation of `tryGlyph` and remove the yield callback from the signature. This greatly
     -- simplifies our implementation.
-    tryComma :: (DiagnosticWriter Token -> ParserState -> b) -> (DiagnosticWriter Diagnostic -> ParserState -> b) -> ParserState -> b
+    tryComma :: (DiagnosticWriter Token -> ParserState -> K b) -> (DiagnosticWriter Diagnostic -> ParserState -> K b) -> ParserState -> K b
     tryComma ok throw s =
       case parserStep s of
-        Right (t @ Token { tokenKind = Glyph Comma }, ts) -> ok (pure t) (eatToken t ts s)
+        Right (t @ Token { tokenKind = Glyph Comma }, ts) -> eatToken t ts s >>= ok (pure t)
         Right (t, _) -> throw (unexpectedToken t (ExpectedGlyph Comma)) s
         Left t -> throw (unexpectedEnding (endTokenRange t) (ExpectedGlyph Comma)) s

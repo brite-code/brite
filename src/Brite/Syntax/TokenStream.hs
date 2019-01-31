@@ -14,6 +14,7 @@ module Brite.Syntax.TokenStream
   , nextToken
   ) where
 
+import Brite.Diagnostic
 import Brite.Syntax.Token
 import Data.Char
 import Data.Text (Text)
@@ -40,21 +41,33 @@ tokenize :: Text -> TokenStream
 tokenize text = TokenStream initialPosition text
 
 -- Converts a token stream to a list of tokens and an end token.
-tokenStreamToList :: TokenStream -> ([Token], EndToken)
+tokenStreamToList :: TokenStream -> DiagnosticWriter ([Token], EndToken)
 tokenStreamToList = loop []
   where
-    loop acc ts =
-      case nextToken ts of
+    loop acc ts = do
+      step <- nextToken ts
+      case step of
         Right (t, ts') -> loop (t : acc) ts'
-        Left t -> (reverse acc, t)
+        Left t -> return (reverse acc, t)
 
 -- Advances the token stream. Either returns a token and the remainder of the token stream or
 -- returns the ending token in the stream.
-nextToken :: TokenStream -> TokenStreamStep
-nextToken (TokenStream p0 t0) =
+nextToken :: TokenStream -> DiagnosticWriter TokenStreamStep
+nextToken (TokenStream p0 t0) = do
+  -- Leading trivia
+  (leadingTrivia, p1, t1) <- nextTrivia Leading [] p0 t0
+
+  let
+    -- Creates a token with trailing trivia
+    token k n t2 = do
+      let p2 = nextPosition n p1
+      (trailingTrivia, p3, t3) <- nextTrivia Trailing [] p2 t2
+      let tk = Token (Range p1 p2) k leadingTrivia trailingTrivia
+      return (Right (tk, TokenStream p3 t3))
+
   case T.uncons t1 of
     -- End token
-    Nothing -> Left (EndToken p1 leadingTrivia)
+    Nothing -> return (Left (EndToken p1 leadingTrivia))
 
     -- Single character glyphs
     Just ('*', t2) -> token (Glyph Asterisk) 1 t2
@@ -116,21 +129,9 @@ nextToken (TokenStream p0 t0) =
 
     -- Unexpected character
     Just (c, t2) -> token (UnexpectedChar c) (utf16Length c) t2
-  where
-    -- Leading trivia
-    (leadingTrivia, p1, t1) = nextTrivia Leading [] p0 t0
-
-    -- Creates a token with trailing trivia
-    token k n t2 =
-      let
-        p2 = nextPosition n p1
-        (trailingTrivia, p3, t3) = nextTrivia Trailing [] p2 t2
-        tk = Token (Range p1 p2) k leadingTrivia trailingTrivia
-      in
-        Right (tk, TokenStream p3 t3)
 
 -- Parses some trivia!
-nextTrivia :: TriviaSide -> [Trivia] -> Position -> Text -> ([Trivia], Position, Text)
+nextTrivia :: TriviaSide -> [Trivia] -> Position -> Text -> DiagnosticWriter ([Trivia], Position, Text)
 nextTrivia side acc p0 t0 =
   case T.uncons t0 of
     -- Spaces
@@ -158,7 +159,7 @@ nextTrivia side acc p0 t0 =
       in
         case side of
           Leading -> nextTrivia Leading acc1 p1 t1
-          Trailing -> (reverse acc1, p1, t1)
+          Trailing -> return (reverse acc1, p1, t1)
 
     -- Newlines (CRLF)
     Just ('\r', t1) | not (T.null t1) && T.head t1 == '\n' ->
@@ -172,7 +173,7 @@ nextTrivia side acc p0 t0 =
       in
         case side of
           Leading -> nextTrivia Leading acc2 p2 t2
-          Trailing -> (reverse acc2, p2, t2)
+          Trailing -> return (reverse acc2, p2, t2)
 
     -- Newlines (CR)
     Just ('\r', t1) ->
@@ -185,7 +186,7 @@ nextTrivia side acc p0 t0 =
       in
         case side of
           Leading -> nextTrivia Leading acc1 p1 t1
-          Trailing -> (reverse acc1, p1, t1)
+          Trailing -> return (reverse acc1, p1, t1)
 
     -- Line comments
     Just ('/', t1) | not (T.null t1) && T.head t1 == '/' ->
@@ -201,7 +202,7 @@ nextTrivia side acc p0 t0 =
         nextTrivia side (Comment (LineComment comment) : acc) p2 t2
 
     -- Block comments
-    Just ('/', t1) | not (T.null t1) && T.head t1 == '*' ->
+    Just ('/', t1) | not (T.null t1) && T.head t1 == '*' -> do
       let
         -- Collect the comment and the position after the comment.
         (comment, ((_, finalState), p2), t2) =
@@ -225,28 +226,34 @@ nextTrivia side acc p0 t0 =
             (((1 :: Int), Normal), nextPosition 2 p0)
             (T.tail t1)
 
-        -- Drop `*/` from the comment text.
-        blockComment =
-          case finalState of
-            FoundAsteriskSlash -> BlockComment (T.dropEnd 2 comment) True
-            _ -> BlockComment comment False
+      -- Drop `*/` from the comment text if we successfully parsed a block comment.
+      --
+      -- If we failed to successfully parse a block comment then that means we reached the end of
+      -- the file! Report an error diagnostic to let the user know we expected the block comment
+      -- to end before the file.
+      blockComment <-
+        case finalState of
+          FoundAsteriskSlash -> return (BlockComment (T.dropEnd 2 comment) True)
+          _ -> do
+            _ <- unexpectedEnding (Range p2 p2) ExpectedBlockCommentEnd
+            return (BlockComment comment False)
 
         -- Create the new `acc` value.
-        acc2 = Comment blockComment : acc
-      in
-        -- If we are on the trailing side and the block comment spans multiple lines then stop
-        -- parsing trivia.
-        case side of
-          Leading -> nextTrivia Leading acc2 p2 t2
-          Trailing | positionLine p0 /= positionLine p2 -> (reverse acc2, p2, t2)
-          Trailing -> nextTrivia Trailing acc2 p2 t2
+      let acc2 = Comment blockComment : acc
+
+      -- If we are on the trailing side and the block comment spans multiple lines then stop
+      -- parsing trivia.
+      case side of
+        Leading -> nextTrivia Leading acc2 p2 t2
+        Trailing | positionLine p0 /= positionLine p2 -> return (reverse acc2, p2, t2)
+        Trailing -> nextTrivia Trailing acc2 p2 t2
 
     -- Other whitespace
     Just (c, t1) | isSpace c ->
       nextTrivia side (OtherWhitespace c : acc) (nextPosition (utf16Length c) p0) t1
 
     -- Return trivia if there isn’t more.
-    _ -> (reverse acc, p0, t0)
+    _ -> return (reverse acc, p0, t0)
 
 data BlockCommentState
   = Normal

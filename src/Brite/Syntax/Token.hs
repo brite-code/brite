@@ -32,7 +32,6 @@ module Brite.Syntax.Token
   , Comment(..)
   , TriviaSide(..)
   , isTriviaWhitespace
-  , isUnterminatedBlockComment
   , tokenSource
   , endTokenSource
   , tokensTrimmedSource
@@ -371,11 +370,6 @@ isTriviaWhitespace (Tabs _) = True
 isTriviaWhitespace (Newlines _ _) = True
 isTriviaWhitespace (Comment _) = False
 isTriviaWhitespace (OtherWhitespace _) = True
-
--- Is this trivia an unterminated block comment?
-isUnterminatedBlockComment :: Trivia -> Bool
-isUnterminatedBlockComment (Comment (BlockComment _ False)) = True
-isUnterminatedBlockComment _ = False
 
 -- Gets the source code that a token was parsed from.
 tokenSource :: Token -> Text.Builder
