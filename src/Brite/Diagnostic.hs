@@ -68,9 +68,11 @@ module Brite.Diagnostic
 
   -- Diagnostic unification stacks.
   , UnifyStack
-  , testStack
+  , unifyTestStack
   , functionCallStack
   , expressionAnnotationStack
+  , conditionalTestStack
+  , conditionalBranchesStack
   , functionParameterFrame
   , functionBodyFrame
 
@@ -249,6 +251,8 @@ data UnifyStackOperation
   = UnifyTest
   | UnifyFunctionCall (Maybe Text)
   | UnifyExpressionAnnotation
+  | UnifyConditionalTest
+  | UnifyConditionalBranches
 
 data UnifyStackFrame
   = UnifyFunctionParameter
@@ -263,16 +267,24 @@ unifyStackRange (UnifyStackFrame range1 _ stack) =
     if rangeContains range2 range1 then range1 else range2
 
 -- An operation we use in testing of Brite itself. We should never use this in release code!
-testStack :: Range -> UnifyStack
-testStack range = UnifyStackOperation range UnifyTest
+unifyTestStack :: Range -> UnifyStack
+unifyTestStack range = UnifyStackOperation range UnifyTest
 
--- A function call operation.
+-- A function call operation: `f()`
 functionCallStack :: Range -> Maybe Text -> UnifyStack
 functionCallStack range name = UnifyStackOperation range (UnifyFunctionCall name)
 
--- An expression annotation operation.
+-- An expression annotation operation: `(e: T)`
 expressionAnnotationStack :: Range -> UnifyStack
 expressionAnnotationStack range = UnifyStackOperation range UnifyExpressionAnnotation
+
+-- A conditional expression test: `if E {}`
+conditionalTestStack :: Range -> UnifyStack
+conditionalTestStack range = UnifyStackOperation range UnifyConditionalTest
+
+-- When we unify two conditional branches together: `if _ { E1 } else { E2 }`
+conditionalBranchesStack :: Range -> UnifyStack
+conditionalBranchesStack range = UnifyStackOperation range UnifyConditionalBranches
 
 -- Adds a function parameter frame to the unification stack.
 --
@@ -473,6 +485,14 @@ unifyStackOperationMessage (UnifyFunctionCall (Just name)) = plain "Can not call
 --
 -- TODO: Change “cannot change this type” to “Cannot change `x`’s type”
 unifyStackOperationMessage UnifyExpressionAnnotation = plain "Can not change this type"
+
+-- We avoid using the term “condition” or “conditional” as that might be confusing.
+--
+-- TODO: Change to “Can not test `x`”
+unifyStackOperationMessage UnifyConditionalTest = plain "Can not test"
+
+-- TODO: A message???
+unifyStackOperationMessage UnifyConditionalBranches = plain "TODO"
 
 -- A message for pushing people to our issue tracker when they encounter an unexpected error.
 --

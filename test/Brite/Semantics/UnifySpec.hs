@@ -383,7 +383,7 @@ spec =
             let t1 = case Type.polytypeDescription pt1 of { Type.Monotype' t -> t; _ -> undefined }
             let t2 = case Type.polytypeDescription pt2 of { Type.Monotype' t -> t; _ -> undefined }
             -- Yay! We can actually call unify now 😉
-            _ <- unify (testStack r) prefix t1 t2
+            _ <- unify (unifyTestStack r) prefix t1 t2
             -- Return a list of all the bindings in our prefix.
             Prefix.allBindings prefix
 

@@ -59,6 +59,9 @@ data ExpressionNode
   -- `f(E)`
   | CallExpression Expression [Expression]
 
+  -- `if E {} else {}`
+  | ConditionalExpression Expression Block Block
+
   -- `do {}`
   | BlockExpression Block
 

@@ -119,6 +119,36 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
           return (name `Text.snoc` '.' `Text.append` identifierText (AST.nameIdentifier property))
         _ -> Nothing
 
+  -- Conditionally executes some code depending on the value under test. The value being tested must
+  -- be a boolean. The two branches must have types equivalent to one another.
+  AST.ConditionalExpression (AST.ConditionalExpressionIf astTest astConsequent (Just (AST.ConditionalExpressionElse astAlternate))) -> do
+    -- Type check our test expression, consequent block, and alternate block.
+    (testType, test) <- checkExpression prefix context astTest
+    (consequentType, consequent) <- checkBlock prefix context astConsequent
+    (alternateType, alternate) <- checkBlock prefix context astAlternate
+
+    Prefix.withLevel prefix $ do
+      -- Convert the types we will unify to monotypes.
+      testMonotype <- Prefix.freshWithBound prefix Flexible testType
+      consequentMonotype <- Prefix.freshWithBound prefix Flexible consequentType
+      alternateMonotype <- Prefix.freshWithBound prefix Flexible alternateType
+      -- Make sure that the test expression is a boolean.
+      let testStack = conditionalTestStack (expressionRange test)
+      testResult <- unify testStack prefix testMonotype (Type.boolean (expressionRange test))
+      -- We expect all branches after the first one to be the same type as the first branch. This is
+      -- why the alternate type is in the first position! The consequent type is the _expected_ type
+      let branchesStack = conditionalBranchesStack range
+      branchesResult <- unify branchesStack prefix alternateMonotype consequentMonotype
+      -- The conditional type will always be the type of the first branch. We expect all other
+      -- branches to have the same type as the first branch.
+      conditionalType <- Prefix.generalize prefix consequentMonotype
+      return
+        ( conditionalType
+        , addError branchesResult (Expression range
+            -- Add an error from the first result only to our test expression.
+            (ConditionalExpression (addError testResult test) consequent alternate))
+        )
+
   -- Type checking a block expression defers to `checkBlock`.
   AST.BlockExpression astBlock -> do
     (blockType, block) <- checkBlock prefix context astBlock

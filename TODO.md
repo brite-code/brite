@@ -1,8 +1,9 @@
 # TODO
 
-1. IDE tooling
-2. Linting
-3. Modules
+1. Numbers
+2. IDE tooling
+3. Linting
+4. Modules
 
 ## Misc Ideas
 
