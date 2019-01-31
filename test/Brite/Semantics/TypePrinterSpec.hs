@@ -8,7 +8,7 @@ import Brite.Semantics.Check (checkPolytype)
 import Brite.Semantics.TypePrinter (printPolytype)
 import Brite.Syntax.Parser (parseType)
 import Brite.Syntax.Printer (printCompactType)
-import Brite.Syntax.Tokens (Identifier, unsafeIdentifier, tokenize)
+import Brite.Syntax.Token (Identifier, unsafeIdentifier, tokenize)
 import Data.Foldable (traverse_)
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet

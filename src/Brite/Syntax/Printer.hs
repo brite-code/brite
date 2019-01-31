@@ -22,7 +22,7 @@ module Brite.Syntax.Printer
 import Brite.Syntax.CST (recoverStatementTokens)
 import Brite.Syntax.PrinterAST
 import Brite.Syntax.PrinterFramework
-import Brite.Syntax.Tokens
+import Brite.Syntax.Token
 import Data.Char (isSpace)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy

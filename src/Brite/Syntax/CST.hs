@@ -54,7 +54,7 @@ module Brite.Syntax.CST
   ) where
 
 import Brite.Syntax.ParserFramework (Recover(..), CommaList(..), commaListItems)
-import Brite.Syntax.Tokens
+import Brite.Syntax.Token
 import Data.Foldable (foldMap)
 import Data.Monoid (Endo(..))
 import Data.Sequence (Seq)

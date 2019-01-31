@@ -1,4 +1,4 @@
-module Brite.Syntax.TokensNumber
+module Brite.Syntax.TokenNumber
   ( DecimalDigit(..)
   , charDecimalDigit
   , BinaryDigit(..)

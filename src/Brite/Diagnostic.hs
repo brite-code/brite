@@ -92,7 +92,7 @@ module Brite.Diagnostic
   ) where
 
 import Brite.DiagnosticMarkup
-import Brite.Syntax.Tokens
+import Brite.Syntax.Token
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)

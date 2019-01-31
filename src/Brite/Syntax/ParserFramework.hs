@@ -29,7 +29,7 @@ module Brite.Syntax.ParserFramework
   ) where
 
 import Brite.Diagnostic
-import Brite.Syntax.Tokens
+import Brite.Syntax.Token
 import Control.Applicative (liftA2)
 import Data.Maybe (maybeToList)
 

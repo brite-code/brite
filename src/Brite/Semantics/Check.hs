@@ -18,7 +18,7 @@ import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype, Flexibility(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.Unify
-import Brite.Syntax.Tokens (identifierText)
+import Brite.Syntax.Token (identifierText)
 import Control.Monad.State.Strict
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap

@@ -12,7 +12,7 @@ module Brite.Semantics.Namer
   , isFreshTypeName
   ) where
 
-import Brite.Syntax.Tokens (Identifier, unsafeIdentifier, identifierText)
+import Brite.Syntax.Token (Identifier, unsafeIdentifier, identifierText)
 import Data.Char (isDigit)
 import Data.Text (Text)
 import qualified Data.Text as Text

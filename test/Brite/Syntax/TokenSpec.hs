@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Syntax.TokensSpec (spec) where
+module Brite.Syntax.TokenSpec (spec) where
 
-import Brite.Syntax.Tokens
+import Brite.Syntax.Token
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
@@ -138,8 +138,8 @@ testData =
 
 openSnapshotFile :: IO Handle
 openSnapshotFile = do
-  h <- openFile "test/Brite/Syntax/TokensSpecSnapshot.md" WriteMode
-  hPutStrLn h "# TokensSpecSnapshot"
+  h <- openFile "test/Brite/Syntax/TokenSpecSnapshot.md" WriteMode
+  hPutStrLn h "# TokenSpecSnapshot"
   return h
 
 closeSnapshotFile :: Handle -> IO ()

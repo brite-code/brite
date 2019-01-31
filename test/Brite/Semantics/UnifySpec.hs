@@ -14,7 +14,7 @@ import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Printer
-import Brite.Syntax.Tokens
+import Brite.Syntax.Token
 import Data.Foldable (traverse_, toList)
 import Data.Text (Text)
 import qualified Data.Text as Text

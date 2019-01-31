@@ -13,7 +13,7 @@ module Brite.Semantics.TypePrinter
 import Brite.Semantics.Namer
 import Brite.Semantics.Type
 import qualified Brite.Syntax.PrinterAST as PrinterAST
-import Brite.Syntax.Tokens (Identifier, unsafeIdentifier)
+import Brite.Syntax.Token (Identifier, unsafeIdentifier)
 import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
