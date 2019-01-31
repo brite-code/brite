@@ -6,11 +6,10 @@
 module Brite.Syntax.Token
   ( Token(..)
   , TokenKind(..)
+  , NumberToken(..)
   , unexpectedToken
   , EndToken(..)
   , endTokenRange
-  , Number(..)
-  , BinaryInteger(..)
   , Trivia(..)
   , Newline(..)
   , Comment(..)
@@ -26,6 +25,7 @@ module Brite.Syntax.Token
 import Brite.Diagnostic
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
+import Brite.Syntax.Number
 import Brite.Syntax.Range
 import Data.Char
 import Data.Text (Text)
@@ -50,15 +50,21 @@ data Token = Token
   , tokenKind :: TokenKind
   , tokenLeadingTrivia :: [Trivia]
   , tokenTrailingTrivia :: [Trivia]
-  } deriving (Show)
+  }
 
 -- The kind of a token.
 data TokenKind
   = Glyph Glyph
   | Identifier Identifier
-  | Number Number
+  | Number NumberToken
   | UnexpectedChar Char
-  deriving (Show)
+
+-- The kind of a number token. When parsing a number, we might error. If we do error then we’ll use
+-- the `InvalidNumberToken` variant. This way, we’ll still parse invalid numbers as numbers, but we
+-- will throw at runtime.
+data NumberToken
+  = NumberToken Number
+  | InvalidNumberToken Diagnostic Text
 
 -- The parser ran into a token it did not recognize.
 unexpectedToken :: DiagnosticMonad m => Token -> ExpectedSyntax -> m Diagnostic
@@ -67,6 +73,7 @@ unexpectedToken token expected = unexpectedSyntax (tokenRange token) unexpected 
     unexpected = case tokenKind token of
       Glyph glyph -> UnexpectedGlyph glyph
       Identifier _ -> UnexpectedIdentifier
+      Number _ -> UnexpectedNumber
       UnexpectedChar c -> UnexpectedChar' c
 
 -- The last token in a document. An end token has the position at which the document ended and all
@@ -79,38 +86,6 @@ data EndToken = EndToken
 -- Gets the range covered by the end token. Starts and ends at the end token position.
 endTokenRange :: EndToken -> Range
 endTokenRange (EndToken { endTokenPosition = p }) = Range p p
-
--- A number token. A number in Brite source code could be written in a few different ways:
---
--- * Integer: `42`
--- * Binary integer: `0b1101`
--- * Hexadecimal integer: `0xFFF`
--- * Floating point: `3.1415`, `1e2`
---
--- For floating point numbers we use the same syntax as the [JSON specification][1] with the one
--- modification that we permit leading zeroes.
---
--- We never parse a negative sign as part of our number syntax. Instead we use a negative operator
--- in our language syntax.
---
--- [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
-data Number
-  -- `0b1101`
-  = BinaryNumber BinaryInteger
-  -- If we failed to parse a number then we add an `ErrorNumber` token which contains the diagnostic
-  -- that failed and the raw text we attempted to parse as a number.
-  | ErrorNumber {- TODO: Diagnostic -} Text
-  deriving (Show)
-
--- An integer written in binary form.
-data BinaryInteger = BinaryInteger
-  -- Was the “b” after `0` uppercase or lowercase?
-  { binaryIntegerLowercaseB :: Bool
-  -- Non-empty binary integer source code written in zeroes and ones.
-  , binaryIntegerRaw :: Text
-  -- The integer value of our binary number.
-  , binaryIntegerValue :: Integer
-  } deriving (Show)
 
 -- Pieces of Brite syntax which (usually) don’t affect program behavior. Like comments or spaces.
 data Trivia
@@ -159,14 +134,16 @@ isTriviaWhitespace (OtherWhitespace _) = True
 tokenSource :: Token -> Text.Builder
 tokenSource token =
   mconcat (map triviaSource (tokenLeadingTrivia token))
-    <> Text.Builder.fromText (tokenKindSource (tokenKind token))
+    <> tokenKindSource (tokenKind token)
     <> mconcat (map triviaSource (tokenTrailingTrivia token))
 
 -- Gets the source code that a token kind was parsed from.
-tokenKindSource :: TokenKind -> Text
-tokenKindSource (Glyph g) = glyphText g
-tokenKindSource (Identifier i) = identifierText i
-tokenKindSource (UnexpectedChar c) = Text.singleton c
+tokenKindSource :: TokenKind -> Text.Builder
+tokenKindSource (Glyph g) = Text.Builder.fromText (glyphText g)
+tokenKindSource (Identifier i) = Text.Builder.fromText (identifierText i)
+tokenKindSource (Number (NumberToken n)) = numberSource n
+tokenKindSource (Number (InvalidNumberToken _ t)) = Text.Builder.fromText t
+tokenKindSource (UnexpectedChar c) = Text.Builder.singleton c
 
 -- Gets the source code that an end token was parsed from.
 endTokenSource :: EndToken -> Text.Builder
@@ -209,7 +186,7 @@ tokensTrimmedSource = sourceStart
 tokenTrimmedSource :: Token -> Text.Builder
 tokenTrimmedSource token =
   triviaTrimmedSource (tokenLeadingTrivia token)
-    <> Text.Builder.fromText (tokenKindTrimmedSource (tokenKind token))
+    <> tokenKindTrimmedSource (tokenKind token)
     <> triviaTrimmedSource (tokenTrailingTrivia token)
 
 -- Gets the source code that a token kind was parsed from. Trimming all whitespace that comes
@@ -217,9 +194,10 @@ tokenTrimmedSource token =
 --
 -- NOTE: This function is basically the same as `tokenKindSource`. However, in the future when we
 -- add string literals then we will need to trim trailing whitespace inside string literals.
-tokenKindTrimmedSource :: TokenKind -> Text
+tokenKindTrimmedSource :: TokenKind -> Text.Builder
 tokenKindTrimmedSource (t@(Glyph _)) = tokenKindSource t
 tokenKindTrimmedSource (t@(Identifier _)) = tokenKindSource t
+tokenKindTrimmedSource (t@(Number _)) = tokenKindSource t
 tokenKindTrimmedSource (t@(UnexpectedChar _)) = tokenKindSource t
 
 -- Gets the source code that a list of trivia was parsed from. Trimming all whitespace that comes
@@ -279,14 +257,32 @@ debugToken (Token r k lt tt) =
   mconcat (map (debugTrivia Leading) lt)
     <> Text.Builder.fromLazyText (Text.Lazy.justifyLeft 10 ' ' (Text.Builder.toLazyText (debugRange r)))
     <> Text.Builder.fromText "| "
-    <> Text.Builder.fromText content
+    <> content
     <> Text.Builder.singleton '\n'
     <> mconcat (map (debugTrivia Trailing) tt)
   where
     content = case k of
-      Glyph glyph -> Text.snoc (Text.append "Glyph `" (glyphText glyph)) '`'
-      Identifier identifier -> Text.snoc (Text.append "Identifier `" (identifierText identifier)) '`'
-      UnexpectedChar c -> Text.snoc (Text.snoc "Unexpected `" c) '`'
+      Glyph glyph ->
+        Text.Builder.fromText "Glyph `" <> Text.Builder.fromText (glyphText glyph) <> Text.Builder.singleton '`'
+
+      Identifier identifier ->
+        Text.Builder.fromText "Identifier `" <> Text.Builder.fromText (identifierText identifier) <> Text.Builder.singleton '`'
+
+      Number (NumberToken (BinaryInteger _ _ value)) ->
+        Text.Builder.fromText "BinaryInteger `" <> binary value <> Text.Builder.singleton '`'
+        where
+          binary i | i < 0 = binary (-i)
+          binary i = go i
+            where
+              go 0 = Text.Builder.singleton '0'
+              go 1 = Text.Builder.singleton '1'
+              go n = go (n `quot` 2) <> go (n `rem` 2)
+
+      Number (InvalidNumberToken _ raw) ->
+        Text.Builder.fromText "InvalidNumber `" <> Text.Builder.fromText raw <> Text.Builder.singleton '`'
+
+      UnexpectedChar c ->
+        Text.Builder.fromText "Unexpected `" <> Text.Builder.singleton c <> Text.Builder.singleton '`'
 
 debugEndToken :: EndToken -> Text.Builder
 debugEndToken (EndToken p lt) =

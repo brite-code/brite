@@ -6,9 +6,9 @@ import Brite.Diagnostic
 import Brite.Semantics.AST (convertRecoverType)
 import Brite.Semantics.Check (checkPolytype)
 import Brite.Semantics.TypePrinter (printPolytypeWithoutInlining)
+import Brite.Syntax.Identifier
 import Brite.Syntax.Parser (parseType)
 import Brite.Syntax.Printer (printCompactType)
-import Brite.Syntax.Token (Identifier, unsafeIdentifier)
 import Brite.Syntax.TokenStream (tokenize)
 import Data.Foldable (traverse_, toList)
 import Data.HashSet (HashSet)

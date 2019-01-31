@@ -164,6 +164,7 @@ data InfoDiagnosticMessage
 data UnexpectedSyntax
   = UnexpectedGlyph Glyph
   | UnexpectedIdentifier
+  | UnexpectedNumber
   | UnexpectedChar' Char
 
 -- What syntax did we expect?
@@ -351,6 +352,7 @@ diagnosticErrorMessage (UnexpectedSyntax unexpected expected) =
     unexpectedDescription = case unexpected of
       UnexpectedGlyph glyph -> code (glyphText glyph)
       UnexpectedIdentifier -> plain "a variable name"
+      UnexpectedNumber -> plain "a number"
       UnexpectedChar' c -> code (Text.singleton c)
 
 -- Follows the same format as the unexpected token error. Except instead of saying “we found the end

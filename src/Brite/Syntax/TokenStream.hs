@@ -17,6 +17,7 @@ module Brite.Syntax.TokenStream
 import Brite.Diagnostic
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
+import Brite.Syntax.Number
 import Brite.Syntax.Range
 import Brite.Syntax.Token
 import Data.Char
@@ -144,15 +145,20 @@ nextToken stream = do
             if finalDigits == 0 then do
               let actualRaw = T.singleton '0' `T.snoc` c1
               let p2 = nextPosition 2 p1
+              -- Report a diagnostic saying that we expected a binary digit.
               diagnostic <- case T.uncons t4 of
                 Nothing -> unexpectedEnding p2 ExpectedBinaryDigit
                 Just (c2, _) -> unexpectedChar p2 c2 ExpectedBinaryDigit
-              error "TODO: unimplemented"
-              -- token (Number (ErrorNumber diagnostic actualRaw)) 2 t4
-            else
-              error "TODO: unimplemented"
+              -- Return an invalid number token.
+              token (Number (InvalidNumberToken diagnostic actualRaw)) 2 t4
 
-        ('0', Just (c1, t3)) | c1 == 'x' || c1 == 'X' ->
+            -- Otherwise we have a valid binary integer!
+            else
+              let n = BinaryInteger (c1 == 'b') raw finalValue in
+                token (Number (NumberToken n)) (2 + finalDigits) t4
+
+        -- Parse a hexadecimal integer
+        ('0', Just (c1, _)) | c1 == 'x' || c1 == 'X' ->
           error "TODO: unimplemented"
 
     -- Unexpected character

@@ -11,10 +11,12 @@ import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypePrinter
 import Brite.Semantics.Unify
 import qualified Brite.Syntax.CST as CST
+import Brite.Syntax.Glyph
+import Brite.Syntax.Identifier
 import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Printer
-import Brite.Syntax.Token
+import Brite.Syntax.Range
 import Brite.Syntax.TokenStream
 import Data.Foldable (traverse_, toList)
 import Data.Text (Text)

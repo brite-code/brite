@@ -3,7 +3,7 @@
 module Brite.Semantics.NamerSpec (spec) where
 
 import Brite.Semantics.Namer
-import Brite.Syntax.Token (unsafeIdentifier)
+import Brite.Syntax.Identifier
 import Data.Text (Text)
 import Test.Hspec
 
