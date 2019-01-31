@@ -15,6 +15,7 @@ import Brite.Syntax.Parser
 import Brite.Syntax.ParserFramework
 import Brite.Syntax.Printer
 import Brite.Syntax.Token
+import Brite.Syntax.TokenStream
 import Data.Foldable (traverse_, toList)
 import Data.Text (Text)
 import qualified Data.Text as Text

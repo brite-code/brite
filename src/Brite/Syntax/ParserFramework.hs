@@ -30,6 +30,7 @@ module Brite.Syntax.ParserFramework
 
 import Brite.Diagnostic
 import Brite.Syntax.Token
+import Brite.Syntax.TokenStream
 import Control.Applicative (liftA2)
 import Data.Maybe (maybeToList)
 

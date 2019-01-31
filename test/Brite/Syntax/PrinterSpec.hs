@@ -6,7 +6,7 @@ import Brite.Diagnostic
 import Brite.Syntax.Parser
 import Brite.Syntax.Printer
 import qualified Brite.Syntax.PrinterAST as PrinterAST
-import Brite.Syntax.Token
+import Brite.Syntax.TokenStream
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as Text
