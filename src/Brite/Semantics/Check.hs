@@ -194,6 +194,7 @@ checkConstant :: Range -> AST.Constant -> (Polytype, Constant)
 checkConstant range constant = case constant of
   AST.VoidConstant -> (Type.polytype (Type.void range), VoidConstant)
   AST.BooleanConstant value -> (Type.polytype (Type.boolean range), BooleanConstant value)
+  AST.IntegerConstant base value -> (Type.polytype (Type.integer range), IntegerConstant base value)
 
 -- Checks a block and returns the type returned by the block. If the last statement is not an
 -- expression statement then the block returns `void`.

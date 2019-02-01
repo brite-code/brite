@@ -6,6 +6,7 @@ module Brite.Semantics.AVT
   , StatementNode(..)
   , Block(..)
   , Constant(..)
+  , IntegerConstantBase(..)
   , Expression(..)
   , ExpressionNode(..)
   , Pattern(..)
@@ -13,6 +14,7 @@ module Brite.Semantics.AVT
   ) where
 
 import Brite.Diagnostic
+import Brite.Semantics.AST (IntegerConstantBase(..))
 import Brite.Semantics.Type (Polytype)
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
@@ -39,6 +41,8 @@ data Constant
   = VoidConstant
   -- `true`, `false`
   | BooleanConstant Bool
+  -- `42`
+  | IntegerConstant IntegerConstantBase Integer
 
 data Expression = Expression
   -- The range of source code covered by this expression.
