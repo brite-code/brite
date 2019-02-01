@@ -3,6 +3,7 @@
 module Brite.Syntax.Parser
   ( parseModule
   , parseType
+  , expressionParser
   , typeParser
   , tryQuantifierListParser
   ) where
@@ -24,6 +25,10 @@ parseModule tokens = uncurry Module <$> runParser (many tryStatement) tokens
 -- Parses a Brite type from a stream of tokens.
 parseType :: TokenStream -> DiagnosticWriter (Recover Type)
 parseType tokens = fst <$> runParser type_ tokens
+
+-- Parses a Brite expression.
+expressionParser :: Parser (Recover Expression)
+expressionParser = expression
 
 -- Parses a Brite type.
 typeParser :: Parser (Recover Type)

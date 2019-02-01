@@ -41,7 +41,7 @@ import qualified Brite.Semantics.Type as Type
 -- type of a value in source code that we are comparing against the second type, the “expected”
 -- type, which could be some type annotation the programmer wrote.
 --
--- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf *)
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 unify :: UnifyStack -> Prefix s -> Monotype -> Monotype -> Check s (Either Diagnostic ())
 unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.monotypeDescription type2) of
   -- Variables with the same name unify without any further analysis. We rename variables in

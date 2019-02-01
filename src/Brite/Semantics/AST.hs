@@ -36,6 +36,7 @@ module Brite.Semantics.AST
   , Flexibility(..)
   , convertModule
   , convertExpression
+  , convertRecoverExpression
   , convertType
   , convertRecoverType
   ) where

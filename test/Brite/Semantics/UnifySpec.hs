@@ -24,8 +24,18 @@ import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
+import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 import Test.Hspec
 
+-- In the [MLF thesis][1] Section 4.3 the unification algorithm is described as:
+--
+-- > The algorithm `unify` takes a prefix `Q` and two types `t1` and `t2` and returns a prefix that
+-- > unifies `t1` and `t2` under `Q`.
+--
+-- So we write our tests like they are directly calling that unification algorithm so we can reason
+-- about our tests in theory.
+--
+-- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 testData :: [(Text, Text, [Text])]
 testData =
   [ ("unify(<>, Bool, Bool)", "<>", [])
@@ -391,12 +401,9 @@ spec =
             Prefix.allBindings prefix
 
       -- Compare the actual prefix to the expected prefix.
-      let actualPrefix = strictify (printCompactQuantifierList (map printBindingWithoutInlining (toList allBindings)))
+      let actualPrefix = Text.Builder.toStrictText (printCompactQuantifierList (map printBindingWithoutInlining (toList allBindings)))
       actualPrefix `shouldBe` expectedPrefix
 
       -- Compare all the expected diagnostics to each other.
-      let actualDiagnostics = map (strictify . diagnosticMessageText) (toList (ds2 <> ds3))
+      let actualDiagnostics = map (Text.Builder.toStrictText . diagnosticMessageText) (toList (ds2 <> ds3))
       actualDiagnostics `shouldBe` expectedDiagnostics
-
-strictify :: Text.Builder -> Text
-strictify = Text.Lazy.toStrict . Text.Builder.toLazyText
