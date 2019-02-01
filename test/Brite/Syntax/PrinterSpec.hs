@@ -1091,7 +1091,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
           hPutStrLn h "### Errors"
           flip mapM_ diagnostics (\diagnostic ->
             hPutStrLn h (Text.Lazy.unpack (Text.Builder.toLazyText
-              (Text.Builder.fromText "- " <> debugDiagnostic diagnostic)))))
+              (diagnosticMessageMarkdown diagnostic)))))
 
         -- Test that when we parse and re-print the output we get the same thing.
         reprintedOutput `shouldBe` output

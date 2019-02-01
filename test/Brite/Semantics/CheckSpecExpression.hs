@@ -42,7 +42,14 @@ testData =
   , ("infer(<>, (x: <A> Int), x)", "(<>, <A> Int)", [])
   , ("infer(<>, (), fun(x) { x })", "(<>, fun<Type1>(Type1) -> Type1)", [])
   , ("infer(<>, (add1: fun(Int) -> Int), add1(42))", "(<>, Int)", [])
-  , ("infer(<>, (add1: fun(Int) -> Int), add1(true))", "(<>, Int)", ["Int ≢ Bool"])
+  , ("infer(<>, (add1: fun(Int) -> Int), add1(true))", "(<>, Int)", ["(0:40-0:44) Can not call `add1` because we have a boolean but we want an integer."])
+  , ("infer(<>, (f: fun(fun(Int) -> Int) -> Int), f(fun(x) { x }))", "(<>, Int)", [])
+  , ("infer(<>, (f: fun(fun(Int) -> Int) -> Int), f(fun(x) { (x: Int) }))", "(<>, Int)", [])
+  , ("infer(<>, (f: fun(fun(Int) -> Int) -> Int), f(fun(x) { (x: Bool) }))", "(<>, Int)", [])
+  , ("infer(<>, (f: fun(fun(Int) -> Int) -> Int), f(fun(x) { (x: Bool); 42 }))", "(<>, Int)", [])
+  , ("infer(<>, (f: fun(fun(Int) -> Int) -> Int), f(fun(x) { true }))", "(<>, Int)", [])
+  , ("infer(<>, (f: fun(fun(fun(Int) -> Int) -> Int) -> Int), f(fun(g) { g(42) }))", "(<>, Int)", [])
+  , ("infer(<>, (f: fun(fun(fun(Int) -> Int) -> Int) -> Int), f(fun(g) { g(true) }))", "(<>, Int)", [])
   , ("infer(<A>, (add1: fun(Int) -> Int, x: A), add1(x))", "(<A = Int>, Int)", [])
   , ("infer(<>, (add1: fun(Int) -> Int, x: !), add1(x))", "(<>, Int)", [])
   , ("infer(<>, (), do { let id = fun(x) { x }; fun(x) { x } })", "(<>, fun<Type1>(Type1) -> Type1)", [])
@@ -68,7 +75,7 @@ testData =
   , ("infer(<>, (), do { let x = true; let y = x; x })", "(<>, Bool)", [])
   , ("infer(<>, (), fun(x) { true })", "(<>, fun<Type1>(Type1) -> Bool)", [])
   , ("infer(<>, (), fun(x) { let y = x; y })", "(<>, fun<Type1>(Type1) -> Type1)", [])
-  , ("infer(<>, (), true(42))", "(<>, !)", ["Bool ≢ fun(Int) -> Type1"])
+  , ("infer(<>, (), true(42))", "(<>, !)", [])
   , ("infer(<>, (), 42(true))", "(<>, !)", ["Bool ≢ fun(Int) -> Type1"])
   , ("infer(<B>, (choose: fun<A>(A) -> fun(A) -> A, x: B), choose(x)(42))", "(<B = Int>, Int)", [])
   , ("infer(<B>, (choose: fun<A>(A) -> fun(A) -> A, x: B), choose(42)(x))", "(<B = Int>, Int)", [])
@@ -138,7 +145,7 @@ testData =
   , ("infer(<>, (), do { let id = fun(x) { x }; let id = (id: fun<X>(X) -> Int); (id: fun<X>(X) -> X) })", "(<>, fun<X>(X) -> X)", ["fun<x>(x) -> Int ≢ fun(Int) -> Int", "fun<x>(x) -> x ≢ fun(Int) -> Int"])
   , ("infer(<>, (), do { let f = fun(x) { 42 }; (f: fun<X>(X) -> Bool) })", "(<>, fun<X>(X) -> Bool)", ["Int ≢ Bool"])
   , ("infer(<>, (auto: fun<A = fun<A>(A) -> A>(A) -> A, add1: fun(Int) -> Int), auto(add1))", "(<>, fun<A>(A) -> A)", ["fun<A>(A) -> A ≢ fun(Int) -> Int"])
-  , ("infer(<>, (add1: fun(Int) -> Int), /* TODO TODO TODO TODO */ do { let id = (fun(x) { x }: fun<X>(X) -> Int); add1(id(true)) })", "(<>, Int)", ["fun<x>(x) -> Int ≢ fun(Int) -> Int"])
+  , ("infer(<>, (add1: fun(Int) -> Int), do { let id = (fun(x) { x }: fun<X>(X) -> Int); add1(id(true)) })", "(<>, Int)", ["fun<x>(x) -> Int ≢ fun(Int) -> Int"])
   , ("infer(<>, (add1: fun(Int) -> Int), do { let id = (fun(x) { true }: fun<x>(x) -> x); add1(id(42)) })", "(<>, Int)", ["fun<x>(x) -> x ≢ fun(Bool) -> Bool"])
   , ("infer(<>, (add1: fun(Int) -> Int), do { let id = (fun(x) { true }: fun<x>(x) -> x); add1(id(42)) })", "(<>, Int)", ["fun<x>(x) -> x ≢ fun(Bool) -> Bool"])
   , ("infer(<>, (add1: fun(Int) -> Int), do { let id = fun(x) { x }; add1(id(true)) })", "(<>, Int)", ["Int ≢ Bool"])
@@ -169,6 +176,7 @@ testData =
   , ("infer(<>, (), fun(id) { let id = (id: fun<A>(A) -> A); id })", "(<>, fun<Type1 = fun<A>(A) -> A, Type2: fun<A>(A) -> A>(Type1) -> Type2)", [])
   , ("infer(<>, (f: fun<A = fun<B>(B) -> B>(Int) -> A), f(0))", "(<>, fun<B>(B) -> B)", [])
   , ("infer(<>, (f: fun<A = fun<B>(B) -> B>(Int) -> A), f(0)(1))", "(<>, Int)", [])
+  , ("infer(<>, (), (fun(x) { x }: fun<X>(X) -> Int))", "(<>, fun<X>(X) -> Int)", ["(0:15-0:27) Can not change this type because we have `fun(Int) -> Int` but we want `fun<X>(X) -> Int`."])
   ]
 
 inferParser :: Parser (Recover CST.QuantifierList, CST.CommaList (Identifier, Recover CST.Type), Recover CST.Expression)
@@ -188,7 +196,7 @@ spec = do
   flip traverse_ testData $ \(input, expectedSolution, expectedDiagnostics) ->
     it (Text.unpack input) $ do
       let ((cqs, cts, ce), ds1) = runDiagnosticWriter (fst <$> (runParser inferParser (tokenize input)))
-      traverse_ (error . Text.Builder.toString . debugDiagnostic) ds1
+      if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
       let
         -- Use the quantifier list to quantify a boolean type. Could be anything really. We just
         -- need to send it through our conversion and type checking pipeline.
@@ -239,7 +247,6 @@ spec = do
 
       actualSolution `shouldBe` expectedSolution
 
-      -- TODO: Enable this!
-      -- -- Compare all the expected diagnostics to each other.
-      -- let actualDiagnostics = map (Text.Builder.toStrictText . debugDiagnostic) (toList (ds2 <> ds3))
-      -- actualDiagnostics `shouldBe` expectedDiagnostics
+      -- Compare all the expected diagnostics to each other.
+      let actualDiagnostics = map (Text.Builder.toStrictText . diagnosticMessageCompact) (toList (ds2 <> ds3))
+      actualDiagnostics `shouldBe` expectedDiagnostics

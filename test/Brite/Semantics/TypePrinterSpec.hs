@@ -17,6 +17,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
+import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 import Test.Hspec
 
 testData :: [(Text, Text)]
@@ -81,7 +82,7 @@ spec = do
   flip traverse_ testData $ \(input, expectedOutput) ->
     it (Text.unpack input) $ do
       let (type1, ds1) = runDiagnosticWriter (parseType (tokenize input))
-      mapM_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
+      if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
       let (type2, _) = runDiagnosticWriter (checkPolytype initialContext (convertRecoverType type1))
       let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytype type2)))
       let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))

@@ -387,8 +387,11 @@ updateCheck stack prefix oldBinding newType = do
       return (Right ())
 
 -- Prints a polytype to a `TypeMessage` directly.
-rawPolytypeMessage :: Polytype -> TypeMessage
-rawPolytypeMessage = CodeMessage . Text.Builder.toStrictText . printCompactType . printPolytype
+rawPolytypeMessage :: Polytype -> (Range, TypeMessage)
+rawPolytypeMessage t =
+  ( Type.polytypeRange t
+  , CodeMessage (Text.Builder.toStrictText (printCompactType (printPolytype t)))
+  )
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Where `t1` is the old type and `t2` is the new
 -- type. Do not call this function with two types which do not uphold this relation!

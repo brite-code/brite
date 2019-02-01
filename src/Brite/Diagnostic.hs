@@ -80,9 +80,9 @@ module Brite.Diagnostic
   , isFunctionCallOperation
 
   -- Diagnostic message printers.
-  , diagnosticMessage
   , diagnosticMessageText
-  , debugDiagnostic
+  , diagnosticMessageCompact
+  , diagnosticMessageMarkdown
 
   -- Shared messages.
   , issueTrackerMessage
@@ -98,6 +98,7 @@ import Brite.DiagnosticMarkup
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
+import Data.List (intersperse)
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
@@ -149,7 +150,7 @@ data ErrorDiagnosticMessage
   -- The type checker ran into a type variable which it could not find a binding for.
   | UnboundTypeVariable Identifier
   -- We found two types that were incompatible with one another during unification.
-  | IncompatibleTypes TypeMessage TypeMessage UnifyStack
+  | IncompatibleTypes Range Range TypeMessage TypeMessage UnifyStack
   -- While trying to infer the type for some code we ran into an infinite type.
   | InfiniteType UnifyStack
 
@@ -160,6 +161,21 @@ data InternalErrorDiagnosticMessage
 data WarningDiagnosticMessage
 
 data InfoDiagnosticMessage
+
+-- Represents a related information for a diagnostic in case the main information was not enough.
+-- Most importantly, related information carries a location so we can point to source code which
+-- contributed to an error.
+--
+-- See related information in the [Language Server Protocol (LSP) Specification][1].
+--
+-- See an example of [related information rendered in VSCode][2].
+--
+-- [1]: https://microsoft.github.io/language-server-protocol/specification
+-- [2]: https://code.visualstudio.com/updates/v1_22#_related-information-in-errors-and-warnings
+data DiagnosticRelatedInformation = DiagnosticRelatedInformation
+  { diagnosticRelatedInformationRange :: Range
+  , diagnosticRelatedInformationMessage :: Markup
+  }
 
 -- What syntax did we not expect?
 data UnexpectedSyntax
@@ -221,9 +237,12 @@ unboundTypeVariable range name = report $ Diagnostic range $ Error $
 --
 -- We get the range for the diagnostic from our unification stack. The unification stack should hold
 -- the range most relevant to the programmer.
-incompatibleTypes :: DiagnosticMonad m => TypeMessage -> TypeMessage -> UnifyStack -> m Diagnostic
-incompatibleTypes actual expected stack = report $ Diagnostic (unifyStackRange stack) $ Error $
-  IncompatibleTypes actual expected stack
+incompatibleTypes :: DiagnosticMonad m => (Range, TypeMessage) -> (Range, TypeMessage) -> UnifyStack -> m Diagnostic
+incompatibleTypes (actualRange, actual) (expectedRange, expected) stack = report $ Diagnostic range $ Error $
+  IncompatibleTypes actualRange expectedRange actual expected stack
+  where
+    stackRange = unifyStackRange stack
+    range = if rangeContains stackRange actualRange then actualRange else stackRange
 
 -- While trying to infer the type for some code we ran into an infinite type.
 infiniteType :: DiagnosticMonad m => UnifyStack -> m Diagnostic
@@ -319,20 +338,62 @@ isFunctionCallOperation (UnifyStackOperation _ (UnifyFunctionCall _)) = True
 isFunctionCallOperation _ = False
 {-# INLINE isFunctionCallOperation #-}
 
--- Creates the human readable diagnostic message for a given diagnostic. Remember that this
--- generates a new message every time it is called instead of fetching a pre-generated message.
-diagnosticMessage :: Diagnostic -> Markup
+-- Creates a human readable diagnostic message for a given diagnostic. Also may create some related
+-- information regarding the error. Remember that this generates a new message every time it is
+-- called instead of fetching a pre-generated message.
+diagnosticMessage :: Diagnostic -> (Markup, [DiagnosticRelatedInformation])
 diagnosticMessage diagnostic =
   case diagnosticRawMessage diagnostic of
-    Error message -> diagnosticErrorMessage message
+    Error message -> diagnosticErrorMessage (diagnosticRange diagnostic) message
     Warning _ -> error "unreachable"
     Info _ -> error "unreachable"
 
--- The text of a diagnostic message.
+-- The text of a diagnostic message. This will only return the text of a diagnostic! It will not
+-- include the range or the related information.
 diagnosticMessageText :: Diagnostic -> Text.Builder
-diagnosticMessageText = toText . diagnosticMessage
+diagnosticMessageText = toText . fst . diagnosticMessage
 
-diagnosticErrorMessage :: ErrorDiagnosticMessage -> Markup
+-- Prints a diagnostic compactly on a single line.
+diagnosticMessageCompact :: Diagnostic -> Text.Builder
+diagnosticMessageCompact diagnostic =
+  Text.Builder.singleton '(' <>
+  debugRange (diagnosticRange diagnostic) <>
+  Text.Builder.fromText ") " <>
+  toText message <>
+  (if null relatedInformation then mempty else
+    Text.Builder.fromText " [" <>
+    mconcat (intersperse (Text.Builder.fromText ", ") (map
+      (\info ->
+        Text.Builder.singleton '(' <>
+        debugRange (diagnosticRelatedInformationRange info) <>
+        Text.Builder.fromText "): " <>
+        toText (diagnosticRelatedInformationMessage info))
+      relatedInformation)) <>
+    Text.Builder.singleton ']')
+  where
+    (message, relatedInformation) = diagnosticMessage diagnostic
+
+-- Prints a diagnostic to markdown format. The diagnostic is printed as a markdown bullet. All
+-- related information is printed as nested bullets.
+diagnosticMessageMarkdown :: Diagnostic -> Text.Builder
+diagnosticMessageMarkdown diagnostic =
+  Text.Builder.fromText "- (" <>
+  debugRange (diagnosticRange diagnostic) <>
+  Text.Builder.fromText ") " <>
+  toText message <>
+  Text.Builder.singleton '\n' <>
+  (mconcat (map
+    (\info ->
+      Text.Builder.fromText "  - (" <>
+      debugRange (diagnosticRelatedInformationRange info) <>
+      Text.Builder.fromText "): " <>
+      toText (diagnosticRelatedInformationMessage info) <>
+      Text.Builder.singleton '\n')
+    relatedInformation))
+  where
+    (message, relatedInformation) = diagnosticMessage diagnostic
+
+diagnosticErrorMessage :: Range -> ErrorDiagnosticMessage -> (Markup, [DiagnosticRelatedInformation])
 
 -- Thought and care that went into this error message:
 --
@@ -357,7 +418,7 @@ diagnosticErrorMessage :: ErrorDiagnosticMessage -> Markup
 --
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
-diagnosticErrorMessage (UnexpectedSyntax unexpected expected) =
+diagnosticErrorMessage _ (UnexpectedSyntax unexpected expected) = noRelatedInformation $
   plain "We wanted "
     <> expectedSyntaxMessage expected
     <> plain " but we found "
@@ -378,7 +439,7 @@ diagnosticErrorMessage (UnexpectedSyntax unexpected expected) =
 --
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
-diagnosticErrorMessage (UnexpectedEnding expected) =
+diagnosticErrorMessage _ (UnexpectedEnding expected) = noRelatedInformation $
   plain "We wanted " <> expectedSyntaxMessage expected <> plain " but the file ended."
 
 -- Instead of saying “we could not find value `X`” or “we could not find name `X`” we say “we could
@@ -390,7 +451,7 @@ diagnosticErrorMessage (UnexpectedEnding expected) =
 --
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
-diagnosticErrorMessage (UnboundVariable name) =
+diagnosticErrorMessage _ (UnboundVariable name) = noRelatedInformation $
   plain "We could not find " <> code (identifierText name) <> plain "."
 
 -- Other options considered include:
@@ -404,7 +465,7 @@ diagnosticErrorMessage (UnboundVariable name) =
 --
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
-diagnosticErrorMessage (UnboundTypeVariable name) =
+diagnosticErrorMessage _ (UnboundTypeVariable name) = noRelatedInformation $
   plain "We could not find type " <> code (identifierText name) <> plain "."
 
 -- A Brite programmer will see this error message quite frequently so we need to take some time and
@@ -427,18 +488,32 @@ diagnosticErrorMessage (UnboundTypeVariable name) =
 -- type) they will then go to _all_ the code sites where that function was called and update the
 -- values being passed.
 --
+-- We use the related information to tell the user the exact location of the expected type. We also
+-- show them the exact location of the actual type, but only if our diagnostic wasn’t already
+-- pointing to the actual type. If our diagnostic is pointing to the actual type we reduce clutter
+-- by not including the extra information.
+--
 -- Finally, there’s the matter of the unification stack frames. We currently don’t report the
 -- unification stack frames. Mostly because I want to wait until I have some examples of when the
 -- unification stack frames will be useful for debugging an error. For now we keep the diagnostic
 -- error messages short, sweet, and to the point.
-diagnosticErrorMessage (IncompatibleTypes actual expected stack) =
-  operationMessage <> plain " because we have " <> typeMessage actual <> plain " but we want " <>
-  typeMessage expected <> plain "."
+diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual expected stack) =
+  -- Construct the incompatible types message.
+  ( operationMessage <> plain " because we have " <> typeMessage actual <> plain " but we want " <>
+    typeMessage expected <> plain "."
+
+  -- Always show the programmer a reference to the expected type. Only show a reference to the
+  -- actual type if the diagnostic’s range does not contain the actual type.
+  , if rangeContains range actualRange then [expectedReference] else [actualReference, expectedReference]
+  )
   where
     operationMessage = loop stack
 
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
+
+    actualReference = DiagnosticRelatedInformation actualRange (typeReferenceMessage actual)
+    expectedReference = DiagnosticRelatedInformation expectedRange (typeReferenceMessage expected)
 
 -- Infinite types are rare and tricky to understand. We don’t expect beginner programmers to see
 -- this error. To see this error you need to be using both recursion and lots of polymorphism. Both
@@ -459,7 +534,7 @@ diagnosticErrorMessage (IncompatibleTypes actual expected stack) =
 -- to see if the type variable exists already in the type it is being updated to. Just because the
 -- occurs check fails, we don’t know that it’s that type variable that is the problem. The type
 -- variable we were updating just got unlucky. It could be any type variable in that type.
-diagnosticErrorMessage (InfiniteType stack) =
+diagnosticErrorMessage _ (InfiniteType stack) = noRelatedInformation $
   operationMessage <> plain " because the type checker infers an infinite type."
   where
     operationMessage = loop stack
@@ -469,11 +544,15 @@ diagnosticErrorMessage (InfiniteType stack) =
 
 -- If a user sees an internal error diagnostic then there’s a bug in Brite. Refer users to the issue
 -- tracker so they can report their problem.
-diagnosticErrorMessage (InternalError x) =
+diagnosticErrorMessage _ (InternalError x) = noRelatedInformation $
   plain "Internal Error: " <> internalErrorDiagnosticMessage x <> plain " " <> issueTrackerMessage
   where
     internalErrorDiagnosticMessage (ExpectedTypeVariableToExist name) =
       plain "Expected type variable " <> code (identifierText name) <> plain " to exist in the prefix."
+
+-- Utility for constructing an error message with no related information.
+noRelatedInformation :: Markup -> (Markup, [DiagnosticRelatedInformation])
+noRelatedInformation message = (message, [])
 
 -- Get the message for an expected token.
 expectedSyntaxMessage :: ExpectedSyntax -> Markup
@@ -498,13 +577,23 @@ expectedSyntaxMessage ExpectedExpression = plain "an expression"
 expectedSyntaxMessage ExpectedPattern = plain "a variable name"
 expectedSyntaxMessage ExpectedType = plain "a type"
 
--- Get the message for a type message.
+-- Get the message for a type message which we will use in a sentence. As such, we expect this
+-- message to have proper grammar. We also have a `typeReferenceMessage` function which will get
+-- a message for the type when we use it as a reference.
 typeMessage :: TypeMessage -> Markup
 typeMessage (CodeMessage t) = code t
 typeMessage VoidMessage = plain "void"
 typeMessage BooleanMessage = plain "a boolean"
 typeMessage IntegerMessage = plain "an integer"
 typeMessage FunctionMessage = plain "a function"
+
+-- Get the message for a type to be used as a reference.
+typeReferenceMessage :: TypeMessage -> Markup
+typeReferenceMessage (CodeMessage t) = code t
+typeReferenceMessage VoidMessage = code "void"
+typeReferenceMessage BooleanMessage = code "Bool"
+typeReferenceMessage IntegerMessage = code "Int"
+typeReferenceMessage FunctionMessage = plain "function"
 
 -- Get the message for a unification stack operation.
 unifyStackOperationMessage :: UnifyStackOperation -> Markup
@@ -535,14 +624,6 @@ unifyStackOperationMessage UnifyConditionalBranches = plain "TODO"
 issueTrackerMessage :: Markup
 issueTrackerMessage =
   plain "See if this issue was already reported: https://github.com/brite-code/brite/issues"
-
--- Prints a diagnostic for debugging purposes.
-debugDiagnostic :: Diagnostic -> Text.Builder
-debugDiagnostic diagnostic =
-  Text.Builder.singleton '('
-    <> debugRange (diagnosticRange diagnostic)
-    <> Text.Builder.fromText ") "
-    <> toText (diagnosticMessage diagnostic)
 
 -- A diagnostic monad will allow us to report diagnostics. The diagnostics we report will go into
 -- a list where they may be read from later.

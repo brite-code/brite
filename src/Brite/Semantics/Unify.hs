@@ -170,7 +170,10 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
 
     -- Report an incompatible types error with both of the types and return it.
     incompatibleTypesError = Left <$>
-      incompatibleTypes (typeMessage actual) (typeMessage expected) stack
+      incompatibleTypes
+        (Type.monotypeRange actual, typeMessage actual)
+        (Type.monotypeRange expected, typeMessage expected)
+        stack
 
     typeMessage t = case Type.monotypeDescription t of
       -- All variables should be handled by unification. No matter what they unify to. This branch

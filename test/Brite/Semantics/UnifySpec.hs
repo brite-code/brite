@@ -21,8 +21,6 @@ import Brite.Syntax.TokenStream
 import Data.Foldable (traverse_, toList)
 import Data.Text (Text)
 import qualified Data.Text as Text
-import qualified Data.Text.Lazy as Text.Lazy
-import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 import Test.Hspec
 
@@ -370,7 +368,7 @@ spec =
   flip traverse_ testData $ \(input, expectedPrefix, expectedDiagnostics) ->
     it (Text.unpack input) $ do
       let ((r, (cqs, ct1, ct2)), ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
-      traverse_ (error . Text.Lazy.unpack . Text.Builder.toLazyText . debugDiagnostic) ds1
+      if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
       let
         -- Use the quantifier list to quantify a boolean type. Could be anything really. We just
         -- need to send it through our conversion and type checking pipeline.

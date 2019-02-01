@@ -947,8 +947,8 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
           hPutStrLn h ""
           hPutStrLn h "### Errors"
           flip mapM_ diagnostics (\diagnostic ->
-            hPutStrLn h (Text.Lazy.unpack (Text.Builder.toLazyText
-              (Text.Builder.fromText "- " <> debugDiagnostic diagnostic)))))
+            hPutStr h (Text.Lazy.unpack (Text.Builder.toLazyText
+              (diagnosticMessageMarkdown diagnostic)))))
         rebuiltSource `shouldBe` source
 
 escape :: Text -> Text
