@@ -85,15 +85,19 @@ tryBreakStatement =
 tryEmptyStatement :: TryParser Statement
 tryEmptyStatement = EmptyStatement <$> tryGlyph Semicolon
 
-semicolon :: Parser (Maybe (Recover Token))
-semicolon = optional (tryGlyph Semicolon)
-
 tryFunctionDeclaration :: TryParser Statement
 tryFunctionDeclaration =
-  FunctionDeclaration
+  build
     <$> tryKeyword Fun
-    <&> name
+    <&> optional tryName
     <&> function
+    <&> semicolon
+  where
+    build t1 Nothing f t2 = ExpressionStatement (FunctionExpression t1 f) t2
+    build t1 (Just n) f t2 = FunctionDeclaration t1 n f t2
+
+semicolon :: Parser (Maybe (Recover Token))
+semicolon = optional (tryGlyph Semicolon)
 
 function :: Parser Function
 function =

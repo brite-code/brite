@@ -6979,11 +6979,8 @@ fun() {}
 
 ### AST
 ```
-(fun 0:0-0:8 err (block 0:6-0:8))
+(fun 0:0-0:8 (block 0:6-0:8))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7018,11 +7015,8 @@ fun(a) {}
 
 ### AST
 ```
-(fun 0:0-0:9 err (param (var 0:4-0:5 a)) (block 0:7-0:9))
+(fun 0:0-0:9 (param (var 0:4-0:5 a)) (block 0:7-0:9))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7045,15 +7039,8 @@ fun(a, b) {}
 
 ### AST
 ```
-(fun 0:0-0:12
-  err
-  (param (var 0:4-0:5 a))
-  (param (var 0:7-0:8 b))
-  (block 0:10-0:12))
+(fun 0:0-0:12 (param (var 0:4-0:5 a)) (param (var 0:7-0:8 b)) (block 0:10-0:12))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7065,15 +7052,11 @@ fun(a, b, c) {}
 ### AST
 ```
 (fun 0:0-0:15
-  err
   (param (var 0:4-0:5 a))
   (param (var 0:7-0:8 b))
   (param (var 0:10-0:11 c))
   (block 0:13-0:15))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7162,11 +7145,8 @@ fun(a,) {}
 
 ### AST
 ```
-(fun 0:0-0:10 err (param (var 0:4-0:5 a)) (block 0:8-0:10))
+(fun 0:0-0:10 (param (var 0:4-0:5 a)) (block 0:8-0:10))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7177,15 +7157,8 @@ fun(a, b,) {}
 
 ### AST
 ```
-(fun 0:0-0:13
-  err
-  (param (var 0:4-0:5 a))
-  (param (var 0:7-0:8 b))
-  (block 0:11-0:13))
+(fun 0:0-0:13 (param (var 0:4-0:5 a)) (param (var 0:7-0:8 b)) (block 0:11-0:13))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7197,15 +7170,11 @@ fun(a, b, c,) {}
 ### AST
 ```
 (fun 0:0-0:16
-  err
   (param (var 0:4-0:5 a))
   (param (var 0:7-0:8 b))
   (param (var 0:10-0:11 c))
   (block 0:14-0:16))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7306,11 +7275,8 @@ fun() { let x = y; }
 
 ### AST
 ```
-(fun 0:0-0:20 err (block 0:6-0:20 (bind (var 0:12-0:13 x) (var 0:16-0:17 y))))
+(fun 0:0-0:20 (block 0:6-0:20 (bind (var 0:12-0:13 x) (var 0:16-0:17 y))))
 ```
-
-### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 
 --------------------------------------------------------------------------------
 
@@ -7348,12 +7314,11 @@ fun() {}()
 
 ### AST
 ```
-(fun 0:0-0:8 err (block 0:6-0:8))
+(fun 0:0-0:8 (block 0:6-0:8))
 (wrap 0:8-0:10 (err 0:9-0:10))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 - (0:9-0:10) We wanted an expression but we found `)`.
 
 --------------------------------------------------------------------------------
@@ -7788,11 +7753,10 @@ fun) {}
 
 ### AST
 ```
-(err (fun 0:0-0:7 err (block 0:5-0:7)))
+(err (fun 0:0-0:7 (block 0:5-0:7)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `)`.
 - (0:3-0:4) We wanted `(` but we found `)`.
 
 --------------------------------------------------------------------------------
@@ -7804,11 +7768,10 @@ fun( {}
 
 ### AST
 ```
-(err (fun 0:0-0:7 err (param (object 0:5-0:7)) (block 0:7-0:7)))
+(err (fun 0:0-0:7 (param (object 0:5-0:7)) (block 0:7-0:7)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 - (0:7-0:7) We wanted `)` but the file ended.
 - (0:7-0:7) We wanted `{` but the file ended.
 - (0:7-0:7) We wanted `}` but the file ended.
@@ -7822,11 +7785,10 @@ fun() }
 
 ### AST
 ```
-(err (fun 0:0-0:7 err (block 0:6-0:7)))
+(err (fun 0:0-0:7 (block 0:6-0:7)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 - (0:6-0:7) We wanted `{` but we found `}`.
 
 --------------------------------------------------------------------------------
@@ -7838,11 +7800,10 @@ fun() {
 
 ### AST
 ```
-(err (fun 0:0-0:7 err (block 0:6-0:7)))
+(err (fun 0:0-0:7 (block 0:6-0:7)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 - (0:7-0:7) We wanted `}` but the file ended.
 
 --------------------------------------------------------------------------------
@@ -7856,14 +7817,12 @@ fun(a, b let x = y; }
 ```
 (err
   (fun 0:0-0:21
-    err
     (param (var 0:4-0:5 a))
     (param (var 0:7-0:8 b))
     (block 0:9-0:21 (bind (var 0:13-0:14 x) (var 0:17-0:18 y)))))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 - (0:9-0:12) We wanted `)` but we found `let`.
 - (0:9-0:12) We wanted `{` but we found `let`.
 
@@ -13615,11 +13574,10 @@ fun
 
 ### AST
 ```
-(err (fun 0:0-0:3 err (block 0:3-0:3)))
+(err (fun 0:0-0:3 (block 0:3-0:3)))
 ```
 
 ### Errors
-- (0:3-0:3) We wanted a variable name but the file ended.
 - (0:3-0:3) We wanted `(` but the file ended.
 - (0:3-0:3) We wanted `)` but the file ended.
 - (0:3-0:3) We wanted `{` but the file ended.
@@ -13634,11 +13592,10 @@ fun<>
 
 ### AST
 ```
-(err (fun 0:0-0:3 err (block 0:3-0:3)))
+(err (fun 0:0-0:3 (block 0:3-0:3)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `<`.
 - (0:5-0:5) We wanted `(` but the file ended.
 - (0:5-0:5) We wanted `)` but the file ended.
 - (0:5-0:5) We wanted `{` but the file ended.
@@ -13653,11 +13610,10 @@ fun<T>
 
 ### AST
 ```
-(err (fun 0:0-0:5 err (forall (name 0:4-0:5 T)) (block 0:5-0:5)))
+(err (fun 0:0-0:5 (forall (name 0:4-0:5 T)) (block 0:5-0:5)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `<`.
 - (0:6-0:6) We wanted `(` but the file ended.
 - (0:6-0:6) We wanted `)` but the file ended.
 - (0:6-0:6) We wanted `{` but the file ended.
@@ -13672,11 +13628,10 @@ fun()
 
 ### AST
 ```
-(err (fun 0:0-0:5 err (block 0:5-0:5)))
+(err (fun 0:0-0:5 (block 0:5-0:5)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 - (0:5-0:5) We wanted `{` but the file ended.
 - (0:5-0:5) We wanted `}` but the file ended.
 
@@ -13689,11 +13644,10 @@ fun() -> T
 
 ### AST
 ```
-(err (fun 0:0-0:10 err (type (var 0:9-0:10 T)) (block 0:10-0:10)))
+(err (fun 0:0-0:10 (type (var 0:9-0:10 T)) (block 0:10-0:10)))
 ```
 
 ### Errors
-- (0:3-0:4) We wanted a variable name but we found `(`.
 - (0:10-0:10) We wanted `{` but the file ended.
 - (0:10-0:10) We wanted `}` but the file ended.
 
@@ -13933,5 +13887,50 @@ let 0a = x
 
 ### Errors
 - (0:5-0:6) We wanted a number but we found `a`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+do { let id = fun(x) { x }; fun(x) { x } }
+```
+
+### AST
+```
+(block 0:0-0:42
+  (bind
+    (var 0:9-0:11 id)
+    (fun 0:14-0:26
+      (param (var 0:18-0:19 x))
+      (block 0:21-0:26 (var 0:23-0:24 x))))
+  (fun 0:28-0:40 (param (var 0:32-0:33 x)) (block 0:35-0:40 (var 0:37-0:38 x))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+fun(x) { x }
+```
+
+### AST
+```
+(fun 0:0-0:12 (param (var 0:4-0:5 x)) (block 0:7-0:12 (var 0:9-0:10 x)))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+fun 😈(x) { x }
+```
+
+### AST
+```
+(err (fun 0:0-0:15 (param (var 0:7-0:8 x)) (block 0:10-0:15 (var 0:12-0:13 x))))
+```
+
+### Errors
+- (0:4-0:6) We wanted a variable name but we found `😈`.
 
 --------------------------------------------------------------------------------

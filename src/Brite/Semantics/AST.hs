@@ -89,10 +89,9 @@ data StatementNode
 
   -- `fun f() {}`
   --
-  -- If we failed to parse a name for the function then the name will be `Left` instead of `Right`.
-  -- We do this so we don’t have to throw away our entire function declaration just because of a
-  -- missing name.
-  | FunctionDeclaration (Either Diagnostic Name) Function
+  -- If we failed to parse a name for the function then we will use a `FunctionExpression` instead
+  -- of a `FunctionDeclaration`.
+  | FunctionDeclaration Name Function
 
   -- `;`
   | EmptyStatement
@@ -501,14 +500,17 @@ convertStatement s0 = case s0 of
   -- Convert a CST function declaration into an AST declaration statement. What’s interesting here
   -- is that while a name is required for function declarations, if we don’t have a name we still
   -- return a function declaration but we give it a `Left` name with an error instead of `Right`.
-  CST.FunctionDeclaration t n' f' -> build $ do
-    n <- case n' of
-      Ok n -> return (Right (convertName n))
-      Recover _ e n -> tell (pure e) *> return (Right (convertName n))
-      Fatal _ e -> return (Left e)
-    let r1 = rangeBetweenMaybe (tokenRange t) (nameRange <$> either (const Nothing) Just n)
-    (r2, f) <- convertFunction r1 f'
-    return $ Statement r2 (FunctionDeclaration n f)
+  CST.FunctionDeclaration t1 n' f' t2 ->
+    case n' of
+      Ok n -> build $ declaration (convertName n)
+      Recover _ e n -> build $ tell (pure e) *> declaration (convertName n)
+      Fatal _ e -> errorStatement e (convertStatement (CST.ExpressionStatement (CST.FunctionExpression t1 f') t2))
+    where
+      declaration n = do
+        let r1 = rangeBetween (tokenRange t1) (nameRange n)
+        (r2, f) <- convertFunction r1 f'
+        r3 <- join <$> mapM recoverTokenRange t2
+        return $ Statement (rangeBetweenMaybe r2 r3) (FunctionDeclaration n f)
 
   where
     -- A small utility for adding the first error to the statement we find if any.

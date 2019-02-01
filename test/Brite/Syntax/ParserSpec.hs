@@ -464,7 +464,7 @@ testData =
   , "fun() { let x = y; }"
   , "(fun() { let x = y; })"
   , "fun f() { let x = y; }"
-  , "fun() {}()"
+  , "fun() {}()" -- TODO: This should be a call expression
   , "(fun() {}())"
   , "(fun() {})()"
   , "let f = fun() {};"
@@ -903,6 +903,9 @@ testData =
   , "0a"
   , "let x = 0a"
   , "let 0a = x"
+  , "do { let id = fun(x) { x }; fun(x) { x } }"
+  , "fun(x) { x }"
+  , "fun 😈(x) { x }"
   ]
 
 openSnapshotFile :: IO Handle

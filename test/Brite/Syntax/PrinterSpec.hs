@@ -977,6 +977,10 @@ testData =
   , "fun f<T>() {}"
   , "fun f<T>(x: T) -> T {x}"
   , "fun /* a */ f /* b */() {}"
+  , "fun() {}"
+  , "fun<>() {}"
+  , "fun<T>() {}"
+  , "fun<T>(x: T) -> T {x}"
   , "(x: <\n//\nT: fun() -> U /* a */, /* b */> T)"
   , "(x: <T> <U> T)"
   , "(x: <T, U> <V> T)"
@@ -1033,6 +1037,15 @@ testData =
   , "100.0"
   , "0.001"
   , "1.e2"
+  , "do { let id = fun(x) { x }; fun(x) { x } }"
+  , "fun(x) { x }"
+  , "fun(x) { x };"
+  , "fun(x) { x } x"
+  , "fun(x) { x }; x"
+  , "fun(x) { x } /* a */ ; /* b */"
+  , "fun f(x) { x } x"
+  , "fun f(x) { x }; x"
+  , "fun f(x) { x } /* a */ ; /* b */"
   ]
 
 openSnapshotFile :: IO Handle

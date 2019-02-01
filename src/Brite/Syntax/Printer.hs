@@ -137,11 +137,6 @@ printStatement s0 = build $ case statementNode s0 of
   -- contained a parse error. Print out the raw source code for concrete statements.
   ConcreteStatement s -> rawText (tokensTrimmedSource (recoverStatementTokens s))
 
-  -- Wrap a `FunctionExpression` in parentheses. Otherwise it will get confused with
-  -- a `FunctionDeclaration.`
-  ExpressionStatement x@(Expression { expressionNode = FunctionExpression _ }) ->
-    text "(" <> printExpression Top x <> text ");"
-
   -- Print an expression statement and include a semicolon for the appropriate expressions. If the
   -- expression has attached trailing comments then print those _after_ the semicolon.
   ExpressionStatement x' ->

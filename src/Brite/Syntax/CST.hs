@@ -137,7 +137,7 @@ data Statement
   -- two because function declarations are mutually recursive among all function declarations.
   -- Function declarations require the name to be present and don’t allow expression “extra”s like
   -- a function call.
-  | FunctionDeclaration Token (Recover Name) Function
+  | FunctionDeclaration Token (Recover Name) Function Semicolon
 
 -- Convenience type alias for an optional semicolon token.
 type Semicolon = Maybe (Recover Token)
@@ -547,7 +547,7 @@ statementFirstToken (BindingStatement t _ _ _ _ _) = t
 statementFirstToken (ReturnStatement t _ _) = t
 statementFirstToken (BreakStatement t _ _) = t
 statementFirstToken (EmptyStatement t) = t
-statementFirstToken (FunctionDeclaration t _ _) = t
+statementFirstToken (FunctionDeclaration t _ _ _) = t
 
 -- Gets the first token of an expression.
 expressionFirstToken :: Expression -> Token
@@ -612,8 +612,11 @@ statementTokens (BreakStatement t1 e t2) =
     <> maybeTokens (recoverTokens expressionTokens) e
     <> maybeTokens (recoverTokens singletonToken) t2
 statementTokens (EmptyStatement t) = singletonToken t
-statementTokens (FunctionDeclaration t n f) =
-  singletonToken t <> recoverTokens nameTokens n <> functionTokens f
+statementTokens (FunctionDeclaration t1 n f t2) =
+  singletonToken t1
+    <> recoverTokens nameTokens n
+    <> functionTokens f
+    <> maybeTokens (recoverTokens singletonToken) t2
 
 functionTokens :: Function -> Tokens
 functionTokens (Function qs t1 ps t2 r b) =

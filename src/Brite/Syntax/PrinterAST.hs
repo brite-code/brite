@@ -864,10 +864,11 @@ convertStatement s0 = case s0 of
   -- Empty statements should be handled by `convertStatementSequence`!
   CST.EmptyStatement _ -> panic
 
-  CST.FunctionDeclaration t1 n' f' -> do
+  CST.FunctionDeclaration t1 n' f' t3' -> do
     CST.Name n t2 <- recover n'
     f <- convertFunction f'
-    return (FunctionDeclaration n <$> (token t1 *> token t2 *> f))
+    t3 <- recoverMaybe t3'
+    return (FunctionDeclaration n <$> (token t1 *> token t2 *> f) `semicolon` t3)
 
   where
     semicolon x Nothing = x
