@@ -11,10 +11,13 @@ import Brite.Semantics.AST
 import Brite.Syntax.Identifier
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Range
+import Data.Char (intToDigit, toUpper)
 import Data.Text (Text)
+import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
+import Numeric (showInt, showIntAtBase, showFloat)
 
 -- Prints a Brite AST module to an S-expression text form for debugging purposes.
 debugModule :: Module -> Text.Builder
@@ -87,6 +90,10 @@ debugConstant range constant = case constant of
   VoidConstant -> (symbol "void")
   BooleanConstant True -> (symbol "bool") `E` (A "true")
   BooleanConstant False -> (symbol "bool") `E` (A "false")
+  IntegerConstant Decimal value -> (symbol "int") `E` (A (Text.pack (showInt value "")))
+  IntegerConstant Binary value -> (symbol "bin") `E` (A (Text.pack (showIntAtBase 2 intToDigit value "")))
+  IntegerConstant Hexadecimal value -> (symbol "hex") `E` (A (Text.pack (showIntAtBase 16 (toUpper . intToDigit) value "")))
+  FloatConstant value -> (symbol "float") `E` (A (Text.pack (showFloat value "")))
   where
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange range

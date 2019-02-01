@@ -17,6 +17,7 @@ module Brite.Semantics.AST
   , FunctionParameter(..)
   , Block(..)
   , Constant(..)
+  , IntegerConstantBase(..)
   , Expression(..)
   , ExpressionNode(..)
   , ObjectExpressionProperty(..)
@@ -43,6 +44,7 @@ import Brite.Diagnostic
 import Brite.Syntax.CST (Recover(..), PrefixOperator(..), Flexibility(..))
 import qualified Brite.Syntax.CST as CST
 import Brite.Syntax.Identifier
+import Brite.Syntax.Number
 import Brite.Syntax.Range
 import Brite.Syntax.Token
 import Control.Applicative
@@ -127,6 +129,12 @@ data Constant
   = VoidConstant
   -- `true`, `false`
   | BooleanConstant Bool
+  -- `42`
+  | IntegerConstant IntegerConstantBase Integer
+  -- `3.1415`
+  | FloatConstant Double
+
+data IntegerConstantBase = Binary | Decimal | Hexadecimal
 
 data Expression = Expression
   -- The range covered by an expression in a document.
@@ -564,12 +572,6 @@ convertBlock prevStart (CST.Block t1 ss' t2) = do
 
   return (Block range ss)
 
--- Converts a CST constant into an AST constant accompanied with a range.
-convertConstant :: CST.Constant -> (Range, Constant)
-convertConstant c = case c of
-  CST.VoidConstant t -> (tokenRange t, VoidConstant)
-  CST.BooleanConstant b t -> (tokenRange t, BooleanConstant b)
-
 -- Takes an expression and makes it an error expression. If the expression is already an error
 -- expression then we replace the current error with our new one.
 --
@@ -589,10 +591,30 @@ fatalErrorExpression ts e =
 -- Converts a CST expression into an AST expression.
 convertExpression :: CST.Expression -> Expression
 convertExpression x0 = case x0 of
-  -- Convert all constant expressions.
-  CST.ConstantExpression c0 ->
-    let (r, c1) = convertConstant c0 in
-      Expression r (ConstantExpression c1)
+  -- Convert a void constant.
+  CST.ConstantExpression (CST.VoidConstant t) ->
+    Expression (tokenRange t) (ConstantExpression VoidConstant)
+
+  -- Convert a boolean constant.
+  CST.ConstantExpression (CST.BooleanConstant b t) ->
+    Expression (tokenRange t) (ConstantExpression (BooleanConstant b))
+
+  -- Convert an invalid number token into an error expression.
+  CST.ConstantExpression (CST.NumberConstant (InvalidNumberToken err _) t) ->
+    Expression (tokenRange t) (ErrorExpression err Nothing)
+
+  -- Convert the integer constants of various bases to an AST integer constant. The base doesn’t
+  -- matter for our program’s semantics so we forget it.
+  CST.ConstantExpression (CST.NumberConstant (NumberToken (DecimalInteger _ value)) t) ->
+    Expression (tokenRange t) (ConstantExpression (IntegerConstant Decimal value))
+  CST.ConstantExpression (CST.NumberConstant (NumberToken (BinaryInteger _ _ value)) t) ->
+    Expression (tokenRange t) (ConstantExpression (IntegerConstant Binary value))
+  CST.ConstantExpression (CST.NumberConstant (NumberToken (HexadecimalInteger _ _ value)) t) ->
+    Expression (tokenRange t) (ConstantExpression (IntegerConstant Hexadecimal value))
+
+  -- Convert a float constant to an AST constant.
+  CST.ConstantExpression (CST.NumberConstant (NumberToken (DecimalFloat _ value)) t) ->
+    Expression (tokenRange t) (ConstantExpression (FloatConstant value))
 
   -- Variable expressions are easy since they are a single token.
   CST.VariableExpression (CST.Name n t) ->
@@ -816,10 +838,30 @@ fatalErrorPattern ts e =
 -- Converts a CST pattern into an AST pattern.
 convertPattern :: CST.Pattern -> Pattern
 convertPattern x0 = case x0 of
-  -- Convert all constant patterns.
-  CST.ConstantPattern c0 ->
-    let (r, c1) = convertConstant c0 in
-      Pattern r (ConstantPattern c1)
+  -- Convert a void constant.
+  CST.ConstantPattern (CST.VoidConstant t) ->
+    Pattern (tokenRange t) (ConstantPattern VoidConstant)
+
+  -- Convert a boolean constant.
+  CST.ConstantPattern (CST.BooleanConstant b t) ->
+    Pattern (tokenRange t) (ConstantPattern (BooleanConstant b))
+
+  -- Convert an invalid number token into an error expression.
+  CST.ConstantPattern (CST.NumberConstant (InvalidNumberToken err _) t) ->
+    Pattern (tokenRange t) (ErrorPattern err Nothing)
+
+  -- Convert the integer constants of various bases to an AST integer constant. The base doesn’t
+  -- matter for our program’s semantics so we forget it.
+  CST.ConstantPattern (CST.NumberConstant (NumberToken (DecimalInteger _ value)) t) ->
+    Pattern (tokenRange t) (ConstantPattern (IntegerConstant Decimal value))
+  CST.ConstantPattern (CST.NumberConstant (NumberToken (BinaryInteger _ _ value)) t) ->
+    Pattern (tokenRange t) (ConstantPattern (IntegerConstant Binary value))
+  CST.ConstantPattern (CST.NumberConstant (NumberToken (HexadecimalInteger _ _ value)) t) ->
+    Pattern (tokenRange t) (ConstantPattern (IntegerConstant Hexadecimal value))
+
+  -- Convert a float constant to an AST constant.
+  CST.ConstantPattern (CST.NumberConstant (NumberToken (DecimalFloat _ value)) t) ->
+    Pattern (tokenRange t) (ConstantPattern (FloatConstant value))
 
   -- Variable patterns are easy since they are a single token.
   CST.VariablePattern (CST.Name n t) ->

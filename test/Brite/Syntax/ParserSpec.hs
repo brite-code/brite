@@ -891,7 +891,7 @@ testData =
   , "1e+2"
   , "1e-2"
   , "0b101"
-  , "0xCO55EE"
+  , "0xC055EE"
   , "let 0 = x"
   , "let 1 = x"
   , "let 3.1415 = x"
@@ -899,7 +899,10 @@ testData =
   , "let 1e+2 = x"
   , "let 1e-2 = x"
   , "let 0b101 = x"
-  , "let 0xCO55EE = x"
+  , "let 0xC055EE = x"
+  , "0a"
+  , "let x = 0a"
+  , "let 0a = x"
   ]
 
 openSnapshotFile :: IO Handle
