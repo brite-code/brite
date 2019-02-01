@@ -70,7 +70,7 @@ rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 
 -- True if the first range completely contains the second.
 rangeContains :: Range -> Range -> Bool
-rangeContains (Range p1 p2) (Range p3 p4) = p1 <= p2 && p3 <= p4
+rangeContains (Range start1 end1) (Range start2 end2) = start1 <= start2 && end2 <= end1
 {-# INLINE rangeContains #-}
 
 -- Debug a position.

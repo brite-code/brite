@@ -30,7 +30,6 @@ module Brite.Semantics.Type
   , polytype
   , bottom
   , quantify
-  , Polarity(..)
   , normal
   , substitutePolytype
   , substituteMonotype
@@ -239,20 +238,6 @@ quantify bindings body = if Seq.null bindings then polytype body else
           bindings
     , polytypeDescription = Quantify bindings body
     }
-
--- Polarity represents whether a type is in an “input” or an “output” position. You may also know
--- polarity as “variance”.
---
--- Consider the type `fun(T) -> U`. Here `T` is in an _input_ position so we give it a negative
--- polarity. However, `U` is in an _output_ position so we give it a positive polarity.
---
--- A negative position in a negative position is a positive position. Consider the type
--- `fun(fun(T) -> U) -> V`. Here, like before, `V` has a positive polarity. `U` has a negative
--- polarity because it it is in a negative position (function parameter) and a positive position
--- (function return) so a negative times a positive is a negative. `T`, however, has a positive
--- polarity because it is in a negative position (function parameter) and a negative position again
--- (function parameter of a function parameter) so a negative times a negative is a positive.
-data Polarity = Positive | Negative
 
 -- Converts a polytype to normal form as described in Section 1.5.3 of the [MLF thesis][1].
 -- Returns a referentially equal type if the type is already in normal form.

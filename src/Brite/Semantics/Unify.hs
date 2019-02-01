@@ -8,6 +8,7 @@ import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..))
 import qualified Brite.Semantics.Type as Type
+import Brite.Syntax.Identifier (identifierText)
 
 -- IMPORTANT: It is expected that all free type variables are bound in the prefix! If this is not
 -- true we will report internal error diagnostics.
@@ -139,8 +140,8 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
   -- If both the unification of the parameters and bodies fail then we will report two error
   -- diagnostics. However, we will only return the first error from unify.
   (Function parameter1 body1, Function parameter2 body2) -> do
-    let parameterFrame = functionParameterFrame (Type.monotypeRange parameter1) stack
-    let bodyFrame = functionBodyFrame (Type.monotypeRange body1) stack
+    let parameterFrame = functionParameterFrame (Type.monotypeRange parameter1) (Type.monotypeRange parameter2) stack
+    let bodyFrame = functionBodyFrame (Type.monotypeRange body1) (Type.monotypeRange body2) stack
     result1 <- unify parameterFrame prefix parameter1 parameter2
     result2 <- unify bodyFrame prefix body1 body2
     return (result1 `eitherOr` result2)
@@ -155,11 +156,12 @@ unify stack prefix type1 type2 = case (Type.monotypeDescription type1, Type.mono
   where
     -- Report an incompatible types error with both of the types and return it.
     incompatibleTypesError = Left <$>
-      incompatibleTypes (Type.monotypeRange type1) (typeMessage type1) (typeMessage type2) stack
+      incompatibleTypes (typeMessage type1) (typeMessage type2) stack
 
     typeMessage type3 = case Type.monotypeDescription type3 of
-      -- All variables should be handled by unification. No matter what they unify to.
-      Variable _ -> undefined
+      -- All variables should be handled by unification. No matter what they unify to. This branch
+      -- should be unreachable!
+      Variable name -> CodeMessage (identifierText name)
 
       Void -> VoidMessage
       Boolean -> BooleanMessage

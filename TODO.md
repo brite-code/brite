@@ -18,3 +18,5 @@
   where a name was defined. To reuse the same variable name for multiple values
   the programmer may use the update operator.
 - Use bottom types to warn about unreachable code.
+- Only reserve keywords for binding identifiers. Allow keywords in properties
+  like `gen.void`.

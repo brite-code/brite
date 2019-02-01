@@ -12,6 +12,7 @@ import qualified Brite.Semantics.AST as AST
 import Brite.Semantics.AVT
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Namer
+import Brite.Semantics.Polarity
 import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype, Flexibility(..))
@@ -292,15 +293,15 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
   AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
     (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
     let counter0 = initialFreshCounter
-    (counter1, bindings2, parameterType) <- checkMonotype Type.Negative context1 counter0 bindings1 uncheckedParameterType
-    (_, bindings3, bodyType) <- checkMonotype Type.Positive context1 counter1 bindings2 uncheckedBodyType
+    (counter1, bindings2, parameterType) <- checkMonotype Negative context1 counter0 bindings1 uncheckedParameterType
+    (_, bindings3, bodyType) <- checkMonotype Positive context1 counter1 bindings2 uncheckedBodyType
     return (Type.quantify bindings3 (Type.function range parameterType bodyType))
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
   -- inline those bindings into our prefix as well.
   AST.QuantifiedType quantifiers uncheckedBodyType -> do
     (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
-    (_, bindings2, bodyType) <- checkMonotype Type.Positive context1 initialFreshCounter bindings1 uncheckedBodyType
+    (_, bindings2, bodyType) <- checkMonotype Positive context1 initialFreshCounter bindings1 uncheckedBodyType
     return (Type.quantify bindings2 bodyType)
 
   AST.WrappedType type1 -> checkPolytype context0 type1
@@ -374,7 +375,7 @@ checkQuantifiers context0 (AST.Quantifier name bound : quantifiers) bindings = d
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 -- [2]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/qmlf.pdf
 checkMonotype ::
-  Type.Polarity -> HashSet Identifier -> FreshCounter -> Seq Type.Binding -> AST.Type ->
+  Polarity -> HashSet Identifier -> FreshCounter -> Seq Type.Binding -> AST.Type ->
     DiagnosticWriter (FreshCounter, Seq Type.Binding, Monotype)
 checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode type0 of
   -- Special handling for booleans and integers.
@@ -402,8 +403,8 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
 
   -- Check the parameter and body type of a function.
   AST.FunctionType [] [uncheckedParameterType] uncheckedBodyType -> do
-    (counter1, bindings1, parameterType) <- checkMonotype Type.Negative context counter0 bindings0 uncheckedParameterType
-    (counter2, bindings2, bodyType) <- checkMonotype Type.Positive context counter1 bindings1 uncheckedBodyType
+    (counter1, bindings1, parameterType) <- checkMonotype Negative context counter0 bindings0 uncheckedParameterType
+    (counter2, bindings2, bodyType) <- checkMonotype Positive context counter1 bindings1 uncheckedBodyType
     return (counter2, bindings2, Type.function range parameterType bodyType)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
@@ -443,8 +444,8 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
     range = AST.typeRange type0
 
     localFlexibility = case localPolarity of
-      Type.Positive -> Flexible
-      Type.Negative -> Rigid
+      Positive -> Flexible
+      Negative -> Rigid
 
     -- Forces the programmer to provide proof that they reported an error diagnostic. However, we
     -- don’t include the diagnostic in our internal type structure since there is no obvious place

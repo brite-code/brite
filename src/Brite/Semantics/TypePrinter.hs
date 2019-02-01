@@ -11,6 +11,7 @@ module Brite.Semantics.TypePrinter
   ) where
 
 import Brite.Semantics.Namer
+import Brite.Semantics.Polarity
 import Brite.Semantics.Type
 import Brite.Syntax.Identifier (Identifier, unsafeIdentifier)
 import qualified Brite.Syntax.PrinterAST as PrinterAST

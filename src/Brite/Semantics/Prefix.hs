@@ -379,7 +379,6 @@ updateCheck stack prefix oldBinding newType = do
       -- dissimilar in some way. However, the underlying difference in both cases is different.
       Left <$>
         incompatibleTypes
-          (Type.polytypeRange newType)
           (rawPolytypeMessage newType)
           (rawPolytypeMessage (Type.bindingType oldBinding))
           stack
