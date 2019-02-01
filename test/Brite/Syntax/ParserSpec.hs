@@ -464,7 +464,7 @@ testData =
   , "fun() { let x = y; }"
   , "(fun() { let x = y; })"
   , "fun f() { let x = y; }"
-  , "fun() {}()" -- TODO: This should be a call expression
+  , "fun() {}()"
   , "(fun() {}())"
   , "(fun() {})()"
   , "let f = fun() {};"
@@ -906,6 +906,8 @@ testData =
   , "do { let id = fun(x) { x }; fun(x) { x } }"
   , "fun(x) { x }"
   , "fun 😈(x) { x }"
+  , "choose(undefined: fun<X: fun<A: !, B = !>(A) -> B>(X) -> X)(undefined: fun<X: fun<A = !, B: !>(A) -> B>(X) -> X)"
+  , "choose((undefined: fun<X: fun<A: !, B = !>(A) -> B>(X) -> X))((undefined: fun<X: fun<A = !, B: !>(A) -> B>(X) -> X))"
   ]
 
 openSnapshotFile :: IO Handle

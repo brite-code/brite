@@ -13906,3 +13906,99 @@ fun 😈(x) { x }
 - (0:4-0:6) We wanted a variable name but we found `😈`.
 
 --------------------------------------------------------------------------------
+
+### Source
+```ite
+choose(undefined: fun<X: fun<A: !, B = !>(A) -> B>(X) -> X)(undefined: fun<X: fun<A = !, B: !>(A) -> B>(X) -> X)
+```
+
+### AST
+```
+(err
+  (call 0:0-0:112
+    (err
+      (call 0:0-0:59
+        (var 0:0-0:6 choose)
+        (err (var 0:7-0:16 undefined))
+        (err
+          (fun 0:18-0:58
+            (forall
+              (name 0:22-0:23 X)
+              flex
+              (fun 0:25-0:49
+                (forall (name 0:29-0:30 A) flex (bottom 0:32-0:33))
+                (forall (name 0:35-0:36 B) rigid (bottom 0:39-0:40))
+                (param (var 0:42-0:43 A))
+                (var 0:48-0:49 B)))
+            (param (var 0:51-0:52 X))
+            (type (var 0:57-0:58 X))
+            (block 0:58-0:58)))))
+    (err (var 0:60-0:69 undefined))
+    (err
+      (fun 0:71-0:111
+        (forall
+          (name 0:75-0:76 X)
+          flex
+          (fun 0:78-0:102
+            (forall (name 0:82-0:83 A) rigid (bottom 0:86-0:87))
+            (forall (name 0:89-0:90 B) flex (bottom 0:92-0:93))
+            (param (var 0:95-0:96 A))
+            (var 0:101-0:102 B)))
+        (param (var 0:104-0:105 X))
+        (type (var 0:110-0:111 X))
+        (block 0:111-0:111)))))
+```
+
+### Errors
+- (0:16-0:17) We wanted an expression but we found `:`.
+- (0:18-0:21) We wanted `,` but we found `fun`.
+- (0:58-0:59) We wanted `{` but we found `)`.
+- (0:58-0:59) We wanted `}` but we found `)`.
+- (0:69-0:70) We wanted an expression but we found `:`.
+- (0:71-0:74) We wanted `,` but we found `fun`.
+- (0:111-0:112) We wanted `{` but we found `)`.
+- (0:111-0:112) We wanted `}` but we found `)`.
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+choose((undefined: fun<X: fun<A: !, B = !>(A) -> B>(X) -> X))((undefined: fun<X: fun<A = !, B: !>(A) -> B>(X) -> X))
+```
+
+### AST
+```
+(call 0:0-0:116
+  (call 0:0-0:61
+    (var 0:0-0:6 choose)
+    (wrap 0:7-0:60
+      (var 0:8-0:17 undefined)
+      (type
+        (fun 0:19-0:59
+          (forall
+            (name 0:23-0:24 X)
+            flex
+            (fun 0:26-0:50
+              (forall (name 0:30-0:31 A) flex (bottom 0:33-0:34))
+              (forall (name 0:36-0:37 B) rigid (bottom 0:40-0:41))
+              (param (var 0:43-0:44 A))
+              (var 0:49-0:50 B)))
+          (param (var 0:52-0:53 X))
+          (var 0:58-0:59 X)))))
+  (wrap 0:62-0:115
+    (var 0:63-0:72 undefined)
+    (type
+      (fun 0:74-0:114
+        (forall
+          (name 0:78-0:79 X)
+          flex
+          (fun 0:81-0:105
+            (forall (name 0:85-0:86 A) rigid (bottom 0:89-0:90))
+            (forall (name 0:92-0:93 B) flex (bottom 0:95-0:96))
+            (param (var 0:98-0:99 A))
+            (var 0:104-0:105 B)))
+        (param (var 0:107-0:108 X))
+        (var 0:113-0:114 X)))))
+```
+
+--------------------------------------------------------------------------------
