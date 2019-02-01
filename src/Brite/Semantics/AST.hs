@@ -87,12 +87,6 @@ data StatementNode
   -- `break;`
   | BreakStatement (Maybe Expression)
 
-  -- `fun f() {}`
-  --
-  -- If we failed to parse a name for the function then we will use a `FunctionExpression` instead
-  -- of a `FunctionDeclaration`.
-  | FunctionDeclaration Name Function
-
   -- `;`
   | EmptyStatement
 
@@ -102,9 +96,16 @@ data StatementNode
   -- We will panic at runtime if someone attempts to execute this node.
   | ErrorStatement Diagnostic (Maybe StatementNode)
 
+-- `{ ... }`
+data Block = Block
+  { blockRange :: Range
+  , blockStatements :: [Statement]
+  }
+
 -- `fun() {}`
 data Function = Function
-  { functionQuantifiers :: [Quantifier]
+  { functionName :: Maybe Name
+  , functionQuantifiers :: [Quantifier]
   , functionParameters :: [FunctionParameter]
   , functionReturn :: Maybe Type
   , functionBody :: Block
@@ -117,12 +118,6 @@ data FunctionParameter = FunctionParameter Pattern (Maybe Type)
 functionParameterRange :: FunctionParameter -> Range
 functionParameterRange (FunctionParameter p Nothing) = patternRange p
 functionParameterRange (FunctionParameter p (Just t)) = rangeBetween (patternRange p) (typeRange t)
-
--- `{ ... }`
-data Block = Block
-  { blockRange :: Range
-  , blockStatements :: [Statement]
-  }
 
 data Constant
   -- `void`
@@ -371,7 +366,7 @@ rangeBetweenMaybe r1 (Just r2) = rangeBetween r1 r2
 -- This function asks for a callback which takes a `Recover`ed comma list item and turns that into
 -- a new value which we will return. See `convertRecoverCommaList` if you’d like for the comma list
 -- converter to handle error recovery.
-convertCommaList :: (Recover a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
+convertCommaList :: (Recover a -> b) -> CST.CommaList a -> Conversion [b]
 convertCommaList f (CST.CommaList as an) = mapWriter (fmap getDual) $ do
   -- Start the new comma list with the last element.
   let
@@ -394,7 +389,7 @@ convertCommaList f (CST.CommaList as an) = mapWriter (fmap getDual) $ do
 -- internally every item in a comma list is wrapped in `Recover`. This converter will handle error
 -- recovery for you. It will skip items with fatal errors and report errors from recovered items. If
 -- you’d like to handle error recovery yourself see `convertCommaList`.
-convertRecoverCommaList :: (a -> b) -> CST.CommaList a -> Writer (Alt Maybe Diagnostic) [b]
+convertRecoverCommaList :: (a -> b) -> CST.CommaList a -> Conversion [b]
 convertRecoverCommaList f (CST.CommaList as an) = mapWriter (fmap getDual) $ do
   -- Start the new comma list with the last element.
   bs0 <-
@@ -497,61 +492,11 @@ convertStatement s0 = case s0 of
   -- one token.
   CST.EmptyStatement t -> Statement (tokenRange t) EmptyStatement
 
-  -- Convert a CST function declaration into an AST declaration statement. What’s interesting here
-  -- is that while a name is required for function declarations, if we don’t have a name we still
-  -- return a function declaration but we give it a `Left` name with an error instead of `Right`.
-  CST.FunctionDeclaration t1 n' f' t2 ->
-    case n' of
-      Ok n -> build $ declaration (convertName n)
-      Recover _ e n -> build $ tell (pure e) *> declaration (convertName n)
-      Fatal _ e -> errorStatement e (convertStatement (CST.ExpressionStatement (CST.FunctionExpression t1 f') t2))
-    where
-      declaration n = do
-        let r1 = rangeBetween (tokenRange t1) (nameRange n)
-        (r2, f) <- convertFunction r1 f'
-        r3 <- join <$> mapM recoverTokenRange t2
-        return $ Statement (rangeBetweenMaybe r2 r3) (FunctionDeclaration n f)
-
   where
     -- A small utility for adding the first error to the statement we find if any.
     build s1 =
       let (s, e) = runWriter s1 in
         maybe s (flip errorStatement s) (getAlt e)
-
--- Converts a CST function into an AST function. Also returns a range between the provided starting
--- range and the end range of the function.
-convertFunction :: Range -> CST.Function -> Conversion (Range, Function)
-convertFunction r (CST.Function qs' t1 ps' t2 ret' b') = do
-  qs <- convertOptionalQuantifierList qs'
-  r1 <- recoverTokenRange t1
-  ps <- convertCommaList convertFunctionParameter ps'
-  r2 <- recoverTokenRange t2
-  let
-    ret = convertFunctionReturn <$> ret'
-
-    -- Get the last position _before_ the block.
-    p =
-      rangeEnd (fromMaybe r ((typeRange <$> ret) <|> r2 <|>
-        (functionParameterRange <$> lastMaybe ps) <|> r1 <|> (quantifierRange <$> lastMaybe qs)))
-  b <- convertBlock p b'
-  return $
-    ( rangeBetween r (blockRange b)
-    , Function qs ps ret b
-    )
-  where
-    convertFunctionParameter (Ok (CST.FunctionParameter p t)) =
-      FunctionParameter (convertPattern p) (convertRecoverTypeAnnotation <$> t)
-    convertFunctionParameter (Recover _ e (CST.FunctionParameter p t)) =
-      FunctionParameter (errorPattern e (convertPattern p)) (convertRecoverTypeAnnotation <$> t)
-    convertFunctionParameter (Fatal ts e) =
-      FunctionParameter (fatalErrorPattern ts e) Nothing
-
-    convertFunctionReturn (Ok (CST.FunctionReturn (Token {}) t)) =
-      convertRecoverType t
-    convertFunctionReturn (Recover _ e (CST.FunctionReturn (Token {}) t)) =
-      errorType e (convertRecoverType t)
-    convertFunctionReturn (Fatal ts e) =
-      fatalErrorType ts e
 
 -- Converts a CST block into an AST block.
 --
@@ -574,6 +519,45 @@ convertBlock prevStart (CST.Block t1 ss' t2) = do
       (Just start, Just end) -> rangeBetween start end
 
   return (Block range ss)
+
+-- Converts a CST function into an AST function. Also returns a range between the provided starting
+-- range and the end range of the function.
+convertFunction :: CST.Function -> Conversion (Range, Function)
+convertFunction (CST.Function t1 n' qs' t3 ps' t4 ret' b') = do
+  n <- case n' of
+    Nothing -> return Nothing
+    Just (Ok n) -> return (Just (convertName n))
+    Just (Recover _ e n) -> tell (pure e) *> return (Just (convertName n))
+    Just (Fatal _ e) -> tell (pure e) *> return Nothing
+  qs <- convertOptionalQuantifierList qs'
+  r3 <- recoverTokenRange t3
+  ps <- convertCommaList convertFunctionParameter ps'
+  r4 <- recoverTokenRange t4
+  let ret = convertFunctionReturn <$> ret'
+  let
+    -- Get the last position _before_ the block.
+    p =
+      rangeEnd (fromMaybe (tokenRange t1) ((typeRange <$> ret) <|> r4 <|>
+        (functionParameterRange <$> lastMaybe ps) <|> r3 <|> (quantifierRange <$> lastMaybe qs) <|> (nameRange <$> n)))
+  b <- convertBlock p b'
+  return $
+    ( rangeBetween (tokenRange t1) (blockRange b)
+    , Function n qs ps ret b
+    )
+  where
+    convertFunctionParameter (Ok (CST.FunctionParameter p t)) =
+      FunctionParameter (convertPattern p) (convertRecoverTypeAnnotation <$> t)
+    convertFunctionParameter (Recover _ e (CST.FunctionParameter p t)) =
+      FunctionParameter (errorPattern e (convertPattern p)) (convertRecoverTypeAnnotation <$> t)
+    convertFunctionParameter (Fatal ts e) =
+      FunctionParameter (fatalErrorPattern ts e) Nothing
+
+    convertFunctionReturn (Ok (CST.FunctionReturn (Token {}) t)) =
+      convertRecoverType t
+    convertFunctionReturn (Recover _ e (CST.FunctionReturn (Token {}) t)) =
+      errorType e (convertRecoverType t)
+    convertFunctionReturn (Fatal ts e) =
+      fatalErrorType ts e
 
 -- Takes an expression and makes it an error expression. If the expression is already an error
 -- expression then we replace the current error with our new one.
@@ -625,8 +609,8 @@ convertExpression x0 = case x0 of
 
   -- Convert our function expression CST to an AST node. Most of the work is done
   -- by `convertFunction`.
-  CST.FunctionExpression t f' -> build $ do
-    (r, f) <- convertFunction (tokenRange t) f'
+  CST.FunctionExpression f' -> build $ do
+    (r, f) <- convertFunction f'
     return $ Expression r (FunctionExpression f)
 
   -- Convert a CST object expression into an AST object expression. Any syntax error within the

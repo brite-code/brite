@@ -47,7 +47,6 @@ tryName = uncurry Name <$> tryIdentifier
 tryStatement :: TryParser Statement
 tryStatement =
   tryBindingStatement
-    <|> tryFunctionDeclaration
     <|> tryExpressionStatement
     <|> tryReturnStatement
     <|> tryBreakStatement
@@ -85,35 +84,8 @@ tryBreakStatement =
 tryEmptyStatement :: TryParser Statement
 tryEmptyStatement = EmptyStatement <$> tryGlyph Semicolon
 
-tryFunctionDeclaration :: TryParser Statement
-tryFunctionDeclaration =
-  build
-    <$> tryKeyword Fun
-    <&> optional tryName
-    <&> function
-    <&> semicolon
-  where
-    build t1 Nothing f t2 = ExpressionStatement (FunctionExpression t1 f) t2
-    build t1 (Just n) f t2 = FunctionDeclaration t1 n f t2
-
 semicolon :: Parser (Maybe (Recover Token))
 semicolon = optional (tryGlyph Semicolon)
-
-function :: Parser Function
-function =
-  Function
-    <$> optional (tryQuantifierList <|> unexpected (ExpectedGlyph ParenLeft))
-    <*> skipIdentifier (glyph ParenLeft)
-    <*> commaList tryFunctionParameter
-    <*> glyph ParenRight
-    <*> optional tryFunctionReturn
-    <*> block
-
-tryFunctionParameter :: TryParser FunctionParameter
-tryFunctionParameter = FunctionParameter <$> tryPattern <&> optional tryTypeAnnotation
-
-tryFunctionReturn :: TryParser FunctionReturn
-tryFunctionReturn = FunctionReturn <$> tryGlyph Arrow <&> type_
 
 block :: Parser Block
 block = Block <$> glyph BraceLeft <*> many tryStatement <*> glyph BraceRight
@@ -153,10 +125,25 @@ tryVariableExpression :: TryParser Expression
 tryVariableExpression = VariableExpression <$> tryName
 
 tryFunctionExpression :: TryParser Expression
-tryFunctionExpression =
-  FunctionExpression
+tryFunctionExpression = FunctionExpression <$> tryFunction
+
+tryFunction :: TryParser Function
+tryFunction =
+  Function
     <$> tryKeyword Fun
-    <&> function
+    <&> optional tryName
+    <&> optional (tryQuantifierList <|> unexpected (ExpectedGlyph ParenLeft))
+    <&> skipIdentifier (glyph ParenLeft)
+    <&> commaList tryFunctionParameter
+    <&> glyph ParenRight
+    <&> optional tryFunctionReturn
+    <&> block
+
+tryFunctionParameter :: TryParser FunctionParameter
+tryFunctionParameter = FunctionParameter <$> tryPattern <&> optional tryTypeAnnotation
+
+tryFunctionReturn :: TryParser FunctionReturn
+tryFunctionReturn = FunctionReturn <$> tryGlyph Arrow <&> type_
 
 tryObjectExpression :: TryParser Expression
 tryObjectExpression =

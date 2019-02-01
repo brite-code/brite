@@ -74,7 +74,7 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
   -- check the body type with that type variable. It is expected that through unification the
   -- parameter type will be solved. At the very end we generalize the type variables created at this
   -- level which weren’t updated to a higher level.
-  AST.FunctionExpression (AST.Function [] [AST.FunctionParameter astPattern Nothing] Nothing astBody) ->
+  AST.FunctionExpression (AST.Function Nothing [] [AST.FunctionParameter astPattern Nothing] Nothing astBody) ->
     Prefix.withLevel prefix $ do
       (context1, parameterType, parameter) <- checkPattern prefix context astPattern
       (bodyType, body) <- checkBlock prefix context1 astBody

@@ -47,8 +47,6 @@ debugStatement s0 = case statementNode s0 of
 
   EmptyStatement -> (symbol "empty")
 
-  FunctionDeclaration n f -> debugFunction (statementRange s0) (Just n) f
-
   ErrorStatement _ Nothing -> (symbol "err")
   ErrorStatement _ (Just x) -> (A "err") `E` (debugStatement (Statement (statementRange s0) x))
 
@@ -56,8 +54,18 @@ debugStatement s0 = case statementNode s0 of
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (statementRange s0)
 
-debugFunction :: Range -> Maybe Name -> Function -> S
-debugFunction r n (Function qs ps ret b) =
+debugBlock :: Block -> S
+debugBlock (Block r ss) =
+  foldl
+    (\e s -> e `E` (debugStatement s))
+    symbol
+    ss
+  where
+    symbol = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
+      Text.Builder.fromText "block " <> debugRange r
+
+debugFunction :: Range -> Function -> S
+debugFunction r (Function n qs ps ret b) =
   let
     s1 = (symbol "fun")
     s2 = maybe s1 (E s1 . debugName) n
@@ -74,16 +82,6 @@ debugFunction r n (Function qs ps ret b) =
 
     symbol t = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange r
-
-debugBlock :: Block -> S
-debugBlock (Block r ss) =
-  foldl
-    (\e s -> e `E` (debugStatement s))
-    symbol
-    ss
-  where
-    symbol = B $ Text.Lazy.toStrict $ Text.Builder.toLazyText $
-      Text.Builder.fromText "block " <> debugRange r
 
 debugConstant :: Range -> Constant -> S
 debugConstant range constant = case constant of
@@ -104,7 +102,7 @@ debugExpression x0 = case expressionNode x0 of
 
   VariableExpression ident -> (symbol "var") `E` (A (identifierText ident))
 
-  FunctionExpression f -> debugFunction (expressionRange x0) Nothing f
+  FunctionExpression f -> debugFunction (expressionRange x0) f
 
   CallExpression f xs ->
     foldl

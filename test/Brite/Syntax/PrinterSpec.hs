@@ -1046,6 +1046,8 @@ testData =
   , "fun f(x) { x } x"
   , "fun f(x) { x }; x"
   , "fun f(x) { x } /* a */ ; /* b */"
+  , "fun f() {\n//\n}"
+  , "fun f() {\n//\n}.p"
   ]
 
 openSnapshotFile :: IO Handle

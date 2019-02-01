@@ -20,12 +20,12 @@ module Brite.Syntax.CST
   , CommaList(..)
   , commaListItems
   , Statement(..)
-  , Function(..)
-  , FunctionParameter(..)
-  , FunctionReturn(..)
   , Block(..)
   , Constant(..)
   , Expression(..)
+  , Function(..)
+  , FunctionParameter(..)
+  , FunctionReturn(..)
   , ObjectExpressionProperty(..)
   , ObjectExpressionPropertyValue(..)
   , ObjectExpressionExtension(..)
@@ -127,20 +127,16 @@ data Statement
   -- practical use.
   | EmptyStatement Token
 
-  -- ```
-  -- fun f(...) { ... }
-  -- fun f(...) -> T { ... }
-  -- fun f<T>(...) { ... }
-  -- ```
-  --
-  -- `FunctionDeclaration` syntax overlaps significantly with `FunctionExpression`. We separate the
-  -- two because function declarations are mutually recursive among all function declarations.
-  -- Function declarations require the name to be present and don’t allow expression “extra”s like
-  -- a function call.
-  | FunctionDeclaration Token (Recover Name) Function Semicolon
-
 -- Convenience type alias for an optional semicolon token.
 type Semicolon = Maybe (Recover Token)
+
+-- A set of statements scoped in a block. Names declared in this block may only be accessed by code
+-- within the block.
+data Block = Block
+  { blockOpen :: Recover Token
+  , blockStatements :: [Recover Statement]
+  , blockClose :: Recover Token
+  }
 
 -- ```
 -- (...) { ... }
@@ -151,7 +147,9 @@ type Semicolon = Maybe (Recover Token)
 -- The data necessary for creating a function. Excluding the function keyword and optional
 -- function name.
 data Function = Function
-  { functionQuantifiers :: Maybe (Recover QuantifierList)
+  { functionKeyword :: Token
+  , functionName :: Maybe (Recover Name)
+  , functionQuantifiers :: Maybe (Recover QuantifierList)
   , functionParamsOpen :: Recover Token
   , functionParams :: CommaList FunctionParameter
   , functionParamsClose :: Recover Token
@@ -168,14 +166,6 @@ data FunctionParameter = FunctionParameter Pattern (Maybe (Recover TypeAnnotatio
 --
 -- Type annotation for the value returned by the function.
 data FunctionReturn = FunctionReturn Token (Recover Type)
-
--- A set of statements scoped in a block. Names declared in this block may only be accessed by code
--- within the block.
-data Block = Block
-  { blockOpen :: Recover Token
-  , blockStatements :: [Recover Statement]
-  , blockClose :: Recover Token
-  }
 
 -- Some constant value in our program.
 data Constant
@@ -205,18 +195,15 @@ data Expression
 
   -- ```
   -- fun(...) { ... }
+  -- fun f(...) { ... }
   -- fun(...) -> T { ... }
   -- fun<T>(...) { ... }
   -- ```
   --
-  -- A block of code which is executed whenever the function is called. Shares a lot of syntax with
-  -- function declarations.
-  --
-  -- Function expressions are never named. Unlike function declarations which are always named. In
-  -- JavaScript function expressions are optionally named. We choose to never name function
-  -- expressions because that would cause confusion with function declarations. It’s easy to see the
-  -- difference between a function expression and declaration when expressions are never named.
-  | FunctionExpression Token Function
+  -- A block of code which is executed whenever the function is called. If a function is named then
+  -- it may be called recursively by that name. This is the most primitive recursion operation that
+  -- Brite allows.
+  | FunctionExpression Function
 
   -- ```
   -- {p: E, ...}
@@ -547,7 +534,6 @@ statementFirstToken (BindingStatement t _ _ _ _ _) = t
 statementFirstToken (ReturnStatement t _ _) = t
 statementFirstToken (BreakStatement t _ _) = t
 statementFirstToken (EmptyStatement t) = t
-statementFirstToken (FunctionDeclaration t _ _ _) = t
 
 -- Gets the first token of an expression.
 expressionFirstToken :: Expression -> Token
@@ -555,7 +541,7 @@ expressionFirstToken (ConstantExpression (VoidConstant t)) = t
 expressionFirstToken (ConstantExpression (BooleanConstant _ t)) = t
 expressionFirstToken (ConstantExpression (NumberConstant _ t)) = t
 expressionFirstToken (VariableExpression (Name _ t)) = t
-expressionFirstToken (FunctionExpression t _) = t
+expressionFirstToken (FunctionExpression (Function { functionKeyword = t })) = t
 expressionFirstToken (ObjectExpression t _ _ _) = t
 expressionFirstToken (PrefixExpression _ t _) = t
 expressionFirstToken (ConditionalExpression (ConditionalExpressionIf t _ _ _)) = t
@@ -612,18 +598,22 @@ statementTokens (BreakStatement t1 e t2) =
     <> maybeTokens (recoverTokens expressionTokens) e
     <> maybeTokens (recoverTokens singletonToken) t2
 statementTokens (EmptyStatement t) = singletonToken t
-statementTokens (FunctionDeclaration t1 n f t2) =
-  singletonToken t1
-    <> recoverTokens nameTokens n
-    <> functionTokens f
-    <> maybeTokens (recoverTokens singletonToken) t2
+
+-- Get tokens from a block.
+blockTokens :: Block -> Tokens
+blockTokens (Block t1 ss t2) =
+  recoverTokens singletonToken t1
+    <> mconcat (map (recoverTokens statementTokens) ss)
+    <> recoverTokens singletonToken t2
 
 functionTokens :: Function -> Tokens
-functionTokens (Function qs t1 ps t2 r b) =
-  maybeTokens (recoverTokens quantifierListTokens) qs
-    <> recoverTokens singletonToken t1
-    <> commaListTokens functionParameterTokens ps
+functionTokens (Function t1 n qs t2 ps t3 r b) =
+  singletonToken t1
+    <> maybeTokens (recoverTokens nameTokens) n
+    <> maybeTokens (recoverTokens quantifierListTokens) qs
     <> recoverTokens singletonToken t2
+    <> commaListTokens functionParameterTokens ps
+    <> recoverTokens singletonToken t3
     <> maybeTokens (recoverTokens functionReturnTokens) r
     <> blockTokens b
 
@@ -634,13 +624,6 @@ functionParameterTokens (FunctionParameter p a) =
 functionReturnTokens :: FunctionReturn -> Tokens
 functionReturnTokens (FunctionReturn t a) =
   singletonToken t <> recoverTokens typeTokens a
-
--- Get tokens from a block.
-blockTokens :: Block -> Tokens
-blockTokens (Block t1 ss t2) =
-  recoverTokens singletonToken t1
-    <> mconcat (map (recoverTokens statementTokens) ss)
-    <> recoverTokens singletonToken t2
 
 -- Get tokens from a constant.
 constantTokens :: Constant -> Tokens
@@ -654,8 +637,7 @@ expressionTokens (ConstantExpression constant) = constantTokens constant
 
 expressionTokens (VariableExpression name) = nameTokens name
 
-expressionTokens (FunctionExpression t f) =
-  singletonToken t <> functionTokens f
+expressionTokens (FunctionExpression f) = functionTokens f
 
 expressionTokens (ObjectExpression t1 ps ext t2) =
   singletonToken t1

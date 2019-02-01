@@ -147,6 +147,7 @@ printStatement s0 = build $ case statementNode s0 of
     where
       withoutSemicolon (ConstantExpression _) = False
       withoutSemicolon (VariableExpression _) = False
+      withoutSemicolon (FunctionExpression (Function { functionName = Just _ })) = True
       withoutSemicolon (FunctionExpression _) = False
       withoutSemicolon (CallExpression _ _) = False
       withoutSemicolon (ObjectExpression _ _) = False
@@ -258,8 +259,6 @@ printStatement s0 = build $ case statementNode s0 of
   BreakStatement Nothing ->
     text "break;"
 
-  FunctionDeclaration n f -> printFunction (Just n) f
-
   where
     build s1 =
       (if statementLeadingEmptyLine s0 then hardline else mempty)
@@ -267,25 +266,6 @@ printStatement s0 = build $ case statementNode s0 of
         <> s1
         <> printTrailingAttachedComments (statementTrailingComments s0)
         <> (case statementNode s0 of { ConcreteStatement _ -> mempty; _ -> hardline })
-
--- Prints a function. Either a function expression or a function declaration.
-printFunction :: Maybe Identifier -> Function -> Document
-printFunction n (Function qs ps r b) =
-  text "fun" <>
-  maybe mempty ((text " " <>) . text . identifierText) n <>
-  printQuantifierList qs <>
-  group (text "(" <> indent (softline <> printCommaList printFunctionParameter ps) <> text ")") <>
-  maybe mempty ((text " -> " <>) . printType) r <>
-  text " " <>
-  printBlock b
-  where
-    printFunctionParameter (FunctionParameter p' Nothing) =
-      let (p, cs) = takePatternTrailingComments p' in
-        (printPattern p, cs)
-
-    printFunctionParameter (FunctionParameter p (Just t')) =
-      let (t, cs) = takeTypeTrailingComments t' in
-        (printPattern p <> text ": " <> printType t, cs)
 
 -- Prints a block, but the block is not wrapped in a group. That means it will only be flattened if
 -- a parent group is wrapped in a block.
@@ -310,6 +290,25 @@ printUngroupedBlock (Block ss) =
 -- Prints a block.
 printBlock :: Block -> Document
 printBlock = group . printUngroupedBlock
+
+-- Prints a function. Either a function expression or a function declaration.
+printFunction :: Function -> Document
+printFunction (Function n qs ps r b) =
+  text "fun" <>
+  maybe mempty ((text " " <>) . text . identifierText) n <>
+  printQuantifierList qs <>
+  group (text "(" <> indent (softline <> printCommaList printFunctionParameter ps) <> text ")") <>
+  maybe mempty ((text " -> " <>) . printType) r <>
+  text " " <>
+  printBlock b
+  where
+    printFunctionParameter (FunctionParameter p' Nothing) =
+      let (p, cs) = takePatternTrailingComments p' in
+        (printPattern p, cs)
+
+    printFunctionParameter (FunctionParameter p (Just t')) =
+      let (t, cs) = takeTypeTrailingComments t' in
+        (printPattern p <> text ": " <> printType t, cs)
 
 -- Prints a constant.
 printConstant :: Constant -> Document
@@ -361,7 +360,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
 
   VariableExpression n -> text (identifierText n)
 
-  FunctionExpression f -> printFunction Nothing f
+  FunctionExpression f -> printFunction f
 
   -- Call expressions with a single argument never add a trailing comma. This was a pet-peeve of
   -- mine (Caleb) in the JavaScript pretty printing library [Prettier][1]. One of the primary
