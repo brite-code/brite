@@ -22,7 +22,6 @@ import Data.Foldable (traverse_, toList)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
-import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 import Test.Hspec
