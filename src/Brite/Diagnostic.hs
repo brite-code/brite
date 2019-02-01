@@ -77,6 +77,7 @@ module Brite.Diagnostic
   , conditionalBranchesStack
   , functionParameterFrame
   , functionBodyFrame
+  , isFunctionCallOperation
 
   -- Diagnostic message printers.
   , diagnosticMessage
@@ -94,7 +95,6 @@ module Brite.Diagnostic
   ) where
 
 import Brite.DiagnosticMarkup
-import Brite.Semantics.Polarity
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
@@ -222,8 +222,8 @@ unboundTypeVariable range name = report $ Diagnostic range $ Error $
 -- We get the range for the diagnostic from our unification stack. The unification stack should hold
 -- the range most relevant to the programmer.
 incompatibleTypes :: DiagnosticMonad m => TypeMessage -> TypeMessage -> UnifyStack -> m Diagnostic
-incompatibleTypes type1 type2 stack = report $ Diagnostic (unifyStackRange stack) $ Error $
-  IncompatibleTypes type1 type2 stack
+incompatibleTypes actual expected stack = report $ Diagnostic (unifyStackRange stack) $ Error $
+  IncompatibleTypes actual expected stack
 
 -- While trying to infer the type for some code we ran into an infinite type.
 infiniteType :: DiagnosticMonad m => UnifyStack -> m Diagnostic
@@ -260,10 +260,7 @@ data UnifyStack
   -- For the purpose of error reporting, the first type in a unification is the “actual” type. The
   -- type of a value in source code that we are comparing against the second type. The “expected”
   -- type which could be some type annotation the programmer wrote.
-  --
-  -- We switch between reporting the actual and expected type based on polarity because an input
-  -- type flips which type is _expected_ by the programmer to what type is _actually_ provided.
-  | UnifyStackFrame Polarity Range UnifyStackFrame UnifyStack
+  | UnifyStackFrame Range UnifyStackFrame UnifyStack
 
 data UnifyStackOperation
   = UnifyTest
@@ -280,32 +277,9 @@ data UnifyStackFrame
 -- smallest range inside of the unification stack that is still contained by the operation range.
 unifyStackRange :: UnifyStack -> Range
 unifyStackRange (UnifyStackOperation range _) = range
-unifyStackRange (UnifyStackFrame _ range1 _ stack) =
+unifyStackRange (UnifyStackFrame range1 _ stack) =
   let range2 = unifyStackRange stack in
     if rangeContains range2 range1 then range1 else range2
-
--- Gets the polarity of a unification stack.
-unifyStackPolarity :: UnifyStack -> Polarity
-unifyStackPolarity (UnifyStackOperation _ _) = Positive
-unifyStackPolarity (UnifyStackFrame polarity _ _ _) = polarity
-
--- Adds a unification stack frame to the unification stack. Picks the appropriate range based on the
--- current polarity.
-unifyStackFrame :: Range -> Range -> UnifyStackFrame -> UnifyStack -> UnifyStack
-unifyStackFrame range1 range2 frame stack =
-  UnifyStackFrame polarity range frame stack
-  where
-    polarity = unifyStackPolarity stack
-    range = case polarity of { Positive -> range1; Negative -> range2 }
-
--- Adds a unification stack frame to the unification stack. Flips the polarity and picks the
--- appropriate range based on the new polarity.
-unifyStackFrameFlipPolarity :: Range -> Range -> UnifyStackFrame -> UnifyStack -> UnifyStack
-unifyStackFrameFlipPolarity range1 range2 frame stack =
-  UnifyStackFrame polarity range frame stack
-  where
-    polarity = flipPolarity (unifyStackPolarity stack)
-    range = case polarity of { Positive -> range1; Negative -> range2 }
 
 -- An operation we use in testing of Brite itself. We should never use this in release code!
 unifyTestStack :: Range -> UnifyStack
@@ -330,16 +304,20 @@ conditionalBranchesStack range = UnifyStackOperation range UnifyConditionalBranc
 -- Adds a function parameter frame to the unification stack.
 --
 -- The range provided should be the range of the _actual_ type in unification.
-functionParameterFrame :: Range -> Range -> UnifyStack -> UnifyStack
-functionParameterFrame range1 range2 stack =
-  unifyStackFrameFlipPolarity range1 range2 UnifyFunctionParameter stack
+functionParameterFrame :: Range -> UnifyStack -> UnifyStack
+functionParameterFrame range stack = UnifyStackFrame range UnifyFunctionParameter stack
 
 -- Adds a function body frame to the unification stack.
 --
 -- The range provided should be the range of the _actual_ type in unification.
-functionBodyFrame :: Range -> Range -> UnifyStack -> UnifyStack
-functionBodyFrame range1 range2 stack =
-  unifyStackFrame range1 range2 UnifyFunctionBody stack
+functionBodyFrame :: Range -> UnifyStack -> UnifyStack
+functionBodyFrame range stack = UnifyStackFrame range UnifyFunctionBody stack
+
+-- Is this unification stack a function call operation with no indirection?
+isFunctionCallOperation :: UnifyStack -> Bool
+isFunctionCallOperation (UnifyStackOperation _ (UnifyFunctionCall _)) = True
+isFunctionCallOperation _ = False
+{-# INLINE isFunctionCallOperation #-}
 
 -- Creates the human readable diagnostic message for a given diagnostic. Remember that this
 -- generates a new message every time it is called instead of fetching a pre-generated message.
@@ -453,18 +431,14 @@ diagnosticErrorMessage (UnboundTypeVariable name) =
 -- unification stack frames. Mostly because I want to wait until I have some examples of when the
 -- unification stack frames will be useful for debugging an error. For now we keep the diagnostic
 -- error messages short, sweet, and to the point.
-diagnosticErrorMessage (IncompatibleTypes type1 type2 stack) =
-  operationMessage <> plain " because we have " <> typeMessage actualType <> plain " but we want " <>
-  typeMessage expectedType <> plain "."
+diagnosticErrorMessage (IncompatibleTypes actual expected stack) =
+  operationMessage <> plain " because we have " <> typeMessage actual <> plain " but we want " <>
+  typeMessage expected <> plain "."
   where
-    (actualType, expectedType) = case unifyStackPolarity stack of
-      Positive -> (type1, type2)
-      Negative -> (type2, type1)
-
     operationMessage = loop stack
 
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
-    loop (UnifyStackFrame _ _ _ nestedStack) = loop nestedStack
+    loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
 
 -- Infinite types are rare and tricky to understand. We don’t expect beginner programmers to see
 -- this error. To see this error you need to be using both recursion and lots of polymorphism. Both
@@ -491,7 +465,7 @@ diagnosticErrorMessage (InfiniteType stack) =
     operationMessage = loop stack
 
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
-    loop (UnifyStackFrame _ _ _ nestedStack) = loop nestedStack
+    loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
 
 -- If a user sees an internal error diagnostic then there’s a bug in Brite. Refer users to the issue
 -- tracker so they can report their problem.
