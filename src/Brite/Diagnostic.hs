@@ -58,7 +58,6 @@ module Brite.Diagnostic
   -- Diagnostic constructors.
   , UnexpectedSyntax(..)
   , ExpectedSyntax(..)
-  , TypeMessage(..)
   , unexpectedSyntax
   , unexpectedChar
   , unexpectedEnding
@@ -95,6 +94,7 @@ module Brite.Diagnostic
   ) where
 
 import Brite.DiagnosticMarkup
+import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
@@ -149,8 +149,8 @@ data ErrorDiagnosticMessage
   | UnboundVariable Identifier
   -- The type checker ran into a type variable which it could not find a binding for.
   | UnboundTypeVariable Identifier
-  -- We found two types that were incompatible with one another during unification.
-  | IncompatibleTypes Range Range TypeMessage TypeMessage UnifyStack
+  -- We found two type constructors that were incompatible with one another during unification.
+  | IncompatibleTypes Range Range Constructor Constructor UnifyStack
   -- While trying to infer the type for some code we ran into an infinite type.
   | InfiniteType UnifyStack
 
@@ -199,15 +199,6 @@ data ExpectedSyntax
   | ExpectedPattern
   | ExpectedType
 
--- A short description of a type that is used in error messages. Designed to not reveal the
--- underlying implementation of the Brite type checker.
-data TypeMessage
-  = CodeMessage Text
-  | VoidMessage
-  | BooleanMessage
-  | IntegerMessage
-  | FunctionMessage
-
 -- The parser ran into syntax it did not recognize.
 unexpectedSyntax :: DiagnosticMonad m => Range -> UnexpectedSyntax -> ExpectedSyntax -> m Diagnostic
 unexpectedSyntax range unexpected expected = report $ Diagnostic range $ Error $
@@ -233,11 +224,11 @@ unboundTypeVariable :: DiagnosticMonad m => Range -> Identifier -> m Diagnostic
 unboundTypeVariable range name = report $ Diagnostic range $ Error $
   UnboundTypeVariable name
 
--- We found two types that were incompatible with one another during unification.
+-- We found two type constructors that were incompatible with one another during unification.
 --
 -- We get the range for the diagnostic from our unification stack. The unification stack should hold
 -- the range most relevant to the programmer.
-incompatibleTypes :: DiagnosticMonad m => (Range, TypeMessage) -> (Range, TypeMessage) -> UnifyStack -> m Diagnostic
+incompatibleTypes :: DiagnosticMonad m => (Range, Constructor) -> (Range, Constructor) -> UnifyStack -> m Diagnostic
 incompatibleTypes (actualRange, actual) (expectedRange, expected) stack = report $ Diagnostic range $ Error $
   IncompatibleTypes actualRange expectedRange actual expected stack
   where
@@ -499,8 +490,8 @@ diagnosticErrorMessage _ (UnboundTypeVariable name) = noRelatedInformation $
 -- error messages short, sweet, and to the point.
 diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual expected stack) =
   -- Construct the incompatible types message.
-  ( operationMessage <> plain " because we have " <> typeMessage actual <> plain " but we want " <>
-    typeMessage expected <> plain "."
+  ( operationMessage <> plain " because we have " <> typeConstructorMessage actual <>
+    plain " but we want " <> typeConstructorMessage expected <> plain "."
 
   -- Always show the programmer a reference to the expected type. Only show a reference to the
   -- actual type if the diagnostic’s range does not contain the actual type.
@@ -512,8 +503,21 @@ diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
 
-    actualReference = DiagnosticRelatedInformation actualRange (typeReferenceMessage actual)
-    expectedReference = DiagnosticRelatedInformation expectedRange (typeReferenceMessage expected)
+    actualReference = DiagnosticRelatedInformation actualRange (typeConstructorReference actual)
+    expectedReference = DiagnosticRelatedInformation expectedRange (typeConstructorReference expected)
+
+    -- Use the type name for constructors with an arity of zero. Except for void since a void type
+    -- is declared with a keyword.
+    typeConstructorMessage Void = plain "void"
+    typeConstructorMessage Boolean = plain "a " <> code (identifierText booleanTypeName)
+    typeConstructorMessage Integer = plain "an " <> code (identifierText integerTypeName)
+    typeConstructorMessage (Function () ()) = plain "a function"
+
+    -- Type constructor references are just like messages except without an article.
+    typeConstructorReference Void = plain "void"
+    typeConstructorReference Boolean = code (identifierText booleanTypeName)
+    typeConstructorReference Integer = code (identifierText integerTypeName)
+    typeConstructorReference (Function () ()) = plain "function"
 
 -- Infinite types are rare and tricky to understand. We don’t expect beginner programmers to see
 -- this error. To see this error you need to be using both recursion and lots of polymorphism. Both
@@ -576,24 +580,6 @@ expectedSyntaxMessage ExpectedStatement = plain "a statement"
 expectedSyntaxMessage ExpectedExpression = plain "an expression"
 expectedSyntaxMessage ExpectedPattern = plain "a variable name"
 expectedSyntaxMessage ExpectedType = plain "a type"
-
--- Get the message for a type message which we will use in a sentence. As such, we expect this
--- message to have proper grammar. We also have a `typeReferenceMessage` function which will get
--- a message for the type when we use it as a reference.
-typeMessage :: TypeMessage -> Markup
-typeMessage (CodeMessage t) = code t
-typeMessage VoidMessage = plain "void"
-typeMessage BooleanMessage = plain "a boolean"
-typeMessage IntegerMessage = plain "an integer"
-typeMessage FunctionMessage = plain "a function"
-
--- Get the message for a type to be used as a reference.
-typeReferenceMessage :: TypeMessage -> Markup
-typeReferenceMessage (CodeMessage t) = code t
-typeReferenceMessage VoidMessage = code "void"
-typeReferenceMessage BooleanMessage = code "Bool"
-typeReferenceMessage IntegerMessage = code "Int"
-typeReferenceMessage FunctionMessage = plain "function"
 
 -- Get the message for a unification stack operation.
 unifyStackOperationMessage :: UnifyStackOperation -> Markup

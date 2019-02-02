@@ -14,7 +14,8 @@ module Brite.Semantics.TypePrinter
 import Brite.Semantics.Namer
 import Brite.Semantics.Polarity
 import Brite.Semantics.Type
-import Brite.Syntax.Identifier (Identifier, unsafeIdentifier)
+import Brite.Semantics.TypeConstruct
+import Brite.Syntax.Identifier (Identifier)
 import qualified Brite.Syntax.PrinterAST as PrinterAST
 import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
@@ -239,13 +240,13 @@ printMonotypeWithInlining localPolarity type' references0 yield = case monotypeD
           Nothing -> PrinterAST.variableType name
           Just t -> t
 
-  Void -> yield references0 (\_ -> PrinterAST.voidType)
+  Construct Void -> yield references0 (\_ -> PrinterAST.voidType)
 
   -- TODO: Use scoping rules to pick a proper name for these types.
-  Boolean -> yield references0 (\_ -> PrinterAST.variableType (unsafeIdentifier "Bool"))
-  Integer -> yield references0 (\_ -> PrinterAST.variableType (unsafeIdentifier "Int"))
+  Construct Boolean -> yield references0 (\_ -> PrinterAST.variableType booleanTypeName)
+  Construct Integer -> yield references0 (\_ -> PrinterAST.variableType integerTypeName)
 
-  Function parameter body ->
+  Construct (Function parameter body) ->
     printMonotypeWithInlining Negative parameter references0 $ \references1 makeParameter ->
       printMonotypeWithInlining Positive body references1 $ \references2 makeBody ->
         yield references2 $ \substitutions ->
@@ -281,13 +282,13 @@ printMonotypeWithoutInlining :: Monotype -> PrinterAST.Type
 printMonotypeWithoutInlining type' = case monotypeDescription type' of
   Variable name -> PrinterAST.variableType name
 
-  Void -> PrinterAST.voidType
+  Construct Void -> PrinterAST.voidType
 
   -- TODO: Use scoping rules to pick a proper name for these types.
-  Boolean -> PrinterAST.variableType (unsafeIdentifier "Bool")
-  Integer -> PrinterAST.variableType (unsafeIdentifier "Int")
+  Construct Boolean -> PrinterAST.variableType booleanTypeName
+  Construct Integer -> PrinterAST.variableType integerTypeName
 
-  Function parameter body ->
+  Construct (Function parameter body) ->
     PrinterAST.functionType
       [printMonotypeWithoutInlining parameter]
       (printMonotypeWithoutInlining body)

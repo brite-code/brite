@@ -12,8 +12,9 @@ packages:
 
 # Extra dependencies on top of our stackage snapshot.
 extra-deps:
-  # We expect this version to go into LTS at some point. Delete from
-  # `extra-deps` when it does.
+  # We expect these dependencies to go into LTS at some point. Delete from
+  # `extra-deps` when they do.
+  - containers-0.6.0.1
   - unordered-containers-0.2.10.0
 
 # Extra directories used by stack for building

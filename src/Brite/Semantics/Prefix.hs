@@ -378,20 +378,21 @@ updateCheck stack prefix oldBinding newType = do
       -- user it is the same error. We could not perform their operation because two types were
       -- dissimilar in some way. However, the underlying difference in both cases is different.
       Left <$>
-        incompatibleTypes
-          (rawPolytypeMessage newType)
-          (rawPolytypeMessage (Type.bindingType oldBinding))
-          stack
+        error "TODO"
+        -- incompatibleTypes
+        --   (rawPolytypeMessage newType)
+        --   (rawPolytypeMessage (Type.bindingType oldBinding))
+        --   stack
     else
       -- The update is ok. You may proceed to commit changes...
       return (Right ())
 
--- Prints a polytype to a `TypeMessage` directly.
-rawPolytypeMessage :: Polytype -> (Range, TypeMessage)
-rawPolytypeMessage t =
-  ( Type.polytypeRange t
-  , CodeMessage (Text.Builder.toStrictText (printCompactType (printPolytype t)))
-  )
+-- -- Prints a polytype to a `TypeMessage` directly.
+-- rawPolytypeMessage :: Polytype -> (Range, TypeMessage)
+-- rawPolytypeMessage t =
+--   ( Type.polytypeRange t
+--   , CodeMessage (Text.Builder.toStrictText (printCompactType (printPolytype t)))
+--   )
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Where `t1` is the old type and `t2` is the new
 -- type. Do not call this function with two types which do not uphold this relation!

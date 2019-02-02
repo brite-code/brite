@@ -94,7 +94,7 @@ tryConstant :: TryParser Constant
 tryConstant = tryBooleanTrue <|> tryBooleanFalse <|> tryNumberConstant <|> tryVoidConstant
 
 tryVoidConstant :: TryParser Constant
-tryVoidConstant = VoidConstant <$> tryKeyword Void
+tryVoidConstant = VoidConstant <$> tryKeyword Void'
 
 tryBooleanTrue :: TryParser Constant
 tryBooleanTrue = BooleanConstant True <$> tryKeyword True'
@@ -466,7 +466,7 @@ tryBottomType :: TryParser Type
 tryBottomType = BottomType <$> tryGlyph Bang
 
 tryVoidType :: TryParser Type
-tryVoidType = VoidType <$> tryKeyword Void
+tryVoidType = VoidType <$> tryKeyword Void'
 
 tryFunctionType :: TryParser Type
 tryFunctionType =

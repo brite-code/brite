@@ -1,7 +1,5 @@
 -- Checks an AST for type errors. Converting that AST into an internal, typed, representation.
 
-{-# LANGUAGE OverloadedStrings #-} -- TODO: Remove when removing `Bool` and `Int` special handling.
-
 module Brite.Semantics.Check
   ( checkExpression
   , checkPolytype
@@ -17,6 +15,7 @@ import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype, Flexibility(..))
 import qualified Brite.Semantics.Type as Type
+import Brite.Semantics.TypeConstruct
 import Brite.Semantics.Unify
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
@@ -275,8 +274,8 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
   --
   -- TODO: Replace this with proper handling. When doing so also delete the `OverloadedStrings`
   -- language extension.
-  AST.VariableType name | identifierText name == "Bool" -> return (Type.polytype (Type.boolean range))
-  AST.VariableType name | identifierText name == "Int" -> return (Type.polytype (Type.integer range))
+  AST.VariableType name | name == booleanTypeName -> return (Type.polytype (Type.boolean range))
+  AST.VariableType name | name == integerTypeName -> return (Type.polytype (Type.integer range))
 
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
@@ -382,8 +381,8 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
   --
   -- TODO: Replace this with proper handling. When doing so also delete the `OverloadedStrings`
   -- language extension.
-  AST.VariableType name | identifierText name == "Bool" -> return (counter0, bindings0, Type.boolean range)
-  AST.VariableType name | identifierText name == "Int" -> return (counter0, bindings0, Type.integer range)
+  AST.VariableType name | name == booleanTypeName -> return (counter0, bindings0, Type.boolean range)
+  AST.VariableType name | name == integerTypeName -> return (counter0, bindings0, Type.integer range)
 
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.

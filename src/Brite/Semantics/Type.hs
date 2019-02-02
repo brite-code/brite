@@ -23,6 +23,7 @@ module Brite.Semantics.Type
   , Flexibility(..)
   , isUnboundBinding
   , variable
+  , construct
   , void
   , boolean
   , integer
@@ -37,6 +38,7 @@ module Brite.Semantics.Type
 
 import Brite.Semantics.AST (Flexibility(..))
 import Brite.Semantics.Namer
+import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier (Identifier)
 import Brite.Syntax.Range
 import Data.Foldable (any)
@@ -75,20 +77,10 @@ data MonotypeDescription
   -- The variable referenced by this monotype.
   = Variable Identifier
 
-  -- `void`, `Bool`, `Int`
+  -- `void`, `fun(T) -> U` `Bool`, `Int`
   --
-  -- Primitive types with an arity of zero. Like booleans and numbers.
-  | Void
-  | Boolean
-  | Integer
-
-  -- `fun(T) -> T`
-  --
-  -- A function from one type to another.
-  --
-  -- TODO: Currently we only allow exactly one function argument, but Brite supports any number of
-  -- function arguments.
-  | Function Monotype Monotype
+  -- Some constructed type. Like a function or an integer.
+  | Construct (Construct Monotype)
 
 -- Types that do contain quantifiers. When we refer to a “type” what we really mean is “polytype”.
 data Polytype = Polytype
@@ -164,41 +156,30 @@ variable range identifier =
     , monotypeDescription = Variable identifier
     }
 
--- A void monotype.
-void :: Range -> Monotype
-void range =
+-- Creates a constructed monotype.
+construct :: Range -> Construct Monotype -> Monotype
+construct range c =
   Monotype
     { monotypeRange = range
-    , monotypeFreeVariables = Set.empty
-    , monotypeDescription = Void
+    , monotypeFreeVariables = Set.unions (monotypeFreeVariables <$> c)
+    , monotypeDescription = Construct c
     }
+
+-- A void monotype.
+void :: Range -> Monotype
+void range = construct range Void
 
 -- A boolean monotype.
 boolean :: Range -> Monotype
-boolean range =
-  Monotype
-    { monotypeRange = range
-    , monotypeFreeVariables = Set.empty
-    , monotypeDescription = Boolean
-    }
+boolean range = construct range Boolean
 
 -- An integer monotype.
 integer :: Range -> Monotype
-integer range =
-  Monotype
-    { monotypeRange = range
-    , monotypeFreeVariables = Set.empty
-    , monotypeDescription = Integer
-    }
+integer range = construct range Integer
 
 -- Creates a new function monotype.
 function :: Range -> Monotype -> Monotype -> Monotype
-function range parameter body =
-  Monotype
-    { monotypeRange = range
-    , monotypeFreeVariables = Set.union (monotypeFreeVariables parameter) (monotypeFreeVariables body)
-    , monotypeDescription = Function parameter body
-    }
+function range parameter body = construct range (Function parameter body)
 
 -- Converts a monotype into a polytype.
 polytype :: Monotype -> Polytype
@@ -446,17 +427,12 @@ substituteMonotype :: HashMap Identifier (Range -> Monotype) -> Monotype -> Mayb
 substituteMonotype substitutions t0 = case monotypeDescription t0 of
   -- Try to find a substitution for this variable.
   Variable name -> ($ monotypeRange t0) <$> HashMap.lookup name substitutions
-  -- Types which will never have substitutions.
-  Void -> Nothing
-  Boolean -> Nothing
-  Integer -> Nothing
   -- If we don’t need a substitution then immediately return our type without recursing.
   _ | not (needsSubstitution substitutions (monotypeFreeVariables t0)) -> Nothing
-  -- Substitute the type variables in a function type. We do this below the above condition so we
+  -- Substitute the type variables in a constructed type. We do this below the above condition so we
   -- won’t recurse if we don’t absolutely have to.
-  Function t1 t2 -> Just (function (monotypeRange t0) (recurse t1) (recurse t2))
-  where
-    recurse t = fromMaybe t (substituteMonotype substitutions t)
+  Construct c -> Just $
+    construct (monotypeRange t0) (fmap (\t -> fromMaybe t (substituteMonotype substitutions t)) c)
 
 -- Determines if a type needs some substitutions by looking at the type’s free variables. If a
 -- substitution exists for any free variable then we return true.

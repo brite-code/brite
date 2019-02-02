@@ -8,7 +8,7 @@ import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..))
 import qualified Brite.Semantics.Type as Type
-import Brite.Syntax.Identifier (identifierText)
+import Brite.Semantics.TypeConstruct
 
 -- IMPORTANT: It is expected that all free type variables are bound in the prefix! If this is not
 -- true we will report internal error diagnostics.
@@ -83,7 +83,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
 
                   -- Actually merge the two type variables together.
                   _ -> do
-                    result <- unifyPolytype stack prefix (Type.bindingType actualBinding) (Type.bindingType expectedBinding)
+                    result <- unifyPolytypes stack prefix (Type.bindingType actualBinding) (Type.bindingType expectedBinding)
                     case result of
                       -- If the two types are not equivalent we don’t want to merge them together
                       -- in the prefix!
@@ -101,7 +101,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           -- successful then update the type variable in our prefix to our monotype.
           _ -> do
             let expectedPolytype = Type.polytype expected
-            result <- unifyPolytype stack prefix (Type.bindingType actualBinding) expectedPolytype
+            result <- unifyPolytypes stack prefix (Type.bindingType actualBinding) expectedPolytype
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix actualName expectedPolytype
@@ -125,42 +125,52 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           -- successful then update the type variable in our prefix to our monotype.
           _ -> do
             let actualPolytype = Type.polytype actual
-            result <- unifyPolytype stack prefix actualPolytype (Type.bindingType expectedBinding)
+            result <- unifyPolytypes stack prefix actualPolytype (Type.bindingType expectedBinding)
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix expectedName actualPolytype
 
-  -- Primitive intrinsic types unify with each other no problem.
-  (Void, Void) -> return (Right ())
-  (Boolean, Boolean) -> return (Right ())
-  (Integer, Integer) -> return (Right ())
+  -- Unify two constructed types.
+  (Construct actualConstruct, Construct expectedConstruct) ->
+    case (actualConstruct, expectedConstruct) of
+      -- Arity-zero constructors.
+      (Void, Void) -> return (Right ())
+      (Boolean, Boolean) -> return (Right ())
+      (Integer, Integer) -> return (Right ())
 
-  -- Functions unify if the parameters and bodies unify.
-  --
-  -- If both the unification of the parameters and bodies fail then we will report two error
-  -- diagnostics. However, we will only return the first error from unify.
-  (Function actualParameter actualBody, Function expectedParameter expectedBody) -> do
-    -- If this is a function call operation then reverse the order of the expected and actual types
-    -- to reflect that we called `unify` with the actual arguments on the expected side.
-    --
-    -- NOTE: Manually flipping in `unify` like this isn’t the prettiest solution to this problem. It
-    -- also might be a bit brittle. However, it is the most efficient solution I can come up with at
-    -- the moment. It’s brittleness is heavily observed by our test suite.
-    result1 <-
-      if isFunctionCallOperation stack then (
-        unifyWithFrame functionParameterFrame expectedParameter actualParameter
-      ) else (
-        unifyWithFrame functionParameterFrame actualParameter expectedParameter
-      )
-    result2 <- unifyWithFrame functionBodyFrame actualBody expectedBody
-    return (result1 `eitherOr` result2)
+      -- Functions unify if the parameters and bodies unify.
+      --
+      -- If both the unification of the parameters and bodies fail then we will report two error
+      -- diagnostics. However, we will only return the first error from unify.
+      (Function actualParameter actualBody, Function expectedParameter expectedBody) -> do
+        -- If this is a function call operation then reverse the order of the expected and actual
+        -- types to reflect that we called `unify` with the actual arguments on the expected side.
+        --
+        -- NOTE: Manually flipping in `unify` like this isn’t the prettiest solution to this
+        -- problem. It also might be a bit brittle. However, it is the most efficient solution I can
+        -- come up with at the moment. It’s brittleness is heavily observed by our test suite.
+        result1 <-
+          if isFunctionCallOperation stack then (
+            unifyWithFrame functionParameterFrame expectedParameter actualParameter
+          ) else (
+            unifyWithFrame functionParameterFrame actualParameter expectedParameter
+          )
+        result2 <- unifyWithFrame functionBodyFrame actualBody expectedBody
+        return (result1 `eitherOr` result2)
 
-  -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
-  -- want a compiler warning telling us to add a case for that type to unification.
-  (Void, _) -> incompatibleTypesError
-  (Boolean, _) -> incompatibleTypesError
-  (Integer, _) -> incompatibleTypesError
-  (Function _ _, _) -> incompatibleTypesError
+      -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
+      -- want a compiler warning telling us to add a case for that type to unification.
+      (Void, _) -> incompatibleTypesError
+      (Boolean, _) -> incompatibleTypesError
+      (Integer, _) -> incompatibleTypesError
+      (Function _ _, _) -> incompatibleTypesError
+    where
+      -- Report an incompatible types error with both of the types and return it.
+      incompatibleTypesError = Left <$>
+        incompatibleTypes
+          (Type.monotypeRange actual, const () <$> actualConstruct)
+          (Type.monotypeRange expected, const () <$> expectedConstruct)
+          stack
 
   where
     -- Unifies two types and adds a new unification stack frame to the unification stack.
@@ -168,28 +178,11 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       let newStack = frame (Type.monotypeRange nextActual) stack in
         unify newStack prefix nextActual nextExpected
 
-    -- Report an incompatible types error with both of the types and return it.
-    incompatibleTypesError = Left <$>
-      incompatibleTypes
-        (Type.monotypeRange actual, typeMessage actual)
-        (Type.monotypeRange expected, typeMessage expected)
-        stack
-
-    typeMessage t = case Type.monotypeDescription t of
-      -- All variables should be handled by unification. No matter what they unify to. This branch
-      -- should be unreachable!
-      Variable name -> CodeMessage (identifierText name)
-
-      Void -> VoidMessage
-      Boolean -> BooleanMessage
-      Integer -> IntegerMessage
-      Function _ _ -> FunctionMessage
-
 -- Unifies two polytypes. When the two types are equivalent we return an ok result with a type. This
 -- type is an instance of both our input types. That is if `t1` and `t2` are our inputs and
 -- `t1 ≡ t2` holds then we return `t3` where both `t1 ⊑ t3` and `t2 ⊑ t3` hold.
-unifyPolytype :: UnifyStack -> Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
-unifyPolytype stack prefix actual expected = case (Type.polytypeDescription actual, Type.polytypeDescription expected) of
+unifyPolytypes :: UnifyStack -> Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
+unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription actual, Type.polytypeDescription expected) of
   -- If either is bottom then return the other one.
   (Bottom _, _) -> return (Right expected)
   (_, Bottom _) -> return (Right actual)

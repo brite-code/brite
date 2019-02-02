@@ -13,6 +13,7 @@ module Brite.Semantics.UnifyAbstraction
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, MonotypeDescription(..))
 import qualified Brite.Semantics.Type as Type
+import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier (Identifier)
 import Data.Foldable (foldl')
 import Data.HashMap.Lazy (HashMap)
@@ -83,22 +84,21 @@ projectionsEqual prefix = polytypeProjectionsEqual (Locals HashMap.empty) (Local
             Just binding2 ->
               polytypeProjectionsEqual locals1 (Locals HashMap.empty) (Type.polytype type1) (Type.bindingType binding2)
 
-        -- Two functions are only equivalent if both their parameters and bodies are equivalent.
-        (Function parameter1 body1, Function parameter2 body2) ->
-          (&&)
-            <$> monotypeProjectionsEqual locals1 locals2 parameter1 parameter2
-            <*> monotypeProjectionsEqual locals1 locals2 body1 body2
+        -- Compare two constructed types for equality.
+        (Construct construct1, Construct construct2) ->
+          constructsEqual (monotypeProjectionsEqual locals1 locals2) construct1 construct2
 
-        -- Scalars are only equivalent with each other.
-        (Void, Void) -> return True
-        (Boolean, Boolean) -> return True
-        (Integer, Integer) -> return True
-
-        -- Exhaustive failure cases.
-        (Void, _) -> return False
-        (Boolean, _) -> return False
-        (Integer, _) -> return False
-        (Function _ _, _) -> return False
+    -- Are two constructs equal to one another? Takes a function to compare arguments. Does the
+    -- comparison checking in the check monad.
+    constructsEqual :: (a -> a -> Check s Bool) -> Construct a -> Construct a -> Check s Bool
+    constructsEqual _ Void Void = return True
+    constructsEqual _ Void _ = return False
+    constructsEqual _ Boolean Boolean = return True
+    constructsEqual _ Boolean _ = return False
+    constructsEqual _ Integer Integer = return True
+    constructsEqual _ Integer _ = return False
+    constructsEqual f (Function a1 b1) (Function a2 b2) = (&&) <$> f a1 a2 <*> f b1 b2
+    constructsEqual _ (Function _ _) _ = return False
 
     polytypeProjectionsEqual :: Locals -> Locals -> Polytype -> Polytype -> Check s Bool
     polytypeProjectionsEqual locals1 locals2 type1 type2 =

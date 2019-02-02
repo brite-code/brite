@@ -61,7 +61,7 @@ data Keyword
   = Hole -- `_`
   | True'
   | False'
-  | Void
+  | Void'
   | Let
   | If
   | Else
@@ -80,7 +80,7 @@ textKeyword t =
     "_" -> Just Hole
     "true" -> Just True'
     "false" -> Just False'
-    "void" -> Just Void
+    "void" -> Just Void'
     "let" -> Just Let
     "if" -> Just If
     "else" -> Just Else
@@ -96,7 +96,7 @@ keywordText :: Keyword -> Text
 keywordText Hole = "_"
 keywordText True' = "true"
 keywordText False' = "false"
-keywordText Void = "void"
+keywordText Void' = "void"
 keywordText Let = "let"
 keywordText If = "if"
 keywordText Else = "else"
