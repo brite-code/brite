@@ -402,5 +402,5 @@ spec =
       actualPrefix `shouldBe` expectedPrefix
 
       -- Compare all the expected diagnostics to each other.
-      let actualDiagnostics = map (Text.Builder.toStrictText . diagnosticMessageText) (toList (ds2 <> ds3))
+      let actualDiagnostics = map (Text.Builder.toStrictText . diagnosticMessageCompact) (toList (ds2 <> ds3))
       actualDiagnostics `shouldBe` expectedDiagnostics

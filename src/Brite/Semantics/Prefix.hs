@@ -45,6 +45,7 @@ import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.STRef
+import Data.Text (Text)
 import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 
 -- The prefix manages all the type variables we create during type checking. The prefix uses the
@@ -373,26 +374,21 @@ updateCheck stack prefix oldBinding newType = do
       if Type.bindingFlexibility oldBinding /= Type.Rigid then return True else
         abstractionCheck (lookup prefix) (Type.bindingType oldBinding) newType
     if not abstractionCheckSucceeds then
-      -- We reuse the “incompatible types” error from unification when an abstraction check fails.
-      -- While in our implementation this error is reported from a _very_ different place, to the
-      -- user it is the same error. We could not perform their operation because two types were
-      -- dissimilar in some way. However, the underlying difference in both cases is different.
       Left <$>
-        error "TODO"
-        -- incompatibleTypes
-        --   (rawPolytypeMessage newType)
-        --   (rawPolytypeMessage (Type.bindingType oldBinding))
-        --   stack
+        doesNotAbstract
+          (rawPolytypeMessage newType)
+          (rawPolytypeMessage (Type.bindingType oldBinding))
+          stack
     else
       -- The update is ok. You may proceed to commit changes...
       return (Right ())
 
--- -- Prints a polytype to a `TypeMessage` directly.
--- rawPolytypeMessage :: Polytype -> (Range, TypeMessage)
--- rawPolytypeMessage t =
---   ( Type.polytypeRange t
---   , CodeMessage (Text.Builder.toStrictText (printCompactType (printPolytype t)))
---   )
+-- Prints a polytype to a `TypeMessage` directly.
+rawPolytypeMessage :: Polytype -> (Range, Text)
+rawPolytypeMessage t =
+  ( Type.polytypeRange t
+  , Text.Builder.toStrictText (printCompactType (printPolytype t))
+  )
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Where `t1` is the old type and `t2` is the new
 -- type. Do not call this function with two types which do not uphold this relation!

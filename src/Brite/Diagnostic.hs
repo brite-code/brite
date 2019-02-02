@@ -64,6 +64,7 @@ module Brite.Diagnostic
   , unboundVariable
   , unboundTypeVariable
   , incompatibleTypes
+  , doesNotAbstract
   , infiniteType
   , expectedTypeVariableToExist
 
@@ -151,6 +152,8 @@ data ErrorDiagnosticMessage
   | UnboundTypeVariable Identifier
   -- We found two type constructors that were incompatible with one another during unification.
   | IncompatibleTypes Range Range Constructor Constructor UnifyStack
+  -- We expected one type to abstract another but it does not.
+  | DoesNotAbstract Range Range Text Text UnifyStack
   -- While trying to infer the type for some code we ran into an infinite type.
   | InfiniteType UnifyStack
 
@@ -225,12 +228,17 @@ unboundTypeVariable range name = report $ Diagnostic range $ Error $
   UnboundTypeVariable name
 
 -- We found two type constructors that were incompatible with one another during unification.
---
--- We get the range for the diagnostic from our unification stack. The unification stack should hold
--- the range most relevant to the programmer.
 incompatibleTypes :: DiagnosticMonad m => (Range, Constructor) -> (Range, Constructor) -> UnifyStack -> m Diagnostic
 incompatibleTypes (actualRange, actual) (expectedRange, expected) stack = report $ Diagnostic range $ Error $
   IncompatibleTypes actualRange expectedRange actual expected stack
+  where
+    stackRange = unifyStackRange stack
+    range = if rangeContains stackRange actualRange then actualRange else stackRange
+
+-- We expected one type to abstract another but it does not.
+doesNotAbstract :: DiagnosticMonad m => (Range, Text) -> (Range, Text) -> UnifyStack -> m Diagnostic
+doesNotAbstract (actualRange, actual) (expectedRange, expected) stack = report $ Diagnostic range $ Error $
+  DoesNotAbstract actualRange expectedRange actual expected stack
   where
     stackRange = unifyStackRange stack
     range = if rangeContains stackRange actualRange then actualRange else stackRange
@@ -490,8 +498,11 @@ diagnosticErrorMessage _ (UnboundTypeVariable name) = noRelatedInformation $
 -- error messages short, sweet, and to the point.
 diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual expected stack) =
   -- Construct the incompatible types message.
-  ( operationMessage <> plain " because we have " <> typeConstructorMessage actual <>
-    plain " but we want " <> typeConstructorMessage expected <> plain "."
+  --
+  -- NOTE: If we change this message we should also change `DoesNotAbstract` below since it is
+  -- almost identical.
+  ( operationMessage <> plain " because " <> typeMessage actual <> plain " is not " <>
+    typeMessageWithArticle expected <> plain "."
 
   -- Always show the programmer a reference to the expected type. Only show a reference to the
   -- actual type if the diagnostic’s range does not contain the actual type.
@@ -503,21 +514,38 @@ diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
 
-    actualReference = DiagnosticRelatedInformation actualRange (typeConstructorReference actual)
-    expectedReference = DiagnosticRelatedInformation expectedRange (typeConstructorReference expected)
+    actualReference = DiagnosticRelatedInformation actualRange (typeMessage actual)
+    expectedReference = DiagnosticRelatedInformation expectedRange (typeMessage expected)
 
-    -- Use the type name for constructors with an arity of zero. Except for void since a void type
-    -- is declared with a keyword.
-    typeConstructorMessage Void = plain "void"
-    typeConstructorMessage Boolean = plain "a " <> code (identifierText booleanTypeName)
-    typeConstructorMessage Integer = plain "an " <> code (identifierText integerTypeName)
-    typeConstructorMessage (Function () ()) = plain "a function"
+    typeMessage Void = plain "void"
+    typeMessage Boolean = code (identifierText booleanTypeName)
+    typeMessage Integer = code (identifierText integerTypeName)
+    typeMessage (Function () ()) = plain "function"
 
-    -- Type constructor references are just like messages except without an article.
-    typeConstructorReference Void = plain "void"
-    typeConstructorReference Boolean = code (identifierText booleanTypeName)
-    typeConstructorReference Integer = code (identifierText integerTypeName)
-    typeConstructorReference (Function () ()) = plain "function"
+    typeMessageWithArticle Void = plain "void"
+    typeMessageWithArticle Boolean = plain "a " <> code (identifierText booleanTypeName)
+    typeMessageWithArticle Integer = plain "an " <> code (identifierText integerTypeName)
+    typeMessageWithArticle (Function () ()) = plain "a function"
+
+-- Notably this error message is a lot like `IncompatibleTypes`. While the two errors are reported
+-- for _very_ different reasons, to the user the errors are basically the same. The type checker
+-- failed because two types were different for some reason.
+diagnosticErrorMessage range (DoesNotAbstract actualRange expectedRange actual expected stack) =
+  -- Construct the error message.
+  ( operationMessage <> plain " because " <> code actual <> plain " is not " <> code expected <> plain "."
+
+  -- Always show the programmer a reference to the expected type. Only show a reference to the
+  -- actual type if the diagnostic’s range does not contain the actual type.
+  , if rangeContains range actualRange then [expectedReference] else [actualReference, expectedReference]
+  )
+  where
+    operationMessage = loop stack
+
+    loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
+    loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
+
+    actualReference = DiagnosticRelatedInformation actualRange (code actual)
+    expectedReference = DiagnosticRelatedInformation expectedRange (code expected)
 
 -- Infinite types are rare and tricky to understand. We don’t expect beginner programmers to see
 -- this error. To see this error you need to be using both recursion and lots of polymorphism. Both
