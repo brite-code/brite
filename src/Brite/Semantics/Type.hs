@@ -23,6 +23,7 @@ module Brite.Semantics.Type
   , Flexibility(..)
   , isUnboundBinding
   , variable
+  , variableWithRangeStack
   , construct
   , void
   , boolean

@@ -203,7 +203,7 @@ freshWithBound prefix flexibility type0 = liftST $
     _ -> do
       name <- freshName prefix
       addAssumingThatNameIsUnbound prefix (Type.Binding name flexibility type0)
-      return (Type.variable (currentRange (Type.polytypeRangeStack type0)) name)
+      return (Type.variableWithRangeStack (Type.polytypeRangeStack type0) name)
 
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
 -- return nothing. The bound returned will always be in normal form.
