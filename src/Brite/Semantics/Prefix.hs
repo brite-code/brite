@@ -156,7 +156,7 @@ addAssumingThatNameIsUnbound prefix binding = do
 -- Adds a type binding to our prefix. If the name is already bound in the prefix then we generate a
 -- unique name. We return `Nothing` if we did not need to generate a new name. We return `Just` if
 -- we did need to generate a new name.
-add :: Prefix s -> Type.Binding -> Check s (Maybe (Range -> Monotype))
+add :: Prefix s -> Type.Binding -> Check s (Maybe Identifier)
 add prefix binding = liftST $ do
   -- If the binding has the name of a fresh type then let’s generate a fresh type name instead of
   -- using `uniqueNameM`. We have a much smaller chance of collision that way since the prefix may
@@ -171,7 +171,7 @@ add prefix binding = liftST $ do
   else do
     -- Otherwise we need to add a binding with our new name to the prefix.
     addAssumingThatNameIsUnbound prefix (binding { Type.bindingName = newName })
-    return (Just (\range -> Type.variable range newName))
+    return (Just newName)
 
 -- Generates a fresh type variable name.
 freshName :: Prefix s -> ST s Identifier
@@ -193,7 +193,7 @@ fresh prefix range = liftST $ do
 --
 -- We use the range of the provided type as the range of the returned variable. This matches the
 -- intuition that we are lifting a polytype to be usable in a monotype position. Also,
--- `Type.monotypeRange` will always returns the same thing whether or not we inline.
+-- the type’s range will always returns the same thing whether or not we inline.
 freshWithBound :: Prefix s -> Type.Flexibility -> Polytype -> Check s Monotype
 freshWithBound prefix flexibility type0 = liftST $
   -- As an optimization, directly return monotypes instead of creating a new binding. Monotypes are
@@ -203,7 +203,7 @@ freshWithBound prefix flexibility type0 = liftST $
     _ -> do
       name <- freshName prefix
       addAssumingThatNameIsUnbound prefix (Type.Binding name flexibility type0)
-      return (Type.variable (Type.polytypeRange type0) name)
+      return (Type.variable (currentRange (Type.polytypeRangeStack type0)) name)
 
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
 -- return nothing. The bound returned will always be in normal form.
@@ -247,7 +247,7 @@ instantiate prefix bindings body = do
         -- If we had to generate a new name then add a substitution to our map.
         return $ case maybeNewType of
           Nothing -> substitutions1
-          Just newType -> HashMap.insert (Type.bindingName newBinding) newType substitutions1)
+          Just newName -> HashMap.insert (Type.bindingName newBinding) (Left newName) substitutions1)
       -- Start with no substitutions and loop through bindings.
       HashMap.empty
       bindings
@@ -383,10 +383,11 @@ updateCheck stack prefix oldBinding newType = do
       -- The update is ok. You may proceed to commit changes...
       return (Right ())
 
--- Prints a polytype to a `TypeMessage` directly.
+-- Prints a polytype to a `TypeMessage` directly. Use the initial ranges for our monotypes. This
+-- will point directly to where the type was defined.
 rawPolytypeMessage :: Polytype -> (Range, Text)
 rawPolytypeMessage t =
-  ( Type.polytypeRange t
+  ( initialRange (Type.polytypeRangeStack t)
   , Text.Builder.toStrictText (printCompactType (printPolytype t))
   )
 
@@ -465,13 +466,13 @@ mergeUpdate stack prefix name1 name2 flex newType = do
           entryLevel1 <- readSTRef (prefixEntryLevel entry1)
           entryLevel2 <- readSTRef (prefixEntryLevel entry2)
           if prefixLevelIndex entryLevel1 <= prefixLevelIndex entryLevel2 then do
-            let linkType = Type.polytype (Type.variable (Type.polytypeRange newType) name1)
+            let linkType = Type.polytype (Type.variable (currentRange (Type.polytypeRangeStack newType)) name1)
             writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 flex newType)
             writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 Type.Rigid linkType)
             levelUp prefix entryLevel1 newType
             return (Right ())
           else do
-            let linkType = Type.polytype (Type.variable (Type.polytypeRange newType) name2)
+            let linkType = Type.polytype (Type.variable (currentRange (Type.polytypeRangeStack newType)) name2)
             writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 flex newType)
             writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 Type.Rigid linkType)
             levelUp prefix entryLevel2 newType

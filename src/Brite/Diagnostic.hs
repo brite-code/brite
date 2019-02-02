@@ -77,7 +77,7 @@ module Brite.Diagnostic
   , conditionalBranchesStack
   , functionParameterFrame
   , functionBodyFrame
-  , isFunctionCallOperation
+  , isFunctionCall
 
   -- Diagnostic message printers.
   , diagnosticMessageText
@@ -331,11 +331,12 @@ functionParameterFrame range stack = UnifyStackFrame range UnifyFunctionParamete
 functionBodyFrame :: Range -> UnifyStack -> UnifyStack
 functionBodyFrame range stack = UnifyStackFrame range UnifyFunctionBody stack
 
--- Is this unification stack a function call operation with no indirection?
-isFunctionCallOperation :: UnifyStack -> Bool
-isFunctionCallOperation (UnifyStackOperation _ (UnifyFunctionCall _)) = True
-isFunctionCallOperation _ = False
-{-# INLINE isFunctionCallOperation #-}
+-- Is this unification stack a function call operation? If a frame was added to a function call
+-- stack then we will return false.
+isFunctionCall :: UnifyStack -> Bool
+isFunctionCall (UnifyStackOperation _ (UnifyFunctionCall _)) = True
+isFunctionCall _ = False
+{-# INLINE isFunctionCall #-}
 
 -- Creates a human readable diagnostic message for a given diagnostic. Also may create some related
 -- information regarding the error. Remember that this generates a new message every time it is

@@ -9,6 +9,11 @@ module Brite.Syntax.Range
   , rangeContains
   , debugPosition
   , debugRange
+  , RangeStack
+  , singletonRange
+  , pushRange
+  , currentRange
+  , initialRange
   ) where
 
 import Data.Bits ((.&.))
@@ -43,6 +48,11 @@ nextPosition n p = p { positionCharacter = positionCharacter p + n }
 nextPositionLine :: Int -> Position -> Position
 nextPositionLine n p = p { positionCharacter = 0, positionLine = positionLine p + n }
 
+-- Debug a position.
+debugPosition :: Position -> Text.Builder
+debugPosition (Position line character) =
+  Text.Builder.decimal line <> Text.Builder.singleton ':' <> Text.Builder.decimal character
+
 -- Get the number of UTF-16 code units in one Unicode code point.
 --
 -- [Description of UTF-16 encoding.](https://en.wikipedia.org/wiki/UTF-16)
@@ -73,12 +83,40 @@ rangeContains :: Range -> Range -> Bool
 rangeContains (Range start1 end1) (Range start2 end2) = start1 <= start2 && end2 <= end1
 {-# INLINE rangeContains #-}
 
--- Debug a position.
-debugPosition :: Position -> Text.Builder
-debugPosition (Position line character) =
-  Text.Builder.decimal line <> Text.Builder.singleton ':' <> Text.Builder.decimal character
-
 -- Debug a range of characters.
 debugRange :: Range -> Text.Builder
 debugRange (Range start end) =
   debugPosition start <> Text.Builder.singleton '-' <> debugPosition end
+
+-- A non-empty stack of ranges. We use a range stack to model a range which will may change over
+-- time. For example, in our type checker we give every type a `RangeStack`. When a type is
+-- referenced by a variable we push to the range stack while keeping the initial range intact.
+--
+-- Operations we support:
+--
+-- * Push to a range stack. O(1)
+-- * Peek current range. O(1)
+-- * Get initial range. O(1)
+--
+-- You’ll notice we don’t support “popping” from the range stack and you’ll notice that getting the
+-- initial range is O(1) instead of O(n). That’s because we only store the current range and the
+-- initial range. We don’t store all the ranges in between. Guess that means our stack isn’t
+-- actually a stack. Naming things is hard. I’m no Taborlin.
+data RangeStack = RangeStack (Maybe Range) Range
+
+-- Creates a range stack with a single range.
+singletonRange :: Range -> RangeStack
+singletonRange = RangeStack Nothing
+
+-- Adds a range to our stack.
+pushRange :: Range -> RangeStack -> RangeStack
+pushRange range1 (RangeStack _ range2) = RangeStack (Just range1) range2
+
+-- Look at the current range in our stack.
+currentRange :: RangeStack -> Range
+currentRange (RangeStack Nothing range) = range
+currentRange (RangeStack (Just range) _) = range
+
+-- Get the initial range in our stack.
+initialRange :: RangeStack -> Range
+initialRange (RangeStack _ range) = range

@@ -65,7 +65,7 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
   -- a bottom type which will panic at runtime.
   AST.VariableExpression name ->
     case HashMap.lookup name context of
-      Just t -> return (t, Expression range (VariableExpression name))
+      Just t -> return (Type.reposition range t, Expression range (VariableExpression name))
       Nothing -> do
         diagnostic <- unboundVariable range name
         return (Type.bottom range, Expression range (ErrorExpression diagnostic Nothing))

@@ -9,6 +9,7 @@ import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
+import Brite.Syntax.Range
 
 -- IMPORTANT: It is expected that all free type variables are bound in the prefix! If this is not
 -- true we will report internal error diagnostics.
@@ -147,10 +148,10 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
         -- types to reflect that we called `unify` with the actual arguments on the expected side.
         --
         -- NOTE: Manually flipping in `unify` like this isn’t the prettiest solution to this
-        -- problem. It also might be a bit brittle. However, it is the most efficient solution I can
-        -- come up with at the moment. It’s brittleness is heavily observed by our test suite.
+        -- problem. It also might be a bit brittle. However, it is the most efficient solution I
+        -- (Caleb) can come up with at the moment.
         result1 <-
-          if isFunctionCallOperation stack then (
+          if isFunctionCall stack then (
             unifyWithFrame functionParameterFrame expectedParameter actualParameter
           ) else (
             unifyWithFrame functionParameterFrame actualParameter expectedParameter
@@ -165,18 +166,18 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       (Integer, _) -> incompatibleTypesError
       (Function _ _, _) -> incompatibleTypesError
     where
-      -- Report an incompatible types error with both of the types and return it.
+      -- Unifies two types and adds a new unification stack frame to the unification stack.
+      unifyWithFrame frame nextActual nextExpected =
+        let newStack = frame (currentRange (Type.monotypeRangeStack nextActual)) stack in
+          unify newStack prefix nextActual nextExpected
+
+      -- Report an incompatible types error with both of the types and return it. Use the initial
+      -- ranges for our monotypes. This will point directly to where the type was defined.
       incompatibleTypesError = Left <$>
         incompatibleTypes
-          (Type.monotypeRange actual, const () <$> actualConstruct)
-          (Type.monotypeRange expected, const () <$> expectedConstruct)
+          (initialRange (Type.monotypeRangeStack actual), const () <$> actualConstruct)
+          (initialRange (Type.monotypeRangeStack expected), const () <$> expectedConstruct)
           stack
-
-  where
-    -- Unifies two types and adds a new unification stack frame to the unification stack.
-    unifyWithFrame frame nextActual nextExpected =
-      let newStack = frame (Type.monotypeRange nextActual) stack in
-        unify newStack prefix nextActual nextExpected
 
 -- Unifies two polytypes. When the two types are equivalent we return an ok result with a type. This
 -- type is an instance of both our input types. That is if `t1` and `t2` are our inputs and

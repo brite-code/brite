@@ -11,12 +11,12 @@ module Brite.Semantics.Type
   ( Monotype
   , MonotypeDescription(..)
   , monotypeDescription
-  , monotypeRange
+  , monotypeRangeStack
   , monotypeFreeVariables
   , Polytype
   , PolytypeDescription(..)
   , polytypeDescription
-  , polytypeRange
+  , polytypeRangeStack
   , polytypeFreeVariables
   , polytypeNormal
   , Binding(..)
@@ -31,6 +31,7 @@ module Brite.Semantics.Type
   , polytype
   , bottom
   , quantify
+  , reposition
   , normal
   , substitutePolytype
   , substituteMonotype
@@ -60,7 +61,7 @@ data Monotype = Monotype
   --
   -- Remember that the range of a variable is where the _variable_ was defined. Not the range of the
   -- variable’s binding.
-  { monotypeRange :: Range
+  { monotypeRangeStack :: RangeStack
   -- The free variables in this monotype.
   --
   -- NOTE: Order does matter so we use a `Set` instead of a `HashSet`. Also, from a cursory glance
@@ -107,7 +108,7 @@ data PolytypeDescription
   -- The type which no values inhabit. Also known as the empty set.
   --
   -- In academic literature the bottom type is written as `⊥`.
-  | Bottom Range
+  | Bottom RangeStack
 
   -- `<T> T`
   --
@@ -123,11 +124,11 @@ data PolytypeDescription
 -- The range at which our polytype was defined in source code. If the polytype is a quantified type
 -- then the range does _not_ include the bindings. Since bindings are often invented by our
 -- type checker.
-polytypeRange :: Polytype -> Range
-polytypeRange type0 = case polytypeDescription type0 of
-  Monotype' type1 -> monotypeRange type1
-  Bottom range -> range
-  Quantify _ type1 -> monotypeRange type1
+polytypeRangeStack :: Polytype -> RangeStack
+polytypeRangeStack type0 = case polytypeDescription type0 of
+  Monotype' type1 -> monotypeRangeStack type1
+  Bottom rangeStack -> rangeStack
+  Quantify _ type1 -> monotypeRangeStack type1
 
 -- A binding of some identifier to a type.
 data Binding = Binding
@@ -149,18 +150,26 @@ isUnboundBinding _ = False
 
 -- Creates a type variable monotype.
 variable :: Range -> Identifier -> Monotype
-variable range identifier =
+variable range = variableWithRangeStack (singletonRange range)
+
+-- Creates a type variable monotype.
+variableWithRangeStack :: RangeStack -> Identifier -> Monotype
+variableWithRangeStack rangeStack identifier =
   Monotype
-    { monotypeRange = range
+    { monotypeRangeStack = rangeStack
     , monotypeFreeVariables = Set.singleton identifier
     , monotypeDescription = Variable identifier
     }
 
 -- Creates a constructed monotype.
 construct :: Range -> Construct Monotype -> Monotype
-construct range c =
+construct range = constructWithRangeStack (singletonRange range)
+
+-- Creates a constructed monotype.
+constructWithRangeStack :: RangeStack -> Construct Monotype -> Monotype
+constructWithRangeStack rangeStack c =
   Monotype
-    { monotypeRange = range
+    { monotypeRangeStack = rangeStack
     , monotypeFreeVariables = Set.unions (monotypeFreeVariables <$> c)
     , monotypeDescription = Construct c
     }
@@ -196,7 +205,7 @@ bottom range =
   Polytype
     { polytypeNormal = True
     , polytypeFreeVariables = Set.empty
-    , polytypeDescription = Bottom range
+    , polytypeDescription = Bottom (singletonRange range)
     }
 
 -- Quantifies a monotype with some bindings. If an empty list was provided then we return the
@@ -220,6 +229,21 @@ quantify bindings body = if Seq.null bindings then polytype body else
     , polytypeDescription = Quantify bindings body
     }
 
+-- Pushes a range to the polytype’s range stack.
+reposition :: Range -> Polytype -> Polytype
+reposition r t0 =
+  t0
+    { polytypeDescription =
+        case polytypeDescription t0 of
+          Monotype' t1 -> Monotype' (repositionMonotype r t1)
+          Bottom rs -> Bottom (pushRange r rs)
+          Quantify qs t1 -> Quantify qs (repositionMonotype r t1)
+    }
+
+-- Pushes a range to the monotype’s range stack.
+repositionMonotype :: Range -> Monotype -> Monotype
+repositionMonotype r t = t { monotypeRangeStack = pushRange r (monotypeRangeStack t) }
+
 -- Converts a polytype to normal form as described in Section 1.5.3 of the [MLF thesis][1].
 -- Returns a referentially equal type if the type is already in normal form.
 --
@@ -236,7 +260,7 @@ normal t = fromMaybe t (substituteAndNormalizePolytype HashSet.empty HashMap.emp
 
 -- Applies substitutions to a polytype in addition to converting it to normal form. Returns nothing
 -- if the type did not change.
-substituteAndNormalizePolytype :: HashSet Identifier -> HashMap Identifier (Range -> Monotype) -> Polytype -> Maybe Polytype
+substituteAndNormalizePolytype :: HashSet Identifier -> HashMap Identifier (Either Identifier Monotype) -> Polytype -> Maybe Polytype
 substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polytypeDescription t0 of
   -- Bottom types neither need to be substituted or converted to normal form.
   Bottom _ -> Nothing
@@ -276,7 +300,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
       -- in our normalized, quantified, type and uses that to drop any unused bindings. Also, if the
       -- quantified type’s body is a variable we will inline the binding for that variable.
 
-      loop :: HashSet Identifier -> Set Identifier -> HashMap Identifier (Range -> Monotype) -> Seq Binding -> Seq Binding -> Polytype
+      loop :: HashSet Identifier -> Set Identifier -> HashMap Identifier (Either Identifier Monotype) -> Seq Binding -> Seq Binding -> Polytype
 
       loop _ _ substitutions Empty bindingsRev =
         -- Apply the substitutions to our body and call the next step, `loopRev`.
@@ -295,7 +319,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
             -- wherever the binding appears in the rest of our polytype.
             Monotype' t ->
               let
-                newSubstitutions = HashMap.insert (bindingName binding) (const t) substitutions
+                newSubstitutions = HashMap.insert (bindingName binding) (Right t) substitutions
                 newCaptured = Set.union (monotypeFreeVariables t) captured
               in
                 loop seen newCaptured newSubstitutions bindings bindingsRev
@@ -320,7 +344,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
                   -- If there was an old substitution in the map for this name then we will
                   -- replace it.
                   newSubstitutions =
-                    HashMap.insert (bindingName binding) (\r -> variable r newName) substitutions
+                    HashMap.insert (bindingName binding) (Left newName) substitutions
 
                   -- Insert our new name into both `seen` because our quantifier list now includes
                   -- this binding. Insert our new name into `captured` because the name was
@@ -384,7 +408,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
 
 -- Substitutes the free variables of the provided polytype with a substitution if one was made
 -- available in the substitutions map. Returns nothing if no substitution was made.
-substitutePolytype :: HashMap Identifier (Range -> Monotype) -> Polytype -> Maybe Polytype
+substitutePolytype :: HashMap Identifier (Either Identifier Monotype) -> Polytype -> Maybe Polytype
 substitutePolytype substitutions0 t0 = case polytypeDescription t0 of
   -- Substitute a monotype and update our polytype if there was a substitution.
   Monotype' t1 -> case substituteMonotype substitutions0 t1 of
@@ -423,16 +447,24 @@ substitutePolytype substitutions0 t0 = case polytypeDescription t0 of
 
 -- Substitutes the free variables of the provided monotype with a substitution if one was made
 -- available in the substitutions map. Returns nothing if no substitution was made.
-substituteMonotype :: HashMap Identifier (Range -> Monotype) -> Monotype -> Maybe Monotype
+substituteMonotype :: HashMap Identifier (Either Identifier Monotype) -> Monotype -> Maybe Monotype
 substituteMonotype substitutions t0 = case monotypeDescription t0 of
   -- Try to find a substitution for this variable.
-  Variable name -> ($ monotypeRange t0) <$> HashMap.lookup name substitutions
+  Variable name ->
+    case HashMap.lookup name substitutions of
+      Nothing -> Nothing
+      Just (Left newName) -> Just (variableWithRangeStack (monotypeRangeStack t0) newName)
+      Just (Right newType) -> Just newType
+
   -- If we don’t need a substitution then immediately return our type without recursing.
   _ | not (needsSubstitution substitutions (monotypeFreeVariables t0)) -> Nothing
+
   -- Substitute the type variables in a constructed type. We do this below the above condition so we
   -- won’t recurse if we don’t absolutely have to.
   Construct c -> Just $
-    construct (monotypeRange t0) (fmap (\t -> fromMaybe t (substituteMonotype substitutions t)) c)
+    constructWithRangeStack
+      (monotypeRangeStack t0)
+      (fmap (\t -> fromMaybe t (substituteMonotype substitutions t)) c)
 
 -- Determines if a type needs some substitutions by looking at the type’s free variables. If a
 -- substitution exists for any free variable then we return true.
