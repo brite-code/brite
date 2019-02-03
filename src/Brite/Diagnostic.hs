@@ -513,9 +513,6 @@ diagnosticErrorMessage (UnboundTypeVariable name) = noRelatedInformation $
 -- error messages short, sweet, and to the point.
 diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expected stack) =
   -- Construct the incompatible types message.
-  --
-  -- NOTE: If we change this message we should also change `DoesNotAbstract` below since it is
-  -- almost identical.
   ( operationMessage <> plain " because " <> typeMessage actual <> plain " is not " <>
     typeMessageWithArticle expected <> plain "."
 
@@ -540,16 +537,34 @@ diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expec
     typeMessageWithArticle Integer = plain "an " <> code (identifierText integerTypeName)
     typeMessageWithArticle (Function () ()) = plain "a function"
 
--- Notably this error message is a lot like `IncompatibleTypes`. While the two errors are reported
--- for _very_ different reasons, to the user the errors are basically the same. The type checker
--- failed because two types were different for some reason.
+-- Here we attempt to explain to the programmer why we failed their program when encountering these
+-- two types. Programmers shouldn’t see this message too often, it usually only comes up in
+-- advanced scenarios.
+--
+-- What happened is that the programmer is trying to use a type without generics in a place that
+-- expects a type with generics. A common example is:
+--
+-- ```ite
+-- fun auto(f: fun<T>(T) -> T) { f(f) }
+--
+-- auto(fun(x: Int) -> Int { x + 1 });
+-- ```
+--
+-- Here, the `auto` function is written to expect a function that is generic. It can take any `T`
+-- and return the very same `T`. However, the `auto` function is called with a function that expects
+-- an integer and returns an integer.
+--
+-- We show the programmer the type which is _more_ general first and then the type which is less
+-- general. This means the programmer “loads” into their short term memory the more general type and
+-- they can easily compare that to the less general type when they see concrete types (like `Int`)
+-- instead of generic types.
 diagnosticErrorMessage (DoesNotAbstract actualRange expectedRange actual expected stack) =
   -- Construct the error message.
-  ( operationMessage <> plain " because " <> code actual <> plain " is not " <> code expected <> plain "."
+  ( operationMessage <> plain " because " <> code expected <> plain " is more general than " <> code actual <> plain "."
 
   -- The references which are inside the diagnostic range will be hidden.
-  , [ DiagnosticRelatedInformation actualRange (code actual)
-    , DiagnosticRelatedInformation expectedRange (code expected)
+  , [ DiagnosticRelatedInformation expectedRange (code expected)
+    , DiagnosticRelatedInformation actualRange (code actual)
     ]
   )
   where
