@@ -344,11 +344,20 @@ isFunctionCall _ = False
 -- information regarding the error. Remember that this generates a new message every time it is
 -- called instead of fetching a pre-generated message.
 diagnosticMessage :: Diagnostic -> (Markup, [DiagnosticRelatedInformation])
-diagnosticMessage diagnostic =
-  case diagnosticRawMessage diagnostic of
-    Error message -> diagnosticErrorMessage (diagnosticRange diagnostic) message
-    Warning _ -> error "unreachable"
-    Info _ -> error "unreachable"
+diagnosticMessage diagnostic = (message, filteredRelatedInformation)
+  where
+    (message, relatedInformation) =
+      case diagnosticRawMessage diagnostic of
+        Error errorMessage -> diagnosticErrorMessage errorMessage
+        Warning _ -> error "unreachable"
+        Info _ -> error "unreachable"
+
+    -- Remove related information that intersects with our diagnostic’s range. This information
+    -- should be easily inferable by the programmer.
+    filteredRelatedInformation =
+      filter
+        (not . rangeIntersects (diagnosticRange diagnostic) . diagnosticRelatedInformationRange)
+        relatedInformation
 
 -- The text of a diagnostic message. This will only return the text of a diagnostic! It will not
 -- include the range or the related information.
@@ -395,7 +404,7 @@ diagnosticMessageMarkdown diagnostic =
   where
     (message, relatedInformation) = diagnosticMessage diagnostic
 
-diagnosticErrorMessage :: Range -> ErrorDiagnosticMessage -> (Markup, [DiagnosticRelatedInformation])
+diagnosticErrorMessage :: ErrorDiagnosticMessage -> (Markup, [DiagnosticRelatedInformation])
 
 -- Thought and care that went into this error message:
 --
@@ -420,7 +429,7 @@ diagnosticErrorMessage :: Range -> ErrorDiagnosticMessage -> (Markup, [Diagnosti
 --
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
-diagnosticErrorMessage _ (UnexpectedSyntax unexpected expected) = noRelatedInformation $
+diagnosticErrorMessage (UnexpectedSyntax unexpected expected) = noRelatedInformation $
   plain "We wanted "
     <> expectedSyntaxMessage expected
     <> plain " but we found "
@@ -441,20 +450,20 @@ diagnosticErrorMessage _ (UnexpectedSyntax unexpected expected) = noRelatedInfor
 --
 -- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
 -- should change the message.
-diagnosticErrorMessage _ (UnexpectedEnding expected) = noRelatedInformation $
+diagnosticErrorMessage (UnexpectedEnding expected) = noRelatedInformation $
   plain "We wanted " <> expectedSyntaxMessage expected <> plain " but the file ended."
 
 -- We tell the user directly that the name they were looking for is missing. “does not exist” is a
 -- bit harsh. It might also be untrue from the user’s point of view. The variable could exist in a
 -- different scope or with a small mis-spelling. Instead we use “is missing” which is simple and to
 -- the point.
-diagnosticErrorMessage _ (UnboundVariable name) = noRelatedInformation $
+diagnosticErrorMessage (UnboundVariable name) = noRelatedInformation $
   code (identifierText name) <> plain " is missing."
 
 -- See `UnboundVariable` for more information on this message.
 --
 -- We don’t differentiate this message by specifically saying that a type is missing.
-diagnosticErrorMessage _ (UnboundTypeVariable name) = noRelatedInformation $
+diagnosticErrorMessage (UnboundTypeVariable name) = noRelatedInformation $
   code (identifierText name) <> plain " is missing."
 
 -- A Brite programmer will see this error message quite frequently so we need to take some time and
@@ -486,7 +495,7 @@ diagnosticErrorMessage _ (UnboundTypeVariable name) = noRelatedInformation $
 -- unification stack frames. Mostly because I want to wait until I have some examples of when the
 -- unification stack frames will be useful for debugging an error. For now we keep the diagnostic
 -- error messages short, sweet, and to the point.
-diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual expected stack) =
+diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expected stack) =
   -- Construct the incompatible types message.
   --
   -- NOTE: If we change this message we should also change `DoesNotAbstract` below since it is
@@ -494,18 +503,16 @@ diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual
   ( operationMessage <> plain " because " <> typeMessage actual <> plain " is not " <>
     typeMessageWithArticle expected <> plain "."
 
-  -- Only show the programmer references outside of the diagnostic’s range.
-  , filter (not . rangeContains range . diagnosticRelatedInformationRange)
-      [actualReference, expectedReference]
+  -- The references which are inside the diagnostic range will be hidden.
+  , [ DiagnosticRelatedInformation actualRange (typeMessage actual)
+    , DiagnosticRelatedInformation expectedRange (typeMessage expected)
+    ]
   )
   where
     operationMessage = loop stack
 
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
-
-    actualReference = DiagnosticRelatedInformation actualRange (typeMessage actual)
-    expectedReference = DiagnosticRelatedInformation expectedRange (typeMessage expected)
 
     typeMessage Void = plain "void"
     typeMessage Boolean = code (identifierText booleanTypeName)
@@ -520,22 +527,20 @@ diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual
 -- Notably this error message is a lot like `IncompatibleTypes`. While the two errors are reported
 -- for _very_ different reasons, to the user the errors are basically the same. The type checker
 -- failed because two types were different for some reason.
-diagnosticErrorMessage range (DoesNotAbstract actualRange expectedRange actual expected stack) =
+diagnosticErrorMessage (DoesNotAbstract actualRange expectedRange actual expected stack) =
   -- Construct the error message.
   ( operationMessage <> plain " because " <> code actual <> plain " is not " <> code expected <> plain "."
 
-  -- Only show the programmer references outside of the diagnostic’s range.
-  , filter (not . rangeContains range . diagnosticRelatedInformationRange)
-      [actualReference, expectedReference]
+  -- The references which are inside the diagnostic range will be hidden.
+  , [ DiagnosticRelatedInformation actualRange (code actual)
+    , DiagnosticRelatedInformation expectedRange (code expected)
+    ]
   )
   where
     operationMessage = loop stack
 
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
-
-    actualReference = DiagnosticRelatedInformation actualRange (code actual)
-    expectedReference = DiagnosticRelatedInformation expectedRange (code expected)
 
 -- Infinite types are rare and tricky to understand. We don’t expect beginner programmers to see
 -- this error. To see this error you need to be using both recursion and lots of polymorphism. Both
@@ -556,7 +561,7 @@ diagnosticErrorMessage range (DoesNotAbstract actualRange expectedRange actual e
 -- to see if the type variable exists already in the type it is being updated to. Just because the
 -- occurs check fails, we don’t know that it’s that type variable that is the problem. The type
 -- variable we were updating just got unlucky. It could be any type variable in that type.
-diagnosticErrorMessage _ (InfiniteType stack) = noRelatedInformation $
+diagnosticErrorMessage (InfiniteType stack) = noRelatedInformation $
   operationMessage <> plain " because the type checker infers an infinite type."
   where
     operationMessage = loop stack
@@ -566,7 +571,7 @@ diagnosticErrorMessage _ (InfiniteType stack) = noRelatedInformation $
 
 -- If a user sees an internal error diagnostic then there’s a bug in Brite. Refer users to the issue
 -- tracker so they can report their problem.
-diagnosticErrorMessage _ (InternalError x) = noRelatedInformation $
+diagnosticErrorMessage (InternalError x) = noRelatedInformation $
   plain "Internal Error: " <> internalErrorDiagnosticMessage x <> plain " " <> issueTrackerMessage
   where
     internalErrorDiagnosticMessage (ExpectedTypeVariableToExist name) =

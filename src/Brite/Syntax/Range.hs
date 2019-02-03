@@ -7,6 +7,7 @@ module Brite.Syntax.Range
   , Range(..)
   , rangeBetween
   , rangeContains
+  , rangeIntersects
   , debugPosition
   , debugRange
   , RangeStack
@@ -82,6 +83,11 @@ rangeBetween (Range p1 _) (Range _ p2) = Range p1 p2
 rangeContains :: Range -> Range -> Bool
 rangeContains (Range start1 end1) (Range start2 end2) = start1 <= start2 && end2 <= end1
 {-# INLINE rangeContains #-}
+
+-- True if the two ranges intersect.
+rangeIntersects :: Range -> Range -> Bool
+rangeIntersects (Range start1 end1) (Range start2 end2) = not (end1 < start2 || end2 < start1)
+{-# INLINE rangeIntersects #-}
 
 -- Debug a range of characters.
 debugRange :: Range -> Text.Builder
