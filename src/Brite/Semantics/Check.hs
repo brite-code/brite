@@ -123,11 +123,12 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
       consequentMonotype <- Prefix.freshWithBound prefix Flexible consequentType
       alternateMonotype <- Prefix.freshWithBound prefix Flexible alternateType
       -- Make sure that the test expression is a boolean.
-      let testStack = conditionalTestStack (expressionRange test)
+      let testSnippet = expressionSnippet test
+      let testStack = conditionalTestStack (expressionRange test) testSnippet
       testResult <- unify testStack prefix testMonotype (Type.boolean (expressionRange test))
       -- We expect all branches after the first one to be the same type as the first branch. This is
       -- why the alternate type is in the first position! The consequent type is the _expected_ type
-      let branchesStack = conditionalBranchesStack range
+      let branchesStack = conditionalBranchesStack range testSnippet
       branchesResult <- unify branchesStack prefix alternateMonotype consequentMonotype
       -- The conditional type will always be the type of the first branch. We expect all other
       -- branches to have the same type as the first branch.
@@ -161,7 +162,7 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
       wrappedMonotype <- Prefix.freshWithBound prefix Flexible wrappedType
       annotationMonotype <- Prefix.freshWithBound prefix Rigid annotation
       -- Unify the actual wrapped value’s type with the annotation type.
-      let stack = expressionAnnotationStack range
+      let stack = expressionAnnotationStack (expressionRange wrapped) (expressionSnippet wrapped)
       result <- unify stack prefix wrappedMonotype annotationMonotype
       -- Return a wrapped expression and add the resulting error.
       --

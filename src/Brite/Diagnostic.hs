@@ -14,6 +14,20 @@
 --   errors inline and a “problems” panel to view all errors in a project. Short single-line
 --   messages work best in both of these locations.
 --
+-- * 80% of the time the fix is obvious to human and computer so provide a direct error message.
+--   20% of the time the error won’t be obvious to the human so provide a message which is _not_
+--   misleading and gives the human enough information to step through their program and find the
+--   fix which might involve making tradeoffs a computer couldn’t understand in their program. Never
+--   give a human a misleading an error message, they’ll spend more time on the message then on
+--   their program.
+--
+-- * Trust that the programmer is clever unless shown otherwise. Prefer error messages which are
+--   always short and true to error messages which are long and misleading/false. If the
+--   programmer is clever and you’ve given them enough tools (error messages, extra references, IDE
+--   tools like hover types) the clever programmer should be able to deduce the real problem in
+--   their code. If it is shown the programmer is not clever enough to solve the error on their own
+--   with the given error message then consider giving them a better error message.
+--
 -- * Use correct English grammar. It can be hard to make a program which produces correct English
 --   grammar. If you must, consult a spellchecker.
 --
@@ -285,9 +299,9 @@ data UnifyStack
 data UnifyStackOperation
   = UnifyTest
   | UnifyFunctionCall ExpressionSnippet
-  | UnifyExpressionAnnotation
-  | UnifyConditionalTest
-  | UnifyConditionalBranches
+  | UnifyExpressionAnnotation ExpressionSnippet
+  | UnifyConditionalTest ExpressionSnippet
+  | UnifyConditionalBranches ExpressionSnippet
 
 data UnifyStackFrame
   = UnifyFunctionParameter
@@ -310,16 +324,18 @@ functionCallStack :: Range -> ExpressionSnippet -> UnifyStack
 functionCallStack range snippet = UnifyStackOperation range (UnifyFunctionCall snippet)
 
 -- An expression annotation operation: `(e: T)`
-expressionAnnotationStack :: Range -> UnifyStack
-expressionAnnotationStack range = UnifyStackOperation range UnifyExpressionAnnotation
+expressionAnnotationStack :: Range -> ExpressionSnippet -> UnifyStack
+expressionAnnotationStack range snippet = UnifyStackOperation range (UnifyExpressionAnnotation snippet)
 
 -- A conditional expression test: `if E {}`
-conditionalTestStack :: Range -> UnifyStack
-conditionalTestStack range = UnifyStackOperation range UnifyConditionalTest
+conditionalTestStack :: Range -> ExpressionSnippet -> UnifyStack
+conditionalTestStack range snippet = UnifyStackOperation range (UnifyConditionalTest snippet)
 
 -- When we unify two conditional branches together: `if _ { E1 } else { E2 }`
-conditionalBranchesStack :: Range -> UnifyStack
-conditionalBranchesStack range = UnifyStackOperation range UnifyConditionalBranches
+--
+-- The expression snippet should be from the _test_ expression.
+conditionalBranchesStack :: Range -> ExpressionSnippet -> UnifyStack
+conditionalBranchesStack range snippet = UnifyStackOperation range (UnifyConditionalBranches snippet)
 
 -- Adds a function parameter frame to the unification stack.
 --
@@ -614,17 +630,19 @@ unifyStackOperationMessage (UnifyFunctionCall snippet) =
 
 -- We don’t want to use the word “cast” even though that’s pretty common programming language
 -- terminology. Instead the simpler phrasing of “changing a type” will do.
---
--- TODO: Change “cannot change this type” to “Cannot change `x`’s type”
-unifyStackOperationMessage UnifyExpressionAnnotation = plain "Can not change this type"
+unifyStackOperationMessage (UnifyExpressionAnnotation snippet) =
+  plain "Can not change type of " <> code (Text.Builder.toStrictText (printExpressionSnippet snippet))
 
 -- We avoid using the term “condition” or “conditional” as that might be confusing.
---
--- TODO: Change to “Can not test `x`”
-unifyStackOperationMessage UnifyConditionalTest = plain "Can not test"
+unifyStackOperationMessage (UnifyConditionalTest snippet) =
+  plain "Can not test " <> code (Text.Builder.toStrictText (printExpressionSnippet snippet))
 
--- TODO: A message???
-unifyStackOperationMessage UnifyConditionalBranches = plain "TODO"
+-- We use an expression snippet for the branch’s test expression and say that we cannot test that
+-- expression. The thing we can’t do when conditional branches are different types is we can’t
+-- create a conditional expression. After all, we’d have different types. We want to express this
+-- without resorting to a message which is too complex.
+unifyStackOperationMessage (UnifyConditionalBranches snippet) =
+  plain "Can not test " <> code (Text.Builder.toStrictText (printExpressionSnippet snippet))
 
 -- A message for pushing people to our issue tracker when they encounter an unexpected error.
 --
