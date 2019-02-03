@@ -26,7 +26,6 @@ import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
-import qualified Data.Text as Text
 
 type Context = HashMap Identifier Polytype
 
@@ -103,21 +102,12 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
       let expectedCalleeType = Type.function range argumentMonotype bodyMonotype
       -- Unify with a function call operation. Use the name of a variable or property expression in
       -- the error message.
-      let stack = functionCallStack range (functionName astCallee)
+      let stack = functionCallStack range (expressionSnippet callee)
       result <- unify stack prefix calleeMonotype expectedCalleeType
       -- Generalize the body type so we don’t lose the type variables it references!
       bodyType <- Prefix.generalize prefix bodyMonotype
       -- If unification failed then insert an `ErrorExpression` so that we’ll panic at runtime.
       return (bodyType, addError result (Expression range (CallExpression callee [argument])))
-    where
-      -- Gets a name that we can use in an error message from an AST expression.
-      functionName x = case AST.expressionNode x of
-        AST.VariableExpression name -> return (identifierText name)
-        -- TODO: Test that we use property expressions in function call error messages.
-        AST.PropertyExpression object property -> do
-          name <- functionName object
-          return (name `Text.snoc` '.' `Text.append` identifierText (AST.nameIdentifier property))
-        _ -> Nothing
 
   -- Conditionally executes some code depending on the value under test. The value being tested must
   -- be a boolean. The two branches must have types equivalent to one another.

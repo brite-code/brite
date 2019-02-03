@@ -33,6 +33,7 @@ module Brite.Semantics.Type
   , bottom
   , quantify
   , reposition
+  , repositionMonotype
   , normal
   , substitutePolytype
   , substituteMonotype

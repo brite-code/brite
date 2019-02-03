@@ -20,3 +20,4 @@
 - Use bottom types to warn about unreachable code.
 - Only reserve keywords for binding identifiers. Allow keywords in properties
   like `gen.void`.
+- Auto-correct. You typed `foobar` did you mean `foo`?

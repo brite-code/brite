@@ -17,7 +17,6 @@ module Brite.Semantics.AST
   , FunctionParameter(..)
   , Block(..)
   , Constant(..)
-  , IntegerConstantBase(..)
   , Expression(..)
   , ExpressionNode(..)
   , ObjectExpressionProperty(..)
@@ -125,11 +124,9 @@ data Constant
   -- `true`, `false`
   | BooleanConstant Bool
   -- `42`
-  | IntegerConstant IntegerConstantBase Integer
+  | IntegerConstant IntegerBase Integer
   -- `3.1415`
   | FloatConstant Double
-
-data IntegerConstantBase = Binary | Decimal | Hexadecimal
 
 data Expression = Expression
   -- The range covered by an expression in a document.

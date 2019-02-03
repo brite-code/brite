@@ -6,18 +6,19 @@ module Brite.Semantics.AVT
   , StatementNode(..)
   , Block(..)
   , Constant(..)
-  , IntegerConstantBase(..)
   , Expression(..)
   , ExpressionNode(..)
   , Pattern(..)
   , PatternNode(..)
+  , expressionSnippet
   ) where
 
 import Brite.Diagnostic
-import Brite.Semantics.AST (IntegerConstantBase(..))
 import Brite.Semantics.Type (Polytype)
 import Brite.Syntax.Identifier
+import Brite.Syntax.Number (IntegerBase(..))
 import Brite.Syntax.Range
+import Brite.Syntax.Snippet
 
 newtype Statement = Statement
   -- The representation of this statement.
@@ -42,7 +43,7 @@ data Constant
   -- `true`, `false`
   | BooleanConstant Bool
   -- `42`
-  | IntegerConstant IntegerConstantBase Integer
+  | IntegerConstant IntegerBase Integer
 
 data Expression = Expression
   -- The range of source code covered by this expression.
@@ -92,3 +93,27 @@ data Pattern = Pattern
 data PatternNode
   -- `x`
   = VariablePattern Identifier
+
+-- Gets a snippet for a constant.
+constantSnippet :: Constant -> ConstantSnippet
+constantSnippet VoidConstant = VoidConstantSnippet
+constantSnippet (BooleanConstant value) = BooleanConstantSnippet value
+constantSnippet (IntegerConstant base value) = IntegerConstantSnippet base value
+
+-- Gets a snippet for an expression.
+expressionSnippet :: Expression -> ExpressionSnippet
+expressionSnippet expression = case expressionNode expression of
+  ConstantExpression constant -> ConstantExpressionSnippet (constantSnippet constant)
+  VariableExpression name -> VariableExpressionSnippet name
+  FunctionExpression parameter _ -> FunctionExpressionSnippet (patternSnippet parameter)
+  CallExpression callee _ -> CallExpressionSnippet (expressionSnippet callee)
+  ConditionalExpression test _ _ -> ConditionalExpressionSnippet (expressionSnippet test)
+  BlockExpression _ -> BlockExpressionSnippet
+  WrappedExpression wrapped _ -> expressionSnippet wrapped
+  ErrorExpression _ (Just recovered) -> expressionSnippet (expression { expressionNode = recovered })
+  ErrorExpression _ Nothing -> ErrorExpressionSnippet
+
+-- Gets a snippet for a pattern.
+patternSnippet :: Pattern -> PatternSnippet
+patternSnippet pattern = case patternNode pattern of
+  VariablePattern name -> VariablePatternSnippet name

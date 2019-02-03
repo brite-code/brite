@@ -9,6 +9,7 @@ module Brite.Semantics.ASTDebug
 
 import Brite.Semantics.AST
 import Brite.Syntax.Identifier
+import Brite.Syntax.Number (IntegerBase(..))
 import Brite.Syntax.PrinterFramework
 import Brite.Syntax.Range
 import Data.Char (intToDigit, toUpper)

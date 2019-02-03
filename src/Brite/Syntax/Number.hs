@@ -2,12 +2,17 @@
 
 module Brite.Syntax.Number
   ( Number(..)
+  , IntegerBase(..)
   , numberSource
+  , printInteger
   ) where
 
+import Data.Char (intToDigit, toUpper)
 import Data.Text (Text)
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
+import qualified Data.Text.Lazy.Builder.Int as Text.Builder
+import Numeric (showIntAtBase)
 
 -- A number in Brite source code could be written in a few different ways:
 --
@@ -50,6 +55,15 @@ data Number
   | DecimalFloat Text Double
   deriving (Show)
 
+-- The integer bases we support in Brite.
+data IntegerBase
+  -- 2
+  = Binary
+  -- 10
+  | Decimal
+  -- 16
+  | Hexadecimal
+
 -- Gets the source code for a number.
 numberSource :: Number -> Text.Builder
 numberSource (DecimalInteger raw _) = Text.Builder.fromText raw
@@ -58,3 +72,10 @@ numberSource (BinaryInteger False raw _) = Text.Builder.fromText "0B" <> Text.Bu
 numberSource (HexadecimalInteger True raw _) = Text.Builder.fromText "0x" <> Text.Builder.fromText raw
 numberSource (HexadecimalInteger False raw _) = Text.Builder.fromText "0X" <> Text.Builder.fromText raw
 numberSource (DecimalFloat raw _) = Text.Builder.fromText raw
+
+-- Prints an integer to text at the provided base. Also prints the appropriate prefix. So `0b` for
+-- binary and `0x` for hexadecimal. The printed integer should be ready for parsing as source code!
+printInteger :: IntegerBase -> Integer -> Text.Builder
+printInteger Decimal value = Text.Builder.decimal value
+printInteger Binary value = Text.Builder.fromText "0b" <> Text.Builder.fromString (showIntAtBase 2 intToDigit value "")
+printInteger Hexadecimal value = Text.Builder.fromText "0x" <> Text.Builder.fromString (showIntAtBase 16 (toUpper . intToDigit) value "")

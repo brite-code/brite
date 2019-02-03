@@ -99,6 +99,7 @@ import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
+import Brite.Syntax.Snippet
 import Data.List (intersperse)
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
@@ -106,6 +107,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
+import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 
 -- A diagnostic is some message presented to the user about their program. Diagnostics contain a
 -- range of characters which the diagnostic points to. Diagnostics are only valid in the scope of
@@ -282,7 +284,7 @@ data UnifyStack
 
 data UnifyStackOperation
   = UnifyTest
-  | UnifyFunctionCall (Maybe Text)
+  | UnifyFunctionCall ExpressionSnippet
   | UnifyExpressionAnnotation
   | UnifyConditionalTest
   | UnifyConditionalBranches
@@ -304,8 +306,8 @@ unifyTestStack :: Range -> UnifyStack
 unifyTestStack range = UnifyStackOperation range UnifyTest
 
 -- A function call operation: `f()`
-functionCallStack :: Range -> Maybe Text -> UnifyStack
-functionCallStack range name = UnifyStackOperation range (UnifyFunctionCall name)
+functionCallStack :: Range -> ExpressionSnippet -> UnifyStack
+functionCallStack range snippet = UnifyStackOperation range (UnifyFunctionCall snippet)
 
 -- An expression annotation operation: `(e: T)`
 expressionAnnotationStack :: Range -> UnifyStack
@@ -442,31 +444,18 @@ diagnosticErrorMessage _ (UnexpectedSyntax unexpected expected) = noRelatedInfor
 diagnosticErrorMessage _ (UnexpectedEnding expected) = noRelatedInformation $
   plain "We wanted " <> expectedSyntaxMessage expected <> plain " but the file ended."
 
--- Instead of saying “we could not find value `X`” or “we could not find name `X`” we say “we could
--- not find `X`” since it should be pretty obvious to the programmer that we are referring to
--- a variable. We say “we could not find type `X`” for type error messages to be more clear since
--- types are generally more abstract.
---
--- See `UnboundTypeVariable` for more thought that went into this message.
---
--- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
--- should change the message.
+-- We tell the user directly that the name they were looking for is missing. “does not exist” is a
+-- bit harsh. It might also be untrue from the user’s point of view. The variable could exist in a
+-- different scope or with a small mis-spelling. Instead we use “is missing” which is simple and to
+-- the point.
 diagnosticErrorMessage _ (UnboundVariable name) = noRelatedInformation $
-  plain "We could not find " <> code (identifierText name) <> plain "."
+  code (identifierText name) <> plain " is missing."
 
--- Other options considered include:
+-- See `UnboundVariable` for more information on this message.
 --
--- * “`T` does not exist.” This is too forceful and puts all the blame on the programmer. It also
---   might be wrong. `T` could exist, it just might be in another scope or file.
--- * “Could not find type `T`.” Adding “we” makes the message a bit more personal. It shifts blame
---   from the programmer to the compiler.
--- * “We cannot find type `T`.” I like the sound of “could not” better than “cannot” or “can’t”.
--- * “We could not find name `T`.” We use “type” instead of “name” to be more specific here.
---
--- NOTE: This message is written in past tense which disagrees with the tone we want to set. We
--- should change the message.
+-- We don’t differentiate this message by specifically saying that a type is missing.
 diagnosticErrorMessage _ (UnboundTypeVariable name) = noRelatedInformation $
-  plain "We could not find type " <> code (identifierText name) <> plain "."
+  code (identifierText name) <> plain " is missing."
 
 -- A Brite programmer will see this error message quite frequently so we need to take some time and
 -- make sure it’s real good.
@@ -505,9 +494,9 @@ diagnosticErrorMessage range (IncompatibleTypes actualRange expectedRange actual
   ( operationMessage <> plain " because " <> typeMessage actual <> plain " is not " <>
     typeMessageWithArticle expected <> plain "."
 
-  -- Always show the programmer a reference to the expected type. Only show a reference to the
-  -- actual type if the diagnostic’s range does not contain the actual type.
-  , if rangeContains range actualRange then [expectedReference] else [actualReference, expectedReference]
+  -- Only show the programmer references outside of the diagnostic’s range.
+  , filter (not . rangeContains range . diagnosticRelatedInformationRange)
+      [actualReference, expectedReference]
   )
   where
     operationMessage = loop stack
@@ -535,9 +524,9 @@ diagnosticErrorMessage range (DoesNotAbstract actualRange expectedRange actual e
   -- Construct the error message.
   ( operationMessage <> plain " because " <> code actual <> plain " is not " <> code expected <> plain "."
 
-  -- Always show the programmer a reference to the expected type. Only show a reference to the
-  -- actual type if the diagnostic’s range does not contain the actual type.
-  , if rangeContains range actualRange then [expectedReference] else [actualReference, expectedReference]
+  -- Only show the programmer references outside of the diagnostic’s range.
+  , filter (not . rangeContains range . diagnosticRelatedInformationRange)
+      [actualReference, expectedReference]
   )
   where
     operationMessage = loop stack
@@ -615,8 +604,8 @@ unifyStackOperationMessage :: UnifyStackOperation -> Markup
 unifyStackOperationMessage UnifyTest = plain "Test failed" -- NOTE: We should only see this during testing.
 
 -- We use “Can not” instead of “Cannot” because the former is simpler to read.
-unifyStackOperationMessage (UnifyFunctionCall Nothing) = plain "Can not call function"
-unifyStackOperationMessage (UnifyFunctionCall (Just name)) = plain "Can not call " <> code name
+unifyStackOperationMessage (UnifyFunctionCall snippet) =
+  plain "Can not call " <> code (Text.Builder.toStrictText (printExpressionSnippet snippet))
 
 -- We don’t want to use the word “cast” even though that’s pretty common programming language
 -- terminology. Instead the simpler phrasing of “changing a type” will do.
