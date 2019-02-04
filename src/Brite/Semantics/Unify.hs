@@ -175,8 +175,8 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       -- ranges for our monotypes. This will point directly to where the type was defined.
       incompatibleTypesError = Left <$>
         incompatibleTypes
-          (initialRange (Type.monotypeRangeStack actual), const () <$> actualConstruct)
-          (initialRange (Type.monotypeRangeStack expected), const () <$> expectedConstruct)
+          (initialRange (Type.monotypeRangeStack actual), typeConstructorSnippet actualConstruct)
+          (initialRange (Type.monotypeRangeStack expected), typeConstructorSnippet expectedConstruct)
           stack
 
 -- Unifies two polytypes. When the two types are equivalent we return an ok result with a type. This

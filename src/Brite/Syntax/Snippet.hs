@@ -26,6 +26,7 @@ module Brite.Syntax.Snippet
   ( ConstantSnippet(..)
   , ExpressionSnippet(..)
   , PatternSnippet(..)
+  , TypeConstructorSnippet(..)
   , printExpressionSnippet
   ) where
 
@@ -85,6 +86,19 @@ data PatternSnippet
   --
   -- Variables are small so we can print the variable snippet source directly.
   = VariablePatternSnippet Identifier
+
+-- A constructor is the “type level” function which creates a constructed type (`Construct`).
+-- Different constructors have a different arity. For instance, `fun(T) -> U` has an arity of two.
+--
+-- NOTE: Technically, we allow some constructors like functions to have an arbitrary arity. Since
+-- you can create a function with multiple arguments like `fun(T, U) -> V`. We don’t represent that
+-- in this type since it doesn’t affect snippet printing.
+data TypeConstructorSnippet
+  = VoidConstructorSnippet
+  | BooleanConstructorSnippet
+  | IntegerConstructorSnippet
+  | FunctionConstructorSnippet
+  -- | ObjectConstructorSnippet
 
 -- Prints a constant snippet to some text.
 printConstantSnippet :: ConstantSnippet -> Text.Builder

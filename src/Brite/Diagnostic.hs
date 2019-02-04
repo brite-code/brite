@@ -109,7 +109,7 @@ module Brite.Diagnostic
   ) where
 
 import Brite.DiagnosticMarkup
-import Brite.Semantics.TypeConstruct
+import Brite.Semantics.TypeConstruct (booleanTypeName, integerTypeName)
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
@@ -167,7 +167,7 @@ data ErrorDiagnosticMessage
   -- The type checker ran into a type variable which it could not find a binding for.
   | UnboundTypeVariable Identifier
   -- We found two type constructors that were incompatible with one another during unification.
-  | IncompatibleTypes Range Range Constructor Constructor UnifyStack
+  | IncompatibleTypes Range Range TypeConstructorSnippet TypeConstructorSnippet UnifyStack
   -- We expected one type to abstract another but it does not.
   | DoesNotAbstract Range Range Text Text UnifyStack
   -- While trying to infer the type for some code we ran into an infinite type.
@@ -244,7 +244,7 @@ unboundTypeVariable range name = report $ Diagnostic range $ Error $
   UnboundTypeVariable name
 
 -- We found two type constructors that were incompatible with one another during unification.
-incompatibleTypes :: DiagnosticMonad m => (Range, Constructor) -> (Range, Constructor) -> UnifyStack -> m Diagnostic
+incompatibleTypes :: DiagnosticMonad m => (Range, TypeConstructorSnippet) -> (Range, TypeConstructorSnippet) -> UnifyStack -> m Diagnostic
 incompatibleTypes (actualRange, actual) (expectedRange, expected) stack = report $ Diagnostic range $ Error $
   IncompatibleTypes actualRange expectedRange actual expected stack
   where
@@ -527,15 +527,15 @@ diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expec
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
 
-    typeMessage Void = plain "void"
-    typeMessage Boolean = code (identifierText booleanTypeName)
-    typeMessage Integer = code (identifierText integerTypeName)
-    typeMessage (Function () ()) = plain "function"
+    typeMessage VoidConstructorSnippet = plain "void"
+    typeMessage BooleanConstructorSnippet = code (identifierText booleanTypeName)
+    typeMessage IntegerConstructorSnippet = code (identifierText integerTypeName)
+    typeMessage FunctionConstructorSnippet = plain "function"
 
-    typeMessageWithArticle Void = plain "void"
-    typeMessageWithArticle Boolean = plain "a " <> code (identifierText booleanTypeName)
-    typeMessageWithArticle Integer = plain "an " <> code (identifierText integerTypeName)
-    typeMessageWithArticle (Function () ()) = plain "a function"
+    typeMessageWithArticle VoidConstructorSnippet = plain "void"
+    typeMessageWithArticle BooleanConstructorSnippet = plain "a " <> code (identifierText booleanTypeName)
+    typeMessageWithArticle IntegerConstructorSnippet = plain "an " <> code (identifierText integerTypeName)
+    typeMessageWithArticle FunctionConstructorSnippet = plain "a function"
 
 -- Here we attempt to explain to the programmer why we failed their program when encountering these
 -- two types. Programmers shouldn’t see this message too often, it usually only comes up in
