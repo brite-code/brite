@@ -471,16 +471,16 @@ diagnosticErrorMessage (UnexpectedEnding expected) = noRelatedInformation $
 
 -- We tell the user directly that the name they were looking for is missing. “does not exist” is a
 -- bit harsh. It might also be untrue from the user’s point of view. The variable could exist in a
--- different scope or with a small mis-spelling. Instead we use “is missing” which is simple and to
+-- different scope or with a small mis-spelling. Instead we use “cannot find” which is simple and to
 -- the point.
 diagnosticErrorMessage (UnboundVariable name) = noRelatedInformation $
-  code (identifierText name) <> plain " is missing."
+  plain "Can not find " <> code (identifierText name) <> plain "."
 
 -- See `UnboundVariable` for more information on this message.
 --
 -- We don’t differentiate this message by specifically saying that a type is missing.
 diagnosticErrorMessage (UnboundTypeVariable name) = noRelatedInformation $
-  code (identifierText name) <> plain " is missing."
+  plain "Can not find " <> code (identifierText name) <> plain "."
 
 -- A Brite programmer will see this error message quite frequently so we need to take some time and
 -- make sure it’s real good.
