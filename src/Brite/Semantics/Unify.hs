@@ -236,8 +236,8 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
 
           -- Loop through all our overflowed properties and report an error. If there was no
           -- property overflow then these folds will do nothing and return `result1`.
-          let result2 = Map.foldlWithKey' (overflowProperty expected) (return result1) actualOverflowProperties
-          Map.foldlWithKey' (overflowProperty actual) result2 expectedOverflowProperties
+          let result2 = Map.foldlWithKey' (overflowProperty actual) (return result1) expectedOverflowProperties
+          Map.foldlWithKey' (overflowProperty expected) result2 actualOverflowProperties
 
         -- Otherwise we did not pass our shallow equality check...
         else do
