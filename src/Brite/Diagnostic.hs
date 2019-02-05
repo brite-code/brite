@@ -531,11 +531,13 @@ diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expec
     typeMessage BooleanConstructorSnippet = code (identifierText booleanTypeName)
     typeMessage IntegerConstructorSnippet = code (identifierText integerTypeName)
     typeMessage FunctionConstructorSnippet = plain "function"
+    typeMessage ObjectConstructorSnippet = plain "object"
 
     typeMessageWithArticle VoidConstructorSnippet = plain "void"
     typeMessageWithArticle BooleanConstructorSnippet = plain "a " <> code (identifierText booleanTypeName)
     typeMessageWithArticle IntegerConstructorSnippet = plain "an " <> code (identifierText integerTypeName)
     typeMessageWithArticle FunctionConstructorSnippet = plain "a function"
+    typeMessageWithArticle ObjectConstructorSnippet = plain "an object"
 
 -- Here we attempt to explain to the programmer why we failed their program when encountering these
 -- two types. Programmers shouldn’t see this message too often, it usually only comes up in

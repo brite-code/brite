@@ -100,6 +100,21 @@ testData =
   , ("fun<A, B = fun(A) -> A, A = fun<Z>(Z) -> B>(A) -> fun(A) -> B", "fun<A, A2 = fun<Z>(Z) -> fun(A) -> A>(A2) -> fun(A2) -> fun(A) -> A")
   , ("<X, X = X> X", "!")
   , ("fun<T2, U: fun<T, V: T, T>(V) -> fun(T) -> T2>(U) -> U", "fun<T2, U: fun<T, T3>(T) -> fun(T3) -> T2>(U) -> U")
+  , ("{}", "{}")
+  , ("{| X}", "{ | X}")
+  , ("{a: Int, b: Bool}", "{a: Int, b: Bool}")
+  , ("{b: Bool, a: Int}", "{b: Bool, a: Int}")
+  , ("{a: Int | {a: Bool}}", "{a: Int, a: Bool}")
+  , ("{a: Bool | {a: Int}}", "{a: Bool, a: Int}")
+  , ("{b: void, a: Int, a: Bool}", "{b: void, a: Int, a: Bool}")
+  , ("{a: Int, b: void, a: Bool}", "{a: Int, b: void, a: Bool}")
+  , ("{a: Int, a: Bool, b: void}", "{a: Int, a: Bool, b: void}")
+  , ("{| {}}", "{}")
+  , ("{p: Int}", "{p: Int}")
+  , ("{p: Int | {}}", "{p: Int}")
+  , ("{p: Int, q: Bool | {}}", "{p: Int, q: Bool}")
+  , ("{p: Int | {q: Bool}}", "{p: Int, q: Bool}")
+  , ("{| {p: Int, q: Bool}}", "{p: Int, q: Bool}")
   ]
 
 initialContext :: HashSet Identifier

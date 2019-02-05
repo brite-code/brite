@@ -50,6 +50,8 @@ module Brite.Syntax.PrinterAST
   , voidType
   , functionType
   , quantifiedFunctionType
+  , objectType
+  , objectTypeProperty
   , quantifiedType
   , unboundQuantifier
   , quantifier
@@ -420,6 +422,15 @@ functionType parameters body = Type [] [] (FunctionType [] (map commaListItem pa
 quantifiedFunctionType :: [Quantifier] -> [Type] -> Type -> Type
 quantifiedFunctionType quantifiers parameters body = Type [] [] $
   FunctionType (map commaListItem quantifiers) (map commaListItem parameters) body
+
+-- `{p: T}`
+objectType :: [ObjectTypeProperty] -> (Maybe Type) -> Type
+objectType properties extension = Type [] [] $
+  ObjectType (map commaListItem properties) ((,) [] <$> extension)
+
+-- `p: T`
+objectTypeProperty :: Identifier -> Type -> ObjectTypeProperty
+objectTypeProperty = ObjectTypeProperty []
 
 -- `<T> U`
 quantifiedType :: [Quantifier] -> Type -> Type

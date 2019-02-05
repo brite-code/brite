@@ -98,7 +98,7 @@ data TypeConstructorSnippet
   | BooleanConstructorSnippet
   | IntegerConstructorSnippet
   | FunctionConstructorSnippet
-  -- | ObjectConstructorSnippet
+  | ObjectConstructorSnippet
 
 -- Prints a constant snippet to some text.
 printConstantSnippet :: ConstantSnippet -> Text.Builder

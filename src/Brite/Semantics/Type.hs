@@ -29,6 +29,7 @@ module Brite.Semantics.Type
   , boolean
   , integer
   , function
+  , object
   , polytype
   , bottom
   , quantify
@@ -49,6 +50,7 @@ import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
+import Data.Map.Strict (Map)
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq(..), (|>), (<|))
 import qualified Data.Sequence as Seq
@@ -191,6 +193,10 @@ integer range = construct range Integer
 -- Creates a new function monotype.
 function :: Range -> Monotype -> Monotype -> Monotype
 function range parameter body = construct range (Function parameter body)
+
+-- Creates a new object monotype.
+object :: Range -> Map Identifier [ObjectProperty Monotype] -> Maybe Monotype -> Monotype
+object range properties extension = construct range (Object properties extension)
 
 -- Converts a monotype into a polytype.
 polytype :: Monotype -> Polytype

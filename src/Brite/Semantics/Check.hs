@@ -20,10 +20,12 @@ import Brite.Semantics.Unify
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 import Control.Monad.State.Strict
+import Data.Foldable (foldlM)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
+import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 
@@ -294,6 +296,11 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
     (_, bindings2, bodyType) <- checkMonotype Positive context1 initialFreshCounter bindings1 uncheckedBodyType
     return (Type.quantify bindings2 bodyType)
 
+  -- If we see an object type then check it as a monotype.
+  AST.ObjectType _ _ -> do
+    (_, bindings2, objectType) <- checkMonotype Positive context0 initialFreshCounter Seq.empty type0
+    return (Type.quantify bindings2 objectType)
+
   AST.WrappedType type1 -> checkPolytype context0 type1
 
   -- Error types which don’t have a recovered type return error types.
@@ -418,6 +425,29 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
     binding <- Type.Binding name localFlexibility <$> checkPolytype context type0
     return (counter1, bindings0 |> binding, Type.variable range name)
+
+  -- Check all the properties and the extension of an object type. If we encounter an object type in
+  -- `checkPolytype` then we will defer to `checkMonotype` here.
+  AST.ObjectType uncheckedProperties uncheckedExtension -> do
+    -- Check the type of all our object’s properties.
+    (counter3, bindings3, properties) <-
+      foldlM
+        (\(counter1, bindings1, properties1) (AST.ObjectTypeProperty name uncheckedPropertyType) -> do
+          (counter2, bindings2, propertyType) <- checkMonotype Positive context counter1 bindings1 uncheckedPropertyType
+          let property = ObjectProperty (AST.nameRange name) propertyType
+          return (counter2, bindings2, Map.insertWith (flip (++)) (AST.nameIdentifier name) [property] properties1))
+        (counter0, bindings0, Map.empty)
+        uncheckedProperties
+
+    -- If we have an extension then check the type of that extension.
+    (counter5, bindings5, extension) <- case uncheckedExtension of
+      Nothing -> return (counter3, bindings3, Nothing)
+      Just uncheckedExtensionType -> do
+        (counter4, bindings4, extensionType) <- checkMonotype Positive context counter3 bindings3 uncheckedExtensionType
+        return (counter4, bindings4, Just extensionType)
+
+    -- Return the object type along with the new counter and bindings.
+    return (counter5, bindings5, Type.object range properties extension)
 
   AST.WrappedType type1 ->
     checkMonotype localPolarity context counter0 bindings0 type1

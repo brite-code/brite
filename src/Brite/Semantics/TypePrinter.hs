@@ -3,6 +3,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Brite.Semantics.TypePrinter
   ( printPolytype
@@ -16,12 +17,16 @@ import Brite.Semantics.Polarity
 import Brite.Semantics.Type
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier (Identifier)
+import Brite.Syntax.Range
 import qualified Brite.Syntax.PrinterAST as PrinterAST
 import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
+import Data.List (sortOn)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq(..))
 import qualified Data.Set as Set
@@ -220,7 +225,16 @@ printMonotypeWithInlining ::
   Polarity -> Monotype -> HashMap Identifier (Int, Int) ->
     (HashMap Identifier (Int, Int) -> (HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
       -> a
-printMonotypeWithInlining localPolarity type' references0 yield = case monotypeDescription type' of
+printMonotypeWithInlining localPolarity = printMonotypeDescriptionWithInlining localPolarity . monotypeDescription
+{-# INLINE printMonotypeWithInlining #-}
+
+-- Prints a monotype description while providing facilities for inlining bounds with only a single
+-- use at the appropriate position.
+printMonotypeDescriptionWithInlining ::
+  Polarity -> MonotypeDescription -> HashMap Identifier (Int, Int) ->
+    (HashMap Identifier (Int, Int) -> (HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
+      -> a
+printMonotypeDescriptionWithInlining localPolarity description references0 yield = case description of
   -- A variable adds a reference to our references map and then returns a continuation which will
   -- inline a binding for this variable if one was provided.
   Variable name ->
@@ -252,6 +266,53 @@ printMonotypeWithInlining localPolarity type' references0 yield = case monotypeD
         yield references2 $ \substitutions ->
           PrinterAST.functionType [makeParameter substitutions] (makeBody substitutions)
 
+  -- Flatten an object which directly extends another object before printing.
+  Construct (Object properties1 (Just (monotypeDescription -> Construct (Object properties2 extension)))) ->
+    printMonotypeDescriptionWithInlining
+      localPolarity
+      (Construct (Object (Map.unionWith (++) properties1 properties2) extension))
+      references0
+      yield
+
+  -- Print an object while allowing types with a single reference to be inlined.
+  Construct (Object properties maybeExtension) ->
+    -- Build a function that iterates through all the properties of our object.
+    foldl
+      -- Print the object property and call the next function.
+      (\next (name, value) references1 propertyMakers ->
+        printMonotypeWithInlining Positive value references1 $ \references2 makeValue ->
+          next references2 ((name, makeValue) : propertyMakers))
+
+      -- This is the initial value for our `foldr`! It prints the extension and calls `yield`. The
+      -- extension should have all the property “make” functions at this point. So when we yield and
+      -- get the substitutions map we can make our object property values.
+      (\references3 propertyMakers ->
+        case maybeExtension of
+          Nothing ->
+            yield references3 $ \substitutions ->
+              PrinterAST.objectType
+                (map
+                  (\(name, makeValue) -> PrinterAST.objectTypeProperty name (makeValue substitutions))
+                  propertyMakers)
+                Nothing
+
+          Just extension ->
+            printMonotypeWithInlining Positive extension references3 $ \references4 makeExtension ->
+              yield references4 $ \substitutions ->
+                PrinterAST.objectType
+                  (map
+                    (\(name, makeValue) -> PrinterAST.objectTypeProperty name (makeValue substitutions))
+                    propertyMakers)
+                  (Just (makeExtension substitutions)))
+
+      -- Fold over all the object properties. First we convert the object properties to a list which
+      -- sorts them by source order.
+      (objectPropertyList properties)
+
+      -- Call the function returned by `foldr` with initial values.
+      references0
+      []
+
 -- Prints a polytype to a `PrinterAST`. That printer AST will then be provided to our actual printer
 -- for display to the programmer.
 --
@@ -279,7 +340,12 @@ printBindingWithoutInlining (Binding name flex type') =
 --
 -- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
 printMonotypeWithoutInlining :: Monotype -> PrinterAST.Type
-printMonotypeWithoutInlining type' = case monotypeDescription type' of
+printMonotypeWithoutInlining = printMonotypeDescriptionWithoutInlining . monotypeDescription
+{-# INLINE printMonotypeWithoutInlining #-}
+
+-- Prints a monotype description to a `PrinterAST`. Powers `printMonotypeWithoutInlining`.
+printMonotypeDescriptionWithoutInlining :: MonotypeDescription -> PrinterAST.Type
+printMonotypeDescriptionWithoutInlining description = case description of
   Variable name -> PrinterAST.variableType name
 
   Construct Void -> PrinterAST.voidType
@@ -292,3 +358,59 @@ printMonotypeWithoutInlining type' = case monotypeDescription type' of
     PrinterAST.functionType
       [printMonotypeWithoutInlining parameter]
       (printMonotypeWithoutInlining body)
+
+  -- Flatten an object which directly extends another object before printing.
+  Construct (Object properties1 (Just (monotypeDescription -> Construct (Object properties2 extension)))) ->
+    printMonotypeDescriptionWithoutInlining
+      (Construct (Object (Map.unionWith (++) properties1 properties2) extension))
+
+  -- Print an object, but first convert all of its properties to a list.
+  Construct (Object properties extension) ->
+    PrinterAST.objectType
+      (map
+        (\(name, value) -> PrinterAST.objectTypeProperty name (printMonotypeWithoutInlining value))
+        (objectPropertyList properties))
+      (printMonotypeWithoutInlining <$> extension)
+
+-- Converts a map of object properties into a list. The list is sorted by the location of each
+-- property in source code while still preserving the appropriate ordering for object properties
+-- with the same name.
+objectPropertyList :: Map Identifier [ObjectProperty a] -> [(Identifier, a)]
+objectPropertyList properties0 =
+  let
+    -- Turn the map of properties into a list.
+    properties1 =
+      Map.foldrWithKey
+        (\name nameProperties acc1 ->
+          -- Each property has a list of shadowed values. Inline those directly into the
+          -- property list.
+          --
+          -- We know that next we’ll be sorting properties based on their appearance in source code.
+          -- We must make sure that even after the sort our named properties preserve their order.
+          snd (foldr
+            (\nameProperty (maybePreviousRange, acc2) ->
+              let thisRange = objectPropertyNameRange nameProperty in
+                case maybePreviousRange of
+                  -- If our range is earlier than the range of our previous property then update our
+                  -- property value’s range to that of the previous range. This way when we sort
+                  -- on object property ranges we won’t move a later property of the same name
+                  -- before an earlier property of the same name.
+                  Just previousRange | rangeStart thisRange > rangeStart previousRange ->
+                    (Just previousRange, (name, nameProperty { objectPropertyNameRange = previousRange }) : acc2)
+                  _ ->
+                    (Just thisRange, (name, nameProperty) : acc2))
+            (Nothing, acc1)
+            nameProperties))
+        []
+        properties0
+
+    -- Sort the list of properties by where they appear in source code.
+    properties2 =
+      sortOn (rangeStart . objectPropertyNameRange . snd) properties1
+
+    -- Drop the range from our list of properties. The ranges may have been arbitrarily modified and
+    -- so no longer represent the true source location of a property.
+    properties3 =
+      map (\(name, ObjectProperty _ value) -> (name, value)) properties2
+  in
+      properties3
