@@ -14,6 +14,7 @@ import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Range
 import Data.Foldable (foldlM)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 
 -- IMPORTANT: It is expected that all free type variables are bound in the prefix! If this is not
 -- true we will report internal error diagnostics.
@@ -185,8 +186,9 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       (Object actualProperties actualMaybeExtension, Object expectedProperties expectedMaybeExtension) -> do
         -- Merge the object properties into shared and overflow properties. We will unify the shared
         -- properties together and will unify the overflow properties with the object’s extension.
-        let (sharedProperties, (actualOverflowProperties, expectedOverflowProperties)) =
-              mergeProperties actualProperties expectedProperties
+        let
+          (sharedProperties, (actualOverflowProperties, expectedOverflowProperties)) =
+            mergeProperties actualProperties expectedProperties
 
         -- Unify all of the shared properties between the two objects. We use `unifyWithFrame` to
         -- add an object property frame to the unification stack.
@@ -207,22 +209,27 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
             sharedProperties
 
         let
-          -- If our row extensions are the same by some shallow equality check then we don’t need to
-          -- recursively unify them.
-          sameExtension = case (actualMaybeExtension, expectedMaybeExtension) of
-            -- If neither object has an extension then the objects have the same extension.
+          -- Should we unify our extensions or not? This check has very important implications when
+          -- it comes to termination of our unification algorithm. A check that’s too loose will let
+          -- through cases that recurse for ever when unifying extensions.
+          dontUnifyExtensions = case (actualMaybeExtension, expectedMaybeExtension) of
+            -- If neither object has an extension then we know they’re the same.
             (Nothing, Nothing) -> True
+            -- If one of our objects is an empty object then don’t unify extensions or else we will
+            -- produce the exact same unification call and recurse forever.
+            (Nothing, _) -> Map.null actualProperties
+            (_, Nothing) -> Map.null expectedProperties
             -- NOTE: This is an important check to ensure the unification algorithm terminates! If
             -- both extensions are variables of the same name we must terminate early instead of
             -- recursing. Otherwise, we will create a new type variable and perform a unification of
             -- the same form. More notes on this later.
-            ( Just (Type.monotypeDescription -> Variable actualName),
-              Just (Type.monotypeDescription -> Variable expectedName)) -> actualName == expectedName
-            -- All other cases are not equal by our simple check.
-            _ -> False
+            (Just (Type.monotypeDescription -> Variable actualName),
+             Just (Type.monotypeDescription -> Variable expectedName)) -> actualName == expectedName
+            -- If we have two unknown extensions then we want to unify them.
+            (Just _, Just _) -> False
 
-        -- If we passed our shallow equality check...
-        if sameExtension then do
+        -- If we don’t want to unify extensions then print out missing property errors...
+        if dontUnifyExtensions then do
           let
             -- Reports a missing property error for every overflowed property.
             overflowProperty objectType result2M name nameProperties = result2M >>= \result2 ->
@@ -239,7 +246,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           let result2 = Map.foldlWithKey' (overflowProperty actual) (return result1) expectedOverflowProperties
           Map.foldlWithKey' (overflowProperty expected) result2 actualOverflowProperties
 
-        -- Otherwise we did not pass our shallow equality check...
+        -- Otherwise we want to unify extensions...
         else do
           -- We will create some type variables so perform the following in a new level. The type
           -- variables we create may escape through updates.
@@ -293,22 +300,14 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
             -- Unify the actual extension with the expected overflow object. The expected overflow
             -- object uses the shared extension. This way the two extensions will reach each other
             -- after type checking the overflow properties.
-            result2 <-
-              case actualMaybeExtension of
-                Just actualExtension -> unifyWithFrame objectExtensionFrame actualExtension expectedOverflowObject
-                Nothing ->
-                  let actualExtension = Type.emptyObjectWithRangeStack (Type.monotypeRangeStack expectedOverflowObject) in
-                    unifyWithFrame objectExtensionFrame actualExtension expectedOverflowObject
+            let actualExtension = fromMaybe (Type.emptyObject sharedExtensionRange) actualMaybeExtension
+            result2 <- unifyWithFrame objectExtensionFrame actualExtension expectedOverflowObject
 
             -- Unify the expected extension with the actual overflow object. The actual overflow
             -- object uses the shared extension. This way the two extensions will reach each other
             -- after type checking the overflow properties.
-            result3 <-
-              case expectedMaybeExtension of
-                Just expectedExtension -> unifyWithFrame objectExtensionFrame actualOverflowObject expectedExtension
-                Nothing ->
-                  let expectedExtension = Type.emptyObjectWithRangeStack (Type.monotypeRangeStack actualOverflowObject) in
-                    unifyWithFrame objectExtensionFrame actualOverflowObject expectedExtension
+            let expectedExtension = fromMaybe (Type.emptyObject sharedExtensionRange) expectedMaybeExtension
+            result3 <- unifyWithFrame objectExtensionFrame actualOverflowObject expectedExtension
 
             -- Pick our first error and return that.
             return (result1 `eitherOr` result2 `eitherOr` result3)

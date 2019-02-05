@@ -428,6 +428,8 @@ let run () = suite "Unify" (fun () -> (
     ("unify((r, s), (| p: number | r |), (| p: boolean, q: boolean | s |))", "(r, s = r)", ["number ≢ boolean"]);
     ("unify((r, s), (| p: number | r |), (| p: number, q: number | s |))", "(r, s = r)", ["boolean ≢ number"]);
     ("unify((r, s), (| p: number | r |), (| p: boolean, q: number | s |))", "(r, s = r)", ["boolean ≢ number"; "number ≢ boolean"]);
+    ("unify((∅), (| a: number |), (| b: number | (||) |))", "(∅)", ["(||) ≢ (| b: number | t1 |)"; "(| a: number | t1 |) ≢ (||)"]);
+    ("unify((∅), (| a: number |), (| b: number | number |))", "(∅)", ["Incompatible kinds value and row."; "(||) ≢ (| b: number | t1 |)"]);
   ] in
 
   let prefix = Prefix.create () in

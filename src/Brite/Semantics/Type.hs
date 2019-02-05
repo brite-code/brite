@@ -30,7 +30,7 @@ module Brite.Semantics.Type
   , integer
   , function
   , object
-  , emptyObjectWithRangeStack
+  , emptyObject
   , polytype
   , bottom
   , quantify
@@ -201,8 +201,8 @@ object :: Range -> Map Identifier [ObjectProperty Monotype] -> Maybe Monotype ->
 object range properties extension = construct range (Object properties extension)
 
 -- Creates an empty object with a range stack.
-emptyObjectWithRangeStack :: RangeStack -> Monotype
-emptyObjectWithRangeStack rangeStack = constructWithRangeStack rangeStack (Object Map.empty Nothing)
+emptyObject :: Range -> Monotype
+emptyObject range = construct range (Object Map.empty Nothing)
 
 -- Converts a monotype into a polytype.
 polytype :: Monotype -> Polytype
