@@ -85,7 +85,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
     loop initialBindings $ \references1 makeQuantifiedBody ->
       yield references1 $ \seen substitutions ->
         let (qs, t) = makeQuantifiedBody seen Set.empty substitutions in
-          PrinterAST.quantifiedType qs t
+          if null qs then t else PrinterAST.quantifiedType qs t
     where
       -- This loop function is pretty gnarly. Here’s what it does:
       --
@@ -225,16 +225,7 @@ printMonotypeWithInlining ::
   Polarity -> Monotype -> HashMap Identifier (Int, Int) ->
     (HashMap Identifier (Int, Int) -> (HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
       -> a
-printMonotypeWithInlining localPolarity = printMonotypeDescriptionWithInlining localPolarity . monotypeDescription
-{-# INLINE printMonotypeWithInlining #-}
-
--- Prints a monotype description while providing facilities for inlining bounds with only a single
--- use at the appropriate position.
-printMonotypeDescriptionWithInlining ::
-  Polarity -> MonotypeDescription -> HashMap Identifier (Int, Int) ->
-    (HashMap Identifier (Int, Int) -> (HashMap Identifier PrinterAST.Type -> PrinterAST.Type) -> a)
-      -> a
-printMonotypeDescriptionWithInlining localPolarity description references0 yield = case description of
+printMonotypeWithInlining localPolarity type0 references0 yield = case monotypeDescription type0 of
   -- A variable adds a reference to our references map and then returns a continuation which will
   -- inline a binding for this variable if one was provided.
   Variable name ->
@@ -266,14 +257,6 @@ printMonotypeDescriptionWithInlining localPolarity description references0 yield
         yield references2 $ \substitutions ->
           PrinterAST.functionType [makeParameter substitutions] (makeBody substitutions)
 
-  -- Flatten an object which directly extends another object before printing.
-  Construct (Object properties1 (Just (monotypeDescription -> Construct (Object properties2 extension)))) ->
-    printMonotypeDescriptionWithInlining
-      localPolarity
-      (Construct (Object (Map.unionWith (++) properties1 properties2) extension))
-      references0
-      yield
-
   -- Print an object while allowing types with a single reference to be inlined.
   Construct (Object properties maybeExtension) ->
     -- Build a function that iterates through all the properties of our object.
@@ -288,6 +271,7 @@ printMonotypeDescriptionWithInlining localPolarity description references0 yield
       -- get the substitutions map we can make our object property values.
       (\references3 propertyMakers ->
         case maybeExtension of
+          -- If we have no extension, make all our properties and return an object printer AST node.
           Nothing ->
             yield references3 $ \substitutions ->
               PrinterAST.objectType
@@ -296,14 +280,31 @@ printMonotypeDescriptionWithInlining localPolarity description references0 yield
                   propertyMakers)
                 Nothing
 
+          -- If we have an extension, then we want to flatten the extension if it is an object type.
           Just extension ->
             printMonotypeWithInlining Positive extension references3 $ \references4 makeExtension ->
               yield references4 $ \substitutions ->
-                PrinterAST.objectType
-                  (map
-                    (\(name, makeValue) -> PrinterAST.objectTypeProperty name (makeValue substitutions))
-                    propertyMakers)
-                  (Just (makeExtension substitutions)))
+                let
+                  -- Loop through the extension. If the extension is an object expression itself
+                  -- then we want to inline the properties of the extension.
+                  loop t0 = case PrinterAST.typeNode t0 of
+                    PrinterAST.ObjectType ps Nothing -> (ps, Nothing)
+                    PrinterAST.ObjectType ps1 (Just (_, t1)) ->
+                      let (ps2, t2) = loop t1 in
+                        (if null ps2 then ps1 else ps1 ++ ps2, t2)
+                    _ ->
+                      ([], Just ([], t0))
+
+                  -- Call our `loop` function to get or initial properties and actual extension.
+                  (initialProperties, actualExtension) = loop (makeExtension substitutions)
+                in
+                  PrinterAST.Type [] [] $ PrinterAST.ObjectType
+                    (foldr
+                      (\(name, makeValue) ps ->
+                        Right (PrinterAST.objectTypeProperty name (makeValue substitutions), []) : ps)
+                      initialProperties
+                      propertyMakers)
+                    actualExtension)
 
       -- Fold over all the object properties. First we convert the object properties to a list which
       -- sorts them by source order.
@@ -340,12 +341,7 @@ printBindingWithoutInlining (Binding name flex type') =
 --
 -- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
 printMonotypeWithoutInlining :: Monotype -> PrinterAST.Type
-printMonotypeWithoutInlining = printMonotypeDescriptionWithoutInlining . monotypeDescription
-{-# INLINE printMonotypeWithoutInlining #-}
-
--- Prints a monotype description to a `PrinterAST`. Powers `printMonotypeWithoutInlining`.
-printMonotypeDescriptionWithoutInlining :: MonotypeDescription -> PrinterAST.Type
-printMonotypeDescriptionWithoutInlining description = case description of
+printMonotypeWithoutInlining type0 = case monotypeDescription type0 of
   Variable name -> PrinterAST.variableType name
 
   Construct Void -> PrinterAST.voidType
@@ -359,18 +355,30 @@ printMonotypeDescriptionWithoutInlining description = case description of
       [printMonotypeWithoutInlining parameter]
       (printMonotypeWithoutInlining body)
 
-  -- Flatten an object which directly extends another object before printing.
-  Construct (Object properties1 (Just (monotypeDescription -> Construct (Object properties2 extension)))) ->
-    printMonotypeDescriptionWithoutInlining
-      (Construct (Object (Map.unionWith (++) properties1 properties2) extension))
-
   -- Print an object, but first convert all of its properties to a list.
-  Construct (Object properties extension) ->
-    PrinterAST.objectType
-      (map
-        (\(name, value) -> PrinterAST.objectTypeProperty name (printMonotypeWithoutInlining value))
+  Construct (Object properties maybeExtension) ->
+    PrinterAST.Type [] [] $ PrinterAST.ObjectType
+      (foldr
+        (\(name, value) acc ->
+          Right (PrinterAST.objectTypeProperty name (printMonotypeWithoutInlining value), []) : acc)
+        initialProperties
         (objectPropertyList properties))
-      (printMonotypeWithoutInlining <$> extension)
+      actualExtension
+    where
+      -- Loop through the extension. If the extension is an object expression itself
+      -- then we want to inline the properties of the extension.
+      loop t0 = case PrinterAST.typeNode t0 of
+        PrinterAST.ObjectType ps Nothing -> (ps, Nothing)
+        PrinterAST.ObjectType ps1 (Just (_, t1)) ->
+          let (ps2, t2) = loop t1 in
+            (if null ps2 then ps1 else ps1 ++ ps2, t2)
+        _ ->
+          ([], Just ([], t0))
+
+      -- Call our `loop` function to get or initial properties and actual extension.
+      (initialProperties, actualExtension) = case maybeExtension of
+        Nothing -> ([], Nothing)
+        Just extension -> loop (printMonotypeWithoutInlining extension)
 
 -- Converts a map of object properties into a list. The list is sorted by the location of each
 -- property in source code while still preserving the appropriate ordering for object properties
