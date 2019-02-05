@@ -30,6 +30,7 @@ module Brite.Semantics.Type
   , integer
   , function
   , object
+  , emptyObjectWithRangeStack
   , polytype
   , bottom
   , quantify
@@ -51,6 +52,7 @@ import qualified Data.HashSet as HashSet
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq(..), (|>), (<|))
 import qualified Data.Sequence as Seq
@@ -197,6 +199,10 @@ function range parameter body = construct range (Function parameter body)
 -- Creates a new object monotype.
 object :: Range -> Map Identifier [ObjectProperty Monotype] -> Maybe Monotype -> Monotype
 object range properties extension = construct range (Object properties extension)
+
+-- Creates an empty object with a range stack.
+emptyObjectWithRangeStack :: RangeStack -> Monotype
+emptyObjectWithRangeStack rangeStack = constructWithRangeStack rangeStack (Object Map.empty Nothing)
 
 -- Converts a monotype into a polytype.
 polytype :: Monotype -> Polytype

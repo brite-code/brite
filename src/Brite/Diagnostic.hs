@@ -78,6 +78,7 @@ module Brite.Diagnostic
   , unboundVariable
   , unboundTypeVariable
   , incompatibleTypes
+  , missingProperty
   , doesNotAbstract
   , infiniteType
   , expectedTypeVariableToExist
@@ -91,6 +92,8 @@ module Brite.Diagnostic
   , conditionalBranchesStack
   , functionParameterFrame
   , functionBodyFrame
+  , objectPropertyFrame
+  , objectExtensionFrame
   , isFunctionCall
 
   -- Diagnostic message printers.
@@ -109,7 +112,7 @@ module Brite.Diagnostic
   ) where
 
 import Brite.DiagnosticMarkup
-import Brite.Semantics.TypeConstruct (booleanTypeName, integerTypeName)
+import Brite.Semantics.TypeNames
 import Brite.Syntax.Glyph
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
@@ -168,6 +171,8 @@ data ErrorDiagnosticMessage
   | UnboundTypeVariable Identifier
   -- We found two type constructors that were incompatible with one another during unification.
   | IncompatibleTypes Range Range TypeConstructorSnippet TypeConstructorSnippet UnifyStack
+  -- We expected an object to have a property with the provided name.
+  | MissingProperty Range Range Identifier UnifyStack
   -- We expected one type to abstract another but it does not.
   | DoesNotAbstract Range Range Text Text UnifyStack
   -- While trying to infer the type for some code we ran into an infinite type.
@@ -251,6 +256,14 @@ incompatibleTypes (actualRange, actual) (expectedRange, expected) stack = report
     stackRange = unifyStackRange stack
     range = if rangeContains stackRange actualRange then actualRange else stackRange
 
+-- We expected an object to have a property with the provided name.
+missingProperty :: DiagnosticMonad m => Range -> (Range, Identifier) -> UnifyStack -> m Diagnostic
+missingProperty objectRange (propertyRange, propertyName) stack = report $ Diagnostic range $ Error $
+  MissingProperty objectRange propertyRange propertyName stack
+  where
+    stackRange = unifyStackRange stack
+    range = if rangeContains stackRange objectRange then objectRange else stackRange
+
 -- We expected one type to abstract another but it does not.
 doesNotAbstract :: DiagnosticMonad m => (Range, Text) -> (Range, Text) -> UnifyStack -> m Diagnostic
 doesNotAbstract (actualRange, actual) (expectedRange, expected) stack = report $ Diagnostic range $ Error $
@@ -306,6 +319,8 @@ data UnifyStackOperation
 data UnifyStackFrame
   = UnifyFunctionParameter
   | UnifyFunctionBody
+  | UnifyObjectProperty Identifier
+  | UnifyObjectExtension
 
 -- Gets the range of a unification stack. We start with the range of the operation and select the
 -- smallest range inside of the unification stack that is still contained by the operation range.
@@ -348,6 +363,18 @@ functionParameterFrame range stack = UnifyStackFrame range UnifyFunctionParamete
 -- The range provided should be the range of the _actual_ type in unification.
 functionBodyFrame :: Range -> UnifyStack -> UnifyStack
 functionBodyFrame range stack = UnifyStackFrame range UnifyFunctionBody stack
+
+-- Adds an object property frame to the unification stack.
+--
+-- The range provided should be the range of the _actual_ type in unification.
+objectPropertyFrame :: Identifier -> Range -> UnifyStack -> UnifyStack
+objectPropertyFrame name range stack = UnifyStackFrame range (UnifyObjectProperty name) stack
+
+-- Adds an object extension frame to the unification stack.
+--
+-- The range provided should be the range of the _actual_ type in unification.
+objectExtensionFrame :: Range -> UnifyStack -> UnifyStack
+objectExtensionFrame range stack = UnifyStackFrame range UnifyObjectExtension stack
 
 -- Is this unification stack a function call operation? If a frame was added to a function call
 -- stack then we will return false.
@@ -538,6 +565,38 @@ diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expec
     typeMessageWithArticle IntegerConstructorSnippet = plain "an " <> code (identifierText integerTypeName)
     typeMessageWithArticle FunctionConstructorSnippet = plain "a function"
     typeMessageWithArticle ObjectConstructorSnippet = plain "an object"
+
+-- Missing property errors are a bit hard to write well. In the worst case, a missing property error
+-- can point to _many_ lines of code. Like in the case of a large configuration object that is
+-- missing a single property.
+--
+-- It’s also hard to write a good message that doesn’t use technical language. We at least need to
+-- mention the object which is missing a property and the property name it is missing.
+--
+-- We’ve chosen to write this message as “Cannot call `f` because object needs `p:`.” This reduces
+-- the number of words we need in our error message. Compared to other options like “object does not
+-- have property `p`” or ”object is missing property `p`”. Ideally, we’d put the property name
+-- first so the message reads something like “property `p` is missing in object”. However, the
+-- language “object needs `p:`” is so concise we let it slide.
+--
+-- Instead of saying “property `p`” we instead say “`p:`” without the word “property”. We use a
+-- colon as a visual cue that this identifier refers to a property name and not a variable name. We
+-- believe that this should be a sufficient alternative to saying the word “property”.
+diagnosticErrorMessage (MissingProperty objectRange propertyRange propertyName stack) =
+  ( operationMessage <> plain " because object needs " <> code propertyNameText <> plain "."
+
+  , [ DiagnosticRelatedInformation objectRange (plain "object")
+    , DiagnosticRelatedInformation propertyRange (code propertyNameText)
+    ]
+  )
+  where
+    operationMessage = loop stack
+
+    loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
+    loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
+
+    -- Add a colon to the property name as a visual cue that this identifier is a property name.
+    propertyNameText = Text.snoc (identifierText propertyName) ':'
 
 -- Here we attempt to explain to the programmer why we failed their program when encountering these
 -- two types. Programmers shouldn’t see this message too often, it usually only comes up in

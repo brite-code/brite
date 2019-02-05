@@ -16,6 +16,7 @@ import Brite.Semantics.Namer
 import Brite.Semantics.Polarity
 import Brite.Semantics.Type
 import Brite.Semantics.TypeConstruct
+import Brite.Semantics.TypeNames
 import Brite.Syntax.Identifier (Identifier)
 import Brite.Syntax.Range
 import qualified Brite.Syntax.PrinterAST as PrinterAST

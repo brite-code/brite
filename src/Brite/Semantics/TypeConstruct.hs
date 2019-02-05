@@ -1,17 +1,17 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Brite.Semantics.TypeConstruct
   ( Construct(..)
   , ObjectProperty(..)
-  , booleanTypeName
-  , integerTypeName
   , typeConstructorSnippet
+  , mergeProperties
   ) where
 
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 import Brite.Syntax.Snippet
+import Control.Monad.State.Strict
 import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import qualified Data.Map.Merge.Strict as Map
 
 -- In Brite, all types with an associated runtime value are constructed types. Other types like
 -- variable types or quantified types are used to represent polymorphism or aid in type inference,
@@ -83,14 +83,6 @@ instance Foldable Construct where
   foldMap f (Function a b) = f a <> f b
   foldMap f (Object ps e) = foldMap (foldMap (f . objectPropertyValue)) ps <> foldMap f e
 
--- The type name for booleans.
-booleanTypeName :: Identifier
-booleanTypeName = unsafeIdentifier "Bool"
-
--- The type name for integers.
-integerTypeName :: Identifier
-integerTypeName = unsafeIdentifier "Int"
-
 -- Gets a snippet representing the type constructor.
 typeConstructorSnippet :: Construct a -> TypeConstructorSnippet
 typeConstructorSnippet Void = VoidConstructorSnippet
@@ -98,3 +90,43 @@ typeConstructorSnippet Boolean = BooleanConstructorSnippet
 typeConstructorSnippet Integer = IntegerConstructorSnippet
 typeConstructorSnippet (Function _ _) = FunctionConstructorSnippet
 typeConstructorSnippet (Object _ _) = ObjectConstructorSnippet
+
+-- Merges two property maps returning a map of the merged properties and two maps containing all the
+-- properties which were not merged.
+mergeProperties ::
+  Map Identifier [ObjectProperty a] -> Map Identifier [ObjectProperty a] ->
+    ( Map Identifier [(ObjectProperty a, ObjectProperty a)]                  -- Shared properties
+    , (Map Identifier [ObjectProperty a], Map Identifier [ObjectProperty a]) -- Overflow properties
+    )
+mergeProperties properties1 properties2 = flip runState (Map.empty, Map.empty) $
+  Map.mergeA
+    -- Insert missing properties into an overflow property map. There won’t be any collision because
+    -- the overflow maps are subsets of the original property maps.
+    (Map.traverseMaybeMissing
+      (\name nameProperties -> state $ \(overflowProperties1, overflowProperties2) ->
+        (Nothing, (Map.insert name nameProperties overflowProperties1, overflowProperties2))))
+    (Map.traverseMaybeMissing
+      (\name nameProperties -> state $ \(overflowProperties1, overflowProperties2) ->
+        (Nothing, (overflowProperties1, Map.insert name nameProperties overflowProperties2))))
+
+    -- Zip matching properties together. Any overflow properties with the same name will go into our
+    -- overflow maps.
+    (Map.zipWithAMatched
+      (\name nameProperties1 nameProperties2 ->
+        let
+          loop (p1 : ps1) (p2 : ps2) = ((p1, p2) :) <$> loop ps1 ps2
+          loop [] [] = return []
+          loop ps1@(_ : _) [] = stateT (\(xps1, xps2) -> ([], (Map.insert name ps1 xps1, xps2)))
+          loop [] ps2@(_ : _) = stateT (\(xps1, xps2) -> ([], (xps1, Map.insert name ps2 xps2)))
+        in
+          loop nameProperties1 nameProperties2))
+
+    -- Pass in our original property maps.
+    properties1
+    properties2
+
+  where
+    -- Give a concrete type to the `state` function. Otherwise type checking fails without
+    -- the `FlexibleContexts` extension.
+    stateT :: (s -> (a, s)) -> State s a
+    stateT = state

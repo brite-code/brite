@@ -16,6 +16,7 @@ import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype, Flexibility(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
+import Brite.Semantics.TypeNames
 import Brite.Semantics.Unify
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
