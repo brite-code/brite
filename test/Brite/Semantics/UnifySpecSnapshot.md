@@ -255,7 +255,8 @@ unify(<A = Int>, A, Bool)
 ```
 
 ### Errors
-- (0:11-0:14) Test failed because `Int` is not a `Bool`.
+- (0:17-0:18) Test failed because `Int` is not a `Bool`.
+  - (0:11-0:14): `Int`
   - (0:20-0:24): `Bool`
 
 --------------------------------------------------------------------------------
@@ -311,7 +312,8 @@ unify(<A: Int>, A, Bool)
 ```
 
 ### Errors
-- (0:10-0:13) Test failed because `Int` is not a `Bool`.
+- (0:16-0:17) Test failed because `Int` is not a `Bool`.
+  - (0:10-0:13): `Int`
   - (0:19-0:23): `Bool`
 
 --------------------------------------------------------------------------------
@@ -367,7 +369,8 @@ unify(<B = Int, A = B>, A, Bool)
 ```
 
 ### Errors
-- (0:11-0:14) Test failed because `Int` is not a `Bool`.
+- (0:24-0:25) Test failed because `Int` is not a `Bool`.
+  - (0:11-0:14): `Int`
   - (0:27-0:31): `Bool`
 
 --------------------------------------------------------------------------------
@@ -423,7 +426,8 @@ unify(<B = Int, A: B>, A, Bool)
 ```
 
 ### Errors
-- (0:11-0:14) Test failed because `Int` is not a `Bool`.
+- (0:23-0:24) Test failed because `Int` is not a `Bool`.
+  - (0:11-0:14): `Int`
   - (0:26-0:30): `Bool`
 
 --------------------------------------------------------------------------------
@@ -479,7 +483,8 @@ unify(<B: Int, A = B>, A, Bool)
 ```
 
 ### Errors
-- (0:10-0:13) Test failed because `Int` is not a `Bool`.
+- (0:23-0:24) Test failed because `Int` is not a `Bool`.
+  - (0:10-0:13): `Int`
   - (0:26-0:30): `Bool`
 
 --------------------------------------------------------------------------------
@@ -535,7 +540,8 @@ unify(<B: Int, A: B>, A, Bool)
 ```
 
 ### Errors
-- (0:10-0:13) Test failed because `Int` is not a `Bool`.
+- (0:22-0:23) Test failed because `Int` is not a `Bool`.
+  - (0:10-0:13): `Int`
   - (0:25-0:29): `Bool`
 
 --------------------------------------------------------------------------------
@@ -867,8 +873,9 @@ unify(<A = !>, A, Int)
 ```
 
 ### Errors
-- (0:18-0:21) Test failed because `!` is more general than `Int`.
+- (0:15-0:16) Test failed because `!` is more general than `Int`.
   - (0:11-0:12): `!`
+  - (0:18-0:21): `Int`
 
 --------------------------------------------------------------------------------
 
@@ -947,8 +954,9 @@ unify(<B = !, A: B>, A, Int)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `!` is more general than `Int`.
+- (0:21-0:22) Test failed because `!` is more general than `Int`.
   - (0:11-0:12): `!`
+  - (0:24-0:27): `Int`
 
 --------------------------------------------------------------------------------
 
@@ -979,8 +987,9 @@ unify(<B = !, A = B>, A, Int)
 ```
 
 ### Errors
-- (0:25-0:28) Test failed because `!` is more general than `Int`.
+- (0:22-0:23) Test failed because `!` is more general than `Int`.
   - (0:11-0:12): `!`
+  - (0:25-0:28): `Int`
 
 --------------------------------------------------------------------------------
 
@@ -1011,7 +1020,7 @@ unify(<B, A = fun(B) -> B>, A, B)
 ```
 
 ### Errors
-- (0:0-0:33) Test failed because the type checker infers an infinite type.
+- (0:28-0:29) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1026,7 +1035,7 @@ unify(<B, A = fun(B) -> B>, B, A)
 ```
 
 ### Errors
-- (0:0-0:33) Test failed because the type checker infers an infinite type.
+- (0:28-0:29) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1041,7 +1050,7 @@ unify(<B, C = fun(B) -> B, A = C>, A, B)
 ```
 
 ### Errors
-- (0:0-0:40) Test failed because the type checker infers an infinite type.
+- (0:35-0:36) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1056,7 +1065,7 @@ unify(<B, C = fun(B) -> B, A = C>, B, A)
 ```
 
 ### Errors
-- (0:0-0:40) Test failed because the type checker infers an infinite type.
+- (0:35-0:36) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1071,7 +1080,7 @@ unify(<B, C = fun(B) -> B, A = fun(C) -> C>, A, B)
 ```
 
 ### Errors
-- (0:0-0:50) Test failed because the type checker infers an infinite type.
+- (0:45-0:46) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1086,7 +1095,7 @@ unify(<B, C = fun(B) -> B, A = fun(C) -> C>, B, A)
 ```
 
 ### Errors
-- (0:0-0:50) Test failed because the type checker infers an infinite type.
+- (0:45-0:46) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1161,7 +1170,7 @@ unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Bool)
 ```
 
 ### Errors
-- (0:23-0:24) Test failed because `Int` is not a `Bool`.
+- (0:27-0:28) Test failed because `Int` is not a `Bool`.
   - (0:34-0:37): `Int`
   - (0:42-0:46): `Bool`
 
@@ -1178,8 +1187,9 @@ unify(<A = fun<X>(X) -> X>, A, fun(Int) -> Int)
 ```
 
 ### Errors
-- (0:31-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:28-0:29) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:11-0:25): `fun<X>(X) -> X`
+  - (0:31-0:46): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -1194,7 +1204,7 @@ unify(<A = fun<X>(X) -> X>, A, fun(Int) -> Bool)
 ```
 
 ### Errors
-- (0:24-0:25) Test failed because `Int` is not a `Bool`.
+- (0:28-0:29) Test failed because `Int` is not a `Bool`.
   - (0:35-0:38): `Int`
   - (0:43-0:47): `Bool`
 
@@ -1379,8 +1389,9 @@ unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)
 ```
 
 ### Errors
-- (0:10-0:24) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
+- (0:51-0:52) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
   - (0:37-0:48): `fun<Y>(Y) -> !`
+  - (0:10-0:24): `fun<X>(X) -> X`
 
 --------------------------------------------------------------------------------
 
@@ -1395,7 +1406,9 @@ unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)
 ```
 
 ### Errors
-- (0:37-0:48) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
+- (0:51-0:52) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
+  - (0:37-0:48): `fun<Y>(Y) -> !`
+  - (0:37-0:48): `fun<Z>(Z) -> Z`
 
 --------------------------------------------------------------------------------
 
@@ -1410,8 +1423,9 @@ unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)
 ```
 
 ### Errors
-- (0:11-0:25) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
+- (0:52-0:53) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
   - (0:38-0:49): `fun<Y>(Y) -> !`
+  - (0:11-0:25): `fun<X>(X) -> X`
 
 --------------------------------------------------------------------------------
 
@@ -1426,7 +1440,9 @@ unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)
 ```
 
 ### Errors
-- (0:38-0:49) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
+- (0:52-0:53) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
+  - (0:38-0:49): `fun<Y>(Y) -> !`
+  - (0:38-0:49): `fun<Z>(Z) -> Z`
 
 --------------------------------------------------------------------------------
 
@@ -1465,7 +1481,7 @@ unify(<A, B = fun(A) -> A>, A, B)
 ```
 
 ### Errors
-- (0:0-0:33) Test failed because the type checker infers an infinite type.
+- (0:28-0:29) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1480,7 +1496,7 @@ unify(<A, B = fun(A) -> A>, B, A)
 ```
 
 ### Errors
-- (0:0-0:33) Test failed because the type checker infers an infinite type.
+- (0:28-0:29) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1495,7 +1511,7 @@ unify(<A, B = fun<C>(C) -> A>, A, B)
 ```
 
 ### Errors
-- (0:0-0:36) Test failed because the type checker infers an infinite type.
+- (0:31-0:32) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1510,7 +1526,7 @@ unify(<A, B = fun<C>(C) -> A>, B, A)
 ```
 
 ### Errors
-- (0:0-0:36) Test failed because the type checker infers an infinite type.
+- (0:31-0:32) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1549,8 +1565,9 @@ unify(<A = !, B = fun<C>(C) -> C>, A, B)
 ```
 
 ### Errors
-- (0:18-0:32) Test failed because `!` is more general than `fun<C>(C) -> C`.
+- (0:35-0:36) Test failed because `!` is more general than `fun<C>(C) -> C`.
   - (0:11-0:12): `!`
+  - (0:18-0:32): `fun<C>(C) -> C`
 
 --------------------------------------------------------------------------------
 
@@ -1565,8 +1582,9 @@ unify(<A = !, B = fun<C>(C) -> C>, B, A)
 ```
 
 ### Errors
-- (0:18-0:32) Test failed because `!` is more general than `fun<C>(C) -> C`.
+- (0:35-0:36) Test failed because `!` is more general than `fun<C>(C) -> C`.
   - (0:11-0:12): `!`
+  - (0:18-0:32): `fun<C>(C) -> C`
 
 --------------------------------------------------------------------------------
 
@@ -1929,7 +1947,8 @@ unify(<A: Int>, A, Bool)
 ```
 
 ### Errors
-- (0:10-0:13) Test failed because `Int` is not a `Bool`.
+- (0:16-0:17) Test failed because `Int` is not a `Bool`.
+  - (0:10-0:13): `Int`
   - (0:19-0:23): `Bool`
 
 --------------------------------------------------------------------------------
@@ -1945,7 +1964,8 @@ unify(<A = Int>, A, Bool)
 ```
 
 ### Errors
-- (0:11-0:14) Test failed because `Int` is not a `Bool`.
+- (0:17-0:18) Test failed because `Int` is not a `Bool`.
+  - (0:11-0:14): `Int`
   - (0:20-0:24): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2065,7 +2085,8 @@ unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+- (0:51-0:52) Test failed because `Int` is not a `Bool`.
+  - (0:23-0:26): `Int`
   - (0:44-0:48): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2081,7 +2102,8 @@ unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:44-0:48) Test failed because `Bool` is not an `Int`.
+- (0:51-0:52) Test failed because `Bool` is not an `Int`.
+  - (0:44-0:48): `Bool`
   - (0:23-0:26): `Int`
 
 --------------------------------------------------------------------------------
@@ -2097,7 +2119,8 @@ unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+- (0:52-0:53) Test failed because `Int` is not a `Bool`.
+  - (0:24-0:27): `Int`
   - (0:45-0:49): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2113,7 +2136,8 @@ unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:45-0:49) Test failed because `Bool` is not an `Int`.
+- (0:52-0:53) Test failed because `Bool` is not an `Int`.
+  - (0:45-0:49): `Bool`
   - (0:24-0:27): `Int`
 
 --------------------------------------------------------------------------------
@@ -2129,7 +2153,8 @@ unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+- (0:52-0:53) Test failed because `Int` is not a `Bool`.
+  - (0:23-0:26): `Int`
   - (0:45-0:49): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2145,7 +2170,8 @@ unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:45-0:49) Test failed because `Bool` is not an `Int`.
+- (0:52-0:53) Test failed because `Bool` is not an `Int`.
+  - (0:45-0:49): `Bool`
   - (0:23-0:26): `Int`
 
 --------------------------------------------------------------------------------
@@ -2161,7 +2187,8 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+- (0:53-0:54) Test failed because `Int` is not a `Bool`.
+  - (0:24-0:27): `Int`
   - (0:46-0:50): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2177,7 +2204,8 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:46-0:50) Test failed because `Bool` is not an `Int`.
+- (0:53-0:54) Test failed because `Bool` is not an `Int`.
+  - (0:46-0:50): `Bool`
   - (0:24-0:27): `Int`
 
 --------------------------------------------------------------------------------
@@ -2289,7 +2317,7 @@ unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:26-0:27) Test failed because the type checker infers an infinite type.
+- (0:49-0:50) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2304,7 +2332,7 @@ unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:45-0:46) Test failed because the type checker infers an infinite type.
+- (0:49-0:50) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2319,7 +2347,7 @@ unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:27-0:28) Test failed because the type checker infers an infinite type.
+- (0:50-0:51) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2334,7 +2362,7 @@ unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:46-0:47) Test failed because the type checker infers an infinite type.
+- (0:50-0:51) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2349,7 +2377,7 @@ unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:26-0:27) Test failed because the type checker infers an infinite type.
+- (0:50-0:51) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2364,7 +2392,7 @@ unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:46-0:47) Test failed because the type checker infers an infinite type.
+- (0:50-0:51) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2379,7 +2407,7 @@ unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:27-0:28) Test failed because the type checker infers an infinite type.
+- (0:51-0:52) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2394,7 +2422,7 @@ unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:47-0:48) Test failed because the type checker infers an infinite type.
+- (0:51-0:52) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2433,7 +2461,9 @@ unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, A, B)
 ```
 
 ### Errors
-- (0:11-0:27) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
+- (0:49-0:50) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
+  - (0:11-0:27): `fun<X>(X) -> Int`
+  - (0:11-0:27): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2448,8 +2478,9 @@ unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, B, A)
 ```
 
 ### Errors
-- (0:32-0:46) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
+- (0:49-0:50) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
   - (0:11-0:27): `fun<X>(X) -> Int`
+  - (0:32-0:46): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2464,8 +2495,9 @@ unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, A, B)
 ```
 
 ### Errors
-- (0:10-0:26) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
+- (0:49-0:50) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
   - (0:32-0:46): `fun<Y>(Y) -> Y`
+  - (0:10-0:26): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2480,7 +2512,9 @@ unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)
 ```
 
 ### Errors
-- (0:32-0:46) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
+- (0:49-0:50) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
+  - (0:32-0:46): `fun<Y>(Y) -> Y`
+  - (0:32-0:46): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2495,9 +2529,12 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, A, B)
 ```
 
 ### Errors
-- (0:11-0:27) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
-- (0:11-0:27) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
+- (0:50-0:51) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
+  - (0:11-0:27): `fun<X>(X) -> Int`
+  - (0:11-0:27): `fun(Int) -> Int`
+- (0:50-0:51) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
   - (0:33-0:47): `fun<Y>(Y) -> Y`
+  - (0:11-0:27): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2512,9 +2549,12 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)
 ```
 
 ### Errors
-- (0:33-0:47) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
-- (0:33-0:47) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
+- (0:50-0:51) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
+  - (0:33-0:47): `fun<Y>(Y) -> Y`
+  - (0:33-0:47): `fun(Int) -> Int`
+- (0:50-0:51) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
   - (0:11-0:27): `fun<X>(X) -> Int`
+  - (0:33-0:47): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2529,7 +2569,8 @@ unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Bool)
 ```
 
 ### Errors
-- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+- (0:32-0:33) Test failed because `Int` is not a `Bool`.
+  - (0:23-0:26): `Int`
   - (0:45-0:49): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2557,7 +2598,8 @@ unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Bool)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+- (0:33-0:34) Test failed because `Int` is not a `Bool`.
+  - (0:24-0:27): `Int`
   - (0:46-0:50): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2573,8 +2615,9 @@ unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Int)
 ```
 
 ### Errors
-- (0:36-0:49) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`.
+- (0:33-0:34) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`.
   - (0:11-0:27): `fun<X>(X) -> Int`
+  - (0:36-0:49): `fun(B) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2589,7 +2632,8 @@ unify(<A: fun<X>(X) -> Int>, A, fun(Bool) -> Bool)
 ```
 
 ### Errors
-- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+- (0:29-0:30) Test failed because `Int` is not a `Bool`.
+  - (0:23-0:26): `Int`
   - (0:45-0:49): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2617,7 +2661,8 @@ unify(<A = fun<X>(X) -> Int>, A, fun(Bool) -> Bool)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+- (0:30-0:31) Test failed because `Int` is not a `Bool`.
+  - (0:24-0:27): `Int`
   - (0:46-0:50): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2633,8 +2678,9 @@ unify(<A = fun<X>(X) -> Int>, A, fun(Bool) -> Int)
 ```
 
 ### Errors
-- (0:33-0:49) Test failed because `fun<X>(X) -> Int` is more general than `fun(Bool) -> Int`.
+- (0:30-0:31) Test failed because `fun<X>(X) -> Int` is more general than `fun(Bool) -> Int`.
   - (0:11-0:27): `fun<X>(X) -> Int`
+  - (0:33-0:49): `fun(Bool) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2649,7 +2695,8 @@ unify(<A: fun<X>(X) -> Int>, A, fun(A) -> Bool)
 ```
 
 ### Errors
-- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+- (0:29-0:30) Test failed because `Int` is not a `Bool`.
+  - (0:23-0:26): `Int`
   - (0:42-0:46): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2665,7 +2712,7 @@ unify(<A: fun<X>(X) -> Int>, A, fun(A) -> Int)
 ```
 
 ### Errors
-- (0:0-0:46) Test failed because the type checker infers an infinite type.
+- (0:29-0:30) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2680,7 +2727,8 @@ unify(<A = fun<X>(X) -> Int>, A, fun(A) -> Bool)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+- (0:30-0:31) Test failed because `Int` is not a `Bool`.
+  - (0:24-0:27): `Int`
   - (0:43-0:47): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2696,7 +2744,7 @@ unify(<A = fun<X>(X) -> Int>, A, fun(A) -> Int)
 ```
 
 ### Errors
-- (0:0-0:47) Test failed because the type checker infers an infinite type.
+- (0:30-0:31) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2847,7 +2895,7 @@ unify(<A: fun<X>(X) -> Int>, fun(A) -> Int, A)
 ```
 
 ### Errors
-- (0:0-0:46) Test failed because the type checker infers an infinite type.
+- (0:29-0:42) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2878,7 +2926,7 @@ unify(<A = fun<X>(X) -> Int>, fun(A) -> Int, A)
 ```
 
 ### Errors
-- (0:0-0:47) Test failed because the type checker infers an infinite type.
+- (0:30-0:43) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2941,7 +2989,8 @@ unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+- (0:51-0:52) Test failed because `Int` is not a `Bool`.
+  - (0:23-0:26): `Int`
   - (0:44-0:48): `Bool`
 
 --------------------------------------------------------------------------------
@@ -2957,7 +3006,8 @@ unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:44-0:48) Test failed because `Bool` is not an `Int`.
+- (0:51-0:52) Test failed because `Bool` is not an `Int`.
+  - (0:44-0:48): `Bool`
   - (0:23-0:26): `Int`
 
 --------------------------------------------------------------------------------
@@ -2997,7 +3047,8 @@ unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+- (0:52-0:53) Test failed because `Int` is not a `Bool`.
+  - (0:24-0:27): `Int`
   - (0:45-0:49): `Bool`
 
 --------------------------------------------------------------------------------
@@ -3013,7 +3064,8 @@ unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:45-0:49) Test failed because `Bool` is not an `Int`.
+- (0:52-0:53) Test failed because `Bool` is not an `Int`.
+  - (0:45-0:49): `Bool`
   - (0:24-0:27): `Int`
 
 --------------------------------------------------------------------------------
@@ -3053,7 +3105,8 @@ unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+- (0:52-0:53) Test failed because `Int` is not a `Bool`.
+  - (0:23-0:26): `Int`
   - (0:45-0:49): `Bool`
 
 --------------------------------------------------------------------------------
@@ -3069,7 +3122,8 @@ unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:45-0:49) Test failed because `Bool` is not an `Int`.
+- (0:52-0:53) Test failed because `Bool` is not an `Int`.
+  - (0:45-0:49): `Bool`
   - (0:23-0:26): `Int`
 
 --------------------------------------------------------------------------------
@@ -3109,7 +3163,8 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+- (0:53-0:54) Test failed because `Int` is not a `Bool`.
+  - (0:24-0:27): `Int`
   - (0:46-0:50): `Bool`
 
 --------------------------------------------------------------------------------
@@ -3125,7 +3180,8 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)
 ```
 
 ### Errors
-- (0:46-0:50) Test failed because `Bool` is not an `Int`.
+- (0:53-0:54) Test failed because `Bool` is not an `Int`.
+  - (0:46-0:50): `Bool`
   - (0:24-0:27): `Int`
 
 --------------------------------------------------------------------------------
@@ -3189,7 +3245,7 @@ unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, A, F)
 ```
 
 ### Errors
-- (0:0-0:61) Test failed because the type checker infers an infinite type.
+- (0:56-0:57) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -3204,7 +3260,7 @@ unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, F, A)
 ```
 
 ### Errors
-- (0:0-0:61) Test failed because the type checker infers an infinite type.
+- (0:56-0:57) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -3291,10 +3347,10 @@ unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C)
 ```
 
 ### Errors
-- (0:39-0:40) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`.
+- (0:61-0:62) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`.
   - (0:19-0:33): `fun<Z>(Z) -> X`
   - (0:68-0:79): `fun(B) -> C`
-- (0:45-0:46) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`.
+- (0:61-0:62) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`.
   - (0:19-0:33): `fun<Z>(Z) -> X`
   - (0:84-0:95): `fun(D) -> E`
 
@@ -3521,8 +3577,9 @@ unify(<A = <X: fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)
 ```
 
 ### Errors
-- (0:38-0:53) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
+- (0:35-0:36) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
   - (0:15-0:29): `fun<Y>(Y) -> Y`
+  - (0:38-0:53): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -3549,8 +3606,9 @@ unify(<A = <X = fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)
 ```
 
 ### Errors
-- (0:39-0:54) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
+- (0:36-0:37) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
   - (0:16-0:30): `fun<Y>(Y) -> Y`
+  - (0:39-0:54): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -3613,10 +3671,10 @@ unify(<A: <B = fun<X>(X) -> X> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int)
 ```
 
 ### Errors
-- (0:35-0:36) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:45-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:15-0:29): `fun<X>(X) -> X`
   - (0:52-0:67): `fun(Int) -> Int`
-- (0:41-0:42) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:45-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:15-0:29): `fun<X>(X) -> X`
   - (0:72-0:87): `fun(Int) -> Int`
 
@@ -3633,10 +3691,10 @@ unify(<A: <B = <C = fun<X>(X) -> X> C> fun(B) -> B>, A, fun(fun(Int) -> Int) -> 
 ```
 
 ### Errors
-- (0:43-0:44) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:53-0:54) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:20-0:34): `fun<X>(X) -> X`
   - (0:60-0:75): `fun(Int) -> Int`
-- (0:49-0:50) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:53-0:54) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:20-0:34): `fun<X>(X) -> X`
   - (0:80-0:95): `fun(Int) -> Int`
 
@@ -3653,10 +3711,10 @@ unify(<A: <B = <C = <D = fun<X>(X) -> X> D> C> fun(B) -> B>, A, fun(fun(Int) -> 
 ```
 
 ### Errors
-- (0:51-0:52) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:61-0:62) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:25-0:39): `fun<X>(X) -> X`
   - (0:68-0:83): `fun(Int) -> Int`
-- (0:57-0:58) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:61-0:62) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:25-0:39): `fun<X>(X) -> X`
   - (0:88-0:103): `fun(Int) -> Int`
 
@@ -3673,10 +3731,10 @@ unify(<A: <B = fun<X>(X) -> X> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int)
 ```
 
 ### Errors
-- (0:35-0:36) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:45-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:15-0:29): `fun<X>(X) -> X`
   - (0:52-0:67): `fun(Int) -> Int`
-- (0:41-0:42) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:45-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:15-0:29): `fun<X>(X) -> X`
   - (0:72-0:87): `fun(Int) -> Int`
 
@@ -3693,10 +3751,10 @@ unify(<A: <B = <C = fun<X>(X) -> X> fun(C) -> C> B>, A, fun(fun(Int) -> Int) -> 
 ```
 
 ### Errors
-- (0:40-0:41) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:53-0:54) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:20-0:34): `fun<X>(X) -> X`
   - (0:60-0:75): `fun(Int) -> Int`
-- (0:46-0:47) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:53-0:54) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:20-0:34): `fun<X>(X) -> X`
   - (0:80-0:95): `fun(Int) -> Int`
 
@@ -3713,10 +3771,10 @@ unify(<A: <B = <C = <D = fun<X>(X) -> X> fun(D) -> D> C> B>, A, fun(fun(Int) -> 
 ```
 
 ### Errors
-- (0:45-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:61-0:62) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:25-0:39): `fun<X>(X) -> X`
   - (0:68-0:83): `fun(Int) -> Int`
-- (0:51-0:52) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
+- (0:61-0:62) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`.
   - (0:25-0:39): `fun<X>(X) -> X`
   - (0:88-0:103): `fun(Int) -> Int`
 
@@ -3865,7 +3923,9 @@ unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -
 ```
 
 ### Errors
-- (0:31-0:42) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
+- (0:87-0:88) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
+  - (0:31-0:42): `fun<A: fun<B>(B) -> B>(A) -> A`
+  - (0:31-0:42): `fun<C>(fun(C) -> C) -> fun(C) -> C`
 
 --------------------------------------------------------------------------------
 
@@ -3892,7 +3952,9 @@ unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) ->
 ```
 
 ### Errors
-- (0:31-0:42) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
+- (0:86-0:87) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
+  - (0:31-0:42): `fun<A: fun<B>(B) -> B>(A) -> A`
+  - (0:31-0:42): `fun<C>(fun(C) -> C) -> fun(C) -> C`
 
 --------------------------------------------------------------------------------
 
@@ -3919,8 +3981,9 @@ unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -
 ```
 
 ### Errors
-- (0:48-0:84) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
+- (0:87-0:88) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
   - (0:31-0:42): `fun<A: fun<B>(B) -> B>(A) -> A`
+  - (0:48-0:84): `fun<C>(fun(C) -> C) -> fun(C) -> C`
 
 --------------------------------------------------------------------------------
 
@@ -3947,8 +4010,9 @@ unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) ->
 ```
 
 ### Errors
-- (0:47-0:83) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
+- (0:86-0:87) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
   - (0:31-0:42): `fun<A: fun<B>(B) -> B>(A) -> A`
+  - (0:47-0:83): `fun<C>(fun(C) -> C) -> fun(C) -> C`
 
 --------------------------------------------------------------------------------
 
@@ -4511,8 +4575,8 @@ unify(<>, { a: Int }, { b: Int })
 ### Errors
 - (0:10-0:20) Test failed because object needs `b:`.
   - (0:24-0:25): `b:`
-- (0:22-0:32) Test failed because object needs `a:`.
-  - (0:12-0:13): `a:`
+- (0:10-0:20) Test failed because object needs `a:`.
+  - (0:22-0:32): object
 
 --------------------------------------------------------------------------------
 
@@ -4531,10 +4595,10 @@ unify(<>, { a: Int, a: Bool }, { b: Int, b: Bool })
   - (0:33-0:34): `b:`
 - (0:10-0:29) Test failed because object needs `b:`.
   - (0:41-0:42): `b:`
-- (0:31-0:50) Test failed because object needs `a:`.
-  - (0:12-0:13): `a:`
-- (0:31-0:50) Test failed because object needs `a:`.
-  - (0:20-0:21): `a:`
+- (0:10-0:29) Test failed because object needs `a:`.
+  - (0:31-0:50): object
+- (0:10-0:29) Test failed because object needs `a:`.
+  - (0:31-0:50): object
 
 --------------------------------------------------------------------------------
 
@@ -4549,8 +4613,8 @@ unify(<>, { a: Int }, {})
 ```
 
 ### Errors
-- (0:22-0:24) Test failed because object needs `a:`.
-  - (0:12-0:13): `a:`
+- (0:10-0:20) Test failed because object needs `a:`.
+  - (0:22-0:24): object
 
 --------------------------------------------------------------------------------
 
@@ -4583,8 +4647,8 @@ unify(<>, { a: Int }, { b: Int })
 ### Errors
 - (0:10-0:20) Test failed because object needs `b:`.
   - (0:24-0:25): `b:`
-- (0:22-0:32) Test failed because object needs `a:`.
-  - (0:12-0:13): `a:`
+- (0:10-0:20) Test failed because object needs `a:`.
+  - (0:22-0:32): object
 
 --------------------------------------------------------------------------------
 
@@ -4601,7 +4665,9 @@ unify(<>, { a: Int }, { b: Int | Int })
 ### Errors
 - (0:10-0:20) Test failed because object needs `b:`.
   - (0:24-0:25): `b:`
-- (0:33-0:36) Test failed because object is not an `Int`.
+- (0:10-0:20) Test failed because object is not an `Int`.
+  - (0:33-0:36): object
+  - (0:33-0:36): `Int`
 
 --------------------------------------------------------------------------------
 
@@ -4618,8 +4684,8 @@ unify(<>, { a: Int }, { b: Int | {} })
 ### Errors
 - (0:10-0:20) Test failed because object needs `b:`.
   - (0:24-0:25): `b:`
-- (0:33-0:35) Test failed because object needs `a:`.
-  - (0:12-0:13): `a:`
+- (0:10-0:20) Test failed because object needs `a:`.
+  - (0:33-0:35): object
 
 --------------------------------------------------------------------------------
 
@@ -4840,8 +4906,8 @@ unify(<>, {a: Bool}, {| {a: Int}})
 ```
 
 ### Errors
-- (0:24-0:32) Test failed because `Bool` is not an `Int`.
-  - (0:14-0:18): `Bool`
+- (0:14-0:18) Test failed because `Bool` is not an `Int`.
+  - (0:28-0:31): `Int`
 
 --------------------------------------------------------------------------------
 
@@ -4874,10 +4940,10 @@ unify(<>, {b: Bool}, {| {a: Int}})
 ```
 
 ### Errors
-- (0:24-0:32) Test failed because object needs `a:`.
-  - (0:10-0:19): object
-- (0:24-0:32) Test failed because object needs `b:`.
-  - (0:11-0:12): `b:`
+- (0:10-0:19) Test failed because object needs `a:`.
+  - (0:25-0:26): `a:`
+- (0:10-0:19) Test failed because object needs `b:`.
+  - (0:24-0:32): object
 
 --------------------------------------------------------------------------------
 
@@ -4910,8 +4976,8 @@ unify(<>, { b: Int }, { a: Int })
 ### Errors
 - (0:10-0:20) Test failed because object needs `a:`.
   - (0:24-0:25): `a:`
-- (0:22-0:32) Test failed because object needs `b:`.
-  - (0:12-0:13): `b:`
+- (0:10-0:20) Test failed because object needs `b:`.
+  - (0:22-0:32): object
 
 --------------------------------------------------------------------------------
 
@@ -5378,7 +5444,7 @@ unify(<T>, {a: Int | T}, T)
 ```
 
 ### Errors
-- (0:0-0:27) Test failed because the type checker infers an infinite type.
+- (0:11-0:23) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -5393,7 +5459,7 @@ unify(<T>, T, {a: Int | T})
 ```
 
 ### Errors
-- (0:0-0:27) Test failed because the type checker infers an infinite type.
+- (0:11-0:12) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
