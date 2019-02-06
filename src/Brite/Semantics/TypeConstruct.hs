@@ -74,7 +74,11 @@ instance Functor Construct where
   fmap _ Boolean = Boolean
   fmap _ Integer = Integer
   fmap f (Function a b) = Function (f a) (f b)
-  fmap f (Object ps e) = Object (fmap (\(ObjectProperty r a) -> ObjectProperty r (f a)) <$> ps) (f <$> e)
+  fmap f (Object ps e) = Object (fmap (fmap f) <$> ps) (f <$> e)
+
+instance Functor ObjectProperty where
+  fmap f (ObjectProperty r a) = ObjectProperty r (f a)
+  {-# INLINE fmap #-}
 
 instance Foldable Construct where
   foldMap _ Void = mempty

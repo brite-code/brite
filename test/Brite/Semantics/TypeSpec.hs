@@ -115,6 +115,7 @@ testData =
   , ("{p: Int, q: Bool | {}}", "{p: Int, q: Bool}")
   , ("{p: Int | {q: Bool}}", "{p: Int, q: Bool}")
   , ("{| {p: Int, q: Bool}}", "{p: Int, q: Bool}")
+  , ("<A = <Z> X> A", "X")
   ]
 
 initialContext :: HashSet Identifier
