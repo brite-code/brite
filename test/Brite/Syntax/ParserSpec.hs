@@ -923,7 +923,7 @@ closeSnapshotFile h = do
   hClose h
 
 spec :: Spec
-spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
+spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
   flip mapM_ testData $ \source ->
     it (Text.unpack (escape source)) $ \h ->
       let

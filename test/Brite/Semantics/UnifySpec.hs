@@ -22,6 +22,7 @@ import Data.Foldable (traverse_, toList)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
+import System.IO
 import Test.Hspec
 
 -- In the [MLF thesis][1] Section 4.3 the unification algorithm is described as:
@@ -364,66 +365,78 @@ testData =
   , ("unify(<>, { a: Int }, { b: Int })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:22-0:32) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
   , ("unify(<>, { a: Int, a: Bool }, { b: Int, b: Bool })", "<>", ["(0:10-0:29) Test failed because object needs `b:`. [(0:33-0:34): `b:`]", "(0:10-0:29) Test failed because object needs `b:`. [(0:41-0:42): `b:`]", "(0:31-0:50) Test failed because object needs `a:`. [(0:12-0:13): `a:`]", "(0:31-0:50) Test failed because object needs `a:`. [(0:20-0:21): `a:`]"])
   , ("unify(<>, { a: Int }, {})", "<>", ["(0:22-0:24) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
-  , ("unify(<>, {}, { a: Int })", "<>", [])
-  , ("unify(<>, { a: Int }, { b: Int })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:22-0:32) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
-  , ("unify(<>, { a: Int }, { b: Int | Int })", "", [])
-  , ("unify(<>, { a: Int }, { b: Int | {} })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:33-0:35) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
-  , ("unify(<>, { a: Int | {} }, { b: Int })", "", [])
-  , ("unify(<>, { a: Int }, { b: Int | { a: Int } })", "", [])
-  , ("unify(<>, { b: Int | { a: Int } }, { a: Int })", "", [])
-  , ("unify(<>, {| {}}, {})", "", [])
-  , ("unify(<>, {}, {| {}})", "", [])
-  , ("unify(<>, {| {}}, {| {}})", "", [])
-  , ("unify(<>, {| {a: Int}}, {| {a: Int}})", "", [])
-  , ("unify(<>, {| {a: Int}}, {| {a: Bool}})", "", [])
-  , ("unify(<>, {| {a: Int}}, {| {b: Int}})", "", [])
-  , ("unify(<>, {| {a: Int}}, {| {}})", "", [])
-  , ("unify(<>, {| {}}, {| {a: Int}})", "", [])
-  , ("unify(<>, {| {a: Int}}, {a: Int})", "", [])
-  , ("unify(<>, {a: Int}, {| {a: Int}})", "", [])
-  , ("unify(<>, {| {a: Int}}, {a: Bool})", "", [])
-  , ("unify(<>, {a: Bool}, {| {a: Int}})", "", [])
-  , ("unify(<>, {| {a: Int}}, {b: Bool})", "", [])
-  , ("unify(<>, {b: Bool}, {| {a: Int}})", "", [])
-  , ("unify(<>, {}, { a: Int })", "", [])
-  , ("unify(<>, { b: Int }, { a: Int })", "", [])
-  , ("unify(<>, { b: Int | {} }, { a: Int })", "", [])
-  , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Int, a: void })", "", [])
-  , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Bool, a: void })", "", [])
-  , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: Bool })", "", [])
-  , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: void })", "", [])
-  , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Int, a: void })", "", [])
-  , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: void, a: Bool })", "", [])
-  , ("unify(<>, { a: Int, a: Bool, a: void }, { a: void, a: Bool, a: Int })", "", [])
-  , ("unify(<T>, { a: Int | T }, { a: Int, b: Bool })", "", [])
-  , ("unify(<T>, { a: Int, b: Bool }, { a: Int | T })", "", [])
-  , ("unify(<T>, { a: Int | T }, { a: Bool, b: Int })", "", [])
-  , ("unify(<T>, { a: Bool, b: Int }, { a: Int | T })", "", [])
-  , ("unify(<T>, { a: Int | T }, { a: Int, b: Bool, b: Int })", "", [])
-  , ("unify(<T>, { a: Int, b: Bool, b: Int }, { a: Int | T })", "", [])
-  , ("unify(<T>, { a: Int | T }, { a: Int, a: Bool })", "", [])
-  , ("unify(<T>, { a: Int, a: Bool }, { a: Int | T })", "", [])
-  , ("unify(<T>, { a: Int | T }, { a: Bool, a: Int })", "", [])
-  , ("unify(<T>, { a: Bool, a: Int }, { a: Int | T })", "", [])
-  , ("unify(<T>, { a: Int | T }, { a: Int, a: Bool, a: void })", "", [])
-  , ("unify(<T>, { a: Int, a: Bool, a: void }, { a: Int | T })", "", [])
-  , ("unify(<T>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)", "<T = {}>", ["(0:28-0:36) Test failed because object needs `a:`. [(0:15-0:23): object]"])
-  , ("unify(<T>, fun({a: Int, a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)", "<T = {a: Int}>", [])
-  , ("unify(<T>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})", "", [])
-  , ("unify(<T>, fun({a: Int}) -> Int, fun({a: Int | T}) -> T)", "", [])
-  , ("unify(<T>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)", "", [])
-  , ("unify(<T>, fun({a: Int}) -> Int, fun(T) -> {a: Int | T})", "", [])
-  , ("unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})", "", [])
-  , ("unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})", "", [])
-  , ("unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)", "", [])
-  , ("unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)", "", [])
-  , ("unify(<T>, {a: Int | T}, T)", "", [])
-  , ("unify(<T>, T, {a: Int | T})", "", [])
-  , ("unify(<T>, {b: Int}, {a: Int | T})", "", [])
-  , ("unify(<T>, {a: Int | T}, {b: Int})", "", [])
-  , ("unify(<T>, {a: Int, b: Int}, {a: Int | T})", "", [])
-  , ("unify(<T>, {a: Int | T}, {a: Int, b: Int})", "", [])
+  -- , ("unify(<>, {}, { a: Int })", "<>", [])
+  -- , ("unify(<>, { a: Int }, { b: Int })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:22-0:32) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
+  -- , ("unify(<>, { a: Int }, { b: Int | Int })", "", [])
+  -- , ("unify(<>, { a: Int }, { b: Int | {} })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:33-0:35) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
+  -- , ("unify(<>, { a: Int | {} }, { b: Int })", "", [])
+  -- , ("unify(<>, { a: Int }, { b: Int | { a: Int } })", "", [])
+  -- , ("unify(<>, { b: Int | { a: Int } }, { a: Int })", "", [])
+  -- , ("unify(<>, {| {}}, {})", "", [])
+  -- , ("unify(<>, {}, {| {}})", "", [])
+  -- , ("unify(<>, {| {}}, {| {}})", "", [])
+  -- , ("unify(<>, {| {a: Int}}, {| {a: Int}})", "", [])
+  -- , ("unify(<>, {| {a: Int}}, {| {a: Bool}})", "", [])
+  -- , ("unify(<>, {| {a: Int}}, {| {b: Int}})", "", [])
+  -- , ("unify(<>, {| {a: Int}}, {| {}})", "", [])
+  -- , ("unify(<>, {| {}}, {| {a: Int}})", "", [])
+  -- , ("unify(<>, {| {a: Int}}, {a: Int})", "", [])
+  -- , ("unify(<>, {a: Int}, {| {a: Int}})", "", [])
+  -- , ("unify(<>, {| {a: Int}}, {a: Bool})", "", [])
+  -- , ("unify(<>, {a: Bool}, {| {a: Int}})", "", [])
+  -- , ("unify(<>, {| {a: Int}}, {b: Bool})", "", [])
+  -- , ("unify(<>, {b: Bool}, {| {a: Int}})", "", [])
+  -- , ("unify(<>, {}, { a: Int })", "", [])
+  -- , ("unify(<>, { b: Int }, { a: Int })", "", [])
+  -- , ("unify(<>, { b: Int | {} }, { a: Int })", "", [])
+  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Int, a: void })", "", [])
+  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Bool, a: void })", "", [])
+  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: Bool })", "", [])
+  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: void })", "", [])
+  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Int, a: void })", "", [])
+  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: void, a: Bool })", "", [])
+  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: void, a: Bool, a: Int })", "", [])
+  -- , ("unify(<T>, { a: Int | T }, { a: Int, b: Bool })", "", [])
+  -- , ("unify(<T>, { a: Int, b: Bool }, { a: Int | T })", "", [])
+  -- , ("unify(<T>, { a: Int | T }, { a: Bool, b: Int })", "", [])
+  -- , ("unify(<T>, { a: Bool, b: Int }, { a: Int | T })", "", [])
+  -- , ("unify(<T>, { a: Int | T }, { a: Int, b: Bool, b: Int })", "", [])
+  -- , ("unify(<T>, { a: Int, b: Bool, b: Int }, { a: Int | T })", "", [])
+  -- , ("unify(<T>, { a: Int | T }, { a: Int, a: Bool })", "", [])
+  -- , ("unify(<T>, { a: Int, a: Bool }, { a: Int | T })", "", [])
+  -- , ("unify(<T>, { a: Int | T }, { a: Bool, a: Int })", "", [])
+  -- , ("unify(<T>, { a: Bool, a: Int }, { a: Int | T })", "", [])
+  -- , ("unify(<T>, { a: Int | T }, { a: Int, a: Bool, a: void })", "", [])
+  -- , ("unify(<T>, { a: Int, a: Bool, a: void }, { a: Int | T })", "", [])
+  -- , ("unify(<T>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)", "<T = {}>", ["(0:28-0:36) Test failed because object needs `a:`. [(0:15-0:23): object]"])
+  -- , ("unify(<T>, fun({a: Int, a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)", "<T = {a: Int}>", [])
+  -- , ("unify(<T>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})", "", [])
+  -- , ("unify(<T>, fun({a: Int}) -> Int, fun({a: Int | T}) -> T)", "", [])
+  -- , ("unify(<T>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)", "", [])
+  -- , ("unify(<T>, fun({a: Int}) -> Int, fun(T) -> {a: Int | T})", "", [])
+  -- , ("unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})", "", [])
+  -- , ("unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})", "", [])
+  -- , ("unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)", "", [])
+  -- , ("unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)", "", [])
+  -- , ("unify(<T>, {a: Int | T}, T)", "", [])
+  -- , ("unify(<T>, T, {a: Int | T})", "", [])
+  -- , ("unify(<T>, {b: Int}, {a: Int | T})", "", [])
+  -- , ("unify(<T>, {a: Int | T}, {b: Int})", "", [])
+  -- , ("unify(<T>, {a: Int, b: Int}, {a: Int | T})", "", [])
+  -- , ("unify(<T>, {a: Int | T}, {a: Int, b: Int})", "", [])
   ]
+
+openSnapshotFile :: IO Handle
+openSnapshotFile = do
+  h <- openFile "test/Brite/Syntax/UnifySpecSnapshot.md" WriteMode
+  hPutStrLn h "# UnifySpecSnapshot"
+  return h
+
+closeSnapshotFile :: Handle -> IO ()
+closeSnapshotFile h = do
+  hPutStrLn h ""
+  hPutStrLn h (replicate 80 '-')
+  hClose h
 
 unifyParser :: Parser (Range, (Recover CST.QuantifierList, Recover CST.Type, Recover CST.Type))
 unifyParser = captureRange (identifier *> glyph ParenLeft *> args <* glyph ParenRight)
@@ -435,9 +448,9 @@ unifyParser = captureRange (identifier *> glyph ParenLeft *> args <* glyph Paren
         <*> typeParser
 
 spec :: Spec
-spec =
+spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
   flip traverse_ testData $ \(input, expectedPrefix, expectedDiagnostics) ->
-    it (Text.unpack input) $ do
+    it (Text.unpack input) $ \h -> do
       let ((r, (cqs, ct1, ct2)), ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
       if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
       let
@@ -468,10 +481,27 @@ spec =
             -- Return a list of all the bindings in our prefix.
             Prefix.allBindings prefix
 
-      -- Compare the actual prefix to the expected prefix.
-      let actualPrefix = Text.Builder.toStrictText (printCompactQuantifierList (map printBindingWithoutInlining (toList allBindings)))
-      actualPrefix `shouldBe` expectedPrefix
+      -- Create the values we’re going to snapshot.
+      let actualPrefix = Text.Builder.toStrictText (printQuantifierList (map printBindingWithoutInlining (toList allBindings)))
+      let actualDiagnostics = Text.Builder.toStrictText (foldMap diagnosticMessageMarkdown (ds2 <> ds3))
 
-      -- Compare all the expected diagnostics to each other.
-      let actualDiagnostics = map (Text.Builder.toStrictText . diagnosticMessageCompact) (toList (ds2 <> ds3))
-      actualDiagnostics `shouldBe` expectedDiagnostics
+      -- Catch any errors before we print.
+      seq actualPrefix $ return ()
+      seq actualDiagnostics $ return ()
+
+      hPutStrLn h ""
+      hPutStrLn h (replicate 80 '-')
+      hPutStrLn h ""
+      hPutStrLn h "### Input"
+      hPutStrLn h "```ite"
+      hPutStrLn h (Text.unpack input)
+      hPutStrLn h "```"
+      hPutStrLn h ""
+      hPutStrLn h "### Output"
+      hPutStrLn h "```"
+      hPutStr h (Text.unpack actualPrefix)
+      hPutStrLn h "```"
+      if Text.null actualDiagnostics then return () else (do
+        hPutStrLn h ""
+        hPutStrLn h "### Errors"
+        hPutStr h (Text.unpack actualDiagnostics))
