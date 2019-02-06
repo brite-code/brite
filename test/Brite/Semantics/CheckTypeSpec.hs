@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Semantics.CheckSpecType (spec) where
+module Brite.Semantics.CheckTypeSpec (spec) where
 
 import Brite.Diagnostic
 import Brite.Semantics.AST (convertRecoverType)

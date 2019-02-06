@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Semantics.CheckSpecExpression (spec) where
+module Brite.Semantics.CheckExpressionSpec (spec) where
 
 import Brite.Diagnostic
 import qualified Brite.Semantics.AST as AST
