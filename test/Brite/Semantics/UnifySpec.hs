@@ -377,7 +377,7 @@ testData =
   , "unify(<>, {| {}}, {| {}})"
   , "unify(<>, {| {a: Int}}, {| {a: Int}})"
   , "unify(<>, {| {a: Int}}, {| {a: Bool}})"
-  , "unify(<>, {| {a: Int}}, {| {b: Int}})" -- TODO: Look at this one again
+  , "unify(<>, {| {a: Int}}, {| {b: Int}})"
   , "unify(<>, {| {a: Int}}, {| {}})"
   , "unify(<>, {| {}}, {| {a: Int}})"
   , "unify(<>, {| {a: Int}}, {a: Int})"

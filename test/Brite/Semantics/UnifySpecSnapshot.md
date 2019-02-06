@@ -4573,10 +4573,9 @@ unify(<>, { a: Int }, { b: Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because object needs `b:`.
+- (0:10-0:20) Test failed because `b:` is missing.
   - (0:24-0:25): `b:`
-- (0:10-0:20) Test failed because object needs `a:`.
-  - (0:22-0:32): object
+- (0:12-0:13) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4591,14 +4590,12 @@ unify(<>, { a: Int, a: Bool }, { b: Int, b: Bool })
 ```
 
 ### Errors
-- (0:10-0:29) Test failed because object needs `b:`.
+- (0:10-0:29) Test failed because `b:` is missing.
   - (0:33-0:34): `b:`
-- (0:10-0:29) Test failed because object needs `b:`.
+- (0:10-0:29) Test failed because `b:` is missing.
   - (0:41-0:42): `b:`
-- (0:10-0:29) Test failed because object needs `a:`.
-  - (0:31-0:50): object
-- (0:10-0:29) Test failed because object needs `a:`.
-  - (0:31-0:50): object
+- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:20-0:21) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4613,8 +4610,7 @@ unify(<>, { a: Int }, {})
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because object needs `a:`.
-  - (0:22-0:24): object
+- (0:12-0:13) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4629,7 +4625,7 @@ unify(<>, {}, { a: Int })
 ```
 
 ### Errors
-- (0:10-0:12) Test failed because object needs `a:`.
+- (0:10-0:12) Test failed because `a:` is missing.
   - (0:16-0:17): `a:`
 
 --------------------------------------------------------------------------------
@@ -4645,10 +4641,9 @@ unify(<>, { a: Int }, { b: Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because object needs `b:`.
+- (0:10-0:20) Test failed because `b:` is missing.
   - (0:24-0:25): `b:`
-- (0:10-0:20) Test failed because object needs `a:`.
-  - (0:22-0:32): object
+- (0:12-0:13) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4663,7 +4658,7 @@ unify(<>, { a: Int }, { b: Int | Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because object needs `b:`.
+- (0:10-0:20) Test failed because `b:` is missing.
   - (0:24-0:25): `b:`
 - (0:10-0:20) Test failed because object is not an `Int`.
   - (0:33-0:36): object
@@ -4682,10 +4677,9 @@ unify(<>, { a: Int }, { b: Int | {} })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because object needs `b:`.
+- (0:10-0:20) Test failed because `b:` is missing.
   - (0:24-0:25): `b:`
-- (0:10-0:20) Test failed because object needs `a:`.
-  - (0:33-0:35): object
+- (0:12-0:13) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4700,10 +4694,9 @@ unify(<>, { a: Int | {} }, { b: Int })
 ```
 
 ### Errors
-- (0:21-0:23) Test failed because object needs `b:`.
+- (0:21-0:23) Test failed because `b:` is missing.
   - (0:29-0:30): `b:`
-- (0:21-0:23) Test failed because object needs `a:`.
-  - (0:27-0:37): object
+- (0:21-0:23) Test failed because `a:` is not needed.
   - (0:12-0:13): `a:`
 
 --------------------------------------------------------------------------------
@@ -4719,7 +4712,7 @@ unify(<>, { a: Int }, { b: Int | { a: Int } })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because object needs `b:`.
+- (0:10-0:20) Test failed because `b:` is missing.
   - (0:24-0:25): `b:`
 
 --------------------------------------------------------------------------------
@@ -4735,8 +4728,7 @@ unify(<>, { b: Int | { a: Int } }, { a: Int })
 ```
 
 ### Errors
-- (0:21-0:31) Test failed because object needs `b:`.
-  - (0:35-0:45): object
+- (0:21-0:31) Test failed because `b:` is not needed.
   - (0:12-0:13): `b:`
 
 --------------------------------------------------------------------------------
@@ -4816,10 +4808,9 @@ unify(<>, {| {a: Int}}, {| {b: Int}})
 ```
 
 ### Errors
-- (0:13-0:21) Test failed because object needs `b:`.
+- (0:13-0:21) Test failed because `b:` is missing.
   - (0:28-0:29): `b:`
-- (0:13-0:21) Test failed because object needs `a:`.
-  - (0:27-0:35): object
+- (0:14-0:15) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4834,8 +4825,7 @@ unify(<>, {| {a: Int}}, {| {}})
 ```
 
 ### Errors
-- (0:13-0:21) Test failed because object needs `a:`.
-  - (0:27-0:29): object
+- (0:14-0:15) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4850,7 +4840,7 @@ unify(<>, {| {}}, {| {a: Int}})
 ```
 
 ### Errors
-- (0:13-0:15) Test failed because object needs `a:`.
+- (0:13-0:15) Test failed because `a:` is missing.
   - (0:22-0:23): `a:`
 
 --------------------------------------------------------------------------------
@@ -4922,10 +4912,9 @@ unify(<>, {| {a: Int}}, {b: Bool})
 ```
 
 ### Errors
-- (0:13-0:21) Test failed because object needs `b:`.
+- (0:13-0:21) Test failed because `b:` is missing.
   - (0:25-0:26): `b:`
-- (0:13-0:21) Test failed because object needs `a:`.
-  - (0:24-0:33): object
+- (0:14-0:15) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4940,10 +4929,9 @@ unify(<>, {b: Bool}, {| {a: Int}})
 ```
 
 ### Errors
-- (0:10-0:19) Test failed because object needs `a:`.
+- (0:10-0:19) Test failed because `a:` is missing.
   - (0:25-0:26): `a:`
-- (0:10-0:19) Test failed because object needs `b:`.
-  - (0:24-0:32): object
+- (0:11-0:12) Test failed because `b:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4958,7 +4946,7 @@ unify(<>, {}, { a: Int })
 ```
 
 ### Errors
-- (0:10-0:12) Test failed because object needs `a:`.
+- (0:10-0:12) Test failed because `a:` is missing.
   - (0:16-0:17): `a:`
 
 --------------------------------------------------------------------------------
@@ -4974,10 +4962,9 @@ unify(<>, { b: Int }, { a: Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because object needs `a:`.
+- (0:10-0:20) Test failed because `a:` is missing.
   - (0:24-0:25): `a:`
-- (0:10-0:20) Test failed because object needs `b:`.
-  - (0:22-0:32): object
+- (0:12-0:13) Test failed because `b:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4992,10 +4979,9 @@ unify(<>, { b: Int | {} }, { a: Int })
 ```
 
 ### Errors
-- (0:21-0:23) Test failed because object needs `a:`.
+- (0:21-0:23) Test failed because `a:` is missing.
   - (0:29-0:30): `a:`
-- (0:21-0:23) Test failed because object needs `b:`.
-  - (0:27-0:37): object
+- (0:21-0:23) Test failed because `b:` is not needed.
   - (0:12-0:13): `b:`
 
 --------------------------------------------------------------------------------
@@ -5285,8 +5271,7 @@ unify(<T>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)
 ```
 
 ### Errors
-- (0:28-0:36) Test failed because object needs `a:`.
-  - (0:15-0:23): object
+- (0:29-0:30) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -5313,7 +5298,7 @@ unify(<T>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})
 ```
 
 ### Errors
-- (0:28-0:36) Test failed because object needs `a:`.
+- (0:28-0:36) Test failed because `a:` is missing.
   - (0:16-0:17): `a:`
 
 --------------------------------------------------------------------------------
@@ -5345,7 +5330,7 @@ unify(<T>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)
 ```
 
 ### Errors
-- (0:15-0:23) Test failed because object needs `a:`.
+- (0:15-0:23) Test failed because `a:` is missing.
   - (0:46-0:47): `a:`
 
 --------------------------------------------------------------------------------
@@ -5377,8 +5362,7 @@ unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})
 ```
 
 ### Errors
-- (0:32-0:33) Test failed because object needs `a:`.
-  - (0:39-0:47): object
+- (0:32-0:33) Test failed because `a:` is missing.
   - (0:53-0:54): `a:`
 
 --------------------------------------------------------------------------------
@@ -5394,8 +5378,7 @@ unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})
 ```
 
 ### Errors
-- (0:31-0:32) Test failed because object needs `a:`.
-  - (0:52-0:60): object
+- (0:31-0:32) Test failed because `a:` is not needed.
   - (0:40-0:41): `a:`
 
 --------------------------------------------------------------------------------
@@ -5474,7 +5457,7 @@ unify(<T>, {b: Int}, {a: Int | T})
 ```
 
 ### Errors
-- (0:11-0:19) Test failed because object needs `a:`.
+- (0:11-0:19) Test failed because `a:` is missing.
   - (0:22-0:23): `a:`
 
 --------------------------------------------------------------------------------
@@ -5490,8 +5473,7 @@ unify(<T>, {a: Int | T}, {b: Int})
 ```
 
 ### Errors
-- (0:21-0:22) Test failed because object needs `a:`.
-  - (0:25-0:33): object
+- (0:21-0:22) Test failed because `a:` is not needed.
   - (0:12-0:13): `a:`
 
 --------------------------------------------------------------------------------

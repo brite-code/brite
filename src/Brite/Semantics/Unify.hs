@@ -277,19 +277,19 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           missingPropertyErrors = do
             let
               -- Reports a missing property error for every overflowed property.
-              overflowProperty objectType result2M name nameProperties = result2M >>= \result2 ->
+              overflowProperty objectType makeDiagnostic result2M name nameProperties = result2M >>= \result2 ->
                 foldlM
                   (\result3 (ObjectProperty nameRange _) -> do
                     let objectRange = initialRange (Type.monotypeRangeStack objectType)
-                    e <- missingProperty objectRange (nameRange, name) stack
+                    e <- makeDiagnostic objectRange (nameRange, name) stack
                     return (result3 `eitherOr` Left e))
                   result2
                   nameProperties
 
             -- Loop through all our overflowed properties and report an error. If there was no
             -- property overflow then these folds will do nothing and return `result1`.
-            let result2 = Map.foldlWithKey' (overflowProperty actual) (return (Right ())) expectedOverflowProperties
-            Map.foldlWithKey' (overflowProperty expected) result2 actualOverflowProperties
+            let result2 = Map.foldlWithKey' (overflowProperty actual missingProperty) (return (Right ())) expectedOverflowProperties
+            Map.foldlWithKey' (overflowProperty expected extraProperty) result2 actualOverflowProperties
 
           -- Unify the two object extension together. Be careful, if called inappropriately it
           -- could cause non-termination problems.
