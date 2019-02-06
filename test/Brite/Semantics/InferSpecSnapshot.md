@@ -1109,7 +1109,7 @@ infer(<>, (choose: fun<A>(A) -> fun(A) -> A), choose(42)(fun(x) { x }))
 ```
 
 ### Errors
-- (0:57-0:69) Can not call `choose()` because function is not an `Int`.
+- (0:57-0:69) Can not call `choose()` because a function is not an `Int`.
   - (0:53-0:55): `Int`
 
 --------------------------------------------------------------------------------

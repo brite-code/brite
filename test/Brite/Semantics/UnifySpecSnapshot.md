@@ -215,7 +215,7 @@ unify(<>, fun(Int) -> Int, Int)
 ```
 
 ### Errors
-- (0:10-0:25) Test failed because function is not an `Int`.
+- (0:10-0:25) Test failed because a function is not an `Int`.
   - (0:27-0:30): `Int`
 
 --------------------------------------------------------------------------------
@@ -4660,7 +4660,7 @@ unify(<>, { a: Int }, { b: Int | Int })
 ### Errors
 - (0:10-0:20) Test failed because `b:` is missing.
   - (0:24-0:25): `b:`
-- (0:10-0:20) Test failed because object is not an `Int`.
+- (0:10-0:20) Test failed because an object is not an `Int`.
   - (0:33-0:36): object
   - (0:33-0:36): `Int`
 
@@ -5394,7 +5394,7 @@ unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)
 ```
 
 ### Errors
-- (0:32-0:33) Test failed because object is not an `Int`.
+- (0:32-0:33) Test failed because an object is not an `Int`.
   - (0:39-0:47): object
   - (0:52-0:55): `Int`
 
@@ -5411,7 +5411,7 @@ unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)
 ```
 
 ### Errors
-- (0:21-0:33) Test failed because object is not an `Int`.
+- (0:21-0:33) Test failed because an object is not an `Int`.
   - (0:52-0:55): `Int`
 
 --------------------------------------------------------------------------------

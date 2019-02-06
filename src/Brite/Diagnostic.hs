@@ -173,9 +173,9 @@ data ErrorDiagnosticMessage
   -- We found two type constructors that were incompatible with one another during unification.
   | IncompatibleTypes Range Range TypeConstructorSnippet TypeConstructorSnippet UnifyStack
   -- We expected an object to have a property with the provided name.
-  | MissingProperty Range Range Identifier UnifyStack
+  | MissingProperty Range Identifier UnifyStack
   -- We have an extra property which we did not expect.
-  | ExtraProperty Range Range Identifier UnifyStack
+  | ExtraProperty Range Identifier UnifyStack
   -- We expected one type to abstract another but it does not.
   | DoesNotAbstract Range Range Text Text UnifyStack
   -- While trying to infer the type for some code we ran into an infinite type.
@@ -262,15 +262,15 @@ incompatibleTypes (actualRange, actual) (expectedRange, expected) stack = report
 -- We expected an object to have a property with the provided name.
 missingProperty :: DiagnosticMonad m => Range -> (Range, Identifier) -> UnifyStack -> m Diagnostic
 missingProperty objectRange (propertyRange, propertyName) stack = report $ Diagnostic range $ Error $
-  MissingProperty objectRange propertyRange propertyName stack
+  MissingProperty propertyRange propertyName stack
   where
     stackRange = unifyStackRange stack
     range = if rangeContains stackRange objectRange then objectRange else stackRange
 
 -- We have an extra property which we did not expect.
 extraProperty :: DiagnosticMonad m => Range -> (Range, Identifier) -> UnifyStack -> m Diagnostic
-extraProperty objectRange (propertyRange, propertyName) stack = report $ Diagnostic range $ Error $
-  ExtraProperty objectRange propertyRange propertyName stack
+extraProperty _ (propertyRange, propertyName) stack = report $ Diagnostic range $ Error $
+  ExtraProperty propertyRange propertyName stack
   where
     stackRange = unifyStackRange stack
     range = if rangeContains stackRange propertyRange then propertyRange else stackRange
@@ -551,12 +551,12 @@ diagnosticErrorMessage (UnboundTypeVariable name) = noRelatedInformation $
 -- error messages short, sweet, and to the point.
 diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expected stack) =
   -- Construct the incompatible types message.
-  ( operationMessage <> plain " because " <> typeMessage actual <> plain " is not " <>
-    typeMessageWithArticle expected <> plain "."
+  ( operationMessage <> plain " because " <> actualMessage actual <> plain " is not " <>
+    expectedMessage expected <> plain "."
 
   -- The references which are inside the diagnostic range will be hidden.
-  , [ DiagnosticRelatedInformation actualRange (typeMessage actual)
-    , DiagnosticRelatedInformation expectedRange (typeMessage expected)
+  , [ DiagnosticRelatedInformation actualRange (referenceMessage actual)
+    , DiagnosticRelatedInformation expectedRange (referenceMessage expected)
     ]
   )
   where
@@ -565,17 +565,23 @@ diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expec
     loop (UnifyStackOperation _ operation) = unifyStackOperationMessage operation
     loop (UnifyStackFrame _ _ nestedStack) = loop nestedStack
 
-    typeMessage VoidConstructorSnippet = plain "void"
-    typeMessage BooleanConstructorSnippet = code (identifierText booleanTypeName)
-    typeMessage IntegerConstructorSnippet = code (identifierText integerTypeName)
-    typeMessage FunctionConstructorSnippet = plain "function"
-    typeMessage ObjectConstructorSnippet = plain "object"
+    actualMessage VoidConstructorSnippet = plain "void"
+    actualMessage BooleanConstructorSnippet = code (identifierText booleanTypeName)
+    actualMessage IntegerConstructorSnippet = code (identifierText integerTypeName)
+    actualMessage FunctionConstructorSnippet = plain "a function"
+    actualMessage ObjectConstructorSnippet = plain "an object"
 
-    typeMessageWithArticle VoidConstructorSnippet = plain "void"
-    typeMessageWithArticle BooleanConstructorSnippet = plain "a " <> code (identifierText booleanTypeName)
-    typeMessageWithArticle IntegerConstructorSnippet = plain "an " <> code (identifierText integerTypeName)
-    typeMessageWithArticle FunctionConstructorSnippet = plain "a function"
-    typeMessageWithArticle ObjectConstructorSnippet = plain "an object"
+    expectedMessage VoidConstructorSnippet = plain "void"
+    expectedMessage BooleanConstructorSnippet = plain "a " <> code (identifierText booleanTypeName)
+    expectedMessage IntegerConstructorSnippet = plain "an " <> code (identifierText integerTypeName)
+    expectedMessage FunctionConstructorSnippet = plain "a function"
+    expectedMessage ObjectConstructorSnippet = plain "an object"
+
+    referenceMessage VoidConstructorSnippet = plain "void"
+    referenceMessage BooleanConstructorSnippet = code (identifierText booleanTypeName)
+    referenceMessage IntegerConstructorSnippet = code (identifierText integerTypeName)
+    referenceMessage FunctionConstructorSnippet = plain "function"
+    referenceMessage ObjectConstructorSnippet = plain "object"
 
 -- Missing property errors are a bit hard to write well. In the worst case, a missing property error
 -- can point to _many_ lines of code. Like in the case of a large configuration object that is
@@ -596,7 +602,7 @@ diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expec
 --
 -- By simplifying in this way we help the error message sound more like a normal sentence and less
 -- like a sentence generated by a computer.
-diagnosticErrorMessage (MissingProperty _ propertyRange propertyName stack) =
+diagnosticErrorMessage (MissingProperty propertyRange propertyName stack) =
   ( operationMessage <> plain " because " <> code propertyNameText <> plain " is missing."
   , [ DiagnosticRelatedInformation propertyRange (code propertyNameText)
     ]
@@ -615,7 +621,7 @@ diagnosticErrorMessage (MissingProperty _ propertyRange propertyName stack) =
 -- extra property then we have an `ExtraProperty` error.
 --
 -- We need to express that
-diagnosticErrorMessage (ExtraProperty _ propertyRange propertyName stack) =
+diagnosticErrorMessage (ExtraProperty propertyRange propertyName stack) =
   ( operationMessage <> plain " because " <> code propertyNameText <> plain " is not needed."
   , [ DiagnosticRelatedInformation propertyRange (code propertyNameText)
     ]
