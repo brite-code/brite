@@ -482,7 +482,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
             Prefix.allBindings prefix
 
       -- Create the values we’re going to snapshot.
-      let actualPrefix = Text.Builder.toStrictText (printQuantifierList (map printBindingWithoutInlining (toList allBindings)))
+      let actualPrefix = Text.Builder.toStrictText (printCompactQuantifierList (map printBindingWithoutInlining (toList allBindings)))
       let actualDiagnostics = Text.Builder.toStrictText (foldMap diagnosticMessageMarkdown (ds2 <> ds3))
 
       -- Catch any errors before we print.
@@ -499,7 +499,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
       hPutStrLn h ""
       hPutStrLn h "### Output"
       hPutStrLn h "```"
-      hPutStr h (Text.unpack actualPrefix)
+      hPutStrLn h (Text.unpack actualPrefix)
       hPutStrLn h "```"
       if Text.null actualDiagnostics then return () else (do
         hPutStrLn h ""

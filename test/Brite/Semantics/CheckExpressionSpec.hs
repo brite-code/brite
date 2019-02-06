@@ -22,6 +22,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy.Builder as Text.Builder
 import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
+import System.IO
 import Test.Hspec hiding (context)
 
 -- In the [MLF Thesis][1] Section 7.1 type inference is described as:
@@ -184,6 +185,18 @@ testData =
   , ("infer(<>, (), (fun(x) { x }: fun<X>(X) -> Int))", "(<>, fun<X>(X) -> Int)", ["(0:15-0:27) Can not change type of `fun(x) {}` because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`. [(0:29-0:45): `fun<X>(X) -> Int`]"])
   ]
 
+openSnapshotFile :: IO Handle
+openSnapshotFile = do
+  h <- openFile "test/Brite/Semantics/CheckExpressionSpecSnapshot.md" WriteMode
+  hPutStrLn h "# CheckExpressionSpec"
+  return h
+
+closeSnapshotFile :: Handle -> IO ()
+closeSnapshotFile h = do
+  hPutStrLn h ""
+  hPutStrLn h (replicate 80 '-')
+  hClose h
+
 inferParser :: Parser (Recover CST.QuantifierList, CST.CommaList (Identifier, Recover CST.Type), Recover CST.Expression)
 inferParser = identifier *> glyph ParenLeft *> args <* glyph ParenRight
   where
@@ -197,9 +210,9 @@ inferParser = identifier *> glyph ParenLeft *> args <* glyph ParenRight
       (,) <$> (fst <$> tryIdentifier) <&> (glyph Colon *> typeParser)
 
 spec :: Spec
-spec = do
+spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
   flip traverse_ testData $ \(input, expectedSolution, expectedDiagnostics) ->
-    it (Text.unpack input) $ do
+    it (Text.unpack input) $ \h -> do
       let ((cqs, cts, ce), ds1) = runDiagnosticWriter (fst <$> (runParser inferParser (tokenize input)))
       if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
       let
@@ -241,7 +254,7 @@ spec = do
             -- Return the expression type and a list of all the bindings in our prefix.
             return (expressionType', allBindings')
 
-      -- Compare the actual solution to the expected solution.
+      -- Build the expected results.
       let
         actualSolution = Text.Builder.toStrictText $
           Text.Builder.singleton '(' <>
@@ -250,8 +263,21 @@ spec = do
           printCompactType (printPolytypeWithoutInlining expressionType) <>
           Text.Builder.singleton ')'
 
-      actualSolution `shouldBe` expectedSolution
+      let actualDiagnostics = Text.Builder.toStrictText (foldMap diagnosticMessageMarkdown (ds2 <> ds3))
 
-      -- Compare all the expected diagnostics to each other.
-      let actualDiagnostics = map (Text.Builder.toStrictText . diagnosticMessageCompact) (toList (ds2 <> ds3))
-      actualDiagnostics `shouldBe` expectedDiagnostics
+      hPutStrLn h ""
+      hPutStrLn h (replicate 80 '-')
+      hPutStrLn h ""
+      hPutStrLn h "### Input"
+      hPutStrLn h "```ite"
+      hPutStrLn h (Text.unpack input)
+      hPutStrLn h "```"
+      hPutStrLn h ""
+      hPutStrLn h "### Output"
+      hPutStrLn h "```"
+      hPutStrLn h (Text.unpack actualSolution)
+      hPutStrLn h "```"
+      if Text.null actualDiagnostics then return () else (do
+        hPutStrLn h ""
+        hPutStrLn h "### Errors"
+        hPutStr h (Text.unpack actualDiagnostics))

@@ -16,7 +16,6 @@
 module Brite.Syntax.Printer
   ( printModule
   , printCompactType
-  , printQuantifierList
   , printCompactQuantifierList
   ) where
 
@@ -40,15 +39,10 @@ printModule = printDocument maxWidth . printStatementSequence . moduleStatements
 printCompactType :: Type -> Text.Builder
 printCompactType = printCompactDocument . printType
 
--- Prints a quantifier list. The quantifier list must come from the printer AST.
-printQuantifierList :: [Quantifier] -> Text.Builder
-printQuantifierList [] = Text.Builder.fromText "<>\n"
-printQuantifierList qs = printDocument maxWidth (printQuantifierList' (map (\x -> Right (x, [])) qs)) <> Text.Builder.singleton '\n'
-
 -- Prints a quantifier list compactly. The quantifier list must come from the printer AST.
 printCompactQuantifierList :: [Quantifier] -> Text.Builder
 printCompactQuantifierList [] = Text.Builder.fromText "<>"
-printCompactQuantifierList qs = printCompactDocument (printQuantifierList' (map (\x -> Right (x, [])) qs))
+printCompactQuantifierList qs = printCompactDocument (printQuantifierList (map (\x -> Right (x, [])) qs))
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
 -- GitHub, Terminals. It is also the best for plain text comments.
@@ -302,7 +296,7 @@ printFunction :: Function -> Document
 printFunction (Function n qs ps r b) =
   text "fun" <>
   maybe mempty ((text " " <>) . text . identifierText) n <>
-  printQuantifierList' qs <>
+  printQuantifierList qs <>
   group (text "(" <> indent (softline <> printCommaList printFunctionParameter ps) <> text ")") <>
   maybe mempty ((text " -> " <>) . printType) r <>
   text " " <>
@@ -687,7 +681,7 @@ printType x0 = build $ case typeNode x0 of
 
   FunctionType qs ps t ->
     text "fun" <>
-    printQuantifierList' qs <>
+    printQuantifierList qs <>
     group (text "(" <> indent (softline <> printCommaList printParameter ps) <> text ")") <>
     text " -> " <>
     printType t
@@ -740,7 +734,7 @@ printType x0 = build $ case typeNode x0 of
       ObjectType _ _ -> normal
       QuantifiedType qs2 t2 -> printType (t1 { typeNode = QuantifiedType (qs1 ++ qs2) t2 })
     where
-      normal = printQuantifierList' qs1 <> text " " <> printType t1
+      normal = printQuantifierList qs1 <> text " " <> printType t1
 
   where
     -- Finishes printing an expression node by printing leading/trailing attached comments and
@@ -750,9 +744,9 @@ printType x0 = build $ case typeNode x0 of
         <> x1
         <> printTrailingAttachedComments (typeTrailingComments x0)
 
-printQuantifierList' :: [CommaListItem Quantifier] -> Document
-printQuantifierList' [] = mempty
-printQuantifierList' qs = group $
+printQuantifierList :: [CommaListItem Quantifier] -> Document
+printQuantifierList [] = mempty
+printQuantifierList qs = group $
   text "<" <> indent (softline <> printCommaList printQuantifier qs) <> text ">"
   where
     printQuantifier (QuantifierUnbound cs1 cs2 n) =
