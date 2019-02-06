@@ -184,12 +184,6 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       --
       -- [1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf
       (Object actualProperties actualMaybeExtension, Object expectedProperties expectedMaybeExtension) -> do
-        -- Merge the object properties into shared and overflow properties. We will unify the shared
-        -- properties together and will unify the overflow properties with the object’s extension.
-        let
-          (sharedProperties, (actualOverflowProperties, expectedOverflowProperties)) =
-            mergeProperties actualProperties expectedProperties
-
         -- Unify all of the shared properties between the two objects. We use `unifyWithFrame` to
         -- add an object property frame to the unification stack.
         --
@@ -208,109 +202,155 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
             (return (Right ()))
             sharedProperties
 
-        let
-          -- Should we unify our extensions or not? This check has very important implications when
-          -- it comes to termination of our unification algorithm. A check that’s too loose will let
-          -- through cases that recurse for ever when unifying extensions.
-          dontUnifyExtensions = case (actualMaybeExtension, expectedMaybeExtension) of
-            -- If neither object has an extension then we know they’re the same.
-            (Nothing, Nothing) -> True
-            -- If one of our objects is an empty object then don’t unify extensions or else we will
-            -- produce the exact same unification call and recurse forever.
-            (Nothing, _) -> Map.null actualProperties
-            (_, Nothing) -> Map.null expectedProperties
-            -- NOTE: This is an important check to ensure the unification algorithm terminates! If
-            -- both extensions are variables of the same name we must terminate early instead of
-            -- recursing. Otherwise, we will create a new type variable and perform a unification of
-            -- the same form. More notes on this later.
-            (Just (Type.monotypeDescription -> Variable actualName),
-             Just (Type.monotypeDescription -> Variable expectedName)) -> actualName == expectedName
-            -- If we have two unknown extensions then we want to unify them.
-            (Just _, Just _) -> False
+        -- We might need to unify our extensions depending on whether or not we have extensions.
+        eitherOr result1 <$> case (actualMaybeExtension, expectedMaybeExtension) of
+          -- If we don’t have any extensions then report missing property errors and return.
+          (Nothing, Nothing) -> missingPropertyErrors
 
-        -- If we don’t want to unify extensions then print out missing property errors...
-        if dontUnifyExtensions then do
-          let
-            -- Reports a missing property error for every overflowed property.
-            overflowProperty objectType result2M name nameProperties = result2M >>= \result2 ->
-              foldlM
-                (\result3 (ObjectProperty nameRange _) -> do
-                  let objectRange = initialRange (Type.monotypeRangeStack objectType)
-                  e <- missingProperty objectRange (nameRange, name) stack
-                  return (result3 `eitherOr` Left e))
-                result2
-                nameProperties
+          -- If one of our objects is an empty object then there are no more properties in that
+          -- object, so unifying extensions is pointless. Report missing property errors and return.
+          --
+          -- NOTE: This is an important check to ensure the unification algorithm terminates!
+          -- Otherwise, we will create a new empty object and perform unification of the same form.
+          (Nothing, _) | Map.null actualProperties -> missingPropertyErrors
+          (_, Nothing) | Map.null expectedProperties -> missingPropertyErrors
 
-          -- Loop through all our overflowed properties and report an error. If there was no
-          -- property overflow then these folds will do nothing and return `result1`.
-          let result2 = Map.foldlWithKey' (overflowProperty actual) (return result1) expectedOverflowProperties
-          Map.foldlWithKey' (overflowProperty expected) result2 actualOverflowProperties
+          -- If both extensions are variables of the same name then don’t unify them since we know
+          -- there will be no more properties.
+          --
+          -- NOTE: This is an important check to ensure the unification algorithm terminates!
+          -- Otherwise, we will create a new type variable and perform a unification of the same
+          -- form. More notes on this later.
+          (Just (Type.monotypeDescription -> Variable actualName), Just (Type.monotypeDescription -> Variable expectedName))
+            | actualName == expectedName -> missingPropertyErrors
 
-        -- Otherwise we want to unify extensions...
-        else do
-          -- We will create some type variables so perform the following in a new level. The type
-          -- variables we create may escape through updates.
-          Prefix.withLevel prefix $ do
+          -- Optimization: If we made some progress in this object unification and we only have one
+          -- extension then don’t bother with creating a new type variable. Instead, directly unify
+          -- the extension and object with overflown properties.
+          (Just actualExtension, Nothing) | not (Map.null sharedProperties) ->
             let
-              sharedExtensionRange =
-                case (actualMaybeExtension, expectedMaybeExtension) of
-                  -- Use the current range of our extension (preferring the actual extension) as the
-                  -- range of our shared extension.
-                  (Just actualExtension, _) -> currentRange (Type.monotypeRangeStack actualExtension)
-                  (_, Just expectedExtension) -> currentRange (Type.monotypeRangeStack expectedExtension)
-                  -- NOTE: This case is unreachable since the branch above should handle
-                  -- `(Nothing, Nothing)`! We provide a reasonable default in this scenario to
-                  -- avoid panicking.
-                  (Nothing, Nothing) -> currentRange (Type.monotypeRangeStack actual)
-
-            -- Create a new type variable. We need a fresh type variable as a part of the
-            -- unification algorithm described in [“Extensible records with scoped labels”][1].
-            -- Particularly the rule `(row-var)` in the isomorphic rows relation.
-            --
-            -- Every time we create a type variable we risk introducing non-termination into our
-            -- algorithm. In this case we guard against the non-termination above where we early
-            -- return if the extension are two variables with the same name. Here’s why that case
-            -- would fail to terminate otherwise.
-            --
-            -- 1. Say we are unifying `(| p: a | r |)` and `(| q: b | r |)`.
-            -- 2. We create a new type variable `t1` and unify `r` with `(| q: b | t1 |)` according
-            --    to the code below.
-            -- 3. Then we unify `(| p: a | t1 |)` with `r` according to the code below.
-            -- 4. Because `r` was unified earlier we now unify `(| p: a | t1 |)` and
-            --    `(| q: b | t1 |)`. This is of the same form as step 1. If we
-            --    repeat these steps we recurse forever.
-            --
-            -- We mitigate this non-termination by returning early when both extensions are the
-            -- same variable.
-            --
-            -- [1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf
-            sharedExtension <- Prefix.fresh prefix sharedExtensionRange
-
-            let
-              -- Create an actual overflow object using our actual overflow properties.
               actualOverflowObject =
-                if Map.null actualOverflowProperties then sharedExtension
-                else Type.object sharedExtensionRange actualOverflowProperties (Just sharedExtension)
+                if Map.null actualOverflowProperties then actualExtension else
+                  Type.object
+                    (currentRange (Type.monotypeRangeStack actual))
+                    actualOverflowProperties (Just actualExtension)
 
-              -- Create an expected overflow object using our expected overflow properties.
               expectedOverflowObject =
-                if Map.null expectedOverflowProperties then sharedExtension
-                else Type.object sharedExtensionRange expectedOverflowProperties (Just sharedExtension)
+                Type.object
+                  (currentRange (Type.monotypeRangeStack expected))
+                  expectedOverflowProperties Nothing
+            in
+              unifyWithFrame objectExtensionFrame actualOverflowObject expectedOverflowObject
 
-            -- Unify the actual extension with the expected overflow object. The expected overflow
-            -- object uses the shared extension. This way the two extensions will reach each other
-            -- after type checking the overflow properties.
-            let actualExtension = fromMaybe (Type.emptyObject sharedExtensionRange) actualMaybeExtension
-            result2 <- unifyWithFrame objectExtensionFrame actualExtension expectedOverflowObject
+          -- Optimization: If we made some progress in this object unification and we only have one
+          -- extension then don’t bother with creating a new type variable. Instead, directly unify
+          -- the extension and object with overflown properties.
+          (Nothing, Just expectedExtension) | not (Map.null sharedProperties) ->
+            let
+              actualOverflowObject =
+                Type.object
+                  (currentRange (Type.monotypeRangeStack actual))
+                  actualOverflowProperties Nothing
 
-            -- Unify the expected extension with the actual overflow object. The actual overflow
-            -- object uses the shared extension. This way the two extensions will reach each other
-            -- after type checking the overflow properties.
-            let expectedExtension = fromMaybe (Type.emptyObject sharedExtensionRange) expectedMaybeExtension
-            result3 <- unifyWithFrame objectExtensionFrame actualOverflowObject expectedExtension
+              expectedOverflowObject =
+                if Map.null expectedOverflowProperties then expectedExtension else
+                  Type.object
+                    (currentRange (Type.monotypeRangeStack expected))
+                    expectedOverflowProperties (Just expectedExtension)
+            in
+              unifyWithFrame objectExtensionFrame actualOverflowObject expectedOverflowObject
 
-            -- Pick our first error and return that.
-            return (result1 `eitherOr` result2 `eitherOr` result3)
+          -- Unify extensions if none of the above cases passed. If we have an actual extension then
+          -- let’s use its range.
+          (Just actualExtension, _) -> unifyExtensions (currentRange (Type.monotypeRangeStack actualExtension))
+          (Nothing, Just expectedExtension) -> unifyExtensions (currentRange (Type.monotypeRangeStack expectedExtension))
+
+        where
+          -- Merge the object properties into shared and overflow properties. We will unify the
+          -- shared properties together and will unify the overflow properties with the
+          -- object’s extension.
+          (sharedProperties, (actualOverflowProperties, expectedOverflowProperties)) =
+            mergeProperties actualProperties expectedProperties
+
+          -- Goes through all the overflowed properties and reports a missing property error. We
+          -- perform this action when we’ve successfully unified our properties
+          missingPropertyErrors = do
+            let
+              -- Reports a missing property error for every overflowed property.
+              overflowProperty objectType result2M name nameProperties = result2M >>= \result2 ->
+                foldlM
+                  (\result3 (ObjectProperty nameRange _) -> do
+                    let objectRange = initialRange (Type.monotypeRangeStack objectType)
+                    e <- missingProperty objectRange (nameRange, name) stack
+                    return (result3 `eitherOr` Left e))
+                  result2
+                  nameProperties
+
+            -- Loop through all our overflowed properties and report an error. If there was no
+            -- property overflow then these folds will do nothing and return `result1`.
+            let result2 = Map.foldlWithKey' (overflowProperty actual) (return (Right ())) expectedOverflowProperties
+            Map.foldlWithKey' (overflowProperty expected) result2 actualOverflowProperties
+
+          -- Unify the two object extension together. Be careful, if called inappropriately it
+          -- could cause non-termination problems.
+          unifyExtensions sharedExtensionRange =
+            -- We will create some type variables so perform the following in a new level. The type
+            -- variables we create may escape through updates.
+            Prefix.withLevel prefix $ do
+              -- Create a new type variable. We need a fresh type variable as a part of the
+              -- unification algorithm described in [“Extensible records with scoped labels”][1].
+              -- Particularly the rule `(row-var)` in the isomorphic rows relation.
+              --
+              -- Every time we create a type variable we risk introducing non-termination into our
+              -- algorithm. In this case we guard against the non-termination above where we early
+              -- return if the extension are two variables with the same name. Here’s why that case
+              -- would fail to terminate otherwise.
+              --
+              -- 1. Say we are unifying `(| p: a | r |)` and `(| q: b | r |)`.
+              -- 2. We create a new type variable `t1` and unify `r` with `(| q: b | t1 |)`
+              --    according to the code below.
+              -- 3. Then we unify `(| p: a | t1 |)` with `r` according to the code below.
+              -- 4. Because `r` was unified earlier we now unify `(| p: a | t1 |)` and
+              --    `(| q: b | t1 |)`. This is of the same form as step 1. If we
+              --    repeat these steps we recurse forever.
+              --
+              -- We mitigate this non-termination by returning early when both extensions are the
+              -- same variable.
+              --
+              -- [1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf
+              sharedExtension <- Prefix.fresh prefix sharedExtensionRange
+
+              let
+                -- Use an empty object for the actual extension if there is no extension.
+                actualExtension =
+                  fromMaybe
+                    (Type.emptyObject (currentRange (Type.monotypeRangeStack actual)))
+                    actualMaybeExtension
+
+                -- Use an empty object for the expected extension if there is no extension.
+                expectedExtension =
+                  fromMaybe
+                    (Type.emptyObject (currentRange (Type.monotypeRangeStack expected)))
+                    expectedMaybeExtension
+
+                -- Create an actual overflow object using our actual overflow properties.
+                actualOverflowObject =
+                  if Map.null actualOverflowProperties then sharedExtension
+                  else Type.object sharedExtensionRange actualOverflowProperties (Just sharedExtension)
+
+                -- Create an expected overflow object using our expected overflow properties.
+                expectedOverflowObject =
+                  if Map.null expectedOverflowProperties then sharedExtension
+                  else Type.object sharedExtensionRange expectedOverflowProperties (Just sharedExtension)
+
+              -- Unify each extension with the overflow from the other object. If the extension has
+              -- some overflown properties then those properties will be removed and we may perform
+              -- the true extension unification.
+              result2 <- unifyWithFrame objectExtensionFrame actualExtension expectedOverflowObject
+              result3 <- unifyWithFrame objectExtensionFrame actualOverflowObject expectedExtension
+
+              -- Pick our first error and return that.
+              return (result2 `eitherOr` result3)
 
       -- Exhaustive match for failure case. Don’t use a wildcard (`_`) since if we add a new type we
       -- want a compiler warning telling us to add a case for that type to unification.
