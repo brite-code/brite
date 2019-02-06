@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Semantics.CheckExpressionSpec (spec) where
+module Brite.Semantics.InferSpec (spec) where
 
 import Brite.Diagnostic
 import qualified Brite.Semantics.AST as AST
@@ -187,8 +187,8 @@ testData =
 
 openSnapshotFile :: IO Handle
 openSnapshotFile = do
-  h <- openFile "test/Brite/Semantics/CheckExpressionSpecSnapshot.md" WriteMode
-  hPutStrLn h "# CheckExpressionSpec"
+  h <- openFile "test/Brite/Semantics/InferSpecSnapshot.md" WriteMode
+  hPutStrLn h "# InferSpec"
   return h
 
 closeSnapshotFile :: Handle -> IO ()
