@@ -98,6 +98,76 @@ mergeProperties ::
     ( Map Identifier [(ObjectProperty a, ObjectProperty a)]                  -- Shared properties
     , (Map Identifier [ObjectProperty a], Map Identifier [ObjectProperty a]) -- Overflow properties
     )
+
+-- Optimization: If we only have one property, don’t run a full `Map.mergeA` which is O(n) but
+-- instead do a single delete which is O(log(n)). Calling `mergeProperties` with a single property
+-- is very common for property lookups like `o.p`.
+mergeProperties properties1 properties2 | Map.size properties1 == 1 =
+  let
+    (name, nameProperties1) = Map.elemAt 0 properties1
+
+    ((overflowNameProperties1, sharedNameProperties), overflowProperties2) =
+      Map.alterF
+        (\maybeNameProperties2 ->
+          case maybeNameProperties2 of
+            Nothing -> ((nameProperties1, []), Nothing)
+            Just nameProperties2 ->
+              let
+                loop (p1 : ps1) (p2 : ps2) = ((p1, p2) :) <$> loop ps1 ps2
+                loop [] [] = (([], []), [])
+                loop ps1@(_ : _) [] = ((ps1, []), [])
+                loop [] ps2@(_ : _) = (([], ps2), [])
+
+                ((overflowNameProperties1', overflowNameProperties2), sharedNameProperties') =
+                  loop nameProperties1 nameProperties2
+              in
+                ( (overflowNameProperties1', sharedNameProperties')
+                , if null overflowNameProperties2 then Nothing else Just overflowNameProperties2
+                ))
+        name
+        properties2
+  in
+    ( if null sharedNameProperties then Map.empty else Map.singleton name sharedNameProperties
+    , ( if null overflowNameProperties1 then Map.empty else Map.singleton name overflowNameProperties1
+      , overflowProperties2
+      )
+    )
+
+-- Optimization: If we only have one property, don’t run a full `Map.mergeA` which is O(n) but
+-- instead do a single delete which is O(log(n)). Calling `mergeProperties` with a single property
+-- is very common for property lookups like `o.p`.
+mergeProperties properties1 properties2 | Map.size properties2 == 1 =
+  let
+    (name, nameProperties2) = Map.elemAt 0 properties2
+
+    ((overflowNameProperties2, sharedNameProperties), overflowProperties1) =
+      Map.alterF
+        (\maybeNameProperties1 ->
+          case maybeNameProperties1 of
+            Nothing -> ((nameProperties2, []), Nothing)
+            Just nameProperties1 ->
+              let
+                loop (p1 : ps1) (p2 : ps2) = ((p1, p2) :) <$> loop ps1 ps2
+                loop [] [] = (([], []), [])
+                loop ps1@(_ : _) [] = ((ps1, []), [])
+                loop [] ps2@(_ : _) = (([], ps2), [])
+
+                ((overflowNameProperties1, overflowNameProperties2'), sharedNameProperties') =
+                  loop nameProperties1 nameProperties2
+              in
+                ( (overflowNameProperties2', sharedNameProperties')
+                , if null overflowNameProperties1 then Nothing else Just overflowNameProperties1
+                ))
+        name
+        properties1
+  in
+    ( if null sharedNameProperties then Map.empty else Map.singleton name sharedNameProperties
+    , ( overflowProperties1
+      , if null overflowNameProperties2 then Map.empty else Map.singleton name overflowNameProperties2
+      )
+    )
+
+-- General case:
 mergeProperties properties1 properties2 = flip runState (Map.empty, Map.empty) $
   Map.mergeA
     -- Insert missing properties into an overflow property map. There won’t be any collision because

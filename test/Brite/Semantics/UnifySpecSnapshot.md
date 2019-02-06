@@ -7233,3 +7233,364 @@ unify(<>, {a: Int}, {b: Int | Int})
   - (0:30-0:33): `Int`
 
 --------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {a: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {a: Int, a: Bool})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:18) Test failed because `a:` is missing.
+  - (0:29-0:30): `a:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, a: Bool}, {a: Int})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:19-0:20) Test failed because `a:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {a: Int, b: void})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:29-0:30): `b:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {a: Int, a: Bool, b: void})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:18) Test failed because `a:` is missing.
+  - (0:29-0:30): `a:`
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:38-0:39): `b:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, a: Bool}, {a: Int, b: void})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:27) Test failed because `b:` is missing.
+  - (0:38-0:39): `b:`
+- (0:19-0:20) Test failed because `a:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, b: void}, {a: Int})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:19-0:20) Test failed because `b:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, b: void}, {a: Int, a: Bool})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:27) Test failed because `a:` is missing.
+  - (0:38-0:39): `a:`
+- (0:19-0:20) Test failed because `b:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, a: Bool, b: void}, {a: Int})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:19-0:20) Test failed because `a:` is not needed.
+- (0:28-0:29) Test failed because `b:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int | T}, {a: Int, b: void})
+```
+
+### Output
+```
+<T = {b: void}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int | T}, {a: Int, a: Bool, b: void})
+```
+
+### Output
+```
+<T = {a: Bool, b: void}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int, b: void}, {a: Int | T})
+```
+
+### Output
+```
+<T = {b: void}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int, a: Bool, b: void}, {a: Int | T})
+```
+
+### Output
+```
+<T = {a: Bool, b: void}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int | T}, {b: void})
+```
+
+### Output
+```
+<Type1, T = {b: void | Type1}>
+```
+
+### Errors
+- (0:12-0:13) Test failed because `a:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int | T}, {b: void, c: Bool})
+```
+
+### Output
+```
+<Type1, T = {b: void, c: Bool | Type1}>
+```
+
+### Errors
+- (0:12-0:13) Test failed because `a:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int | T}, {a: Bool, b: void})
+```
+
+### Output
+```
+<T = {b: void}>
+```
+
+### Errors
+- (0:15-0:18) Test failed because `Int` is not a `Bool`.
+  - (0:29-0:33): `Bool`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {b: void}, {a: Int | T})
+```
+
+### Output
+```
+<Type1, T = {b: void | Type1}>
+```
+
+### Errors
+- (0:11-0:20) Test failed because `a:` is missing.
+  - (0:23-0:24): `a:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {b: void, c: Bool}, {a: Int | T})
+```
+
+### Output
+```
+<Type1, T = {b: void, c: Bool | Type1}>
+```
+
+### Errors
+- (0:11-0:29) Test failed because `a:` is missing.
+  - (0:32-0:33): `a:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Bool, b: void}, {a: Int | T})
+```
+
+### Output
+```
+<T = {b: void}>
+```
+
+### Errors
+- (0:15-0:19) Test failed because `Bool` is not an `Int`.
+  - (0:35-0:38): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {b: Int, c: Bool})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:21-0:22): `b:`
+- (0:10-0:18) Test failed because `c:` is missing.
+  - (0:29-0:30): `c:`
+- (0:11-0:12) Test failed because `a:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, a: Bool}, {b: Int, c: Bool})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:27) Test failed because `b:` is missing.
+  - (0:30-0:31): `b:`
+- (0:10-0:27) Test failed because `c:` is missing.
+  - (0:38-0:39): `c:`
+- (0:11-0:12) Test failed because `a:` is not needed.
+- (0:19-0:20) Test failed because `a:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {b: Int, c: Bool}, {a: Int})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:27) Test failed because `a:` is missing.
+  - (0:30-0:31): `a:`
+- (0:11-0:12) Test failed because `b:` is not needed.
+- (0:19-0:20) Test failed because `c:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {b: Int, c: Bool}, {a: Int, a: Bool})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:10-0:27) Test failed because `a:` is missing.
+  - (0:30-0:31): `a:`
+- (0:10-0:27) Test failed because `a:` is missing.
+  - (0:38-0:39): `a:`
+- (0:11-0:12) Test failed because `b:` is not needed.
+- (0:19-0:20) Test failed because `c:` is not needed.
+
+--------------------------------------------------------------------------------
