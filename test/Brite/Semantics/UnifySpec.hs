@@ -34,396 +34,396 @@ import Test.Hspec
 -- about our tests in theory.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-testData :: [(Text, Text, [Text])]
+testData :: [Text]
 testData =
-  [ ("unify(<>, Bool, Bool)", "<>", [])
-  , ("unify(<>, Int, Int)", "<>", [])
-  , ("unify(<A>, Int, Int)", "<A>", [])
-  , ("unify(<A, B>, Int, Int)", "<A, B>", [])
-  , ("unify(<A, B, C>, Int, Int)", "<A, B, C>", [])
-  , ("unify(<>, fun(Int) -> Int, fun(Int) -> Int)", "<>", [])
-  , ("unify(<>, fun(Int) -> Bool, fun(Int) -> Bool)", "<>", [])
-  , ("unify(<>, fun(Int) -> fun(Bool) -> Bool, fun(Int) -> fun(Bool) -> Bool)", "<>", [])
-  , ("unify(<>, fun(Int) -> Int, fun(Int) -> Bool)", "<>", ["(0:22-0:25) Test failed because `Int` is not a `Bool`. [(0:39-0:43): `Bool`]"])
-  , ("unify(<>, fun(Int) -> Int, fun(Bool) -> Int)", "<>", ["(0:14-0:17) Test failed because `Int` is not a `Bool`. [(0:31-0:35): `Bool`]"])
-  , ("unify(<>, fun(Int) -> Int, fun(Bool) -> Bool)", "<>", ["(0:14-0:17) Test failed because `Int` is not a `Bool`. [(0:31-0:35): `Bool`]", "(0:22-0:25) Test failed because `Int` is not a `Bool`. [(0:40-0:44): `Bool`]"])
-  , ("unify(<>, fun(Int) -> fun(Int) -> Int, fun(Bool) -> fun(Bool) -> Bool)", "<>", ["(0:14-0:17) Test failed because `Int` is not a `Bool`. [(0:43-0:47): `Bool`]", "(0:26-0:29) Test failed because `Int` is not a `Bool`. [(0:56-0:60): `Bool`]", "(0:34-0:37) Test failed because `Int` is not a `Bool`. [(0:65-0:69): `Bool`]"])
-  , ("unify(<>, fun(fun(Int) -> Int) -> Int, fun(fun(Bool) -> Bool) -> Bool)", "<>", ["(0:18-0:21) Test failed because `Int` is not a `Bool`. [(0:47-0:51): `Bool`]", "(0:26-0:29) Test failed because `Int` is not a `Bool`. [(0:56-0:60): `Bool`]", "(0:34-0:37) Test failed because `Int` is not a `Bool`. [(0:65-0:69): `Bool`]"])
-  , ("unify(<>, Int, fun(Int) -> Int)", "<>", ["(0:10-0:13) Test failed because `Int` is not a function. [(0:15-0:30): function]"])
-  , ("unify(<>, fun(Int) -> Int, Int)", "<>", ["(0:10-0:25) Test failed because function is not an `Int`. [(0:27-0:30): `Int`]"])
-  , ("unify(<A = Int>, A, Int)", "<A = Int>", [])
-  , ("unify(<A = Int>, Int, A)", "<A = Int>", [])
-  , ("unify(<A = Int>, A, Bool)", "<A = Int>", ["(0:11-0:14) Test failed because `Int` is not a `Bool`. [(0:20-0:24): `Bool`]"])
-  , ("unify(<A = Int>, Bool, A)", "<A = Int>", ["(0:17-0:21) Test failed because `Bool` is not an `Int`. [(0:11-0:14): `Int`]"])
-  , ("unify(<A: Int>, A, Int)", "<A: Int>", [])
-  , ("unify(<A: Int>, Int, A)", "<A: Int>", [])
-  , ("unify(<A: Int>, A, Bool)", "<A: Int>", ["(0:10-0:13) Test failed because `Int` is not a `Bool`. [(0:19-0:23): `Bool`]"])
-  , ("unify(<A: Int>, Bool, A)", "<A: Int>", ["(0:16-0:20) Test failed because `Bool` is not an `Int`. [(0:10-0:13): `Int`]"])
-  , ("unify(<B = Int, A = B>, A, Int)", "<B = Int, A = B>", [])
-  , ("unify(<B = Int, A = B>, Int, A)", "<B = Int, A = B>", [])
-  , ("unify(<B = Int, A = B>, A, Bool)", "<B = Int, A = B>", ["(0:11-0:14) Test failed because `Int` is not a `Bool`. [(0:27-0:31): `Bool`]"])
-  , ("unify(<B = Int, A = B>, Bool, A)", "<B = Int, A = B>", ["(0:24-0:28) Test failed because `Bool` is not an `Int`. [(0:11-0:14): `Int`]"])
-  , ("unify(<B = Int, A: B>, A, Int)", "<B = Int, A: B>", [])
-  , ("unify(<B = Int, A: B>, Int, A)", "<B = Int, A: B>", [])
-  , ("unify(<B = Int, A: B>, A, Bool)", "<B = Int, A: B>", ["(0:11-0:14) Test failed because `Int` is not a `Bool`. [(0:26-0:30): `Bool`]"])
-  , ("unify(<B = Int, A: B>, Bool, A)", "<B = Int, A: B>", ["(0:23-0:27) Test failed because `Bool` is not an `Int`. [(0:11-0:14): `Int`]"])
-  , ("unify(<B: Int, A = B>, A, Int)", "<B: Int, A = B>", [])
-  , ("unify(<B: Int, A = B>, Int, A)", "<B: Int, A = B>", [])
-  , ("unify(<B: Int, A = B>, A, Bool)", "<B: Int, A = B>", ["(0:10-0:13) Test failed because `Int` is not a `Bool`. [(0:26-0:30): `Bool`]"])
-  , ("unify(<B: Int, A = B>, Bool, A)", "<B: Int, A = B>", ["(0:23-0:27) Test failed because `Bool` is not an `Int`. [(0:10-0:13): `Int`]"])
-  , ("unify(<B: Int, A: B>, A, Int)", "<B: Int, A: B>", [])
-  , ("unify(<B: Int, A: B>, Int, A)", "<B: Int, A: B>", [])
-  , ("unify(<B: Int, A: B>, A, Bool)", "<B: Int, A: B>", ["(0:10-0:13) Test failed because `Int` is not a `Bool`. [(0:25-0:29): `Bool`]"])
-  , ("unify(<B: Int, A: B>, Bool, A)", "<B: Int, A: B>", ["(0:22-0:26) Test failed because `Bool` is not an `Int`. [(0:10-0:13): `Int`]"])
-  , ("unify(<A>, A, A)", "<A>", [])
-  , ("unify(<A: !>, A, A)", "<A>", [])
-  , ("unify(<A = !>, A, A)", "<A = !>", [])
-  , ("unify(<A, B = A, C = B>, B, C)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, C, B)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, A, B)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, A, C)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, B, A)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, C, A)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, B, A)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, B, B)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = A, C = B>, C, C)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, B, C)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, C, B)", "<A, B = <Z> A, C = B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, A, B)", "<A, B = A, C = <Z> B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, A, C)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, B, A)", "<A, B = A, C = <Z> B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, C, A)", "<A, B = A, C = B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, B, A)", "<A, B = A, C = <Z> B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, B, B)", "<A, B = <Z> A, C = <Z> B>", [])
-  , ("unify(<A, B = <Z> A, C = <Z> B>, C, C)", "<A, B = <Z> A, C = <Z> B>", [])
-  , ("unify(<A>, A, Int)", "<A = Int>", [])
-  , ("unify(<A>, Int, A)", "<A = Int>", [])
-  , ("unify(<A: !>, A, Int)", "<A = Int>", [])
-  , ("unify(<A: !>, Int, A)", "<A = Int>", [])
-  , ("unify(<A = !>, A, Int)", "<A = !>", ["(0:18-0:21) Test failed because `!` is more general than `Int`. [(0:11-0:12): `!`]"])
-  , ("unify(<A = !>, Int, A)", "<A = !>", ["(0:15-0:18) Test failed because `!` is more general than `Int`. [(0:11-0:12): `!`]"])
-  , ("unify(<B: !, A: B>, A, Int)", "<B = Int, A: B>", [])
-  , ("unify(<B: !, A: B>, Int, A)", "<B = Int, A: B>", [])
-  , ("unify(<B: !, A = B>, A, Int)", "<B = Int, A = B>", [])
-  , ("unify(<B: !, A = B>, Int, A)", "<B = Int, A = B>", [])
-  , ("unify(<B = !, A: B>, A, Int)", "<B = !, A: B>", ["(0:24-0:27) Test failed because `!` is more general than `Int`. [(0:11-0:12): `!`]"])
-  , ("unify(<B = !, A: B>, Int, A)", "<B = !, A: B>", ["(0:21-0:24) Test failed because `!` is more general than `Int`. [(0:11-0:12): `!`]"])
-  , ("unify(<B = !, A = B>, A, Int)", "<B = !, A = B>", ["(0:25-0:28) Test failed because `!` is more general than `Int`. [(0:11-0:12): `!`]"])
-  , ("unify(<B = !, A = B>, Int, A)", "<B = !, A = B>", ["(0:22-0:25) Test failed because `!` is more general than `Int`. [(0:11-0:12): `!`]"])
-  , ("unify(<B, A = fun(B) -> B>, A, B)", "<B, A = fun(B) -> B>", ["(0:0-0:33) Test failed because the type checker infers an infinite type."])
-  , ("unify(<B, A = fun(B) -> B>, B, A)", "<B, A = fun(B) -> B>", ["(0:0-0:33) Test failed because the type checker infers an infinite type."])
-  , ("unify(<B, C = fun(B) -> B, A = C>, A, B)", "<B, C = fun(B) -> B, A = C>", ["(0:0-0:40) Test failed because the type checker infers an infinite type."])
-  , ("unify(<B, C = fun(B) -> B, A = C>, B, A)", "<B, C = fun(B) -> B, A = C>", ["(0:0-0:40) Test failed because the type checker infers an infinite type."])
-  , ("unify(<B, C = fun(B) -> B, A = fun(C) -> C>, A, B)", "<B, C = fun(B) -> B, A = fun(C) -> C>", ["(0:0-0:50) Test failed because the type checker infers an infinite type."])
-  , ("unify(<B, C = fun(B) -> B, A = fun(C) -> C>, B, A)", "<B, C = fun(B) -> B, A = fun(C) -> C>", ["(0:0-0:50) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A, B>, A, B)", "<A, B = A>", [])
-  , ("unify(<A, B>, B, A)", "<B, A = B>", [])
-  , ("unify(<A, B>, A, fun(B) -> B)", "<B, A = fun(B) -> B>", [])
-  , ("unify(<A, B>, fun(B) -> B, A)", "<B, A = fun(B) -> B>", [])
-  , ("unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Bool)", "<A: fun<X>(X) -> X>", ["(0:23-0:24) Test failed because `Int` is not a `Bool`. [(0:34-0:37): `Int`, (0:42-0:46): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> X>, A, fun(Int) -> Int)", "<A = fun<X>(X) -> X>", ["(0:31-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:11-0:25): `fun<X>(X) -> X`]"])
-  , ("unify(<A = fun<X>(X) -> X>, A, fun(Int) -> Bool)", "<A = fun<X>(X) -> X>", ["(0:24-0:25) Test failed because `Int` is not a `Bool`. [(0:35-0:38): `Int`, (0:43-0:47): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)", "<A: fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)", "<B: fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)", "<A: fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)", "<B: fun<Z>(Z) -> Z, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)", "<B = fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)", "<B = fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)", "<B = fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)", "<A: fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)", "<B: fun<Z>(Z) -> Z, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)", "<B = fun<Z>(Z) -> Z, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)", "<A: fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>", ["(0:10-0:24) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`. [(0:37-0:48): `fun<Y>(Y) -> !`]"])
-  , ("unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)", "<A: fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>", ["(0:37-0:48) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`."])
-  , ("unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)", "<A = fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>", ["(0:11-0:25) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`. [(0:38-0:49): `fun<Y>(Y) -> !`]"])
-  , ("unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)", "<A = fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>", ["(0:38-0:49) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`."])
-  , ("unify(<A: fun<X>(X) -> X, B = fun(Int) -> Int>, A, B)", "<A = fun(Int) -> Int, B = fun(Int) -> Int>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = fun(Int) -> Int>, B, A)", "<A = fun(Int) -> Int, B = fun(Int) -> Int>", [])
-  , ("unify(<A, B = fun(A) -> A>, A, B)", "<A, B = fun(A) -> A>", ["(0:0-0:33) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A, B = fun(A) -> A>, B, A)", "<A, B = fun(A) -> A>", ["(0:0-0:33) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A, B = fun<C>(C) -> A>, A, B)", "<A, B = fun<C>(C) -> A>", ["(0:0-0:36) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A, B = fun<C>(C) -> A>, B, A)", "<A, B = fun<C>(C) -> A>", ["(0:0-0:36) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A = !, B = !>, A, B)", "<A = !, B = A>", [])
-  , ("unify(<A = !, B = !>, B, A)", "<B = !, A = B>", [])
-  , ("unify(<A = !, B = fun<C>(C) -> C>, A, B)", "<A = !, B = fun<C>(C) -> C>", ["(0:18-0:32) Test failed because `!` is more general than `fun<C>(C) -> C`. [(0:11-0:12): `!`]"])
-  , ("unify(<A = !, B = fun<C>(C) -> C>, B, A)", "<A = !, B = fun<C>(C) -> C>", ["(0:18-0:32) Test failed because `!` is more general than `fun<C>(C) -> C`. [(0:11-0:12): `!`]"])
-  , ("unify(<A, B>, A, B)", "<A, B = A>", [])
-  , ("unify(<A, B>, B, A)", "<B, A = B>", [])
-  , ("unify(<A: !, B: !>, A, B)", "<A, B = A>", [])
-  , ("unify(<A: !, B: !>, B, A)", "<B, A = B>", [])
-  , ("unify(<A = !, B: !>, A, B)", "<A = !, B = A>", [])
-  , ("unify(<A = !, B: !>, B, A)", "<B = !, A = B>", [])
-  , ("unify(<A: !, B = !>, A, B)", "<A = !, B = A>", [])
-  , ("unify(<A: !, B = !>, B, A)", "<B = !, A = B>", [])
-  , ("unify(<A = !, B = !>, A, B)", "<A = !, B = A>", [])
-  , ("unify(<A = !, B = !>, B, A)", "<B = !, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)", "<A: fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)", "<B: fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)", "<B = fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)", "<B = fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)", "<B = fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: fun<X>(X) -> X>, A, B)", "<A: fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B: fun<X>(X) -> X>, B, A)", "<B: fun<X>(X) -> X, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: fun<X>(X) -> X>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B: fun<X>(X) -> X>, B, A)", "<B = fun<X>(X) -> X, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = fun<X>(X) -> X>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)", "<B = fun<X>(X) -> X, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)", "<B = fun<X>(X) -> X, A = B>", [])
-  , ("unify(<X>, X, X)", "<X>", [])
-  , ("unify(<A: Int>, A, Int)", "<A: Int>", [])
-  , ("unify(<A = Int>, A, Int)", "<A = Int>", [])
-  , ("unify(<A: Int>, A, Bool)", "<A: Int>", ["(0:10-0:13) Test failed because `Int` is not a `Bool`. [(0:19-0:23): `Bool`]"])
-  , ("unify(<A = Int>, A, Bool)", "<A = Int>", ["(0:11-0:14) Test failed because `Int` is not a `Bool`. [(0:20-0:24): `Bool`]"])
-  , ("unify(<A: Int>, Int, A)", "<A: Int>", [])
-  , ("unify(<A = Int>, Int, A)", "<A = Int>", [])
-  , ("unify(<A: Int>, Bool, A)", "<A: Int>", ["(0:16-0:20) Test failed because `Bool` is not an `Int`. [(0:10-0:13): `Int`]"])
-  , ("unify(<A = Int>, Bool, A)", "<A = Int>", ["(0:17-0:21) Test failed because `Bool` is not an `Int`. [(0:11-0:14): `Int`]"])
-  , ("unify(<A, B = A>, A, B)", "<A, B = A>", [])
-  , ("unify(<A, B = A>, B, A)", "<A, B = A>", [])
-  , ("unify(<A, B: A>, A, B)", "<A, B: A>", [])
-  , ("unify(<A, B: A>, B, A)", "<A, B: A>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)", "<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:23-0:26) Test failed because `Int` is not a `Bool`. [(0:44-0:48): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)", "<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:44-0:48) Test failed because `Bool` is not an `Int`. [(0:23-0:26): `Int`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)", "<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)", "<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:45-0:49) Test failed because `Bool` is not an `Int`. [(0:24-0:27): `Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)", "<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:23-0:26) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)", "<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:45-0:49) Test failed because `Bool` is not an `Int`. [(0:23-0:26): `Int`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)", "<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:46-0:50): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)", "<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:46-0:50) Test failed because `Bool` is not an `Int`. [(0:24-0:27): `Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)", "<A: fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)", "<B: fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)", "<A = fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)", "<A = fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)", "<A = fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)", "<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>", ["(0:26-0:27) Test failed because the type checker infers an infinite type."])
-  , ("unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)", "<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>", ["(0:45-0:46) Test failed because the type checker infers an infinite type."])
-  , ("unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)", "<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>", ["(0:27-0:28) Test failed because the type checker infers an infinite type."])
-  , ("unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)", "<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>", ["(0:46-0:47) Test failed because the type checker infers an infinite type."])
-  , ("unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)", "<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>", ["(0:26-0:27) Test failed because the type checker infers an infinite type."])
-  , ("unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)", "<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>", ["(0:46-0:47) Test failed because the type checker infers an infinite type."])
-  , ("unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)", "<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>", ["(0:27-0:28) Test failed because the type checker infers an infinite type."])
-  , ("unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)", "<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>", ["(0:47-0:48) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, A, B)", "<A: fun(Int) -> Int, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, B, A)", "<B: fun(Int) -> Int, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>", ["(0:11-0:27) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`."])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, B, A)", "<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>", ["(0:32-0:46) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`. [(0:11-0:27): `fun<X>(X) -> Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, A, B)", "<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>", ["(0:10-0:26) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`. [(0:32-0:46): `fun<Y>(Y) -> Y`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)", "<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>", ["(0:32-0:46) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`."])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, A, B)", "<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>", ["(0:11-0:27) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.", "(0:11-0:27) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`. [(0:33-0:47): `fun<Y>(Y) -> Y`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)", "<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>", ["(0:33-0:47) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.", "(0:33-0:47) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`. [(0:11-0:27): `fun<X>(X) -> Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Bool)", "<A: fun<X>(X) -> Int, B>", ["(0:23-0:26) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Int)", "<B, A = fun(B) -> Int>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Bool)", "<A = fun<X>(X) -> Int, B>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:46-0:50): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Int)", "<A = fun<X>(X) -> Int, B>", ["(0:36-0:49) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`. [(0:11-0:27): `fun<X>(X) -> Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, A, fun(Bool) -> Bool)", "<A: fun<X>(X) -> Int>", ["(0:23-0:26) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, A, fun(Bool) -> Int)", "<A = fun(Bool) -> Int>", [])
-  , ("unify(<A = fun<X>(X) -> Int>, A, fun(Bool) -> Bool)", "<A = fun<X>(X) -> Int>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:46-0:50): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> Int>, A, fun(Bool) -> Int)", "<A = fun<X>(X) -> Int>", ["(0:33-0:49) Test failed because `fun<X>(X) -> Int` is more general than `fun(Bool) -> Int`. [(0:11-0:27): `fun<X>(X) -> Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, A, fun(A) -> Bool)", "<A: fun<X>(X) -> Int>", ["(0:23-0:26) Test failed because `Int` is not a `Bool`. [(0:42-0:46): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, A, fun(A) -> Int)", "<A: fun<X>(X) -> Int>", ["(0:0-0:46) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A = fun<X>(X) -> Int>, A, fun(A) -> Bool)", "<A = fun<X>(X) -> Int>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:43-0:47): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> Int>, A, fun(A) -> Int)", "<A = fun<X>(X) -> Int>", ["(0:0-0:47) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Bool, A)", "<A: fun<X>(X) -> Int, B>", ["(0:42-0:46) Test failed because `Bool` is not an `Int`. [(0:23-0:26): `Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Int, A)", "<B, A = fun(B) -> Int>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Bool, A)", "<A = fun<X>(X) -> Int, B>", ["(0:43-0:47) Test failed because `Bool` is not an `Int`. [(0:24-0:27): `Int`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Int, A)", "<A = fun<X>(X) -> Int, B>", ["(0:33-0:46) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`. [(0:11-0:27): `fun<X>(X) -> Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, fun(Bool) -> Bool, A)", "<A: fun<X>(X) -> Int>", ["(0:42-0:46) Test failed because `Bool` is not an `Int`. [(0:23-0:26): `Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, fun(Bool) -> Int, A)", "<A = fun(Bool) -> Int>", [])
-  , ("unify(<A = fun<X>(X) -> Int>, fun(Bool) -> Bool, A)", "<A = fun<X>(X) -> Int>", ["(0:43-0:47) Test failed because `Bool` is not an `Int`. [(0:24-0:27): `Int`]"])
-  , ("unify(<A = fun<X>(X) -> Int>, fun(Bool) -> Int, A)", "<A = fun<X>(X) -> Int>", ["(0:30-0:46) Test failed because `fun<X>(X) -> Int` is more general than `fun(Bool) -> Int`. [(0:11-0:27): `fun<X>(X) -> Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, fun(A) -> Bool, A)", "<A: fun<X>(X) -> Int>", ["(0:39-0:43) Test failed because `Bool` is not an `Int`. [(0:23-0:26): `Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int>, fun(A) -> Int, A)", "<A: fun<X>(X) -> Int>", ["(0:0-0:46) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A = fun<X>(X) -> Int>, fun(A) -> Bool, A)", "<A = fun<X>(X) -> Int>", ["(0:40-0:44) Test failed because `Bool` is not an `Int`. [(0:24-0:27): `Int`]"])
-  , ("unify(<A = fun<X>(X) -> Int>, fun(A) -> Int, A)", "<A = fun<X>(X) -> Int>", ["(0:0-0:47) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A, B = fun<X>(X) -> X>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A, B = fun<X>(X) -> X>, B, A)", "<B = fun<X>(X) -> X, A = B>", [])
-  , ("unify(<A, B: fun<X>(X) -> X>, A, B)", "<A: fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A, B: fun<X>(X) -> X>, B, A)", "<B: fun<X>(X) -> X, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)", "<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:23-0:26) Test failed because `Int` is not a `Bool`. [(0:44-0:48): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)", "<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:44-0:48) Test failed because `Bool` is not an `Int`. [(0:23-0:26): `Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)", "<A: fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)", "<B: fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)", "<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)", "<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>", ["(0:45-0:49) Test failed because `Bool` is not an `Int`. [(0:24-0:27): `Int`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)", "<A = fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)", "<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:23-0:26) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)", "<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:45-0:49) Test failed because `Bool` is not an `Int`. [(0:23-0:26): `Int`]"])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)", "<A = fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)", "<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:46-0:50): `Bool`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)", "<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>", ["(0:46-0:50) Test failed because `Bool` is not an `Int`. [(0:24-0:27): `Int`]"])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)", "<A = fun<X>(X) -> Int, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, A, B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)", "<B = fun<X>(X) -> X, A = B>", [])
-  , ("unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, A, F)", "<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>", ["(0:0-0:61) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, F, A)", "<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>", ["(0:0-0:61) Test failed because the type checker infers an infinite type."])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, fun(A) -> A, fun(A) -> B)", "<A = fun<X>(X) -> X, B = A>", [])
-  , ("unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, fun(A) -> B, fun(A) -> A)", "<B = fun<Y>(Y) -> Y, A = B>", [])
-  , ("unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, T, U)", "<T = fun<A = fun<X>(X) -> X>(A) -> A, U = T>", [])
-  , ("unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, U, T)", "<U = fun<C = fun<Z>(Z) -> Z>(C) -> C, T = U>", [])
-  , ("unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, A, B)", "<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B = A>", [])
-  , ("unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, B, A)", "<B = fun<X, X = fun<Z>(Z) -> X>(X) -> X, A = B>", [])
-  , ("unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C) -> fun(D) -> E)", "<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B, C, D, E = C>", ["(0:39-0:40) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`. [(0:19-0:33): `fun<Z>(Z) -> X`, (0:68-0:79): `fun(B) -> C`]", "(0:45-0:46) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`. [(0:19-0:33): `fun<Z>(Z) -> X`, (0:84-0:95): `fun(D) -> E`]"])
-  , ("unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) -> fun(D) -> E, A)", "<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B, E, C = E, D>", ["(0:65-0:76) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`. [(0:19-0:33): `fun<Z>(Z) -> X`]", "(0:81-0:92) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`. [(0:19-0:33): `fun<Z>(Z) -> X`]"])
-  , ("unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C) -> fun(D) -> E)", "<B, C, D = B, E = C, A = fun(fun(B) -> C) -> fun(D) -> E>", [])
-  , ("unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) -> fun(D) -> E, A)", "<D, B = D, E, C = E, A = fun(fun(B) -> C) -> fun(D) -> E>", [])
-  , ("unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(X) -> X>, A, B)", "<A = fun<X, X2 = fun<Z>(Z) -> X>(X2) -> X2, B = A>", [])
-  , ("unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X>, A, B)", "<A = fun<X, X2, X3 = fun<Z>(Z) -> fun(X2) -> X>(X3) -> X3, B = A>", [])
-  , ("unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1>, A, B)", "<A = fun<X1, X2 = fun<Z>(Z) -> X1>(X2) -> X2, B = A>", [])
-  , ("unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1>, A, B)", "<A = fun<X1, X2, X3 = fun<Z>(Z) -> fun(X2) -> X1>(X3) -> X3, B = A>", [])
-  , ("unify(<A = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5, B = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5>, A, B)", "<A = fun<X5, X6 = fun<Z>(Z) -> X5>(X6) -> X6, B = A>", [])
-  , ("unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(X) -> X>, B, A)", "<B = fun<X, X2 = fun<Z>(Z) -> X>(X2) -> X2, A = B>", [])
-  , ("unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X>, B, A)", "<B = fun<X, X2, X3 = fun<Z>(Z) -> fun(X2) -> X>(X3) -> X3, A = B>", [])
-  , ("unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1>, B, A)", "<B = fun<X1, X2 = fun<Z>(Z) -> X1>(X2) -> X2, A = B>", [])
-  , ("unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1>, B, A)", "<B = fun<X1, X2, X3 = fun<Z>(Z) -> fun(X2) -> X1>(X3) -> X3, A = B>", [])
-  , ("unify(<A = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5, B = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5>, B, A)", "<B = fun<X5, X6 = fun<Z>(Z) -> X5>(X6) -> X6, A = B>", [])
-  , ("unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A: fun<X>(X) -> X, B>, A, fun(Int) -> B)", "<B = Int, A = fun(Int) -> B>", [])
-  , ("unify(<A = <X = Int> X>, A, Int)", "<A = Int>", [])
-  , ("unify(<A: <X: fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A = <X: fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)", "<A = fun<Y>(Y) -> Y>", ["(0:38-0:53) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`. [(0:15-0:29): `fun<Y>(Y) -> Y`]"])
-  , ("unify(<A: <X = fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A = <X = fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)", "<A = fun<Y>(Y) -> Y>", ["(0:39-0:54) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`. [(0:16-0:30): `fun<Y>(Y) -> Y`]"])
-  , ("unify(<A: fun<Y>(Y) -> Y>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A: <B = fun<X>(X) -> X> B>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A: <B = <C = fun<X>(X) -> X> C> B>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A: <B = <C = <D = fun<X>(X) -> X> D> C> B>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A: <B = fun<X>(X) -> X> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)", "<A: fun<B = fun<X>(X) -> X>(B) -> B>", ["(0:35-0:36) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:15-0:29): `fun<X>(X) -> X`, (0:52-0:67): `fun(Int) -> Int`]", "(0:41-0:42) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:15-0:29): `fun<X>(X) -> X`, (0:72-0:87): `fun(Int) -> Int`]"])
-  , ("unify(<A: <B = <C = fun<X>(X) -> X> C> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)", "<A: fun<B = fun<X>(X) -> X>(B) -> B>", ["(0:43-0:44) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:20-0:34): `fun<X>(X) -> X`, (0:60-0:75): `fun(Int) -> Int`]", "(0:49-0:50) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:20-0:34): `fun<X>(X) -> X`, (0:80-0:95): `fun(Int) -> Int`]"])
-  , ("unify(<A: <B = <C = <D = fun<X>(X) -> X> D> C> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)", "<A: fun<B = fun<X>(X) -> X>(B) -> B>", ["(0:51-0:52) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:25-0:39): `fun<X>(X) -> X`, (0:68-0:83): `fun(Int) -> Int`]", "(0:57-0:58) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:25-0:39): `fun<X>(X) -> X`, (0:88-0:103): `fun(Int) -> Int`]"])
-  , ("unify(<A: <B = fun<X>(X) -> X> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)", "<A: fun<B = fun<X>(X) -> X>(B) -> B>", ["(0:35-0:36) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:15-0:29): `fun<X>(X) -> X`, (0:52-0:67): `fun(Int) -> Int`]", "(0:41-0:42) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:15-0:29): `fun<X>(X) -> X`, (0:72-0:87): `fun(Int) -> Int`]"])
-  , ("unify(<A: <B = <C = fun<X>(X) -> X> fun(C) -> C> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)", "<A: fun<C = fun<X>(X) -> X>(C) -> C>", ["(0:40-0:41) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:20-0:34): `fun<X>(X) -> X`, (0:60-0:75): `fun(Int) -> Int`]", "(0:46-0:47) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:20-0:34): `fun<X>(X) -> X`, (0:80-0:95): `fun(Int) -> Int`]"])
-  , ("unify(<A: <B = <C = <D = fun<X>(X) -> X> fun(D) -> D> C> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)", "<A: fun<D = fun<X>(X) -> X>(D) -> D>", ["(0:45-0:46) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:25-0:39): `fun<X>(X) -> X`, (0:68-0:83): `fun(Int) -> Int`]", "(0:51-0:52) Test failed because `fun<X>(X) -> X` is more general than `fun(Int) -> Int`. [(0:25-0:39): `fun<X>(X) -> X`, (0:88-0:103): `fun(Int) -> Int`]"])
-  , ("unify(<A: <X> X>, A, Int)", "<A = Int>", [])
-  , ("unify(<A: <X> X>, Int, A)", "<A = Int>", [])
-  , ("unify(<A: <X> X, B: <X> X>, A, B)", "<A, B = A>", [])
-  , ("unify(<A: <X> X, B: <X> X>, B, A)", "<B, A = B>", [])
-  , ("unify(<A = <X, Y> fun(Int) -> Int>, A, fun(Int) -> Int)", "<A = fun(Int) -> Int>", [])
-  , ("unify(<A = <X, Y> fun(Y) -> Int, B = <X, Y> fun(Y) -> Int>, A, B)", "<A = fun<Y>(Y) -> Int, B = A>", [])
-  , ("unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)", "<A = fun<Y>(Y) -> Int, B = A>", [])
-  , ("unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<A = <Y, X> fun(Y) -> Int, B = <Y, X> fun(Y) -> Int>, A, B)", "<A = fun<Y>(Y) -> Int, B = A>", [])
-  , ("unify(<A = <Y, X> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)", "<A = fun<Y>(Y) -> Int, B = A>", [])
-  , ("unify(<A = <Y, X> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)", "<B = fun<Y>(Y) -> Int, A = B>", [])
-  , ("unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)", "<X = fun<A: fun<B>(B) -> B>(A) -> A, Y = fun<C>(fun(C) -> C) -> fun(C) -> C>", ["(0:31-0:42) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`."])
-  , ("unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)", "<X = fun<C>(fun(C) -> C) -> fun(C) -> C, Y = X>", [])
-  , ("unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)", "<X = fun<A: fun<B>(B) -> B>(A) -> A, Y: fun<C>(fun(C) -> C) -> fun(C) -> C>", ["(0:31-0:42) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`."])
-  , ("unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)", "<X: fun<C>(fun(C) -> C) -> fun(C) -> C, Y = X>", [])
-  , ("unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)", "<X = fun<A: fun<B>(B) -> B>(A) -> A, Y = fun<C>(fun(C) -> C) -> fun(C) -> C>", ["(0:48-0:84) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`. [(0:31-0:42): `fun<A: fun<B>(B) -> B>(A) -> A`]"])
-  , ("unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)", "<Y = fun<C>(fun(C) -> C) -> fun(C) -> C, X = Y>", [])
-  , ("unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)", "<X = fun<A: fun<B>(B) -> B>(A) -> A, Y: fun<C>(fun(C) -> C) -> fun(C) -> C>", ["(0:47-0:83) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`. [(0:31-0:42): `fun<A: fun<B>(B) -> B>(A) -> A`]"])
-  , ("unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)", "<Y: fun<C>(fun(C) -> C) -> fun(C) -> C, X = Y>", [])
-  , ("unify(<T = nope>, T, T)", "<T = !>", ["(0:11-0:15) Can not find `nope`."])
-  , ("unify(<T1 = nope, T2 = nope>, T1, T2)", "<T1 = !, T2 = T1>", ["(0:12-0:16) Can not find `nope`.", "(0:23-0:27) Can not find `nope`."])
-  , ("unify(<T1 = nope1, T2 = nope2>, T1, T2)", "<T1 = !, T2 = T1>", ["(0:12-0:17) Can not find `nope1`.", "(0:24-0:29) Can not find `nope2`."])
-  , ("unify(<X, Y = Int>, X, Y)", "<X = Int, Y = Int>", [])
-  , ("unify(<X, Y = Int>, Y, X)", "<X = Int, Y = Int>", [])
-  , ("unify(<X, Y = nope>, X, Y)", "<X = !, Y = X>", ["(0:14-0:18) Can not find `nope`."])
-  , ("unify(<X, Y = nope>, Y, X)", "<Y = !, X = Y>", ["(0:14-0:18) Can not find `nope`."])
-  , ("unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, A, B)", "<A = fun<Type1, Z>(Z) -> Type1, B = A>", ["(0:24-0:28) Can not find `nope`.", "(0:47-0:51) Can not find `nope`."])
-  , ("unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, B, A)", "<B = fun<Type1, Z>(Z) -> Type1, A = B>", ["(0:24-0:28) Can not find `nope`.", "(0:47-0:51) Can not find `nope`."])
-  , ("unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, A, B)", "<C = !, A = fun<Z>(Z) -> C, B = A>", ["(0:11-0:15) Can not find `nope`."])
-  , ("unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, B, A)", "<C = !, B = fun<Z>(Z) -> C, A = B>", ["(0:11-0:15) Can not find `nope`."])
-  , ("unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)", "<X = fun<Z>(Z) -> Int, Y = fun<Z>(Z) -> Int, T = fun(X) -> Y>", [])
-  , ("unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)", "<X = fun<Z>(Z) -> Int, Y = fun<Z>(Z) -> Int, T = fun(X) -> Y>", [])
-  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)", "<E = !, X = fun<Z>(Z) -> E, Y = fun<Z>(Z) -> E, T = fun(X) -> Y>", ["(0:22-0:26) Can not find `nope`."])
-  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)", "<E = !, X = fun<Z>(Z) -> E, Y = fun<Z>(Z) -> E, T = fun(X) -> Y>", ["(0:22-0:26) Can not find `nope`."])
-  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, T, fun(X) -> Y)", "<E1 = !, E2 = !, X = fun<Z>(Z) -> E1, Y = fun<Z>(Z) -> E2, T = fun(X) -> Y>", ["(0:23-0:27) Can not find `nope`.", "(0:34-0:38) Can not find `nope`."])
-  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(X) -> Y, T)", "<E1 = !, E2 = !, X = fun<Z>(Z) -> E1, Y = fun<Z>(Z) -> E2, T = fun(X) -> Y>", ["(0:23-0:27) Can not find `nope`.", "(0:34-0:38) Can not find `nope`."])
-  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, T, fun(X) -> Y)", "<X = fun<Z, Type1>(Z) -> Type1, Y = fun<Z, Type1>(Z) -> Type1, T = fun(X) -> Y>", ["(0:35-0:39) Can not find `nope`.", "(0:58-0:62) Can not find `nope`."])
-  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(X) -> Y, T)", "<X = fun<Z, Type1>(Z) -> Type1, Y = fun<Z, Type1>(Z) -> Type1, T = fun(X) -> Y>", ["(0:35-0:39) Can not find `nope`.", "(0:58-0:62) Can not find `nope`."])
-  , ("unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<E = !, Y = fun<Z>(Z) -> E, X = Y, T = fun(X) -> Y>", ["(0:22-0:26) Can not find `nope`."])
-  , ("unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<E2 = !, E1 = E2, Y = fun<Z>(Z) -> E2, X = Y, T = fun(X) -> Y>", ["(0:23-0:27) Can not find `nope`.", "(0:34-0:38) Can not find `nope`."])
-  , ("unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))", "<Y = fun<Type1, Z>(Z) -> Type1, X = Y, T = fun(X) -> Y>", ["(0:35-0:39) Can not find `nope`.", "(0:58-0:62) Can not find `nope`."])
-  , ("unify(<A, B>, A, B)", "<A, B = A>", [])
-  , ("unify(<>, void, void)", "<>", [])
-  , ("unify(<>, Bool, void)", "<>", ["(0:10-0:14) Test failed because `Bool` is not void. [(0:16-0:20): void]"])
-  , ("unify(<>, void, Bool)", "<>", ["(0:10-0:14) Test failed because void is not a `Bool`. [(0:16-0:20): `Bool`]"])
-  , ("unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Int, c: void })", "<>", ["(0:23-0:27) Test failed because `Bool` is not an `Int`. [(0:53-0:56): `Int`]"])
-  , ("unify(<>, { a: Int, b: Bool, c: void }, { a: Bool, b: Bool, c: void })", "<>", ["(0:15-0:18) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]"])
-  , ("unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: Bool })", "<>", ["(0:32-0:36) Test failed because void is not a `Bool`. [(0:62-0:66): `Bool`]"])
-  , ("unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: void })", "<>", [])
-  , ("unify(<>, { a: Int, b: Bool, c: void }, { a: Bool, b: Int, c: void })", "<>", ["(0:15-0:18) Test failed because `Int` is not a `Bool`. [(0:45-0:49): `Bool`]", "(0:23-0:27) Test failed because `Bool` is not an `Int`. [(0:54-0:57): `Int`]"])
-  , ("unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: void, c: Bool })", "<>", ["(0:23-0:27) Test failed because `Bool` is not void. [(0:53-0:57): void]", "(0:32-0:36) Test failed because void is not a `Bool`. [(0:62-0:66): `Bool`]"])
-  , ("unify(<>, { a: Int, b: Bool, c: void }, { a: void, b: Bool, c: Int })", "<>", ["(0:15-0:18) Test failed because `Int` is not void. [(0:45-0:49): void]", "(0:32-0:36) Test failed because void is not an `Int`. [(0:63-0:66): `Int`]"])
-  , ("unify(<>, { a: Int, b: Bool }, { a: Bool, b: Int })", "<>", ["(0:15-0:18) Test failed because `Int` is not a `Bool`. [(0:36-0:40): `Bool`]", "(0:23-0:27) Test failed because `Bool` is not an `Int`. [(0:45-0:48): `Int`]"])
-  , ("unify(<>, { b: Bool, a: Int }, { b: Int, a: Bool })", "<>", ["(0:24-0:27) Test failed because `Int` is not a `Bool`. [(0:44-0:48): `Bool`]", "(0:15-0:19) Test failed because `Bool` is not an `Int`. [(0:36-0:39): `Int`]"])
-  , ("unify(<>, { a: Int }, { b: Int })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:22-0:32) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
-  , ("unify(<>, { a: Int, a: Bool }, { b: Int, b: Bool })", "<>", ["(0:10-0:29) Test failed because object needs `b:`. [(0:33-0:34): `b:`]", "(0:10-0:29) Test failed because object needs `b:`. [(0:41-0:42): `b:`]", "(0:31-0:50) Test failed because object needs `a:`. [(0:12-0:13): `a:`]", "(0:31-0:50) Test failed because object needs `a:`. [(0:20-0:21): `a:`]"])
-  , ("unify(<>, { a: Int }, {})", "<>", ["(0:22-0:24) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
-  -- , ("unify(<>, {}, { a: Int })", "<>", [])
-  -- , ("unify(<>, { a: Int }, { b: Int })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:22-0:32) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
-  -- , ("unify(<>, { a: Int }, { b: Int | Int })", "", [])
-  -- , ("unify(<>, { a: Int }, { b: Int | {} })", "<>", ["(0:10-0:20) Test failed because object needs `b:`. [(0:24-0:25): `b:`]", "(0:33-0:35) Test failed because object needs `a:`. [(0:12-0:13): `a:`]"])
-  -- , ("unify(<>, { a: Int | {} }, { b: Int })", "", [])
-  -- , ("unify(<>, { a: Int }, { b: Int | { a: Int } })", "", [])
-  -- , ("unify(<>, { b: Int | { a: Int } }, { a: Int })", "", [])
-  -- , ("unify(<>, {| {}}, {})", "", [])
-  -- , ("unify(<>, {}, {| {}})", "", [])
-  -- , ("unify(<>, {| {}}, {| {}})", "", [])
-  -- , ("unify(<>, {| {a: Int}}, {| {a: Int}})", "", [])
-  -- , ("unify(<>, {| {a: Int}}, {| {a: Bool}})", "", [])
-  -- , ("unify(<>, {| {a: Int}}, {| {b: Int}})", "", [])
-  -- , ("unify(<>, {| {a: Int}}, {| {}})", "", [])
-  -- , ("unify(<>, {| {}}, {| {a: Int}})", "", [])
-  -- , ("unify(<>, {| {a: Int}}, {a: Int})", "", [])
-  -- , ("unify(<>, {a: Int}, {| {a: Int}})", "", [])
-  -- , ("unify(<>, {| {a: Int}}, {a: Bool})", "", [])
-  -- , ("unify(<>, {a: Bool}, {| {a: Int}})", "", [])
-  -- , ("unify(<>, {| {a: Int}}, {b: Bool})", "", [])
-  -- , ("unify(<>, {b: Bool}, {| {a: Int}})", "", [])
-  -- , ("unify(<>, {}, { a: Int })", "", [])
-  -- , ("unify(<>, { b: Int }, { a: Int })", "", [])
-  -- , ("unify(<>, { b: Int | {} }, { a: Int })", "", [])
-  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Int, a: void })", "", [])
-  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Bool, a: void })", "", [])
-  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: Bool })", "", [])
-  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: void })", "", [])
-  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Int, a: void })", "", [])
-  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: void, a: Bool })", "", [])
-  -- , ("unify(<>, { a: Int, a: Bool, a: void }, { a: void, a: Bool, a: Int })", "", [])
-  -- , ("unify(<T>, { a: Int | T }, { a: Int, b: Bool })", "", [])
-  -- , ("unify(<T>, { a: Int, b: Bool }, { a: Int | T })", "", [])
-  -- , ("unify(<T>, { a: Int | T }, { a: Bool, b: Int })", "", [])
-  -- , ("unify(<T>, { a: Bool, b: Int }, { a: Int | T })", "", [])
-  -- , ("unify(<T>, { a: Int | T }, { a: Int, b: Bool, b: Int })", "", [])
-  -- , ("unify(<T>, { a: Int, b: Bool, b: Int }, { a: Int | T })", "", [])
-  -- , ("unify(<T>, { a: Int | T }, { a: Int, a: Bool })", "", [])
-  -- , ("unify(<T>, { a: Int, a: Bool }, { a: Int | T })", "", [])
-  -- , ("unify(<T>, { a: Int | T }, { a: Bool, a: Int })", "", [])
-  -- , ("unify(<T>, { a: Bool, a: Int }, { a: Int | T })", "", [])
-  -- , ("unify(<T>, { a: Int | T }, { a: Int, a: Bool, a: void })", "", [])
-  -- , ("unify(<T>, { a: Int, a: Bool, a: void }, { a: Int | T })", "", [])
-  -- , ("unify(<T>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)", "<T = {}>", ["(0:28-0:36) Test failed because object needs `a:`. [(0:15-0:23): object]"])
-  -- , ("unify(<T>, fun({a: Int, a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)", "<T = {a: Int}>", [])
-  -- , ("unify(<T>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})", "", [])
-  -- , ("unify(<T>, fun({a: Int}) -> Int, fun({a: Int | T}) -> T)", "", [])
-  -- , ("unify(<T>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)", "", [])
-  -- , ("unify(<T>, fun({a: Int}) -> Int, fun(T) -> {a: Int | T})", "", [])
-  -- , ("unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})", "", [])
-  -- , ("unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})", "", [])
-  -- , ("unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)", "", [])
-  -- , ("unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)", "", [])
-  -- , ("unify(<T>, {a: Int | T}, T)", "", [])
-  -- , ("unify(<T>, T, {a: Int | T})", "", [])
-  -- , ("unify(<T>, {b: Int}, {a: Int | T})", "", [])
-  -- , ("unify(<T>, {a: Int | T}, {b: Int})", "", [])
-  -- , ("unify(<T>, {a: Int, b: Int}, {a: Int | T})", "", [])
-  -- , ("unify(<T>, {a: Int | T}, {a: Int, b: Int})", "", [])
+  [ "unify(<>, Bool, Bool)"
+  , "unify(<>, Int, Int)"
+  , "unify(<A>, Int, Int)"
+  , "unify(<A, B>, Int, Int)"
+  , "unify(<A, B, C>, Int, Int)"
+  , "unify(<>, fun(Int) -> Int, fun(Int) -> Int)"
+  , "unify(<>, fun(Int) -> Bool, fun(Int) -> Bool)"
+  , "unify(<>, fun(Int) -> fun(Bool) -> Bool, fun(Int) -> fun(Bool) -> Bool)"
+  , "unify(<>, fun(Int) -> Int, fun(Int) -> Bool)"
+  , "unify(<>, fun(Int) -> Int, fun(Bool) -> Int)"
+  , "unify(<>, fun(Int) -> Int, fun(Bool) -> Bool)"
+  , "unify(<>, fun(Int) -> fun(Int) -> Int, fun(Bool) -> fun(Bool) -> Bool)"
+  , "unify(<>, fun(fun(Int) -> Int) -> Int, fun(fun(Bool) -> Bool) -> Bool)"
+  , "unify(<>, Int, fun(Int) -> Int)"
+  , "unify(<>, fun(Int) -> Int, Int)"
+  , "unify(<A = Int>, A, Int)"
+  , "unify(<A = Int>, Int, A)"
+  , "unify(<A = Int>, A, Bool)"
+  , "unify(<A = Int>, Bool, A)"
+  , "unify(<A: Int>, A, Int)"
+  , "unify(<A: Int>, Int, A)"
+  , "unify(<A: Int>, A, Bool)"
+  , "unify(<A: Int>, Bool, A)"
+  , "unify(<B = Int, A = B>, A, Int)"
+  , "unify(<B = Int, A = B>, Int, A)"
+  , "unify(<B = Int, A = B>, A, Bool)"
+  , "unify(<B = Int, A = B>, Bool, A)"
+  , "unify(<B = Int, A: B>, A, Int)"
+  , "unify(<B = Int, A: B>, Int, A)"
+  , "unify(<B = Int, A: B>, A, Bool)"
+  , "unify(<B = Int, A: B>, Bool, A)"
+  , "unify(<B: Int, A = B>, A, Int)"
+  , "unify(<B: Int, A = B>, Int, A)"
+  , "unify(<B: Int, A = B>, A, Bool)"
+  , "unify(<B: Int, A = B>, Bool, A)"
+  , "unify(<B: Int, A: B>, A, Int)"
+  , "unify(<B: Int, A: B>, Int, A)"
+  , "unify(<B: Int, A: B>, A, Bool)"
+  , "unify(<B: Int, A: B>, Bool, A)"
+  , "unify(<A>, A, A)"
+  , "unify(<A: !>, A, A)"
+  , "unify(<A = !>, A, A)"
+  , "unify(<A, B = A, C = B>, B, C)"
+  , "unify(<A, B = A, C = B>, C, B)"
+  , "unify(<A, B = A, C = B>, A, B)"
+  , "unify(<A, B = A, C = B>, A, C)"
+  , "unify(<A, B = A, C = B>, B, A)"
+  , "unify(<A, B = A, C = B>, C, A)"
+  , "unify(<A, B = A, C = B>, B, A)"
+  , "unify(<A, B = A, C = B>, B, B)"
+  , "unify(<A, B = A, C = B>, C, C)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, B, C)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, C, B)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, A, B)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, A, C)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, B, A)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, C, A)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, B, A)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, B, B)"
+  , "unify(<A, B = <Z> A, C = <Z> B>, C, C)"
+  , "unify(<A>, A, Int)"
+  , "unify(<A>, Int, A)"
+  , "unify(<A: !>, A, Int)"
+  , "unify(<A: !>, Int, A)"
+  , "unify(<A = !>, A, Int)"
+  , "unify(<A = !>, Int, A)"
+  , "unify(<B: !, A: B>, A, Int)"
+  , "unify(<B: !, A: B>, Int, A)"
+  , "unify(<B: !, A = B>, A, Int)"
+  , "unify(<B: !, A = B>, Int, A)"
+  , "unify(<B = !, A: B>, A, Int)"
+  , "unify(<B = !, A: B>, Int, A)"
+  , "unify(<B = !, A = B>, A, Int)"
+  , "unify(<B = !, A = B>, Int, A)"
+  , "unify(<B, A = fun(B) -> B>, A, B)"
+  , "unify(<B, A = fun(B) -> B>, B, A)"
+  , "unify(<B, C = fun(B) -> B, A = C>, A, B)"
+  , "unify(<B, C = fun(B) -> B, A = C>, B, A)"
+  , "unify(<B, C = fun(B) -> B, A = fun(C) -> C>, A, B)"
+  , "unify(<B, C = fun(B) -> B, A = fun(C) -> C>, B, A)"
+  , "unify(<A, B>, A, B)"
+  , "unify(<A, B>, B, A)"
+  , "unify(<A, B>, A, fun(B) -> B)"
+  , "unify(<A, B>, fun(B) -> B, A)"
+  , "unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Int)"
+  , "unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Bool)"
+  , "unify(<A = fun<X>(X) -> X>, A, fun(Int) -> Int)"
+  , "unify(<A = fun<X>(X) -> X>, A, fun(Int) -> Bool)"
+  , "unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B = fun(Int) -> Int>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B = fun(Int) -> Int>, B, A)"
+  , "unify(<A, B = fun(A) -> A>, A, B)"
+  , "unify(<A, B = fun(A) -> A>, B, A)"
+  , "unify(<A, B = fun<C>(C) -> A>, A, B)"
+  , "unify(<A, B = fun<C>(C) -> A>, B, A)"
+  , "unify(<A = !, B = !>, A, B)"
+  , "unify(<A = !, B = !>, B, A)"
+  , "unify(<A = !, B = fun<C>(C) -> C>, A, B)"
+  , "unify(<A = !, B = fun<C>(C) -> C>, B, A)"
+  , "unify(<A, B>, A, B)"
+  , "unify(<A, B>, B, A)"
+  , "unify(<A: !, B: !>, A, B)"
+  , "unify(<A: !, B: !>, B, A)"
+  , "unify(<A = !, B: !>, A, B)"
+  , "unify(<A = !, B: !>, B, A)"
+  , "unify(<A: !, B = !>, A, B)"
+  , "unify(<A: !, B = !>, B, A)"
+  , "unify(<A = !, B = !>, A, B)"
+  , "unify(<A = !, B = !>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B: fun<X>(X) -> X>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B: fun<X>(X) -> X>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B: fun<X>(X) -> X>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B: fun<X>(X) -> X>, B, A)"
+  , "unify(<A: fun<X>(X) -> X, B = fun<X>(X) -> X>, A, B)"
+  , "unify(<A: fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)"
+  , "unify(<X>, X, X)"
+  , "unify(<A: Int>, A, Int)"
+  , "unify(<A = Int>, A, Int)"
+  , "unify(<A: Int>, A, Bool)"
+  , "unify(<A = Int>, A, Bool)"
+  , "unify(<A: Int>, Int, A)"
+  , "unify(<A = Int>, Int, A)"
+  , "unify(<A: Int>, Bool, A)"
+  , "unify(<A = Int>, Bool, A)"
+  , "unify(<A, B = A>, A, B)"
+  , "unify(<A, B = A>, B, A)"
+  , "unify(<A, B: A>, A, B)"
+  , "unify(<A, B: A>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)"
+  , "unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)"
+  , "unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)"
+  , "unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)"
+  , "unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)"
+  , "unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)"
+  , "unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)"
+  , "unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Bool)"
+  , "unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Int)"
+  , "unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Bool)"
+  , "unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Int)"
+  , "unify(<A: fun<X>(X) -> Int>, A, fun(Bool) -> Bool)"
+  , "unify(<A: fun<X>(X) -> Int>, A, fun(Bool) -> Int)"
+  , "unify(<A = fun<X>(X) -> Int>, A, fun(Bool) -> Bool)"
+  , "unify(<A = fun<X>(X) -> Int>, A, fun(Bool) -> Int)"
+  , "unify(<A: fun<X>(X) -> Int>, A, fun(A) -> Bool)"
+  , "unify(<A: fun<X>(X) -> Int>, A, fun(A) -> Int)"
+  , "unify(<A = fun<X>(X) -> Int>, A, fun(A) -> Bool)"
+  , "unify(<A = fun<X>(X) -> Int>, A, fun(A) -> Int)"
+  , "unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Bool, A)"
+  , "unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Int, A)"
+  , "unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Bool, A)"
+  , "unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Int, A)"
+  , "unify(<A: fun<X>(X) -> Int>, fun(Bool) -> Bool, A)"
+  , "unify(<A: fun<X>(X) -> Int>, fun(Bool) -> Int, A)"
+  , "unify(<A = fun<X>(X) -> Int>, fun(Bool) -> Bool, A)"
+  , "unify(<A = fun<X>(X) -> Int>, fun(Bool) -> Int, A)"
+  , "unify(<A: fun<X>(X) -> Int>, fun(A) -> Bool, A)"
+  , "unify(<A: fun<X>(X) -> Int>, fun(A) -> Int, A)"
+  , "unify(<A = fun<X>(X) -> Int>, fun(A) -> Bool, A)"
+  , "unify(<A = fun<X>(X) -> Int>, fun(A) -> Int, A)"
+  , "unify(<A, B = fun<X>(X) -> X>, A, B)"
+  , "unify(<A, B = fun<X>(X) -> X>, B, A)"
+  , "unify(<A, B: fun<X>(X) -> X>, A, B)"
+  , "unify(<A, B: fun<X>(X) -> X>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Bool>, B, A)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, A, B)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)"
+  , "unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, A, F)"
+  , "unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, F, A)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, fun(A) -> A, fun(A) -> B)"
+  , "unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, fun(A) -> B, fun(A) -> A)"
+  , "unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, T, U)"
+  , "unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, U, T)"
+  , "unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, A, B)"
+  , "unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, B, A)"
+  , "unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C) -> fun(D) -> E)"
+  , "unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) -> fun(D) -> E, A)"
+  , "unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C) -> fun(D) -> E)"
+  , "unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) -> fun(D) -> E, A)"
+  , "unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(X) -> X>, A, B)"
+  , "unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X>, A, B)"
+  , "unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1>, A, B)"
+  , "unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1>, A, B)"
+  , "unify(<A = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5, B = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5>, A, B)"
+  , "unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(X) -> X>, B, A)"
+  , "unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X>, B, A)"
+  , "unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1>, B, A)"
+  , "unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1>, B, A)"
+  , "unify(<A = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5, B = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5>, B, A)"
+  , "unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Int)"
+  , "unify(<A: fun<X>(X) -> X, B>, A, fun(Int) -> B)"
+  , "unify(<A = <X = Int> X>, A, Int)"
+  , "unify(<A: <X: fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)"
+  , "unify(<A = <X: fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)"
+  , "unify(<A: <X = fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)"
+  , "unify(<A = <X = fun<Y>(Y) -> Y> X>, A, fun(Int) -> Int)"
+  , "unify(<A: fun<Y>(Y) -> Y>, A, fun(Int) -> Int)"
+  , "unify(<A: <B = fun<X>(X) -> X> B>, A, fun(Int) -> Int)"
+  , "unify(<A: <B = <C = fun<X>(X) -> X> C> B>, A, fun(Int) -> Int)"
+  , "unify(<A: <B = <C = <D = fun<X>(X) -> X> D> C> B>, A, fun(Int) -> Int)"
+  , "unify(<A: <B = fun<X>(X) -> X> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)"
+  , "unify(<A: <B = <C = fun<X>(X) -> X> C> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)"
+  , "unify(<A: <B = <C = <D = fun<X>(X) -> X> D> C> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)"
+  , "unify(<A: <B = fun<X>(X) -> X> fun(B) -> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)"
+  , "unify(<A: <B = <C = fun<X>(X) -> X> fun(C) -> C> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)"
+  , "unify(<A: <B = <C = <D = fun<X>(X) -> X> fun(D) -> D> C> B>, A, fun(fun(Int) -> Int) -> fun(Int) -> Int)"
+  , "unify(<A: <X> X>, A, Int)"
+  , "unify(<A: <X> X>, Int, A)"
+  , "unify(<A: <X> X, B: <X> X>, A, B)"
+  , "unify(<A: <X> X, B: <X> X>, B, A)"
+  , "unify(<A = <X, Y> fun(Int) -> Int>, A, fun(Int) -> Int)"
+  , "unify(<A = <X, Y> fun(Y) -> Int, B = <X, Y> fun(Y) -> Int>, A, B)"
+  , "unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<A = <Y, X> fun(Y) -> Int, B = <Y, X> fun(Y) -> Int>, A, B)"
+  , "unify(<A = <Y, X> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)"
+  , "unify(<A = <Y, X> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)"
+  , "unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)"
+  , "unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)"
+  , "unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)"
+  , "unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, X, Y)"
+  , "unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)"
+  , "unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y = fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)"
+  , "unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)"
+  , "unify(<X: <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) -> C)>, Y, X)"
+  , "unify(<T = nope>, T, T)"
+  , "unify(<T1 = nope, T2 = nope>, T1, T2)"
+  , "unify(<T1 = nope1, T2 = nope2>, T1, T2)"
+  , "unify(<X, Y = Int>, X, Y)"
+  , "unify(<X, Y = Int>, Y, X)"
+  , "unify(<X, Y = nope>, X, Y)"
+  , "unify(<X, Y = nope>, Y, X)"
+  , "unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, A, B)"
+  , "unify(<A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope>, B, A)"
+  , "unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, A, B)"
+  , "unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, B, A)"
+  , "unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)"
+  , "unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)"
+  , "unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)"
+  , "unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)"
+  , "unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, T, fun(X) -> Y)"
+  , "unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(X) -> Y, T)"
+  , "unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, T, fun(X) -> Y)"
+  , "unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(X) -> Y, T)"
+  , "unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))"
+  , "unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))"
+  , "unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))"
+  , "unify(<A, B>, A, B)"
+  , "unify(<>, void, void)"
+  , "unify(<>, Bool, void)"
+  , "unify(<>, void, Bool)"
+  , "unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Int, c: void })"
+  , "unify(<>, { a: Int, b: Bool, c: void }, { a: Bool, b: Bool, c: void })"
+  , "unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: Bool })"
+  , "unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: void })"
+  , "unify(<>, { a: Int, b: Bool, c: void }, { a: Bool, b: Int, c: void })"
+  , "unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: void, c: Bool })"
+  , "unify(<>, { a: Int, b: Bool, c: void }, { a: void, b: Bool, c: Int })"
+  , "unify(<>, { a: Int, b: Bool }, { a: Bool, b: Int })"
+  , "unify(<>, { b: Bool, a: Int }, { b: Int, a: Bool })"
+  , "unify(<>, { a: Int }, { b: Int })"
+  , "unify(<>, { a: Int, a: Bool }, { b: Int, b: Bool })"
+  , "unify(<>, { a: Int }, {})"
+  -- , "unify(<>, {}, { a: Int })"
+  -- , "unify(<>, { a: Int }, { b: Int })"
+  -- , "unify(<>, { a: Int }, { b: Int | Int })"
+  -- , "unify(<>, { a: Int }, { b: Int | {} })"
+  -- , "unify(<>, { a: Int | {} }, { b: Int })"
+  -- , "unify(<>, { a: Int }, { b: Int | { a: Int } })"
+  -- , "unify(<>, { b: Int | { a: Int } }, { a: Int })"
+  -- , "unify(<>, {| {}}, {})"
+  -- , "unify(<>, {}, {| {}})"
+  -- , "unify(<>, {| {}}, {| {}})"
+  -- , "unify(<>, {| {a: Int}}, {| {a: Int}})"
+  -- , "unify(<>, {| {a: Int}}, {| {a: Bool}})"
+  -- , "unify(<>, {| {a: Int}}, {| {b: Int}})"
+  -- , "unify(<>, {| {a: Int}}, {| {}})"
+  -- , "unify(<>, {| {}}, {| {a: Int}})"
+  -- , "unify(<>, {| {a: Int}}, {a: Int})"
+  -- , "unify(<>, {a: Int}, {| {a: Int}})"
+  -- , "unify(<>, {| {a: Int}}, {a: Bool})"
+  -- , "unify(<>, {a: Bool}, {| {a: Int}})"
+  -- , "unify(<>, {| {a: Int}}, {b: Bool})"
+  -- , "unify(<>, {b: Bool}, {| {a: Int}})"
+  -- , "unify(<>, {}, { a: Int })"
+  -- , "unify(<>, { b: Int }, { a: Int })"
+  -- , "unify(<>, { b: Int | {} }, { a: Int })"
+  -- , "unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Int, a: void })"
+  -- , "unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Bool, a: void })"
+  -- , "unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: Bool })"
+  -- , "unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: void })"
+  -- , "unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Int, a: void })"
+  -- , "unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: void, a: Bool })"
+  -- , "unify(<>, { a: Int, a: Bool, a: void }, { a: void, a: Bool, a: Int })"
+  -- , "unify(<T>, { a: Int | T }, { a: Int, b: Bool })"
+  -- , "unify(<T>, { a: Int, b: Bool }, { a: Int | T })"
+  -- , "unify(<T>, { a: Int | T }, { a: Bool, b: Int })"
+  -- , "unify(<T>, { a: Bool, b: Int }, { a: Int | T })"
+  -- , "unify(<T>, { a: Int | T }, { a: Int, b: Bool, b: Int })"
+  -- , "unify(<T>, { a: Int, b: Bool, b: Int }, { a: Int | T })"
+  -- , "unify(<T>, { a: Int | T }, { a: Int, a: Bool })"
+  -- , "unify(<T>, { a: Int, a: Bool }, { a: Int | T })"
+  -- , "unify(<T>, { a: Int | T }, { a: Bool, a: Int })"
+  -- , "unify(<T>, { a: Bool, a: Int }, { a: Int | T })"
+  -- , "unify(<T>, { a: Int | T }, { a: Int, a: Bool, a: void })"
+  -- , "unify(<T>, { a: Int, a: Bool, a: void }, { a: Int | T })"
+  -- , "unify(<T>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)"
+  -- , "unify(<T>, fun({a: Int, a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)"
+  -- , "unify(<T>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})"
+  -- , "unify(<T>, fun({a: Int}) -> Int, fun({a: Int | T}) -> T)"
+  -- , "unify(<T>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)"
+  -- , "unify(<T>, fun({a: Int}) -> Int, fun(T) -> {a: Int | T})"
+  -- , "unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})"
+  -- , "unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})"
+  -- , "unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)"
+  -- , "unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)"
+  -- , "unify(<T>, {a: Int | T}, T)"
+  -- , "unify(<T>, T, {a: Int | T})"
+  -- , "unify(<T>, {b: Int}, {a: Int | T})"
+  -- , "unify(<T>, {a: Int | T}, {b: Int})"
+  -- , "unify(<T>, {a: Int, b: Int}, {a: Int | T})"
+  -- , "unify(<T>, {a: Int | T}, {a: Int, b: Int})"
   ]
 
 openSnapshotFile :: IO Handle
@@ -449,7 +449,7 @@ unifyParser = captureRange (identifier *> glyph ParenLeft *> args <* glyph Paren
 
 spec :: Spec
 spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
-  flip traverse_ testData $ \(input, expectedPrefix, expectedDiagnostics) ->
+  flip traverse_ testData $ \input ->
     it (Text.unpack input) $ \h -> do
       let ((r, (cqs, ct1, ct2)), ds1) = runDiagnosticWriter (fst <$> (runParser unifyParser (tokenize input)))
       if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
