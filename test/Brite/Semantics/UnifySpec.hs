@@ -428,7 +428,7 @@ testData =
 
 openSnapshotFile :: IO Handle
 openSnapshotFile = do
-  h <- openFile "test/Brite/Syntax/UnifySpecSnapshot.md" WriteMode
+  h <- openFile "test/Brite/Semantics/UnifySpecSnapshot.md" WriteMode
   hPutStrLn h "# UnifySpecSnapshot"
   return h
 
