@@ -336,12 +336,12 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
                 -- Create an actual overflow object using our actual overflow properties.
                 actualOverflowObject =
                   if Map.null actualOverflowProperties then sharedExtension
-                  else Type.object sharedExtensionRange actualOverflowProperties (Just sharedExtension)
+                  else Type.object (currentRange (Type.monotypeRangeStack actual)) actualOverflowProperties (Just sharedExtension)
 
                 -- Create an expected overflow object using our expected overflow properties.
                 expectedOverflowObject =
                   if Map.null expectedOverflowProperties then sharedExtension
-                  else Type.object sharedExtensionRange expectedOverflowProperties (Just sharedExtension)
+                  else Type.object (currentRange (Type.monotypeRangeStack expected)) expectedOverflowProperties (Just sharedExtension)
 
               -- Unify each extension with the overflow from the other object. If the extension has
               -- some overflown properties then those properties will be removed and we may perform
