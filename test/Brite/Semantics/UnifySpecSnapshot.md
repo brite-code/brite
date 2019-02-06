@@ -4414,7 +4414,7 @@ unify(<>, void, Bool)
 
 ### Input
 ```ite
-unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Int, c: void })
+unify(<>, {a: Int, b: Bool, c: void}, {a: Int, b: Int, c: void})
 ```
 
 ### Output
@@ -4423,14 +4423,14 @@ unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Int, c: void })
 ```
 
 ### Errors
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:53-0:56): `Int`
+- (0:22-0:26) Test failed because `Bool` is not an `Int`.
+  - (0:50-0:53): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, b: Bool, c: void }, { a: Bool, b: Bool, c: void })
+unify(<>, {a: Int, b: Bool, c: void}, {a: Bool, b: Bool, c: void})
 ```
 
 ### Output
@@ -4439,14 +4439,14 @@ unify(<>, { a: Int, b: Bool, c: void }, { a: Bool, b: Bool, c: void })
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:45-0:49): `Bool`
+- (0:14-0:17) Test failed because `Int` is not a `Bool`.
+  - (0:42-0:46): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: Bool })
+unify(<>, {a: Int, b: Bool, c: void}, {a: Int, b: Bool, c: Bool})
 ```
 
 ### Output
@@ -4455,14 +4455,14 @@ unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: Bool })
 ```
 
 ### Errors
-- (0:32-0:36) Test failed because void is not a `Bool`.
-  - (0:62-0:66): `Bool`
+- (0:31-0:35) Test failed because void is not a `Bool`.
+  - (0:59-0:63): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: void })
+unify(<>, {a: Int, b: Bool, c: void}, {a: Int, b: Bool, c: void})
 ```
 
 ### Output
@@ -4474,25 +4474,7 @@ unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: Bool, c: void })
 
 ### Input
 ```ite
-unify(<>, { a: Int, b: Bool, c: void }, { a: Bool, b: Int, c: void })
-```
-
-### Output
-```
-<>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:45-0:49): `Bool`
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:54-0:57): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: void, c: Bool })
+unify(<>, {a: Int, b: Bool, c: void}, {a: Bool, b: Int, c: void})
 ```
 
 ### Output
@@ -4501,16 +4483,16 @@ unify(<>, { a: Int, b: Bool, c: void }, { a: Int, b: void, c: Bool })
 ```
 
 ### Errors
-- (0:23-0:27) Test failed because `Bool` is not void.
-  - (0:53-0:57): void
-- (0:32-0:36) Test failed because void is not a `Bool`.
-  - (0:62-0:66): `Bool`
+- (0:14-0:17) Test failed because `Int` is not a `Bool`.
+  - (0:42-0:46): `Bool`
+- (0:22-0:26) Test failed because `Bool` is not an `Int`.
+  - (0:51-0:54): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, b: Bool, c: void }, { a: void, b: Bool, c: Int })
+unify(<>, {a: Int, b: Bool, c: void}, {a: Int, b: void, c: Bool})
 ```
 
 ### Output
@@ -4519,16 +4501,16 @@ unify(<>, { a: Int, b: Bool, c: void }, { a: void, b: Bool, c: Int })
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not void.
-  - (0:45-0:49): void
-- (0:32-0:36) Test failed because void is not an `Int`.
-  - (0:63-0:66): `Int`
+- (0:22-0:26) Test failed because `Bool` is not void.
+  - (0:50-0:54): void
+- (0:31-0:35) Test failed because void is not a `Bool`.
+  - (0:59-0:63): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, b: Bool }, { a: Bool, b: Int })
+unify(<>, {a: Int, b: Bool, c: void}, {a: void, b: Bool, c: Int})
 ```
 
 ### Output
@@ -4537,16 +4519,16 @@ unify(<>, { a: Int, b: Bool }, { a: Bool, b: Int })
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:36-0:40): `Bool`
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:45-0:48): `Int`
+- (0:14-0:17) Test failed because `Int` is not void.
+  - (0:42-0:46): void
+- (0:31-0:35) Test failed because void is not an `Int`.
+  - (0:60-0:63): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { b: Bool, a: Int }, { b: Int, a: Bool })
+unify(<>, {a: Int, b: Bool}, {a: Bool, b: Int})
 ```
 
 ### Output
@@ -4555,16 +4537,16 @@ unify(<>, { b: Bool, a: Int }, { b: Int, a: Bool })
 ```
 
 ### Errors
-- (0:24-0:27) Test failed because `Int` is not a `Bool`.
-  - (0:44-0:48): `Bool`
-- (0:15-0:19) Test failed because `Bool` is not an `Int`.
-  - (0:36-0:39): `Int`
+- (0:14-0:17) Test failed because `Int` is not a `Bool`.
+  - (0:33-0:37): `Bool`
+- (0:22-0:26) Test failed because `Bool` is not an `Int`.
+  - (0:42-0:45): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int }, { b: Int })
+unify(<>, {b: Bool, a: Int}, {b: Int, a: Bool})
 ```
 
 ### Output
@@ -4573,15 +4555,16 @@ unify(<>, { a: Int }, { b: Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because `b:` is missing.
-  - (0:24-0:25): `b:`
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:23-0:26) Test failed because `Int` is not a `Bool`.
+  - (0:41-0:45): `Bool`
+- (0:14-0:18) Test failed because `Bool` is not an `Int`.
+  - (0:33-0:36): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, a: Bool }, { b: Int, b: Bool })
+unify(<>, {a: Int}, {b: Int})
 ```
 
 ### Output
@@ -4590,18 +4573,15 @@ unify(<>, { a: Int, a: Bool }, { b: Int, b: Bool })
 ```
 
 ### Errors
-- (0:10-0:29) Test failed because `b:` is missing.
-  - (0:33-0:34): `b:`
-- (0:10-0:29) Test failed because `b:` is missing.
-  - (0:41-0:42): `b:`
-- (0:12-0:13) Test failed because `a:` is not needed.
-- (0:20-0:21) Test failed because `a:` is not needed.
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:21-0:22): `b:`
+- (0:11-0:12) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int }, {})
+unify(<>, {a: Int, a: Bool}, {b: Int, b: Bool})
 ```
 
 ### Output
@@ -4610,13 +4590,33 @@ unify(<>, { a: Int }, {})
 ```
 
 ### Errors
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:10-0:27) Test failed because `b:` is missing.
+  - (0:30-0:31): `b:`
+- (0:10-0:27) Test failed because `b:` is missing.
+  - (0:38-0:39): `b:`
+- (0:11-0:12) Test failed because `a:` is not needed.
+- (0:19-0:20) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, {}, { a: Int })
+unify(<>, {a: Int}, {})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:11-0:12) Test failed because `a:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {}, {a: Int})
 ```
 
 ### Output
@@ -4626,13 +4626,13 @@ unify(<>, {}, { a: Int })
 
 ### Errors
 - (0:10-0:12) Test failed because `a:` is missing.
-  - (0:16-0:17): `a:`
+  - (0:15-0:16): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int }, { b: Int })
+unify(<>, {a: Int}, {b: Int})
 ```
 
 ### Output
@@ -4641,15 +4641,15 @@ unify(<>, { a: Int }, { b: Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because `b:` is missing.
-  - (0:24-0:25): `b:`
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:21-0:22): `b:`
+- (0:11-0:12) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int }, { b: Int | Int })
+unify(<>, {a: Int}, {b: Int | Int})
 ```
 
 ### Output
@@ -4658,16 +4658,16 @@ unify(<>, { a: Int }, { b: Int | Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because `b:` is missing.
-  - (0:24-0:25): `b:`
-- (0:10-0:20) Test failed because an object is not an `Int`.
-  - (0:33-0:36): `Int`
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:21-0:22): `b:`
+- (0:10-0:18) Test failed because an object is not an `Int`.
+  - (0:30-0:33): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int }, { b: Int | {} })
+unify(<>, {a: Int}, {b: Int | {}})
 ```
 
 ### Output
@@ -4676,15 +4676,15 @@ unify(<>, { a: Int }, { b: Int | {} })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because `b:` is missing.
-  - (0:24-0:25): `b:`
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:21-0:22): `b:`
+- (0:11-0:12) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int | {} }, { b: Int })
+unify(<>, {a: Int | {}}, {b: Int})
 ```
 
 ### Output
@@ -4693,15 +4693,15 @@ unify(<>, { a: Int | {} }, { b: Int })
 ```
 
 ### Errors
-- (0:21-0:23) Test failed because `b:` is missing.
-  - (0:29-0:30): `b:`
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:20-0:22) Test failed because `b:` is missing.
+  - (0:26-0:27): `b:`
+- (0:11-0:12) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int }, { b: Int | { a: Int } })
+unify(<>, {a: Int}, {b: Int | {a: Int}})
 ```
 
 ### Output
@@ -4710,14 +4710,14 @@ unify(<>, { a: Int }, { b: Int | { a: Int } })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because `b:` is missing.
-  - (0:24-0:25): `b:`
+- (0:10-0:18) Test failed because `b:` is missing.
+  - (0:21-0:22): `b:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { b: Int | { a: Int } }, { a: Int })
+unify(<>, {b: Int | {a: Int}}, {a: Int})
 ```
 
 ### Output
@@ -4726,7 +4726,7 @@ unify(<>, { b: Int | { a: Int } }, { a: Int })
 ```
 
 ### Errors
-- (0:12-0:13) Test failed because `b:` is not needed.
+- (0:11-0:12) Test failed because `b:` is not needed.
 
 --------------------------------------------------------------------------------
 
@@ -4934,7 +4934,7 @@ unify(<>, {b: Bool}, {| {a: Int}})
 
 ### Input
 ```ite
-unify(<>, {}, { a: Int })
+unify(<>, {}, {a: Int})
 ```
 
 ### Output
@@ -4944,13 +4944,13 @@ unify(<>, {}, { a: Int })
 
 ### Errors
 - (0:10-0:12) Test failed because `a:` is missing.
-  - (0:16-0:17): `a:`
+  - (0:15-0:16): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { b: Int }, { a: Int })
+unify(<>, {b: Int}, {a: Int})
 ```
 
 ### Output
@@ -4959,15 +4959,15 @@ unify(<>, { b: Int }, { a: Int })
 ```
 
 ### Errors
-- (0:10-0:20) Test failed because `a:` is missing.
-  - (0:24-0:25): `a:`
-- (0:12-0:13) Test failed because `b:` is not needed.
+- (0:10-0:18) Test failed because `a:` is missing.
+  - (0:21-0:22): `a:`
+- (0:11-0:12) Test failed because `b:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { b: Int | {} }, { a: Int })
+unify(<>, {b: Int | {}}, {a: Int})
 ```
 
 ### Output
@@ -4976,15 +4976,15 @@ unify(<>, { b: Int | {} }, { a: Int })
 ```
 
 ### Errors
-- (0:21-0:23) Test failed because `a:` is missing.
-  - (0:29-0:30): `a:`
-- (0:12-0:13) Test failed because `b:` is not needed.
+- (0:20-0:22) Test failed because `a:` is missing.
+  - (0:26-0:27): `a:`
+- (0:11-0:12) Test failed because `b:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Int, a: void })
+unify(<>, {a: Int, a: Bool, a: void}, {a: Int, a: Int, a: void})
 ```
 
 ### Output
@@ -4993,14 +4993,14 @@ unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Int, a: void })
 ```
 
 ### Errors
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:53-0:56): `Int`
+- (0:22-0:26) Test failed because `Bool` is not an `Int`.
+  - (0:50-0:53): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Bool, a: void })
+unify(<>, {a: Int, a: Bool, a: void}, {a: Bool, a: Bool, a: void})
 ```
 
 ### Output
@@ -5009,14 +5009,14 @@ unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Bool, a: void })
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:45-0:49): `Bool`
+- (0:14-0:17) Test failed because `Int` is not a `Bool`.
+  - (0:42-0:46): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: Bool })
+unify(<>, {a: Int, a: Bool, a: void}, {a: Int, a: Bool, a: Bool})
 ```
 
 ### Output
@@ -5025,14 +5025,14 @@ unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: Bool })
 ```
 
 ### Errors
-- (0:32-0:36) Test failed because void is not a `Bool`.
-  - (0:62-0:66): `Bool`
+- (0:31-0:35) Test failed because void is not a `Bool`.
+  - (0:59-0:63): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: void })
+unify(<>, {a: Int, a: Bool, a: void}, {a: Int, a: Bool, a: void})
 ```
 
 ### Output
@@ -5044,25 +5044,7 @@ unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: Bool, a: void })
 
 ### Input
 ```ite
-unify(<>, { a: Int, a: Bool, a: void }, { a: Bool, a: Int, a: void })
-```
-
-### Output
-```
-<>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:45-0:49): `Bool`
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:54-0:57): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: void, a: Bool })
+unify(<>, {a: Int, a: Bool, a: void}, {a: Bool, a: Int, a: void})
 ```
 
 ### Output
@@ -5071,16 +5053,16 @@ unify(<>, { a: Int, a: Bool, a: void }, { a: Int, a: void, a: Bool })
 ```
 
 ### Errors
-- (0:23-0:27) Test failed because `Bool` is not void.
-  - (0:53-0:57): void
-- (0:32-0:36) Test failed because void is not a `Bool`.
-  - (0:62-0:66): `Bool`
+- (0:14-0:17) Test failed because `Int` is not a `Bool`.
+  - (0:42-0:46): `Bool`
+- (0:22-0:26) Test failed because `Bool` is not an `Int`.
+  - (0:51-0:54): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<>, { a: Int, a: Bool, a: void }, { a: void, a: Bool, a: Int })
+unify(<>, {a: Int, a: Bool, a: void}, {a: Int, a: void, a: Bool})
 ```
 
 ### Output
@@ -5089,16 +5071,34 @@ unify(<>, { a: Int, a: Bool, a: void }, { a: void, a: Bool, a: Int })
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not void.
-  - (0:45-0:49): void
-- (0:32-0:36) Test failed because void is not an `Int`.
-  - (0:63-0:66): `Int`
+- (0:22-0:26) Test failed because `Bool` is not void.
+  - (0:50-0:54): void
+- (0:31-0:35) Test failed because void is not a `Bool`.
+  - (0:59-0:63): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, { a: Int | T }, { a: Int, b: Bool })
+unify(<>, {a: Int, a: Bool, a: void}, {a: void, a: Bool, a: Int})
+```
+
+### Output
+```
+<>
+```
+
+### Errors
+- (0:14-0:17) Test failed because `Int` is not void.
+  - (0:42-0:46): void
+- (0:31-0:35) Test failed because void is not an `Int`.
+  - (0:60-0:63): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<T>, {a: Int | T}, {a: Int, b: Bool})
 ```
 
 ### Output
@@ -5110,7 +5110,7 @@ unify(<T>, { a: Int | T }, { a: Int, b: Bool })
 
 ### Input
 ```ite
-unify(<T>, { a: Int, b: Bool }, { a: Int | T })
+unify(<T>, {a: Int, b: Bool}, {a: Int | T})
 ```
 
 ### Output
@@ -5122,7 +5122,7 @@ unify(<T>, { a: Int, b: Bool }, { a: Int | T })
 
 ### Input
 ```ite
-unify(<T>, { a: Int | T }, { a: Bool, b: Int })
+unify(<T>, {a: Int | T}, {a: Bool, b: Int})
 ```
 
 ### Output
@@ -5131,14 +5131,14 @@ unify(<T>, { a: Int | T }, { a: Bool, b: Int })
 ```
 
 ### Errors
-- (0:16-0:19) Test failed because `Int` is not a `Bool`.
-  - (0:32-0:36): `Bool`
+- (0:15-0:18) Test failed because `Int` is not a `Bool`.
+  - (0:29-0:33): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, { a: Bool, b: Int }, { a: Int | T })
+unify(<T>, {a: Bool, b: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5147,14 +5147,14 @@ unify(<T>, { a: Bool, b: Int }, { a: Int | T })
 ```
 
 ### Errors
-- (0:16-0:20) Test failed because `Bool` is not an `Int`.
-  - (0:37-0:40): `Int`
+- (0:15-0:19) Test failed because `Bool` is not an `Int`.
+  - (0:34-0:37): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, { a: Int | T }, { a: Int, b: Bool, b: Int })
+unify(<T>, {a: Int | T}, {a: Int, b: Bool, b: Int})
 ```
 
 ### Output
@@ -5166,7 +5166,7 @@ unify(<T>, { a: Int | T }, { a: Int, b: Bool, b: Int })
 
 ### Input
 ```ite
-unify(<T>, { a: Int, b: Bool, b: Int }, { a: Int | T })
+unify(<T>, {a: Int, b: Bool, b: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5178,7 +5178,7 @@ unify(<T>, { a: Int, b: Bool, b: Int }, { a: Int | T })
 
 ### Input
 ```ite
-unify(<T>, { a: Int | T }, { a: Int, a: Bool })
+unify(<T>, {a: Int | T}, {a: Int, a: Bool})
 ```
 
 ### Output
@@ -5190,7 +5190,7 @@ unify(<T>, { a: Int | T }, { a: Int, a: Bool })
 
 ### Input
 ```ite
-unify(<T>, { a: Int, a: Bool }, { a: Int | T })
+unify(<T>, {a: Int, a: Bool}, {a: Int | T})
 ```
 
 ### Output
@@ -5202,7 +5202,7 @@ unify(<T>, { a: Int, a: Bool }, { a: Int | T })
 
 ### Input
 ```ite
-unify(<T>, { a: Int | T }, { a: Bool, a: Int })
+unify(<T>, {a: Int | T}, {a: Bool, a: Int})
 ```
 
 ### Output
@@ -5211,14 +5211,14 @@ unify(<T>, { a: Int | T }, { a: Bool, a: Int })
 ```
 
 ### Errors
-- (0:16-0:19) Test failed because `Int` is not a `Bool`.
-  - (0:32-0:36): `Bool`
+- (0:15-0:18) Test failed because `Int` is not a `Bool`.
+  - (0:29-0:33): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, { a: Bool, a: Int }, { a: Int | T })
+unify(<T>, {a: Bool, a: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5227,14 +5227,14 @@ unify(<T>, { a: Bool, a: Int }, { a: Int | T })
 ```
 
 ### Errors
-- (0:16-0:20) Test failed because `Bool` is not an `Int`.
-  - (0:37-0:40): `Int`
+- (0:15-0:19) Test failed because `Bool` is not an `Int`.
+  - (0:34-0:37): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, { a: Int | T }, { a: Int, a: Bool, a: void })
+unify(<T>, {a: Int | T}, {a: Int, a: Bool, a: void})
 ```
 
 ### Output
@@ -5246,7 +5246,7 @@ unify(<T>, { a: Int | T }, { a: Int, a: Bool, a: void })
 
 ### Input
 ```ite
-unify(<T>, { a: Int, a: Bool, a: void }, { a: Int | T })
+unify(<T>, {a: Int, a: Bool, a: void}, {a: Int | T})
 ```
 
 ### Output
@@ -5493,6 +5493,1374 @@ unify(<T>, {a: Int | T}, {a: Int, b: Int})
 ### Output
 ```
 <T = {b: Int}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, C = {l1: A, l2: B}>, A, B)
+```
+
+### Output
+```
+<A, B = A, C = {l1: A, l2: B}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, C = {l1: A, l2: B}>, B, A)
+```
+
+### Output
+```
+<B, A = B, C = {l1: A, l2: B}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, C = {l: Int | A}, D = {l: Int | B}>, A, B)
+```
+
+### Output
+```
+<A, B = A, D = {l: Int | B}, C = {l: Int | A}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, C = {l: Int | A}, D = {l: Int | B}>, B, A)
+```
+
+### Output
+```
+<B, A = B, D = {l: Int | B}, C = {l: Int | A}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, C = {l: A | B}>, A, B)
+```
+
+### Output
+```
+<A, B, C = {l: A | B}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, C = {l: A | B}>, B, A)
+```
+
+### Output
+```
+<A, B, C = {l: A | B}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, R, S>, {p: A | R}, {q: B | S})
+```
+
+### Output
+```
+<A, B, T1, R = {q: B | T1}, S = {p: A | T1}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, R, S>, R, {p: A | S})
+```
+
+### Output
+```
+<A, S, R = {p: A | S}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A, B, S, T, R = {p: A | S}>, R, {q: B | T})
+```
+
+### Output
+```
+<A, B, T1, S = {q: B | T1}, R = {p: A | S}, T = {p: A | T1}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, A, {p: A})
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, {p: A}, A)
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, A, {p: Int | A})
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, {p: Int | A}, A)
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {x: Int}, {y: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {x: Int | {}}, {y: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, {x: Int | A}, {x: Int | A})
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, {x: Int | A}, {x: Int, y: Int | A})
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, {x: Int, y: Int | A}, {x: Int | A})
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A>, {x: Int | A}, {y: Int | A})
+```
+
+### Output
+```
+<A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, X>, X, {p: Bool | R})
+```
+
+### Output
+```
+<R, X = {p: Bool | R}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, X = {p: Bool | R}>, X, {q: Int | R})
+```
+
+### Output
+```
+<R, X = {p: Bool | R}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {}, {})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {a: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {a: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, b: Bool}, {b: Bool, a: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int, b: Bool}, {b: Int, a: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int | {b: Bool}}, {b: Bool | {a: Int}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int | {b: Bool}}, {b: Int | {a: Bool}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X = {b: Bool}, Y = {a: Int}>, {a: Int | X}, {b: Bool | Y})
+```
+
+### Output
+```
+<Y = {a: Int}, X = {b: Bool}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X = {b: Bool}, Y = {a: Bool}>, {a: Int | X}, {b: Int | Y})
+```
+
+### Output
+```
+<Y = {a: Bool}, X = {b: Bool}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X = {b: Bool}>, {a: Int | X}, {b: Bool | {a: Int}})
+```
+
+### Output
+```
+<X = {b: Bool}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X = {b: Bool}>, {a: Int | X}, {b: Int | {a: Bool}})
+```
+
+### Output
+```
+<X = {b: Bool}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X = {b: Bool}>, {a: Int | X}, {b: Int | {a: Int}})
+```
+
+### Output
+```
+<X = {b: Bool}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X = {b: Int}>, {a: Int | X}, {b: Int | {a: Bool}})
+```
+
+### Output
+```
+<X = {b: Int}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<Y = {a: Int}>, {a: Int | {b: Bool}}, {b: Bool | Y})
+```
+
+### Output
+```
+<Y = {a: Int}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<Y = {a: Bool}>, {a: Int | {b: Bool}}, {b: Int | Y})
+```
+
+### Output
+```
+<Y = {a: Bool}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X>, {a: Int | {b: Int}}, X)
+```
+
+### Output
+```
+<X = {a: Int | {b: Int}}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<X>, X, {a: Int | {b: Int}})
+```
+
+### Output
+```
+<X = {a: Int | {b: Int}}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int | {b: Int}}, Int)
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, Int, {a: Int | {b: Int}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S = R>, {p: Int | R}, {q: Bool | S})
+```
+
+### Output
+```
+<T1, R = {q: Bool | T1}, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int}, {q: Bool | R})
+```
+
+### Output
+```
+<T1, R = {p: Int | T1}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | {}}, {q: Bool | R})
+```
+
+### Output
+```
+<T1, R = {p: Int | T1}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int}, {p: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | {}}, {p: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Int | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Bool | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {}, {})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Int, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Bool, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Int, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Bool, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Int, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Bool, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Int, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Bool, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Int, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Bool, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Int, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool}, {p: Bool, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Int, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Bool, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Int, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int, q: Bool | {}}, {p: Bool, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Bool})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Bool})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Int})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Int})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool}, {p: Int, q: Bool | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool}, {p: Bool, q: Bool | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool}, {p: Int, q: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool}, {p: Bool, q: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Bool | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Bool | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Int | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Int | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int, q: Bool | R}, {p: Int, q: Bool | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int, q: Bool | R}, {p: Bool, q: Bool | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int, q: Bool | R}, {p: Int, q: Int | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int, q: Bool | R}, {p: Bool, q: Int | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Int, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Bool, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Int, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Bool, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Int, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Bool, q: Bool})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Int, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Bool, q: Int})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Int, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Bool, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Int, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int}, {p: Bool, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Int, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Bool, q: Bool | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Int, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {p: Int | {}}, {p: Bool, q: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Int, q: Bool})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Bool, q: Bool})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Int, q: Int})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Bool, q: Int})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int}, {p: Int, q: Bool | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int}, {p: Bool, q: Bool | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int}, {p: Int, q: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int}, {p: Bool, q: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Int, q: Bool | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Bool, q: Bool | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Int, q: Int | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R>, {p: Int | R}, {p: Bool, q: Int | R})
+```
+
+### Output
+```
+<R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int | R}, {p: Int, q: Bool | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int | R}, {p: Bool, q: Bool | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int | R}, {p: Int, q: Int | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R, S>, {p: Int | R}, {p: Bool, q: Int | S})
+```
+
+### Output
+```
+<R, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {b: Int | {}})
+```
+
+### Output
+```
+<>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<>, {a: Int}, {b: Int | Int})
+```
+
+### Output
+```
+<>
 ```
 
 --------------------------------------------------------------------------------
