@@ -197,7 +197,7 @@ function :: Range -> Monotype -> Monotype -> Monotype
 function range parameter body = construct range (Function parameter body)
 
 -- Creates a new object monotype.
-object :: Range -> Map Identifier [ObjectProperty Monotype] -> Maybe Monotype -> Monotype
+object :: Range -> Map Identifier [(Range, Monotype)] -> Maybe Monotype -> Monotype
 object range properties extension = construct range (Object properties extension)
 
 -- Creates an empty object with a range stack.

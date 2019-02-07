@@ -15,6 +15,7 @@ import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, Monoty
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier (Identifier)
+import Brite.Syntax.Range
 import Data.Foldable (foldl', foldlM)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
@@ -202,7 +203,7 @@ projectionsEqual prefix initialType1 initialType2 =
 
     -- Compares two object property maps. If all their properties match then return true. If one map
     -- has properties that the other map does not we return false.
-    objectPropertiesEqual :: Map Identifier [ObjectProperty Skeleton] -> Map Identifier [ObjectProperty Skeleton] -> Check s Bool
+    objectPropertiesEqual :: Map Identifier [(Range, Skeleton)] -> Map Identifier [(Range, Skeleton)] -> Check s Bool
     objectPropertiesEqual properties1 properties2 =
       let
         (sharedProperties, (overflowProperties1, overflowProperties2)) =
@@ -212,7 +213,7 @@ projectionsEqual prefix initialType1 initialType2 =
           return False
         else
           foldlM
-            (foldlM (\acc (ObjectProperty _ p1, ObjectProperty _ p2) ->
+            (foldlM (\acc ((_, p1), (_, p2)) ->
               if not acc then return acc else skeletonsEqual p1 p2))
             True
             sharedProperties

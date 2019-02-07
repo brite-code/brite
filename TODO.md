@@ -21,3 +21,4 @@
 - Only reserve keywords for binding identifiers. Allow keywords in properties
   like `gen.void`.
 - Auto-correct. You typed `foobar` did you mean `foo`?
+- Warn when using the same property name twice in the same object.

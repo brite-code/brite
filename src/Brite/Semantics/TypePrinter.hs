@@ -10,6 +10,7 @@ module Brite.Semantics.TypePrinter
   , printPolytypeWithoutInlining
   , printBindingWithoutInlining
   , printMonotypeWithoutInlining
+  , objectPropertyList
   ) where
 
 import Brite.Semantics.Namer
@@ -384,7 +385,7 @@ printMonotypeWithoutInlining type0 = case monotypeDescription type0 of
 -- Converts a map of object properties into a list. The list is sorted by the location of each
 -- property in source code while still preserving the appropriate ordering for object properties
 -- with the same name.
-objectPropertyList :: Map Identifier [ObjectProperty a] -> [(Identifier, a)]
+objectPropertyList :: Map Identifier [(Range, a)] -> [(Identifier, a)]
 objectPropertyList properties0 =
   let
     -- Turn the map of properties into a list.
@@ -397,17 +398,16 @@ objectPropertyList properties0 =
           -- We know that next we’ll be sorting properties based on their appearance in source code.
           -- We must make sure that even after the sort our named properties preserve their order.
           snd (foldr
-            (\nameProperty (maybePreviousRange, acc2) ->
-              let thisRange = objectPropertyNameRange nameProperty in
-                case maybePreviousRange of
-                  -- If our range is earlier than the range of our previous property then update our
-                  -- property value’s range to that of the previous range. This way when we sort
-                  -- on object property ranges we won’t move a later property of the same name
-                  -- before an earlier property of the same name.
-                  Just previousRange | rangeStart thisRange > rangeStart previousRange ->
-                    (Just previousRange, (name, nameProperty { objectPropertyNameRange = previousRange }) : acc2)
-                  _ ->
-                    (Just thisRange, (name, nameProperty) : acc2))
+            (\(namePropertyRange, namePropertyValue) (maybePreviousRange, acc2) ->
+              case maybePreviousRange of
+                -- If our range is earlier than the range of our previous property then update our
+                -- property value’s range to that of the previous range. This way when we sort
+                -- on object property ranges we won’t move a later property of the same name
+                -- before an earlier property of the same name.
+                Just previousRange | rangeStart namePropertyRange > rangeStart previousRange ->
+                  (Just previousRange, (name, (previousRange, namePropertyValue)) : acc2)
+                _ ->
+                  (Just namePropertyRange, (name, (namePropertyRange, namePropertyValue)) : acc2))
             (Nothing, acc1)
             nameProperties))
         []
@@ -415,11 +415,10 @@ objectPropertyList properties0 =
 
     -- Sort the list of properties by where they appear in source code.
     properties2 =
-      sortOn (rangeStart . objectPropertyNameRange . snd) properties1
+      sortOn (rangeStart . fst . snd) properties1
 
     -- Drop the range from our list of properties. The ranges may have been arbitrarily modified and
     -- so no longer represent the true source location of a property.
-    properties3 =
-      map (\(name, ObjectProperty _ value) -> (name, value)) properties2
+    properties3 = map (\(name, (_, value)) -> (name, value)) properties2
   in
       properties3

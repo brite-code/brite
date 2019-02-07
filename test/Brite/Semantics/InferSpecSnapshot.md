@@ -889,7 +889,7 @@ infer(<>, (id: fun<T>(T) -> T), do { let x = true; (id(x): Int) })
 ```
 
 ### Errors
-- (0:52-0:57) Can not change type of `id()` because `Bool` is not an `Int`.
+- (0:52-0:57) Can not change type of `id(x)` because `Bool` is not an `Int`.
   - (0:45-0:49): `Bool`
   - (0:59-0:62): `Int`
 
@@ -1093,7 +1093,7 @@ infer(<>, (choose: fun<A>(A) -> fun(A) -> A), choose(fun(x) { x })(42))
 ```
 
 ### Errors
-- (0:67-0:69) Can not call `choose()` because `Int` is not a function.
+- (0:67-0:69) Can not call `choose(fun(x) {})` because `Int` is not a function.
   - (0:53-0:65): function
 
 --------------------------------------------------------------------------------
@@ -1109,7 +1109,7 @@ infer(<>, (choose: fun<A>(A) -> fun(A) -> A), choose(42)(fun(x) { x }))
 ```
 
 ### Errors
-- (0:57-0:69) Can not call `choose()` because a function is not an `Int`.
+- (0:57-0:69) Can not call `choose(42)` because a function is not an `Int`.
   - (0:53-0:55): `Int`
 
 --------------------------------------------------------------------------------
@@ -1665,7 +1665,7 @@ infer(<>, (choose: fun<A>(A) -> fun(A) -> A, id: fun<A>(A) -> A, add1: fun(Int) 
 ```
 
 ### Errors
-- (0:135-0:139) Can not call `choose()` because `fun<A>(A) -> A` is more general than `fun(Int) -> Int`.
+- (0:135-0:139) Can not call `choose(id)` because `fun<A>(A) -> A` is more general than `fun(Int) -> Int`.
   - (0:110-0:124): `fun<A>(A) -> A`
   - (0:71-0:86): `fun(Int) -> Int`
 
@@ -2003,5 +2003,475 @@ infer(<>, (), (fun(x) { x }: fun<X>(X) -> Int))
 ### Errors
 - (0:15-0:27) Can not change type of `fun(x) {}` because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
   - (0:29-0:45): `fun<X>(X) -> Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {})
+```
+
+### Output
+```
+(<>, {})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42})
+```
+
+### Output
+```
+(<>, {a: Int})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: true})
+```
+
+### Output
+```
+(<>, {a: Bool})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, b: true})
+```
+
+### Output
+```
+(<>, {a: Int, b: Bool})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, b: true, c: void})
+```
+
+### Output
+```
+(<>, {a: Int, b: Bool, c: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, a: true})
+```
+
+### Output
+```
+(<>, {a: Int, a: Bool})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, a: true, a: void})
+```
+
+### Output
+```
+(<>, {a: Int, a: Bool, a: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: (42: Bool), b: (true: Int)})
+```
+
+### Output
+```
+(<>, {a: Bool, b: Int})
+```
+
+### Errors
+- (0:19-0:21) Can not change type of `42` because `Int` is not a `Bool`.
+  - (0:23-0:27): `Bool`
+- (0:34-0:38) Can not change type of `true` because `Bool` is not an `Int`.
+  - (0:40-0:43): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: (42: Bool), a: (true: Bool)})
+```
+
+### Output
+```
+(<>, {a: Bool, a: Bool})
+```
+
+### Errors
+- (0:19-0:21) Can not change type of `42` because `Int` is not a `Bool`.
+  - (0:23-0:27): `Bool`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:17) Can not change type of `{}` because an object is not an `Int`.
+  - (0:19-0:22): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({a: 42}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:22) Can not change type of `{a}` because an object is not an `Int`.
+  - (0:24-0:27): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({a: 42, b: true}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:31) Can not change type of `{a, b}` because an object is not an `Int`.
+  - (0:33-0:36): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({a: 42, b: true, c: void}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:40) Can not change type of `{a, b, c}` because an object is not an `Int`.
+  - (0:42-0:45): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({c: void, a: 42, b: true}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:40) Can not change type of `{c, a, b}` because an object is not an `Int`.
+  - (0:42-0:45): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({a: 42, b: true, c: void, d: 42}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:47) Can not change type of `{a, b, c}` because an object is not an `Int`.
+  - (0:49-0:52): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({| {}}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:21) Can not change type of `{ | {}}` because an object is not an `Int`.
+  - (0:23-0:26): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({a: 42 | {}}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:27) Can not change type of `{a | {}}` because an object is not an `Int`.
+  - (0:29-0:32): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({a: 42, b: true | {}}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:36) Can not change type of `{a, b | {}}` because an object is not an `Int`.
+  - (0:38-0:41): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({a: 42, b: true, c: void | {}}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:45) Can not change type of `{a, b, c | {}}` because an object is not an `Int`.
+  - (0:47-0:50): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({c: void, a: 42, b: true | {}}: Int))
+```
+
+### Output
+```
+(<>, Int)
+```
+
+### Errors
+- (0:15-0:45) Can not change type of `{c, a, b | {}}` because an object is not an `Int`.
+  - (0:47-0:50): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {| {}})
+```
+
+### Output
+```
+(<>, {})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {| ({}: Int)})
+```
+
+### Output
+```
+(<>, { | Int})
+```
+
+### Errors
+- (0:18-0:20) Can not change type of `{}` because an object is not an `Int`.
+  - (0:22-0:25): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42 | {}})
+```
+
+### Output
+```
+(<>, {a: Int})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, b: true | {}})
+```
+
+### Output
+```
+(<>, {a: Int, b: Bool})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42 | {b: true}})
+```
+
+### Output
+```
+(<>, {a: Int, b: Bool})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, b: true, c: void | {}})
+```
+
+### Output
+```
+(<>, {a: Int, b: Bool, c: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, b: true | {c: void}})
+```
+
+### Output
+```
+(<>, {a: Int, b: Bool, c: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42 | {b: true, c: void}})
+```
+
+### Output
+```
+(<>, {a: Int, b: Bool, c: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, a: true, a: void | {}})
+```
+
+### Output
+```
+(<>, {a: Int, a: Bool, a: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42, a: true | {a: void}})
+```
+
+### Output
+```
+(<>, {a: Int, a: Bool, a: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {a: 42 | {a: true, a: void}})
+```
+
+### Output
+```
+(<>, {a: Int, a: Bool, a: void})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), {id: fun(x) { x }})
+```
+
+### Output
+```
+(<>, <Type1: fun<Type1>(Type1) -> Type1> {id: Type1})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({id: fun(x) { x }}: {id: fun<T>(T) -> T}))
+```
+
+### Output
+```
+(<>, <Type1: fun<T>(T) -> T> {id: Type1})
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({id: fun(x) { (x: Int) }}: {id: fun<T>(T) -> T}))
+```
+
+### Output
+```
+(<>, <Type1: fun<T>(T) -> T> {id: Type1})
+```
+
+### Errors
+- (0:15-0:40) Can not change type of `{id}` because `{id: fun<T>(T) -> T}` is more general than `{id: fun(Int) -> Int}`.
+  - (0:42-0:62): `{id: fun<T>(T) -> T}`
 
 --------------------------------------------------------------------------------

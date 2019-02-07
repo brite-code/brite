@@ -193,7 +193,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           Map.foldlWithKey'
             (\result2M name nameProperties -> result2M >>= \result2 ->
               foldlM
-                (\result3 (ObjectProperty _ actualValue, ObjectProperty _ expectedValue) -> do
+                (\result3 ((_, actualValue), (_, expectedValue)) -> do
                   -- Perform the actual unification here!
                   result4 <- unifyWithFrame (objectPropertyFrame name) actualValue expectedValue
                   return (result3 `eitherOr` result4))
@@ -279,7 +279,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
               -- Reports a missing property error for every overflowed property.
               overflowProperty objectType makeDiagnostic result2M name nameProperties = result2M >>= \result2 ->
                 foldlM
-                  (\result3 (ObjectProperty nameRange _) -> do
+                  (\result3 (nameRange, _) -> do
                     let objectRange = initialRange (Type.monotypeRangeStack objectType)
                     e <- makeDiagnostic objectRange (nameRange, name) stack
                     return (result3 `eitherOr` Left e))

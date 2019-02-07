@@ -1,6 +1,5 @@
 module Brite.Semantics.TypeConstruct
   ( Construct(..)
-  , ObjectProperty(..)
   , typeConstructorSnippet
   , mergeProperties
   ) where
@@ -60,14 +59,7 @@ data Construct a
   -- type checking.
   --
   -- [1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf
-  | Object (Map Identifier [ObjectProperty a]) (Maybe a)
-
--- Every object property carries around the range for its name. We use this in printing to order
--- properties by occurrence in source code among other things.
-data ObjectProperty a = ObjectProperty
-  { objectPropertyNameRange :: Range
-  , objectPropertyValue :: a
-  }
+  | Object (Map Identifier [(Range, a)]) (Maybe a)
 
 instance Functor Construct where
   fmap _ Void = Void
@@ -76,16 +68,12 @@ instance Functor Construct where
   fmap f (Function a b) = Function (f a) (f b)
   fmap f (Object ps e) = Object (fmap (fmap f) <$> ps) (f <$> e)
 
-instance Functor ObjectProperty where
-  fmap f (ObjectProperty r a) = ObjectProperty r (f a)
-  {-# INLINE fmap #-}
-
 instance Foldable Construct where
   foldMap _ Void = mempty
   foldMap _ Boolean = mempty
   foldMap _ Integer = mempty
   foldMap f (Function a b) = f a <> f b
-  foldMap f (Object ps e) = foldMap (foldMap (f . objectPropertyValue)) ps <> foldMap f e
+  foldMap f (Object ps e) = foldMap (foldMap (f . snd)) ps <> foldMap f e
 
 -- Gets a snippet representing the type constructor.
 typeConstructorSnippet :: Construct a -> TypeConstructorSnippet
@@ -98,9 +86,9 @@ typeConstructorSnippet (Object _ _) = ObjectConstructorSnippet
 -- Merges two property maps returning a map of the merged properties and two maps containing all the
 -- properties which were not merged.
 mergeProperties ::
-  Map Identifier [ObjectProperty a] -> Map Identifier [ObjectProperty a] ->
-    ( Map Identifier [(ObjectProperty a, ObjectProperty a)]                  -- Shared properties
-    , (Map Identifier [ObjectProperty a], Map Identifier [ObjectProperty a]) -- Overflow properties
+  Map Identifier [(Range, a)] -> Map Identifier [(Range, a)] ->
+    ( Map Identifier [((Range, a), (Range, a))]                  -- Shared properties
+    , (Map Identifier [(Range, a)], Map Identifier [(Range, a)]) -- Overflow properties
     )
 
 -- Optimization: If we only have one property, don’t run a full `Map.mergeA` which is O(n) but

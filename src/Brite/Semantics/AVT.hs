@@ -15,10 +15,12 @@ module Brite.Semantics.AVT
 
 import Brite.Diagnostic
 import Brite.Semantics.Type (Polytype)
+import Brite.Semantics.TypePrinter (objectPropertyList)
 import Brite.Syntax.Identifier
 import Brite.Syntax.Number (IntegerBase(..))
 import Brite.Syntax.Range
 import Brite.Syntax.Snippet
+import Data.Map.Strict (Map)
 
 newtype Statement = Statement
   -- The representation of this statement.
@@ -65,6 +67,9 @@ data ExpressionNode
   -- `f(E)`
   | CallExpression Expression [Expression]
 
+  -- `{p: E}`
+  | ObjectExpression (Map Identifier [(Range, Expression)]) (Maybe Expression)
+
   -- `if E {} else {}`
   | ConditionalExpression Expression Block Block
 
@@ -106,7 +111,15 @@ expressionSnippet expression = case expressionNode expression of
   ConstantExpression constant -> ConstantExpressionSnippet (constantSnippet constant)
   VariableExpression name -> VariableExpressionSnippet name
   FunctionExpression parameter _ -> FunctionExpressionSnippet (patternSnippet parameter)
-  CallExpression callee _ -> CallExpressionSnippet (expressionSnippet callee)
+
+  CallExpression callee arguments ->
+    CallExpressionSnippet (expressionSnippet callee) (listSnippet expressionSnippet arguments)
+
+  ObjectExpression properties extension ->
+    ObjectExpressionSnippet
+      (listSnippet fst (objectPropertyList properties))
+      (expressionSnippet <$> extension)
+
   ConditionalExpression test _ _ -> ConditionalExpressionSnippet (expressionSnippet test)
   BlockExpression _ -> BlockExpressionSnippet
   WrappedExpression wrapped _ -> expressionSnippet wrapped

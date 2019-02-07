@@ -23,7 +23,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Brite.Syntax.Snippet
-  ( ConstantSnippet(..)
+  ( ListSnippet(..)
+  , listSnippet
+  , ConstantSnippet(..)
   , ExpressionSnippet(..)
   , PatternSnippet(..)
   , TypeConstructorSnippet(..)
@@ -34,6 +36,21 @@ import Brite.Syntax.Identifier
 import Brite.Syntax.Number
 import qualified Data.Text.Lazy.Builder as Text (Builder)
 import qualified Data.Text.Lazy.Builder as Text.Builder
+
+-- A list of at most two items. With an extra case, `ListN`, to signal if there were more than
+-- two items in the original list.
+data ListSnippet a
+  = ListSnippet0
+  | ListSnippet1 a
+  | ListSnippet2 a a
+  | ListSnippet3 a a a
+
+-- Converts a list of any arity to a list of at most two items.
+listSnippet :: (a -> b) -> [a] -> ListSnippet b
+listSnippet _ [] = ListSnippet0
+listSnippet f [a1] = ListSnippet1 (f a1)
+listSnippet f [a1, a2] = ListSnippet2 (f a1) (f a2)
+listSnippet f (a1 : a2 : a3 : _) = ListSnippet3 (f a1) (f a2) (f a3)
 
 data ConstantSnippet
   -- `void`
@@ -63,8 +80,13 @@ data ExpressionSnippet
 
   -- `f()`
   --
-  -- We only print the callee in a call expression snippet.
-  | CallExpressionSnippet ExpressionSnippet
+  -- We only print the callee and a few arguments.
+  | CallExpressionSnippet ExpressionSnippet (ListSnippet ExpressionSnippet)
+
+  -- `{}`
+  --
+  -- We only print the object and a few property names.
+  | ObjectExpressionSnippet (ListSnippet Identifier) (Maybe ExpressionSnippet)
 
   -- `if E {}`
   --
@@ -100,6 +122,13 @@ data TypeConstructorSnippet
   | FunctionConstructorSnippet
   | ObjectConstructorSnippet
 
+-- Prints a list snippet to a comma list.
+printListSnippet :: (a -> Text.Builder) -> ListSnippet a -> Text.Builder
+printListSnippet _ ListSnippet0 = mempty
+printListSnippet f (ListSnippet1 a) = f a
+printListSnippet f (ListSnippet2 a b) = (f a) <> Text.Builder.fromText ", " <> (f b)
+printListSnippet f (ListSnippet3 a b c) = (f a) <> Text.Builder.fromText ", " <> (f b) <> Text.Builder.fromText ", " <> (f c)
+
 -- Prints a constant snippet to some text.
 printConstantSnippet :: ConstantSnippet -> Text.Builder
 printConstantSnippet VoidConstantSnippet = Text.Builder.fromText "void"
@@ -111,9 +140,33 @@ printExpressionSnippet :: ExpressionSnippet -> Text.Builder
 printExpressionSnippet expression = case expression of
   ConstantExpressionSnippet constant -> printConstantSnippet constant
   VariableExpressionSnippet name -> Text.Builder.fromText (identifierText name)
-  FunctionExpressionSnippet parameter -> Text.Builder.fromText "fun(" <> printPatternSnippet parameter <> Text.Builder.fromText ") {}"
-  CallExpressionSnippet callee -> printExpressionSnippet callee <> Text.Builder.fromText "()"
-  ConditionalExpressionSnippet test -> Text.Builder.fromText "if " <> printExpressionSnippet test <> Text.Builder.fromText " {}"
+
+  FunctionExpressionSnippet parameter ->
+    Text.Builder.fromText "fun(" <> printPatternSnippet parameter <> Text.Builder.fromText ") {}"
+
+  CallExpressionSnippet callee arguments ->
+    printExpressionSnippet callee <>
+    Text.Builder.fromText "(" <>
+    printListSnippet printExpressionSnippet arguments <>
+    Text.Builder.fromText ")"
+
+  ObjectExpressionSnippet properties Nothing ->
+    Text.Builder.fromText "{" <>
+    printListSnippet (Text.Builder.fromText . identifierText) properties <>
+    Text.Builder.fromText "}"
+
+  ObjectExpressionSnippet properties (Just extension) ->
+    Text.Builder.fromText "{" <>
+    printListSnippet (Text.Builder.fromText . identifierText) properties <>
+    Text.Builder.fromText " | " <>
+    printExpressionSnippet extension <>
+    Text.Builder.fromText "}"
+
+  ConditionalExpressionSnippet test ->
+    Text.Builder.fromText "if " <>
+    printExpressionSnippet test <>
+    Text.Builder.fromText " {}"
+
   BlockExpressionSnippet -> Text.Builder.fromText "do {}"
   ErrorExpressionSnippet -> Text.Builder.singleton '!'
 

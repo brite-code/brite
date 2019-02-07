@@ -15,7 +15,6 @@ import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Polytype, Monotype, Flexibility(..))
 import qualified Brite.Semantics.Type as Type
-import Brite.Semantics.TypeConstruct
 import Brite.Semantics.TypeNames
 import Brite.Semantics.Unify
 import Brite.Syntax.Identifier
@@ -27,6 +26,7 @@ import qualified Data.HashMap.Lazy as HashMap
 import Data.HashSet (HashSet)
 import qualified Data.HashSet as HashSet
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
 
@@ -111,6 +111,43 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
       bodyType <- Prefix.generalize prefix bodyMonotype
       -- If unification failed then insert an `ErrorExpression` so that we’ll panic at runtime.
       return (bodyType, addError result (Expression range (CallExpression callee [argument])))
+
+  -- Type check all of an objects properties and extension. Build the object expression and object
+  -- type up from those. Rather straightforward as far as type inference goes. We might need to
+  -- create some type variables in case any of the component types are polymorphic.
+  AST.ObjectExpression astProperties astMaybeExtension -> Prefix.withLevel prefix $ do
+    -- Iterate through all the properties in the AST and type check each one.
+    (propertyTypes, properties) <-
+      foldlM
+        (\(propertyTypesAcc, propertiesAcc) (AST.ObjectExpressionProperty (AST.Name range identifier) astValue) -> do
+          -- If the object expression was punned (`astValue` is `Nothing`) then create a new AST
+          -- variable expression from the name and type check that.
+          (valueType, value) <- checkExpression prefix context
+            (fromMaybe (AST.Expression range (AST.VariableExpression identifier)) astValue)
+          -- Create the property for the object type and the property for the object value.
+          valueMonotype <- Prefix.freshWithBound prefix Flexible valueType
+          -- Add our properties to their respective maps.
+          return
+            ( Map.insertWith (flip (++)) identifier [(range, valueMonotype)] propertyTypesAcc
+            , Map.insertWith (flip (++)) identifier [(range, value)] propertiesAcc
+            ))
+        (Map.empty, Map.empty)
+        astProperties
+
+    -- If we have an extension then type check it.
+    (extensionType, extension) <- case astMaybeExtension of
+      Nothing -> return (Nothing, Nothing)
+      Just astExtension -> do
+        (extensionType, extension) <- checkExpression prefix context astExtension
+        extensionMonotype <- Prefix.freshWithBound prefix Flexible extensionType
+        return (Just extensionMonotype, Just extension)
+
+    -- Create and return the type and AVT expression for our object.
+    objectType <- Prefix.generalize prefix (Type.object range propertyTypes extensionType)
+    return
+      ( objectType
+      , Expression range (ObjectExpression properties extension)
+      )
 
   -- Conditionally executes some code depending on the value under test. The value being tested must
   -- be a boolean. The two branches must have types equivalent to one another.
@@ -435,7 +472,7 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
       foldlM
         (\(counter1, bindings1, properties1) (AST.ObjectTypeProperty name uncheckedPropertyType) -> do
           (counter2, bindings2, propertyType) <- checkMonotype Positive context counter1 bindings1 uncheckedPropertyType
-          let property = ObjectProperty (AST.nameRange name) propertyType
+          let property = (AST.nameRange name, propertyType)
           return (counter2, bindings2, Map.insertWith (flip (++)) (AST.nameIdentifier name) [property] properties1))
         (counter0, bindings0, Map.empty)
         uncheckedProperties
