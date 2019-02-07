@@ -13,12 +13,15 @@ module Brite.Semantics.Kind
   , numberValue
   , objectValue
   , bottom
+  , top
   , unknown
   , subtype
+  , leastUpperBound
+  , greatestLowerBound
   ) where
 
 import Brite.Semantics.CheckMonad
-import Control.Monad.ST
+import Data.Either
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import Data.Maybe (fromMaybe)
@@ -57,6 +60,8 @@ data Kind
   -- The bottom of our kind system.
   | Bottom
 
+  deriving (Eq, Show)
+
 -- A value kind.
 value :: Kind
 value = Value
@@ -72,6 +77,10 @@ objectValue = ObjectValue
 -- The bottom kind.
 bottom :: Kind
 bottom = Bottom
+
+-- The top kind.
+top :: Kind
+top = Value
 
 -- Create a new unknown kind in our kind context.
 unknown :: Context s -> Check s Kind
@@ -121,11 +130,11 @@ newContext = liftST $ Context <$> newSTRef 0 <*> HashTable.new
 -- or fails. We write the subtyping constraint as `T <: U`.
 --
 -- If one of the kinds is an unknown kind then we will narrow its range to fit the constraint.
-subtype :: Context s -> Kind -> Kind -> Check s Bool
+subtype :: Context s -> Kind -> Kind -> Check s (Either () ())
 subtype context kind1 kind2 = case (kind1, kind2) of
   -- If we have two identical unknown kinds then subtyping is a success!
   (Unknown unknownID1, Unknown unknownID2) | unknownID1 == unknownID2 ->
-    return True
+    return (Right ())
 
   -- TODO: Add tests
 
@@ -160,54 +169,49 @@ subtype context kind1 kind2 = case (kind1, kind2) of
     unknown1 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID1
     unknown2 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID2
     result <- subtype context (lowerBound unknown1) (upperBound unknown2)
-    if not result then return False else liftST $ do
+    if isLeft result then return result else do
       newLowerBound <- leastUpperBound context (lowerBound unknown1) (lowerBound unknown2)
       newUpperBound <- greatestLowerBound context (upperBound unknown1) (upperBound unknown2)
-      HashTable.insert (unknownKinds context) unknownID1 (UnknownKind { lowerBound = newLowerBound, upperBound = kind2 })
-      HashTable.insert (unknownKinds context) unknownID2 (UnknownKind { lowerBound = kind1, upperBound = newUpperBound })
-      return True
+      liftST $ HashTable.insert (unknownKinds context) unknownID1 (UnknownKind { lowerBound = newLowerBound, upperBound = kind2 })
+      liftST $ HashTable.insert (unknownKinds context) unknownID2 (UnknownKind { lowerBound = kind1, upperBound = newUpperBound })
+      return result
 
   -- If one unknown kind is constrained to be the subtype of a known type then check to see if the
   -- new upper bound is in range and add it as the new upper bound of our unknown kind.
   (Unknown unknownID1, _) -> do
     unknown1 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID1
     result <- subtype context (lowerBound unknown1) kind2
-    if not result then return False else liftST $ do
+    if isLeft result then return result else do
       newUpperBound <- greatestLowerBound context (upperBound unknown1) kind2
-      HashTable.insert (unknownKinds context) unknownID1 (unknown1 { upperBound = newUpperBound })
-      return True
+      liftST $ HashTable.insert (unknownKinds context) unknownID1 (unknown1 { upperBound = newUpperBound })
+      return result
 
   -- If one unknown kind is constrained to be the supertype of a known type then check to see if the
   -- new lower bound is in range and add it as the new lower bound of our unknown kind.
   (_, Unknown unknownID2) -> do
     unknown2 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID2
     result <- subtype context kind1 (upperBound unknown2)
-    if not result then return False else liftST $ do
+    if isLeft result then return result else do
       newLowerBound <- leastUpperBound context kind1 (lowerBound unknown2)
-      HashTable.insert (unknownKinds context) unknownID2 (unknown2 { lowerBound = newLowerBound })
-      return True
-
-  -- Hypothetical “top” kind. Currently `Value` serves as the top kind.
-  --
-  -- (_, Top) -> return True
-  -- (Top, _) -> return False
+      liftST $ HashTable.insert (unknownKinds context) unknownID2 (unknown2 { lowerBound = newLowerBound })
+      return result
 
   -- `Bottom` is the subtype of everything and the supertype of nothing.
-  (Bottom, _) -> return True
-  (_, Bottom) -> return False
+  (Bottom, _) -> return (Right ())
+  (_, Bottom) -> return (Left ())
 
   -- `Value` is equivalent to itself.
-  (Value, Value) -> return True
+  (Value, Value) -> return (Right ())
 
   -- `NumberValue` is a subtype of `Value`.
-  (NumberValue, Value) -> return True
-  (NumberValue, NumberValue) -> return True
-  (_, NumberValue) -> return False
+  (NumberValue, Value) -> return (Right ())
+  (NumberValue, NumberValue) -> return (Right ())
+  (_, NumberValue) -> return (Left ())
 
   -- `ObjectValue` is a subtype of `Value`.
-  (ObjectValue, Value) -> return True
-  (ObjectValue, ObjectValue) -> return True
-  (_, ObjectValue) -> return False
+  (ObjectValue, Value) -> return (Right ())
+  (ObjectValue, ObjectValue) -> return (Right ())
+  (_, ObjectValue) -> return (Left ())
 
 -- Finds the smallest kind which is larger than both provided kinds. We use the `⨆` operator to
 -- describe this operation. Never returns an unknown kind.
@@ -225,16 +229,16 @@ subtype context kind1 kind2 = case (kind1, kind2) of
 -- bound instead of their `upperBound`. See the documentation on `greatestLowerBound` for
 -- reasoning why. TL;DR: The smallest upper bound of an unknown type `T` is the smallest upper bound
 -- of its lower bound.
-leastUpperBound :: Context s -> Kind -> Kind -> ST s Kind
+leastUpperBound :: Context s -> Kind -> Kind -> Check s Kind
 leastUpperBound context kind1 kind2 = case (kind1, kind2) of
   -- NOTE: We use the lower bound of an unknown kind because that’s the least bound of the kind.
   (Unknown unknownID1, _) -> do
-    unknown1 <- fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID1
+    unknown1 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID1
     leastUpperBound context (lowerBound unknown1) kind2
 
   -- NOTE: We use the lower bound of an unknown kind because that’s the least bound of the kind.
   (_, Unknown unknownID2) -> do
-    unknown2 <- fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID2
+    unknown2 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID2
     leastUpperBound context kind1 (lowerBound unknown2)
 
   (Bottom, _) -> return kind2
@@ -274,16 +278,16 @@ leastUpperBound context kind1 kind2 = case (kind1, kind2) of
 -- of subtyping, every subtype operation _shrinks_ the range of `T` as long as the new range is a
 -- sub-range of the old range. When we run `⊤ <: T` now `T`’s range shrinks to `⊤ <: T <: ⊤` or
 -- simply `⊤`. Therefore, the greatest-lower bound of `T` will always be `T`’s upper bound.
-greatestLowerBound :: Context s -> Kind -> Kind -> ST s Kind
+greatestLowerBound :: Context s -> Kind -> Kind -> Check s Kind
 greatestLowerBound context kind1 kind2 = case (kind1, kind2) of
   -- NOTE: We use the upper bound of an unknown kind because that’s the least bound of the kind.
   (Unknown unknownID1, _) -> do
-    unknown1 <- fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID1
+    unknown1 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID1
     greatestLowerBound context (upperBound unknown1) kind2
 
   -- NOTE: We use the upper bound of an unknown kind because that’s the least bound of the kind.
   (_, Unknown unknownID2) -> do
-    unknown2 <- fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID2
+    unknown2 <- liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID2
     greatestLowerBound context kind1 (upperBound unknown2)
 
   (Bottom, _) -> return kind1
