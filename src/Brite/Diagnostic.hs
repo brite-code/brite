@@ -91,6 +91,7 @@ module Brite.Diagnostic
   , expressionAnnotationStack
   , conditionalTestStack
   , conditionalBranchesStack
+  , objectPropertyStack
   , functionParameterFrame
   , functionBodyFrame
   , objectPropertyFrame
@@ -326,6 +327,7 @@ data UnifyStackOperation
   | UnifyExpressionAnnotation ExpressionSnippet
   | UnifyConditionalTest ExpressionSnippet
   | UnifyConditionalBranches ExpressionSnippet
+  | UnifyObjectPropertyAccess ExpressionSnippet Identifier
 
 data UnifyStackFrame
   = UnifyFunctionParameter
@@ -362,6 +364,10 @@ conditionalTestStack range snippet = UnifyStackOperation range (UnifyConditional
 -- The expression snippet should be from the _test_ expression.
 conditionalBranchesStack :: Range -> ExpressionSnippet -> UnifyStack
 conditionalBranchesStack range snippet = UnifyStackOperation range (UnifyConditionalBranches snippet)
+
+-- When we attempt to determine if an object contains a given property: `E.p`.
+objectPropertyStack :: Range -> ExpressionSnippet -> Identifier -> UnifyStack
+objectPropertyStack range snippet property = UnifyStackOperation range (UnifyObjectPropertyAccess snippet property)
 
 -- Adds a function parameter frame to the unification stack.
 --
@@ -755,6 +761,11 @@ unifyStackOperationMessage (UnifyConditionalTest snippet) =
 -- without resorting to a message which is too complex.
 unifyStackOperationMessage (UnifyConditionalBranches snippet) =
   plain "Can not test " <> code (Text.Builder.toStrictText (printExpressionSnippet snippet))
+
+-- TODO: Better error messages
+unifyStackOperationMessage (UnifyObjectPropertyAccess snippet property) =
+  plain "Can not get " <> code (Text.snoc (identifierText property) ':') <> plain " on " <>
+  code (Text.Builder.toStrictText (printExpressionSnippet snippet))
 
 -- A message for pushing people to our issue tracker when they encounter an unexpected error.
 --

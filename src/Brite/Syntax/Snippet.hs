@@ -88,6 +88,9 @@ data ExpressionSnippet
   -- We only print the object and a few property names.
   | ObjectExpressionSnippet (ListSnippet Identifier) (Maybe ExpressionSnippet)
 
+  -- `E.p`
+  | PropertyExpressionSnippet ExpressionSnippet Identifier
+
   -- `if E {}`
   --
   -- We only print `if` with the test expression snippet.
@@ -161,6 +164,11 @@ printExpressionSnippet expression = case expression of
     Text.Builder.fromText " | " <>
     printExpressionSnippet extension <>
     Text.Builder.fromText "}"
+
+  PropertyExpressionSnippet object property ->
+    printExpressionSnippet object <>
+    Text.Builder.fromText "." <>
+    Text.Builder.fromText (identifierText property)
 
   ConditionalExpressionSnippet test ->
     Text.Builder.fromText "if " <>

@@ -119,17 +119,17 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
     -- Iterate through all the properties in the AST and type check each one.
     (propertyTypes, properties) <-
       foldlM
-        (\(propertyTypesAcc, propertiesAcc) (AST.ObjectExpressionProperty (AST.Name range identifier) astValue) -> do
+        (\(propertyTypesAcc, propertiesAcc) (AST.ObjectExpressionProperty (Name propertyRange identifier) astValue) -> do
           -- If the object expression was punned (`astValue` is `Nothing`) then create a new AST
           -- variable expression from the name and type check that.
           (valueType, value) <- checkExpression prefix context
-            (fromMaybe (AST.Expression range (AST.VariableExpression identifier)) astValue)
+            (fromMaybe (AST.Expression propertyRange (AST.VariableExpression identifier)) astValue)
           -- Create the property for the object type and the property for the object value.
           valueMonotype <- Prefix.freshWithBound prefix Flexible valueType
           -- Add our properties to their respective maps.
           return
-            ( Map.insertWith (flip (++)) identifier [(range, valueMonotype)] propertyTypesAcc
-            , Map.insertWith (flip (++)) identifier [(range, value)] propertiesAcc
+            ( Map.insertWith (flip (++)) identifier [(propertyRange, valueMonotype)] propertyTypesAcc
+            , Map.insertWith (flip (++)) identifier [(propertyRange, value)] propertiesAcc
             ))
         (Map.empty, Map.empty)
         astProperties
@@ -148,6 +148,38 @@ checkExpression prefix context astExpression = case AST.expressionNode astExpres
       ( objectType
       , Expression range (ObjectExpression properties extension)
       )
+
+  -- To type check a property expression we unify the object type with a type of the form
+  -- `{p: T | U}` where `p` is the property name and `T` and `U` are fresh type variables.
+  AST.PropertyExpression astObject property -> do
+    -- Type check the object we are accessing the property on.
+    (objectType, object) <- checkExpression prefix context astObject
+
+    Prefix.withLevel prefix $ do
+      -- Convert our object type into a monotype. Also create a fresh type which we will use as the
+      -- object’s extension in unification.
+      objectPropertyMonotype <- Prefix.fresh prefix range
+      objectExtensionType <- Prefix.fresh prefix (expressionRange object)
+      objectMonotype <- Prefix.freshWithBound prefix Flexible objectType
+      -- Create the expected object type. We have a fresh variable for the property value and the
+      -- object extension.
+      let expectedObjectType =
+            Type.object
+              (expressionRange object)
+              (Map.singleton (nameIdentifier property) [(nameRange property, objectPropertyMonotype)])
+              (Just objectExtensionType)
+      -- Setup the unification stack.
+      let objectSnippet = expressionSnippet object
+      let propertyStack = objectPropertyStack (nameRange property) objectSnippet (nameIdentifier property)
+      -- Unify our object type with the expected type. This will resolve our fresh type variables
+      -- like `objectPropertyMonotype` to an actual type.
+      result <- unify propertyStack prefix objectMonotype expectedObjectType
+      -- Generalize the final property type and return it.
+      objectPropertyType <- Prefix.generalize prefix objectPropertyMonotype
+      return
+        ( objectPropertyType
+        , addError result (Expression range (PropertyExpression object property))
+        )
 
   -- Conditionally executes some code depending on the value under test. The value being tested must
   -- be a boolean. The two branches must have types equivalent to one another.
@@ -367,12 +399,12 @@ checkQuantifiers context0 (AST.Quantifier name bound : quantifiers) bindings = d
   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
   binding <- case bound of
-    Nothing -> return (Type.Binding (AST.nameIdentifier name) Flexible (Type.bottom (AST.nameRange name)))
+    Nothing -> return (Type.Binding (nameIdentifier name) Flexible (Type.bottom (nameRange name)))
     Just (flexibility, boundType) ->
-      Type.Binding (AST.nameIdentifier name) flexibility <$> checkPolytype context0 boundType
+      Type.Binding (nameIdentifier name) flexibility <$> checkPolytype context0 boundType
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
   -- after checking our binding type.
-  let context1 = HashSet.insert (AST.nameIdentifier name) context0
+  let context1 = HashSet.insert (nameIdentifier name) context0
   -- Add our binding and process the remaining quantifiers in our new context.
   checkQuantifiers context1 quantifiers (bindings |> binding)
 
@@ -472,8 +504,8 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
       foldlM
         (\(counter1, bindings1, properties1) (AST.ObjectTypeProperty name uncheckedPropertyType) -> do
           (counter2, bindings2, propertyType) <- checkMonotype Positive context counter1 bindings1 uncheckedPropertyType
-          let property = (AST.nameRange name, propertyType)
-          return (counter2, bindings2, Map.insertWith (flip (++)) (AST.nameIdentifier name) [property] properties1))
+          let property = (nameRange name, propertyType)
+          return (counter2, bindings2, Map.insertWith (flip (++)) (nameIdentifier name) [property] properties1))
         (counter0, bindings0, Map.empty)
         uncheckedProperties
 

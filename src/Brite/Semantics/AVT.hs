@@ -2,7 +2,8 @@
 -- compilation and for serving IDE requests like hover-types.
 
 module Brite.Semantics.AVT
-  ( Statement(..)
+  ( Name(..)
+  , Statement(..)
   , StatementNode(..)
   , Block(..)
   , Constant(..)
@@ -14,6 +15,7 @@ module Brite.Semantics.AVT
   ) where
 
 import Brite.Diagnostic
+import Brite.Semantics.AST (Name(..))
 import Brite.Semantics.Type (Polytype)
 import Brite.Semantics.TypePrinter (objectPropertyList)
 import Brite.Syntax.Identifier
@@ -70,6 +72,9 @@ data ExpressionNode
   -- `{p: E}`
   | ObjectExpression (Map Identifier [(Range, Expression)]) (Maybe Expression)
 
+  -- `E.p`
+  | PropertyExpression Expression Name
+
   -- `if E {} else {}`
   | ConditionalExpression Expression Block Block
 
@@ -119,6 +124,9 @@ expressionSnippet expression = case expressionNode expression of
     ObjectExpressionSnippet
       (listSnippet fst (objectPropertyList properties))
       (expressionSnippet <$> extension)
+
+  PropertyExpression object property ->
+    PropertyExpressionSnippet (expressionSnippet object) (nameIdentifier property)
 
   ConditionalExpression test _ _ -> ConditionalExpressionSnippet (expressionSnippet test)
   BlockExpression _ -> BlockExpressionSnippet
