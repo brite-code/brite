@@ -15,7 +15,7 @@ import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, Monoty
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier (Identifier)
-import Data.Foldable (foldl')
+import Data.Foldable (foldl', foldlM)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
 import Data.Map.Strict (Map)
@@ -120,19 +120,102 @@ projectionsEqual prefix initialType1 initialType2 =
 
       -- Compare two constructs.
       (ConstructSkeleton construct1, ConstructSkeleton construct2) ->
-        case (construct1, construct2) of
-          (Void, Void) -> return True
-          (Boolean, Boolean) -> return True
-          (Integer, Integer) -> return True
+        constructSkeletonsEqual construct1 construct2
 
-          (Function param1 body1, Function param2 body2) ->
-            (&&) <$> skeletonsEqual param1 param2 <*> skeletonsEqual body1 body2
+    constructSkeletonsEqual :: Construct Skeleton -> Construct Skeleton -> Check s Bool
+    constructSkeletonsEqual construct1 construct2 = case (construct1, construct2) of
+      -- Simple constructed types are always equal to each other.
+      (Void, Void) -> return True
+      (Void, _) -> return False
+      (_, Void) -> return False
 
-          (Void, _) -> return False
-          (Boolean, _) -> return False
-          (Integer, _) -> return False
-          (Function _ _, _) -> return False
-          -- (Object _ _, _) -> return False
+      (Boolean, Boolean) -> return True
+      (Boolean, _) -> return False
+      (_, Boolean) -> return False
+
+      (Integer, Integer) -> return True
+      (Integer, _) -> return False
+      (_, Integer) -> return False
+
+      -- All components of a function must be equal.
+      (Function param1 body1, Function param2 body2) -> do
+        a <- skeletonsEqual param1 param2
+        if not a then return a else skeletonsEqual body1 body2
+
+      (Function _ _, _) -> return False
+      (_, Function _ _) -> return False
+
+      -- NOTE: We need to resolve object variable extensions in the same way we resolve
+      -- variables above since.
+
+      -- Optimization: If we have two variable skeletons of the same name then we know the
+      -- variables will be of the same type in our prefix. So we can return early.
+      (Object props1 (Just (VariableSkeleton name1)), Object props2 (Just (VariableSkeleton name2))) | name1 == name2 ->
+        objectPropertiesEqual props1 props2
+
+      -- De-reference a variable from the prefix, convert that variable to a skeleton, and compare
+      -- the equality of our skeletons.
+      (Object props1 (Just (VariableSkeleton name1)), _) -> do
+        maybeBinding1 <- prefix name1
+        case maybeBinding1 of
+          Nothing -> return False
+          Just binding1 ->
+            constructSkeletonsEqual
+              (Object props1 (Just (polytypeSkeleton HashMap.empty (Type.bindingType binding1))))
+              construct2
+
+      -- De-reference a variable from the prefix, convert that variable to a skeleton, and compare
+      -- the equality of our skeletons.
+      (_, Object props2 (Just (VariableSkeleton name2))) -> do
+        maybeBinding2 <- prefix name2
+        case maybeBinding2 of
+          Nothing -> return False
+          Just binding2 ->
+            constructSkeletonsEqual
+              construct1
+              (Object props2 (Just (polytypeSkeleton HashMap.empty (Type.bindingType binding2))))
+
+      -- If our object extends another object then merge the two property maps.
+      (Object props1A (Just (ConstructSkeleton (Object props1B ext1))), _) ->
+        constructSkeletonsEqual
+          (Object (Map.unionWith (++) props1A props1B) ext1)
+          construct2
+
+      -- If our object extends another object then merge the two property maps.
+      (_, Object props2A (Just (ConstructSkeleton (Object props2B ext2)))) ->
+        constructSkeletonsEqual
+          construct1
+          (Object (Map.unionWith (++) props2A props2B) ext2)
+
+      -- If neither object has an extension then just compare the properties.
+      (Object props1 Nothing, Object props2 Nothing) -> objectPropertiesEqual props1 props2
+
+      -- If one object has an extension and the other doesn’t then the objects are not equal.
+      -- Remember that all extensions of an object should be inlined by this point.
+      (Object _ Nothing, Object _ (Just _)) -> return False
+      (Object _ (Just _), Object _ Nothing) -> return False
+
+      -- If both objects have extensions then compare the properties and compare the extensions.
+      (Object props1 (Just ext1), Object props2 (Just ext2)) -> do
+        a <- objectPropertiesEqual props1 props2
+        if not a then return a else skeletonsEqual ext1 ext2
+
+    -- Compares two object property maps. If all their properties match then return true. If one map
+    -- has properties that the other map does not we return false.
+    objectPropertiesEqual :: Map Identifier [ObjectProperty Skeleton] -> Map Identifier [ObjectProperty Skeleton] -> Check s Bool
+    objectPropertiesEqual properties1 properties2 =
+      let
+        (sharedProperties, (overflowProperties1, overflowProperties2)) =
+          mergeProperties properties1 properties2
+      in
+        if not (Map.null overflowProperties1) || not (Map.null overflowProperties2) then
+          return False
+        else
+          foldlM
+            (foldlM (\acc (ObjectProperty _ p1, ObjectProperty _ p2) ->
+              if not acc then return acc else skeletonsEqual p1 p2))
+            True
+            sharedProperties
 
 -- See Section 2.7.1 of the [MLF thesis][1].
 --
