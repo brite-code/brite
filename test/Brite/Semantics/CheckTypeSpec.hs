@@ -146,6 +146,7 @@ testData =
   , ("fun<T>(T) -> {a: Int | T}", "fun<T>(T) -> {a: Int | T}", [])
   , ("fun<T = Int>({a: Int | T}) -> T", "fun<T = Int>({a: Int | T}) -> T", [])
   , ("fun<T: Int>(T) -> {a: Int | T}", "fun<T: Int>(T) -> {a: Int | T}", [])
+  , ("fun<T = <X> {a: X, b: !}>(T) -> T", "fun<T = <X, Type1> {a: X, b: Type1}>(T) -> T", [])
   ]
 
 initialContext :: HashSet Identifier
