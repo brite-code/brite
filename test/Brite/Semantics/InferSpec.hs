@@ -217,6 +217,7 @@ testData =
   , "infer(<>, (), {id: fun(x) { x }})"
   , "infer(<>, (), ({id: fun(x) { x }}: {id: fun<T>(T) -> T}))"
   , "infer(<>, (), ({id: fun(x) { (x: Int) }}: {id: fun<T>(T) -> T}))"
+  , "infer(<>, (), fun(r) { if true { { x: 2 | r } } else { { y: 2 | r } } })"
   -- TODO: , "infer(<>, (), do { let o = {id: fun(x) { x }}; o.id(42); o })"
   ]
 

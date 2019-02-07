@@ -2475,3 +2475,20 @@ infer(<>, (), ({id: fun(x) { (x: Int) }}: {id: fun<T>(T) -> T}))
   - (0:42-0:62): `{id: fun<T>(T) -> T}`
 
 --------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), fun(r) { if true { { x: 2 | r } } else { { y: 2 | r } } })
+```
+
+### Output
+```
+(<>, fun<Type1>(Type1) -> {x: Int | Type1})
+```
+
+### Errors
+- (0:55-0:67) Can not test `true` because `x:` is missing.
+  - (0:35-0:36): `x:`
+- (0:57-0:58) Can not test `true` because `y:` is not needed.
+
+--------------------------------------------------------------------------------
