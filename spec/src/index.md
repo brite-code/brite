@@ -5,6 +5,8 @@ NOTE: This specification describes the current state of the Brite implementation
 
 [Statements](statements.md)
 
+[Constants](constants.md)
+
 [Expressions](expressions.md)
 
 [Patterns](patterns.md)
