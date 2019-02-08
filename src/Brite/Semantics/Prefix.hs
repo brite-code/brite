@@ -186,7 +186,7 @@ fresh :: Prefix s -> Range -> Check s Monotype
 fresh prefix range = liftST $ do
   name <- freshName prefix
   addAssumingThatNameIsUnbound prefix (Type.Binding name Type.Flexible (Type.bottom range))
-  return (Type.variable range name)
+  return (Type.variable range name )
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
 -- monotype then we return the monotype directly instead of creating a fresh type variable.

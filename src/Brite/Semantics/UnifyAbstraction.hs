@@ -57,7 +57,7 @@ projectionsEqual prefix initialType1 initialType2 =
     monotypeSkeleton :: HashMap Identifier Skeleton -> Monotype -> Skeleton
     monotypeSkeleton context type' = case Type.monotypeDescription type' of
       -- If a variable does not exist in our context then return a `VariableSkeleton`.
-      Variable name ->
+      Variable name _ ->
         case HashMap.lookup name context of
           Nothing -> VariableSkeleton name
           Just skeleton -> skeleton
@@ -370,7 +370,7 @@ abstractionCheck prefix initialType1 initialType2 = do
         -- recurse we also check whether or not the projections are equal again. However, this check
         -- is computationally wasteful. Projections will always be equal so we don’t perform that
         -- check again.
-        (_, Monotype' (Type.monotypeDescription -> Variable name2)) -> do
+        (_, Monotype' (Type.monotypeDescription -> Variable name2 _)) -> do
           maybeBinding <- prefix name2
           case maybeBinding of
             Nothing -> return False

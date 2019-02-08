@@ -13,6 +13,7 @@ module Brite.Semantics.Type
   , monotypeDescription
   , monotypeRangeStack
   , monotypeFreeVariables
+  , monotypeKind
   , Polytype
   , PolytypeDescription(..)
   , polytypeDescription
@@ -42,6 +43,8 @@ module Brite.Semantics.Type
   ) where
 
 import Brite.Semantics.AST (Flexibility(..))
+import Brite.Semantics.Kind (Kind)
+import qualified Brite.Semantics.Kind as Kind
 import Brite.Semantics.Namer
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier (Identifier)
@@ -82,12 +85,22 @@ data MonotypeDescription
   -- `T`
   --
   -- The variable referenced by this monotype.
-  = Variable Identifier
+  = Variable Identifier Kind
 
   -- `void`, `fun(T) -> U` `Bool`, `Int`
   --
   -- Some constructed type. Like a function or an integer.
   | Construct (Construct Monotype)
+
+-- Gets the type kind of a monotype.
+monotypeKind :: Monotype -> Kind
+monotypeKind t = case monotypeDescription t of
+  Variable _ k -> k
+  Construct Void -> Kind.value
+  Construct Boolean -> Kind.value
+  Construct Integer -> Kind.numberValue
+  Construct (Function _ _) -> Kind.value
+  Construct (Object _ _) -> Kind.objectValue
 
 -- Types that do contain quantifiers. When we refer to a “type” what we really mean is “polytype”.
 data Polytype = Polytype
@@ -155,16 +168,16 @@ isUnboundBinding (Binding _ Flexible (Polytype { polytypeDescription = Bottom _ 
 isUnboundBinding _ = False
 
 -- Creates a type variable monotype.
-variable :: Range -> Identifier -> Monotype
+variable :: Range -> Kind -> Identifier -> Monotype
 variable range = variableWithRangeStack (singletonRange range)
 
 -- Creates a type variable monotype.
-variableWithRangeStack :: RangeStack -> Identifier -> Monotype
-variableWithRangeStack rangeStack identifier =
+variableWithRangeStack :: RangeStack -> Kind -> Identifier -> Monotype
+variableWithRangeStack rangeStack kind identifier =
   Monotype
     { monotypeRangeStack = rangeStack
     , monotypeFreeVariables = Set.singleton identifier
-    , monotypeDescription = Variable identifier
+    , monotypeDescription = Variable identifier kind
     }
 
 -- Creates a constructed monotype.
@@ -390,7 +403,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
 
       -- If the body of our new quantified type is a variable that references the current binding
       -- then we want to inline that binding as the new quantified type’s body.
-      loopRev _ (Monotype { monotypeDescription = Variable name }) Empty (bindingsRev :|> binding) | name == bindingName binding =
+      loopRev _ (Monotype { monotypeDescription = Variable name _ }) Empty (bindingsRev :|> binding) | name == bindingName binding =
           case polytypeDescription (bindingType binding) of
             -- If we are inlining the bottom type then return it and stop looping! We know that all
             -- other bindings will be unused because bottom will never have any free variables.
@@ -464,10 +477,10 @@ substitutePolytype substitutions0 t0 = case polytypeDescription t0 of
 substituteMonotype :: HashMap Identifier (Either Identifier Monotype) -> Monotype -> Maybe Monotype
 substituteMonotype substitutions t0 = case monotypeDescription t0 of
   -- Try to find a substitution for this variable.
-  Variable name ->
+  Variable name kind ->
     case HashMap.lookup name substitutions of
       Nothing -> Nothing
-      Just (Left newName) -> Just (variableWithRangeStack (monotypeRangeStack t0) newName)
+      Just (Left newName) -> Just (variableWithRangeStack (monotypeRangeStack t0) kind newName)
       Just (Right newType) -> Just newType
 
   -- If we don’t need a substitution then immediately return our type without recursing.
