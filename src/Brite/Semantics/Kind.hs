@@ -104,16 +104,16 @@ unknown context = liftST $ do
 -- lower (minimum) bound `⊥ <: object`. Then we will update `T`’s upper bound to reflect that
 -- `object` is  the new maximum bound. Now we write `T` as `⊥ <: T <: object`. This range for a
 -- constrained `T` is notably smaller than before.
-data UnknownKind = UnknownKind
-  -- `K1 <: T`
-  { lowerBound :: Kind
-  -- `T <: K2`
-  , upperBound :: Kind
-  }
+data UnknownKind
+  -- Our unknown kind has been resolved to some known kind. We may have resolved to another unknown
+  -- kind. After an unknown kind has resolved it may never be updated again.
+  = Resolved Kind
 
--- An unknown kind with no bounds.
-unbounded :: UnknownKind
-unbounded = UnknownKind { lowerBound = Bottom, upperBound = Value }
+  -- `K1 <: T <: K2`
+  --
+  -- The left kind is the lower bound and the right kind is the upper bound. We _never_ use an
+  -- unknown kind as a bound of an unresolved kind.
+  | Unresolved Kind Kind
 
 -- The context in which we type-check kinds.
 data Context s = Context
@@ -142,53 +142,48 @@ subtype context kind1 kind2 = case (kind1, kind2) of
   (Unknown unknownID1, Unknown unknownID2) -> do
     unknown1 <- lookup context unknownID1
     unknown2 <- lookup context unknownID2
-    newLowerBound <- leastUpperBound context (lowerBound unknown1) (lowerBound unknown2)
-    newUpperBound <- greatestLowerBound context (upperBound unknown1) (upperBound unknown2)
-    result <- subtype context newLowerBound newUpperBound
-    if isLeft result then return result else do
-      updateLower newLowerBound unknownID1 unknown1
-      updateUpper newUpperBound unknownID2 unknown2
-      lookup context unknownID1 >>= updateUpper (Unknown unknownID2) unknownID1
-      lookup context unknownID2 >>= updateLower (Unknown unknownID1) unknownID2
-      return result
-    where
-      updateLower newLowerBound unknownID oldUnknown = case lowerBound oldUnknown of
-        Unknown nextUnknownID -> lookup context nextUnknownID >>= updateLower newLowerBound nextUnknownID
-        _ -> liftST $ HashTable.insert (unknownKinds context) unknownID (oldUnknown { lowerBound = newLowerBound })
+    case (unknown1, unknown2) of
+      -- If an unknown kind is resolved then subtype with the resolved kind.
+      (Resolved nextKind1, Resolved nextKind2) -> subtype context nextKind1 nextKind2
+      (Resolved nextKind1, Unresolved _ _) -> subtype context nextKind1 kind2
+      (Unresolved _ _, Resolved nextKind2) -> subtype context kind1 nextKind2
 
-      updateUpper newUpperBound unknownID oldUnknown = case upperBound oldUnknown of
-        Unknown nextUnknownID -> lookup context nextUnknownID >>= updateUpper newUpperBound nextUnknownID
-        _ -> liftST $ HashTable.insert (unknownKinds context) unknownID (oldUnknown { upperBound = newUpperBound })
+      -- If both unknowns are unresolved then we’ll want to expand the bounds of our unresolved kind
+      -- and link the unknown kinds together.
+      (Unresolved lowerBound1 upperBound1, Unresolved lowerBound2 upperBound2) -> do
+        newLowerBound <- leastUpperBound context lowerBound1 lowerBound2
+        newUpperBound <- greatestLowerBound context upperBound1 upperBound2
+        result <- subtype context newLowerBound newUpperBound
+        if isLeft result then return result else do
+          liftST $ HashTable.insert (unknownKinds context) unknownID1 (Resolved kind2)
+          liftST $ HashTable.insert (unknownKinds context) unknownID2 (Unresolved newLowerBound newUpperBound)
+          return result
 
   -- If one unknown kind is constrained to be the subtype of a known type then check to see if the
   -- new upper bound is in range and add it as the new upper bound of our unknown kind.
   (Unknown unknownID1, _) -> do
     unknown1 <- lookup context unknownID1
-    knownLowerBound <- chaseLowerBound context (lowerBound unknown1)
-    result <- subtype context knownLowerBound kind2
-    if isLeft result then return result else do
-      newUpperBound <- greatestLowerBound context (upperBound unknown1) kind2
-      updateUpper newUpperBound unknownID1 unknown1
-      return result
-    where
-      updateUpper newUpperBound unknownID oldUnknown = case upperBound oldUnknown of
-        Unknown nextUnknownID -> lookup context nextUnknownID >>= updateUpper newUpperBound nextUnknownID
-        _ -> liftST $ HashTable.insert (unknownKinds context) unknownID (oldUnknown { upperBound = newUpperBound })
+    case unknown1 of
+      Resolved nextKind1 -> subtype context nextKind1 kind2
+      Unresolved lowerBound1 upperBound1 -> do
+        result <- subtype context lowerBound1 kind2
+        if isLeft result then return result else do
+          newUpperBound <- greatestLowerBound context upperBound1 kind2
+          liftST $ HashTable.insert (unknownKinds context) unknownID1 (Unresolved lowerBound1 newUpperBound)
+          return result
 
   -- If one unknown kind is constrained to be the supertype of a known type then check to see if the
   -- new lower bound is in range and add it as the new lower bound of our unknown kind.
   (_, Unknown unknownID2) -> do
     unknown2 <- lookup context unknownID2
-    knownUpperBound <- chaseUpperBound context (upperBound unknown2)
-    result <- subtype context kind1 knownUpperBound
-    if isLeft result then return result else do
-      newLowerBound <- leastUpperBound context kind1 (lowerBound unknown2)
-      updateLower newLowerBound unknownID2 unknown2
-      return result
-    where
-      updateLower newLowerBound unknownID oldUnknown = case lowerBound oldUnknown of
-        Unknown nextUnknownID -> lookup context nextUnknownID >>= updateLower newLowerBound nextUnknownID
-        _ -> liftST $ HashTable.insert (unknownKinds context) unknownID (oldUnknown { lowerBound = newLowerBound })
+    case unknown2 of
+      Resolved nextKind2 -> subtype context kind1 nextKind2
+      Unresolved lowerBound2 upperBound2 -> do
+        result <- subtype context kind1 upperBound2
+        if isLeft result then return result else do
+          newLowerBound <- leastUpperBound context kind1 lowerBound2
+          liftST $ HashTable.insert (unknownKinds context) unknownID2 (Unresolved newLowerBound upperBound2)
+          return result
 
   -- `Bottom` is the subtype of everything and the supertype of nothing.
   (Bottom, _) -> return (Right ())
@@ -210,17 +205,9 @@ subtype context kind1 kind2 = case (kind1, kind2) of
 -- Looks up an unknown kind by its ID.
 lookup :: Context s -> Int -> Check s UnknownKind
 lookup context unknownID =
-  liftST $ fromMaybe unbounded <$> HashTable.lookup (unknownKinds context) unknownID
-
--- Chases lower bounds of unknown kinds until we find a known kind.
-chaseLowerBound :: Context s -> Kind -> Check s Kind
-chaseLowerBound context (Unknown unknownID) = lookup context unknownID >>= chaseLowerBound context . lowerBound
-chaseLowerBound _ kind = return kind
-
--- Chases upper bounds of unknown kinds until we find a known kind.
-chaseUpperBound :: Context s -> Kind -> Check s Kind
-chaseUpperBound context (Unknown unknownID) = lookup context unknownID >>= chaseUpperBound context . upperBound
-chaseUpperBound _ kind = return kind
+  liftST $ fromMaybe initial <$> HashTable.lookup (unknownKinds context) unknownID
+  where
+    initial = Unresolved Bottom Value
 
 -- Finds the smallest kind which is larger than both provided kinds. We use the `⨆` operator to
 -- describe this operation. Never returns an unknown kind.
@@ -243,12 +230,16 @@ leastUpperBound context kind1 kind2 = case (kind1, kind2) of
   -- NOTE: We use the lower bound of an unknown kind because that’s the least bound of the kind.
   (Unknown unknownID1, _) -> do
     unknown1 <- lookup context unknownID1
-    leastUpperBound context (lowerBound unknown1) kind2
+    case unknown1 of
+      Resolved nextKind1 -> leastUpperBound context nextKind1 kind2
+      Unresolved lowerBound1 _ -> leastUpperBound context lowerBound1 kind2
 
   -- NOTE: We use the lower bound of an unknown kind because that’s the least bound of the kind.
   (_, Unknown unknownID2) -> do
     unknown2 <- lookup context unknownID2
-    leastUpperBound context kind1 (lowerBound unknown2)
+    case unknown2 of
+      Resolved nextKind2 -> leastUpperBound context kind1 nextKind2
+      Unresolved lowerBound2 _ -> leastUpperBound context kind1 lowerBound2
 
   (Bottom, _) -> return kind2
   (_, Bottom) -> return kind1
@@ -292,12 +283,16 @@ greatestLowerBound context kind1 kind2 = case (kind1, kind2) of
   -- NOTE: We use the upper bound of an unknown kind because that’s the least bound of the kind.
   (Unknown unknownID1, _) -> do
     unknown1 <- lookup context unknownID1
-    greatestLowerBound context (upperBound unknown1) kind2
+    case unknown1 of
+      Resolved nextKind1 -> greatestLowerBound context nextKind1 kind2
+      Unresolved _ upperBound1 -> greatestLowerBound context upperBound1 kind2
 
   -- NOTE: We use the upper bound of an unknown kind because that’s the least bound of the kind.
   (_, Unknown unknownID2) -> do
     unknown2 <- lookup context unknownID2
-    greatestLowerBound context kind1 (upperBound unknown2)
+    case unknown2 of
+      Resolved nextKind2 -> greatestLowerBound context kind1 nextKind2
+      Unresolved _ upperBound2 -> greatestLowerBound context kind1 upperBound2
 
   (Bottom, _) -> return kind1
   (_, Bottom) -> return kind2
