@@ -230,7 +230,7 @@ printMonotypeWithInlining ::
 printMonotypeWithInlining localPolarity type0 references0 yield = case monotypeDescription type0 of
   -- A variable adds a reference to our references map and then returns a continuation which will
   -- inline a binding for this variable if one was provided.
-  Variable name _ ->
+  Variable name ->
     let
       references1 =
         HashMap.alter
@@ -344,7 +344,7 @@ printBindingWithoutInlining (Binding name flex type') =
 -- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
 printMonotypeWithoutInlining :: Monotype -> PrinterAST.Type
 printMonotypeWithoutInlining type0 = case monotypeDescription type0 of
-  Variable name _ -> PrinterAST.variableType name
+  Variable name -> PrinterAST.variableType name
 
   Construct Void -> PrinterAST.voidType
 
