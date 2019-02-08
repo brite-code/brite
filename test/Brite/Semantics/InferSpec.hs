@@ -238,6 +238,14 @@ testData =
   , "infer(<>, (), {a: 42, b: true, c: void}.c)"
   , "infer(<>, (), {a: 42}.b)"
   , "infer(<>, (), ({hidden: 42}: <T> {hidden: T}))"
+  , "infer(<>, (f: fun<T: {}>(T) -> void), f({}))"
+  , "infer(<>, (f: fun<T: {}>(T) -> void), f({a: 42}))"
+  , "infer(<>, (f: fun<T: {}>(T) -> void), f(42))"
+  , "infer(<>, (f: fun<T: { | ! }>(T) -> void), f({}))"
+  , "infer(<>, (f: fun<T: { | ! }>(T) -> void), f({a: 42}))"
+  , "infer(<>, (f: fun<T: { | ! }>(T) -> void), f(42))"
+  , "infer(<>, (), fun(o) { o.p })"
+  , "infer(<>, (), ({a: 42, b: false}: {a: Int | !}))"
   ]
 
 openSnapshotFile :: IO Handle

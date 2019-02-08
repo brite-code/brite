@@ -116,6 +116,7 @@ testData =
   , ("<T: <T> {a: T}> {a: Int, b: Bool | T}", "{a: Int, b: Bool, a: !}")
   , ("{b: Int, a: !}", "{b: Int, a: !}")
   , ("{a: Int | {b: Bool}}", "{a: Int, b: Bool}")
+  , ("fun<Type2, Type3>({p: Type2 | Type3}) -> Type2", "fun<Type2>({p: Type2 | !}) -> Type2")
   ]
 
 initialContext :: HashSet Identifier
