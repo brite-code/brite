@@ -246,6 +246,7 @@ testData =
   , "infer(<>, (f: fun<T: { | ! }>(T) -> void), f(42))"
   , "infer(<>, (), fun(o) { o.p })"
   , "infer(<>, (), ({a: 42, b: false}: {a: Int | !}))"
+  , "infer(<T>, (o: T), o.p)"
   ]
 
 openSnapshotFile :: IO Handle
