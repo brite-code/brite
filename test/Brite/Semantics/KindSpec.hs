@@ -578,6 +578,22 @@ spec = do
 
       result `shouldBe` True
 
+    specify "subtyping two kinds with each other repeatedly works" $ do
+      let
+        (result, _) =
+          runCheck $ do
+            ctx <- newContext
+            k1 <- unknown ctx
+            k2 <- unknown ctx
+            a <- isRight <$> subtype ctx k1 k2
+            b <- isRight <$> subtype ctx k1 k2
+            c <- isRight <$> subtype ctx k2 k1
+            d <- isRight <$> subtype ctx k1 k2
+            e <- isRight <$> subtype ctx k2 k1
+            return (a && b && c && d && e)
+
+      result `shouldBe` True
+
   describe "leastUpperBound" $ do
     specify "bottom returns the other one" $ do
       testLeastUpperBound bottom bottom bottom

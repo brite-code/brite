@@ -38,6 +38,11 @@ import Data.STRef
 -- I (Caleb) drew loose inspiration from [MLsub][1] while writing the implementation for the kind
 -- system. Mostly we share names and mathematical properties with MLsub but not much else.
 --
+-- WARNING: Currently it’s impossible to create an infinite kind so we don’t have support for
+-- terminating in that case. But adding, say, a type constructor kind could introduce the
+-- possibility for infinite kinds. If you do this, make sure to verify that an infinite kind is
+-- either impossible or caught so the type checker terminates!
+--
 -- [1]: https://www.cl.cam.ac.uk/~sd601/papers/mlsub-preprint.pdf
 data Kind
   -- An unknown kind is a range of kinds which we narrow through subtyping constraints. See the
