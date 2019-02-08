@@ -16,6 +16,10 @@ A statement is some effectful, sequential, operation.
 
 Many statements may be sequenced together in a {Block}. The last statement in the {Block} (excluding {EmptyStatement}s) will determine the {Block}’s return value. The only statement which returns a value is {ExpressionStatement}.
 
+Brite code may be written without semicolons (`;`). In constructing the syntax, care has been taken to avoid common pitfalls in imperative languages that allow code to be written without semicolons.
+
+Note: The recommended style for Brite code uses semicolons for all but the last {ExpressionStatement}. However, that doesn’t stop a programmer from writing all their codes without semicolons and then letting a formatter insert semicolons for them.
+
 {Block}’s have an associated variable context. {BindingStatement} may introduce variables into the {Block}’s variable context. {Block}’s inherit their parent’s variable context. If a variable is added to a {Block}’s variable context but that variable’s name already exists in a parent context then that variable name is locally overriden in the current {Block}. Before that variable was introduced and outside of the {Block} the parent variable is not overriden.
 
 ## Expression Statement

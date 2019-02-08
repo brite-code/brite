@@ -9,6 +9,12 @@ LineTerminator :
 
 ## Identifier
 
+Identifier : IdentifierName but not Keyword
+
+IdentifierName :
+  - IdentifierStart
+  - IdentifierName IdentifierContinue
+
 IdentifierStart :
   - UnicodeIDStart
   - `_`
@@ -16,6 +22,11 @@ IdentifierStart :
 IdentifierContinue :
   - UnicodeIDContinue
   - `_`
+
+Keyword : one of
+  _     true     false   void
+  let   if       else    do
+  fun   return   loop    break
 
 UnicodeIDStart : "any Unicode code point with the Unicode property “ID_Start”"
 
