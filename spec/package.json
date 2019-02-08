@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "@brite/spec",
+  "version": "0.0.0-unversioned",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "watch": "node scripts/watch.js"
+  },
+  "dependencies": {
+    "browser-sync": "^2.26.3",
+    "chalk": "^2.4.2",
+    "chokidar": "^2.1.0",
+    "spec-md": "^0.6.0"
+  }
+}
