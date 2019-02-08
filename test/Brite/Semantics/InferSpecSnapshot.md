@@ -2736,3 +2736,19 @@ infer(<>, (), {a: 42}.b)
 - (0:22-0:23) Can not get `b:` on `{a}` because `b:` is missing.
 
 --------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({hidden: 42}: <T> {hidden: T}))
+```
+
+### Output
+```
+(<>, <T> {hidden: T})
+```
+
+### Errors
+- (0:15-0:27) Can not change type of `{hidden}` because `{hidden: !}` is more general than `{hidden: Int}`.
+  - (0:33-0:44): `{hidden: !}`
+
+--------------------------------------------------------------------------------

@@ -237,6 +237,7 @@ testData =
   , "infer(<>, (), {a: 42, b: true, c: void}.b)"
   , "infer(<>, (), {a: 42, b: true, c: void}.c)"
   , "infer(<>, (), {a: 42}.b)"
+  , "infer(<>, (), ({hidden: 42}: <T> {hidden: T}))"
   ]
 
 openSnapshotFile :: IO Handle
