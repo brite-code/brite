@@ -7,7 +7,7 @@ Pattern :
   - ObjectPattern
   - WrappedPattern
 
-When binding a value to some variable names the programmer uses a {Pattern}. A simple pattern like {VariablePattern} will bind the entire value to a single variable name. A pattern like {HolePattern} will bind the value to _no_ variable names. More complex patterns like {ObjectPattern} allow the programmer to select individual properties from their value.
+When binding a value to some variable names the programmer uses a {Pattern}. A simple pattern like {VariablePattern} will bind the entire value to a single variable name. A pattern like {HolePattern} will bind the value to *no* variable names. More complex patterns like {ObjectPattern} allow the programmer to select individual properties from their value.
 
 ## Constant Pattern
 

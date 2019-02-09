@@ -63,7 +63,7 @@ Executes a function. Provides the function with the arguments it needs to execut
 
 Note: The left parentheses (`(`) of a call expression must be on the same line as the function. This is so that a programmer may write their code without semicolons. A `(` on a new line is interpreted as a {WrappedExpression} instead of a {CallExpression} for the expression on the previous line.
 
-Note: A call expression passes _arguments_ to a function. A function receives _parameters_ from a call expression.
+Note: A call expression passes *arguments* to a function. A function receives *parameters* from a call expression.
 
 ## Object Expression
 
