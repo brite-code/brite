@@ -41,6 +41,8 @@ The `error` function returns `!` which means it *never returns*. Since the error
 
 If we see a bottom type in a function parameter then we will only accept an *actual* bottom type. We won’t accept any other type. So `fun(!) -> void` won’t accept an `Int` but it will accept `error("Uh oh!")` since the error function returns the bottom type.
 
+TODO: Should we also have a “top” type which uses the syntax `_`? What use cases would a top type serve that bottom type would not? Is `<T> T` enough to express a top type when necessary?
+
 ## Void Type
 
 VoidType : `void`
