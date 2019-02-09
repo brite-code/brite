@@ -46,6 +46,8 @@ FunctionReturn : `->` Type
 
 Expresses some computation to be executed any number of times at any time. A function is executed with a {CallExpression}. A function takes zero or more parameters and returns some value. Each function parameter may be annotated by a type and likewise the return value may be annotated with a type.
 
+A {FunctionExpression} with a name may call itself. Thus enabling recursion. This is the most primitive method of recursion that Brite allows. One could even think of this as a fix-point like operator.
+
 A polymorphic function may write out its {Quantifier}s with a {FunctionQuantification}. The difference between a regular {Quantification} and a {FunctionQuantification} is that any {ExistentialQuantifier}s in a {FunctionQuantification} are turned into {UniversalQuantifier}s with a bound of `T: !`.
 
 ## Call Expression
