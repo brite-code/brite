@@ -40,7 +40,7 @@ ObjectPatternProperty :
   - Identifier
   - Identifier `:` Pattern
 
-ObjectPatternExtension : `|` Pattern
+ObjectPatternExtension : `...` Pattern
 
 An object pattern allows for easy access of properties on an object. If an {ObjectPatternProperty} has a `:` followed by a {Pattern} than that property may be further accessed with another pattern.
 

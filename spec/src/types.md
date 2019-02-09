@@ -82,9 +82,11 @@ ObjectTypePropertyList :
 
 ObjectTypeProperty : Identifier `:` Type
 
-ObjectTypeExtension : `|` Type
+ObjectTypeExtension : `...` Type?
 
 An {ObjectType} allows the programmer to declare a type for an object in their program.
+
+Notice that {ObjectTypeExtension} takes an optional {Type}. When a {Type} is not provided we automatically use the “top” type `<T> T`. This allows the programmer to write an object type that is ready for width subtyping. So `{...}` represents any object in the language. `{a: Int, ...}` means any object that  at least has an `a` property of type `Int`.
 
 ## Wrapped Type
 
