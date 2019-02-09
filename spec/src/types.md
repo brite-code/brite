@@ -3,6 +3,7 @@
 Type :
   - VariableType
   - BottomType
+  - TopType
   - VoidType
   - FunctionType
   - ObjectType
@@ -41,7 +42,35 @@ The `error` function returns `!` which means it *never returns*. Since the error
 
 If we see a bottom type in a function parameter then we will only accept an *actual* bottom type. We won’t accept any other type. So `fun(!) -> void` won’t accept an `Int` but it will accept `error("Uh oh!")` since the error function returns the bottom type.
 
-TODO: Should we also have a “top” type which uses the syntax `_`? What use cases would a top type serve that bottom type would not? Is `<T> T` enough to express a top type when necessary?
+## Top Type
+
+TopType : `_`
+
+The {TopType} is a type which represents *every* runtime value. It is the dual of {BottomType} and syntax sugar for `<T> T`.
+
+The {TopType} is often used as a placeholder or as a way to abstract a certain type. By using {TopType} you’re saying “this could be any type”.
+
+Let’s compare the difference between {TopType}, {BottomType}, and a {UniversalQuantifier}.
+
+```ite example
+fun length1(list: List<_>) -> Int {
+  // ...
+}
+
+fun length2(list: List<!>) -> Int {
+  // ...
+}
+
+fun length3<T>(list: List<T>) -> Int {
+  // ...
+}
+```
+
+For `length1()` we can pass a list of heterogenous values. For example: `length1([true, 0, [], {a: 42}])`. That’s because {TopType} represents every runtime value.
+
+For `length2()` we can only pass a list of bottom types. For example: `length2([error("Uh oh!")])`. The `error()` function we examined in {BottomType} returns a bottom type. However, we can’t pass arbitrary values like `length2([42])` like we can when we use {TopType}.
+
+For `length3()` all elements in the list must have the same type. For example: `length3([1, 2, 3])`. We could use an annotation with {TopType} if we’d like to pass a heterogenous list. For example: `length3(([true, 0]: List<_>))`. However, we will never infer a {TopType}.
 
 ## Void Type
 
@@ -86,7 +115,7 @@ ObjectTypeExtension : `...` Type?
 
 An {ObjectType} allows the programmer to declare a type for an object in their program.
 
-Notice that {ObjectTypeExtension} takes an optional {Type}. When a {Type} is not provided we automatically use the “top” type `<T> T`. This allows the programmer to write an object type that is ready for width subtyping. So `{...}` represents any object in the language. `{a: Int, ...}` means any object that  at least has an `a` property of type `Int`.
+Notice that {ObjectTypeExtension} takes an optional {Type}. When a {Type} is not provided we automatically use the {TopType}. This allows the programmer to write an object type that is ready for width subtyping. So `{...}` represents any object in the language. `{a: Int, ...}` means any object that  at least has an `a` property of type `Int`.
 
 ## Wrapped Type
 
