@@ -247,6 +247,11 @@ testData =
   , "infer(<>, (), fun(o) { o.p })"
   , "infer(<>, (), ({a: 42, b: false}: {a: Int | !}))"
   , "infer(<T>, (o: T), o.p)"
+  , "infer(<>, (error: fun(Bool) -> !), error(true))"
+  , "infer(<>, (error: fun(Bool) -> !), (error(true): Int))"
+  , "infer(<>, (error: fun(Bool) -> !), (error(true): !))"
+  , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(42))"
+  , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(error(true)))"
   ]
 
 openSnapshotFile :: IO Handle
