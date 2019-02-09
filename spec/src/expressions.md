@@ -12,9 +12,11 @@ PrimaryExpression :
   - LoopExpression
   - WrappedExpression
 
-Expression : PrimaryExpression
+Expression : LogicalOrExpression
 
-TODO: Prefix and infix expressions.
+An expression is a building block for a computation which returns a value. Some expressions, like {CallExpression}, may perform side effects. In that case the execution order of expressions usually depends on their order in source code.
+
+The expression is organized by the [order of operations](https://en.wikipedia.org/wiki/Order_of_operations). {PrimaryExpression}s are self-contained and don’t have an order of operations.
 
 ## Constant Expression
 
@@ -104,6 +106,78 @@ Now, `o2` does not have properties `a` or `b`.
 PropertyExpression : PrimaryExpression `.` Identifier
 
 Selects a property from an object.
+
+## Prefix Expression
+
+PrefixExpression :
+  - PrimaryExpression
+  - `!` PrefixExpression
+  - `-` PrefixExpression
+  - `+` PrefixExpression
+
+Operators which are syntactically written as the prefix of a `PrimaryExpression`. We’ve got:
+
+- `!x`: The not operator changes a `true` boolean to `false` and vice versa.
+- `-x`: The negative operator multiplies a number by `-1` which makes a negative number positive and a positive number negative.
+- `+x`: The positive operator multiplies a number by `1` which does nothing but force the operand’s type to be a number. Exists for symmetry with the negative operator.
+
+## Infix Expression
+
+ExponentiationExpression :
+  - PrefixExpression
+  - PrefixExpression `^` ExponentiationExpression
+
+MultiplicativeExpression :
+  - ExponentiationExpression
+  - ExponentiationExpression `*` MultiplicativeExpression
+  - ExponentiationExpression `/` MultiplicativeExpression
+  - ExponentiationExpression `%` MultiplicativeExpression
+
+AdditiveExpression :
+  - MultiplicativeExpression
+  - MultiplicativeExpression `+` AdditiveExpression
+  - MultiplicativeExpression `-` AdditiveExpression
+
+RelationalExpression :
+  - AdditiveExpression
+  - AdditiveExpression `<` RelationalExpression
+  - AdditiveExpression `>` RelationalExpression
+  - AdditiveExpression `<=` RelationalExpression
+  - AdditiveExpression `>=` RelationalExpression
+
+EqualityExpression :
+  - RelationalExpression
+  - RelationalExpression `==` EqualityExpression
+  - RelationalExpression `!=` EqualityExpression
+
+LogicalAndExpression :
+  - EqualityExpression
+  - EqualityExpression `&&` LogicalAndExpression
+
+LogicalOrExpression :
+  - LogicalAndExpression
+  - LogicalAndExpression `||` LogicalOrExpression
+
+A collection of operators which accept two operands. The structure of the grammar for this section reflects the precedence level for each operator. Using  {WrappedExpression} can change the precedence of, say, a {LogicalOrExpression} to a {PrimaryExpression}.
+
+Brite uses a pretty standard [order of operations](https://en.wikipedia.org/wiki/Order_of_operations).
+
+- `x ^ y`: Returns `x` to the power of `y` (x<sup>y</sup>). So `x ^ 2` would be `x` squared (x<sup>2</sup>).
+- `x * y`: Multiplies `x` and `y`.
+- `x / y`: Divides `x` by `y`.
+- `x % y`: Returns the remainder when `x` is divided by `y`.
+- `x + y`: Adds `x` and `y`.
+- `x - y`: Subtracts `x` and `y`.
+- `x < y`: Returns true if `x` is less than `y`.
+- `x > y`: Returns true if `x` is greater than `y`.
+- `x <= y`: Returns true if `x` is less than or equal to `y`.
+- `x >= y`: Returns true if `x` is greater than or equal to `y`.
+- `x == y`: Returns true if `x` is equal to `y`.
+- `x != y`: Returns true if `x` is not equal to `y`.
+- `x && y`: True if both `x` and `y` are true. This operator will not execute `y` if `x` is false! So `y` is conditionally executed unlike with other operators.
+- `x || y`: True if either `x` or `y` is true. This operator will not execute `y` if `x` is true! So `y` is conditionally executed unlike with the other operators.
+
+TODO: Special behavior for `x < y < z` and friends?
 
 ## Conditional Expression
 

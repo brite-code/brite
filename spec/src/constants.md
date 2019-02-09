@@ -33,27 +33,27 @@ We use a constant instead of variables named `true`/`false` so that the programm
 ## Integer Constant
 
 IntegerConstant :
-  - DecimalIntegerConstant
-  - BinaryIntegerConstant
-  - HexadecimalIntegerConstant
+  - IntegerDecimalConstant
+  - IntegerBinaryConstant
+  - IntegerHexadecimalConstant
 
-DecimalIntegerConstant : /[0-9]+/
+IntegerDecimalConstant : /[0-9]+/
 
-BinaryIntegerConstant : /0[bB][0-1]+/
+IntegerBinaryConstant : /0[bB][0-1]+/
 
-HexadecimalIntegerConstant : /0[xX][0-9a-fA-F]+/
+IntegerHexadecimalConstant : /0[xX][0-9a-fA-F]+/
 
 An integer constant can be written with any number of digits. Once a type has been decided for the integer so will its precision.
 
-An integer, by default, is written in base 10. However, the programmer may also write an integer in base 2 ({BinaryIntegerConstant}) and base 16 ({HexadecimalIntegerConstant}).
+An integer, by default, is written in base 10. However, the programmer may also write an integer in base 2 ({IntegerBinaryConstant}) and base 16 ({IntegerHexadecimalConstant}).
 
 ## Float Constant
 
 FloatConstant :
-  - DecimalIntegerConstant FloatConstantExponent
-  - DecimalIntegerConstant `.` DecimalIntegerConstant FloatConstantExponent?
-  - `.` DecimalIntegerConstant FloatConstantExponent?
-  - DecimalIntegerConstant `.` FloatConstantExponent?
+  - IntegerDecimalConstant FloatConstantExponent
+  - IntegerDecimalConstant `.` IntegerDecimalConstant FloatConstantExponent?
+  - `.` IntegerDecimalConstant FloatConstantExponent?
+  - IntegerDecimalConstant `.` FloatConstantExponent?
 
 FloatConstantExponent : /[eE][+-]?[0-9]+/
 
