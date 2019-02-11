@@ -1,3 +1,8 @@
+-- NOTE: The Brite parser is powerful in that it can handle programs even in the face of arbitrary
+-- syntax errors. If it turns out our parser is too slow then we can write a second “fast” parser
+-- implementation which assumes the code to be correct. If the fast parser fails we can use this
+-- parser to capture all the errors and attempt recovery.
+
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE Rank2Types #-}
 

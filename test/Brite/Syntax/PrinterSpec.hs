@@ -1050,6 +1050,16 @@ testData =
   , "fun f(x) { x } /* a */ ; /* b */"
   , "fun f() {\n//\n}"
   , "fun f() {\n//\n}.p"
+  , "{p:\n//\np}"
+  , "{p:\n\n//\np}"
+  , "{p:\n//\n\np}"
+  , "{/* a */ p /* b */ : /* c */ p /* d */}"
+  , "{\n//\np: p /* d */}"
+  , "let {p:\n//\np} = void;"
+  , "let {p:\n\n//\np} = void;"
+  , "let {p:\n//\n\np} = void;"
+  , "let {/* a */ p /* b */ : /* c */ p /* d */} = void;"
+  , "let {\n//\np: p /* d */} = void;"
   ]
 
 openSnapshotFile :: IO Handle

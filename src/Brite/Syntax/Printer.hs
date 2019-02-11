@@ -414,12 +414,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       printSingleArg (Right (a, cs) : as) =
         printExpression Top a <> printTrailingAttachedComments cs <> softline <> printSingleArg as
 
-  -- NOTE: We don’t automatically convert `{p: p}` into `{p}` because we believe that will be
-  -- confusing for beginners. Instead we emit a warning diagnostic saying that `{p: p}` is the same
-  -- thing as `{p}`.
-  --
-  -- TODO: Emit a warning diagnostic saying that `{p: p}` is the same thing as `{p}`. With
-  -- an auto-fix.
+  -- NOTE: We automatically convert `{p: p}` into `{p}`.
   ObjectExpression ps ext -> group $
     text "{" <>
     indent (softline <> printCommaList printProperty ps) <>
@@ -430,6 +425,24 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       printProperty (ObjectExpressionPropertyPun cs1 cs2 n) =
         (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
 
+      -- If the object property is a variable expression with the same name then automatically pun
+      -- the object property.
+      --
+      -- NOTE: This may be a bit confusing to beginners!
+      printProperty (ObjectExpressionProperty cs1 n1 cs2' (Expression cs3 cs4 (VariableExpression n2))) | n1 == n2 =
+        let
+          -- Remove the leading empty line from our list of unattached comments.
+          cs2 = case cs2' of
+            UnattachedComment True c : cs -> UnattachedComment False c : cs
+            cs -> cs
+
+          -- Print the object property as a punned property.
+          (property, cs5) =
+            printProperty (ObjectExpressionPropertyPun (if null cs3 then cs1 else cs1 ++ cs3) cs4 n1)
+        in
+          (mconcat (map printUnattachedComment cs2) <> property, cs5)
+
+      -- Print an object property as normal.
       printProperty (ObjectExpressionProperty cs1 n cs2' x') =
         let
           -- The trailing comments of our expression are printed by `printCommaList` after
@@ -615,12 +628,7 @@ printPattern x0 = build $ case patternNode x0 of
 
   HolePattern -> text "_"
 
-  -- NOTE: We don’t automatically convert `{p: p}` into `{p}` because we believe that will be
-  -- confusing for beginners. Instead we emit a warning diagnostic saying that `{p: p}` is the same
-  -- thing as `{p}`.
-  --
-  -- TODO: Emit a warning diagnostic saying that `{p: p}` is the same thing as `{p}`. With
-  -- an auto-fix.
+  -- NOTE: We automatically convert `{p: p}` into `{p}`.
   ObjectPattern ps ext -> group $
     text "{" <>
     indent (softline <> printCommaList printProperty ps) <>
@@ -631,6 +639,14 @@ printPattern x0 = build $ case patternNode x0 of
       printProperty (ObjectPatternPropertyPun cs1 cs2 n) =
         (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
 
+      -- If the object property is a variable expression with the same name then automatically pun
+      -- the object property.
+      --
+      -- NOTE: This may be a bit confusing to beginners!
+      printProperty (ObjectPatternProperty cs1 n1 (Pattern cs3 cs4 (VariablePattern n2))) | n1 == n2 =
+        printProperty (ObjectPatternPropertyPun (if null cs3 then cs1 else cs1 ++ cs3) cs4 n1)
+
+      -- Print an object property as normal.
       printProperty (ObjectPatternProperty cs1 n x') =
         -- The trailing comments of our expression are printed by `printCommaList` after the comma.
         let (x, cs2) = takePatternTrailingComments x' in
