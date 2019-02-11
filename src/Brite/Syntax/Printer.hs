@@ -42,7 +42,8 @@ printCompactType = printCompactDocument . printType
 -- Prints a quantifier list compactly. The quantifier list must come from the printer AST.
 printCompactQuantifierList :: [Quantifier] -> Text.Builder
 printCompactQuantifierList [] = Text.Builder.fromText "<>"
-printCompactQuantifierList qs = printCompactDocument (printQuantifierList (map (\x -> Right (x, [])) qs))
+printCompactQuantifierList qs =
+  printCompactDocument (printQuantifierList TypeQuantifier (map (\x -> Right (x, [])) qs))
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
 -- GitHub, Terminals. It is also the best for plain text comments.
@@ -303,7 +304,7 @@ printFunction :: Function -> Document
 printFunction (Function n qs ps r b) =
   text "fun" <>
   maybe mempty ((text " " <>) . text . identifierText) n <>
-  printQuantifierList qs <>
+  printQuantifierList FunctionQuantifier qs <>
   group (text "(" <> indent (softline <> printCommaList printFunctionParameter ps) <> text ")") <>
   maybe mempty ((text " -> " <>) . printType) r <>
   text " " <>
@@ -719,7 +720,7 @@ printType x0' = build $ case typeNode x0 of
 
   FunctionType qs ps t ->
     text "fun" <>
-    printQuantifierList qs <>
+    printQuantifierList FunctionQuantifier qs <>
     group (text "(" <> indent (softline <> printCommaList printParameter ps) <> text ")") <>
     text " -> " <>
     printType t
@@ -769,11 +770,35 @@ printType x0' = build $ case typeNode x0 of
       BottomType -> normal
       TopType -> normal
       VoidType -> normal
-      FunctionType qs2 ps r -> printType (t1 { typeNode = FunctionType (qs1 `append` qs2) ps r })
+
+      -- Unbound quantifiers have different meanings when they are in a `QuantifiedType` and when
+      -- they are in a `FunctionType`. An unbound quantifier in a `FunctionType` is treated as a
+      -- universal quantifier with a bound of `≥ ⊥`. An unbound quantifier in a `QuantifiedType` is
+      -- treated as an existential quantifier.
+      --
+      -- To avoid changing the semantics of a program we _must not_ inline unbound quantifiers into
+      -- a function type.
+      FunctionType qs2 ps r ->
+        (if not (null existentialQuantifiers) then printQuantifierList TypeQuantifier existentialQuantifiers <> text " "
+        else mempty)
+          <> printType (t1 { typeNode = FunctionType (universalQuantifiers `append` qs2) ps r })
+
+        where
+          (_, existentialQuantifiers, universalQuantifiers) =
+            foldr
+              (\q (unboundComments, acc1, acc2) ->
+                case q of
+                  Right (QuantifierUnbound _ _ _, _) -> (True, q : acc1, acc2)
+                  Right (Quantifier _ _ _ _, _) -> (False, acc1, q : acc2)
+                  Left _ | unboundComments -> (unboundComments, q : acc1, acc2)
+                  Left _ -> (unboundComments, acc1, q : acc2))
+              (False, [], [])
+              qs1
+
       ObjectType _ _ -> normal
       QuantifiedType qs2 t2 -> printType (t1 { typeNode = QuantifiedType (qs1 `append` qs2) t2 })
     where
-      normal = printQuantifierList qs1 <> text " " <> printType t1
+      normal = printQuantifierList TypeQuantifier qs1 <> text " " <> printType t1
 
   where
     x0 = processType x0'
@@ -785,16 +810,18 @@ printType x0' = build $ case typeNode x0 of
         <> x1
         <> printTrailingAttachedComments (typeTrailingComments x0)
 
-printQuantifierList :: [CommaListItem Quantifier] -> Document
-printQuantifierList [] = mempty
-printQuantifierList qs = group $
+data QuantifierKind = TypeQuantifier | FunctionQuantifier
+
+printQuantifierList :: QuantifierKind -> [CommaListItem Quantifier] -> Document
+printQuantifierList _ [] = mempty
+printQuantifierList kind qs = group $
   text "<" <> indent (softline <> printCommaList printQuantifier qs) <> text ">"
   where
     printQuantifier (QuantifierUnbound cs1 cs2 n) =
       (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
 
     -- If we are in a function quantifier list and we see `T: !` then simplify it to `T`.
-    printQuantifier (Quantifier cs1 n Flexible (Type cs2 cs3 BottomType)) =
+    printQuantifier (Quantifier cs1 n Flexible (Type cs2 cs3 BottomType)) | FunctionQuantifier <- kind =
       printQuantifier (QuantifierUnbound (cs1 `append` cs2) cs3 n)
 
     printQuantifier (Quantifier cs1 n k t') =

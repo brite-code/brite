@@ -42,6 +42,8 @@ The `error` function returns `!` which means it *never returns*. Since the error
 
 If we see a bottom type in a function parameter then we will only accept an *actual* bottom type. We won’t accept any other type. So `fun(!) -> void` won’t accept an `Int` but it will accept `error("Uh oh!")` since the error function returns the bottom type.
 
+Note: In academic literature the bottom type is often written as ⊥.
+
 ## Top Type
 
 TopType : `_`
@@ -71,6 +73,8 @@ For `length1()` we can pass a list of heterogenous values. For example: `length1
 For `length2()` we can only pass a list of bottom types. For example: `length2([error("Uh oh!")])`. The `error()` function we examined in {BottomType} returns a bottom type. However, we can’t pass arbitrary values like `length2([42])` like we can when we use {TopType}.
 
 For `length3()` all elements in the list must have the same type. For example: `length3([1, 2, 3])`. We could use an annotation with {TopType} if we’d like to pass a heterogenous list. For example: `length3(([true, 0]: List<_>))`. However, we will never infer a {TopType}.
+
+Note: In academic literature the top type is often written as ⊤.
 
 ## Void Type
 
