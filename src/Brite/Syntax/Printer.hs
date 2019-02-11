@@ -58,6 +58,12 @@ printCompactQuantifierList qs = printCompactDocument (printQuantifierList (map (
 maxWidth :: Int
 maxWidth = 80
 
+-- Adds two lists together with `++` but with a special case for an empty list on the right.
+append :: [a] -> [a] -> [a]
+append as [] = as
+append as1 as2 = as1 ++ as2
+{-# INLINE append #-}
+
 -- Prints an unattached comment from the printer AST.
 printUnattachedComment :: UnattachedComment -> Document
 printUnattachedComment c0 =
@@ -140,7 +146,7 @@ printStatement s0 = build $ case statementNode s0 of
   -- Print an expression statement and include a semicolon for the appropriate expressions. If the
   -- expression has attached trailing comments then print those _after_ the semicolon.
   ExpressionStatement x' ->
-    let (x, cs) = takeExpressionTrailingComments x' in
+    let (x, cs) = takeExpressionTrailingComments (processExpression x') in
       printExpression Top x
         <> (if withoutSemicolon (expressionNode x) then mempty else text ";")
         <> printTrailingAttachedComments cs
@@ -163,8 +169,8 @@ printStatement s0 = build $ case statementNode s0 of
   -- the value.
   --
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
-  BindingStatement p Nothing cs1 x1 | not (null cs1) || shouldBreakOntoNextLine x1 ->
-    let (x, cs3) = takeExpressionTrailingComments x1 in
+  BindingStatement p Nothing {- TODO: bug? -} cs1 x1 | not (null cs1) || shouldBreakOntoNextLine x1 ->
+    let (x, cs3) = takeExpressionTrailingComments (processExpression x1) in
       -- NOTE: Adding another `group` here may break our carefully crafted
       -- `ifBreak`/`ifFlat` conditions.
       group $ text "let "
@@ -186,7 +192,7 @@ printStatement s0 = build $ case statementNode s0 of
   --
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   BindingStatement p t _ x1 ->
-    let (x, cs) = takeExpressionTrailingComments x1 in
+    let (x, cs) = takeExpressionTrailingComments (processExpression x1) in
       text "let "
         <> printPattern p
         <> maybe mempty ((text ": " <>) . printType) t
@@ -197,7 +203,7 @@ printStatement s0 = build $ case statementNode s0 of
 
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   ReturnStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
-    let (x, cs3) = takeExpressionTrailingComments x1 in
+    let (x, cs3) = takeExpressionTrailingComments (processExpression x1) in
       -- NOTE: Adding another `group` here may break our carefully crafted
       -- `ifBreak`/`ifFlat` conditions.
       group $ text "return "
@@ -221,12 +227,12 @@ printStatement s0 = build $ case statementNode s0 of
   --
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   ReturnStatement (Just (_, x1)) ->
-    let (x, cs) = takeExpressionTrailingComments x1 in
+    let (x, cs) = takeExpressionTrailingComments (processExpression x1) in
       text "return " <> printExpression Top x <> text ";" <> printTrailingAttachedComments cs
 
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   BreakStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
-    let (x, cs) = takeExpressionTrailingComments x1 in
+    let (x, cs) = takeExpressionTrailingComments (processExpression x1) in
       -- NOTE: Adding another `group` here may break our carefully crafted
       -- `ifBreak`/`ifFlat` conditions.
       group $ text "break "
@@ -250,7 +256,7 @@ printStatement s0 = build $ case statementNode s0 of
   --
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   BreakStatement (Just (_, x1)) ->
-    let (x, cs) = takeExpressionTrailingComments x1 in
+    let (x, cs) = takeExpressionTrailingComments (processExpression x1) in
       text "break " <> printExpression Top x <> text ";" <> printTrailingAttachedComments cs
 
   ReturnStatement Nothing ->
@@ -303,11 +309,11 @@ printFunction (Function n qs ps r b) =
   printBlock b
   where
     printFunctionParameter (FunctionParameter p' Nothing) =
-      let (p, cs) = takePatternTrailingComments p' in
+      let (p, cs) = takePatternTrailingComments (processPattern p') in
         (printPattern p, cs)
 
     printFunctionParameter (FunctionParameter p (Just t')) =
-      let (t, cs) = takeTypeTrailingComments t' in
+      let (t, cs) = takeTypeTrailingComments (processType t') in
         (printPattern p <> text ": " <> printType t, cs)
 
 -- Prints a constant.
@@ -393,7 +399,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       -- Prints an expression while also removing trailing comments to let our comma list handle the
       -- trailing comments.
       printArg x' =
-        let (x, cs) = takeExpressionTrailingComments x' in
+        let (x, cs) = takeExpressionTrailingComments (processExpression x') in
           (printExpression Top x, cs)
 
       -- Returns true if we have exactly `n` arguments.
@@ -438,7 +444,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
 
           -- Print the object property as a punned property.
           (property, cs5) =
-            printProperty (ObjectExpressionPropertyPun (if null cs3 then cs1 else cs1 ++ cs3) cs4 n1)
+            printProperty (ObjectExpressionPropertyPun (cs1 `append` cs3) cs4 n1)
         in
           (mconcat (map printUnattachedComment cs2) <> property, cs5)
 
@@ -447,7 +453,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
         let
           -- The trailing comments of our expression are printed by `printCommaList` after
           -- the comma.
-          (x, cs3) = takeExpressionTrailingComments x'
+          (x, cs3) = takeExpressionTrailingComments (processExpression x')
           -- Remove the leading empty line from our list of unattached comments.
           cs2 = case cs2' of
             UnattachedComment True c : cs -> UnattachedComment False c : cs
@@ -560,7 +566,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   where
     -- Take the leading and trailing comments for our expression.
     (attachedLeadingComments, (x0, attachedTrailingComments)) =
-      takeExpressionTrailingComments <$> takeExpressionLeadingComments x0'
+      takeExpressionTrailingComments <$> takeExpressionLeadingComments (processExpression x0')
 
     -- Finishes printing an expression node by printing leading/trailing attached comments and
     -- parentheses in case we need them.
@@ -621,7 +627,7 @@ data Precedence
 
 -- Prints a pattern.
 printPattern :: Pattern -> Document
-printPattern x0 = build $ case patternNode x0 of
+printPattern x0' = build $ case patternNode x0 of
   ConstantPattern c -> printConstant c
 
   VariablePattern n -> text (identifierText n)
@@ -644,12 +650,12 @@ printPattern x0 = build $ case patternNode x0 of
       --
       -- NOTE: This may be a bit confusing to beginners!
       printProperty (ObjectPatternProperty cs1 n1 (Pattern cs3 cs4 (VariablePattern n2))) | n1 == n2 =
-        printProperty (ObjectPatternPropertyPun (if null cs3 then cs1 else cs1 ++ cs3) cs4 n1)
+        printProperty (ObjectPatternPropertyPun (cs1 `append` cs3) cs4 n1)
 
       -- Print an object property as normal.
       printProperty (ObjectPatternProperty cs1 n x') =
         -- The trailing comments of our expression are printed by `printCommaList` after the comma.
-        let (x, cs2) = takePatternTrailingComments x' in
+        let (x, cs2) = takePatternTrailingComments (processPattern x') in
           ( group $
               printLeadingAttachedComments cs1 <>
               text (identifierText n) <>
@@ -667,7 +673,9 @@ printPattern x0 = build $ case patternNode x0 of
         softline
 
   where
-    -- Finishes printing an expression node by printing leading/trailing attached comments and
+    x0 = processPattern x0'
+
+    -- Finishes printing an pattern node by printing leading/trailing attached comments and
     -- parentheses in case we need them.
     build x1 =
       printLeadingAttachedComments (patternLeadingComments x0)
@@ -676,7 +684,7 @@ printPattern x0 = build $ case patternNode x0 of
 
 -- Prints a type.
 printType :: Type -> Document
-printType x0 = build $ case typeNode x0 of
+printType x0' = build $ case typeNode x0 of
   VariableType n -> text (identifierText n)
 
   BottomType -> text "!"
@@ -691,7 +699,7 @@ printType x0 = build $ case typeNode x0 of
     printType t
     where
       printParameter x' =
-        let (x, cs) = takeTypeTrailingComments x' in
+        let (x, cs) = takeTypeTrailingComments (processType x') in
           (printType x, cs)
 
   ObjectType ps ext -> group $
@@ -702,7 +710,7 @@ printType x0 = build $ case typeNode x0 of
     where
       printProperty (ObjectTypeProperty cs1 n x') =
         -- The trailing comments of our expression are printed by `printCommaList` after the comma.
-        let (x, cs2) = takeTypeTrailingComments x' in
+        let (x, cs2) = takeTypeTrailingComments (processType x') in
           ( group $
               printLeadingAttachedComments cs1 <>
               text (identifierText n) <>
@@ -727,15 +735,16 @@ printType x0 = build $ case typeNode x0 of
       VariableType _ -> normal
       BottomType -> normal
       VoidType -> normal
-      FunctionType [] ps r -> printType (t1 { typeNode = FunctionType qs1 ps r })
-      FunctionType qs2 ps r -> printType (t1 { typeNode = FunctionType (qs1 ++ qs2) ps r })
+      FunctionType qs2 ps r -> printType (t1 { typeNode = FunctionType (qs1 `append` qs2) ps r })
       ObjectType _ _ -> normal
-      QuantifiedType qs2 t2 -> printType (t1 { typeNode = QuantifiedType (qs1 ++ qs2) t2 })
+      QuantifiedType qs2 t2 -> printType (t1 { typeNode = QuantifiedType (qs1 `append` qs2) t2 })
     where
       normal = printQuantifierList qs1 <> text " " <> printType t1
 
   where
-    -- Finishes printing an expression node by printing leading/trailing attached comments and
+    x0 = processType x0'
+
+    -- Finishes printing a type node by printing leading/trailing attached comments and
     -- parentheses in case we need them.
     build x1 =
       printLeadingAttachedComments (typeLeadingComments x0)
@@ -750,7 +759,7 @@ printQuantifierList qs = group $
     printQuantifier (QuantifierUnbound cs1 cs2 n) =
       (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
     printQuantifier (Quantifier cs1 n k t') =
-      let (t, cs2) = takeTypeTrailingComments t' in
+      let (t, cs2) = takeTypeTrailingComments (processType t') in
       ( printLeadingAttachedComments cs1 <>
         text (identifierText n) <>
         (case k of { Flexible -> text ": "; Rigid -> text " = " }) <>
@@ -793,9 +802,23 @@ shouldBreakOntoNextLine x = case expressionNode x of
   LoopExpression _ -> False
   WrappedExpression _ _ -> False
 
+-- Performs some shallow processing on our expression to turn it into the form we want to print.
+processExpression :: Expression -> Expression
+processExpression x0 = case expressionNode x0 of
+  -- Inline an object extension into our object.
+  ObjectExpression ps1 (Just (Expression cs1 cs2 (ObjectExpression ps2 ext))) -> processExpression $
+    Expression
+      (expressionLeadingComments x0 `append` cs1)
+      (cs2 `append` expressionTrailingComments x0)
+      (ObjectExpression (ps1 `append` ps2) ext)
+
+  _ -> x0
+
 -- Removes the trailing comments from our `Expression` and returns them. If our expression ends in
 -- another expression (like prefix expressions: `-E`) then we take the trailing comments from that
 -- as well.
+--
+-- NOTE: Must call `processExpression` on the pattern we pass to this function first!
 takeExpressionTrailingComments :: Expression -> (Expression, [AttachedComment])
 takeExpressionTrailingComments x0 =
   case expressionNode x0 of
@@ -817,7 +840,7 @@ takeExpressionTrailingComments x0 =
       else (x0 { expressionTrailingComments = [] }, expressionTrailingComments x0)
 
     trailingExpression f x1 =
-      case takeExpressionTrailingComments x1 of
+      case takeExpressionTrailingComments (processExpression x1) of
         (_, []) -> noTrailingExpression
         (x2, cs) ->
           if null (expressionTrailingComments x0) then (x0 { expressionNode = f x2 }, cs)
@@ -829,6 +852,8 @@ takeExpressionTrailingComments x0 =
 -- Removes the leading comments from our `Expression` and returns them. If our expression begins
 -- with another expression (like property expressions: `E.p`) then we take the leading comments from
 -- that as well.
+--
+-- NOTE: Must call `processExpression` on the pattern we pass to this function first!
 takeExpressionLeadingComments :: Expression -> ([AttachedComment], Expression)
 takeExpressionLeadingComments x0 =
   case expressionNode x0 of
@@ -855,34 +880,49 @@ takeExpressionLeadingComments x0 =
       else (expressionLeadingComments x0, x0 { expressionLeadingComments = [] })
 
     leadingExpression x1 f =
-      case takeExpressionLeadingComments x1 of
+      case takeExpressionLeadingComments (processExpression x1) of
         ([], _) -> noLeadingExpression
         (cs, x2) ->
           ( expressionLeadingComments x0 ++ cs
           , x0 { expressionLeadingComments = [], expressionNode = f x2 }
           )
 
-    leadingExpressionTakeTrailingToo x1 f =
-      case takeExpressionLeadingComments x1 of
-        ([], _) ->
-          case takeExpressionTrailingComments x1 of
-            (_, []) -> noLeadingExpression
-            (x3, cs3) ->
-              ( expressionLeadingComments x0 ++ cs3
-              , x0 { expressionLeadingComments = [], expressionNode = f x3 }
-              )
-        (cs2, x2) ->
-          case takeExpressionTrailingComments x2 of
-            (_, []) ->
-              ( expressionLeadingComments x0 ++ cs2
-              , x0 { expressionLeadingComments = [], expressionNode = f x2 }
-              )
-            (x3, cs3) ->
-              ( expressionLeadingComments x0 ++ cs2 ++ cs3
-              , x0 { expressionLeadingComments = [], expressionNode = f x3 }
-              )
+    leadingExpressionTakeTrailingToo x1' f =
+      let x1 = processExpression x1' in
+        case takeExpressionLeadingComments x1 of
+          ([], _) ->
+            case takeExpressionTrailingComments x1 of
+              (_, []) -> noLeadingExpression
+              (x3, cs3) ->
+                ( expressionLeadingComments x0 ++ cs3
+                , x0 { expressionLeadingComments = [], expressionNode = f x3 }
+                )
+          (cs2, x2) ->
+            case takeExpressionTrailingComments x2 of
+              (_, []) ->
+                ( expressionLeadingComments x0 ++ cs2
+                , x0 { expressionLeadingComments = [], expressionNode = f x2 }
+                )
+              (x3, cs3) ->
+                ( expressionLeadingComments x0 ++ cs2 ++ cs3
+                , x0 { expressionLeadingComments = [], expressionNode = f x3 }
+                )
+
+-- Performs some shallow processing on our pattern to turn it into the form we want to print.
+processPattern :: Pattern -> Pattern
+processPattern x0 = case patternNode x0 of
+  -- Inline an object extension into our object.
+  ObjectPattern ps1 (Just (Pattern cs1 cs2 (ObjectPattern ps2 ext))) -> processPattern $
+    Pattern
+      (patternLeadingComments x0 `append` cs1)
+      (cs2 `append` patternTrailingComments x0)
+      (ObjectPattern (ps1 `append` ps2) ext)
+
+  _ -> x0
 
 -- Removes the trailing comments from our `Pattern` and returns them.
+--
+-- NOTE: Must call `processPattern` on the pattern we pass to this function first!
 takePatternTrailingComments :: Pattern -> (Pattern, [AttachedComment])
 takePatternTrailingComments x0 =
   case patternNode x0 of
@@ -895,7 +935,21 @@ takePatternTrailingComments x0 =
       if null (patternTrailingComments x0) then (x0, [])
       else (x0 { patternTrailingComments = [] }, patternTrailingComments x0)
 
+-- Performs some shallow processing on our type to turn it into the form we want to print.
+processType :: Type -> Type
+processType x0 = case typeNode x0 of
+  -- Inline an object extension into our object.
+  ObjectType ps1 (Just (Type cs1 cs2 (ObjectType ps2 ext))) -> processType $
+    Type
+      (typeLeadingComments x0 `append` cs1)
+      (cs2 `append` typeTrailingComments x0)
+      (ObjectType (ps1 `append` ps2) ext)
+
+  _ -> x0
+
 -- Removes the trailing comments from our `Type` and returns them.
+--
+-- NOTE: Must call `processType` on the pattern we pass to this function first!
 takeTypeTrailingComments :: Type -> (Type, [AttachedComment])
 takeTypeTrailingComments x0 =
   case typeNode x0 of
@@ -911,7 +965,7 @@ takeTypeTrailingComments x0 =
       else (x0 { typeTrailingComments = [] }, typeTrailingComments x0)
 
     trailing f x1 =
-      case takeTypeTrailingComments x1 of
+      case takeTypeTrailingComments (processType x1) of
         (_, []) -> noTrailing
         (x2, cs) ->
           if null (typeTrailingComments x0) then (x0 { typeNode = f x2 }, cs)

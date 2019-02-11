@@ -286,27 +286,11 @@ printMonotypeWithInlining localPolarity type0 references0 yield = case monotypeD
           Just extension ->
             printMonotypeWithInlining Positive extension references3 $ \references4 makeExtension ->
               yield references4 $ \substitutions ->
-                let
-                  -- Loop through the extension. If the extension is an object expression itself
-                  -- then we want to inline the properties of the extension.
-                  loop t0 = case PrinterAST.typeNode t0 of
-                    PrinterAST.ObjectType ps Nothing -> (ps, Nothing)
-                    PrinterAST.ObjectType ps1 (Just t1) ->
-                      let (ps2, t2) = loop t1 in
-                        (if null ps2 then ps1 else ps1 ++ ps2, t2)
-                    _ ->
-                      ([], Just t0)
-
-                  -- Call our `loop` function to get or initial properties and actual extension.
-                  (initialProperties, actualExtension) = loop (makeExtension substitutions)
-                in
-                  PrinterAST.Type [] [] $ PrinterAST.ObjectType
-                    (foldr
-                      (\(name, makeValue) ps ->
-                        Right (PrinterAST.objectTypeProperty name (makeValue substitutions), []) : ps)
-                      initialProperties
-                      propertyMakers)
-                    actualExtension)
+                PrinterAST.objectType
+                  (map
+                    (\(name, makeValue) -> PrinterAST.objectTypeProperty name (makeValue substitutions))
+                    propertyMakers)
+                  (Just (makeExtension substitutions)))
 
       -- Fold over all the object properties. First we convert the object properties to a list which
       -- sorts them by source order.
@@ -358,29 +342,12 @@ printMonotypeWithoutInlining type0 = case monotypeDescription type0 of
       (printMonotypeWithoutInlining body)
 
   -- Print an object, but first convert all of its properties to a list.
-  Construct (Object properties maybeExtension) ->
-    PrinterAST.Type [] [] $ PrinterAST.ObjectType
-      (foldr
-        (\(name, value) acc ->
-          Right (PrinterAST.objectTypeProperty name (printMonotypeWithoutInlining value), []) : acc)
-        initialProperties
+  Construct (Object properties extension) ->
+    PrinterAST.objectType
+      (map
+        (\(name, value) -> PrinterAST.objectTypeProperty name (printMonotypeWithoutInlining value))
         (objectPropertyList properties))
-      actualExtension
-    where
-      -- Loop through the extension. If the extension is an object expression itself
-      -- then we want to inline the properties of the extension.
-      loop t0 = case PrinterAST.typeNode t0 of
-        PrinterAST.ObjectType ps Nothing -> (ps, Nothing)
-        PrinterAST.ObjectType ps1 (Just t1) ->
-          let (ps2, t2) = loop t1 in
-            (if null ps2 then ps1 else ps1 ++ ps2, t2)
-        _ ->
-          ([], Just t0)
-
-      -- Call our `loop` function to get or initial properties and actual extension.
-      (initialProperties, actualExtension) = case maybeExtension of
-        Nothing -> ([], Nothing)
-        Just extension -> loop (printMonotypeWithoutInlining extension)
+      (printMonotypeWithoutInlining <$> extension)
 
 -- Converts a map of object properties into a list. The list is sorted by the location of each
 -- property in source code while still preserving the appropriate ordering for object properties
