@@ -434,9 +434,8 @@ tryObjectPatternPropertyValue = ObjectPatternPropertyValue <$> tryGlyph Colon <&
 
 tryObjectPatternExtension :: TryParser ObjectPatternExtension
 tryObjectPatternExtension =
-  ObjectPatternExtension
-    <$> tryGlyph Bar
-    <&> pattern_
+  (ObjectPatternExtensionHole <$> tryKeyword Hole)
+    <|> (ObjectPatternExtension <$> tryGlyph Bar <&> pattern_)
 
 tryWrappedPattern :: TryParser Pattern
 tryWrappedPattern =
@@ -500,9 +499,8 @@ tryObjectTypeProperty =
 
 tryObjectTypeExtension :: TryParser ObjectTypeExtension
 tryObjectTypeExtension =
-  ObjectTypeExtension
-    <$> tryGlyph Bar
-    <&> type_
+  (ObjectTypeExtensionHole <$> tryKeyword Hole)
+    <|> (ObjectTypeExtension <$> tryGlyph Bar <&> type_)
 
 tryQuantifiedType :: TryParser Type
 tryQuantifiedType = QuantifiedType <$> tryQuantifierList <&> type_

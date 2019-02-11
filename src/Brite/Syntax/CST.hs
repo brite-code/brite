@@ -410,10 +410,12 @@ data ObjectPatternProperty =
 -- The value of a single object property.
 data ObjectPatternPropertyValue = ObjectPatternPropertyValue Token (Recover Pattern)
 
--- `| P`
---
 -- An extension operation on an object.
-data ObjectPatternExtension = ObjectPatternExtension Token (Recover Pattern)
+data ObjectPatternExtension
+  -- `| P`
+  = ObjectPatternExtension Token (Recover Pattern)
+  -- `_`
+  | ObjectPatternExtensionHole Token
 
 -- Statically describes properties of a value at runtime. Through extensive domain modeling with
 -- types a user can reduce the possibilities for bugs in their systems.
@@ -477,10 +479,12 @@ data Type
 -- A single object property.
 data ObjectTypeProperty = ObjectTypeProperty Name (Recover Token) (Recover Type)
 
--- `| T`
---
 -- An extension operation on an object.
-data ObjectTypeExtension = ObjectTypeExtension Token (Recover Type)
+data ObjectTypeExtension
+  -- `| T`
+  = ObjectTypeExtension Token (Recover Type)
+  -- `_`
+  | ObjectTypeExtensionHole Token
 
 -- ```
 -- <x>
@@ -712,6 +716,8 @@ patternTokens (ObjectPattern t1 ps ext t2) =
 
     extensionTokens (ObjectPatternExtension t3 e) =
       singletonToken t3 <> recoverTokens patternTokens e
+    extensionTokens (ObjectPatternExtensionHole t3) =
+      singletonToken t3
 
 patternTokens (WrappedPattern t1 p t2) =
   singletonToken t1
@@ -744,6 +750,8 @@ typeTokens (ObjectType t1 ps ext t2) =
 
     extensionTokens (ObjectTypeExtension t3 e) =
       singletonToken t3 <> recoverTokens typeTokens e
+    extensionTokens (ObjectTypeExtensionHole t3) =
+      singletonToken t3
 
 typeTokens (QuantifiedType qs t) = quantifierListTokens qs <> recoverTokens typeTokens t
 

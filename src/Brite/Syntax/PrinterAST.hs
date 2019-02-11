@@ -1096,6 +1096,9 @@ convertPattern x0 = case x0 of
           wrap cs [] x = x { patternLeadingComments = cs ++ patternLeadingComments x }
           wrap cs1 cs2 x = x { patternLeadingComments = cs1 ++ cs2 ++ patternLeadingComments x }
 
+      extension (CST.ObjectPatternExtensionHole t) =
+        return (group Pattern (token t *> pure HolePattern))
+
   CST.WrappedPattern t1 x' t2' -> do
     x <- recover x' >>= convertPattern
     t2 <- recover t2'
@@ -1161,6 +1164,9 @@ convertType x0 = case x0 of
           wrap [] [] x = x
           wrap cs [] x = x { typeLeadingComments = cs ++ typeLeadingComments x }
           wrap cs1 cs2 x = x { typeLeadingComments = cs1 ++ cs2 ++ typeLeadingComments x }
+
+      extension (CST.ObjectTypeExtensionHole t) =
+        return (group Type (token t *> pure TopType))
 
   CST.QuantifiedType qs' t' -> do
     qs <- convertQuantifierList qs'

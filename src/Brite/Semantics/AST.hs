@@ -886,6 +886,10 @@ convertPattern x0 = case x0 of
         return (Just (convertRecoverPattern v))
       convertExtension (Just (Recover _ e (CST.ObjectPatternExtension (Token {}) v))) =
         tell (pure e) *> return (Just (convertRecoverPattern v))
+      convertExtension (Just (Ok (CST.ObjectPatternExtensionHole t))) =
+        return (Just (Pattern (tokenRange t) HolePattern))
+      convertExtension (Just (Recover _ e (CST.ObjectPatternExtensionHole t))) =
+        tell (pure e) *> return (Just (Pattern (tokenRange t) HolePattern))
       convertExtension (Just (Fatal _ e)) =
         tell (pure e) *> return Nothing
 
@@ -984,6 +988,10 @@ convertType x0 = case x0 of
         return (Just (convertRecoverType v))
       convertExtension (Just (Recover _ e (CST.ObjectTypeExtension (Token {}) v))) =
         tell (pure e) *> return (Just (convertRecoverType v))
+      convertExtension (Just (Ok (CST.ObjectTypeExtensionHole t))) =
+        return (Just (Type (tokenRange t) TopType))
+      convertExtension (Just (Recover _ e (CST.ObjectTypeExtensionHole t))) =
+        tell (pure e) *> return (Just (Type (tokenRange t) TopType))
       convertExtension (Just (Fatal _ e)) =
         tell (pure e) *> return Nothing
 

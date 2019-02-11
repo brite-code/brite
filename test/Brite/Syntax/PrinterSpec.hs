@@ -12,6 +12,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as Text.Lazy
 import qualified Data.Text.Lazy.Builder as Text.Builder
+import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 import Test.Hspec
 import System.IO
 
@@ -1145,6 +1146,25 @@ testData =
   , "(x: <T: !, U: !> void)"
   , "(x: fun</* a */ T /* b */ : /* c */ ! /* d */>() -> void)"
   , "(x: fun<\n//\n/* a */ T /* b */ : /* c */ ! /* d */>() -> void)"
+  , "let {a, b, c | _} = x;"
+  , "let {a, b, c _} = x;"
+  , "let {a, b, c, _} = x;"
+  , "let {\n//\na, b, c | _} = x;"
+  , "let {\n//\na, b, c _} = x;"
+  , "let {\n//\na, b, c, _} = x;"
+  , "let {a, b, c, /* foo */ _ /* bar */} = x;"
+  , "let {\n//\na, b, c, /* foo */ _ /* bar */} = x;"
+  , "let {a, b, c,\n//\n/* foo */ _ /* bar */} = x;"
+  , "(x: {a: A, b: B, c: C | _});"
+  , "(x: {a: A, b: B, c: C _});"
+  , "(x: {a: A, b: B, c: C, _});"
+  , "(x: {\n//\na: A, b: B, c: C | _});"
+  , "(x: {\n//\na: A, b: B, c: C _});"
+  , "(x: {\n//\na: A, b: B, c: C, _});"
+  , "(x: {a: A, b: B, c: C, /* foo */ _ /* bar */});"
+  , "(x: {\n//\na: A, b: B, c: C, /* foo */ _ /* bar */});"
+  , "(x: {a: A, b: B, c: C,\n//\n/* foo */ _ /* bar */});"
+  , "(x: {| _});"
   ]
 
 openSnapshotFile :: IO Handle
@@ -1167,7 +1187,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
         (inputModule, diagnostics) = runDiagnosticWriter (parseModule (tokenize input))
         output = Text.Lazy.toStrict $ Text.Builder.toLazyText $
           printModule (PrinterAST.convertModule inputModule)
-        (outputModule, _) = runDiagnosticWriter (parseModule (tokenize output))
+        (outputModule, reparsedDiagnostics) = runDiagnosticWriter (parseModule (tokenize output))
         reprintedOutput = Text.Lazy.toStrict $ Text.Builder.toLazyText $
           printModule (PrinterAST.convertModule outputModule)
       in seq output $ do
@@ -1192,6 +1212,11 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $ do
 
         -- Test that when we parse and re-print the output we get the same thing.
         reprintedOutput `shouldBe` output
+        if null diagnostics then
+          Text.Builder.toStrictText (foldMap diagnosticMessageMarkdown reparsedDiagnostics)
+            `shouldBe` ""
+        else
+          return ()
 
         -- Test to make sure the output has no trailing spaces, but only if there were no
         -- diagnostics. If there were parse errors then we may print raw text with trailing spaces.

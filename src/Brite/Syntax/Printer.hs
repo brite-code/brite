@@ -682,6 +682,13 @@ printPattern x0' = build $ case patternNode x0 of
           )
 
       printExtension Nothing = mempty
+
+      -- If we are extending a hole pattern then print the shorthand form.
+      printExtension (Just (Pattern cs1 cs2 HolePattern)) =
+        (if null ps then mempty else ifFlat (text ", ")) <>
+        indent (printLeadingAttachedComments cs1 <> text "_" <> printTrailingAttachedComments cs2) <>
+        softline
+
       printExtension (Just x) =
         -- If the object breaks onto multiple lines then put the bar at the same indentation level
         -- as `{}`.
@@ -739,6 +746,13 @@ printType x0' = build $ case typeNode x0 of
           )
 
       printExtension Nothing = mempty
+
+      -- If we are extending a top type then print the shorthand form.
+      printExtension (Just (Type cs1 cs2 TopType)) =
+        (if null ps then mempty else ifFlat (text ", ")) <>
+        indent (printLeadingAttachedComments cs1 <> text "_" <> printTrailingAttachedComments cs2) <>
+        softline
+
       printExtension (Just x) =
         -- If the object breaks onto multiple lines then put the bar at the same indentation level
         -- as `{}`.

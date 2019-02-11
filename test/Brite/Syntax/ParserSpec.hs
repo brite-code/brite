@@ -909,6 +909,17 @@ testData =
   , "fun 😈(x) { x }"
   , "choose(undefined: fun<X: fun<A: !, B = !>(A) -> B>(X) -> X)(undefined: fun<X: fun<A = !, B: !>(A) -> B>(X) -> X)"
   , "choose((undefined: fun<X: fun<A: !, B = !>(A) -> B>(X) -> X))((undefined: fun<X: fun<A = !, B: !>(A) -> B>(X) -> X))"
+  , "let {a, b, c | _} = x;"
+  , "let {a, b, c _} = x;"
+  , "let {a, b, c, _} = x;"
+  , "let {a, b, c 😈| _} = x;"
+  , "(x: {a: A, b: B, c: C | _});"
+  , "(x: {a: A, b: B, c: C _});"
+  , "(x: {a: A, b: B, c: C, _});"
+  , "(x: {a: A, b: B, c: C 😈| _});"
+  , "{a, b, c | _};"
+  , "{a, b, c _};"
+  , "{a, b, c, _};"
   ]
 
 openSnapshotFile :: IO Handle
