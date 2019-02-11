@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Brite.Semantics.TypeSpec (spec) where
+module Brite.Semantics.NormalFormSpec (spec) where
 
 import Brite.Diagnostic
 import Brite.Semantics.AST (convertRecoverType)
@@ -123,15 +123,14 @@ initialContext = HashSet.fromList [unsafeIdentifier "X", unsafeIdentifier "Y", u
 
 spec :: Spec
 spec = do
-  describe "normal" $ do
-    flip traverse_ testData $ \(input, expectedOutput) ->
-      it (Text.unpack input) $ do
-        let (type1, ds1) = runDiagnosticWriter (parseType (tokenize input))
-        if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
-        let (type2, _) = runDiagnosticWriter (normal <$> checkPolytype initialContext (convertRecoverType type1))
-        let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type2)))
-        let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))
-        let (type4, _) = runDiagnosticWriter (normal <$> checkPolytype initialContext (convertRecoverType type3))
-        let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type4)))
-        actualOutput `shouldBe` expectedOutput
-        actualOutput2 `shouldBe` actualOutput
+  flip traverse_ testData $ \(input, expectedOutput) ->
+    it (Text.unpack input) $ do
+      let (type1, ds1) = runDiagnosticWriter (parseType (tokenize input))
+      if null ds1 then return () else error (Text.Builder.toString (foldMap diagnosticMessageMarkdown ds1))
+      let (type2, _) = runDiagnosticWriter (normal <$> checkPolytype initialContext (convertRecoverType type1))
+      let actualOutput = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type2)))
+      let (type3, _) = runDiagnosticWriter (parseType (tokenize actualOutput))
+      let (type4, _) = runDiagnosticWriter (normal <$> checkPolytype initialContext (convertRecoverType type3))
+      let actualOutput2 = Text.Lazy.toStrict (Text.Builder.toLazyText (printCompactType (printPolytypeWithoutInlining type4)))
+      actualOutput `shouldBe` expectedOutput
+      actualOutput2 `shouldBe` actualOutput
