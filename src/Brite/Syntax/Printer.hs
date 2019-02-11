@@ -706,6 +706,8 @@ printType x0' = build $ case typeNode x0 of
 
   BottomType -> text "!"
 
+  TopType -> text "_"
+
   VoidType -> text "void"
 
   FunctionType qs ps t ->
@@ -751,6 +753,7 @@ printType x0' = build $ case typeNode x0 of
     case typeNode t1 of
       VariableType _ -> normal
       BottomType -> normal
+      TopType -> normal
       VoidType -> normal
       FunctionType qs2 ps r -> printType (t1 { typeNode = FunctionType (qs1 `append` qs2) ps r })
       ObjectType _ _ -> normal
@@ -977,6 +980,7 @@ takeTypeTrailingComments x0 =
   case typeNode x0 of
     VariableType _ -> noTrailing
     BottomType -> noTrailing
+    TopType -> noTrailing
     VoidType -> noTrailing
     FunctionType qs ps x1 -> trailing (FunctionType qs ps) x1
     ObjectType _ _ -> noTrailing

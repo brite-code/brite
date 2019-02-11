@@ -451,6 +451,7 @@ tryType =
     <|> tryObjectType
     <|> tryFunctionType
     <|> tryVoidType
+    <|> tryTopType
     <|> tryQuantifiedType
     <|> tryBottomType
     <|> tryWrappedType
@@ -464,6 +465,9 @@ tryVariableType = VariableType <$> tryName
 
 tryBottomType :: TryParser Type
 tryBottomType = BottomType <$> tryGlyph Bang
+
+tryTopType :: TryParser Type
+tryTopType = TopType <$> tryKeyword Hole
 
 tryVoidType :: TryParser Type
 tryVoidType = VoidType <$> tryKeyword Void'

@@ -239,6 +239,8 @@ debugType x0 = case typeNode x0 of
 
   BottomType -> (symbol "bottom")
 
+  TopType -> (symbol "top")
+
   VoidType -> (symbol "void")
 
   FunctionType qs ps x ->

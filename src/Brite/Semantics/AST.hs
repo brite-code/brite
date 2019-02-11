@@ -291,6 +291,9 @@ data TypeNode
   -- `!`
   | BottomType
 
+  -- `_`
+  | TopType
+
   -- `void`
   | VoidType
 
@@ -937,6 +940,10 @@ convertType x0 = case x0 of
   -- Bottom types are easy since they are a single token.
   CST.BottomType t ->
     Type (tokenRange t) BottomType
+
+  -- Top types are easy since they are a single token.
+  CST.TopType t ->
+    Type (tokenRange t) TopType
 
   -- Void types are easy since they are a single token.
   CST.VoidType t ->

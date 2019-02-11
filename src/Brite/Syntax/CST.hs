@@ -422,9 +422,10 @@ data Type
   = VariableType Name
 
   -- `!`
-  --
-  -- NOTE: Are we sure we want this as the syntax for bottom types?
   | BottomType Token
+
+  -- `_`
+  | TopType Token
 
   -- `void`
   | VoidType Token
@@ -720,6 +721,7 @@ patternTokens (WrappedPattern t1 p t2) =
 typeTokens :: Type -> Tokens
 typeTokens (VariableType name) = nameTokens name
 typeTokens (BottomType t) = singletonToken t
+typeTokens (TopType t) = singletonToken t
 typeTokens (VoidType t) = singletonToken t
 
 typeTokens (FunctionType t1 qs t2 ps t3 t4 r) =

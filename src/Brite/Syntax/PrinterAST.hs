@@ -369,6 +369,9 @@ data TypeNode
   -- `!`
   | BottomType
 
+  -- `_`
+  | TopType
+
   -- `void`
   | VoidType
 
@@ -1114,6 +1117,9 @@ convertType x0 = case x0 of
 
   CST.BottomType t ->
     return (group Type (token t *> pure BottomType))
+
+  CST.TopType t ->
+    return (group Type (token t *> pure TopType))
 
   CST.VoidType t ->
     return (group Type (token t *> pure VoidType))
