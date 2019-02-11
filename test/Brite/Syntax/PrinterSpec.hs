@@ -1128,6 +1128,14 @@ testData =
   , "if a + ({x: 1}) {}"
   , "if (a + {x: 1}) {}"
   , "if ({x: 1}: T) {}"
+  , "fun() {}()"
+  , "fun() {} + a"
+  , "a + fun() {}"
+  , "fun() {}"
+  , "fun f() {}()"
+  , "fun f() {} + a"
+  , "a + fun f() {}"
+  , "fun f() {}"
   ]
 
 openSnapshotFile :: IO Handle

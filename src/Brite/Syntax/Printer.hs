@@ -591,7 +591,12 @@ printExpression behavior expectedPrecedence x0' = build $ case expressionNode x0
     actualPrecedence = case expressionNode x0 of
       ConstantExpression _ -> Primary
       VariableExpression _ -> Primary
-      FunctionExpression _ -> Primary
+
+      -- For aesthetic reasons we always want to wrap function expressions unless they are printed
+      -- at “top”. However, we parse function expressions as primary expressions. This helps make
+      -- it visually obvious when a function is being used as an expression and not a declaration.
+      FunctionExpression _ -> Top
+
       CallExpression _ _ -> Primary
       ObjectExpression _ _ -> Primary
       PropertyExpression _ _ _ -> Primary
