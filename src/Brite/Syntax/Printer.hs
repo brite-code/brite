@@ -147,7 +147,7 @@ printStatement s0 = build $ case statementNode s0 of
   -- expression has attached trailing comments then print those _after_ the semicolon.
   ExpressionStatement x' ->
     let (x, cs) = takeExpressionTrailingComments (processExpression x') in
-      printExpression Top x
+      printExpression Normal Top x
         <> (if withoutSemicolon (expressionNode x) then mempty else text ";")
         <> printTrailingAttachedComments cs
     where
@@ -179,7 +179,7 @@ printStatement s0 = build $ case statementNode s0 of
         <> line
         <> indent
             (mconcat (map printUnattachedComment cs2)
-              <> printExpression Top x)
+              <> printExpression Normal Top x)
         <> text ";"
         <> printTrailingAttachedComments cs3
       where
@@ -197,7 +197,7 @@ printStatement s0 = build $ case statementNode s0 of
         <> printPattern p
         <> maybe mempty ((text ": " <>) . printType) t
         <> text " = "
-        <> printExpression Top x
+        <> printExpression Normal Top x
         <> text ";"
         <> printTrailingAttachedComments cs
 
@@ -211,7 +211,7 @@ printStatement s0 = build $ case statementNode s0 of
         <> softline
         <> indent
             (mconcat (map printUnattachedComment cs2)
-              <> printExpression Top x
+              <> printExpression Normal Top x
               <> ifBreak (printTrailingAttachedComments cs3))
         <> softline
         <> ifBreak (text ")")
@@ -228,7 +228,7 @@ printStatement s0 = build $ case statementNode s0 of
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   ReturnStatement (Just (_, x1)) ->
     let (x, cs) = takeExpressionTrailingComments (processExpression x1) in
-      text "return " <> printExpression Top x <> text ";" <> printTrailingAttachedComments cs
+      text "return " <> printExpression Normal Top x <> text ";" <> printTrailingAttachedComments cs
 
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   BreakStatement (Just (cs1, x1)) | not (null cs1) || shouldBreakOntoNextLine x1 ->
@@ -240,7 +240,7 @@ printStatement s0 = build $ case statementNode s0 of
         <> softline
         <> indent
             (mconcat (map printUnattachedComment cs2)
-              <> printExpression Top x
+              <> printExpression Normal Top x
               <> ifBreak (printTrailingAttachedComments cs))
         <> softline
         <> ifBreak (text ")")
@@ -257,7 +257,7 @@ printStatement s0 = build $ case statementNode s0 of
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
   BreakStatement (Just (_, x1)) ->
     let (x, cs) = takeExpressionTrailingComments (processExpression x1) in
-      text "break " <> printExpression Top x <> text ";" <> printTrailingAttachedComments cs
+      text "break " <> printExpression Normal Top x <> text ";" <> printTrailingAttachedComments cs
 
   ReturnStatement Nothing ->
     text "return;"
@@ -285,7 +285,7 @@ printUngroupedBlock (Block [Right s@(Statement { statementNode = ExpressionState
     <> indent
       (line
         <> printLeadingAttachedComments (statementLeadingComments s)
-        <> printExpression Top x
+        <> printExpression Normal Top x
         <> printTrailingAttachedComments (statementTrailingComments s)
         <> line)
     <> text "}"
@@ -360,8 +360,8 @@ printConstant constant = case constant of
       (True, raw0)
 
 -- Prints an expression.
-printExpression :: Precedence -> Expression -> Document
-printExpression p0 x0' = build $ case expressionNode x0 of
+printExpression :: ParseBehavior -> Precedence -> Expression -> Document
+printExpression behavior expectedPrecedence x0' = build $ case expressionNode x0 of
   ConstantExpression c -> printConstant c
 
   VariableExpression n -> text (identifierText n)
@@ -386,12 +386,12 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   -- [1]: https://prettier.io
   CallExpression x1 xs ->
     if exactly (1 :: Int) xs then
-      printExpression Primary x1
+      printExpression behavior Primary x1
         <> group (text "("
             <> indent (softline <> printSingleArgStart xs)
             <> text ")")
     else
-      printExpression Primary x1
+      printExpression behavior Primary x1
         <> group (text "("
             <> indent (softline <> printCommaList printArg xs)
             <> text ")")
@@ -400,7 +400,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       -- trailing comments.
       printArg x' =
         let (x, cs) = takeExpressionTrailingComments (processExpression x') in
-          (printExpression Top x, cs)
+          (printExpression Normal Top x, cs)
 
       -- Returns true if we have exactly `n` arguments.
       exactly n [] = n == 0
@@ -418,15 +418,21 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       printSingleArg [] = mempty
       printSingleArg (Left c : as) = printUnattachedComment c <> printSingleArg as
       printSingleArg (Right (a, cs) : as) =
-        printExpression Top a <> printTrailingAttachedComments cs <> softline <> printSingleArg as
+        printExpression Normal Top a <> printTrailingAttachedComments cs <> softline <> printSingleArg as
 
   -- NOTE: We automatically convert `{p: p}` into `{p}`.
-  ObjectExpression ps ext -> group $
+  ObjectExpression ps ext -> group $ behaviorWrap $
     text "{" <>
     indent (softline <> printCommaList printProperty ps) <>
     printExtension ext <>
     text "}"
     where
+      -- If the parsing behavior is `NoLeftBrace` then we need to wrap our object expression to
+      -- avoid a parse error.
+      behaviorWrap = case behavior of
+        NoLeftBrace -> \x -> text "(" <> x <> text ")"
+        _ -> id
+
       -- The trailing comments of a punned object expression are printed by `printCommaList`.
       printProperty (ObjectExpressionPropertyPun cs1 cs2 n) =
         (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
@@ -468,9 +474,9 @@ printExpression p0 x0' = build $ case expressionNode x0 of
               -- expression on a new line and we add indentation.
               (if not (null cs2) || shouldBreakOntoNextLine x then
                 line <>
-                indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x)
+                indent (mconcat (map printUnattachedComment cs2) <> printExpression Normal Top x)
               else
-                text " " <> printExpression Top x)
+                text " " <> printExpression Normal Top x)
           , cs3
           )
 
@@ -479,17 +485,17 @@ printExpression p0 x0' = build $ case expressionNode x0 of
         -- If the object breaks onto multiple lines then put the bar at the same indentation level
         -- as `{}`.
         (if null ps then text "| " else ifBreakElse (text "| ") (text " | ")) <>
-        indent (printExpression Top x) <>
+        indent (printExpression Normal Top x) <>
         softline
 
   -- Print a property statement which may have some unattached comments over the property.
   PropertyExpression e cs n ->
-    printExpression Primary e <> group (indent
+    printExpression behavior Primary e <> group (indent
       (softline
         <> mconcat (map printUnattachedComment cs)
         <> text "." <> text (identifierText n)))
 
-  PrefixExpression op' x -> op <> printExpression Prefix x
+  PrefixExpression op' x -> op <> printExpression Normal Prefix x
     where
       op = case op' of
         Not -> text "!"
@@ -499,14 +505,14 @@ printExpression p0 x0' = build $ case expressionNode x0 of
   InfixExpression l op' cs r ->
     -- Group the infix expression if we were printed at a different precedence level than our own.
     -- This means operators of the same precedence will be put together in one group.
-    (if p0 /= p1 then group else id)
-      (printExpression p1 l <> text " " <> text op <>
+    (if expectedPrecedence /= actualPrecedence then group else id)
+      (printExpression behavior actualPrecedence l <> text " " <> text op <>
         -- If we are wrapping this expression then when there is a new line we want to indent by a
         -- single space. That lines up our first line (which comes after a `(`) and future lines.
         (if wrap then indent1 else id)
           (line
             <> mconcat (map printUnattachedComment cs)
-            <> printExpression p1 r))
+            <> printExpression Normal actualPrecedence r))
     where
       op = case op' of
         Add -> "+"
@@ -537,11 +543,11 @@ printExpression p0 x0' = build $ case expressionNode x0 of
           in
             ifBreak (text "(") <>
             softline <>
-            indent (mconcat (map printUnattachedComment cs2) <> printExpression Top x) <>
+            indent (mconcat (map printUnattachedComment cs2) <> printExpression NoLeftBrace Top x) <>
             softline <>
             ifBreak (text ")")
         else
-          printExpression Top x) <>
+          printExpression NoLeftBrace Top x) <>
         text " " <>
         printUngroupedBlock b <>
         maybe mempty alternate a
@@ -559,9 +565,9 @@ printExpression p0 x0' = build $ case expressionNode x0 of
 
   WrappedExpression x t ->
     if shouldBreakOntoNextLine x then
-      text "(" <> indent1 (printExpression Top x <> text ": " <> printType t) <> text ")"
+      text "(" <> indent1 (printExpression behavior Top x <> text ": " <> printType t) <> text ")"
     else
-      text "(" <> printExpression Top x <> text ": " <> printType t <> text ")"
+      text "(" <> printExpression Normal Top x <> text ": " <> printType t <> text ")"
 
   where
     -- Take the leading and trailing comments for our expression.
@@ -578,11 +584,11 @@ printExpression p0 x0' = build $ case expressionNode x0 of
         <> (if wrap then text ")" else mempty)
 
     -- Whether or not we should wrap this expression based on its precedence level.
-    wrap = p0 < p1
+    wrap = expectedPrecedence < actualPrecedence
 
     -- Get the actual precedence of our expression. Not the expected precedence our function
     -- was provided.
-    p1 = case expressionNode x0 of
+    actualPrecedence = case expressionNode x0 of
       ConstantExpression _ -> Primary
       VariableExpression _ -> Primary
       FunctionExpression _ -> Primary
@@ -608,6 +614,11 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       BlockExpression _ -> Primary
       LoopExpression _ -> Primary
       WrappedExpression _ _ -> Primary
+
+-- How the parser behaves when parsing a specific expression.
+data ParseBehavior
+  = Normal
+  | NoLeftBrace
 
 -- The precedence level of an expression.
 data Precedence
