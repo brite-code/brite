@@ -40,9 +40,19 @@ ObjectPatternProperty :
   - Identifier
   - Identifier `:` Pattern
 
-ObjectPatternExtension : `...` Pattern
+ObjectPatternExtension :
+  - `|` Pattern
+  - `_`
 
 An object pattern allows for easy access of properties on an object. If an {ObjectPatternProperty} has a `:` followed by a {Pattern} than that property may be further accessed with another pattern.
+
+An {ObjectPatternExtension} written as `_` is shorthand for `| _`. Which means the following two patterns are equivalent.
+
+```ite example
+let {a, b, c, _} = o;
+
+let {a, b, c | _} = o;
+```
 
 ## Wrapped Pattern
 

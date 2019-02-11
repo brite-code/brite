@@ -79,19 +79,19 @@ ObjectExpressionProperty :
   - Identifier
   - Identifier `:` Expression
 
-ObjectExpressionExtension : `...` Expression
+ObjectExpressionExtension : `|` Expression
 
 An {ObjectExpression} allows the programmer to create an object value. Brite objects implement the [“Extensible records with scoped labels”](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/scopedlabels.pdf) paper. The primitive operations defined by that paper are: **Extension**, **Selection**, and **Restriction**.
 
 **Extension** allows the programmer to extend an object with new properties. This is done in Brite like so:
 
 ```ite example
-{a: 42, ...{b: true, ...{}}}
+{a: 42 | {b: true | {}}}
 ```
 
-You can think of every property as an extension. Indeed, `{a: 42, b: true}` is syntax sugar for `{a: 42, ...{b: true, ...{}}}`.
+You can think of every property as an extension. Indeed, `{a: 42, b: true}` is syntax sugar for `{a: 42 | {b: true | {}}}`.
 
-You can extend an object with the same property name multiple times. For example `{a: 42, ...{a: true, ...{}}}` is the same as `{a: 42, a: true}`. Extending with a property name that already exists in the object does not override the old property! This simplifies type checking, however using `...` for this purpose will confuse programmers coming from JavaScript.
+You can extend an object with the same property name multiple times. For example `{a: 42 | {a: true | {}}}` is the same as `{a: 42, a: true}`. Extending with a property name that already exists in the object does not override the old property!
 
 **Selection** allows the programmer to select a single property from an object. In Brite, selection is written as `o.p`. See {PropertyExpression} bellow.
 
