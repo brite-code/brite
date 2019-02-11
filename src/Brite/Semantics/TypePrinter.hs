@@ -291,11 +291,11 @@ printMonotypeWithInlining localPolarity type0 references0 yield = case monotypeD
                   -- then we want to inline the properties of the extension.
                   loop t0 = case PrinterAST.typeNode t0 of
                     PrinterAST.ObjectType ps Nothing -> (ps, Nothing)
-                    PrinterAST.ObjectType ps1 (Just (_, t1)) ->
+                    PrinterAST.ObjectType ps1 (Just t1) ->
                       let (ps2, t2) = loop t1 in
                         (if null ps2 then ps1 else ps1 ++ ps2, t2)
                     _ ->
-                      ([], Just ([], t0))
+                      ([], Just t0)
 
                   -- Call our `loop` function to get or initial properties and actual extension.
                   (initialProperties, actualExtension) = loop (makeExtension substitutions)
@@ -371,11 +371,11 @@ printMonotypeWithoutInlining type0 = case monotypeDescription type0 of
       -- then we want to inline the properties of the extension.
       loop t0 = case PrinterAST.typeNode t0 of
         PrinterAST.ObjectType ps Nothing -> (ps, Nothing)
-        PrinterAST.ObjectType ps1 (Just (_, t1)) ->
+        PrinterAST.ObjectType ps1 (Just t1) ->
           let (ps2, t2) = loop t1 in
             (if null ps2 then ps1 else ps1 ++ ps2, t2)
         _ ->
-          ([], Just ([], t0))
+          ([], Just t0)
 
       -- Call our `loop` function to get or initial properties and actual extension.
       (initialProperties, actualExtension) = case maybeExtension of

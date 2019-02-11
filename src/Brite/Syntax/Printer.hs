@@ -456,18 +456,12 @@ printExpression p0 x0' = build $ case expressionNode x0 of
           )
 
       printExtension Nothing = mempty
-      printExtension (Just (cs1', x)) =
-        let
-          -- Remove the leading empty line from our list of unattached comments.
-          cs1 = case cs1' of
-            UnattachedComment True c : cs -> UnattachedComment False c : cs
-            cs -> cs
-        in
-          -- If the object breaks onto multiple lines then put the bar at the same indentation level
-          -- as `{}`.
-          ifBreakElse (text "| ") (text " | ") <>
-          indent (mconcat (map printUnattachedComment cs1) <> printExpression Top x) <>
-          softline
+      printExtension (Just x) =
+        -- If the object breaks onto multiple lines then put the bar at the same indentation level
+        -- as `{}`.
+        ifBreakElse (text "| ") (text " | ") <>
+        indent (printExpression Top x) <>
+        softline
 
   -- Print a property statement which may have some unattached comments over the property.
   PropertyExpression e cs n ->
@@ -649,18 +643,12 @@ printPattern x0 = build $ case patternNode x0 of
           )
 
       printExtension Nothing = mempty
-      printExtension (Just (cs1', x)) =
-        let
-          -- Remove the leading empty line from our list of unattached comments.
-          cs1 = case cs1' of
-            UnattachedComment True c : cs -> UnattachedComment False c : cs
-            cs -> cs
-        in
-          -- If the object breaks onto multiple lines then put the bar at the same indentation level
-          -- as `{}`.
-          ifBreakElse (text "| ") (text " | ") <>
-          indent (mconcat (map printUnattachedComment cs1) <> printPattern x) <>
-          softline
+      printExtension (Just x) =
+        -- If the object breaks onto multiple lines then put the bar at the same indentation level
+        -- as `{}`.
+        ifBreakElse (text "| ") (text " | ") <>
+        indent (printPattern x) <>
+        softline
 
   where
     -- Finishes printing an expression node by printing leading/trailing attached comments and
@@ -708,18 +696,12 @@ printType x0 = build $ case typeNode x0 of
           )
 
       printExtension Nothing = mempty
-      printExtension (Just (cs1', x)) =
-        let
-          -- Remove the leading empty line from our list of unattached comments.
-          cs1 = case cs1' of
-            UnattachedComment True c : cs -> UnattachedComment False c : cs
-            cs -> cs
-        in
-          -- If the object breaks onto multiple lines then put the bar at the same indentation level
-          -- as `{}`.
-          ifBreakElse (text "| ") (text " | ") <>
-          indent (mconcat (map printUnattachedComment cs1) <> printType x) <>
-          softline
+      printExtension (Just x) =
+        -- If the object breaks onto multiple lines then put the bar at the same indentation level
+        -- as `{}`.
+        ifBreakElse (text "| ") (text " | ") <>
+        indent (printType x) <>
+        softline
 
   -- If we quantify a `FunctionType` or a `QuantifiedType` then we want to inline our quantifiers
   -- in those types.

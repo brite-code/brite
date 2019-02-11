@@ -227,7 +227,7 @@ data ExpressionNode
   -- `{p: E}`
   --
   -- The programmer may write comments between properties.
-  | ObjectExpression [CommaListItem ObjectExpressionProperty] (Maybe ([UnattachedComment], Expression))
+  | ObjectExpression [CommaListItem ObjectExpressionProperty] (Maybe Expression)
 
   -- `E.p`
   --
@@ -342,7 +342,7 @@ data PatternNode
   -- `{p: P}`
   --
   -- The programmer may write comments between properties.
-  | ObjectPattern [CommaListItem ObjectPatternProperty] (Maybe ([UnattachedComment], Pattern))
+  | ObjectPattern [CommaListItem ObjectPatternProperty] (Maybe Pattern)
 
   -- NOTE: We never print unnecessary parentheses. Which is why we don’t have a `WrappedPattern` AST
   -- node. The printer will decide which nodes to wrap based on need and aesthetics.
@@ -380,7 +380,7 @@ data TypeNode
   -- `{p: T}`
   --
   -- The programmer may write comments between properties.
-  | ObjectType [CommaListItem ObjectTypeProperty] (Maybe ([UnattachedComment], Type))
+  | ObjectType [CommaListItem ObjectTypeProperty] (Maybe Type)
 
   -- `<x> T`
   --
@@ -426,7 +426,7 @@ quantifiedFunctionType quantifiers parameters body = Type [] [] $
 -- `{p: T}`
 objectType :: [ObjectTypeProperty] -> (Maybe Type) -> Type
 objectType properties extension = Type [] [] $
-  ObjectType (map commaListItem properties) ((,) [] <$> extension)
+  ObjectType (map commaListItem properties) extension
 
 -- `p: T`
 objectTypeProperty :: Identifier -> Type -> ObjectTypeProperty
@@ -955,13 +955,9 @@ convertExpression x0 = case x0 of
           wrap cs1 cs2 (cs3, x) =
             wrap cs1 [] (cs3, x { expressionTrailingComments = expressionTrailingComments x ++ cs2 })
 
-      extension (CST.ObjectExpressionExtension t' x') = do
-        -- Cheat and make all of an expression bar’s trivia leading instead of trailing. This way
-        -- when we print a comment on the same line as a bar it will be treated as an
-        -- unattached comment.
-        let t = t' { tokenLeadingTrivia = tokenLeadingTrivia t' ++ tokenTrailingTrivia t', tokenTrailingTrivia = [] }
+      extension (CST.ObjectExpressionExtension t x') = do
         x <- recover x' >>= convertExpression
-        return ((,) <$> comments <*> group wrap (token t *> x))
+        return (group wrap (token t *> x))
         where
           wrap [] [] x = x
           wrap cs [] x = x { expressionLeadingComments = cs ++ expressionLeadingComments x }
@@ -1089,13 +1085,9 @@ convertPattern x0 = case x0 of
           wrap cs1 cs2 x =
             wrap cs1 [] (x { patternTrailingComments = patternTrailingComments x ++ cs2 })
 
-      extension (CST.ObjectPatternExtension t' x') = do
-        -- Cheat and make all of an expression bar’s trivia leading instead of trailing. This way
-        -- when we print a comment on the same line as a bar it will be treated as an
-        -- unattached comment.
-        let t = t' { tokenLeadingTrivia = tokenLeadingTrivia t' ++ tokenTrailingTrivia t', tokenTrailingTrivia = [] }
+      extension (CST.ObjectPatternExtension t x') = do
         x <- recover x' >>= convertPattern
-        return ((,) <$> comments <*> group wrap (token t *> x))
+        return (group wrap (token t *> x))
         where
           wrap [] [] x = x
           wrap cs [] x = x { patternLeadingComments = cs ++ patternLeadingComments x }
@@ -1156,13 +1148,9 @@ convertType x0 = case x0 of
           wrap cs1 cs2 x =
             wrap cs1 [] (x { typeTrailingComments = typeTrailingComments x ++ cs2 })
 
-      extension (CST.ObjectTypeExtension t' x') = do
-        -- Cheat and make all of an expression bar’s trivia leading instead of trailing. This way
-        -- when we print a comment on the same line as a bar it will be treated as an
-        -- unattached comment.
-        let t = t' { tokenLeadingTrivia = tokenLeadingTrivia t' ++ tokenTrailingTrivia t', tokenTrailingTrivia = [] }
+      extension (CST.ObjectTypeExtension t x') = do
         x <- recover x' >>= convertType
-        return ((,) <$> comments <*> group wrap (token t *> x))
+        return (group wrap (token t *> x))
         where
           wrap [] [] x = x
           wrap cs [] x = x { typeLeadingComments = cs ++ typeLeadingComments x }
