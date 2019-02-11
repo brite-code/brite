@@ -478,7 +478,7 @@ printExpression p0 x0' = build $ case expressionNode x0 of
       printExtension (Just x) =
         -- If the object breaks onto multiple lines then put the bar at the same indentation level
         -- as `{}`.
-        ifBreakElse (text "| ") (text " | ") <>
+        (if null ps then text "| " else ifBreakElse (text "| ") (text " | ")) <>
         indent (printExpression Top x) <>
         softline
 
@@ -668,7 +668,7 @@ printPattern x0' = build $ case patternNode x0 of
       printExtension (Just x) =
         -- If the object breaks onto multiple lines then put the bar at the same indentation level
         -- as `{}`.
-        ifBreakElse (text "| ") (text " | ") <>
+        (if null ps then text "| " else ifBreakElse (text "| ") (text " | ")) <>
         indent (printPattern x) <>
         softline
 
@@ -723,7 +723,7 @@ printType x0' = build $ case typeNode x0 of
       printExtension (Just x) =
         -- If the object breaks onto multiple lines then put the bar at the same indentation level
         -- as `{}`.
-        ifBreakElse (text "| ") (text " | ") <>
+        (if null ps then text "| " else ifBreakElse (text "| ") (text " | ")) <>
         indent (printType x) <>
         softline
 

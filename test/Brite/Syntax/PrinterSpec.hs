@@ -1110,6 +1110,10 @@ testData =
   , "(void: <\n//\nU, T = /* a */ {x: Int | /* b */ {y: Bool} /* c */} /* d */> T);"
   , "fun f(\n//\n{a: 42 | {} /* yo */ }) {}"
   , "fun f(\n//\nx: {a: Int | {} /* yo */ }) {}"
+  , "{|x}"
+  , "{|x+\n//\ny}"
+  , "let {|x} = void;"
+  , "(void: {|x});"
   ]
 
 openSnapshotFile :: IO Handle

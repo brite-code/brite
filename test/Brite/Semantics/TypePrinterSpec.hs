@@ -73,7 +73,7 @@ testData =
   , ("fun(fun<T = fun(fun<T = fun(!) -> X>(T) -> T) -> X>(T) -> T) -> X", "fun(fun<T = fun(fun<T = fun(!) -> X>(T) -> T) -> X>(T) -> T) -> X")
   , ("fun(fun<T: fun(!) -> !>(T) -> Int) -> Int", "fun(fun<T: fun(!) -> !>(T) -> Int) -> Int")
   , ("{}", "{}")
-  , ("{| X}", "{ | X}")
+  , ("{| X}", "{| X}")
   , ("{a: Int, b: Bool}", "{a: Int, b: Bool}")
   , ("{b: Bool, a: Int}", "{b: Bool, a: Int}")
   , ("{a: Int | {a: Bool}}", "{a: Int, a: Bool}")

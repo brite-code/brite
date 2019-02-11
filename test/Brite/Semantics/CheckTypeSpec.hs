@@ -115,7 +115,7 @@ testData =
   , ("{id: fun<T>(T) -> T}", "<Type1: fun<T>(T) -> T> {id: Type1}", [])
   , ("fun({id: fun<T>(T) -> T}) -> {id: fun<T>(T) -> T}", "fun<Type1: fun<T>(T) -> T, Type2: fun<T>(T) -> T>({id: Type1}) -> {id: Type2}", [])
   , ("{}", "{}", [])
-  , ("{| X}", "{ | X}", [])
+  , ("{| X}", "{| X}", [])
   , ("{a: Int, b: Bool}", "{a: Int, b: Bool}", [])
   , ("{b: Bool, a: Int}", "{b: Bool, a: Int}", [])
   , ("{a: Int | {a: Bool}}", "{a: Int, a: Bool}", [])

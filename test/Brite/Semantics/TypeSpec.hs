@@ -101,7 +101,7 @@ testData =
   , ("<X, X = X> X", "!")
   , ("fun<T2, U: fun<T, V: T, T>(V) -> fun(T) -> T2>(U) -> U", "fun<T2, U: fun<T, T3>(T) -> fun(T3) -> T2>(U) -> U")
   , ("{}", "{}")
-  , ("{| X}", "{ | X}")
+  , ("{| X}", "{| X}")
   , ("{a: Int, b: Bool}", "{a: Int, b: Bool}")
   , ("{b: Bool, a: Int}", "{b: Bool, a: Int}")
   , ("{a: Int | {a: Bool}}", "{a: Int, a: Bool}")
