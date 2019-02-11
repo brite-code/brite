@@ -169,12 +169,13 @@ printStatement s0 = build $ case statementNode s0 of
   -- the value.
   --
   -- NOTE: If the expression has trailing comments then print those _after_ the semicolon.
-  BindingStatement p Nothing {- TODO: bug? -} cs1 x1 | not (null cs1) || shouldBreakOntoNextLine x1 ->
+  BindingStatement p t cs1 x1 | not (null cs1) || shouldBreakOntoNextLine x1 ->
     let (x, cs3) = takeExpressionTrailingComments (processExpression x1) in
       -- NOTE: Adding another `group` here may break our carefully crafted
       -- `ifBreak`/`ifFlat` conditions.
       group $ text "let "
         <> printPattern p
+        <> maybe mempty ((text ": " <>) . printType) t
         <> text " ="
         <> line
         <> indent

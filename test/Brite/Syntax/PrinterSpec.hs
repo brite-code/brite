@@ -1136,6 +1136,8 @@ testData =
   , "fun f() {} + a"
   , "a + fun f() {}"
   , "fun f() {}"
+  , "let a: T =\n//\nx;"
+  , "let a: T = a +\n//\nb;"
   ]
 
 openSnapshotFile :: IO Handle
