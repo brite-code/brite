@@ -40,7 +40,7 @@ infer(<>, (x: fun<A>(A) -> A), x)
 
 ### Input
 ```ite
-infer(<>, (x: <A> A), x)
+infer(<>, (x: <A: !> A), x)
 ```
 
 ### Output
@@ -52,7 +52,7 @@ infer(<>, (x: <A> A), x)
 
 ### Input
 ```ite
-infer(<>, (x: <A> Int), x)
+infer(<>, (x: <A: !> Int), x)
 ```
 
 ### Output
@@ -206,7 +206,7 @@ infer(<>, (f: fun(fun(fun(Int) -> Int) -> Int) -> Int), f(fun(g) { g(true) }))
 
 ### Input
 ```ite
-infer(<A>, (add1: fun(Int) -> Int, x: A), add1(x))
+infer(<A: !>, (add1: fun(Int) -> Int, x: A), add1(x))
 ```
 
 ### Output
@@ -314,7 +314,7 @@ infer(<>, (id: fun<A>(A) -> A), do { let x = id(42); id })
 
 ### Input
 ```ite
-infer(<A>, (x: A), x(x))
+infer(<A: !>, (x: A), x(x))
 ```
 
 ### Output
@@ -323,13 +323,13 @@ infer(<A>, (x: A), x(x))
 ```
 
 ### Errors
-- (0:19-0:23) Can not call `x` because the type checker infers an infinite type.
+- (0:22-0:26) Can not call `x` because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-infer(<A>, (x: A), do { let x = (x: fun<A>(A) -> A); x(x) })
+infer(<A: !>, (x: A), do { let x = (x: fun<A>(A) -> A); x(x) })
 ```
 
 ### Output
@@ -584,7 +584,7 @@ infer(<>, (), 0xFFF(true))
 
 ### Input
 ```ite
-infer(<B>, (choose: fun<A>(A) -> fun(A) -> A, x: B), choose(x)(42))
+infer(<B: !>, (choose: fun<A>(A) -> fun(A) -> A, x: B), choose(x)(42))
 ```
 
 ### Output
@@ -596,7 +596,7 @@ infer(<B>, (choose: fun<A>(A) -> fun(A) -> A, x: B), choose(x)(42))
 
 ### Input
 ```ite
-infer(<B>, (choose: fun<A>(A) -> fun(A) -> A, x: B), choose(42)(x))
+infer(<B: !>, (choose: fun<A>(A) -> fun(A) -> A, x: B), choose(42)(x))
 ```
 
 ### Output
@@ -656,7 +656,7 @@ infer(<>, (choose: fun<A>(A) -> fun(A) -> A), fun(x) { let y = choose(42)(x); x 
 
 ### Input
 ```ite
-infer(<B>, (choose: fun<A>(A) -> fun(A) -> A, id: fun<A>(A) -> A, x: B), choose(x)(id))
+infer(<B: !>, (choose: fun<A>(A) -> fun(A) -> A, id: fun<A>(A) -> A, x: B), choose(x)(id))
 ```
 
 ### Output
@@ -1000,7 +1000,7 @@ infer(<>, (), ((fun(x) { x }: fun(Bool) -> Bool): fun<A>(A) -> A))
 
 ### Input
 ```ite
-infer(<A, B>, (f: A, x: B), f(x))
+infer(<A: !, B: !>, (f: A, x: B), f(x))
 ```
 
 ### Output
@@ -1726,7 +1726,7 @@ infer(<>, (), (fun(x) { x }: fun<A>(A) -> A)(42))
 
 ### Input
 ```ite
-infer(<A, B, C>, (A: A, B: B, C: C), if A { B } else { C })
+infer(<A: !, B: !, C: !>, (A: A, B: B, C: C), if A { B } else { C })
 ```
 
 ### Output
@@ -2739,7 +2739,7 @@ infer(<>, (), {a: 42}.b)
 
 ### Input
 ```ite
-infer(<>, (), ({hidden: 42}: <T> {hidden: T}))
+infer(<>, (), ({hidden: 42}: <T: !> {hidden: T}))
 ```
 
 ### Output
@@ -2749,7 +2749,7 @@ infer(<>, (), ({hidden: 42}: <T> {hidden: T}))
 
 ### Errors
 - (0:15-0:27) Can not change type of `{hidden}` because `{hidden: !}` is more general than `{hidden: Int}`.
-  - (0:33-0:44): `{hidden: !}`
+  - (0:36-0:47): `{hidden: !}`
 
 --------------------------------------------------------------------------------
 
@@ -2866,7 +2866,7 @@ infer(<>, (), ({a: 42, b: false}: {a: Int | !}))
 
 ### Input
 ```ite
-infer(<T>, (o: T), o.p)
+infer(<T: !>, (o: T), o.p)
 ```
 
 ### Output

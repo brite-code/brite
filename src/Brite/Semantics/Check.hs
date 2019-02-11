@@ -395,7 +395,7 @@ checkQuantifiers ::
   HashSet Identifier -> [AST.Quantifier] -> Seq Type.Binding ->
     DiagnosticWriter (HashSet Identifier, Seq Type.Binding)
 checkQuantifiers context0 [] bindings = return (context0, bindings)
-checkQuantifiers context0 (AST.Quantifier name bound : quantifiers) bindings = do
+checkQuantifiers context0 (AST.UniversalQuantifier name bound : quantifiers) bindings = do
   -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
   binding <- case bound of

@@ -11439,7 +11439,24 @@ fun f() -> {} {}
 ```
 (wrap 0:0-0:10
   (var 0:1-0:2 x)
-  (type (quantify 0:4-0:9 (forall (name 0:5-0:6 T)) (var 0:8-0:9 X))))
+  (type (quantify 0:4-0:9 (exists (name 0:5-0:6 T)) (var 0:8-0:9 X))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: <T: !> X)
+```
+
+### AST
+```
+(wrap 0:0-0:13
+  (var 0:1-0:2 x)
+  (type
+    (quantify 0:4-0:12
+      (forall (name 0:5-0:6 T) flex (bottom 0:8-0:9))
+      (var 0:11-0:12 X))))
 ```
 
 --------------------------------------------------------------------------------
@@ -11489,9 +11506,27 @@ fun f() -> {} {}
   (var 0:1-0:2 x)
   (type
     (quantify 0:4-0:12
-      (forall (name 0:5-0:6 T))
-      (forall (name 0:8-0:9 U))
+      (exists (name 0:5-0:6 T))
+      (exists (name 0:8-0:9 U))
       (var 0:11-0:12 X))))
+```
+
+--------------------------------------------------------------------------------
+
+### Source
+```ite
+(x: <T: !, U: !> X)
+```
+
+### AST
+```
+(wrap 0:0-0:19
+  (var 0:1-0:2 x)
+  (type
+    (quantify 0:4-0:18
+      (forall (name 0:5-0:6 T) flex (bottom 0:8-0:9))
+      (forall (name 0:11-0:12 U) flex (bottom 0:14-0:15))
+      (var 0:17-0:18 X))))
 ```
 
 --------------------------------------------------------------------------------
@@ -11579,7 +11614,7 @@ fun f() -> {} {}
   (var 0:1-0:2 x)
   (type
     (quantify 0:4-0:15
-      (forall (name 0:5-0:6 T))
+      (exists (name 0:5-0:6 T))
       (forall (name 0:8-0:9 U) flex (var 0:11-0:12 B))
       (var 0:14-0:15 X))))
 ```
@@ -11598,7 +11633,7 @@ fun f() -> {} {}
   (type
     (quantify 0:4-0:15
       (forall (name 0:5-0:6 T) flex (var 0:8-0:9 A))
-      (forall (name 0:11-0:12 U))
+      (exists (name 0:11-0:12 U))
       (var 0:14-0:15 X))))
 ```
 
@@ -11615,7 +11650,7 @@ fun f() -> {} {}
   (var 0:1-0:2 x)
   (type
     (quantify 0:4-0:16
-      (forall (name 0:5-0:6 T))
+      (exists (name 0:5-0:6 T))
       (forall (name 0:8-0:9 U) rigid (var 0:12-0:13 B))
       (var 0:15-0:16 X))))
 ```
@@ -11634,7 +11669,7 @@ fun f() -> {} {}
   (type
     (quantify 0:4-0:16
       (forall (name 0:5-0:6 T) rigid (var 0:9-0:10 A))
-      (forall (name 0:12-0:13 U))
+      (exists (name 0:12-0:13 U))
       (var 0:15-0:16 X))))
 ```
 
@@ -11664,7 +11699,7 @@ fun f() -> {} {}
 ```
 (wrap 0:0-0:11
   (var 0:1-0:2 x)
-  (type (quantify 0:4-0:10 (forall (name 0:5-0:6 T)) (var 0:9-0:10 X))))
+  (type (quantify 0:4-0:10 (exists (name 0:5-0:6 T)) (var 0:9-0:10 X))))
 ```
 
 --------------------------------------------------------------------------------
@@ -11680,8 +11715,8 @@ fun f() -> {} {}
   (var 0:1-0:2 x)
   (type
     (quantify 0:4-0:13
-      (forall (name 0:5-0:6 T))
-      (forall (name 0:8-0:9 U))
+      (exists (name 0:5-0:6 T))
+      (exists (name 0:8-0:9 U))
       (var 0:12-0:13 X))))
 ```
 
@@ -12610,8 +12645,8 @@ x;
   (var 0:1-0:2 x)
   (type
     (quantify 0:4-0:31
-      (forall (name 0:5-0:6 A))
-      (forall (name 0:8-0:9 B))
+      (exists (name 0:5-0:6 A))
+      (exists (name 0:8-0:9 B))
       (fun 0:11-0:31
         (forall (name 0:15-0:16 C))
         (forall (name 0:18-0:19 D))
@@ -12657,9 +12692,9 @@ let (x) = y;
   (var 0:1-0:2 x)
   (type
     (quantify 0:4-0:15
-      (forall (name 0:5-0:6 A))
+      (exists (name 0:5-0:6 A))
       (wrap 0:8-0:15
-        (quantify 0:9-0:14 (forall (name 0:10-0:11 B)) (var 0:13-0:14 T))))))
+        (quantify 0:9-0:14 (exists (name 0:10-0:11 B)) (var 0:13-0:14 T))))))
 ```
 
 --------------------------------------------------------------------------------
@@ -12675,8 +12710,8 @@ let (x) = y;
   (var 0:1-0:2 x)
   (type
     (quantify 0:4-0:13
-      (forall (name 0:5-0:6 A))
-      (quantify 0:8-0:13 (forall (name 0:9-0:10 B)) (var 0:12-0:13 T)))))
+      (exists (name 0:5-0:6 A))
+      (quantify 0:8-0:13 (exists (name 0:9-0:10 B)) (var 0:12-0:13 T)))))
 ```
 
 --------------------------------------------------------------------------------

@@ -293,11 +293,12 @@ debugType x0 = case typeNode x0 of
       Text.Builder.fromText t <> Text.Builder.singleton ' ' <> debugRange (typeRange x0)
 
 debugQuantifier :: Quantifier -> S
-debugQuantifier (Quantifier n Nothing) = (A "forall") `E` (debugName n)
-debugQuantifier (Quantifier n (Just (Flexible, t))) =
+debugQuantifier (UniversalQuantifier n Nothing) = (A "forall") `E` (debugName n)
+debugQuantifier (UniversalQuantifier n (Just (Flexible, t))) =
   (A "forall") `E` (debugName n) `E` (A "flex") `E` (debugType t)
-debugQuantifier (Quantifier n (Just (Rigid, t))) =
+debugQuantifier (UniversalQuantifier n (Just (Rigid, t))) =
   (A "forall") `E` (debugName n) `E` (A "rigid") `E` (debugType t)
+debugQuantifier (ExistentialQuantifier n) = (A "exists") `E` (debugName n)
 
 -- An [S-expression][1].
 --

@@ -323,12 +323,15 @@ objectTypePropertyRange :: ObjectTypeProperty -> Range
 objectTypePropertyRange (ObjectTypeProperty (Name r _) x) = rangeBetween r (typeRange x)
 
 -- `x: T`
-data Quantifier = Quantifier Name (Maybe (Flexibility, Type))
+data Quantifier
+  = UniversalQuantifier Name (Maybe (Flexibility, Type))
+  | ExistentialQuantifier Name
 
 -- Gets the range of a quantifier.
 quantifierRange :: Quantifier -> Range
-quantifierRange (Quantifier (Name r _) Nothing) = r
-quantifierRange (Quantifier (Name r _) (Just (_, t))) = rangeBetween r (typeRange t)
+quantifierRange (UniversalQuantifier (Name r _) Nothing) = r
+quantifierRange (UniversalQuantifier (Name r _) (Just (_, t))) = rangeBetween r (typeRange t)
+quantifierRange (ExistentialQuantifier (Name r _)) = r
 
 -- The monad we use while converting CST nodes.
 type Conversion a = Writer (Alt Maybe Diagnostic) a
@@ -529,7 +532,7 @@ convertFunction (CST.Function t1 n' qs' t3 ps' t4 ret' b') = do
     Just (Ok n) -> return (Just (convertName n))
     Just (Recover _ e n) -> tell (pure e) *> return (Just (convertName n))
     Just (Fatal _ e) -> tell (pure e) *> return Nothing
-  qs <- convertOptionalQuantifierList qs'
+  qs <- convertOptionalQuantifierList FunctionQuantifierContext qs'
   r3 <- recoverTokenRange t3
   ps <- convertCommaList convertFunctionParameter ps'
   r4 <- recoverTokenRange t4
@@ -956,7 +959,7 @@ convertType x0 = case x0 of
   -- Converts a CST function type to an AST function type. Pretty involved because there are a lot
   -- of moving parts in a function type’s CST.
   CST.FunctionType t1 qs' t2 ps' t3 t4 x' -> build $ do
-    qs <- convertOptionalQuantifierList qs'
+    qs <- convertOptionalQuantifierList FunctionQuantifierContext qs'
     recoverToken t2
     ps <- convertCommaList convertRecoverType ps'
     recoverToken t3
@@ -997,7 +1000,7 @@ convertType x0 = case x0 of
 
   -- Convert a CST quantified type to an AST quantified type.
   CST.QuantifiedType qs' t' -> build $ do
-    (r, qs) <- convertQuantifierList qs'
+    (r, qs) <- convertQuantifierList TypeQuantifierContext qs'
     let t = convertRecoverType t'
     return $ Type
       (rangeBetween r (typeRange t))
@@ -1034,10 +1037,12 @@ convertRecoverTypeAnnotation (Ok (CST.TypeAnnotation (Token {}) t)) = convertRec
 convertRecoverTypeAnnotation (Recover _ e (CST.TypeAnnotation _ t)) = errorType e (convertRecoverType t)
 convertRecoverTypeAnnotation (Fatal ts e) = fatalErrorType ts e
 
+data QuantifierContext = TypeQuantifierContext | FunctionQuantifierContext
+
 -- Converts a CST list of quantifiers to a list of AST quantifiers. Also returns the range of the
 -- CST quantifier list. Remember that the CST quantifier list is always wrapped in `<>`.
-convertQuantifierList :: CST.QuantifierList -> Conversion (Range, [Quantifier])
-convertQuantifierList (CST.QuantifierList t1 qs' t2) = do
+convertQuantifierList :: QuantifierContext -> CST.QuantifierList -> Conversion (Range, [Quantifier])
+convertQuantifierList kind (CST.QuantifierList t1 qs' t2) = do
   qs <- convertRecoverCommaList convertQuantifier qs'
   r2 <- recoverTokenRange t2
   return
@@ -1045,20 +1050,27 @@ convertQuantifierList (CST.QuantifierList t1 qs' t2) = do
     , qs
     )
   where
-    convertQuantifier (CST.Quantifier n Nothing) = Quantifier (convertName n) Nothing
+    -- An unbound quantifier means different things depending on our context. If we are in a type
+    -- context then we have an existential quantifier. If we are in a function context then we have
+    -- a universal quantifier.
+    convertQuantifier (CST.Quantifier n Nothing) =
+      case kind of
+        TypeQuantifierContext -> ExistentialQuantifier (convertName n)
+        FunctionQuantifierContext -> UniversalQuantifier (convertName n) Nothing
+
     convertQuantifier (CST.Quantifier n (Just (Ok (CST.QuantifierBound k (Token {}) x)))) =
-      Quantifier (convertName n) (Just (k, convertRecoverType x))
+      UniversalQuantifier (convertName n) (Just (k, convertRecoverType x))
     convertQuantifier (CST.Quantifier n (Just (Recover _ e (CST.QuantifierBound k (Token {}) x)))) =
-      Quantifier (convertName n) (Just (k, errorType e (convertRecoverType x)))
+      UniversalQuantifier (convertName n) (Just (k, errorType e (convertRecoverType x)))
     convertQuantifier (CST.Quantifier n (Just (Fatal ts e))) =
-      Quantifier (convertName n) (Just (Flexible, fatalErrorType ts e))
+      UniversalQuantifier (convertName n) (Just (Flexible, fatalErrorType ts e))
 
 -- Convert an optional list of quantifiers from the CST to the AST.
-convertOptionalQuantifierList :: Maybe (Recover CST.QuantifierList) -> Conversion [Quantifier]
-convertOptionalQuantifierList Nothing = return []
-convertOptionalQuantifierList (Just (Ok qs)) = snd <$> convertQuantifierList qs
-convertOptionalQuantifierList (Just (Recover _ e qs)) = tell (pure e) *> (snd <$> convertQuantifierList qs)
-convertOptionalQuantifierList (Just (Fatal _ e)) = tell (pure e) *> return []
+convertOptionalQuantifierList :: QuantifierContext -> Maybe (Recover CST.QuantifierList) -> Conversion [Quantifier]
+convertOptionalQuantifierList _ Nothing = return []
+convertOptionalQuantifierList kind (Just (Ok qs)) = snd <$> convertQuantifierList kind qs
+convertOptionalQuantifierList kind (Just (Recover _ e qs)) = tell (pure e) *> (snd <$> convertQuantifierList kind qs)
+convertOptionalQuantifierList _ (Just (Fatal _ e)) = tell (pure e) *> return []
 
 -- Returns `Nothing` if the list is empty and the last item if the list is non-empty.
 lastMaybe :: [a] -> Maybe a

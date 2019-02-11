@@ -43,7 +43,7 @@ printCompactType = printCompactDocument . printType
 printCompactQuantifierList :: [Quantifier] -> Text.Builder
 printCompactQuantifierList [] = Text.Builder.fromText "<>"
 printCompactQuantifierList qs =
-  printCompactDocument (printQuantifierList TypeQuantifier (map (\x -> Right (x, [])) qs))
+  printCompactDocument (printQuantifierList TypeQuantifierContext (map (\x -> Right (x, [])) qs))
 
 -- We pick 80 characters as our max width. That width will fit almost anywhere: Split pane IDEs,
 -- GitHub, Terminals. It is also the best for plain text comments.
@@ -304,7 +304,7 @@ printFunction :: Function -> Document
 printFunction (Function n qs ps r b) =
   text "fun" <>
   maybe mempty ((text " " <>) . text . identifierText) n <>
-  printQuantifierList FunctionQuantifier qs <>
+  printQuantifierList FunctionQuantifierContext qs <>
   group (text "(" <> indent (softline <> printCommaList printFunctionParameter ps) <> text ")") <>
   maybe mempty ((text " -> " <>) . printType) r <>
   text " " <>
@@ -720,7 +720,7 @@ printType x0' = build $ case typeNode x0 of
 
   FunctionType qs ps t ->
     text "fun" <>
-    printQuantifierList FunctionQuantifier qs <>
+    printQuantifierList FunctionQuantifierContext qs <>
     group (text "(" <> indent (softline <> printCommaList printParameter ps) <> text ")") <>
     text " -> " <>
     printType t
@@ -779,7 +779,7 @@ printType x0' = build $ case typeNode x0 of
       -- To avoid changing the semantics of a program we _must not_ inline unbound quantifiers into
       -- a function type.
       FunctionType qs2 ps r ->
-        (if not (null existentialQuantifiers) then printQuantifierList TypeQuantifier existentialQuantifiers <> text " "
+        (if not (null existentialQuantifiers) then printQuantifierList TypeQuantifierContext existentialQuantifiers <> text " "
         else mempty)
           <> printType (t1 { typeNode = FunctionType (universalQuantifiers `append` qs2) ps r })
 
@@ -798,7 +798,7 @@ printType x0' = build $ case typeNode x0 of
       ObjectType _ _ -> normal
       QuantifiedType qs2 t2 -> printType (t1 { typeNode = QuantifiedType (qs1 `append` qs2) t2 })
     where
-      normal = printQuantifierList TypeQuantifier qs1 <> text " " <> printType t1
+      normal = printQuantifierList TypeQuantifierContext qs1 <> text " " <> printType t1
 
   where
     x0 = processType x0'
@@ -810,9 +810,9 @@ printType x0' = build $ case typeNode x0 of
         <> x1
         <> printTrailingAttachedComments (typeTrailingComments x0)
 
-data QuantifierKind = TypeQuantifier | FunctionQuantifier
+data QuantifierContext = TypeQuantifierContext | FunctionQuantifierContext
 
-printQuantifierList :: QuantifierKind -> [CommaListItem Quantifier] -> Document
+printQuantifierList :: QuantifierContext -> [CommaListItem Quantifier] -> Document
 printQuantifierList _ [] = mempty
 printQuantifierList kind qs = group $
   text "<" <> indent (softline <> printCommaList printQuantifier qs) <> text ">"
@@ -821,7 +821,7 @@ printQuantifierList kind qs = group $
       (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
 
     -- If we are in a function quantifier list and we see `T: !` then simplify it to `T`.
-    printQuantifier (Quantifier cs1 n Flexible (Type cs2 cs3 BottomType)) | FunctionQuantifier <- kind =
+    printQuantifier (Quantifier cs1 n Flexible (Type cs2 cs3 BottomType)) | FunctionQuantifierContext <- kind =
       printQuantifier (QuantifierUnbound (cs1 `append` cs2) cs3 n)
 
     printQuantifier (Quantifier cs1 n k t') =

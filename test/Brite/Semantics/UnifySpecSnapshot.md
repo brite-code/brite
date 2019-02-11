@@ -28,7 +28,7 @@ unify(<>, Int, Int)
 
 ### Input
 ```ite
-unify(<A>, Int, Int)
+unify(<A: !>, Int, Int)
 ```
 
 ### Output
@@ -40,7 +40,7 @@ unify(<A>, Int, Int)
 
 ### Input
 ```ite
-unify(<A, B>, Int, Int)
+unify(<A: !, B: !>, Int, Int)
 ```
 
 ### Output
@@ -52,7 +52,7 @@ unify(<A, B>, Int, Int)
 
 ### Input
 ```ite
-unify(<A, B, C>, Int, Int)
+unify(<A: !, B: !, C: !>, Int, Int)
 ```
 
 ### Output
@@ -564,7 +564,7 @@ unify(<B: Int, A: B>, Bool, A)
 
 ### Input
 ```ite
-unify(<A>, A, A)
+unify(<A: !>, A, A)
 ```
 
 ### Output
@@ -600,7 +600,7 @@ unify(<A = !>, A, A)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, B, C)
+unify(<A: !,  B = A, C = B>, B, C)
 ```
 
 ### Output
@@ -612,7 +612,7 @@ unify(<A, B = A, C = B>, B, C)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, C, B)
+unify(<A: !,  B = A, C = B>, C, B)
 ```
 
 ### Output
@@ -624,7 +624,7 @@ unify(<A, B = A, C = B>, C, B)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, A, B)
+unify(<A: !,  B = A, C = B>, A, B)
 ```
 
 ### Output
@@ -636,7 +636,7 @@ unify(<A, B = A, C = B>, A, B)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, A, C)
+unify(<A: !,  B = A, C = B>, A, C)
 ```
 
 ### Output
@@ -648,7 +648,7 @@ unify(<A, B = A, C = B>, A, C)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, B, A)
+unify(<A: !,  B = A, C = B>, B, A)
 ```
 
 ### Output
@@ -660,7 +660,7 @@ unify(<A, B = A, C = B>, B, A)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, C, A)
+unify(<A: !,  B = A, C = B>, C, A)
 ```
 
 ### Output
@@ -672,7 +672,7 @@ unify(<A, B = A, C = B>, C, A)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, B, A)
+unify(<A: !,  B = A, C = B>, B, A)
 ```
 
 ### Output
@@ -684,7 +684,7 @@ unify(<A, B = A, C = B>, B, A)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, B, B)
+unify(<A: !,  B = A, C = B>, B, B)
 ```
 
 ### Output
@@ -696,7 +696,7 @@ unify(<A, B = A, C = B>, B, B)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B>, C, C)
+unify(<A: !,  B = A, C = B>, C, C)
 ```
 
 ### Output
@@ -708,7 +708,7 @@ unify(<A, B = A, C = B>, C, C)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, B, C)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, B, C)
 ```
 
 ### Output
@@ -720,7 +720,7 @@ unify(<A, B = <Z> A, C = <Z> B>, B, C)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, C, B)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, C, B)
 ```
 
 ### Output
@@ -732,7 +732,7 @@ unify(<A, B = <Z> A, C = <Z> B>, C, B)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, A, B)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, A, B)
 ```
 
 ### Output
@@ -744,7 +744,7 @@ unify(<A, B = <Z> A, C = <Z> B>, A, B)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, A, C)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, A, C)
 ```
 
 ### Output
@@ -756,7 +756,7 @@ unify(<A, B = <Z> A, C = <Z> B>, A, C)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, B, A)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, B, A)
 ```
 
 ### Output
@@ -768,7 +768,7 @@ unify(<A, B = <Z> A, C = <Z> B>, B, A)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, C, A)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, C, A)
 ```
 
 ### Output
@@ -780,7 +780,7 @@ unify(<A, B = <Z> A, C = <Z> B>, C, A)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, B, A)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, B, A)
 ```
 
 ### Output
@@ -792,7 +792,7 @@ unify(<A, B = <Z> A, C = <Z> B>, B, A)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, B, B)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, B, B)
 ```
 
 ### Output
@@ -804,7 +804,7 @@ unify(<A, B = <Z> A, C = <Z> B>, B, B)
 
 ### Input
 ```ite
-unify(<A, B = <Z> A, C = <Z> B>, C, C)
+unify(<A: !,  B = <Z: !> A, C = <Z: !> B>, C, C)
 ```
 
 ### Output
@@ -816,7 +816,7 @@ unify(<A, B = <Z> A, C = <Z> B>, C, C)
 
 ### Input
 ```ite
-unify(<A>, A, Int)
+unify(<A: !>, A, Int)
 ```
 
 ### Output
@@ -828,7 +828,7 @@ unify(<A>, A, Int)
 
 ### Input
 ```ite
-unify(<A>, Int, A)
+unify(<A: !>, Int, A)
 ```
 
 ### Output
@@ -1011,7 +1011,7 @@ unify(<B = !, A = B>, Int, A)
 
 ### Input
 ```ite
-unify(<B, A = fun(B) -> B>, A, B)
+unify(<B: !, A = fun(B) -> B>, A, B)
 ```
 
 ### Output
@@ -1020,13 +1020,13 @@ unify(<B, A = fun(B) -> B>, A, B)
 ```
 
 ### Errors
-- (0:28-0:29) Test failed because the type checker infers an infinite type.
+- (0:31-0:32) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<B, A = fun(B) -> B>, B, A)
+unify(<B: !, A = fun(B) -> B>, B, A)
 ```
 
 ### Output
@@ -1035,13 +1035,13 @@ unify(<B, A = fun(B) -> B>, B, A)
 ```
 
 ### Errors
-- (0:28-0:29) Test failed because the type checker infers an infinite type.
+- (0:31-0:32) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<B, C = fun(B) -> B, A = C>, A, B)
+unify(<B: !, C = fun(B) -> B, A = C>, A, B)
 ```
 
 ### Output
@@ -1050,13 +1050,13 @@ unify(<B, C = fun(B) -> B, A = C>, A, B)
 ```
 
 ### Errors
-- (0:35-0:36) Test failed because the type checker infers an infinite type.
+- (0:38-0:39) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<B, C = fun(B) -> B, A = C>, B, A)
+unify(<B: !, C = fun(B) -> B, A = C>, B, A)
 ```
 
 ### Output
@@ -1065,13 +1065,13 @@ unify(<B, C = fun(B) -> B, A = C>, B, A)
 ```
 
 ### Errors
-- (0:35-0:36) Test failed because the type checker infers an infinite type.
+- (0:38-0:39) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<B, C = fun(B) -> B, A = fun(C) -> C>, A, B)
+unify(<B: !, C = fun(B) -> B, A = fun(C) -> C>, A, B)
 ```
 
 ### Output
@@ -1080,13 +1080,13 @@ unify(<B, C = fun(B) -> B, A = fun(C) -> C>, A, B)
 ```
 
 ### Errors
-- (0:45-0:46) Test failed because the type checker infers an infinite type.
+- (0:48-0:49) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<B, C = fun(B) -> B, A = fun(C) -> C>, B, A)
+unify(<B: !, C = fun(B) -> B, A = fun(C) -> C>, B, A)
 ```
 
 ### Output
@@ -1095,13 +1095,13 @@ unify(<B, C = fun(B) -> B, A = fun(C) -> C>, B, A)
 ```
 
 ### Errors
-- (0:45-0:46) Test failed because the type checker infers an infinite type.
+- (0:48-0:49) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A, B>, A, B)
+unify(<A: !, B: !>, A, B)
 ```
 
 ### Output
@@ -1113,7 +1113,7 @@ unify(<A, B>, A, B)
 
 ### Input
 ```ite
-unify(<A, B>, B, A)
+unify(<A: !, B: !>, B, A)
 ```
 
 ### Output
@@ -1125,7 +1125,7 @@ unify(<A, B>, B, A)
 
 ### Input
 ```ite
-unify(<A, B>, A, fun(B) -> B)
+unify(<A: !, B: !>, A, fun(B) -> B)
 ```
 
 ### Output
@@ -1137,7 +1137,7 @@ unify(<A, B>, A, fun(B) -> B)
 
 ### Input
 ```ite
-unify(<A, B>, fun(B) -> B, A)
+unify(<A: !, B: !>, fun(B) -> B, A)
 ```
 
 ### Output
@@ -1236,7 +1236,7 @@ unify(<A: fun<X>(X) -> X, B: fun<Y>(Y) -> Y>, B, A)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)
+unify(<A: fun<X>(X) -> X, B: fun<Y, Z>(Y) -> Z>, A, B)
 ```
 
 ### Output
@@ -1248,7 +1248,7 @@ unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)
+unify(<A: fun<X>(X) -> X, B: fun<Y, Z>(Y) -> Z>, B, A)
 ```
 
 ### Output
@@ -1332,7 +1332,7 @@ unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, B, A)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)
+unify(<A: fun<X>(X) -> X, B: fun<Y, Z>(Y) -> Z>, A, B)
 ```
 
 ### Output
@@ -1344,7 +1344,7 @@ unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)
+unify(<A: fun<X>(X) -> X, B: fun<Y, Z>(Y) -> Z>, B, A)
 ```
 
 ### Output
@@ -1356,7 +1356,7 @@ unify(<A: fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)
+unify(<A = fun<X>(X) -> X, B: fun<Y, Z>(Y) -> Z>, A, B)
 ```
 
 ### Output
@@ -1368,7 +1368,7 @@ unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, A, B)
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)
+unify(<A = fun<X>(X) -> X, B: fun<Y, Z>(Y) -> Z>, B, A)
 ```
 
 ### Output
@@ -1380,7 +1380,7 @@ unify(<A = fun<X>(X) -> X, B: <Y, Z> fun(Y) -> Z>, B, A)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)
+unify(<A: fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>, A, B)
 ```
 
 ### Output
@@ -1389,15 +1389,15 @@ unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)
 ```
 
 ### Errors
-- (0:51-0:52) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
-  - (0:37-0:48): `fun<Y>(Y) -> !`
+- (0:50-0:51) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
+  - (0:30-0:47): `fun<Y>(Y) -> !`
   - (0:10-0:24): `fun<X>(X) -> X`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)
+unify(<A: fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>, B, A)
 ```
 
 ### Output
@@ -1406,15 +1406,15 @@ unify(<A: fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)
 ```
 
 ### Errors
-- (0:51-0:52) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
-  - (0:37-0:48): `fun<Y>(Y) -> !`
-  - (0:37-0:48): `fun<Z>(Z) -> Z`
+- (0:50-0:51) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
+  - (0:30-0:47): `fun<Y>(Y) -> !`
+  - (0:30-0:47): `fun<Z>(Z) -> Z`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)
+unify(<A = fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>, A, B)
 ```
 
 ### Output
@@ -1423,15 +1423,15 @@ unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, A, B)
 ```
 
 ### Errors
-- (0:52-0:53) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
-  - (0:38-0:49): `fun<Y>(Y) -> !`
+- (0:51-0:52) Test failed because `fun<Y>(Y) -> !` is more general than `fun<X>(X) -> X`.
+  - (0:31-0:48): `fun<Y>(Y) -> !`
   - (0:11-0:25): `fun<X>(X) -> X`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)
+unify(<A = fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>, B, A)
 ```
 
 ### Output
@@ -1440,9 +1440,9 @@ unify(<A = fun<X>(X) -> X, B = <Y, Z> fun(Y) -> Z>, B, A)
 ```
 
 ### Errors
-- (0:52-0:53) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
-  - (0:38-0:49): `fun<Y>(Y) -> !`
-  - (0:38-0:49): `fun<Z>(Z) -> Z`
+- (0:51-0:52) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
+  - (0:31-0:48): `fun<Y>(Y) -> !`
+  - (0:31-0:48): `fun<Z>(Z) -> Z`
 
 --------------------------------------------------------------------------------
 
@@ -1472,42 +1472,12 @@ unify(<A: fun<X>(X) -> X, B = fun(Int) -> Int>, B, A)
 
 ### Input
 ```ite
-unify(<A, B = fun(A) -> A>, A, B)
+unify(<A: !, B = fun(A) -> A>, A, B)
 ```
 
 ### Output
 ```
 <A: !, B = fun(A) -> A>
-```
-
-### Errors
-- (0:28-0:29) Test failed because the type checker infers an infinite type.
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<A, B = fun(A) -> A>, B, A)
-```
-
-### Output
-```
-<A: !, B = fun(A) -> A>
-```
-
-### Errors
-- (0:28-0:29) Test failed because the type checker infers an infinite type.
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<A, B = fun<C>(C) -> A>, A, B)
-```
-
-### Output
-```
-<A: !, B = fun<C>(C) -> A>
 ```
 
 ### Errors
@@ -1517,7 +1487,22 @@ unify(<A, B = fun<C>(C) -> A>, A, B)
 
 ### Input
 ```ite
-unify(<A, B = fun<C>(C) -> A>, B, A)
+unify(<A: !, B = fun(A) -> A>, B, A)
+```
+
+### Output
+```
+<A: !, B = fun(A) -> A>
+```
+
+### Errors
+- (0:31-0:32) Test failed because the type checker infers an infinite type.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A: !, B = fun<C>(C) -> A>, A, B)
 ```
 
 ### Output
@@ -1526,7 +1511,22 @@ unify(<A, B = fun<C>(C) -> A>, B, A)
 ```
 
 ### Errors
-- (0:31-0:32) Test failed because the type checker infers an infinite type.
+- (0:34-0:35) Test failed because the type checker infers an infinite type.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A: !, B = fun<C>(C) -> A>, B, A)
+```
+
+### Output
+```
+<A: !, B = fun<C>(C) -> A>
+```
+
+### Errors
+- (0:34-0:35) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -1590,7 +1590,7 @@ unify(<A = !, B = fun<C>(C) -> C>, B, A)
 
 ### Input
 ```ite
-unify(<A, B>, A, B)
+unify(<A: !, B: !>, A, B)
 ```
 
 ### Output
@@ -1602,7 +1602,7 @@ unify(<A, B>, A, B)
 
 ### Input
 ```ite
-unify(<A, B>, B, A)
+unify(<A: !, B: !>, B, A)
 ```
 
 ### Output
@@ -1902,7 +1902,7 @@ unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)
 
 ### Input
 ```ite
-unify(<X>, X, X)
+unify(<X: !>, X, X)
 ```
 
 ### Output
@@ -2028,7 +2028,7 @@ unify(<A = Int>, Bool, A)
 
 ### Input
 ```ite
-unify(<A, B = A>, A, B)
+unify(<A: !, B = A>, A, B)
 ```
 
 ### Output
@@ -2040,7 +2040,7 @@ unify(<A, B = A>, A, B)
 
 ### Input
 ```ite
-unify(<A, B = A>, B, A)
+unify(<A: !, B = A>, B, A)
 ```
 
 ### Output
@@ -2052,7 +2052,7 @@ unify(<A, B = A>, B, A)
 
 ### Input
 ```ite
-unify(<A, B: A>, A, B)
+unify(<A: !, B: A>, A, B)
 ```
 
 ### Output
@@ -2064,7 +2064,7 @@ unify(<A, B: A>, A, B)
 
 ### Input
 ```ite
-unify(<A, B: A>, B, A)
+unify(<A: !, B: A>, B, A)
 ```
 
 ### Output
@@ -2308,7 +2308,7 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Int>, B, A)
 
 ### Input
 ```ite
-unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
+unify(<C: !, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Output
@@ -2317,13 +2317,13 @@ unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:49-0:50) Test failed because the type checker infers an infinite type.
+- (0:52-0:53) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
+unify(<C: !, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Output
@@ -2332,13 +2332,13 @@ unify(<C, A: fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:49-0:50) Test failed because the type checker infers an infinite type.
+- (0:52-0:53) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
+unify(<C: !, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Output
@@ -2347,13 +2347,13 @@ unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:50-0:51) Test failed because the type checker infers an infinite type.
+- (0:53-0:54) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
+unify(<C: !, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Output
@@ -2362,13 +2362,13 @@ unify(<C, A = fun<X>(X) -> C, B: fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:50-0:51) Test failed because the type checker infers an infinite type.
+- (0:53-0:54) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
+unify(<C: !, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Output
@@ -2377,13 +2377,13 @@ unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:50-0:51) Test failed because the type checker infers an infinite type.
+- (0:53-0:54) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
+unify(<C: !, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Output
@@ -2392,13 +2392,13 @@ unify(<C, A: fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:50-0:51) Test failed because the type checker infers an infinite type.
+- (0:53-0:54) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
+unify(<C: !, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Output
@@ -2407,13 +2407,13 @@ unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, A, B)
 ```
 
 ### Errors
-- (0:51-0:52) Test failed because the type checker infers an infinite type.
+- (0:54-0:55) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
+unify(<C: !, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Output
@@ -2422,7 +2422,7 @@ unify(<C, A = fun<X>(X) -> C, B = fun<Y>(Y) -> A>, B, A)
 ```
 
 ### Errors
-- (0:51-0:52) Test failed because the type checker infers an infinite type.
+- (0:54-0:55) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -2560,7 +2560,7 @@ unify(<A = fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Bool)
+unify(<A: fun<X>(X) -> Int, B: !>, A, fun(B) -> Bool)
 ```
 
 ### Output
@@ -2569,15 +2569,15 @@ unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Bool)
 ```
 
 ### Errors
-- (0:32-0:33) Test failed because `Int` is not a `Bool`.
+- (0:35-0:36) Test failed because `Int` is not a `Bool`.
   - (0:23-0:26): `Int`
-  - (0:45-0:49): `Bool`
+  - (0:48-0:52): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Int)
+unify(<A: fun<X>(X) -> Int, B: !>, A, fun(B) -> Int)
 ```
 
 ### Output
@@ -2589,7 +2589,7 @@ unify(<A: fun<X>(X) -> Int, B>, A, fun(B) -> Int)
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Bool)
+unify(<A = fun<X>(X) -> Int, B: !>, A, fun(B) -> Bool)
 ```
 
 ### Output
@@ -2598,15 +2598,15 @@ unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Bool)
 ```
 
 ### Errors
-- (0:33-0:34) Test failed because `Int` is not a `Bool`.
+- (0:36-0:37) Test failed because `Int` is not a `Bool`.
   - (0:24-0:27): `Int`
-  - (0:46-0:50): `Bool`
+  - (0:49-0:53): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Int)
+unify(<A = fun<X>(X) -> Int, B: !>, A, fun(B) -> Int)
 ```
 
 ### Output
@@ -2615,9 +2615,9 @@ unify(<A = fun<X>(X) -> Int, B>, A, fun(B) -> Int)
 ```
 
 ### Errors
-- (0:33-0:34) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`.
+- (0:36-0:37) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`.
   - (0:11-0:27): `fun<X>(X) -> Int`
-  - (0:36-0:49): `fun(B) -> Int`
+  - (0:39-0:52): `fun(B) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2750,7 +2750,7 @@ unify(<A = fun<X>(X) -> Int>, A, fun(A) -> Int)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Bool, A)
+unify(<A: fun<X>(X) -> Int, B: !>, fun(B) -> Bool, A)
 ```
 
 ### Output
@@ -2759,14 +2759,14 @@ unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Bool, A)
 ```
 
 ### Errors
-- (0:42-0:46) Test failed because `Bool` is not an `Int`.
+- (0:45-0:49) Test failed because `Bool` is not an `Int`.
   - (0:23-0:26): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Int, A)
+unify(<A: fun<X>(X) -> Int, B: !>, fun(B) -> Int, A)
 ```
 
 ### Output
@@ -2778,7 +2778,7 @@ unify(<A: fun<X>(X) -> Int, B>, fun(B) -> Int, A)
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Bool, A)
+unify(<A = fun<X>(X) -> Int, B: !>, fun(B) -> Bool, A)
 ```
 
 ### Output
@@ -2787,14 +2787,14 @@ unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Bool, A)
 ```
 
 ### Errors
-- (0:43-0:47) Test failed because `Bool` is not an `Int`.
+- (0:46-0:50) Test failed because `Bool` is not an `Int`.
   - (0:24-0:27): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Int, A)
+unify(<A = fun<X>(X) -> Int, B: !>, fun(B) -> Int, A)
 ```
 
 ### Output
@@ -2803,7 +2803,7 @@ unify(<A = fun<X>(X) -> Int, B>, fun(B) -> Int, A)
 ```
 
 ### Errors
-- (0:33-0:46) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`.
+- (0:36-0:49) Test failed because `fun<X>(X) -> Int` is more general than `fun(B) -> Int`.
   - (0:11-0:27): `fun<X>(X) -> Int`
 
 --------------------------------------------------------------------------------
@@ -2932,7 +2932,7 @@ unify(<A = fun<X>(X) -> Int>, fun(A) -> Int, A)
 
 ### Input
 ```ite
-unify(<A, B = fun<X>(X) -> X>, A, B)
+unify(<A: !, B = fun<X>(X) -> X>, A, B)
 ```
 
 ### Output
@@ -2944,7 +2944,7 @@ unify(<A, B = fun<X>(X) -> X>, A, B)
 
 ### Input
 ```ite
-unify(<A, B = fun<X>(X) -> X>, B, A)
+unify(<A: !, B = fun<X>(X) -> X>, B, A)
 ```
 
 ### Output
@@ -2956,7 +2956,7 @@ unify(<A, B = fun<X>(X) -> X>, B, A)
 
 ### Input
 ```ite
-unify(<A, B: fun<X>(X) -> X>, A, B)
+unify(<A: !, B: fun<X>(X) -> X>, A, B)
 ```
 
 ### Output
@@ -2968,7 +2968,7 @@ unify(<A, B: fun<X>(X) -> X>, A, B)
 
 ### Input
 ```ite
-unify(<A, B: fun<X>(X) -> X>, B, A)
+unify(<A: !, B: fun<X>(X) -> X>, B, A)
 ```
 
 ### Output
@@ -3236,7 +3236,7 @@ unify(<A = fun<X>(X) -> X, B = fun<X>(X) -> X>, B, A)
 
 ### Input
 ```ite
-unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, A, F)
+unify(<A: !, B = A, C = B, D = C, E = D, F = fun(E) -> E>, A, F)
 ```
 
 ### Output
@@ -3245,13 +3245,13 @@ unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, A, F)
 ```
 
 ### Errors
-- (0:56-0:57) Test failed because the type checker infers an infinite type.
+- (0:59-0:60) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, F, A)
+unify(<A: !, B = A, C = B, D = C, E = D, F = fun(E) -> E>, F, A)
 ```
 
 ### Output
@@ -3260,7 +3260,7 @@ unify(<A, B = A, C = B, D = C, E = D, F = fun(E) -> E>, F, A)
 ```
 
 ### Errors
-- (0:56-0:57) Test failed because the type checker infers an infinite type.
+- (0:59-0:60) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -3290,7 +3290,7 @@ unify(<A = fun<X>(X) -> X, B = fun<Y>(Y) -> Y>, fun(A) -> B, fun(A) -> A)
 
 ### Input
 ```ite
-unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, T, U)
+unify(<T = fun<A = fun<X>(X) -> X>(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, T, U)
 ```
 
 ### Output
@@ -3302,7 +3302,7 @@ unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>
 
 ### Input
 ```ite
-unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, U, T)
+unify(<T = fun<A = fun<X>(X) -> X>(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>(Z) -> Z> fun(B) -> C>, U, T)
 ```
 
 ### Output
@@ -3314,7 +3314,7 @@ unify(<T = <A = fun<X>(X) -> X> fun(A) -> A, U = <B = fun<Y>(Y) -> Y, C = fun<Z>
 
 ### Input
 ```ite
-unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, A, B)
+unify(<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B: !>, A, B)
 ```
 
 ### Output
@@ -3326,7 +3326,7 @@ unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, A, B)
 
 ### Input
 ```ite
-unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, B, A)
+unify(<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B: !>, B, A)
 ```
 
 ### Output
@@ -3338,7 +3338,7 @@ unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B>, B, A)
 
 ### Input
 ```ite
-unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C) -> fun(D) -> E)
+unify(<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B: !, C: !, D: !, E: !>, A, fun(fun(B) -> C) -> fun(D) -> E)
 ```
 
 ### Output
@@ -3347,18 +3347,18 @@ unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C)
 ```
 
 ### Errors
-- (0:61-0:62) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`.
-  - (0:19-0:33): `fun<Z>(Z) -> X`
-  - (0:68-0:79): `fun(B) -> C`
-- (0:61-0:62) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`.
-  - (0:19-0:33): `fun<Z>(Z) -> X`
-  - (0:84-0:95): `fun(D) -> E`
+- (0:72-0:73) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`.
+  - (0:22-0:36): `fun<Z>(Z) -> X`
+  - (0:79-0:90): `fun(B) -> C`
+- (0:72-0:73) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`.
+  - (0:22-0:36): `fun<Z>(Z) -> X`
+  - (0:95-0:106): `fun(D) -> E`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) -> fun(D) -> E, A)
+unify(<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B: !, C: !, D: !, E: !>, fun(fun(B) -> C) -> fun(D) -> E, A)
 ```
 
 ### Output
@@ -3367,16 +3367,16 @@ unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) ->
 ```
 
 ### Errors
-- (0:65-0:76) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`.
-  - (0:19-0:33): `fun<Z>(Z) -> X`
-- (0:81-0:92) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`.
-  - (0:19-0:33): `fun<Z>(Z) -> X`
+- (0:76-0:87) Test failed because `fun<Z>(Z) -> X` is more general than `fun(B) -> C`.
+  - (0:22-0:36): `fun<Z>(Z) -> X`
+- (0:92-0:103) Test failed because `fun<Z>(Z) -> X` is more general than `fun(D) -> E`.
+  - (0:22-0:36): `fun<Z>(Z) -> X`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C) -> fun(D) -> E)
+unify(<A: fun<X, X: fun<Z>(Z) -> X>(X) -> X, B: !, C: !, D: !, E: !>, A, fun(fun(B) -> C) -> fun(D) -> E)
 ```
 
 ### Output
@@ -3388,7 +3388,7 @@ unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, A, fun(fun(B) -> C) -
 
 ### Input
 ```ite
-unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) -> fun(D) -> E, A)
+unify(<A: fun<X, X: fun<Z>(Z) -> X>(X) -> X, B: !, C: !, D: !, E: !>, fun(fun(B) -> C) -> fun(D) -> E, A)
 ```
 
 ### Output
@@ -3400,7 +3400,7 @@ unify(<A: <X, X: fun<Z>(Z) -> X> fun(X) -> X, B, C, D, E>, fun(fun(B) -> C) -> f
 
 ### Input
 ```ite
-unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(X) -> X>, A, B)
+unify(<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B = fun<X, X = fun<Z>(Z) -> X>(X) -> X>, A, B)
 ```
 
 ### Output
@@ -3412,7 +3412,7 @@ unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(
 
 ### Input
 ```ite
-unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X>, A, B)
+unify(<A = fun<X, X2, X = fun<Z>(Z) -> fun(X2) -> X>(X) -> X, B = fun<X, X2, X = fun<Z>(Z) -> fun(X2) -> X>(X) -> X>, A, B)
 ```
 
 ### Output
@@ -3424,7 +3424,7 @@ unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = f
 
 ### Input
 ```ite
-unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1>, A, B)
+unify(<A = fun<X1, X1 = fun<Z>(Z) -> X1>(X1) -> X1, B = fun<X1, X1 = fun<Z>(Z) -> X1>(X1) -> X1>, A, B)
 ```
 
 ### Output
@@ -3436,7 +3436,7 @@ unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> 
 
 ### Input
 ```ite
-unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1>, A, B)
+unify(<A = fun<X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1>(X1) -> X1, B = fun<X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1>(X1) -> X1>, A, B)
 ```
 
 ### Output
@@ -3448,7 +3448,7 @@ unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2,
 
 ### Input
 ```ite
-unify(<A = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5, B = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5>, A, B)
+unify(<A = fun<X5, X5 = fun<Z>(Z) -> X5>(X5) -> X5, B = fun<X5, X5 = fun<Z>(Z) -> X5>(X5) -> X5>, A, B)
 ```
 
 ### Output
@@ -3460,7 +3460,7 @@ unify(<A = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5, B = <X5, X5 = fun<Z>(Z) -> 
 
 ### Input
 ```ite
-unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(X) -> X>, B, A)
+unify(<A = fun<X, X = fun<Z>(Z) -> X>(X) -> X, B = fun<X, X = fun<Z>(Z) -> X>(X) -> X>, B, A)
 ```
 
 ### Output
@@ -3472,7 +3472,7 @@ unify(<A = <X, X = fun<Z>(Z) -> X> fun(X) -> X, B = <X, X = fun<Z>(Z) -> X> fun(
 
 ### Input
 ```ite
-unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X>, B, A)
+unify(<A = fun<X, X2, X = fun<Z>(Z) -> fun(X2) -> X>(X) -> X, B = fun<X, X2, X = fun<Z>(Z) -> fun(X2) -> X>(X) -> X>, B, A)
 ```
 
 ### Output
@@ -3484,7 +3484,7 @@ unify(<A = <X, X2, X = fun<Z>(Z) -> fun(X2) -> X> fun(X) -> X, B = <X, X2, X = f
 
 ### Input
 ```ite
-unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1>, B, A)
+unify(<A = fun<X1, X1 = fun<Z>(Z) -> X1>(X1) -> X1, B = fun<X1, X1 = fun<Z>(Z) -> X1>(X1) -> X1>, B, A)
 ```
 
 ### Output
@@ -3496,7 +3496,7 @@ unify(<A = <X1, X1 = fun<Z>(Z) -> X1> fun(X1) -> X1, B = <X1, X1 = fun<Z>(Z) -> 
 
 ### Input
 ```ite
-unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1>, B, A)
+unify(<A = fun<X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1>(X1) -> X1, B = fun<X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1>(X1) -> X1>, B, A)
 ```
 
 ### Output
@@ -3508,7 +3508,7 @@ unify(<A = <X1, X2, X1 = fun<Z>(Z) -> fun(X2) -> X1> fun(X1) -> X1, B = <X1, X2,
 
 ### Input
 ```ite
-unify(<A = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5, B = <X5, X5 = fun<Z>(Z) -> X5> fun(X5) -> X5>, B, A)
+unify(<A = fun<X5, X5 = fun<Z>(Z) -> X5>(X5) -> X5, B = fun<X5, X5 = fun<Z>(Z) -> X5>(X5) -> X5>, B, A)
 ```
 
 ### Output
@@ -3532,7 +3532,7 @@ unify(<A: fun<X>(X) -> X>, A, fun(Int) -> Int)
 
 ### Input
 ```ite
-unify(<A: fun<X>(X) -> X, B>, A, fun(Int) -> B)
+unify(<A: fun<X>(X) -> X, B: !>, A, fun(Int) -> B)
 ```
 
 ### Output
@@ -3782,7 +3782,7 @@ unify(<A: <B = <C = <D = fun<X>(X) -> X> fun(D) -> D> C> B>, A, fun(fun(Int) -> 
 
 ### Input
 ```ite
-unify(<A: <X> X>, A, Int)
+unify(<A: <X: !> X>, A, Int)
 ```
 
 ### Output
@@ -3794,7 +3794,7 @@ unify(<A: <X> X>, A, Int)
 
 ### Input
 ```ite
-unify(<A: <X> X>, Int, A)
+unify(<A: <X: !> X>, Int, A)
 ```
 
 ### Output
@@ -3806,7 +3806,7 @@ unify(<A: <X> X>, Int, A)
 
 ### Input
 ```ite
-unify(<A: <X> X, B: <X> X>, A, B)
+unify(<A: <X: !> X, B: <X: !> X>, A, B)
 ```
 
 ### Output
@@ -3818,7 +3818,7 @@ unify(<A: <X> X, B: <X> X>, A, B)
 
 ### Input
 ```ite
-unify(<A: <X> X, B: <X> X>, B, A)
+unify(<A: <X: !> X, B: <X: !> X>, B, A)
 ```
 
 ### Output
@@ -3830,7 +3830,7 @@ unify(<A: <X> X, B: <X> X>, B, A)
 
 ### Input
 ```ite
-unify(<A = <X, Y> fun(Int) -> Int>, A, fun(Int) -> Int)
+unify(<A = fun<X, Y>(Int) -> Int>, A, fun(Int) -> Int)
 ```
 
 ### Output
@@ -3842,7 +3842,7 @@ unify(<A = <X, Y> fun(Int) -> Int>, A, fun(Int) -> Int)
 
 ### Input
 ```ite
-unify(<A = <X, Y> fun(Y) -> Int, B = <X, Y> fun(Y) -> Int>, A, B)
+unify(<A = fun<X, Y>(Y) -> Int, B = fun<X, Y>(Y) -> Int>, A, B)
 ```
 
 ### Output
@@ -3854,7 +3854,7 @@ unify(<A = <X, Y> fun(Y) -> Int, B = <X, Y> fun(Y) -> Int>, A, B)
 
 ### Input
 ```ite
-unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)
+unify(<A = fun<X, Y>(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)
 ```
 
 ### Output
@@ -3866,7 +3866,7 @@ unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)
 
 ### Input
 ```ite
-unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)
+unify(<A = fun<X, Y>(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)
 ```
 
 ### Output
@@ -3878,7 +3878,7 @@ unify(<A = <X, Y> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)
 
 ### Input
 ```ite
-unify(<A = <Y, X> fun(Y) -> Int, B = <Y, X> fun(Y) -> Int>, A, B)
+unify(<A = fun<Y, X>(Y) -> Int, B = fun<Y, X>(Y) -> Int>, A, B)
 ```
 
 ### Output
@@ -3890,7 +3890,7 @@ unify(<A = <Y, X> fun(Y) -> Int, B = <Y, X> fun(Y) -> Int>, A, B)
 
 ### Input
 ```ite
-unify(<A = <Y, X> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)
+unify(<A = fun<Y, X>(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)
 ```
 
 ### Output
@@ -3902,7 +3902,7 @@ unify(<A = <Y, X> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, A, B)
 
 ### Input
 ```ite
-unify(<A = <Y, X> fun(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)
+unify(<A = fun<Y, X>(Y) -> Int, B = fun<Y>(Y) -> Int>, B, A)
 ```
 
 ### Output
@@ -4077,7 +4077,7 @@ unify(<T1 = nope1, T2 = nope2>, T1, T2)
 
 ### Input
 ```ite
-unify(<X, Y = Int>, X, Y)
+unify(<X: !, Y = Int>, X, Y)
 ```
 
 ### Output
@@ -4089,7 +4089,7 @@ unify(<X, Y = Int>, X, Y)
 
 ### Input
 ```ite
-unify(<X, Y = Int>, Y, X)
+unify(<X: !, Y = Int>, Y, X)
 ```
 
 ### Output
@@ -4101,7 +4101,7 @@ unify(<X, Y = Int>, Y, X)
 
 ### Input
 ```ite
-unify(<X, Y = nope>, X, Y)
+unify(<X: !, Y = nope>, X, Y)
 ```
 
 ### Output
@@ -4110,13 +4110,13 @@ unify(<X, Y = nope>, X, Y)
 ```
 
 ### Errors
-- (0:14-0:18) Can not find `nope`.
+- (0:17-0:21) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y = nope>, Y, X)
+unify(<X: !, Y = nope>, Y, X)
 ```
 
 ### Output
@@ -4125,7 +4125,7 @@ unify(<X, Y = nope>, Y, X)
 ```
 
 ### Errors
-- (0:14-0:18) Can not find `nope`.
+- (0:17-0:21) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
@@ -4193,7 +4193,7 @@ unify(<C = nope, A = fun<Z>(Z) -> C, B = fun<Z>(Z) -> C>, B, A)
 
 ### Input
 ```ite
-unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)
+unify(<X: !, Y: !, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)
 ```
 
 ### Output
@@ -4205,7 +4205,7 @@ unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>,
 
 ### Input
 ```ite
-unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)
+unify(<X: !, Y: !, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)
 ```
 
 ### Output
@@ -4217,7 +4217,7 @@ unify(<X, Y, T = <E = Int, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>,
 
 ### Input
 ```ite
-unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)
+unify(<X: !, Y: !, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, T, fun(X) -> Y)
 ```
 
 ### Output
@@ -4226,13 +4226,13 @@ unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>
 ```
 
 ### Errors
-- (0:22-0:26) Can not find `nope`.
+- (0:28-0:32) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)
+unify(<X: !, Y: !, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(X) -> Y, T)
 ```
 
 ### Output
@@ -4241,13 +4241,13 @@ unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>
 ```
 
 ### Errors
-- (0:22-0:26) Can not find `nope`.
+- (0:28-0:32) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, T, fun(X) -> Y)
+unify(<X: !, Y: !, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, T, fun(X) -> Y)
 ```
 
 ### Output
@@ -4256,14 +4256,14 @@ unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2
 ```
 
 ### Errors
-- (0:23-0:27) Can not find `nope`.
-- (0:34-0:38) Can not find `nope`.
+- (0:29-0:33) Can not find `nope`.
+- (0:40-0:44) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(X) -> Y, T)
+unify(<X: !, Y: !, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(X) -> Y, T)
 ```
 
 ### Output
@@ -4272,14 +4272,14 @@ unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2
 ```
 
 ### Errors
-- (0:23-0:27) Can not find `nope`.
-- (0:34-0:38) Can not find `nope`.
+- (0:29-0:33) Can not find `nope`.
+- (0:40-0:44) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, T, fun(X) -> Y)
+unify(<X: !, Y: !, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, T, fun(X) -> Y)
 ```
 
 ### Output
@@ -4288,14 +4288,14 @@ unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, T,
 ```
 
 ### Errors
-- (0:35-0:39) Can not find `nope`.
-- (0:58-0:62) Can not find `nope`.
+- (0:41-0:45) Can not find `nope`.
+- (0:64-0:68) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(X) -> Y, T)
+unify(<X: !, Y: !, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(X) -> Y, T)
 ```
 
 ### Output
@@ -4304,14 +4304,14 @@ unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fu
 ```
 
 ### Errors
-- (0:35-0:39) Can not find `nope`.
-- (0:58-0:62) Can not find `nope`.
+- (0:41-0:45) Can not find `nope`.
+- (0:64-0:68) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))
+unify(<X: !, Y: !, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))
 ```
 
 ### Output
@@ -4320,13 +4320,13 @@ unify(<X, Y, T = <E = nope, A = fun<Z>(Z) -> E, B = fun<Z>(Z) -> E> fun(A) -> B>
 ```
 
 ### Errors
-- (0:22-0:26) Can not find `nope`.
+- (0:28-0:32) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))
+unify(<X: !, Y: !, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))
 ```
 
 ### Output
@@ -4335,14 +4335,14 @@ unify(<X, Y, T = <E1 = nope, E2 = nope, A = fun<Z>(Z) -> E1, B = fun<Z>(Z) -> E2
 ```
 
 ### Errors
-- (0:23-0:27) Can not find `nope`.
-- (0:34-0:38) Can not find `nope`.
+- (0:29-0:33) Can not find `nope`.
+- (0:40-0:44) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))
+unify(<X: !, Y: !, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fun(T) -> (fun(Y) -> X), fun(fun(X) -> Y) -> (fun(X) -> Y))
 ```
 
 ### Output
@@ -4351,14 +4351,14 @@ unify(<X, Y, T = <A = fun<Z>(Z) -> nope, B = fun<Z>(Z) -> nope> fun(A) -> B>, fu
 ```
 
 ### Errors
-- (0:35-0:39) Can not find `nope`.
-- (0:58-0:62) Can not find `nope`.
+- (0:41-0:45) Can not find `nope`.
+- (0:64-0:68) Can not find `nope`.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A, B>, A, B)
+unify(<A: !, B: !>, A, B)
 ```
 
 ### Output
@@ -5098,7 +5098,7 @@ unify(<>, {a: Int, a: Bool, a: void}, {a: void, a: Bool, a: Int})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Int, b: Bool})
+unify(<T: !>, {a: Int | T}, {a: Int, b: Bool})
 ```
 
 ### Output
@@ -5110,7 +5110,7 @@ unify(<T>, {a: Int | T}, {a: Int, b: Bool})
 
 ### Input
 ```ite
-unify(<T>, {a: Int, b: Bool}, {a: Int | T})
+unify(<T: !>, {a: Int, b: Bool}, {a: Int | T})
 ```
 
 ### Output
@@ -5122,7 +5122,7 @@ unify(<T>, {a: Int, b: Bool}, {a: Int | T})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Bool, b: Int})
+unify(<T: !>, {a: Int | T}, {a: Bool, b: Int})
 ```
 
 ### Output
@@ -5131,14 +5131,14 @@ unify(<T>, {a: Int | T}, {a: Bool, b: Int})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Bool, b: Int}, {a: Int | T})
+unify(<T: !>, {a: Bool, b: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5147,14 +5147,14 @@ unify(<T>, {a: Bool, b: Int}, {a: Int | T})
 ```
 
 ### Errors
-- (0:15-0:19) Test failed because `Bool` is not an `Int`.
-  - (0:34-0:37): `Int`
+- (0:18-0:22) Test failed because `Bool` is not an `Int`.
+  - (0:37-0:40): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Int, b: Bool, b: Int})
+unify(<T: !>, {a: Int | T}, {a: Int, b: Bool, b: Int})
 ```
 
 ### Output
@@ -5166,7 +5166,7 @@ unify(<T>, {a: Int | T}, {a: Int, b: Bool, b: Int})
 
 ### Input
 ```ite
-unify(<T>, {a: Int, b: Bool, b: Int}, {a: Int | T})
+unify(<T: !>, {a: Int, b: Bool, b: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5178,7 +5178,7 @@ unify(<T>, {a: Int, b: Bool, b: Int}, {a: Int | T})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Int, a: Bool})
+unify(<T: !>, {a: Int | T}, {a: Int, a: Bool})
 ```
 
 ### Output
@@ -5190,7 +5190,7 @@ unify(<T>, {a: Int | T}, {a: Int, a: Bool})
 
 ### Input
 ```ite
-unify(<T>, {a: Int, a: Bool}, {a: Int | T})
+unify(<T: !>, {a: Int, a: Bool}, {a: Int | T})
 ```
 
 ### Output
@@ -5202,7 +5202,7 @@ unify(<T>, {a: Int, a: Bool}, {a: Int | T})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Bool, a: Int})
+unify(<T: !>, {a: Int | T}, {a: Bool, a: Int})
 ```
 
 ### Output
@@ -5211,14 +5211,14 @@ unify(<T>, {a: Int | T}, {a: Bool, a: Int})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Bool, a: Int}, {a: Int | T})
+unify(<T: !>, {a: Bool, a: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5227,14 +5227,14 @@ unify(<T>, {a: Bool, a: Int}, {a: Int | T})
 ```
 
 ### Errors
-- (0:15-0:19) Test failed because `Bool` is not an `Int`.
-  - (0:34-0:37): `Int`
+- (0:18-0:22) Test failed because `Bool` is not an `Int`.
+  - (0:37-0:40): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Int, a: Bool, a: void})
+unify(<T: !>, {a: Int | T}, {a: Int, a: Bool, a: void})
 ```
 
 ### Output
@@ -5246,7 +5246,7 @@ unify(<T>, {a: Int | T}, {a: Int, a: Bool, a: void})
 
 ### Input
 ```ite
-unify(<T>, {a: Int, a: Bool, a: void}, {a: Int | T})
+unify(<T: !>, {a: Int, a: Bool, a: void}, {a: Int | T})
 ```
 
 ### Output
@@ -5258,7 +5258,7 @@ unify(<T>, {a: Int, a: Bool, a: void}, {a: Int | T})
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)
+unify(<T: !>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)
 ```
 
 ### Output
@@ -5267,13 +5267,13 @@ unify(<T>, fun({a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)
 ```
 
 ### Errors
-- (0:29-0:30) Test failed because `a:` is not needed.
+- (0:32-0:33) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int, a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)
+unify(<T: !>, fun({a: Int, a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)
 ```
 
 ### Output
@@ -5285,7 +5285,7 @@ unify(<T>, fun({a: Int, a: Int}) -> {a: Int}, fun({a: Int | T}) -> T)
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})
+unify(<T: !>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})
 ```
 
 ### Output
@@ -5294,14 +5294,14 @@ unify(<T>, fun({a: Int}) -> {a: Int}, fun(T) -> {a: Int | T})
 ```
 
 ### Errors
-- (0:28-0:36) Test failed because `a:` is missing.
-  - (0:16-0:17): `a:`
+- (0:31-0:39) Test failed because `a:` is missing.
+  - (0:19-0:20): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int}) -> Int, fun({a: Int | T}) -> T)
+unify(<T: !>, fun({a: Int}) -> Int, fun({a: Int | T}) -> T)
 ```
 
 ### Output
@@ -5310,14 +5310,14 @@ unify(<T>, fun({a: Int}) -> Int, fun({a: Int | T}) -> T)
 ```
 
 ### Errors
-- (0:28-0:31) Test failed because `Int` is not an object.
-  - (0:15-0:23): object
+- (0:31-0:34) Test failed because `Int` is not an object.
+  - (0:18-0:26): object
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)
+unify(<T: !>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)
 ```
 
 ### Output
@@ -5326,14 +5326,14 @@ unify(<T>, fun({a: Int}) -> Int, fun({a: Int, a: Int | T}) -> T)
 ```
 
 ### Errors
-- (0:15-0:23) Test failed because `a:` is missing.
-  - (0:46-0:47): `a:`
+- (0:18-0:26) Test failed because `a:` is missing.
+  - (0:49-0:50): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int}) -> Int, fun(T) -> {a: Int | T})
+unify(<T: !>, fun({a: Int}) -> Int, fun(T) -> {a: Int | T})
 ```
 
 ### Output
@@ -5342,14 +5342,14 @@ unify(<T>, fun({a: Int}) -> Int, fun(T) -> {a: Int | T})
 ```
 
 ### Errors
-- (0:28-0:31) Test failed because `Int` is not an object.
-  - (0:43-0:55): object
+- (0:31-0:34) Test failed because `Int` is not an object.
+  - (0:46-0:58): object
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})
+unify(<T: !>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})
 ```
 
 ### Output
@@ -5358,14 +5358,14 @@ unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> {a: Int})
 ```
 
 ### Errors
-- (0:32-0:33) Test failed because `a:` is missing.
-  - (0:53-0:54): `a:`
+- (0:35-0:36) Test failed because `a:` is missing.
+  - (0:56-0:57): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})
+unify(<T: !>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})
 ```
 
 ### Output
@@ -5374,14 +5374,14 @@ unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> {a: Int})
 ```
 
 ### Errors
-- (0:31-0:32) Test failed because `a:` is not needed.
-  - (0:40-0:41): `a:`
+- (0:34-0:35) Test failed because `a:` is not needed.
+  - (0:43-0:44): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)
+unify(<T: !>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)
 ```
 
 ### Output
@@ -5390,15 +5390,15 @@ unify(<T>, fun({a: Int | T}) -> T, fun({a: Int}) -> Int)
 ```
 
 ### Errors
-- (0:32-0:33) Test failed because an object is not an `Int`.
-  - (0:39-0:47): object
-  - (0:52-0:55): `Int`
+- (0:35-0:36) Test failed because an object is not an `Int`.
+  - (0:42-0:50): object
+  - (0:55-0:58): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)
+unify(<T: !>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)
 ```
 
 ### Output
@@ -5407,14 +5407,14 @@ unify(<T>, fun(T) -> {a: Int | T}, fun({a: Int}) -> Int)
 ```
 
 ### Errors
-- (0:21-0:33) Test failed because an object is not an `Int`.
-  - (0:52-0:55): `Int`
+- (0:24-0:36) Test failed because an object is not an `Int`.
+  - (0:55-0:58): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, T)
+unify(<T: !>, {a: Int | T}, T)
 ```
 
 ### Output
@@ -5423,13 +5423,13 @@ unify(<T>, {a: Int | T}, T)
 ```
 
 ### Errors
-- (0:11-0:23) Test failed because the type checker infers an infinite type.
+- (0:14-0:26) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, T, {a: Int | T})
+unify(<T: !>, T, {a: Int | T})
 ```
 
 ### Output
@@ -5438,13 +5438,13 @@ unify(<T>, T, {a: Int | T})
 ```
 
 ### Errors
-- (0:11-0:12) Test failed because the type checker infers an infinite type.
+- (0:14-0:15) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {b: Int}, {a: Int | T})
+unify(<T: !>, {b: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5453,14 +5453,14 @@ unify(<T>, {b: Int}, {a: Int | T})
 ```
 
 ### Errors
-- (0:11-0:19) Test failed because `a:` is missing.
-  - (0:22-0:23): `a:`
+- (0:14-0:22) Test failed because `a:` is missing.
+  - (0:25-0:26): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {b: Int})
+unify(<T: !>, {a: Int | T}, {b: Int})
 ```
 
 ### Output
@@ -5469,13 +5469,13 @@ unify(<T>, {a: Int | T}, {b: Int})
 ```
 
 ### Errors
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:15-0:16) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Int, b: Int}, {a: Int | T})
+unify(<T: !>, {a: Int, b: Int}, {a: Int | T})
 ```
 
 ### Output
@@ -5487,7 +5487,7 @@ unify(<T>, {a: Int, b: Int}, {a: Int | T})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Int, b: Int})
+unify(<T: !>, {a: Int | T}, {a: Int, b: Int})
 ```
 
 ### Output
@@ -5499,7 +5499,7 @@ unify(<T>, {a: Int | T}, {a: Int, b: Int})
 
 ### Input
 ```ite
-unify(<A, B, C = {l1: A, l2: B}>, A, B)
+unify(<A: !, B: !, C = {l1: A, l2: B}>, A, B)
 ```
 
 ### Output
@@ -5511,7 +5511,7 @@ unify(<A, B, C = {l1: A, l2: B}>, A, B)
 
 ### Input
 ```ite
-unify(<A, B, C = {l1: A, l2: B}>, B, A)
+unify(<A: !, B: !, C = {l1: A, l2: B}>, B, A)
 ```
 
 ### Output
@@ -5523,7 +5523,7 @@ unify(<A, B, C = {l1: A, l2: B}>, B, A)
 
 ### Input
 ```ite
-unify(<A, B, C = {l: Int | A}, D = {l: Int | B}>, A, B)
+unify(<A: !, B: !, C = {l: Int | A}, D = {l: Int | B}>, A, B)
 ```
 
 ### Output
@@ -5535,7 +5535,7 @@ unify(<A, B, C = {l: Int | A}, D = {l: Int | B}>, A, B)
 
 ### Input
 ```ite
-unify(<A, B, C = {l: Int | A}, D = {l: Int | B}>, B, A)
+unify(<A: !, B: !, C = {l: Int | A}, D = {l: Int | B}>, B, A)
 ```
 
 ### Output
@@ -5547,7 +5547,7 @@ unify(<A, B, C = {l: Int | A}, D = {l: Int | B}>, B, A)
 
 ### Input
 ```ite
-unify(<A, B, C = {l: A | B}>, A, B)
+unify(<A: !, B: !, C = {l: A | B}>, A, B)
 ```
 
 ### Output
@@ -5559,7 +5559,7 @@ unify(<A, B, C = {l: A | B}>, A, B)
 
 ### Input
 ```ite
-unify(<A, B, C = {l: A | B}>, B, A)
+unify(<A: !, B: !, C = {l: A | B}>, B, A)
 ```
 
 ### Output
@@ -5571,7 +5571,7 @@ unify(<A, B, C = {l: A | B}>, B, A)
 
 ### Input
 ```ite
-unify(<A, B, R, S>, {p: A | R}, {q: B | S})
+unify(<A: !, B: !, R: !, S: !>, {p: A | R}, {q: B | S})
 ```
 
 ### Output
@@ -5583,7 +5583,7 @@ unify(<A, B, R, S>, {p: A | R}, {q: B | S})
 
 ### Input
 ```ite
-unify(<A, R, S>, R, {p: A | S})
+unify(<A: !, R: !, S: !>, R, {p: A | S})
 ```
 
 ### Output
@@ -5595,7 +5595,7 @@ unify(<A, R, S>, R, {p: A | S})
 
 ### Input
 ```ite
-unify(<A, B, S, T, R = {p: A | S}>, R, {q: B | T})
+unify(<A: !, B: !, S: !, T: !, R = {p: A | S}>, R, {q: B | T})
 ```
 
 ### Output
@@ -5607,7 +5607,7 @@ unify(<A, B, S, T, R = {p: A | S}>, R, {q: B | T})
 
 ### Input
 ```ite
-unify(<A>, A, {p: A})
+unify(<A: !>, A, {p: A})
 ```
 
 ### Output
@@ -5616,13 +5616,13 @@ unify(<A>, A, {p: A})
 ```
 
 ### Errors
-- (0:11-0:12) Test failed because the type checker infers an infinite type.
+- (0:14-0:15) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A>, {p: A}, A)
+unify(<A: !>, {p: A}, A)
 ```
 
 ### Output
@@ -5631,13 +5631,13 @@ unify(<A>, {p: A}, A)
 ```
 
 ### Errors
-- (0:11-0:17) Test failed because the type checker infers an infinite type.
+- (0:14-0:20) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A>, A, {p: Int | A})
+unify(<A: !>, A, {p: Int | A})
 ```
 
 ### Output
@@ -5646,13 +5646,13 @@ unify(<A>, A, {p: Int | A})
 ```
 
 ### Errors
-- (0:11-0:12) Test failed because the type checker infers an infinite type.
+- (0:14-0:15) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A>, {p: Int | A}, A)
+unify(<A: !>, {p: Int | A}, A)
 ```
 
 ### Output
@@ -5661,7 +5661,7 @@ unify(<A>, {p: Int | A}, A)
 ```
 
 ### Errors
-- (0:11-0:23) Test failed because the type checker infers an infinite type.
+- (0:14-0:26) Test failed because the type checker infers an infinite type.
 
 --------------------------------------------------------------------------------
 
@@ -5701,7 +5701,7 @@ unify(<>, {x: Int | {}}, {y: Int | {}})
 
 ### Input
 ```ite
-unify(<A>, {x: Int | A}, {x: Int | A})
+unify(<A: !>, {x: Int | A}, {x: Int | A})
 ```
 
 ### Output
@@ -5713,23 +5713,7 @@ unify(<A>, {x: Int | A}, {x: Int | A})
 
 ### Input
 ```ite
-unify(<A>, {x: Int | A}, {x: Int, y: Int | A})
-```
-
-### Output
-```
-<A: !>
-```
-
-### Errors
-- (0:11-0:23) Test failed because `y:` is missing.
-  - (0:34-0:35): `y:`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<A>, {x: Int, y: Int | A}, {x: Int | A})
+unify(<A: !>, {x: Int | A}, {x: Int, y: Int | A})
 ```
 
 ### Output
@@ -5738,13 +5722,14 @@ unify(<A>, {x: Int, y: Int | A}, {x: Int | A})
 ```
 
 ### Errors
-- (0:20-0:21) Test failed because `y:` is not needed.
+- (0:14-0:26) Test failed because `y:` is missing.
+  - (0:37-0:38): `y:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<A>, {x: Int | A}, {y: Int | A})
+unify(<A: !>, {x: Int, y: Int | A}, {x: Int | A})
 ```
 
 ### Output
@@ -5753,15 +5738,30 @@ unify(<A>, {x: Int | A}, {y: Int | A})
 ```
 
 ### Errors
-- (0:11-0:23) Test failed because `y:` is missing.
-  - (0:26-0:27): `y:`
-- (0:12-0:13) Test failed because `x:` is not needed.
+- (0:23-0:24) Test failed because `y:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R, X>, X, {p: Bool | R})
+unify(<A: !>, {x: Int | A}, {y: Int | A})
+```
+
+### Output
+```
+<A: !>
+```
+
+### Errors
+- (0:14-0:26) Test failed because `y:` is missing.
+  - (0:29-0:30): `y:`
+- (0:15-0:16) Test failed because `x:` is not needed.
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !, X: !>, X, {p: Bool | R})
 ```
 
 ### Output
@@ -5773,7 +5773,7 @@ unify(<R, X>, X, {p: Bool | R})
 
 ### Input
 ```ite
-unify(<R, X = {p: Bool | R}>, X, {q: Int | R})
+unify(<R: !, X = {p: Bool | R}>, X, {q: Int | R})
 ```
 
 ### Output
@@ -5782,10 +5782,10 @@ unify(<R, X = {p: Bool | R}>, X, {q: Int | R})
 ```
 
 ### Errors
-- (0:30-0:31) Test failed because `q:` is missing.
-  - (0:34-0:35): `q:`
-- (0:30-0:31) Test failed because `p:` is not needed.
-  - (0:15-0:16): `p:`
+- (0:33-0:34) Test failed because `q:` is missing.
+  - (0:37-0:38): `q:`
+- (0:33-0:34) Test failed because `p:` is not needed.
+  - (0:18-0:19): `p:`
 
 --------------------------------------------------------------------------------
 
@@ -6016,7 +6016,7 @@ unify(<Y = {a: Bool}>, {a: Int | {b: Bool}}, {b: Int | Y})
 
 ### Input
 ```ite
-unify(<X>, {a: Int | {b: Int}}, X)
+unify(<X: !>, {a: Int | {b: Int}}, X)
 ```
 
 ### Output
@@ -6028,7 +6028,7 @@ unify(<X>, {a: Int | {b: Int}}, X)
 
 ### Input
 ```ite
-unify(<X>, X, {a: Int | {b: Int}})
+unify(<X: !>, X, {a: Int | {b: Int}})
 ```
 
 ### Output
@@ -6072,7 +6072,7 @@ unify(<>, Int, {a: Int | {b: Int}})
 
 ### Input
 ```ite
-unify(<R, S = R>, {p: Int | R}, {q: Bool | S})
+unify(<R: !, S = R>, {p: Int | R}, {q: Bool | S})
 ```
 
 ### Output
@@ -6081,15 +6081,15 @@ unify(<R, S = R>, {p: Int | R}, {q: Bool | S})
 ```
 
 ### Errors
-- (0:18-0:30) Test failed because `q:` is missing.
-  - (0:33-0:34): `q:`
-- (0:19-0:20) Test failed because `p:` is not needed.
+- (0:21-0:33) Test failed because `q:` is missing.
+  - (0:36-0:37): `q:`
+- (0:22-0:23) Test failed because `p:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int}, {q: Bool | R})
+unify(<R: !>, {p: Int}, {q: Bool | R})
 ```
 
 ### Output
@@ -6098,14 +6098,14 @@ unify(<R>, {p: Int}, {q: Bool | R})
 ```
 
 ### Errors
-- (0:11-0:19) Test failed because `q:` is missing.
-  - (0:22-0:23): `q:`
+- (0:14-0:22) Test failed because `q:` is missing.
+  - (0:25-0:26): `q:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int | {}}, {q: Bool | R})
+unify(<R: !>, {p: Int | {}}, {q: Bool | R})
 ```
 
 ### Output
@@ -6114,14 +6114,14 @@ unify(<R>, {p: Int | {}}, {q: Bool | R})
 ```
 
 ### Errors
-- (0:21-0:23) Test failed because `q:` is missing.
-  - (0:27-0:28): `q:`
+- (0:24-0:26) Test failed because `q:` is missing.
+  - (0:30-0:31): `q:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int}, {p: Int | R})
+unify(<R: !>, {p: Int}, {p: Int | R})
 ```
 
 ### Output
@@ -6133,7 +6133,7 @@ unify(<R>, {p: Int}, {p: Int | R})
 
 ### Input
 ```ite
-unify(<R>, {p: Int | {}}, {p: Int | R})
+unify(<R: !>, {p: Int | {}}, {p: Int | R})
 ```
 
 ### Output
@@ -6145,7 +6145,7 @@ unify(<R>, {p: Int | {}}, {p: Int | R})
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Int | R})
+unify(<R: !>, {p: Int | R}, {p: Int | R})
 ```
 
 ### Output
@@ -6157,7 +6157,7 @@ unify(<R>, {p: Int | R}, {p: Int | R})
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Bool | R})
+unify(<R: !>, {p: Int | R}, {p: Bool | R})
 ```
 
 ### Output
@@ -6166,8 +6166,8 @@ unify(<R>, {p: Int | R}, {p: Bool | R})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
 
 --------------------------------------------------------------------------------
 
@@ -6433,7 +6433,7 @@ unify(<>, {p: Int, q: Bool | {}}, {p: Bool, q: Int | {}})
 
 ### Input
 ```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Bool})
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Int, q: Bool})
 ```
 
 ### Output
@@ -6445,198 +6445,12 @@ unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Bool})
 
 ### Input
 ```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Bool})
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Bool, q: Bool})
 ```
 
 ### Output
 ```
 <R = {}>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:38-0:42): `Bool`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Int})
-```
-
-### Output
-```
-<R = {}>
-```
-
-### Errors
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:46-0:49): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Int})
-```
-
-### Output
-```
-<R = {}>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:38-0:42): `Bool`
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:47-0:50): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool}, {p: Int, q: Bool | R})
-```
-
-### Output
-```
-<R = {}>
-```
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool}, {p: Bool, q: Bool | R})
-```
-
-### Output
-```
-<R = {}>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:34-0:38): `Bool`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool}, {p: Int, q: Int | R})
-```
-
-### Output
-```
-<R = {}>
-```
-
-### Errors
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:42-0:45): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool}, {p: Bool, q: Int | R})
-```
-
-### Output
-```
-<R = {}>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:34-0:38): `Bool`
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:43-0:46): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Bool | R})
-```
-
-### Output
-```
-<R: !>
-```
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Bool | R})
-```
-
-### Output
-```
-<R: !>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:38-0:42): `Bool`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Int, q: Int | R})
-```
-
-### Output
-```
-<R: !>
-```
-
-### Errors
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:46-0:49): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int, q: Bool | R}, {p: Bool, q: Int | R})
-```
-
-### Output
-```
-<R: !>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:38-0:42): `Bool`
-- (0:23-0:27) Test failed because `Bool` is not an `Int`.
-  - (0:47-0:50): `Int`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R, S>, {p: Int, q: Bool | R}, {p: Int, q: Bool | S})
-```
-
-### Output
-```
-<R: !, S = R>
-```
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R, S>, {p: Int, q: Bool | R}, {p: Bool, q: Bool | S})
-```
-
-### Output
-```
-<R: !, S = R>
 ```
 
 ### Errors
@@ -6647,12 +6461,12 @@ unify(<R, S>, {p: Int, q: Bool | R}, {p: Bool, q: Bool | S})
 
 ### Input
 ```ite
-unify(<R, S>, {p: Int, q: Bool | R}, {p: Int, q: Int | S})
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Int, q: Int})
 ```
 
 ### Output
 ```
-<R: !, S = R>
+<R = {}>
 ```
 
 ### Errors
@@ -6663,7 +6477,161 @@ unify(<R, S>, {p: Int, q: Bool | R}, {p: Int, q: Int | S})
 
 ### Input
 ```ite
-unify(<R, S>, {p: Int, q: Bool | R}, {p: Bool, q: Int | S})
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Bool, q: Int})
+```
+
+### Output
+```
+<R = {}>
+```
+
+### Errors
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:41-0:45): `Bool`
+- (0:26-0:30) Test failed because `Bool` is not an `Int`.
+  - (0:50-0:53): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool}, {p: Int, q: Bool | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool}, {p: Bool, q: Bool | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+### Errors
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:37-0:41): `Bool`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool}, {p: Int, q: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+### Errors
+- (0:26-0:30) Test failed because `Bool` is not an `Int`.
+  - (0:45-0:48): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool}, {p: Bool, q: Int | R})
+```
+
+### Output
+```
+<R = {}>
+```
+
+### Errors
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:37-0:41): `Bool`
+- (0:26-0:30) Test failed because `Bool` is not an `Int`.
+  - (0:46-0:49): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Int, q: Bool | R})
+```
+
+### Output
+```
+<R: !>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Bool, q: Bool | R})
+```
+
+### Output
+```
+<R: !>
+```
+
+### Errors
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:41-0:45): `Bool`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Int, q: Int | R})
+```
+
+### Output
+```
+<R: !>
+```
+
+### Errors
+- (0:26-0:30) Test failed because `Bool` is not an `Int`.
+  - (0:49-0:52): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int, q: Bool | R}, {p: Bool, q: Int | R})
+```
+
+### Output
+```
+<R: !>
+```
+
+### Errors
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:41-0:45): `Bool`
+- (0:26-0:30) Test failed because `Bool` is not an `Int`.
+  - (0:50-0:53): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !, S: !>, {p: Int, q: Bool | R}, {p: Int, q: Bool | S})
+```
+
+### Output
+```
+<R: !, S = R>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !, S: !>, {p: Int, q: Bool | R}, {p: Bool, q: Bool | S})
 ```
 
 ### Output
@@ -6672,10 +6640,42 @@ unify(<R, S>, {p: Int, q: Bool | R}, {p: Bool, q: Int | S})
 ```
 
 ### Errors
-- (0:18-0:21) Test failed because `Int` is not a `Bool`.
-  - (0:41-0:45): `Bool`
-- (0:26-0:30) Test failed because `Bool` is not an `Int`.
-  - (0:50-0:53): `Int`
+- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+  - (0:47-0:51): `Bool`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !, S: !>, {p: Int, q: Bool | R}, {p: Int, q: Int | S})
+```
+
+### Output
+```
+<R: !, S = R>
+```
+
+### Errors
+- (0:32-0:36) Test failed because `Bool` is not an `Int`.
+  - (0:55-0:58): `Int`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !, S: !>, {p: Int, q: Bool | R}, {p: Bool, q: Int | S})
+```
+
+### Output
+```
+<R: !, S = R>
+```
+
+### Errors
+- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+  - (0:47-0:51): `Bool`
+- (0:32-0:36) Test failed because `Bool` is not an `Int`.
+  - (0:56-0:59): `Int`
 
 --------------------------------------------------------------------------------
 
@@ -6953,7 +6953,7 @@ unify(<>, {p: Int | {}}, {p: Bool, q: Int | {}})
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Int, q: Bool})
+unify(<R: !>, {p: Int | R}, {p: Int, q: Bool})
 ```
 
 ### Output
@@ -6965,7 +6965,7 @@ unify(<R>, {p: Int | R}, {p: Int, q: Bool})
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Bool, q: Bool})
+unify(<R: !>, {p: Int | R}, {p: Bool, q: Bool})
 ```
 
 ### Output
@@ -6974,14 +6974,14 @@ unify(<R>, {p: Int | R}, {p: Bool, q: Bool})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Int, q: Int})
+unify(<R: !>, {p: Int | R}, {p: Int, q: Int})
 ```
 
 ### Output
@@ -6993,7 +6993,7 @@ unify(<R>, {p: Int | R}, {p: Int, q: Int})
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Bool, q: Int})
+unify(<R: !>, {p: Int | R}, {p: Bool, q: Int})
 ```
 
 ### Output
@@ -7002,14 +7002,14 @@ unify(<R>, {p: Int | R}, {p: Bool, q: Int})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int}, {p: Int, q: Bool | R})
+unify(<R: !>, {p: Int}, {p: Int, q: Bool | R})
 ```
 
 ### Output
@@ -7018,14 +7018,14 @@ unify(<R>, {p: Int}, {p: Int, q: Bool | R})
 ```
 
 ### Errors
-- (0:11-0:19) Test failed because `q:` is missing.
-  - (0:30-0:31): `q:`
+- (0:14-0:22) Test failed because `q:` is missing.
+  - (0:33-0:34): `q:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int}, {p: Bool, q: Bool | R})
+unify(<R: !>, {p: Int}, {p: Bool, q: Bool | R})
 ```
 
 ### Output
@@ -7034,66 +7034,16 @@ unify(<R>, {p: Int}, {p: Bool, q: Bool | R})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:25-0:29): `Bool`
-- (0:11-0:19) Test failed because `q:` is missing.
-  - (0:31-0:32): `q:`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int}, {p: Int, q: Int | R})
-```
-
-### Output
-```
-<R: !>
-```
-
-### Errors
-- (0:11-0:19) Test failed because `q:` is missing.
-  - (0:30-0:31): `q:`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int}, {p: Bool, q: Int | R})
-```
-
-### Output
-```
-<R: !>
-```
-
-### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:25-0:29): `Bool`
-- (0:11-0:19) Test failed because `q:` is missing.
-  - (0:31-0:32): `q:`
-
---------------------------------------------------------------------------------
-
-### Input
-```ite
-unify(<R>, {p: Int | R}, {p: Int, q: Bool | R})
-```
-
-### Output
-```
-<R: !>
-```
-
-### Errors
-- (0:11-0:23) Test failed because `q:` is missing.
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:28-0:32): `Bool`
+- (0:14-0:22) Test failed because `q:` is missing.
   - (0:34-0:35): `q:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Bool, q: Bool | R})
+unify(<R: !>, {p: Int}, {p: Int, q: Int | R})
 ```
 
 ### Output
@@ -7102,16 +7052,14 @@ unify(<R>, {p: Int | R}, {p: Bool, q: Bool | R})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
-- (0:11-0:23) Test failed because `q:` is missing.
-  - (0:35-0:36): `q:`
+- (0:14-0:22) Test failed because `q:` is missing.
+  - (0:33-0:34): `q:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Int, q: Int | R})
+unify(<R: !>, {p: Int}, {p: Bool, q: Int | R})
 ```
 
 ### Output
@@ -7120,14 +7068,16 @@ unify(<R>, {p: Int | R}, {p: Int, q: Int | R})
 ```
 
 ### Errors
-- (0:11-0:23) Test failed because `q:` is missing.
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:28-0:32): `Bool`
+- (0:14-0:22) Test failed because `q:` is missing.
   - (0:34-0:35): `q:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R>, {p: Int | R}, {p: Bool, q: Int | R})
+unify(<R: !>, {p: Int | R}, {p: Int, q: Bool | R})
 ```
 
 ### Output
@@ -7136,16 +7086,66 @@ unify(<R>, {p: Int | R}, {p: Bool, q: Int | R})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
-- (0:11-0:23) Test failed because `q:` is missing.
-  - (0:35-0:36): `q:`
+- (0:14-0:26) Test failed because `q:` is missing.
+  - (0:37-0:38): `q:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R, S>, {p: Int | R}, {p: Int, q: Bool | S})
+unify(<R: !>, {p: Int | R}, {p: Bool, q: Bool | R})
+```
+
+### Output
+```
+<R: !>
+```
+
+### Errors
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
+- (0:14-0:26) Test failed because `q:` is missing.
+  - (0:38-0:39): `q:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int | R}, {p: Int, q: Int | R})
+```
+
+### Output
+```
+<R: !>
+```
+
+### Errors
+- (0:14-0:26) Test failed because `q:` is missing.
+  - (0:37-0:38): `q:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !>, {p: Int | R}, {p: Bool, q: Int | R})
+```
+
+### Output
+```
+<R: !>
+```
+
+### Errors
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
+- (0:14-0:26) Test failed because `q:` is missing.
+  - (0:38-0:39): `q:`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<R: !, S: !>, {p: Int | R}, {p: Int, q: Bool | S})
 ```
 
 ### Output
@@ -7157,7 +7157,7 @@ unify(<R, S>, {p: Int | R}, {p: Int, q: Bool | S})
 
 ### Input
 ```ite
-unify(<R, S>, {p: Int | R}, {p: Bool, q: Bool | S})
+unify(<R: !, S: !>, {p: Int | R}, {p: Bool, q: Bool | S})
 ```
 
 ### Output
@@ -7166,14 +7166,14 @@ unify(<R, S>, {p: Int | R}, {p: Bool, q: Bool | S})
 ```
 
 ### Errors
-- (0:18-0:21) Test failed because `Int` is not a `Bool`.
-  - (0:32-0:36): `Bool`
+- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+  - (0:38-0:42): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R, S>, {p: Int | R}, {p: Int, q: Int | S})
+unify(<R: !, S: !>, {p: Int | R}, {p: Int, q: Int | S})
 ```
 
 ### Output
@@ -7185,7 +7185,7 @@ unify(<R, S>, {p: Int | R}, {p: Int, q: Int | S})
 
 ### Input
 ```ite
-unify(<R, S>, {p: Int | R}, {p: Bool, q: Int | S})
+unify(<R: !, S: !>, {p: Int | R}, {p: Bool, q: Int | S})
 ```
 
 ### Output
@@ -7194,8 +7194,8 @@ unify(<R, S>, {p: Int | R}, {p: Bool, q: Int | S})
 ```
 
 ### Errors
-- (0:18-0:21) Test failed because `Int` is not a `Bool`.
-  - (0:32-0:36): `Bool`
+- (0:24-0:27) Test failed because `Int` is not a `Bool`.
+  - (0:38-0:42): `Bool`
 
 --------------------------------------------------------------------------------
 
@@ -7378,7 +7378,7 @@ unify(<>, {a: Int, a: Bool, b: void}, {a: Int})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Int, b: void})
+unify(<T: !>, {a: Int | T}, {a: Int, b: void})
 ```
 
 ### Output
@@ -7390,7 +7390,7 @@ unify(<T>, {a: Int | T}, {a: Int, b: void})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Int, a: Bool, b: void})
+unify(<T: !>, {a: Int | T}, {a: Int, a: Bool, b: void})
 ```
 
 ### Output
@@ -7402,7 +7402,7 @@ unify(<T>, {a: Int | T}, {a: Int, a: Bool, b: void})
 
 ### Input
 ```ite
-unify(<T>, {a: Int, b: void}, {a: Int | T})
+unify(<T: !>, {a: Int, b: void}, {a: Int | T})
 ```
 
 ### Output
@@ -7414,7 +7414,7 @@ unify(<T>, {a: Int, b: void}, {a: Int | T})
 
 ### Input
 ```ite
-unify(<T>, {a: Int, a: Bool, b: void}, {a: Int | T})
+unify(<T: !>, {a: Int, a: Bool, b: void}, {a: Int | T})
 ```
 
 ### Output
@@ -7426,7 +7426,7 @@ unify(<T>, {a: Int, a: Bool, b: void}, {a: Int | T})
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {b: void})
+unify(<T: !>, {a: Int | T}, {b: void})
 ```
 
 ### Output
@@ -7435,13 +7435,13 @@ unify(<T>, {a: Int | T}, {b: void})
 ```
 
 ### Errors
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:15-0:16) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {b: void, c: Bool})
+unify(<T: !>, {a: Int | T}, {b: void, c: Bool})
 ```
 
 ### Output
@@ -7450,13 +7450,13 @@ unify(<T>, {a: Int | T}, {b: void, c: Bool})
 ```
 
 ### Errors
-- (0:12-0:13) Test failed because `a:` is not needed.
+- (0:15-0:16) Test failed because `a:` is not needed.
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Int | T}, {a: Bool, b: void})
+unify(<T: !>, {a: Int | T}, {a: Bool, b: void})
 ```
 
 ### Output
@@ -7465,14 +7465,14 @@ unify(<T>, {a: Int | T}, {a: Bool, b: void})
 ```
 
 ### Errors
-- (0:15-0:18) Test failed because `Int` is not a `Bool`.
-  - (0:29-0:33): `Bool`
+- (0:18-0:21) Test failed because `Int` is not a `Bool`.
+  - (0:32-0:36): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {b: void}, {a: Int | T})
+unify(<T: !>, {b: void}, {a: Int | T})
 ```
 
 ### Output
@@ -7481,14 +7481,14 @@ unify(<T>, {b: void}, {a: Int | T})
 ```
 
 ### Errors
-- (0:11-0:20) Test failed because `a:` is missing.
-  - (0:23-0:24): `a:`
+- (0:14-0:23) Test failed because `a:` is missing.
+  - (0:26-0:27): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {b: void, c: Bool}, {a: Int | T})
+unify(<T: !>, {b: void, c: Bool}, {a: Int | T})
 ```
 
 ### Output
@@ -7497,14 +7497,14 @@ unify(<T>, {b: void, c: Bool}, {a: Int | T})
 ```
 
 ### Errors
-- (0:11-0:29) Test failed because `a:` is missing.
-  - (0:32-0:33): `a:`
+- (0:14-0:32) Test failed because `a:` is missing.
+  - (0:35-0:36): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T>, {a: Bool, b: void}, {a: Int | T})
+unify(<T: !>, {a: Bool, b: void}, {a: Int | T})
 ```
 
 ### Output
@@ -7513,8 +7513,8 @@ unify(<T>, {a: Bool, b: void}, {a: Int | T})
 ```
 
 ### Errors
-- (0:15-0:19) Test failed because `Bool` is not an `Int`.
-  - (0:35-0:38): `Int`
+- (0:18-0:22) Test failed because `Bool` is not an `Int`.
+  - (0:38-0:41): `Int`
 
 --------------------------------------------------------------------------------
 
@@ -7597,7 +7597,7 @@ unify(<>, {b: Int, c: Bool}, {a: Int, a: Bool})
 
 ### Input
 ```ite
-unify(<T = <X> {a: X}, U = <X> {a: X}>, T, U)
+unify(<T = <X: !> {a: X}, U = <X: !> {a: X}>, T, U)
 ```
 
 ### Output
@@ -7609,7 +7609,7 @@ unify(<T = <X> {a: X}, U = <X> {a: X}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X}, U = <Y> {a: Y}>, T, U)
+unify(<T = <X: !> {a: X}, U = <Y: !> {a: Y}>, T, U)
 ```
 
 ### Output
@@ -7621,7 +7621,7 @@ unify(<T = <X> {a: X}, U = <Y> {a: Y}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: X}, U = <X> {a: X, b: X}>, T, U)
+unify(<T = <X: !> {a: X, b: X}, U = <X: !> {a: X, b: X}>, T, U)
 ```
 
 ### Output
@@ -7633,7 +7633,7 @@ unify(<T = <X> {a: X, b: X}, U = <X> {a: X, b: X}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: X}, U = <X, Y> {a: X, b: Y}>, T, U)
+unify(<T = <X: !> {a: X, b: X}, U = <X: !, Y: !> {a: X, b: Y}>, T, U)
 ```
 
 ### Output
@@ -7642,15 +7642,15 @@ unify(<T = <X> {a: X, b: X}, U = <X, Y> {a: X, b: Y}>, T, U)
 ```
 
 ### Errors
-- (0:55-0:56) Test failed because `{a: !, b: !}` is more general than `<X: !> {a: X, b: X}`.
-  - (0:40-0:52): `{a: !, b: !}`
-  - (0:15-0:27): `<X: !> {a: X, b: X}`
+- (0:64-0:65) Test failed because `{a: !, b: !}` is more general than `<X: !> {a: X, b: X}`.
+  - (0:49-0:61): `{a: !, b: !}`
+  - (0:18-0:30): `<X: !> {a: X, b: X}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X, Y> {a: X, b: Y}, U = <X> {a: X, b: X}>, T, U)
+unify(<T = <X: !, Y: !> {a: X, b: Y}, U = <X: !> {a: X, b: X}>, T, U)
 ```
 
 ### Output
@@ -7659,15 +7659,15 @@ unify(<T = <X, Y> {a: X, b: Y}, U = <X> {a: X, b: X}>, T, U)
 ```
 
 ### Errors
-- (0:55-0:56) Test failed because `{a: !, b: !}` is more general than `<Y: !> {a: Y, b: Y}`.
-  - (0:18-0:30): `{a: !, b: !}`
-  - (0:18-0:30): `<Y: !> {a: Y, b: Y}`
+- (0:64-0:65) Test failed because `{a: !, b: !}` is more general than `<Y: !> {a: Y, b: Y}`.
+  - (0:24-0:36): `{a: !, b: !}`
+  - (0:24-0:36): `<Y: !> {a: Y, b: Y}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X, Y> {a: X, b: Y}, U = <X, Y> {a: X, b: Y}>, T, U)
+unify(<T = <X: !, Y: !> {a: X, b: Y}, U = <X: !, Y: !> {a: X, b: Y}>, T, U)
 ```
 
 ### Output
@@ -7679,7 +7679,7 @@ unify(<T = <X, Y> {a: X, b: Y}, U = <X, Y> {a: X, b: Y}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: Int}, U = <X> {a: X}>, T, U)
+unify(<T = <X: !> {a: X, b: Int}, U = <X: !> {a: X}>, T, U)
 ```
 
 ### Output
@@ -7688,14 +7688,14 @@ unify(<T = <X> {a: X, b: Int}, U = <X> {a: X}>, T, U)
 ```
 
 ### Errors
-- (0:48-0:49) Test failed because `b:` is not needed.
-  - (0:22-0:23): `b:`
+- (0:54-0:55) Test failed because `b:` is not needed.
+  - (0:25-0:26): `b:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X}, U = <X> {a: X, b: Int}>, T, U)
+unify(<T = <X: !> {a: X}, U = <X: !> {a: X, b: Int}>, T, U)
 ```
 
 ### Output
@@ -7704,14 +7704,14 @@ unify(<T = <X> {a: X}, U = <X> {a: X, b: Int}>, T, U)
 ```
 
 ### Errors
-- (0:48-0:49) Test failed because `b:` is missing.
-  - (0:38-0:39): `b:`
+- (0:54-0:55) Test failed because `b:` is missing.
+  - (0:44-0:45): `b:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, a: Int}, U = <X> {a: X}>, T, U)
+unify(<T = <X: !> {a: X, a: Int}, U = <X: !> {a: X}>, T, U)
 ```
 
 ### Output
@@ -7720,14 +7720,14 @@ unify(<T = <X> {a: X, a: Int}, U = <X> {a: X}>, T, U)
 ```
 
 ### Errors
-- (0:48-0:49) Test failed because `a:` is not needed.
-  - (0:22-0:23): `a:`
+- (0:54-0:55) Test failed because `a:` is not needed.
+  - (0:25-0:26): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X}, U = <X> {a: X, a: Int}>, T, U)
+unify(<T = <X: !> {a: X}, U = <X: !> {a: X, a: Int}>, T, U)
 ```
 
 ### Output
@@ -7736,14 +7736,14 @@ unify(<T = <X> {a: X}, U = <X> {a: X, a: Int}>, T, U)
 ```
 
 ### Errors
-- (0:48-0:49) Test failed because `a:` is missing.
-  - (0:38-0:39): `a:`
+- (0:54-0:55) Test failed because `a:` is missing.
+  - (0:44-0:45): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, c: Int}>, T, U)
+unify(<T = <X: !> {a: X, b: Int}, U = <X: !> {a: X, c: Int}>, T, U)
 ```
 
 ### Output
@@ -7752,16 +7752,16 @@ unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, c: Int}>, T, U)
 ```
 
 ### Errors
-- (0:56-0:57) Test failed because `c:` is missing.
-  - (0:46-0:47): `c:`
-- (0:56-0:57) Test failed because `b:` is not needed.
-  - (0:22-0:23): `b:`
+- (0:62-0:63) Test failed because `c:` is missing.
+  - (0:52-0:53): `c:`
+- (0:62-0:63) Test failed because `b:` is not needed.
+  - (0:25-0:26): `b:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, a: Int}, U = <X> {a: X, c: Int}>, T, U)
+unify(<T = <X: !> {a: X, a: Int}, U = <X: !> {a: X, c: Int}>, T, U)
 ```
 
 ### Output
@@ -7770,16 +7770,16 @@ unify(<T = <X> {a: X, a: Int}, U = <X> {a: X, c: Int}>, T, U)
 ```
 
 ### Errors
-- (0:56-0:57) Test failed because `c:` is missing.
-  - (0:46-0:47): `c:`
-- (0:56-0:57) Test failed because `a:` is not needed.
-  - (0:22-0:23): `a:`
+- (0:62-0:63) Test failed because `c:` is missing.
+  - (0:52-0:53): `c:`
+- (0:62-0:63) Test failed because `a:` is not needed.
+  - (0:25-0:26): `a:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, a: Int}>, T, U)
+unify(<T = <X: !> {a: X, b: Int}, U = <X: !> {a: X, a: Int}>, T, U)
 ```
 
 ### Output
@@ -7788,16 +7788,16 @@ unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, a: Int}>, T, U)
 ```
 
 ### Errors
-- (0:56-0:57) Test failed because `a:` is missing.
-  - (0:46-0:47): `a:`
-- (0:56-0:57) Test failed because `b:` is not needed.
-  - (0:22-0:23): `b:`
+- (0:62-0:63) Test failed because `a:` is missing.
+  - (0:52-0:53): `a:`
+- (0:62-0:63) Test failed because `b:` is not needed.
+  - (0:25-0:26): `b:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, b: Bool}>, T, U)
+unify(<T = <X: !> {a: X, b: Int}, U = <X: !> {a: X, b: Bool}>, T, U)
 ```
 
 ### Output
@@ -7806,15 +7806,15 @@ unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, b: Bool}>, T, U)
 ```
 
 ### Errors
-- (0:57-0:58) Test failed because `Int` is not a `Bool`.
-  - (0:25-0:28): `Int`
-  - (0:49-0:53): `Bool`
+- (0:63-0:64) Test failed because `Int` is not a `Bool`.
+  - (0:28-0:31): `Int`
+  - (0:55-0:59): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, b: !}>, T, U)
+unify(<T = <X: !> {a: X, b: Int}, U = <X: !> {a: X, b: !}>, T, U)
 ```
 
 ### Output
@@ -7823,15 +7823,15 @@ unify(<T = <X> {a: X, b: Int}, U = <X> {a: X, b: !}>, T, U)
 ```
 
 ### Errors
-- (0:54-0:55) Test failed because `{a: !, b: !}` is more general than `{a: !, b: Int}`.
-  - (0:39-0:51): `{a: !, b: !}`
-  - (0:15-0:29): `{a: !, b: Int}`
+- (0:60-0:61) Test failed because `{a: !, b: !}` is more general than `{a: !, b: Int}`.
+  - (0:45-0:57): `{a: !, b: !}`
+  - (0:18-0:32): `{a: !, b: Int}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: !}, U = <X> {a: X, b: Int}>, T, U)
+unify(<T = <X: !> {a: X, b: !}, U = <X: !> {a: X, b: Int}>, T, U)
 ```
 
 ### Output
@@ -7840,15 +7840,15 @@ unify(<T = <X> {a: X, b: !}, U = <X> {a: X, b: Int}>, T, U)
 ```
 
 ### Errors
-- (0:54-0:55) Test failed because `{a: !, b: !}` is more general than `{a: !, b: Int}`.
-  - (0:15-0:27): `{a: !, b: !}`
-  - (0:15-0:27): `{a: !, b: Int}`
+- (0:60-0:61) Test failed because `{a: !, b: !}` is more general than `{a: !, b: Int}`.
+  - (0:18-0:30): `{a: !, b: !}`
+  - (0:18-0:30): `{a: !, b: Int}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | {}}, U = <X> {a: X}>, T, U)
+unify(<T = <X: !> {a: X | {}}, U = <X: !> {a: X}>, T, U)
 ```
 
 ### Output
@@ -7860,7 +7860,7 @@ unify(<T = <X> {a: X | {}}, U = <X> {a: X}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X}, U = <X> {a: X | {}}>, T, U)
+unify(<T = <X: !> {a: X}, U = <X: !> {a: X | {}}>, T, U)
 ```
 
 ### Output
@@ -7872,7 +7872,7 @@ unify(<T = <X> {a: X}, U = <X> {a: X | {}}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | {}}, U = <X> {a: X | {}}>, T, U)
+unify(<T = <X: !> {a: X | {}}, U = <X: !> {a: X | {}}>, T, U)
 ```
 
 ### Output
@@ -7884,7 +7884,7 @@ unify(<T = <X> {a: X | {}}, U = <X> {a: X | {}}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: Int}, U = <X> {a: X | {b: Int}}>, T, U)
+unify(<T = <X: !> {a: X, b: Int}, U = <X: !> {a: X | {b: Int}}>, T, U)
 ```
 
 ### Output
@@ -7896,7 +7896,7 @@ unify(<T = <X> {a: X, b: Int}, U = <X> {a: X | {b: Int}}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | {b: Int}}, U = <X> {a: X, b: Int}>, T, U)
+unify(<T = <X: !> {a: X | {b: Int}}, U = <X: !> {a: X, b: Int}>, T, U)
 ```
 
 ### Output
@@ -7908,7 +7908,7 @@ unify(<T = <X> {a: X | {b: Int}}, U = <X> {a: X, b: Int}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X, b: Int | {}}, U = <X> {a: X | {b: Int}}>, T, U)
+unify(<T = <X: !> {a: X, b: Int | {}}, U = <X: !> {a: X | {b: Int}}>, T, U)
 ```
 
 ### Output
@@ -7920,7 +7920,7 @@ unify(<T = <X> {a: X, b: Int | {}}, U = <X> {a: X | {b: Int}}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | {b: Int}}, U = <X> {a: X, b: Int | {}}>, T, U)
+unify(<T = <X: !> {a: X | {b: Int}}, U = <X: !> {a: X, b: Int | {}}>, T, U)
 ```
 
 ### Output
@@ -7932,7 +7932,7 @@ unify(<T = <X> {a: X | {b: Int}}, U = <X> {a: X, b: Int | {}}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | <Y> {b: Y}}, U = <X> {a: X | <Y> {b: Y}}>, T, U)
+unify(<T = <X: !> {a: X | <Y: !> {b: Y}}, U = <X: !> {a: X | <Y: !> {b: Y}}>, T, U)
 ```
 
 ### Output
@@ -7944,7 +7944,7 @@ unify(<T = <X> {a: X | <Y> {b: Y}}, U = <X> {a: X | <Y> {b: Y}}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X, R = <Y> {b: Y}> {a: X | R}, U = <X, R = <Y> {b: Y}> {a: X | R}>, T, U)
+unify(<T = <X: !, R = <Y: !> {b: Y}> {a: X | R}, U = <X: !, R = <Y: !> {b: Y}> {a: X | R}>, T, U)
 ```
 
 ### Output
@@ -7956,7 +7956,7 @@ unify(<T = <X, R = <Y> {b: Y}> {a: X | R}, U = <X, R = <Y> {b: Y}> {a: X | R}>, 
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | !}, U = <X> {a: X}>, T, U)
+unify(<T = <X: !> {a: X | !}, U = <X: !> {a: X}>, T, U)
 ```
 
 ### Output
@@ -7965,15 +7965,15 @@ unify(<T = <X> {a: X | !}, U = <X> {a: X}>, T, U)
 ```
 
 ### Errors
-- (0:44-0:45) Test failed because `{a: ! | !}` is more general than `{a: !}`.
-  - (0:15-0:25): `{a: ! | !}`
-  - (0:15-0:25): `{a: !}`
+- (0:50-0:51) Test failed because `{a: ! | !}` is more general than `{a: !}`.
+  - (0:18-0:28): `{a: ! | !}`
+  - (0:18-0:28): `{a: !}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X}, U = <X> {a: X | !}>, T, U)
+unify(<T = <X: !> {a: X}, U = <X: !> {a: X | !}>, T, U)
 ```
 
 ### Output
@@ -7982,15 +7982,15 @@ unify(<T = <X> {a: X}, U = <X> {a: X | !}>, T, U)
 ```
 
 ### Errors
-- (0:44-0:45) Test failed because `{a: ! | !}` is more general than `{a: !}`.
-  - (0:31-0:41): `{a: ! | !}`
-  - (0:15-0:21): `{a: !}`
+- (0:50-0:51) Test failed because `{a: ! | !}` is more general than `{a: !}`.
+  - (0:37-0:47): `{a: ! | !}`
+  - (0:18-0:24): `{a: !}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | !}, U = <X> {a: X | !}>, T, U)
+unify(<T = <X: !> {a: X | !}, U = <X: !> {a: X | !}>, T, U)
 ```
 
 ### Output
@@ -8002,7 +8002,7 @@ unify(<T = <X> {a: X | !}, U = <X> {a: X | !}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | Int}, U = <X> {a: X}>, T, U)
+unify(<T = <X: !> {a: X | Int}, U = <X: !> {a: X}>, T, U)
 ```
 
 ### Output
@@ -8011,15 +8011,15 @@ unify(<T = <X> {a: X | Int}, U = <X> {a: X}>, T, U)
 ```
 
 ### Errors
-- (0:46-0:47) Test failed because `Int` is not an object.
-  - (0:23-0:26): `Int`
-  - (0:37-0:43): object
+- (0:52-0:53) Test failed because `Int` is not an object.
+  - (0:26-0:29): `Int`
+  - (0:43-0:49): object
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X}, U = <X> {a: X | Int}>, T, U)
+unify(<T = <X: !> {a: X}, U = <X: !> {a: X | Int}>, T, U)
 ```
 
 ### Output
@@ -8028,15 +8028,15 @@ unify(<T = <X> {a: X}, U = <X> {a: X | Int}>, T, U)
 ```
 
 ### Errors
-- (0:46-0:47) Test failed because an object is not an `Int`.
-  - (0:15-0:21): object
-  - (0:39-0:42): `Int`
+- (0:52-0:53) Test failed because an object is not an `Int`.
+  - (0:18-0:24): object
+  - (0:45-0:48): `Int`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | Int}, U = <X> {a: X | Int}>, T, U)
+unify(<T = <X: !> {a: X | Int}, U = <X: !> {a: X | Int}>, T, U)
 ```
 
 ### Output
@@ -8048,7 +8048,7 @@ unify(<T = <X> {a: X | Int}, U = <X> {a: X | Int}>, T, U)
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | Int}, U = <X> {a: X | Bool}>, T, U)
+unify(<T = <X: !> {a: X | Int}, U = <X: !> {a: X | Bool}>, T, U)
 ```
 
 ### Output
@@ -8057,15 +8057,15 @@ unify(<T = <X> {a: X | Int}, U = <X> {a: X | Bool}>, T, U)
 ```
 
 ### Errors
-- (0:53-0:54) Test failed because `Int` is not a `Bool`.
-  - (0:23-0:26): `Int`
-  - (0:45-0:49): `Bool`
+- (0:59-0:60) Test failed because `Int` is not a `Bool`.
+  - (0:26-0:29): `Int`
+  - (0:51-0:55): `Bool`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | Int}, U = <X> {a: X | !}>, T, U)
+unify(<T = <X: !> {a: X | Int}, U = <X: !> {a: X | !}>, T, U)
 ```
 
 ### Output
@@ -8074,15 +8074,15 @@ unify(<T = <X> {a: X | Int}, U = <X> {a: X | !}>, T, U)
 ```
 
 ### Errors
-- (0:50-0:51) Test failed because `{a: ! | !}` is more general than `{a: ! | Int}`.
-  - (0:37-0:47): `{a: ! | !}`
-  - (0:15-0:27): `{a: ! | Int}`
+- (0:56-0:57) Test failed because `{a: ! | !}` is more general than `{a: ! | Int}`.
+  - (0:43-0:53): `{a: ! | !}`
+  - (0:18-0:30): `{a: ! | Int}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<T = <X> {a: X | !}, U = <X> {a: X | Int}>, T, U)
+unify(<T = <X: !> {a: X | !}, U = <X: !> {a: X | Int}>, T, U)
 ```
 
 ### Output
@@ -8091,15 +8091,15 @@ unify(<T = <X> {a: X | !}, U = <X> {a: X | Int}>, T, U)
 ```
 
 ### Errors
-- (0:50-0:51) Test failed because `{a: ! | !}` is more general than `{a: ! | Int}`.
-  - (0:15-0:25): `{a: ! | !}`
-  - (0:15-0:25): `{a: ! | Int}`
+- (0:56-0:57) Test failed because `{a: ! | !}` is more general than `{a: ! | Int}`.
+  - (0:18-0:28): `{a: ! | !}`
+  - (0:18-0:28): `{a: ! | Int}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R = <Y> {b: Y}, T = <X> {a: X | R}, U = <X> {a: X | R}>, T, U)
+unify(<R = <Y: !> {b: Y}, T = <X: !> {a: X | R}, U = <X: !> {a: X | R}>, T, U)
 ```
 
 ### Output
@@ -8111,7 +8111,7 @@ unify(<R = <Y> {b: Y}, T = <X> {a: X | R}, U = <X> {a: X | R}>, T, U)
 
 ### Input
 ```ite
-unify(<R = <Y> {b: Y}, S = <Y> {b: Y}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
+unify(<R = <Y: !> {b: Y}, S = <Y: !> {b: Y}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)
 ```
 
 ### Output
@@ -8123,7 +8123,7 @@ unify(<R = <Y> {b: Y}, S = <Y> {b: Y}, T = <X> {a: X | R}, U = <X> {a: X | S}>, 
 
 ### Input
 ```ite
-unify(<R = <Y> {b: Y}, S = <Y> {c: Y}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
+unify(<R = <Y: !> {b: Y}, S = <Y: !> {c: Y}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)
 ```
 
 ### Output
@@ -8132,16 +8132,16 @@ unify(<R = <Y> {b: Y}, S = <Y> {c: Y}, T = <X> {a: X | R}, U = <X> {a: X | S}>, 
 ```
 
 ### Errors
-- (0:80-0:81) Test failed because `c:` is missing.
-  - (0:32-0:33): `c:`
-- (0:80-0:81) Test failed because `b:` is not needed.
-  - (0:16-0:17): `b:`
+- (0:92-0:93) Test failed because `c:` is missing.
+  - (0:38-0:39): `c:`
+- (0:92-0:93) Test failed because `b:` is not needed.
+  - (0:19-0:20): `b:`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R = <Y> {b: Y}, T = <X> {a: X | R}, U = <X> {a: X | <Y> {b: Y}}>, T, U)
+unify(<R = <Y: !> {b: Y}, T = <X: !> {a: X | R}, U = <X: !> {a: X | <Y: !> {b: Y}}>, T, U)
 ```
 
 ### Output
@@ -8150,15 +8150,15 @@ unify(<R = <Y> {b: Y}, T = <X> {a: X | R}, U = <X> {a: X | <Y> {b: Y}}>, T, U)
 ```
 
 ### Errors
-- (0:73-0:74) Test failed because `{a: !, b: !}` is more general than `{a: ! | R}`.
-  - (0:51-0:70): `{a: !, b: !}`
-  - (0:31-0:41): `{a: ! | R}`
+- (0:85-0:86) Test failed because `{a: !, b: !}` is more general than `{a: ! | R}`.
+  - (0:60-0:82): `{a: !, b: !}`
+  - (0:37-0:47): `{a: ! | R}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R = <Y> {b: Y}, T = <X> {a: X | <Y> {b: Y}}, U = <X> {a: X | R}>, T, U)
+unify(<R = <Y: !> {b: Y}, T = <X: !> {a: X | <Y: !> {b: Y}}, U = <X: !> {a: X | R}>, T, U)
 ```
 
 ### Output
@@ -8167,15 +8167,15 @@ unify(<R = <Y> {b: Y}, T = <X> {a: X | <Y> {b: Y}}, U = <X> {a: X | R}>, T, U)
 ```
 
 ### Errors
-- (0:73-0:74) Test failed because `{a: !, b: !}` is more general than `{a: ! | R}`.
-  - (0:31-0:50): `{a: !, b: !}`
-  - (0:31-0:50): `{a: ! | R}`
+- (0:85-0:86) Test failed because `{a: !, b: !}` is more general than `{a: ! | R}`.
+  - (0:37-0:59): `{a: !, b: !}`
+  - (0:37-0:59): `{a: ! | R}`
 
 --------------------------------------------------------------------------------
 
 ### Input
 ```ite
-unify(<R = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X | R}>, T, U)
+unify(<R = {b: Int}, T = <X: !> {a: X | R}, U = <X: !> {a: X | R}>, T, U)
 ```
 
 ### Output
@@ -8187,7 +8187,7 @@ unify(<R = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X | R}>, T, U)
 
 ### Input
 ```ite
-unify(<R = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X, b: Int}>, T, U)
+unify(<R = {b: Int}, T = <X: !> {a: X | R}, U = <X: !> {a: X, b: Int}>, T, U)
 ```
 
 ### Output
@@ -8199,7 +8199,7 @@ unify(<R = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X, b: Int}>, T, U)
 
 ### Input
 ```ite
-unify(<R = {b: Int}, T = <X> {a: X, b: Int}, U = <X> {a: X | R}>, T, U)
+unify(<R = {b: Int}, T = <X: !> {a: X, b: Int}, U = <X: !> {a: X | R}>, T, U)
 ```
 
 ### Output
@@ -8211,7 +8211,7 @@ unify(<R = {b: Int}, T = <X> {a: X, b: Int}, U = <X> {a: X | R}>, T, U)
 
 ### Input
 ```ite
-unify(<R = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X | {b: Int}}>, T, U)
+unify(<R = {b: Int}, T = <X: !> {a: X | R}, U = <X: !> {a: X | {b: Int}}>, T, U)
 ```
 
 ### Output
@@ -8223,7 +8223,7 @@ unify(<R = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X | {b: Int}}>, T, U)
 
 ### Input
 ```ite
-unify(<R = {b: Int}, T = <X> {a: X | {b: Int}}, U = <X> {a: X | R}>, T, U)
+unify(<R = {b: Int}, T = <X: !> {a: X | {b: Int}}, U = <X: !> {a: X | R}>, T, U)
 ```
 
 ### Output
@@ -8235,7 +8235,7 @@ unify(<R = {b: Int}, T = <X> {a: X | {b: Int}}, U = <X> {a: X | R}>, T, U)
 
 ### Input
 ```ite
-unify(<R = {b: Int}, S = {b: Bool}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
+unify(<R = {b: Int}, S = {b: Bool}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)
 ```
 
 ### Output
@@ -8244,7 +8244,7 @@ unify(<R = {b: Int}, S = {b: Bool}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, 
 ```
 
 ### Errors
-- (0:77-0:78) Test failed because `Int` is not a `Bool`.
+- (0:83-0:84) Test failed because `Int` is not a `Bool`.
   - (0:15-0:18): `Int`
   - (0:29-0:33): `Bool`
 
@@ -8252,7 +8252,7 @@ unify(<R = {b: Int}, S = {b: Bool}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, 
 
 ### Input
 ```ite
-unify(<R = {b: Int}, S = {b: !}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
+unify(<R = {b: Int}, S = {b: !}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)
 ```
 
 ### Output
@@ -8261,7 +8261,7 @@ unify(<R = {b: Int}, S = {b: !}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
 ```
 
 ### Errors
-- (0:74-0:75) Test failed because `{b: !}` is more general than `{b: Int}`.
+- (0:80-0:81) Test failed because `{b: !}` is more general than `{b: Int}`.
   - (0:25-0:31): `{b: !}`
   - (0:11-0:19): `{b: Int}`
 
@@ -8269,7 +8269,7 @@ unify(<R = {b: Int}, S = {b: !}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
 
 ### Input
 ```ite
-unify(<R = {b: !}, S = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
+unify(<R = {b: !}, S = {b: Int}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)
 ```
 
 ### Output
@@ -8278,7 +8278,7 @@ unify(<R = {b: !}, S = {b: Int}, T = <X> {a: X | R}, U = <X> {a: X | S}>, T, U)
 ```
 
 ### Errors
-- (0:74-0:75) Test failed because `{b: !}` is more general than `{b: Int}`.
+- (0:80-0:81) Test failed because `{b: !}` is more general than `{b: Int}`.
   - (0:11-0:17): `{b: !}`
   - (0:23-0:31): `{b: Int}`
 

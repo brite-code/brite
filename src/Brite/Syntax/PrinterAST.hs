@@ -440,10 +440,16 @@ quantifiedType :: [Quantifier] -> Type -> Type
 quantifiedType quantifiers body = Type [] [] (QuantifiedType (map commaListItem quantifiers) body)
 
 -- `<T>`
+--
+-- In a function quantification (`FunctionExpression` or `FunctionType`) this is the universal
+-- quantifier `<T: !>`. In a quantified type context (`QuantifiedType`) this is an existential
+-- quantifier. Be careful how you use this and make sure to get it right!
 unboundQuantifier :: Identifier -> Quantifier
 unboundQuantifier name = QuantifierUnbound [] [] name
 
 -- `<T: U>`
+--
+-- Always a universal quantifier.
 quantifier :: Identifier -> Flexibility -> Type -> Quantifier
 quantifier name flex type' = Quantifier [] name flex type'
 
