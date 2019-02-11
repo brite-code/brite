@@ -1138,6 +1138,12 @@ testData =
   , "fun f() {}"
   , "let a: T =\n//\nx;"
   , "let a: T = a +\n//\nb;"
+  , "fun<T: !, U: !>() {}"
+  , "fun f<T: !, U: !>() {}"
+  , "(x: fun<T: !, U: !>() -> void)"
+  , "(x: <T: !, U: !> void)"
+  , "(x: fun</* a */ T /* b */ : /* c */ ! /* d */>() -> void)"
+  , "(x: fun<\n//\n/* a */ T /* b */ : /* c */ ! /* d */>() -> void)"
   ]
 
 openSnapshotFile :: IO Handle

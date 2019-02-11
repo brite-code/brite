@@ -21,7 +21,6 @@ module Brite.Semantics.Type
   , polytypeNormal
   , Binding(..)
   , Flexibility(..)
-  , isUnboundBinding
   , variable
   , variableWithRangeStack
   , construct
@@ -146,13 +145,6 @@ data Binding = Binding
   -- The type being bound.
   , bindingType :: Polytype
   }
-
--- Is this binding unbound? That is, does it have a flexible bottom bound? In syntax `<T: !>` or
--- academic syntax `∀(a ≥ ⊥)`. We abbreviate these bindings to `<T>` and `∀a` in their
--- respective syntaxes.
-isUnboundBinding :: Binding -> Bool
-isUnboundBinding (Binding _ Flexible (Polytype { polytypeDescription = Bottom _ })) = True
-isUnboundBinding _ = False
 
 -- Creates a type variable monotype.
 variable :: Range -> Identifier -> Monotype

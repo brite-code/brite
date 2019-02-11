@@ -169,13 +169,10 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
 
                       -- Create our quantifier using the new binding name.
                       q =
-                        if isUnboundBinding binding then
-                          PrinterAST.unboundQuantifier newBindingName
-                        else
-                          PrinterAST.quantifier
-                            newBindingName
-                            (bindingFlexibility binding)
-                            (makeBindingType seen substitutions)
+                        PrinterAST.quantifier
+                          newBindingName
+                          (bindingFlexibility binding)
+                          (makeBindingType seen substitutions)
 
                       -- Create the rest of our quantifiers and quantified body. Add our new binding
                       -- name as a substitution and add the new binding name to out “captured” set.
@@ -194,13 +191,10 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                       -- Create our quantifier. If we have a flexible, bottom type, bound then we
                       -- print an unbound quantifier. Otherwise we print a full quantifier.
                       q =
-                        if isUnboundBinding binding then
-                          PrinterAST.unboundQuantifier (bindingName binding)
-                        else
-                          PrinterAST.quantifier
-                            (bindingName binding)
-                            (bindingFlexibility binding)
-                            (makeBindingType seen substitutions)
+                        PrinterAST.quantifier
+                          (bindingName binding)
+                          (bindingFlexibility binding)
+                          (makeBindingType seen substitutions)
 
                       -- Create the rest of our quantifiers. Add our binding name to our “seen” set.
                       -- If we had an old substitution, remove it.
@@ -317,8 +311,6 @@ printPolytypeWithoutInlining type' = case polytypeDescription type' of
 --
 -- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
 printBindingWithoutInlining :: Binding -> PrinterAST.Quantifier
-printBindingWithoutInlining binding | isUnboundBinding binding =
-  PrinterAST.unboundQuantifier (bindingName binding)
 printBindingWithoutInlining (Binding name flex type') =
   PrinterAST.quantifier name flex (printPolytypeWithoutInlining type')
 

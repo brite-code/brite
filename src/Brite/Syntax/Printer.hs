@@ -775,6 +775,11 @@ printQuantifierList qs = group $
   where
     printQuantifier (QuantifierUnbound cs1 cs2 n) =
       (printLeadingAttachedComments cs1 <> text (identifierText n), cs2)
+
+    -- If we are in a function quantifier list and we see `T: !` then simplify it to `T`.
+    printQuantifier (Quantifier cs1 n Flexible (Type cs2 cs3 BottomType)) =
+      printQuantifier (QuantifierUnbound (cs1 `append` cs2) cs3 n)
+
     printQuantifier (Quantifier cs1 n k t') =
       let (t, cs2) = takeTypeTrailingComments (processType t') in
       ( printLeadingAttachedComments cs1 <>
