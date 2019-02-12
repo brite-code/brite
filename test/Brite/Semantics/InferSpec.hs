@@ -252,6 +252,7 @@ testData =
   , "infer(<>, (error: fun(Bool) -> !), (error(true): !))"
   , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(42))"
   , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(error(true)))"
+  , "infer(<>, (id: fun<T>(T) -> T), id(1))"
   ]
 
 openSnapshotFile :: IO Handle

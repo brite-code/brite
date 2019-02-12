@@ -608,6 +608,10 @@ testData =
   , "unify(<R = {b: Int}, S = {b: Bool}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)"
   , "unify(<R = {b: Int}, S = {b: !}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)"
   , "unify(<R = {b: !}, S = {b: Int}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, T, U)"
+  , "unify(<A = fun<T>(Int) -> fun(T) -> T, B: fun<T, U>(U) -> fun(T) -> T>, A, B)"
+  , "unify(<A = fun<T>(Int) -> fun(T) -> T, B: fun<T, U>(U) -> fun(T) -> T>, B, A)"
+  , "unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, A, B)"
+  , "unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, B, A)"
   ]
 
 openSnapshotFile :: IO Handle

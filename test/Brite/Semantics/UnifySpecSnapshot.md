@@ -8283,3 +8283,61 @@ unify(<R = {b: !}, S = {b: Int}, T = <X: !> {a: X | R}, U = <X: !> {a: X | S}>, 
   - (0:23-0:31): `{b: Int}`
 
 --------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A = fun<T>(Int) -> fun(T) -> T, B: fun<T, U>(U) -> fun(T) -> T>, A, B)
+```
+
+### Output
+```
+<A = fun<T>(Int) -> fun(T) -> T, B = A>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A = fun<T>(Int) -> fun(T) -> T, B: fun<T, U>(U) -> fun(T) -> T>, B, A)
+```
+
+### Output
+```
+<B = fun<T>(Int) -> fun(T) -> T, A = B>
+```
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, A, B)
+```
+
+### Output
+```
+<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>
+```
+
+### Errors
+- (0:72-0:73) Test failed because `fun<T, U>(U) -> fun(T) -> T` is more general than `fun<T>(Int) -> fun(T) -> T`.
+  - (0:42-0:69): `fun<T, U>(U) -> fun(T) -> T`
+  - (0:10-0:36): `fun<T>(Int) -> fun(T) -> T`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, B, A)
+```
+
+### Output
+```
+<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>
+```
+
+### Errors
+- (0:72-0:73) Test failed because `fun<T, U>(U) -> fun(T) -> T` is more general than `fun<T>(Int) -> fun(T) -> T`.
+  - (0:42-0:69): `fun<T, U>(U) -> fun(T) -> T`
+  - (0:42-0:69): `fun<T>(Int) -> fun(T) -> T`
+
+--------------------------------------------------------------------------------
