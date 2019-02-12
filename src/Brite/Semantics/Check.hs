@@ -346,14 +346,21 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
     if HashSet.member name context0 then return (Type.polytype (Type.variable range name))
     else unboundTypeVariable range name >>= errorType
 
+  -- A bottom polytype is just bottom.
   AST.BottomType -> return (Type.bottom range)
+
+  -- If we see a top type then we simulate top with an existentially quantified type. Or `<T> T` in
+  -- Brite syntax and `∃a.a` in academic syntax.
+  AST.TopType ->
+    let (name, _) = freshTypeName (\testName -> HashSet.member testName context0) initialFreshCounter in
+      return $ Type.quantify (Seq.singleton (name, Type.ExistentialQuantifier range)) (Type.variable range name)
 
   -- The void type is easy since it is a monotype defined by a keyword.
   AST.VoidType -> return (Type.polytype (Type.void range))
 
   -- Check a function type with its quantifiers.
-  AST.FunctionType quantifiers0 [uncheckedParameterType] uncheckedBodyType -> do
-    (context1, quantifiers1) <- checkQuantifiers context0 quantifiers0 Seq.empty
+  AST.FunctionType uncheckedQuantifiers0 [uncheckedParameterType] uncheckedBodyType -> do
+    (context1, quantifiers1) <- checkQuantifiers context0 uncheckedQuantifiers0 Seq.empty
     let counter0 = initialFreshCounter
     (counter1, quantifiers2, parameterType) <- checkMonotype Negative context1 counter0 quantifiers1 uncheckedParameterType
     (_, quantifiers3, bodyType) <- checkMonotype Positive context1 counter1 quantifiers2 uncheckedBodyType
@@ -361,10 +368,25 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
   -- inline those quantifiers into our prefix as well.
-  AST.QuantifiedType quantifiers uncheckedBodyType -> do
-    (context1, quantifiers1) <- checkQuantifiers context0 quantifiers Seq.empty
-    (_, quantifiers2, bodyType) <- checkMonotype Positive context1 initialFreshCounter quantifiers1 uncheckedBodyType
-    return (Type.quantify quantifiers2 bodyType)
+  AST.QuantifiedType uncheckedQuantifiers0 uncheckedBodyType0 -> do
+    (context1, quantifiers1) <- checkQuantifiers context0 uncheckedQuantifiers0 Seq.empty
+    (context2, quantifiers2, uncheckedBodyType1) <- loop context1 quantifiers1 uncheckedBodyType0
+    (_, quantifiers3, bodyType) <- checkMonotype Positive context2 initialFreshCounter quantifiers2 uncheckedBodyType1
+    return (Type.quantify quantifiers3 bodyType)
+    where
+      loop context2 quantifiers2 type1 = case AST.typeNode type1 of
+        -- Add a quantified type’s body directly to our quantifier list.
+        AST.QuantifiedType uncheckedQuantifiers1 uncheckedBodyType1 -> do
+          (context3, quantifiers3) <- checkQuantifiers context2 uncheckedQuantifiers1 quantifiers2
+          loop context3 quantifiers3 uncheckedBodyType1
+
+        -- Add the quantifiers from a function type directly to our quantifier list.
+        AST.FunctionType uncheckedQuantifiers1 uncheckedParameterTypes uncheckedBodyType -> do
+          (context3, quantifiers3) <- checkQuantifiers context2 uncheckedQuantifiers1 quantifiers2
+          return (context3, quantifiers3, type1 { AST.typeNode = AST.FunctionType [] uncheckedParameterTypes uncheckedBodyType })
+
+        -- Otherwise return the new context, quantifiers, and the true body type.
+        _ -> return (context2, quantifiers2, type1)
 
   -- If we see an object type then check it as a monotype.
   AST.ObjectType _ _ -> do
@@ -395,6 +417,8 @@ checkQuantifiers ::
   HashSet Identifier -> [AST.Quantifier] -> Seq (Identifier, Type.Quantifier) ->
     DiagnosticWriter (HashSet Identifier, Seq (Identifier, Type.Quantifier))
 checkQuantifiers context0 [] quantifiers = return (context0, quantifiers)
+
+-- Add a universal quantifier...
 checkQuantifiers context0 (AST.UniversalQuantifier name bound : quantifiers) newQuantifiers = do
   -- Create the quantifier. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
@@ -402,6 +426,16 @@ checkQuantifiers context0 (AST.UniversalQuantifier name bound : quantifiers) new
     Nothing -> return (Type.UniversalQuantifier Flexible (Type.bottom (nameRange name)))
     Just (flexibility, boundType) ->
       Type.UniversalQuantifier flexibility <$> checkPolytype context0 boundType
+  -- Introduce our new type variable ID into our context. Notably introduce our type variable
+  -- after checking our quantifier type.
+  let context1 = HashSet.insert (nameIdentifier name) context0
+  -- Add our quantifier and process the remaining quantifiers in our new context.
+  checkQuantifiers context1 quantifiers (newQuantifiers |> (nameIdentifier name, newQuantifier))
+
+-- Add an existential quantifier...
+checkQuantifiers context0 (AST.ExistentialQuantifier name : quantifiers) newQuantifiers = do
+  -- Create the new existential quantifier. All it needs is the range of our name.
+  let newQuantifier = Type.ExistentialQuantifier (nameRange name)
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
   -- after checking our quantifier type.
   let context1 = HashSet.insert (nameIdentifier name) context0
@@ -465,6 +499,13 @@ checkMonotype localPolarity context counter0 quantifiers0 type0 = case AST.typeN
     let quantifier = Type.UniversalQuantifier localFlexibility (Type.bottom range)
     return (counter1, quantifiers0 |> (name, quantifier), Type.variable range name)
 
+  -- If we see a top type when we are expecting a monotype then create a fresh type variable
+  -- which we will place in our polytype prefix.
+  AST.TopType -> do
+    let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
+    let quantifier = Type.ExistentialQuantifier range
+    return (counter1, quantifiers0 |> (name, quantifier), Type.variable range name)
+
   -- The void type is easy since it is a monotype defined by a keyword.
   AST.VoidType -> return (counter0, quantifiers0, Type.void range)
 
@@ -478,7 +519,7 @@ checkMonotype localPolarity context counter0 quantifiers0 type0 = case AST.typeN
   -- with a bound of this quantified type which we will place in our polytype prefix.
   --
   -- NOTE: We don’t inline the quantifiers in our prefix! That could break scoping and we wouldn’t
-  -- be able to print back out the same type.
+  -- be able to print back out the same type. Consider `{a: <T> T, b: <T> T}`.
   AST.QuantifiedType _ _ -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
     quantifier <- Type.UniversalQuantifier localFlexibility <$> checkPolytype context type0
@@ -488,7 +529,7 @@ checkMonotype localPolarity context counter0 quantifiers0 type0 = case AST.typeN
   -- with a bound of this quantified type which we will place in our polytype prefix.
   --
   -- NOTE: We don’t inline the quantifiers as in our prefix! That could break scoping and we
-  -- wouldn’t be able to print back out the same type.
+  -- wouldn’t be able to print back out the same type. Consider `{a: <T> T, b: <T> T}`.
   --
   -- NOTE: We do treat a quantified function type the same as a `QuantifiedType`.
   AST.FunctionType (_ : _) _ _ -> do

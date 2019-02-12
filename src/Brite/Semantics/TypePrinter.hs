@@ -132,31 +132,96 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
           -- return the old value before it is deleted.
           (quantifierReferences, references2) =
             HashMap.alterF (\value -> (value, Nothing)) name references1
-
-          (quantifierFlexibility, quantifierType) = case quantifier of
-            UniversalQuantifier f t -> (f, t)
         in
-          printPolytypeWithInlining quantifierType references2 $ \references3 makeQuantifierType ->
-            next references3 $ \seen captured substitutions ->
-              case (quantifierFlexibility, quantifierReferences) of
+        case quantifier of
+          -- Printing a universal quantifier will inline the bound type depending on where it is
+          -- referenced in the type.
+          UniversalQuantifier quantifierFlexibility quantifierType ->
+            printPolytypeWithInlining quantifierType references2 $ \references3 makeQuantifierType ->
+              next references3 $ \seen captured substitutions ->
+                case (quantifierFlexibility, quantifierReferences) of
+                  -- If there are no references to this quantifier then ignore it. These branches
+                  -- should be unreachable since normal mode will discard unused bindings.
+                  (_, Nothing) -> makeQuantifiedBody seen captured (HashMap.delete name substitutions)
+                  (_, Just (0, 0)) -> makeQuantifiedBody seen captured (HashMap.delete name substitutions)
+
+                  -- If a flexible quantifier has just one positive reference then inline the
+                  -- quantifier type.
+                  (Flexible, Just (1, 0)) ->
+                    let newCaptured = Set.union (polytypeFreeVariables quantifierType) captured in
+                      makeQuantifiedBody seen newCaptured $
+                        HashMap.insert name (makeQuantifierType seen substitutions) substitutions
+
+                  -- If a rigid quantifier has just one negative reference then inline the
+                  -- quantifier type.
+                  (Rigid, Just (0, 1)) ->
+                    let newCaptured = Set.union (polytypeFreeVariables quantifierType) captured in
+                      makeQuantifiedBody seen newCaptured $
+                        HashMap.insert name (makeQuantifierType seen substitutions) substitutions
+
+                  -- If our quantifier has more than one reference then we want to add it as
+                  -- a quantifier.
+                  _ ->
+                    -- If this quantifier is captured in our `substitutions` map then we need to pick a
+                    -- new name for it.
+                    if Set.member name captured then
+                      let
+                        -- Generate a new, unique, name that we have not seen before and is
+                        -- not captured.
+                        newName = uniqueName (\testName -> HashSet.member testName seen) name
+
+                        -- Create our quantifier using the new quantifier name.
+                        q =
+                          PrinterAST.quantifier
+                            newName
+                            quantifierFlexibility
+                            (makeQuantifierType seen substitutions)
+
+                        -- Create the rest of our quantifiers and quantified body. Add our new
+                        -- quantifier name as a substitution and add the new quantifier name to our
+                        -- “captured” set. Also add our new quantifier name to our “seen” set.
+                        (qs, t) =
+                          makeQuantifiedBody
+                            (HashSet.insert newName seen)
+                            (Set.insert newName captured)
+                            (HashMap.insert name (PrinterAST.variableType newName) substitutions)
+                      in
+                        (q : qs, t)
+
+                    -- Otherwise, we don’t have to generate a new name.
+                    else
+                      let
+                        -- Create our quantifier. If we have a flexible, bottom type, bound then we
+                        -- print an unbound quantifier. Otherwise we print a full quantifier.
+                        q =
+                          PrinterAST.quantifier
+                            name
+                            quantifierFlexibility
+                            (makeQuantifierType seen substitutions)
+
+                        -- Create the rest of our quantifiers. Add our quantifier name to our “seen”
+                        -- set. If we had an old substitution, remove it.
+                        (qs, t) =
+                          makeQuantifiedBody
+                            (HashSet.insert name seen)
+                            captured
+                            (HashMap.delete name substitutions)
+                      in
+                        (q : qs, t)
+
+          -- Existential quantifiers are inlined if there is one reference regardless of the
+          -- polarity of that reference.
+          ExistentialQuantifier _ ->
+            next references2 $ \seen captured substitutions ->
+              case maybe 0 (uncurry (+)) quantifierReferences of
                 -- If there are no references to this quantifier then ignore it. These branches
                 -- should be unreachable since normal mode will discard unused bindings.
-                (_, Nothing) -> makeQuantifiedBody seen captured (HashMap.delete name substitutions)
-                (_, Just (0, 0)) -> makeQuantifiedBody seen captured (HashMap.delete name substitutions)
+                0 -> makeQuantifiedBody seen captured (HashMap.delete name substitutions)
 
-                -- If a flexible quantifier has just one positive reference then inline the
-                -- quantifier type.
-                (Flexible, Just (1, 0)) ->
-                  let newCaptured = Set.union (polytypeFreeVariables quantifierType) captured in
-                    makeQuantifiedBody seen newCaptured $
-                      HashMap.insert name (makeQuantifierType seen substitutions) substitutions
-
-                -- If a rigid quantifier has just one negative reference then inline the
-                -- quantifier type.
-                (Rigid, Just (0, 1)) ->
-                  let newCaptured = Set.union (polytypeFreeVariables quantifierType) captured in
-                    makeQuantifiedBody seen newCaptured $
-                      HashMap.insert name (makeQuantifierType seen substitutions) substitutions
+                -- If an existential quantifier has exactly one reference then inline the top type.
+                1 ->
+                  makeQuantifiedBody seen captured $
+                    HashMap.insert name PrinterAST.topType substitutions
 
                 -- If our quantifier has more than one reference then we want to add it as
                 -- a quantifier.
@@ -170,11 +235,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                       newName = uniqueName (\testName -> HashSet.member testName seen) name
 
                       -- Create our quantifier using the new quantifier name.
-                      q =
-                        PrinterAST.quantifier
-                          newName
-                          quantifierFlexibility
-                          (makeQuantifierType seen substitutions)
+                      q = PrinterAST.unboundQuantifier newName
 
                       -- Create the rest of our quantifiers and quantified body. Add our new
                       -- quantifier name as a substitution and add the new quantifier name to our
@@ -192,11 +253,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                     let
                       -- Create our quantifier. If we have a flexible, bottom type, bound then we
                       -- print an unbound quantifier. Otherwise we print a full quantifier.
-                      q =
-                        PrinterAST.quantifier
-                          name
-                          quantifierFlexibility
-                          (makeQuantifierType seen substitutions)
+                      q = PrinterAST.unboundQuantifier name
 
                       -- Create the rest of our quantifiers. Add our quantifier name to our “seen”
                       -- set. If we had an old substitution, remove it.
@@ -207,6 +264,7 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                           (HashMap.delete name substitutions)
                     in
                       (q : qs, t)
+
   where
     -- Convert our type to normal form before printing it.
     type1 = normal type0
@@ -315,6 +373,8 @@ printPolytypeWithoutInlining type' = case polytypeDescription type' of
 printQuantifierWithoutInlining :: Identifier -> Quantifier -> PrinterAST.Quantifier
 printQuantifierWithoutInlining name (UniversalQuantifier flex type') =
   PrinterAST.quantifier name flex (printPolytypeWithoutInlining type')
+printQuantifierWithoutInlining name (ExistentialQuantifier _) =
+  PrinterAST.unboundQuantifier name
 
 -- Prints a monotype to a `PrinterAST`. That printer AST will then be provided to our actual printer
 -- for display to the programmer.

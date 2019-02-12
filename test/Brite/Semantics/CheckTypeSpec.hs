@@ -147,6 +147,19 @@ testData =
   , ("fun<T = Int>({a: Int | T}) -> T", "fun<T = Int>({a: Int | T}) -> T", [])
   , ("fun<T: Int>(T) -> {a: Int | T}", "fun<T: Int>(T) -> {a: Int | T}", [])
   , ("fun<T = <X: !> {a: X, b: !}>(T) -> T", "fun<T = <X: !, Type1: !> {a: X, b: Type1}>(T) -> T", [])
+  , ("<T> T", "<T> T", [])
+  , ("_", "<Type1> Type1", [])
+  , ("fun(!) -> !", "fun<Type1 = !, Type2>(Type1) -> Type2", [])
+  , ("fun(_) -> _", "<Type1, Type2> fun(Type1) -> Type2", [])
+  , ("fun(_) -> !", "<Type1> fun<Type2>(Type1) -> Type2", [])
+  , ("fun(!) -> _", "<Type2> fun<Type1 = !>(Type1) -> Type2", [])
+  , ("<T> fun(T) -> !", "<T> fun<Type1>(T) -> Type1", [])
+  , ("<T> fun(!) -> T", "<T> fun<Type1 = !>(Type1) -> T", [])
+  , ("<T> {a: T, b: T}", "<T> {a: T, b: T}", [])
+  , ("<T> {val: T, key: fun(T) -> Int}", "<T> {val: T, key: fun(T) -> Int}", [])
+  , ("{a: _, b: _}", "<Type1, Type2> {a: Type1, b: Type2}", [])
+  , ("<T, U, V> T", "<T, U, V> T", [])
+  , ("<T, U: !, V = !> T", "<T, U: !, V = !> T", [])
   ]
 
 initialContext :: HashSet Identifier

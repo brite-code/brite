@@ -155,15 +155,22 @@ data Quantifier
   -- rigid bound.
   = UniversalQuantifier Flexibility Polytype
 
+  -- An existential quantifier (∃) has no bound. Implicitly, the most polymorphic type for an
+  -- existential quantifier is the bottom type. Existential quantifiers carry around a range so we
+  -- can point to where the existential quantifier was defined.
+  | ExistentialQuantifier Range
+
 -- Returns the bound type of our quantifier disregarding the flexibility. You can think of the bound
 -- as the most polymorphic type possible for this quantifier where bottom (⊥) is the most
 -- polymorphic type.
 quantifierBoundType :: Quantifier -> Polytype
 quantifierBoundType (UniversalQuantifier _ t) = t
+quantifierBoundType (ExistentialQuantifier r) = bottom r
 
 -- All of the free variables in a quantifier.
 quantifierFreeVariables :: Quantifier -> Set Identifier
 quantifierFreeVariables (UniversalQuantifier _ t) = polytypeFreeVariables t
+quantifierFreeVariables (ExistentialQuantifier _) = Set.empty
 
 -- Creates a type variable monotype.
 variable :: Range -> Identifier -> Monotype
@@ -334,6 +341,7 @@ substituteAndNormalizePolytype initialSeen initialSubstitutions t0 = case polyty
         let
           -- Convert the bound’s type to normal form if necessary.
           entry@(name, quantifier) = case oldQuantifier of
+            ExistentialQuantifier _ -> oldEntry
             UniversalQuantifier f t ->
               maybe oldEntry ((,) oldName . UniversalQuantifier f) (substituteAndNormalizePolytype seen substitutions t)
         in
@@ -448,6 +456,7 @@ substitutePolytype substitutions0 t0 = case polytypeDescription t0 of
           (\substitutions1 entry@(name, quantifier) ->
             let
               newEntry = case quantifier of
+                ExistentialQuantifier _ -> entry
                 UniversalQuantifier f t ->
                   maybe entry ((,) name . UniversalQuantifier f) (substitutePolytype substitutions1 t)
 

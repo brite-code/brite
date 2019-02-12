@@ -117,6 +117,17 @@ testData =
   , ("{b: Int, a: !}", "{b: Int, a: !}")
   , ("{a: Int | {b: Bool}}", "{a: Int, b: Bool}")
   , ("fun<Type2, Type3>({p: Type2 | Type3}) -> Type2", "fun<Type2>({p: Type2 | !}) -> Type2")
+  , ("<T> T", "_")
+  , ("<T> fun(T) -> void", "fun(_) -> void")
+  , ("<T> fun(void) -> T", "fun(void) -> _")
+  , ("<T> fun(T) -> T", "<T> fun(T) -> T")
+  , ("<T> fun(void) -> void", "fun(void) -> void")
+  , ("<T: !, U = fun<V>(V) -> fun(T) -> T, T> fun(U) -> fun(T) -> T", "<T2> fun<T>(fun<V>(V) -> fun(T) -> T) -> fun(T2) -> T2")
+  , ("<T: !, T2: !, U = fun<V>(V) -> {a: T, b: T, c: T2, d: T2}, T> fun(U) -> fun(T) -> T", "<T3> fun<T, T2>(fun<V>(V) -> {a: T, b: T, c: T2, d: T2}) -> fun(T3) -> T3")
+  , ("<T: !, U = fun<V>(V) -> {a: T, b: T}, T, T2> fun(U) -> {a: T, b: T, c: T2, d: T2}", "<T2, T3> fun<T>(fun<V>(V) -> {a: T, b: T}) -> {a: T2, b: T2, c: T3, d: T3}")
+  , ("<T2, T: !, U = fun<V>(V) -> {a: T, b: T}, T> fun(U) -> {a: T, b: T, c: T2, d: T2}", "<T2, T3> fun<T>(fun<V>(V) -> {a: T, b: T}) -> {a: T3, b: T3, c: T2, d: T2}")
+  , ("<T: !, U = fun<V>(V) -> T, T> fun(U) -> {a: T, b: T}", "<T> fun(fun<V>(V) -> !) -> {a: T, b: T}")
+  , ("<T: !, U: fun<V>(V) -> T, T> {a: U, b: U, c: T, d: T}", "<U: fun<V>(V) -> !, T> {a: U, b: U, c: T, d: T}")
   ]
 
 initialContext :: HashSet Identifier

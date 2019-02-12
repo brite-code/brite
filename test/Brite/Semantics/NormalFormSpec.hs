@@ -116,6 +116,14 @@ testData =
   , ("{p: Int | {q: Bool}}", "{p: Int, q: Bool}")
   , ("{| {p: Int, q: Bool}}", "{p: Int, q: Bool}")
   , ("<A = <Z: !> X> A", "X")
+  , ("<T> T", "<T> T")
+  , ("<T, U, V> T", "<T> T")
+  , ("<T> fun(T) -> T", "<T> fun(T) -> T")
+  , ("<T> fun<T>(T) -> T", "fun<T>(T) -> T")
+  , ("<T> fun<U = T, T>(T) -> U", "<T> fun<T2>(T2) -> T")
+  , ("<T: !, U = T, T> fun(T) -> U", "<T2> fun<T>(T2) -> T")
+  , ("<T: !, U = T, T, T2> fun(T) -> fun(U) -> T2", "<T2, T3> fun<T>(T2) -> fun(T) -> T3")
+  , ("_", "<Type1> Type1")
   ]
 
 initialContext :: HashSet Identifier

@@ -47,6 +47,7 @@ module Brite.Syntax.PrinterAST
   , Flexibility(..)
   , variableType
   , bottomType
+  , topType
   , voidType
   , functionType
   , quantifiedFunctionType
@@ -412,6 +413,10 @@ variableType name = Type [] [] (VariableType name)
 -- `!`
 bottomType :: Type
 bottomType = Type [] [] BottomType
+
+-- `_`
+topType :: Type
+topType = Type [] [] TopType
 
 -- `void`
 voidType :: Type
