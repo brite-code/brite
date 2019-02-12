@@ -11,7 +11,7 @@ module Brite.Semantics.UnifyAbstraction
   ) where
 
 import Brite.Semantics.CheckMonad
-import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, MonotypeDescription(..))
+import Brite.Semantics.Type (Polytype, PolytypeDescription(..), Monotype, MonotypeDescription(..), Quantifier(..), Flexibility(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier (Identifier)
@@ -46,7 +46,7 @@ data Skeleton
 -- the instance relation if one type abstracts another then the types have the same skeletons.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-projectionsEqual :: forall s. (Identifier -> Check s (Maybe Type.Binding)) -> Polytype -> Polytype -> Check s Bool
+projectionsEqual :: forall s. (Identifier -> Check s (Maybe Quantifier)) -> Polytype -> Polytype -> Check s Bool
 projectionsEqual prefix initialType1 initialType2 =
   skeletonsEqual
     (polytypeSkeleton HashMap.empty initialType1)
@@ -74,17 +74,16 @@ projectionsEqual prefix initialType1 initialType2 =
 
       -- Convert all of our quantification bindings into skeletons. We know that since our type is
       -- in normal form, all bindings will be used.
-      Quantify bindings body ->
+      Quantify quantifiers body ->
         let
           context2 =
             foldl
-              (\context1 binding ->
-                HashMap.insert
-                  (Type.bindingName binding)
-                  (polytypeSkeleton context1 (Type.bindingType binding))
+              (\context1 (name, quantifier) ->
+                HashMap.insert name
+                  (polytypeSkeleton context1 (Type.quantifierBoundType quantifier))
                   context1)
             context0
-            bindings
+            quantifiers
         in
           monotypeSkeleton context2 body
 
@@ -102,8 +101,10 @@ projectionsEqual prefix initialType1 initialType2 =
         maybeBinding1 <- prefix name1
         case maybeBinding1 of
           Nothing -> return False
-          Just binding1 ->
-            skeletonsEqual (polytypeSkeleton HashMap.empty (Type.bindingType binding1)) skeleton2
+          Just quantifier1 ->
+            skeletonsEqual
+              (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier1))
+              skeleton2
 
       -- De-reference a variable from the prefix, convert that variable to a skeleton, and compare
       -- the equality of our skeletons.
@@ -111,8 +112,10 @@ projectionsEqual prefix initialType1 initialType2 =
         maybeBinding2 <- prefix name2
         case maybeBinding2 of
           Nothing -> return False
-          Just binding2 ->
-            skeletonsEqual skeleton1 (polytypeSkeleton HashMap.empty (Type.bindingType binding2))
+          Just quantifier2 ->
+            skeletonsEqual
+              skeleton1
+              (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier2))
 
       -- Bottom is only equal to itself.
       (BottomSkeleton, BottomSkeleton) -> return True
@@ -160,9 +163,9 @@ projectionsEqual prefix initialType1 initialType2 =
         maybeBinding1 <- prefix name1
         case maybeBinding1 of
           Nothing -> return False
-          Just binding1 ->
+          Just quantifier1 ->
             constructSkeletonsEqual
-              (Object props1 (Just (polytypeSkeleton HashMap.empty (Type.bindingType binding1))))
+              (Object props1 (Just (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier1))))
               construct2
 
       -- De-reference a variable from the prefix, convert that variable to a skeleton, and compare
@@ -171,10 +174,10 @@ projectionsEqual prefix initialType1 initialType2 =
         maybeBinding2 <- prefix name2
         case maybeBinding2 of
           Nothing -> return False
-          Just binding2 ->
+          Just quantifier2 ->
             constructSkeletonsEqual
               construct1
-              (Object props2 (Just (polytypeSkeleton HashMap.empty (Type.bindingType binding2))))
+              (Object props2 (Just (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier2))))
 
       -- If our object extends another object then merge the two property maps.
       (Object props1A (Just (ConstructSkeleton (Object props1B ext1))), _) ->
@@ -329,18 +332,17 @@ flexibleBindersUnchanged type1 type2 =
 
           -- For quantifications add one to the correct polynomial variable and recurse into the
           -- polynomial’s bound. Also make sure to proceed to the next state correctly.
-          Quantify bindings _ ->
+          Quantify quantifiers _ ->
             foldl'
-              (\acc1 binding ->
-                let t1 = Type.bindingType binding in
-                  case (state, Type.bindingFlexibility binding) of
-                    (X, Type.Flexible) -> loop X acc1 (xs + 1) ys zs t1
-                    (X, Type.Rigid)    -> loop Y acc1 xs (ys + 1) zs t1
-                    (Y, Type.Flexible) -> loop Z acc1 xs ys (zs + 1) t1
-                    (Y, Type.Rigid)    -> loop Y acc1 xs (ys + 1) zs t1
-                    (Z, _)             -> loop Z acc1 xs ys (zs + 1) t1)
+              (\acc1 (_, quantifier) ->
+                case (state, quantifier) of
+                  (X, UniversalQuantifier Flexible t1) -> loop X acc1 (xs + 1) ys zs t1
+                  (X, UniversalQuantifier Rigid t1)    -> loop Y acc1 xs (ys + 1) zs t1
+                  (Y, UniversalQuantifier Flexible t1) -> loop Z acc1 xs ys (zs + 1) t1
+                  (Y, UniversalQuantifier Rigid t1)    -> loop Y acc1 xs (ys + 1) zs t1
+                  (Z, UniversalQuantifier _ t1)             -> loop Z acc1 xs ys (zs + 1) t1)
               acc0
-              bindings
+              quantifiers
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t2` holds. Do not call this function with two types which do
 -- not uphold this relation!
@@ -351,7 +353,7 @@ flexibleBindersUnchanged type1 type2 =
 -- 2.7.8 as it provides more context as to why this algorithm is correct.
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
-abstractionCheck :: (Identifier -> Check s (Maybe Type.Binding)) -> Polytype -> Polytype -> Check s Bool
+abstractionCheck :: (Identifier -> Check s (Maybe Quantifier)) -> Polytype -> Polytype -> Check s Bool
 abstractionCheck prefix initialType1 initialType2 = do
   -- If the projections of the two types are not equal then the check fails by Property 2.1.3 (i).
   equal <- projectionsEqual prefix initialType1 initialType2
@@ -371,11 +373,11 @@ abstractionCheck prefix initialType1 initialType2 = do
         -- is computationally wasteful. Projections will always be equal so we don’t perform that
         -- check again.
         (_, Monotype' (Type.monotypeDescription -> Variable name2)) -> do
-          maybeBinding <- prefix name2
-          case maybeBinding of
+          maybeQuantifier <- prefix name2
+          case maybeQuantifier of
             Nothing -> return False
-            Just binding | Type.bindingFlexibility binding /= Type.Rigid -> return False
-            Just binding -> loop type1 (Type.bindingType binding)
+            Just (UniversalQuantifier Flexible _) -> return False
+            Just (UniversalQuantifier Rigid type3) -> loop type1 type3
 
         -- Finally, we expect the flexible binders to not have changed between the two types.
         _ -> return (flexibleBindersUnchanged type1 type2)

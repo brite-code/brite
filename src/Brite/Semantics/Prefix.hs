@@ -43,6 +43,7 @@ import Data.List (sort)
 import Data.Maybe (isJust, fromMaybe)
 import Data.Sequence (Seq, (|>))
 import qualified Data.Sequence as Seq
+import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.STRef
 import Data.Text (Text)
@@ -86,7 +87,7 @@ data Prefix s = Prefix
 -- An entry for a type variable in the prefix. The entry remembers the level at which the entry is
 -- stored and the quantifier which defined this type variable.
 data PrefixEntry s = PrefixEntry
-  { prefixEntryBinding :: STRef s Type.Binding
+  { prefixEntryQuantifier :: STRef s Type.Quantifier
   , prefixEntryLevel :: STRef s (PrefixLevel s)
   }
 
@@ -140,37 +141,37 @@ exists prefix name = isJust <$> HashTable.lookup (prefixEntries prefix) name
 -- * If the binding type has free type variables that don’t exist in the prefix then we will happily
 --   add your binding to the prefix anyway. Just know that you’re in for a world of trouble later
 --   when you try to use those unbound type variables.
-addAssumingThatNameIsUnbound :: Prefix s -> Type.Binding -> ST s ()
-addAssumingThatNameIsUnbound prefix binding = do
+addAssumingThatNameDoesNotExist :: Prefix s -> Identifier -> Type.Quantifier -> ST s ()
+addAssumingThatNameDoesNotExist prefix name quantifier = do
   -- If there are no levels or a binding with the same ID already exists then we don’t add
   -- the binding.
   levels <- readSTRef (prefixLevels prefix)
   if null levels then return () else do
     -- Add the type variable binding to the current level.
     let level = head levels
-    HashTable.insert (prefixLevelVariables level) (Type.bindingName binding) ()
+    HashTable.insert (prefixLevelVariables level) name ()
     -- Add the type variable binding to the prefix.
-    entry <- PrefixEntry <$> newSTRef binding <*> newSTRef level
-    HashTable.insert (prefixEntries prefix) (Type.bindingName binding) entry
+    entry <- PrefixEntry <$> newSTRef quantifier <*> newSTRef level
+    HashTable.insert (prefixEntries prefix) name entry
 
 -- Adds a type binding to our prefix. If the name is already bound in the prefix then we generate a
 -- unique name. We return `Nothing` if we did not need to generate a new name. We return `Just` if
 -- we did need to generate a new name.
-add :: Prefix s -> Type.Binding -> Check s (Maybe Identifier)
-add prefix binding = liftST $ do
+add :: Prefix s -> Identifier -> Type.Quantifier -> Check s (Maybe Identifier)
+add prefix name quantifier = liftST $ do
   -- If the binding has the name of a fresh type then let’s generate a fresh type name instead of
   -- using `uniqueNameM`. We have a much smaller chance of collision that way since the prefix may
   -- contain any number of fresh type names already.
   newName <-
-    if isFreshTypeName (Type.bindingName binding) then freshName prefix
-    else uniqueNameM (exists prefix) (Type.bindingName binding)
+    if isFreshTypeName name then freshName prefix
+    else uniqueNameM (exists prefix) name
   -- If we did not generate a new name then we can use our binding unchanged.
-  if newName == Type.bindingName binding then do
-    addAssumingThatNameIsUnbound prefix binding
+  if newName == name then do
+    addAssumingThatNameDoesNotExist prefix name quantifier
     return Nothing
   else do
     -- Otherwise we need to add a binding with our new name to the prefix.
-    addAssumingThatNameIsUnbound prefix (binding { Type.bindingName = newName })
+    addAssumingThatNameDoesNotExist prefix newName quantifier
     return (Just newName)
 
 -- Generates a fresh type variable name.
@@ -185,7 +186,7 @@ freshName prefix = do
 fresh :: Prefix s -> Range -> Check s Monotype
 fresh prefix range = liftST $ do
   name <- freshName prefix
-  addAssumingThatNameIsUnbound prefix (Type.Binding name Type.Flexible (Type.bottom range))
+  addAssumingThatNameDoesNotExist prefix name (Type.UniversalQuantifier Type.Flexible (Type.bottom range))
   return (Type.variable range name)
 
 -- Creates a fresh type variable with the provided type as the bound. If the provided type is a
@@ -202,55 +203,61 @@ freshWithBound prefix flexibility type0 = liftST $
     Type.Monotype' type1 -> return type1
     _ -> do
       name <- freshName prefix
-      addAssumingThatNameIsUnbound prefix (Type.Binding name flexibility type0)
+      addAssumingThatNameDoesNotExist prefix name (Type.UniversalQuantifier flexibility type0)
       return (Type.variableWithRangeStack (Type.polytypeRangeStack type0) name)
 
 -- Finds the binding for the provided name in the prefix. If no type variable could be found then we
 -- return nothing. The bound returned will always be in normal form.
-lookup :: Prefix s -> Identifier -> Check s (Maybe Type.Binding)
+lookup :: Prefix s -> Identifier -> Check s (Maybe Type.Quantifier)
 lookup prefix name = liftST $ do
   -- Lookup the entry in the table. If the type is not in normal form we want to convert the type
   -- before returning.
   maybeEntry <- HashTable.lookup (prefixEntries prefix) name
-  flip traverse maybeEntry $ \entry -> do
-    -- Read the binding from our entry.
-    binding <- readSTRef (prefixEntryBinding entry)
-    -- If the type is not in normal form, convert it to normal form and update the binding in
-    -- our entry.
-    if not (Type.polytypeNormal (Type.bindingType binding)) then do
-      let newType = Type.normal (Type.bindingType binding)
-      let newBinding = binding { Type.bindingType = newType }
-      writeSTRef (prefixEntryBinding entry) newBinding
-      return newBinding
-    else
-      return binding
+  traverse normalizePrefixEntryQuantifier maybeEntry
+
+-- Gets the quantifier for a prefix entry and the quantifier will always be in normal form. If the
+-- quantifier is not in normal form we will convert it and update the prefix entry.
+normalizePrefixEntryQuantifier :: PrefixEntry s -> ST s Type.Quantifier
+normalizePrefixEntryQuantifier entry = do
+  -- Read the quantifier from our entry.
+  quantifier <- readSTRef (prefixEntryQuantifier entry)
+  -- If the type is not in normal form, convert it to normal form and update the quantifier in
+  -- our entry.
+  case quantifier of
+    Type.UniversalQuantifier flexibility type0 | not (Type.polytypeNormal type0) -> do
+      let type1 = Type.normal type0
+      let newQuantifier = Type.UniversalQuantifier flexibility type1
+      writeSTRef (prefixEntryQuantifier entry) newQuantifier
+      return newQuantifier
+
+    _ -> return quantifier
 
 -- Merges the bounds of a quantified type into the prefix. If any of the bound names already exist
 -- in the prefix then we need to generate new names. Those names will be substituted in the bounds
 -- and the provided body type. The new body type with substituted names will be returned.
-instantiate :: Prefix s -> Seq Type.Binding -> Monotype -> Check s Monotype
-instantiate prefix bindings body = do
-  -- Loop through our bindings and add them to our prefix. All of the bindings with a naming
+instantiate :: Prefix s -> Seq (Identifier, Type.Quantifier) -> Monotype -> Check s Monotype
+instantiate prefix quantifiers body = do
+  -- Loop through our quantifiers and add them to our prefix. All of the quantifiers with a naming
   -- conflict in our prefix will add a substitution to our substitutions map.
   substitutions2 <-
     foldlM
-      (\substitutions1 binding -> do
+      (\substitutions1 (name, quantifier) -> do
         let
-          -- If we have some substitutions then apply them to our binding.
-          newBinding =
-            if HashMap.null substitutions1 then binding
-            else case Type.substitutePolytype substitutions1 (Type.bindingType binding) of
-              Nothing -> binding
-              Just newType -> binding { Type.bindingType = newType }
-        -- Add the binding to our prefix.
-        maybeNewType <- add prefix newBinding
+          -- If we have some substitutions then apply them to our quantifier.
+          newQuantifier =
+            if HashMap.null substitutions1 then quantifier
+            else case quantifier of
+              Type.UniversalQuantifier f t ->
+                maybe quantifier (Type.UniversalQuantifier f) (Type.substitutePolytype substitutions1 t)
+        -- Add the quantifier to our prefix.
+        maybeNewName <- add prefix name newQuantifier
         -- If we had to generate a new name then add a substitution to our map.
-        return $ case maybeNewType of
+        return $ case maybeNewName of
           Nothing -> substitutions1
-          Just newName -> HashMap.insert (Type.bindingName newBinding) (Left newName) substitutions1)
-      -- Start with no substitutions and loop through bindings.
+          Just newName -> HashMap.insert name (Left newName) substitutions1)
+      -- Start with no substitutions and loop through quantifiers.
       HashMap.empty
-      bindings
+      quantifiers
   -- If we have some substitutions we need to apply them to our body type.
   if HashMap.null substitutions2 then return body
   else return (fromMaybe body (Type.substituteMonotype substitutions2 body))
@@ -270,7 +277,7 @@ generalize prefix body = liftST $ do
     -- Create a hash table for tracking the type variables we’ve visited. Also create a list of the
     -- bounds we are going to quantify.
     visited <- HashTable.new
-    bindingsRef <- newSTRef Seq.empty
+    quantifiersRef <- newSTRef Seq.empty
     -- Our visitor will look at each free type variable and possibly add it to our bounds list
     -- and recurse.
     let
@@ -285,15 +292,16 @@ generalize prefix body = liftST $ do
             -- If the type variable is on our current level...
             entryLevelIndex <- prefixLevelIndex <$> readSTRef (prefixEntryLevel entry)
             if entryLevelIndex >= currentLevelIndex then do
-              -- Read the binding reference.
-              entryBinding <- readSTRef (prefixEntryBinding entry)
+              -- Read the quantifier reference in normal form. We will be converting our final type
+              -- to normal form anyway. Might as well do it now and save the result in our prefix.
+              quantifier <- normalizePrefixEntryQuantifier entry
               -- Recurse and visit all free variables in our bound because the bound might have some
               -- dependencies on this level.
-              traverse_ visit (Type.polytypeFreeVariables (Type.bindingType entryBinding))
+              traverse_ visit (Type.quantifierFreeVariables quantifier)
               -- Add our bound to the list we will use to quantify. It is important we do this after
               -- recursing! Since the bound we add depends on the bounds we might add
               -- while recursing.
-              modifySTRef bindingsRef (|> entryBinding)
+              modifySTRef quantifiersRef (|> (name, quantifier))
             else
               return ())
         else
@@ -301,9 +309,9 @@ generalize prefix body = liftST $ do
     -- Visit all the free variables in this type.
     traverse_ visit (Type.monotypeFreeVariables body)
     -- Quantify the type by the list of bounds we collected. Also convert the type to normal form.
-    bindings <- readSTRef bindingsRef
-    if Seq.null bindings then return (Type.polytype body)
-    else return (Type.normal (Type.quantify bindings body))
+    quantifiers <- readSTRef quantifiersRef
+    if Seq.null quantifiers then return (Type.polytype body)
+    else return (Type.normal (Type.quantify quantifiers body))
 
 -- Checks to see if the provided name occurs anywhere in the type or in the bounds of any free type
 -- variables recursively. If it does then we can’t update the type variable at `name` with the
@@ -313,7 +321,7 @@ occurs prefix targetName type0 = if Set.null (Type.polytypeFreeVariables type0) 
   -- Cache for type variables we have seen before so we don’t need to check them twice.
   seen <- HashTable.new
   let
-    loop type1 = do
+    loop freeVariables = do
       -- Lazily search through all the type’s free variables. The lazy part is important here since
       -- we want to stop searching when we first find an occurrence.
       --
@@ -326,12 +334,12 @@ occurs prefix targetName type0 = if Set.null (Type.polytypeFreeVariables type0) 
               if seenName then return False else do
                 HashTable.insert seen name ()
                 HashTable.lookup (prefixEntries prefix) name >>=
-                  mapM (readSTRef . prefixEntryBinding) >>=
-                  maybe (return False) (loop . Type.bindingType))
+                  mapM (readSTRef . prefixEntryQuantifier) >>=
+                  maybe (return False) (loop . Type.quantifierFreeVariables))
         False
-        (Type.polytypeFreeVariables type1)
+        freeVariables
   -- Start our check with the initial type.
-  loop type0
+  loop (Type.polytypeFreeVariables type0)
 
 -- “Re-orders” the dependencies of a polytype in the prefix. The prefix is ordered by levels. All
 -- the type variable in a given level will be generalized together. So if our new level comes
@@ -340,10 +348,10 @@ occurs prefix targetName type0 = if Set.null (Type.polytypeFreeVariables type0) 
 -- from our prefix.
 --
 -- Oh, and yes, pun intended.
-levelUp :: Prefix s -> PrefixLevel s -> Polytype -> ST s ()
-levelUp prefix newLevel type0 =
+levelUp :: Prefix s -> PrefixLevel s -> Set Identifier -> ST s ()
+levelUp prefix newLevel freeVariables =
   -- Loop through all of our free type variables...
-  flip traverse_ (Type.polytypeFreeVariables type0) $ \name ->
+  flip traverse_ freeVariables $ \name ->
     -- Lookup the type variable. If it exists then we want to check its level...
     HashTable.lookup (prefixEntries prefix) name >>= traverse_ (\entry -> do
       -- We know that the old level will be removed before the new level if the index of the old
@@ -355,29 +363,30 @@ levelUp prefix newLevel type0 =
         HashTable.delete (prefixLevelVariables oldLevel) name
         HashTable.insert (prefixLevelVariables newLevel) name ()
         -- Recurse because we might have dependencies in our bound that also need to be updated.
-        (Type.bindingType <$> readSTRef (prefixEntryBinding entry)) >>= levelUp prefix newLevel
+        (Type.quantifierFreeVariables <$> readSTRef (prefixEntryQuantifier entry)) >>= levelUp prefix newLevel
       else
         return ())
 
 -- Performs the checks which must pass for an update to be safe.
-updateCheck :: UnifyStack -> Prefix s -> Type.Binding -> Polytype -> Check s (Either Diagnostic ())
-updateCheck stack prefix oldBinding newType = do
+updateCheck :: UnifyStack -> Prefix s -> Identifier -> Type.Quantifier -> Polytype -> Check s (Either Diagnostic ())
+updateCheck stack prefix name oldQuantifier newType = do
   -- Run an “occurs” check to make sure that we aren’t creating an infinite type with this update.
   -- If we would create an infinite type then return an error.
-  nameOccurs <- liftST $ occurs prefix (Type.bindingName oldBinding) newType
+  nameOccurs <- liftST $ occurs prefix name newType
   if nameOccurs then
     Left <$> infiniteType stack
   else do
     -- If the old bound is rigid then we check to make sure that the new type is an abstraction of
     -- the old type. If it is not then we have an invalid update!
     abstractionCheckSucceeds <-
-      if Type.bindingFlexibility oldBinding /= Type.Rigid then return True else
-        abstractionCheck (lookup prefix) (Type.bindingType oldBinding) newType
+      case oldQuantifier of
+        Type.UniversalQuantifier Type.Flexible _ -> return True
+        Type.UniversalQuantifier Type.Rigid oldType -> abstractionCheck (lookup prefix) oldType newType
     if not abstractionCheckSucceeds then
       Left <$>
         doesNotAbstract
           (rawPolytypeMessage newType)
-          (rawPolytypeMessage (Type.bindingType oldBinding))
+          (rawPolytypeMessage (case oldQuantifier of { Type.UniversalQuantifier _ t -> t }))
           stack
     else
       -- The update is ok. You may proceed to commit changes...
@@ -406,27 +415,27 @@ rawPolytypeMessage t =
 -- 3. If `Q ⊑ Q'` would not hold after applying this update we return an error.
 --
 -- We assume that the new type is an instance of the old type. However, we do check to ensure that
--- the new type is an abstraction of the old type for rigid bindings.
+-- the new type is an abstraction of the old type for rigid quantifiers.
 update :: UnifyStack -> Prefix s -> Identifier -> Polytype -> Check s (Either Diagnostic ())
 update stack prefix name newType = do
-  -- Lookup the existing binding entry in the prefix. If it does not exist then report an error
+  -- Lookup the existing quantifier entry in the prefix. If it does not exist then report an error
   -- diagnostic and abort.
   maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
   case maybeEntry of
     Nothing -> Left <$> expectedTypeVariableToExist name stack
     Just entry -> do
       -- Make sure our update is safe.
-      oldBinding <- liftST $ readSTRef (prefixEntryBinding entry)
-      updateCheckResult <- updateCheck stack prefix oldBinding newType
+      oldQuantifier <- liftST $ readSTRef (prefixEntryQuantifier entry)
+      updateCheckResult <- updateCheck stack prefix name oldQuantifier newType
       case updateCheckResult of
         -- If the update is not safe then return an error without committing anything.
         Left e -> return (Left e)
         -- If the update is safe then update our entry and update the levels of our new
         -- type’s dependencies.
         Right () -> liftST $ do
-          writeSTRef (prefixEntryBinding entry) (Type.Binding name Type.Rigid newType)
+          writeSTRef (prefixEntryQuantifier entry) (Type.UniversalQuantifier Type.Rigid newType)
           entryLevel <- readSTRef (prefixEntryLevel entry)
-          levelUp prefix entryLevel newType
+          levelUp prefix entryLevel (Type.polytypeFreeVariables newType)
           return (Right ())
 
 -- IMPORTANT: We assume that `(Q) t1 ⊑ t3` and `(Q) t2 ⊑ t3` hold. Where `t1` and `t2` are the old
@@ -449,10 +458,10 @@ mergeUpdate stack prefix name1 name2 flex newType = do
     (_, Nothing) -> Left <$> expectedTypeVariableToExist name2 stack
     (Just entry1, Just entry2) -> do
       -- Make sure _both_ our updates are safe.
-      oldBinding1 <- liftST $ readSTRef (prefixEntryBinding entry1)
-      oldBinding2 <- liftST $ readSTRef (prefixEntryBinding entry2)
-      updateCheckResult1 <- updateCheck stack prefix oldBinding1 newType
-      updateCheckResult2 <- updateCheck stack prefix oldBinding2 newType
+      oldQuantifier1 <- liftST $ readSTRef (prefixEntryQuantifier entry1)
+      oldQuantifier2 <- liftST $ readSTRef (prefixEntryQuantifier entry2)
+      updateCheckResult1 <- updateCheck stack prefix name1 oldQuantifier1 newType
+      updateCheckResult2 <- updateCheck stack prefix name2 oldQuantifier2 newType
       case (updateCheckResult1, updateCheckResult2) of
         -- If the update is not safe then return an error without committing anything.
         (Left e, _) -> return (Left e)
@@ -467,15 +476,15 @@ mergeUpdate stack prefix name1 name2 flex newType = do
           entryLevel2 <- readSTRef (prefixEntryLevel entry2)
           if prefixLevelIndex entryLevel1 <= prefixLevelIndex entryLevel2 then do
             let linkType = Type.polytype (Type.variable (currentRange (Type.polytypeRangeStack newType)) name1)
-            writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 flex newType)
-            writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 Type.Rigid linkType)
-            levelUp prefix entryLevel1 newType
+            writeSTRef (prefixEntryQuantifier entry1) (Type.UniversalQuantifier flex newType)
+            writeSTRef (prefixEntryQuantifier entry2) (Type.UniversalQuantifier Type.Rigid linkType)
+            levelUp prefix entryLevel1 (Type.polytypeFreeVariables newType)
             return (Right ())
           else do
             let linkType = Type.polytype (Type.variable (currentRange (Type.polytypeRangeStack newType)) name2)
-            writeSTRef (prefixEntryBinding entry2) (Type.Binding name2 flex newType)
-            writeSTRef (prefixEntryBinding entry1) (Type.Binding name1 Type.Rigid linkType)
-            levelUp prefix entryLevel2 newType
+            writeSTRef (prefixEntryQuantifier entry2) (Type.UniversalQuantifier flex newType)
+            writeSTRef (prefixEntryQuantifier entry1) (Type.UniversalQuantifier Type.Rigid linkType)
+            levelUp prefix entryLevel2 (Type.polytypeFreeVariables newType)
             return (Right ())
 
 -- Gets a set of all the binding names in the prefix for debugging.
@@ -490,21 +499,21 @@ allBindingNames prefix = liftST $
 
 -- Collects all the current bounds of the prefix into the list. The bounds are sorted in dependency
 -- order. That is, dependents are listed after their dependencies.
-allBindings :: Prefix s -> Check s (Seq Type.Binding)
+allBindings :: Prefix s -> Check s (Seq (Identifier, Type.Quantifier))
 allBindings prefix = liftST $ do
   visited <- HashTable.new
   allVariables <- sort <$> HashTable.foldM (\names (name, _) -> return (name : names)) [] (prefixEntries prefix)
   foldlM (visit visited) Seq.empty allVariables
   where
-    visit visited bindings0 name = do
+    visit visited quantifiers0 name = do
       alreadyVisited <- isJust <$> HashTable.lookup visited name
-      if alreadyVisited then return bindings0 else do
+      if alreadyVisited then return quantifiers0 else do
         HashTable.insert visited name ()
         maybeEntry <- HashTable.lookup (prefixEntries prefix) name
         case maybeEntry of
-          Nothing -> return bindings0
+          Nothing -> return quantifiers0
           Just entry -> do
-            binding <- readSTRef (prefixEntryBinding entry)
-            let freeVariables = Type.polytypeFreeVariables (Type.bindingType binding)
-            bindings1 <- foldlM (visit visited) bindings0 freeVariables
-            return (bindings1 |> binding)
+            quantifier <- readSTRef (prefixEntryQuantifier entry)
+            let freeVariables = Type.quantifierFreeVariables quantifier
+            quantifiers1 <- foldlM (visit visited) quantifiers0 freeVariables
+            return (quantifiers1 |> (name, quantifier))

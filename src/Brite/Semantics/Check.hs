@@ -352,24 +352,24 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
   AST.VoidType -> return (Type.polytype (Type.void range))
 
   -- Check a function type with its quantifiers.
-  AST.FunctionType quantifiers [uncheckedParameterType] uncheckedBodyType -> do
-    (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
+  AST.FunctionType quantifiers0 [uncheckedParameterType] uncheckedBodyType -> do
+    (context1, quantifiers1) <- checkQuantifiers context0 quantifiers0 Seq.empty
     let counter0 = initialFreshCounter
-    (counter1, bindings2, parameterType) <- checkMonotype Negative context1 counter0 bindings1 uncheckedParameterType
-    (_, bindings3, bodyType) <- checkMonotype Positive context1 counter1 bindings2 uncheckedBodyType
-    return (Type.quantify bindings3 (Type.function range parameterType bodyType))
+    (counter1, quantifiers2, parameterType) <- checkMonotype Negative context1 counter0 quantifiers1 uncheckedParameterType
+    (_, quantifiers3, bodyType) <- checkMonotype Positive context1 counter1 quantifiers2 uncheckedBodyType
+    return (Type.quantify quantifiers3 (Type.function range parameterType bodyType))
 
   -- Check the quantifiers of a quantified type. If the body is also a quantified type then we will
-  -- inline those bindings into our prefix as well.
+  -- inline those quantifiers into our prefix as well.
   AST.QuantifiedType quantifiers uncheckedBodyType -> do
-    (context1, bindings1) <- checkQuantifiers context0 quantifiers Seq.empty
-    (_, bindings2, bodyType) <- checkMonotype Positive context1 initialFreshCounter bindings1 uncheckedBodyType
-    return (Type.quantify bindings2 bodyType)
+    (context1, quantifiers1) <- checkQuantifiers context0 quantifiers Seq.empty
+    (_, quantifiers2, bodyType) <- checkMonotype Positive context1 initialFreshCounter quantifiers1 uncheckedBodyType
+    return (Type.quantify quantifiers2 bodyType)
 
   -- If we see an object type then check it as a monotype.
   AST.ObjectType _ _ -> do
-    (_, bindings2, objectType) <- checkMonotype Positive context0 initialFreshCounter Seq.empty type0
-    return (Type.quantify bindings2 objectType)
+    (_, quantifiers2, objectType) <- checkMonotype Positive context0 initialFreshCounter Seq.empty type0
+    return (Type.quantify quantifiers2 objectType)
 
   AST.WrappedType type1 -> checkPolytype context0 type1
 
@@ -390,23 +390,23 @@ checkPolytype context0 type0 = case AST.typeNode type0 of
     errorType :: Diagnostic -> DiagnosticWriter Polytype
     errorType _ = return (Type.bottom range)
 
--- Check all the AST type quantifiers and convert them into a list of bindings.
+-- Check all the AST type quantifiers and convert them into a list of quantifiers.
 checkQuantifiers ::
-  HashSet Identifier -> [AST.Quantifier] -> Seq Type.Binding ->
-    DiagnosticWriter (HashSet Identifier, Seq Type.Binding)
-checkQuantifiers context0 [] bindings = return (context0, bindings)
-checkQuantifiers context0 (AST.UniversalQuantifier name bound : quantifiers) bindings = do
-  -- Create the binding. If no bound was provided in the AST then we use a flexible, bottom
+  HashSet Identifier -> [AST.Quantifier] -> Seq (Identifier, Type.Quantifier) ->
+    DiagnosticWriter (HashSet Identifier, Seq (Identifier, Type.Quantifier))
+checkQuantifiers context0 [] quantifiers = return (context0, quantifiers)
+checkQuantifiers context0 (AST.UniversalQuantifier name bound : quantifiers) newQuantifiers = do
+  -- Create the quantifier. If no bound was provided in the AST then we use a flexible, bottom
   -- type, bound. Otherwise we need to check our bound type with the current context.
-  binding <- case bound of
-    Nothing -> return (Type.Binding (nameIdentifier name) Flexible (Type.bottom (nameRange name)))
+  newQuantifier <- case bound of
+    Nothing -> return (Type.UniversalQuantifier Flexible (Type.bottom (nameRange name)))
     Just (flexibility, boundType) ->
-      Type.Binding (nameIdentifier name) flexibility <$> checkPolytype context0 boundType
+      Type.UniversalQuantifier flexibility <$> checkPolytype context0 boundType
   -- Introduce our new type variable ID into our context. Notably introduce our type variable
-  -- after checking our binding type.
+  -- after checking our quantifier type.
   let context1 = HashSet.insert (nameIdentifier name) context0
-  -- Add our binding and process the remaining quantifiers in our new context.
-  checkQuantifiers context1 quantifiers (bindings |> binding)
+  -- Add our quantifier and process the remaining quantifiers in our new context.
+  checkQuantifiers context1 quantifiers (newQuantifiers |> (nameIdentifier name, newQuantifier))
 
 -- Checks a type expecting that we return a monotype. However, in our type syntax we can have nested
 -- polytypes but we can’t have that in our internal representation of types.
@@ -442,85 +442,85 @@ checkQuantifiers context0 (AST.UniversalQuantifier name bound : quantifiers) bin
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 -- [2]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/qmlf.pdf
 checkMonotype ::
-  Polarity -> HashSet Identifier -> FreshCounter -> Seq Type.Binding -> AST.Type ->
-    DiagnosticWriter (FreshCounter, Seq Type.Binding, Monotype)
-checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode type0 of
+  Polarity -> HashSet Identifier -> FreshCounter -> Seq (Identifier, Type.Quantifier) -> AST.Type ->
+    DiagnosticWriter (FreshCounter, Seq (Identifier, Type.Quantifier), Monotype)
+checkMonotype localPolarity context counter0 quantifiers0 type0 = case AST.typeNode type0 of
   -- Special handling for booleans and integers.
   --
   -- TODO: Replace this with proper handling. When doing so also delete the `OverloadedStrings`
   -- language extension.
-  AST.VariableType name | name == booleanTypeName -> return (counter0, bindings0, Type.boolean range)
-  AST.VariableType name | name == integerTypeName -> return (counter0, bindings0, Type.integer range)
+  AST.VariableType name | name == booleanTypeName -> return (counter0, quantifiers0, Type.boolean range)
+  AST.VariableType name | name == integerTypeName -> return (counter0, quantifiers0, Type.integer range)
 
   -- Lookup the variable type in our context. If we don’t find it then return a “variable not found”
   -- error type.
   AST.VariableType name ->
-    if HashSet.member name context then return (counter0, bindings0, Type.variable range name)
+    if HashSet.member name context then return (counter0, quantifiers0, Type.variable range name)
     else unboundTypeVariable range name >>= errorType
 
   -- If we see a bottom type when we are expecting a monotype then create a fresh type variable
   -- which we will place in our polytype prefix.
   AST.BottomType -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-    let binding = Type.Binding name localFlexibility (Type.bottom range)
-    return (counter1, bindings0 |> binding, Type.variable range name)
+    let quantifier = Type.UniversalQuantifier localFlexibility (Type.bottom range)
+    return (counter1, quantifiers0 |> (name, quantifier), Type.variable range name)
 
   -- The void type is easy since it is a monotype defined by a keyword.
-  AST.VoidType -> return (counter0, bindings0, Type.void range)
+  AST.VoidType -> return (counter0, quantifiers0, Type.void range)
 
   -- Check the parameter and body type of a function.
   AST.FunctionType [] [uncheckedParameterType] uncheckedBodyType -> do
-    (counter1, bindings1, parameterType) <- checkMonotype Negative context counter0 bindings0 uncheckedParameterType
-    (counter2, bindings2, bodyType) <- checkMonotype Positive context counter1 bindings1 uncheckedBodyType
-    return (counter2, bindings2, Type.function range parameterType bodyType)
+    (counter1, quantifiers1, parameterType) <- checkMonotype Negative context counter0 quantifiers0 uncheckedParameterType
+    (counter2, quantifiers2, bodyType) <- checkMonotype Positive context counter1 quantifiers1 uncheckedBodyType
+    return (counter2, quantifiers2, Type.function range parameterType bodyType)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
   -- with a bound of this quantified type which we will place in our polytype prefix.
   --
-  -- NOTE: We don’t inline the quantifiers as bindings of our prefix! That could break scoping and
-  -- we wouldn’t be able to print back out the same type.
+  -- NOTE: We don’t inline the quantifiers in our prefix! That could break scoping and we wouldn’t
+  -- be able to print back out the same type.
   AST.QuantifiedType _ _ -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-    binding <- Type.Binding name localFlexibility <$> checkPolytype context type0
-    return (counter1, bindings0 |> binding, Type.variable range name)
+    quantifier <- Type.UniversalQuantifier localFlexibility <$> checkPolytype context type0
+    return (counter1, quantifiers0 |> (name, quantifier), Type.variable range name)
 
   -- If we see a quantified type when we are expecting a monotype then create a fresh type variable
   -- with a bound of this quantified type which we will place in our polytype prefix.
   --
-  -- NOTE: We don’t inline the quantifiers as bindings of our prefix! That could break scoping and
-  -- we wouldn’t be able to print back out the same type.
+  -- NOTE: We don’t inline the quantifiers as in our prefix! That could break scoping and we
+  -- wouldn’t be able to print back out the same type.
   --
   -- NOTE: We do treat a quantified function type the same as a `QuantifiedType`.
   AST.FunctionType (_ : _) _ _ -> do
     let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-    binding <- Type.Binding name localFlexibility <$> checkPolytype context type0
-    return (counter1, bindings0 |> binding, Type.variable range name)
+    quantifier <- Type.UniversalQuantifier localFlexibility <$> checkPolytype context type0
+    return (counter1, quantifiers0 |> (name, quantifier), Type.variable range name)
 
   -- Check all the properties and the extension of an object type. If we encounter an object type in
   -- `checkPolytype` then we will defer to `checkMonotype` here.
   AST.ObjectType uncheckedProperties uncheckedExtension -> do
     -- Check the type of all our object’s properties.
-    (counter3, bindings3, properties) <-
+    (counter3, quantifiers3, properties) <-
       foldlM
-        (\(counter1, bindings1, properties1) (AST.ObjectTypeProperty name uncheckedPropertyType) -> do
-          (counter2, bindings2, propertyType) <- checkMonotype Positive context counter1 bindings1 uncheckedPropertyType
+        (\(counter1, quantifiers1, properties1) (AST.ObjectTypeProperty name uncheckedPropertyType) -> do
+          (counter2, quantifiers2, propertyType) <- checkMonotype Positive context counter1 quantifiers1 uncheckedPropertyType
           let property = (nameRange name, propertyType)
-          return (counter2, bindings2, Map.insertWith (flip (++)) (nameIdentifier name) [property] properties1))
-        (counter0, bindings0, Map.empty)
+          return (counter2, quantifiers2, Map.insertWith (flip (++)) (nameIdentifier name) [property] properties1))
+        (counter0, quantifiers0, Map.empty)
         uncheckedProperties
 
     -- If we have an extension then check the type of that extension.
-    (counter5, bindings5, extension) <- case uncheckedExtension of
-      Nothing -> return (counter3, bindings3, Nothing)
+    (counter5, quantifiers5, extension) <- case uncheckedExtension of
+      Nothing -> return (counter3, quantifiers3, Nothing)
       Just uncheckedExtensionType -> do
-        (counter4, bindings4, extensionType) <- checkMonotype Positive context counter3 bindings3 uncheckedExtensionType
-        return (counter4, bindings4, Just extensionType)
+        (counter4, quantifiers4, extensionType) <- checkMonotype Positive context counter3 quantifiers3 uncheckedExtensionType
+        return (counter4, quantifiers4, Just extensionType)
 
-    -- Return the object type along with the new counter and bindings.
-    return (counter5, bindings5, Type.object range properties extension)
+    -- Return the object type along with the new counter and quantifiers.
+    return (counter5, quantifiers5, Type.object range properties extension)
 
   AST.WrappedType type1 ->
-    checkMonotype localPolarity context counter0 bindings0 type1
+    checkMonotype localPolarity context counter0 quantifiers0 type1
 
   -- Error types which don’t have a recovered type return error types.
   AST.ErrorType diagnostic Nothing -> errorType diagnostic
@@ -528,7 +528,7 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
   -- Error types which do have a recovered type ignore their diagnostic (there’s no point in keeping
   -- it, where would we throw it?) and continue type checking with the recovered type.
   AST.ErrorType _ (Just type1) ->
-    checkMonotype localPolarity context counter0 bindings0 (type0 { AST.typeNode = type1 })
+    checkMonotype localPolarity context counter0 quantifiers0 (type0 { AST.typeNode = type1 })
 
   where
     range = AST.typeRange type0
@@ -540,8 +540,8 @@ checkMonotype localPolarity context counter0 bindings0 type0 = case AST.typeNode
     -- Forces the programmer to provide proof that they reported an error diagnostic. However, we
     -- don’t include the diagnostic in our internal type structure since there is no obvious place
     -- to throw that error at runtime.
-    errorType :: Diagnostic -> DiagnosticWriter (FreshCounter, Seq Type.Binding, Monotype)
+    errorType :: Diagnostic -> DiagnosticWriter (FreshCounter, Seq (Identifier, Type.Quantifier), Monotype)
     errorType _ = do
       let (name, counter1) = freshTypeName (\testName -> HashSet.member testName context) counter0
-      let binding = Type.Binding name localFlexibility (Type.bottom range)
-      return (counter1, bindings0 |> binding, Type.variable range name)
+      let quantifier = Type.UniversalQuantifier localFlexibility (Type.bottom range)
+      return (counter1, quantifiers0 |> (name, quantifier), Type.variable range name)

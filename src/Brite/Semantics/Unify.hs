@@ -8,7 +8,7 @@ import Brite.Diagnostic
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
-import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..))
+import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..), Quantifier(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Range
@@ -58,46 +58,48 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
   -- Unify `actual` with some other monotype. If the monotype is a variable then we will perform
   -- some special handling.
   (Variable actualName, expectedDescription) -> do
-    -- Lookup the variable’s binding. If it does not exist then we have an internal error!
+    -- Lookup the variable’s quantifier. If it does not exist then we have an internal error!
     -- Immediately stop trying to unify this type.
-    maybeActualBinding <- Prefix.lookup prefix actualName
-    case maybeActualBinding of
+    maybeActualQuantifier <- Prefix.lookup prefix actualName
+    case maybeActualQuantifier of
       Nothing -> Left <$> expectedTypeVariableToExist actualName stack
-      Just actualBinding -> do
-        -- Pattern match with our binding type and our second monotype.
-        case (Type.polytypeDescription (Type.bindingType actualBinding), expectedDescription) of
+      Just actualQuantifier -> do
+        -- Pattern match with our quantifier type and our second monotype.
+        case (actualQuantifier, expectedDescription) of
           -- If the bound for our variable is a monotype then recursively call `unify` with that
           -- monotype. As per the normal-form monotype bound rewrite rule.
-          (Monotype' actualMonotype, _) -> unify stack prefix actualMonotype expected
+          (UniversalQuantifier _ (Type.polytypeDescription -> Monotype' actualMonotype), _) ->
+            unify stack prefix actualMonotype expected
 
           -- Two variables with different names were unified with one another. This case is
           -- different from the variable branch below because we need to merge the two
           -- variables together.
-          (_, Variable expectedName) -> do
-            -- Lookup the variable’s binding. If it does not exist then we have an internal error!
-            -- Immediately stop trying to unify this type.
-            maybeExpectedBinding <- Prefix.lookup prefix expectedName
-            case maybeExpectedBinding of
+          (UniversalQuantifier actualFlexibility actualBound, Variable expectedName) -> do
+            -- Lookup the variable’s quantifier. If it does not exist then we have an internal
+            -- error! Immediately stop trying to unify this type.
+            maybeExpectedQuantifier <- Prefix.lookup prefix expectedName
+            case maybeExpectedQuantifier of
               Nothing -> Left <$> expectedTypeVariableToExist expectedName stack
-              Just expectedBinding ->
-                case Type.polytypeDescription (Type.bindingType expectedBinding) of
+              Just expectedQuantifier ->
+                case expectedQuantifier of
                   -- If the bound for our variable is a monotype then recursively call `unify`
                   -- with that monotype. As per the normal-form monotype bound rewrite rule. Make
                   -- sure we don’t fall into the next case where we try to update the types to
                   -- each other!
-                  Monotype' expectedMonotype -> unify stack prefix actual expectedMonotype
+                  UniversalQuantifier _ (Type.polytypeDescription -> Monotype' expectedMonotype) ->
+                    unify stack prefix actual expectedMonotype
 
                   -- Actually merge the two type variables together.
-                  _ -> do
-                    result <- unifyPolytypes stack prefix (Type.bindingType actualBinding) (Type.bindingType expectedBinding)
+                  UniversalQuantifier expectedFlexibility expectedBound -> do
+                    result <- unifyPolytypes stack prefix actualBound expectedBound
                     case result of
                       -- If the two types are not equivalent we don’t want to merge them together
                       -- in the prefix!
                       Left e -> return (Left e)
                       Right newType -> do
-                        -- Our merged binding is only flexible if both bindings are flexible.
+                        -- Our merged quantifier is only flexible if both quantifiers are flexible.
                         let
-                          flexibility = case (Type.bindingFlexibility actualBinding, Type.bindingFlexibility expectedBinding) of
+                          flexibility = case (actualFlexibility, expectedFlexibility) of
                             (Type.Flexible, Type.Flexible) -> Type.Flexible
                             _ -> Type.Rigid
                         -- Merge the two type variables together! Huzzah!
@@ -105,9 +107,9 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
           -- successful then update the type variable in our prefix to our monotype.
-          _ -> do
+          (UniversalQuantifier _ actualBound, _) -> do
             let expectedPolytype = Type.polytype expected
-            result <- unifyPolytypes stack prefix (Type.bindingType actualBinding) expectedPolytype
+            result <- unifyPolytypes stack prefix actualBound expectedPolytype
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix actualName expectedPolytype
@@ -115,23 +117,24 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
   -- Unify `expected` with some other monotype. The other monotype is guaranteed to not be a variable
   -- since that case would be caught by the match case above.
   (_, Variable expectedName) -> do
-    -- Lookup the variable’s binding. If it does not exist then we have an internal error!
+    -- Lookup the variable’s quantifier. If it does not exist then we have an internal error!
     -- Immediately stop trying to unify this type.
-    maybeExpectedBinding <- Prefix.lookup prefix expectedName
-    case maybeExpectedBinding of
+    maybeExpectedQuantifier <- Prefix.lookup prefix expectedName
+    case maybeExpectedQuantifier of
       Nothing -> Left <$> expectedTypeVariableToExist expectedName stack
-      Just expectedBinding -> do
-        -- Pattern match with our binding type and our second monotype.
-        case Type.polytypeDescription (Type.bindingType expectedBinding) of
+      Just expectedQuantifier -> do
+        -- Pattern match with our quantifier type and our second monotype.
+        case expectedQuantifier of
           -- If the bound for our variable is a monotype then recursively call `unify` with that
           -- monotype. As per the normal-form monotype bound rewrite rule.
-          Monotype' expectedMonotype -> unify stack prefix actual expectedMonotype
+          UniversalQuantifier _ (Type.polytypeDescription -> Monotype' expectedMonotype) ->
+            unify stack prefix actual expectedMonotype
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
           -- successful then update the type variable in our prefix to our monotype.
-          _ -> do
+          UniversalQuantifier _ expectedBound -> do
             let actualPolytype = Type.polytype actual
-            result <- unifyPolytypes stack prefix actualPolytype (Type.bindingType expectedBinding)
+            result <- unifyPolytypes stack prefix actualPolytype expectedBound
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix expectedName actualPolytype
@@ -398,23 +401,23 @@ unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription act
   -- then we also return that error. We do all this in an isolated level so that we don’t quantify
   -- type variables that are needed at an earlier level.
 
-  (Quantify actualBindings actualBody, Monotype' expectedMonotype) -> Prefix.withLevel prefix $ do
-    newActualBody <- Prefix.instantiate prefix actualBindings actualBody
+  (Quantify actualQuantifiers actualBody, Monotype' expectedMonotype) -> Prefix.withLevel prefix $ do
+    newActualBody <- Prefix.instantiate prefix actualQuantifiers actualBody
     result <- unify stack prefix newActualBody expectedMonotype
     case result of
       Left e -> return (Left e)
       Right () -> Right <$> Prefix.generalize prefix newActualBody
 
-  (Monotype' actualMonotype, Quantify expectedBindings expectedBody) -> Prefix.withLevel prefix $ do
-    newExpectedBody <- Prefix.instantiate prefix expectedBindings expectedBody
+  (Monotype' actualMonotype, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
+    newExpectedBody <- Prefix.instantiate prefix expectedQuantifiers expectedBody
     result <- unify stack prefix actualMonotype newExpectedBody
     case result of
       Left e -> return (Left e)
       Right () -> Right <$> Prefix.generalize prefix newExpectedBody
 
-  (Quantify actualBindings actualBody, Quantify expectedBindings expectedBody) -> Prefix.withLevel prefix $ do
-    newActualBody <- Prefix.instantiate prefix actualBindings actualBody
-    newExpectedBody <- Prefix.instantiate prefix expectedBindings expectedBody
+  (Quantify actualQuantifiers actualBody, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
+    newActualBody <- Prefix.instantiate prefix actualQuantifiers actualBody
+    newExpectedBody <- Prefix.instantiate prefix expectedQuantifiers expectedBody
     result <- unify stack prefix newActualBody newExpectedBody
     case result of
       Left e -> return (Left e)

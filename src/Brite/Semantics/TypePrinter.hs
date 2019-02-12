@@ -8,7 +8,7 @@
 module Brite.Semantics.TypePrinter
   ( printPolytype
   , printPolytypeWithoutInlining
-  , printBindingWithoutInlining
+  , printQuantifierWithoutInlining
   , printMonotypeWithoutInlining
   , objectPropertyList
   ) where
@@ -109,8 +109,9 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
       -- references we have and the second element of the tuple is the number of negative
       -- references we have.
       --
-      -- When we print, we remember how many references we had. A flexible binding with one positive
-      -- reference will be inlined. A rigid binding with one negative reference will be inlined.
+      -- When we print, we remember how many references we had. A flexible universal quantifier with
+      -- one positive reference will be inlined. A rigid universal quantifier with one negative
+      -- reference will be inlined.
 
       -- When we have iterated through all our bindings, print our monotype and call `next`. Calling
       -- `next` will iterate back through our bindings.
@@ -119,69 +120,70 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
           next references1 $ \_ _ substitutions ->
             ([], makeBody substitutions)
 
-      -- For every binding:
+      -- For every quantifier:
       --
-      -- * Check how many references to this binding there are.
-      -- * Determine if the binding needs to be inlined.
-      -- * If the binding needs to be inlined, capture its free variables and rename them if we
+      -- * Check how many references to this quantifier there are.
+      -- * Determine if the quantifier needs to be inlined.
+      -- * If the quantifier needs to be inlined, capture its free variables and rename them if we
       --   see them again.
-      loop (binding :<| bindings) next = loop bindings $ \references1 makeQuantifiedBody ->
+      loop ((name, quantifier) :<| quantifiers) next = loop quantifiers $ \references1 makeQuantifiedBody ->
         let
-          -- Both delete the references for this binding from our map and at the same time
+          -- Both delete the references for this quantifier from our map and at the same time
           -- return the old value before it is deleted.
-          (bindingReferences, references2) =
-            HashMap.alterF (\value -> (value, Nothing)) (bindingName binding) references1
+          (quantifierReferences, references2) =
+            HashMap.alterF (\value -> (value, Nothing)) name references1
+
+          (quantifierFlexibility, quantifierType) = case quantifier of
+            UniversalQuantifier f t -> (f, t)
         in
-          printPolytypeWithInlining (bindingType binding) references2 $ \references3 makeBindingType ->
+          printPolytypeWithInlining quantifierType references2 $ \references3 makeQuantifierType ->
             next references3 $ \seen captured substitutions ->
-              case (bindingFlexibility binding, bindingReferences) of
-                -- If there are no references to this binding then ignore it. These branches should
-                -- be unreachable since normal mode will discard unused bindings.
-                (_, Nothing) -> makeQuantifiedBody seen captured (HashMap.delete (bindingName binding) substitutions)
-                (_, Just (0, 0)) -> makeQuantifiedBody seen captured (HashMap.delete (bindingName binding) substitutions)
+              case (quantifierFlexibility, quantifierReferences) of
+                -- If there are no references to this quantifier then ignore it. These branches
+                -- should be unreachable since normal mode will discard unused bindings.
+                (_, Nothing) -> makeQuantifiedBody seen captured (HashMap.delete name substitutions)
+                (_, Just (0, 0)) -> makeQuantifiedBody seen captured (HashMap.delete name substitutions)
 
-                -- If a flexible binding has just one positive reference then inline the
-                -- binding type.
+                -- If a flexible quantifier has just one positive reference then inline the
+                -- quantifier type.
                 (Flexible, Just (1, 0)) ->
-                  let newCaptured = Set.union (polytypeFreeVariables (bindingType binding)) captured in
+                  let newCaptured = Set.union (polytypeFreeVariables quantifierType) captured in
                     makeQuantifiedBody seen newCaptured $
-                      HashMap.insert (bindingName binding) (makeBindingType seen substitutions) substitutions
+                      HashMap.insert name (makeQuantifierType seen substitutions) substitutions
 
-                -- If a rigid binding has just one negative reference then inline the binding type.
+                -- If a rigid quantifier has just one negative reference then inline the
+                -- quantifier type.
                 (Rigid, Just (0, 1)) ->
-                  let newCaptured = Set.union (polytypeFreeVariables (bindingType binding)) captured in
+                  let newCaptured = Set.union (polytypeFreeVariables quantifierType) captured in
                     makeQuantifiedBody seen newCaptured $
-                      HashMap.insert (bindingName binding) (makeBindingType seen substitutions) substitutions
+                      HashMap.insert name (makeQuantifierType seen substitutions) substitutions
 
-                -- If our binding has more than one reference then we want to add it as
+                -- If our quantifier has more than one reference then we want to add it as
                 -- a quantifier.
                 _ ->
-                  -- If this binding is captured in our `substitutions` map then we need to pick a
+                  -- If this quantifier is captured in our `substitutions` map then we need to pick a
                   -- new name for it.
-                  if Set.member (bindingName binding) captured then
+                  if Set.member name captured then
                     let
                       -- Generate a new, unique, name that we have not seen before and is
                       -- not captured.
-                      newBindingName =
-                        uniqueName
-                          (\testName -> HashSet.member testName seen)
-                          (bindingName binding)
+                      newName = uniqueName (\testName -> HashSet.member testName seen) name
 
-                      -- Create our quantifier using the new binding name.
+                      -- Create our quantifier using the new quantifier name.
                       q =
                         PrinterAST.quantifier
-                          newBindingName
-                          (bindingFlexibility binding)
-                          (makeBindingType seen substitutions)
+                          newName
+                          quantifierFlexibility
+                          (makeQuantifierType seen substitutions)
 
-                      -- Create the rest of our quantifiers and quantified body. Add our new binding
-                      -- name as a substitution and add the new binding name to out “captured” set.
-                      -- Also add our new binding name to our “seen” set.
+                      -- Create the rest of our quantifiers and quantified body. Add our new
+                      -- quantifier name as a substitution and add the new quantifier name to our
+                      -- “captured” set. Also add our new quantifier name to our “seen” set.
                       (qs, t) =
                         makeQuantifiedBody
-                          (HashSet.insert newBindingName seen)
-                          (Set.insert newBindingName captured)
-                          (HashMap.insert (bindingName binding) (PrinterAST.variableType newBindingName) substitutions)
+                          (HashSet.insert newName seen)
+                          (Set.insert newName captured)
+                          (HashMap.insert name (PrinterAST.variableType newName) substitutions)
                     in
                       (q : qs, t)
 
@@ -192,17 +194,17 @@ printPolytypeWithInlining type0 references0 yield = case polytypeDescription typ
                       -- print an unbound quantifier. Otherwise we print a full quantifier.
                       q =
                         PrinterAST.quantifier
-                          (bindingName binding)
-                          (bindingFlexibility binding)
-                          (makeBindingType seen substitutions)
+                          name
+                          quantifierFlexibility
+                          (makeQuantifierType seen substitutions)
 
-                      -- Create the rest of our quantifiers. Add our binding name to our “seen” set.
-                      -- If we had an old substitution, remove it.
+                      -- Create the rest of our quantifiers. Add our quantifier name to our “seen”
+                      -- set. If we had an old substitution, remove it.
                       (qs, t) =
                         makeQuantifiedBody
-                          (HashSet.insert (bindingName binding) seen)
+                          (HashSet.insert name seen)
                           captured
-                          (HashMap.delete (bindingName binding) substitutions)
+                          (HashMap.delete name substitutions)
                     in
                       (q : qs, t)
   where
@@ -223,7 +225,7 @@ printMonotypeWithInlining ::
       -> a
 printMonotypeWithInlining localPolarity type0 references0 yield = case monotypeDescription type0 of
   -- A variable adds a reference to our references map and then returns a continuation which will
-  -- inline a binding for this variable if one was provided.
+  -- inline a quantifier for this variable if one was provided.
   Variable name ->
     let
       references1 =
@@ -302,16 +304,16 @@ printPolytypeWithoutInlining :: Polytype -> PrinterAST.Type
 printPolytypeWithoutInlining type' = case polytypeDescription type' of
   Monotype' t -> printMonotypeWithoutInlining t
   Bottom _ -> PrinterAST.bottomType
-  Quantify bindings body ->
+  Quantify quantifiers body ->
     PrinterAST.quantifiedType
-      (map printBindingWithoutInlining (toList bindings))
+      (map (uncurry printQuantifierWithoutInlining) (toList quantifiers))
       (printMonotypeWithoutInlining body)
 
--- Prints a binding to a `PrinterAST` quantifier.
+-- Prints a quantifier to a `PrinterAST` quantifier.
 --
 -- This printer will _not_ inline quantifiers with a single reference of the appropriate position.
-printBindingWithoutInlining :: Binding -> PrinterAST.Quantifier
-printBindingWithoutInlining (Binding name flex type') =
+printQuantifierWithoutInlining :: Identifier -> Quantifier -> PrinterAST.Quantifier
+printQuantifierWithoutInlining name (UniversalQuantifier flex type') =
   PrinterAST.quantifier name flex (printPolytypeWithoutInlining type')
 
 -- Prints a monotype to a `PrinterAST`. That printer AST will then be provided to our actual printer

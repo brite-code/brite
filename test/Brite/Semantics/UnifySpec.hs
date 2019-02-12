@@ -678,7 +678,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
             Prefix.allBindings prefix
 
       -- Create the values we’re going to snapshot.
-      let actualPrefix = Text.Builder.toStrictText (printCompactQuantifierList (map printBindingWithoutInlining (toList allBindings)))
+      let actualPrefix = Text.Builder.toStrictText (printCompactQuantifierList (map (uncurry printQuantifierWithoutInlining) (toList allBindings)))
       let actualDiagnostics = Text.Builder.toStrictText (foldMap diagnosticMessageMarkdown (ds2 <> ds3))
 
       -- Catch any errors before we print.

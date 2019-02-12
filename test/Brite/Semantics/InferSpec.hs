@@ -346,7 +346,7 @@ spec = beforeAll openSnapshotFile $ afterAll closeSnapshotFile $
       let
         actualSolution = Text.Builder.toStrictText $
           Text.Builder.singleton '(' <>
-          printCompactQuantifierList (map printBindingWithoutInlining (toList allBindings)) <>
+          printCompactQuantifierList (map (uncurry printQuantifierWithoutInlining) (toList allBindings)) <>
           Text.Builder.fromText ", " <>
           printCompactType (printPolytypeWithoutInlining expressionType) <>
           Text.Builder.singleton ')'
