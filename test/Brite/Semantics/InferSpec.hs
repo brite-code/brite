@@ -253,6 +253,24 @@ testData =
   , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(42))"
   , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(error(true)))"
   , "infer(<>, (id: fun<T>(T) -> T), id(1))"
+  -- , "infer(<>, (use: fun<T>({val: T, key: fun(T) -> Int}) -> Int, absKey: <T> {val: T, key: fun(T) -> Int}), use(absKey))"
+  -- , "infer(<>, (f: <T> fun({val: T, key: fun(T) -> Int}) -> Int, absKey: <T> {val: T, key: fun(T) -> Int}), f(absKey))"
+  -- , "infer(<>, (f: <T> fun({val: T, key: fun(T) -> Int}) -> Int), fun(key) { (key: <T> {val: T, key: fun(T) -> Int}); use(key) })"
+  -- , "infer(<>, (f: <T> fun({val: T, key: fun(T) -> Int}) -> Int, absKey: <T> {val: T, key: fun(T) -> Int}), do { let g = fun(key) { (key: <T> {val: T, key: fun(T) -> Int}); use(key) }; g(absKey) })"
+  -- , "infer(<>, (f: fun<A>(<B, C: !> {a: A, b: B, c: C}) -> A, e: <B, A, C: !> {a: A, b: B, c: C}), f(e))"
+  -- , "infer(<>, (absKey: <T> {val: T, key: fun(T) -> Int}), (fun(k) { k.val })(absKey))"
+  -- , "infer(<>, (absKey: <T> {val: T, key: fun(T) -> Int}), (fun(k) { {val2: k.val, key2: k.key} })(absKey))"
+  -- , "infer(<>, (), (1: <T> T))"
+  -- , "infer(<>, (), (1: _))"
+  -- , "infer(<>, (), ({val: 1, key: fun(x) { x }}: <T> {val: T, key: fun(T) -> Int}))"
+  -- , "infer(<>, (), ({val: true, key: fun(x) { if x { 1 } else { 0 } }}: <T> {val: T, key: fun(T) -> Int}))"
+  -- , "infer(<>, (), ({val: 1, key: fun(x) { true }}: <T> {val: T, key: fun(T) -> Int}))"
+  -- , "infer(<>, (), ({val: true, key: fun(x) { x }}: <T> {val: T, key: fun(T) -> Int}))"
+  -- , "infer(<>, (e: {fst: <T> T, snd: <T> T}), (e: <T> {fst: T, snd: T}))" -- Ok, see section 5.3 of “First-class polymorphism with existential types”
+  -- , "infer(<>, (e: {fst: <T> {val: T, key: fun(T) -> Int}, snd: <T> {val: T, key: fun(T) -> Int}}), (e: <T> {fst: {val: T, key: fun(T) -> Int}, snd: {val: T, key: fun(T) -> Int}}))" -- Not ok, see section 5.3 of “First-class polymorphism with existential types”
+  -- , "infer(<>, (wrap: fun<T>(T) -> {inner: T}, key: <T> {val: T, key: fun(T) -> Int}), wrap(key))"
+  -- , "infer(<>, (wrap: fun<T>({val: T, key: fun(T) -> Int}) -> {inner: {val: T, key: fun(T) -> Int}}, key: <T> {val: T, key: fun(T) -> Int}), wrap(key))"
+  -- , "infer(<>, (key: <T> {val: T, key: fun(T) -> Int}), (fun(inner) { {inner} })(key))"
   ]
 
 openSnapshotFile :: IO Handle

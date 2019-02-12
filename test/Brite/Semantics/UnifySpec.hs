@@ -612,6 +612,13 @@ testData =
   , "unify(<A = fun<T>(Int) -> fun(T) -> T, B: fun<T, U>(U) -> fun(T) -> T>, B, A)"
   , "unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, A, B)"
   , "unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, B, A)"
+  -- , "unify(<A: <T> {outer: {inner: T}}, B: {outer: <T> {inner: T}}>, A, B)"
+  -- , "unify(<A: <T> {outer: {inner: T}}, B: {outer: <T> {inner: T}}>, B, A)"
+  -- , "unify(<A: <T> {outer: {inner: T}}, B: <T> {outer: {inner: T}}>, A, B)"
+  -- , "unify(<A: {outer: <T> {inner: T}}, B: {outer: <T> {inner: T}}>, A, B)"
+  -- , "unify(<A: <T> {foo: T}, B: <T> {foo: T}>, A, B)"
+  -- , "unify(<A: <T> {foo: T, bar: T}, B: <T, U> {foo: T, bar: U}>, A, B)"
+  -- , "unify(<A: <T> {foo: T, bar: T}, B: <T, U> {foo: T, bar: U}>, B, A)"
   ]
 
 openSnapshotFile :: IO Handle
