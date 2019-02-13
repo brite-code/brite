@@ -1408,7 +1408,7 @@ unify(<A: fun<X>(X) -> X, B = fun<Y, Z>(Y) -> Z>, B, A)
 ### Errors
 - (0:50-0:51) Test failed because `fun<Y>(Y) -> !` is more general than `fun<Z>(Z) -> Z`.
   - (0:30-0:47): `fun<Y>(Y) -> !`
-  - (0:30-0:47): `fun<Z>(Z) -> Z`
+  - (0:10-0:24): `fun<Z>(Z) -> Z`
 
 --------------------------------------------------------------------------------
 
@@ -2463,7 +2463,7 @@ unify(<A = fun<X>(X) -> Int, B: fun<Y>(Y) -> Y>, A, B)
 ### Errors
 - (0:49-0:50) Test failed because `fun<X>(X) -> Int` is more general than `fun(Int) -> Int`.
   - (0:11-0:27): `fun<X>(X) -> Int`
-  - (0:11-0:27): `fun(Int) -> Int`
+  - (0:32-0:46): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -2514,7 +2514,7 @@ unify(<A: fun<X>(X) -> Int, B = fun<Y>(Y) -> Y>, B, A)
 ### Errors
 - (0:49-0:50) Test failed because `fun<Y>(Y) -> Y` is more general than `fun(Int) -> Int`.
   - (0:32-0:46): `fun<Y>(Y) -> Y`
-  - (0:32-0:46): `fun(Int) -> Int`
+  - (0:10-0:26): `fun(Int) -> Int`
 
 --------------------------------------------------------------------------------
 
@@ -3954,7 +3954,7 @@ unify(<X = <A: fun<B>(B) -> B> fun(A) -> A, Y: fun<C>(fun(C) -> C) -> (fun(C) ->
 ### Errors
 - (0:86-0:87) Test failed because `fun<A: fun<B>(B) -> B>(A) -> A` is more general than `fun<C>(fun(C) -> C) -> fun(C) -> C`.
   - (0:31-0:42): `fun<A: fun<B>(B) -> B>(A) -> A`
-  - (0:31-0:42): `fun<C>(fun(C) -> C) -> fun(C) -> C`
+  - (0:47-0:83): `fun<C>(fun(C) -> C) -> fun(C) -> C`
 
 --------------------------------------------------------------------------------
 
@@ -8383,7 +8383,7 @@ unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, B, A)
 ### Errors
 - (0:72-0:73) Test failed because `fun<T, U>(U) -> fun(T) -> T` is more general than `fun<T>(Int) -> fun(T) -> T`.
   - (0:42-0:69): `fun<T, U>(U) -> fun(T) -> T`
-  - (0:42-0:69): `fun<T>(Int) -> fun(T) -> T`
+  - (0:10-0:36): `fun<T>(Int) -> fun(T) -> T`
 
 --------------------------------------------------------------------------------
 

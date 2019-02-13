@@ -127,7 +127,10 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
 
                   -- Merge two universally quantified type variables together.
                   (UniversalQuantifier actualFlexibility actualBound, UniversalQuantifier expectedFlexibility expectedBound) -> do
-                    result <- unifyPolytype stack prefix exists actualBound expectedBound
+                    -- Tell `unifyPolytype` to prefer the expected type when our actual quantifier
+                    -- has a rigid bound.
+                    let preferExpected = actualFlexibility == Rigid && expectedFlexibility == Flexible
+                    result <- unifyPolytype stack prefix exists (not preferExpected) actualBound expectedBound
                     case result of
                       -- If the two types are not equivalent we don’t want to merge them together
                       -- in the prefix!
@@ -164,7 +167,7 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
           -- successful then update the type variable in our prefix to our monotype.
           (UniversalQuantifier _ actualBound, _) -> do
             let expectedPolytype = Type.polytype expected
-            result <- unifyPolytype stack prefix exists actualBound expectedPolytype
+            result <- unifyPolytype stack prefix exists True actualBound expectedPolytype
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix actualName expectedPolytype
@@ -200,7 +203,7 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
           -- successful then update the type variable in our prefix to our monotype.
           UniversalQuantifier _ expectedBound -> do
             let actualPolytype = Type.polytype actual
-            result <- unifyPolytype stack prefix exists actualPolytype expectedBound
+            result <- unifyPolytype stack prefix exists True actualPolytype expectedBound
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix expectedName actualPolytype
@@ -445,8 +448,12 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
 -- Unifies two polytypes. When the two types are equivalent we return an ok result with a type. This
 -- type is an instance of both our input types. That is if `t1` and `t2` are our inputs and
 -- `t1 ≡ t2` holds then we return `t3` where both `t1 ⊑ t3` and `t2 ⊑ t3` hold.
-unifyPolytype :: UnifyStack -> Prefix s -> ExistentialAssociation s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
-unifyPolytype stack prefix exists actual expected = case (Type.polytypeDescription actual, Type.polytypeDescription expected) of
+--
+-- Takes a boolean flag named `preferActual` which we consult when we have a choice between
+-- returning the actual type and the expected type. The type we return _does not_ matter for
+-- soundness, but we can improve error messages with the ability to choose.
+unifyPolytype :: UnifyStack -> Prefix s -> ExistentialAssociation s -> Bool -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
+unifyPolytype stack prefix exists preferActual actual expected = case (Type.polytypeDescription actual, Type.polytypeDescription expected) of
   -- If either is bottom then return the other one.
   (Bottom _, _) -> return (Right expected)
   (_, Bottom _) -> return (Right actual)
@@ -509,7 +516,7 @@ unifyPolytype stack prefix exists actual expected = case (Type.polytypeDescripti
     result <- unifyMonotype stack prefix exists newActualBody newExpectedBody
     case result of
       Left e -> return (Left e)
-      Right () -> Right <$> Prefix.generalize prefix newActualBody
+      Right () -> Right <$> Prefix.generalize prefix (if preferActual then newActualBody else newExpectedBody)
 
 -- If one of the `Either`s is `Left` then we return `Left`. If both of the `Either`s are `Right` we
 -- return `Right`. If both of the `Either`s are `Left` then we return the one which has the earliest
