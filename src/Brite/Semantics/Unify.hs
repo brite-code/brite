@@ -8,7 +8,7 @@ import Brite.Diagnostic
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
-import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..), Quantifier(..))
+import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..), Quantifier(..), Flexibility(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Range
@@ -79,7 +79,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           --
           -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
           (UniversalQuantifier actualFlexibility (Type.polytypeDescription -> Monotype' actualMonotype), _)
-            | Type.isVariableMonotype actualMonotype || actualFlexibility == Type.Rigid ->
+            | Type.isVariableMonotype actualMonotype || actualFlexibility == Rigid ->
             unify stack prefix actualMonotype expected
 
           -- Two variables with different names were unified with one another. This case is
@@ -109,7 +109,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
                   --
                   -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
                   (_, UniversalQuantifier expectedFlexibility (Type.polytypeDescription -> Monotype' expectedMonotype))
-                    | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Type.Rigid ->
+                    | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Rigid ->
                     unify stack prefix actual expectedMonotype
 
                   -- Merge two universally quantified type variables together.
@@ -123,10 +123,26 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
                         -- Our merged quantifier is only flexible if both quantifiers are flexible.
                         let
                           flexibility = case (actualFlexibility, expectedFlexibility) of
-                            (Type.Flexible, Type.Flexible) -> Type.Flexible
-                            _ -> Type.Rigid
+                            (Flexible, Flexible) -> Flexible
+                            _ -> Rigid
                         -- Merge the two type variables together! Huzzah!
                         Prefix.mergeUpdate stack prefix actualName expectedName flexibility newType
+
+                  -- If we are unifying an existential quantifier with a universal quantifier then
+                  -- update our universal quantifier to the existential type variable.
+                  --
+                  -- This only works if the universal quantifier is flexible with a bottom bound.
+                  -- Since the existential quantifier could be _any_ type!
+                  (ExistentialQuantifier _, UniversalQuantifier Flexible (Type.polytypeDescription -> Bottom _)) ->
+                    Prefix.update stack prefix expectedName (Type.polytype actual)
+
+                  -- If we are unifying an existential quantifier with a universal quantifier then
+                  -- update our universal quantifier to the existential type variable.
+                  --
+                  -- This only works if the universal quantifier is flexible with a bottom bound.
+                  -- Since the existential quantifier could be _any_ type!
+                  (UniversalQuantifier Flexible (Type.polytypeDescription -> Bottom _), ExistentialQuantifier _) ->
+                    Prefix.update stack prefix actualName (Type.polytype expected)
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
           -- successful then update the type variable in our prefix to our monotype.
@@ -161,7 +177,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           --
           -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
           UniversalQuantifier expectedFlexibility (Type.polytypeDescription -> Monotype' expectedMonotype)
-            | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Type.Rigid ->
+            | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Rigid ->
             unify stack prefix actual expectedMonotype
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
