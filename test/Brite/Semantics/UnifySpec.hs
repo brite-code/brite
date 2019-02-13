@@ -615,6 +615,8 @@ testData =
   , "unify(<A = fun<T>(Int) -> fun(T) -> T, B: fun<T, U>(U) -> fun(T) -> T>, B, A)"
   , "unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, A, B)"
   , "unify(<A: fun<T>(Int) -> fun(T) -> T, B = fun<T, U>(U) -> fun(T) -> T>, B, A)"
+  , "unify(<F: fun<T>(T) -> T, G: fun(Int) -> Int, H = fun<T>(T) -> T>, fun(F) -> F, fun(G) -> H)"
+  , "unify(<F: fun<T>(T) -> T, G: fun(Int) -> Int, H = fun<T>(T) -> T>, fun(G) -> H, fun(F) -> F)"
   -- , "unify(<A: <T> {outer: {inner: T}}, B: {outer: <T> {inner: T}}>, A, B)"
   -- , "unify(<A: <T> {outer: {inner: T}}, B: {outer: <T> {inner: T}}>, B, A)"
   -- , "unify(<A: <T> {outer: {inner: T}}, B: <T> {outer: {inner: T}}>, A, B)"

@@ -440,14 +440,36 @@ unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription act
     result <- unify stack prefix newActualBody expectedMonotype
     case result of
       Left e -> return (Left e)
-      Right () -> Right <$> Prefix.generalize prefix newActualBody
+      -- At this point we know that the two types are equivalent so we may return either one! We
+      -- choose to return the monotype.
+      --
+      -- We return the monotype because we won’t need to generalize the type. All the bounds
+      -- instantiated for our quantified type will not be referenced by the monotype because we are
+      -- guaranteed that instantiation will only add _new_ bounds to the prefix.
+      --
+      -- We also return the monotype because it is better for error messages. Some of the bounds in
+      -- our quantified type might have been instantiated. So in an error message the user would see
+      -- `{p: Int}` for a type they wrote as `{p: !}`, for example. It would be better to point at
+      -- the monotype.
+      Right () -> return (Right (Type.polytype expectedMonotype))
 
   (Monotype' actualMonotype, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
     newExpectedBody <- Prefix.instantiate prefix expectedQuantifiers expectedBody
     result <- unify stack prefix actualMonotype newExpectedBody
     case result of
       Left e -> return (Left e)
-      Right () -> Right <$> Prefix.generalize prefix newExpectedBody
+      -- At this point we know that the two types are equivalent so we may return either one! We
+      -- choose to return the monotype.
+      --
+      -- We return the monotype because we won’t need to generalize the type. All the bounds
+      -- instantiated for our quantified type will not be referenced by the monotype because we are
+      -- guaranteed that instantiation will only add _new_ bounds to the prefix.
+      --
+      -- We also return the monotype because it is better for error messages. Some of the bounds in
+      -- our quantified type might have been instantiated. So in an error message the user would see
+      -- `{p: Int}` for a type they wrote as `{p: !}`, for example. It would be better to point at
+      -- the monotype.
+      Right () -> return (Right (Type.polytype actualMonotype))
 
   (Quantify actualQuantifiers actualBody, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
     newActualBody <- Prefix.instantiate prefix actualQuantifiers actualBody
