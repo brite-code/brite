@@ -11,10 +11,14 @@ import qualified Brite.Semantics.Prefix as Prefix
 import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..), Quantifier(..), Flexibility(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
+import Brite.Syntax.Identifier
 import Brite.Syntax.Range
 import Data.Foldable (foldlM)
+import Data.HashTable.ST.Cuckoo (HashTable)
+import qualified Data.HashTable.ST.Cuckoo as HashTable
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (isJust, fromMaybe)
+import Data.STRef
 
 -- IMPORTANT: It is expected that all free type variables are bound in the prefix! If this is not
 -- true we will report internal error diagnostics.
@@ -50,7 +54,16 @@ import Data.Maybe (fromMaybe)
 --
 -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
 unify :: UnifyStack -> Prefix s -> Monotype -> Monotype -> Check s (Either Diagnostic ())
-unify stack prefix actual expected = case (Type.monotypeDescription actual, Type.monotypeDescription expected) of
+unify stack prefix actual expected = do
+  exists <- newExistentialAssociation
+  unifyMonotype stack prefix exists actual expected
+
+-- Unifies two monotypes.
+--
+-- IMPORTANT: If you are recursively calling unify make sure to call this function and not `unify`
+-- as this function passes around the existential association environment!
+unifyMonotype :: UnifyStack -> Prefix s -> ExistentialAssociation s -> Monotype -> Monotype -> Check s (Either Diagnostic ())
+unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescription actual, Type.monotypeDescription expected) of
   -- Variables with the same name unify without any further analysis. We rename variables in
   -- `actual` and `expected` so that the same variable name does not represent different bounds.
   (Variable actualName, Variable expectedName) | actualName == expectedName -> return (Right ())
@@ -80,7 +93,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
           (UniversalQuantifier actualFlexibility (Type.polytypeDescription -> Monotype' actualMonotype), _)
             | Type.isVariableMonotype actualMonotype || actualFlexibility == Rigid ->
-            unify stack prefix actualMonotype expected
+              unifyMonotype stack prefix exists actualMonotype expected
 
           -- Two variables with different names were unified with one another. This case is
           -- different from the variable branch below because we need to merge the two
@@ -110,11 +123,11 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
                   -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
                   (_, UniversalQuantifier expectedFlexibility (Type.polytypeDescription -> Monotype' expectedMonotype))
                     | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Rigid ->
-                    unify stack prefix actual expectedMonotype
+                      unifyMonotype stack prefix exists actual expectedMonotype
 
                   -- Merge two universally quantified type variables together.
                   (UniversalQuantifier actualFlexibility actualBound, UniversalQuantifier expectedFlexibility expectedBound) -> do
-                    result <- unifyPolytypes stack prefix actualBound expectedBound
+                    result <- unifyPolytype stack prefix exists actualBound expectedBound
                     case result of
                       -- If the two types are not equivalent we don’t want to merge them together
                       -- in the prefix!
@@ -144,11 +157,14 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
                   (UniversalQuantifier Flexible (Type.polytypeDescription -> Bottom _), ExistentialQuantifier _) ->
                     Prefix.update stack prefix actualName (Type.polytype expected)
 
+                  (ExistentialQuantifier _, ExistentialQuantifier _) ->
+                    error "TODO"
+
           -- Unify the polymorphic bound type with our other monotype. If the unification is
           -- successful then update the type variable in our prefix to our monotype.
           (UniversalQuantifier _ actualBound, _) -> do
             let expectedPolytype = Type.polytype expected
-            result <- unifyPolytypes stack prefix actualBound expectedPolytype
+            result <- unifyPolytype stack prefix exists actualBound expectedPolytype
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix actualName expectedPolytype
@@ -178,13 +194,13 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
           -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
           UniversalQuantifier expectedFlexibility (Type.polytypeDescription -> Monotype' expectedMonotype)
             | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Rigid ->
-            unify stack prefix actual expectedMonotype
+              unifyMonotype stack prefix exists actual expectedMonotype
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
           -- successful then update the type variable in our prefix to our monotype.
           UniversalQuantifier _ expectedBound -> do
             let actualPolytype = Type.polytype actual
-            result <- unifyPolytypes stack prefix actualPolytype expectedBound
+            result <- unifyPolytype stack prefix exists actualPolytype expectedBound
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix expectedName actualPolytype
@@ -416,7 +432,7 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       -- Unifies two types and adds a new unification stack frame to the unification stack.
       unifyWithFrame frame nextActual nextExpected =
         let newStack = frame (currentRange (Type.monotypeRangeStack nextActual)) stack in
-          unify newStack prefix nextActual nextExpected
+          unifyMonotype newStack prefix exists nextActual nextExpected
 
       -- Report an incompatible types error with both of the types and return it. Use the initial
       -- ranges for our monotypes. This will point directly to where the type was defined.
@@ -429,8 +445,8 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
 -- Unifies two polytypes. When the two types are equivalent we return an ok result with a type. This
 -- type is an instance of both our input types. That is if `t1` and `t2` are our inputs and
 -- `t1 ≡ t2` holds then we return `t3` where both `t1 ⊑ t3` and `t2 ⊑ t3` hold.
-unifyPolytypes :: UnifyStack -> Prefix s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
-unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription actual, Type.polytypeDescription expected) of
+unifyPolytype :: UnifyStack -> Prefix s -> ExistentialAssociation s -> Polytype -> Polytype -> Check s (Either Diagnostic Polytype)
+unifyPolytype stack prefix exists actual expected = case (Type.polytypeDescription actual, Type.polytypeDescription expected) of
   -- If either is bottom then return the other one.
   (Bottom _, _) -> return (Right expected)
   (_, Bottom _) -> return (Right actual)
@@ -438,7 +454,7 @@ unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription act
   -- If we have two monotypes then unify them. Don’t bother with creating a new level
   -- or generalizing.
   (Monotype' actualMonotype, Monotype' expectedMonotype) -> do
-    result <- unify stack prefix actualMonotype expectedMonotype
+    result <- unifyMonotype stack prefix exists actualMonotype expectedMonotype
     case result of
       Left e -> return (Left e)
       Right () -> return (Right (Type.polytype actualMonotype))
@@ -453,7 +469,7 @@ unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription act
 
   (Quantify actualQuantifiers actualBody, Monotype' expectedMonotype) -> Prefix.withLevel prefix $ do
     newActualBody <- Prefix.instantiate prefix actualQuantifiers actualBody
-    result <- unify stack prefix newActualBody expectedMonotype
+    result <- unifyMonotype stack prefix exists newActualBody expectedMonotype
     case result of
       Left e -> return (Left e)
       -- At this point we know that the two types are equivalent so we may return either one! We
@@ -471,7 +487,7 @@ unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription act
 
   (Monotype' actualMonotype, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
     newExpectedBody <- Prefix.instantiate prefix expectedQuantifiers expectedBody
-    result <- unify stack prefix actualMonotype newExpectedBody
+    result <- unifyMonotype stack prefix exists actualMonotype newExpectedBody
     case result of
       Left e -> return (Left e)
       -- At this point we know that the two types are equivalent so we may return either one! We
@@ -490,7 +506,7 @@ unifyPolytypes stack prefix actual expected = case (Type.polytypeDescription act
   (Quantify actualQuantifiers actualBody, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
     newActualBody <- Prefix.instantiate prefix actualQuantifiers actualBody
     newExpectedBody <- Prefix.instantiate prefix expectedQuantifiers expectedBody
-    result <- unify stack prefix newActualBody newExpectedBody
+    result <- unifyMonotype stack prefix exists newActualBody newExpectedBody
     case result of
       Left e -> return (Left e)
       Right () -> Right <$> Prefix.generalize prefix newActualBody
@@ -504,3 +520,57 @@ eitherOr x@(Left _) (Right _) = x
 eitherOr x1@(Left e1) x2@(Left e2) =
   if rangeStart (diagnosticRange e1) > rangeStart (diagnosticRange e2) then x2
   else x1
+
+-- An existential association environment ensures that unification between existential quantifiers
+-- only happens if it corresponds to a renaming. The environment represents all possible renames
+-- and every time we see a rename we check if it is valid and remove the names from our environment.
+-- This makes sure we won’t accidentally set up two aliases for the same existential type. After
+-- a successful check we unify the aliases so that future unifications of the aliases will pass.
+--
+-- The existential association environment is defined by the paper [“First-class polymorphism with
+-- existential types”][1] Section 7.
+--
+-- NOTE: In Figure 10 of the existential types paper, the rule U-Mono-L has the condition
+-- `(Q, E) τ ~ σ : (Q', _)`. Notice how the existential association is ignored with `_`. I’m (Caleb)
+-- pretty sure this is a mistake since no where else in the paper is this addressed. The intuition
+-- described for existential associations in section 7.1 doesn’t fit the behavior of this rule where
+-- all updates to the environment are dropped. In addition, the soundness proof in Annex B.2 depends
+-- on a simple propagation of the existential association environment in the existing MLF rules
+-- which this is not. So I will treat this as a mistake and assume instead of `(Q', _)` the author
+-- meant to write `(Q', E')` and meant to use that `E'` in the conclusion of the U-Mono-L rule.
+--
+-- [1]: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.120.5025&rep=rep1&type=pdf
+newtype ExistentialAssociation s =
+  ExistentialAssociation (STRef s [(HashTable s Identifier (), HashTable s Identifier ())])
+
+-- Creates a new existential association environment.
+newExistentialAssociation :: Check s (ExistentialAssociation s)
+newExistentialAssociation = liftST (ExistentialAssociation <$> newSTRef [])
+
+-- Checks if two existential type variables are allowed to unify together. After we check this we
+-- remove the type variables from `ExistentialAssociation` ensuring that the existential quantifiers
+-- unify one-to-one.
+existentialAssociationCheck :: Identifier -> Identifier -> ExistentialAssociation s -> Check s Bool
+existentialAssociationCheck name1 name2 (ExistentialAssociation assoc0) = liftST (readSTRef assoc0 >>= loop)
+  where
+    loop [] = return False
+    loop ((set1, set2) : assoc1) = do
+      result1 <- (isJust <$> HashTable.lookup set1 name1) `andM` (isJust <$> HashTable.lookup set2 name2)
+      if result1 then do
+        HashTable.delete set1 name1
+        HashTable.delete set2 name2
+        return True
+      else do
+        result2 <- (isJust <$> HashTable.lookup set1 name2) `andM` (isJust <$> HashTable.lookup set2 name1)
+        if result2 then do
+          HashTable.delete set1 name2
+          HashTable.delete set2 name1
+          return True
+        else
+          loop assoc1
+
+-- Boolean “and” but on monads. The second monad will not be executed if the first monad
+-- returns false.
+andM :: Monad m => m Bool -> m Bool -> m Bool
+andM a b = a >>= \c -> if c then b else return c
+{-# INLINE andM #-}
