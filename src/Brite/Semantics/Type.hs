@@ -14,6 +14,7 @@ module Brite.Semantics.Type
   , monotypeDescription
   , monotypeRangeStack
   , monotypeFreeVariables
+  , isVariableMonotype
   , Polytype
   , PolytypeDescription(..)
   , polytypeDescription
@@ -90,6 +91,12 @@ data MonotypeDescription
   --
   -- Some constructed type. Like a function or an integer.
   | Construct (Construct Monotype)
+
+-- Is this monotype a variable?
+isVariableMonotype :: Monotype -> Bool
+isVariableMonotype t = case monotypeDescription t of
+  Variable _ -> True
+  _ -> False
 
 -- Types that do contain quantifiers. When we refer to a “type” what we really mean is “polytype”.
 data Polytype = Polytype

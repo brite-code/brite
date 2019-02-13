@@ -66,31 +66,54 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       Just actualQuantifier -> do
         -- Pattern match with our quantifier type and our second monotype.
         case (actualQuantifier, expectedDescription) of
-          -- If the bound for our variable is a monotype then recursively call `unify` with that
-          -- monotype. As per the normal-form monotype bound rewrite rule.
-          (UniversalQuantifier _ (Type.polytypeDescription -> Monotype' actualMonotype), _) ->
+          -- If the bound for our variable is a monotype variable then recursively call `unify` with
+          -- that monotype.
+          --
+          -- The `unify()` algorithm presented in the [MLF thesis][1] requires this case only for
+          -- variable monotypes (written as σ ∈ V). However, the proof will allow this shortcut for
+          -- any monotype, not just variables. We choose a middle-ground. We shortcut rigid bounds
+          -- so that we won’t have to update them in our prefix again. (Which will call
+          -- `updateCheck` which might be expensive.)
+          --
+          -- This case is repeated in three places.
+          --
+          -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+          (UniversalQuantifier actualFlexibility (Type.polytypeDescription -> Monotype' actualMonotype), _)
+            | Type.isVariableMonotype actualMonotype || actualFlexibility == Type.Rigid ->
             unify stack prefix actualMonotype expected
 
           -- Two variables with different names were unified with one another. This case is
           -- different from the variable branch below because we need to merge the two
           -- variables together.
-          (UniversalQuantifier actualFlexibility actualBound, Variable expectedName) -> do
+          (_, Variable expectedName) -> do
             -- Lookup the variable’s quantifier. If it does not exist then we have an internal
             -- error! Immediately stop trying to unify this type.
             maybeExpectedQuantifier <- Prefix.lookup prefix expectedName
             case maybeExpectedQuantifier of
               Nothing -> Left <$> expectedTypeVariableToExist expectedName stack
               Just expectedQuantifier ->
-                case expectedQuantifier of
-                  -- If the bound for our variable is a monotype then recursively call `unify`
-                  -- with that monotype. As per the normal-form monotype bound rewrite rule. Make
-                  -- sure we don’t fall into the next case where we try to update the types to
-                  -- each other!
-                  UniversalQuantifier _ (Type.polytypeDescription -> Monotype' expectedMonotype) ->
+                case (actualQuantifier, expectedQuantifier) of
+                  -- If the bound for our variable is a monotype variable then recursively call
+                  -- `unify` with that monotype.
+                  --
+                  -- The `unify()` algorithm presented in the [MLF thesis][1] requires this case
+                  -- only for variable monotypes (written as σ ∈ V). However, the proof will allow
+                  -- this shortcut for any monotype, not just variables. We choose a middle-ground.
+                  -- We shortcut rigid bounds so that we won’t have to update them in our prefix
+                  -- again. (Which will call `updateCheck` which might be expensive.)
+                  --
+                  -- This case is repeated in three places.
+                  --
+                  -- IMPORTANT: Make sure we don’t fall into the next case where we try to update
+                  -- the types to each other!
+                  --
+                  -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+                  (_, UniversalQuantifier expectedFlexibility (Type.polytypeDescription -> Monotype' expectedMonotype))
+                    | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Type.Rigid ->
                     unify stack prefix actual expectedMonotype
 
-                  -- Actually merge the two type variables together.
-                  UniversalQuantifier expectedFlexibility expectedBound -> do
+                  -- Merge two universally quantified type variables together.
+                  (UniversalQuantifier actualFlexibility actualBound, UniversalQuantifier expectedFlexibility expectedBound) -> do
                     result <- unifyPolytypes stack prefix actualBound expectedBound
                     case result of
                       -- If the two types are not equivalent we don’t want to merge them together
@@ -125,9 +148,20 @@ unify stack prefix actual expected = case (Type.monotypeDescription actual, Type
       Just expectedQuantifier -> do
         -- Pattern match with our quantifier type and our second monotype.
         case expectedQuantifier of
-          -- If the bound for our variable is a monotype then recursively call `unify` with that
-          -- monotype. As per the normal-form monotype bound rewrite rule.
-          UniversalQuantifier _ (Type.polytypeDescription -> Monotype' expectedMonotype) ->
+          -- If the bound for our variable is a monotype variable then recursively call `unify` with
+          -- that monotype.
+          --
+          -- The `unify()` algorithm presented in the [MLF thesis][1] requires this case only for
+          -- variable monotypes (written as σ ∈ V). However, the proof will allow this shortcut for
+          -- any monotype, not just variables. We choose a middle-ground. We shortcut rigid bounds
+          -- so that we won’t have to update them in our prefix again. (Which will call
+          -- `updateCheck` which might be expensive.)
+          --
+          -- This case is repeated in three places.
+          --
+          -- [1]: https://pastel.archives-ouvertes.fr/file/index/docid/47191/filename/tel-00007132.pdf
+          UniversalQuantifier expectedFlexibility (Type.polytypeDescription -> Monotype' expectedMonotype)
+            | Type.isVariableMonotype expectedMonotype || expectedFlexibility == Type.Rigid ->
             unify stack prefix actual expectedMonotype
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
