@@ -253,6 +253,7 @@ testData =
   , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(42))"
   , "infer(<>, (error: fun(Bool) -> !, nope: fun(!) -> void), nope(error(true)))"
   , "infer(<>, (id: fun<T>(T) -> T), id(1))"
+  , "infer(<>, (), ({val: 42, key: fun(x) { x }}: <A: !> {val: A, key: fun(A) -> Int}))"
   -- , "infer(<>, (use: fun<T>({val: T, key: fun(T) -> Int}) -> Int, absKey: <T> {val: T, key: fun(T) -> Int}), use(absKey))"
   -- , "infer(<>, (f: <T> fun({val: T, key: fun(T) -> Int}) -> Int, absKey: <T> {val: T, key: fun(T) -> Int}), f(absKey))"
   -- , "infer(<>, (f: <T> fun({val: T, key: fun(T) -> Int}) -> Int), fun(key) { (key: <T> {val: T, key: fun(T) -> Int}); use(key) })"

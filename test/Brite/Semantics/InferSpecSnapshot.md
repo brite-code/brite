@@ -2951,3 +2951,19 @@ infer(<>, (id: fun<T>(T) -> T), id(1))
 ```
 
 --------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), ({val: 42, key: fun(x) { x }}: <A: !> {val: A, key: fun(A) -> Int}))
+```
+
+### Output
+```
+(<>, <A: !> {val: A, key: fun(A) -> Int})
+```
+
+### Errors
+- (0:15-0:43) Can not change type of `{val, key}` because `<A: !> {val: A, key: fun(A) -> Int}` is more general than `{val: Int, key: fun(Int) -> Int}`.
+  - (0:52-0:80): `<A: !> {val: A, key: fun(A) -> Int}`
+
+--------------------------------------------------------------------------------

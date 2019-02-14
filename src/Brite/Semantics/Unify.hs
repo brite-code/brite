@@ -527,7 +527,10 @@ unifyPolytype stack prefix exists preferActual actual expected = case (Type.poly
   -- If we have two monotypes then unify them. Don’t bother with creating a new level
   -- or generalizing.
   (Monotype' actualMonotype, Monotype' expectedMonotype) -> do
-    result <- unifyMonotype stack prefix exists actualMonotype expectedMonotype
+    -- Even if we have no quantifiers we still need to wrap our unification in
+    -- `withExistentialAssociations` so that we may record the existential association level.
+    result <- withExistentialAssociations prefix exists Seq.empty Seq.empty $
+      unifyMonotype stack prefix exists actualMonotype expectedMonotype
     case result of
       Left e -> return (Left e)
       Right () -> return (Right (Type.polytype actualMonotype))
@@ -541,10 +544,12 @@ unifyPolytype stack prefix exists preferActual actual expected = case (Type.poly
   -- type variables that are needed at an earlier level.
 
   (Quantify actualQuantifiers actualBody, Monotype' expectedMonotype) -> Prefix.withLevel prefix $ do
-    -- NOTE: We don’t bother updating our existential association environment when unifying with a
-    -- monotype since a monotype has no quantifiers to associate with.
-    (_, newActualBody) <- Prefix.instantiate prefix actualQuantifiers actualBody
-    result <- unifyMonotype stack prefix exists newActualBody expectedMonotype
+    -- Instantiate the actual quantifiers in our prefix and remember the names of existential
+    -- quantifiers. Next unify our quantified type’s body with the expected type inside an
+    -- existential association context.
+    (actualExistentialNames, newActualBody) <- Prefix.instantiate prefix actualQuantifiers actualBody
+    result <- withExistentialAssociations prefix exists actualExistentialNames Seq.empty $
+      unifyMonotype stack prefix exists newActualBody expectedMonotype
     case result of
       Left e -> return (Left e)
       -- At this point we know that the two types are equivalent so we may return either one! We
@@ -561,10 +566,12 @@ unifyPolytype stack prefix exists preferActual actual expected = case (Type.poly
       Right () -> return (Right (Type.polytype expectedMonotype))
 
   (Monotype' actualMonotype, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
-    -- NOTE: We don’t bother updating our existential association environment when unifying with a
-    -- monotype since a monotype has no quantifiers to associate with.
-    (_, newExpectedBody) <- Prefix.instantiate prefix expectedQuantifiers expectedBody
-    result <- unifyMonotype stack prefix exists actualMonotype newExpectedBody
+    -- Instantiate the expected quantifiers in our prefix and remember the names of existential
+    -- quantifiers. Next unify our quantified type’s body with the actual type inside an
+    -- existential association context.
+    (expectedExistentialNames, newExpectedBody) <- Prefix.instantiate prefix expectedQuantifiers expectedBody
+    result <- withExistentialAssociations prefix exists Seq.empty expectedExistentialNames $
+      unifyMonotype stack prefix exists actualMonotype newExpectedBody
     case result of
       Left e -> return (Left e)
       -- At this point we know that the two types are equivalent so we may return either one! We
@@ -585,19 +592,10 @@ unifyPolytype stack prefix exists preferActual actual expected = case (Type.poly
     -- quantifier names.
     (actualExistentialNames, newActualBody) <- Prefix.instantiate prefix actualQuantifiers actualBody
     (expectedExistentialNames, newExpectedBody) <- Prefix.instantiate prefix expectedQuantifiers expectedBody
-    -- Update our existential association environment with the names of the type variables we just
-    -- instantiated in our prefix. These type variables may be aliases of each other.
-    --
-    -- Unify the quantified type bodies with our updated prefix and updated existential
-    -- association environment.
-    result <- withExistentialAssociations exists actualExistentialNames expectedExistentialNames $
+    -- Unify our quantified type’s body with the expected type inside an existential
+    -- association context.
+    result <- withExistentialAssociations prefix exists actualExistentialNames expectedExistentialNames $
       unifyMonotype stack prefix exists newActualBody newExpectedBody
-
-    -- TODO: Escaping existentials?
-    -- TODO: Escaping existentials?
-    -- TODO: Escaping existentials?
-    -- TODO: Escaping existentials?
-
     -- If unification was successful then generalize the actual type and return it.
     case result of
       Left e -> return (Left e)
@@ -637,58 +635,89 @@ expectError _ (Left e) = return (Left e)
 -- meant to write `(Q', E')` and meant to use that `E'` in the conclusion of the U-Mono-L rule.
 --
 -- [1]: http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.120.5025&rep=rep1&type=pdf
-newtype ExistentialAssociation s =
-  ExistentialAssociation (STRef s [(HashTable s Identifier (), HashTable s Identifier ())])
+data ExistentialAssociation s = ExistentialAssociation
+  { existentialAssociationLevel :: STRef s Int
+  , existentialAssociation :: STRef s [(HashTable s Identifier (), HashTable s Identifier ())]
+  }
 
 -- Creates a new existential association environment.
 newExistentialAssociation :: Check s (ExistentialAssociation s)
-newExistentialAssociation = liftST (ExistentialAssociation <$> newSTRef [])
+newExistentialAssociation = liftST (ExistentialAssociation <$> newSTRef 0 <*> newSTRef [])
 
 -- Adds a pair of existential variable names as a new association set before executing the action.
 -- Removes the association after the action finishes executing.
-withExistentialAssociations :: ExistentialAssociation s -> Seq Identifier -> Seq Identifier -> Check s a -> Check s a
-withExistentialAssociations (ExistentialAssociation assoc) names1 names2 action =
-  -- If either sequence is empty then execute our action without adding a new association. There
-  -- must be at least one name in both sets if we want to associate existential type variables with
-  -- each other.
-  if Seq.null names1 || Seq.null names2 then action else do
-    -- Create two existential variable name sets allocating enough size to fit all our names.
-    set1 <- liftST $ HashTable.newSized (Seq.length names1)
-    set2 <- liftST $ HashTable.newSized (Seq.length names2)
-    -- Insert all the existential variable names into the appropriate set.
-    liftST $ traverse_ (flip (HashTable.insert set1) ()) names1
-    liftST $ traverse_ (flip (HashTable.insert set2) ()) names2
-    -- Push the sets to our existential association environment. Pop the sets off our existential
-    -- association environment after the action has finished executing. In this way, by the end of
-    -- unification we should have an empty existential association environment since we scope our
-    -- association sets.
-    liftST $ modifySTRef assoc ((set1, set2) :)
-    result <- action
-    liftST $ modifySTRef assoc tail
-    -- Return the result of our action.
-    return result
+--
+-- Checks to make sure none of the quantified existentials escaped from the current level in
+-- our prefix. We assume that all of the provided existential type variable names were freshly
+-- instantiated in our current prefix level.
+withExistentialAssociations :: Prefix s -> ExistentialAssociation s -> Seq Identifier -> Seq Identifier -> Check s a -> Check s a
+withExistentialAssociations prefix exists names1 names2 action = do
+  -- Always increment the existential association level. Even if we don’t add our variable sets to
+  -- the stack we will always want to increment the level.
+  liftST $ modifySTRef (existentialAssociationLevel exists) (\n -> n + 1)
+  result <- wrapAction
+  liftST $ modifySTRef (existentialAssociationLevel exists) (\n -> n - 1)
+  -- Make sure that none of our existential type variables moved.
+  existentialEscapeCheck
+  -- Return the result.
+  return result
+  where
+    -- Wrap our action in a push/pop to the existential association stack if we have some names
+    -- which may be aliases of one another.
+    wrapAction =
+      -- If either sequence is empty then execute our action without adding a new association. There
+      -- must be at least one name in both sets if we want to associate existential type variables
+      -- with each other.
+      if Seq.null names1 || Seq.null names2 then action else do
+        -- Create two existential variable name sets allocating enough size to fit all our names.
+        set1 <- liftST $ HashTable.newSized (Seq.length names1)
+        set2 <- liftST $ HashTable.newSized (Seq.length names2)
+        -- Insert all the existential variable names into the appropriate set.
+        liftST $ traverse_ (flip (HashTable.insert set1) ()) names1
+        liftST $ traverse_ (flip (HashTable.insert set2) ()) names2
+        -- Push the sets to our existential association environment. Pop the sets off our
+        -- existential association environment after the action has finished executing. In this way,
+        -- by the end of unification we should have an empty existential association environment
+        -- since we scope our association sets.
+        liftST $ modifySTRef (existentialAssociation exists) ((set1, set2) :)
+        result <- action
+        liftST $ modifySTRef (existentialAssociation exists) tail
+        -- Return the result of our action.
+        return result
+
+    -- Make sure that none of our existential type variables moved.
+    existentialEscapeCheck =
+      ifM (liftST ((== 0) <$> readSTRef (existentialAssociationLevel exists))) (return ()) $ do
+        let
+          -- If an existential type variable is not in the current prefix level then report
+          -- a diagnostic!
+          visit name = ifM (Prefix.inCurrentLevel prefix name) (return ()) $ do
+            error "TODO"
+
+        -- Visit all the existential type variable names in both sequences.
+        traverse_ visit names1
+        traverse_ visit names2
 
 -- Checks if two existential type variables are allowed to unify together. After we check this we
 -- remove the type variables from `ExistentialAssociation` ensuring that the existential quantifiers
 -- unify one-to-one.
 existentialAssociationCheck :: ExistentialAssociation s -> Identifier -> Identifier -> Check s Bool
-existentialAssociationCheck (ExistentialAssociation assoc0) name1 name2 = liftST (readSTRef assoc0 >>= loop)
+existentialAssociationCheck exists name1 name2 = liftST (readSTRef (existentialAssociation exists) >>= loop)
   where
     loop [] = return False
-    loop ((set1, set2) : assoc1) = do
-      result1 <- (isJust <$> HashTable.lookup set1 name1) `andM` (isJust <$> HashTable.lookup set2 name2)
-      if result1 then do
-        HashTable.delete set1 name1
-        HashTable.delete set2 name2
-        return True
-      else do
-        result2 <- (isJust <$> HashTable.lookup set1 name2) `andM` (isJust <$> HashTable.lookup set2 name1)
-        if result2 then do
-          HashTable.delete set1 name2
-          HashTable.delete set2 name1
-          return True
-        else
-          loop assoc1
+    loop ((set1, set2) : assoc) = do
+      ifM
+        ((isJust <$> HashTable.lookup set1 name1) `andM` (isJust <$> HashTable.lookup set2 name2))
+        (HashTable.delete set1 name1 *> HashTable.delete set2 name2 *> return True)
+        (ifM
+          ((isJust <$> HashTable.lookup set1 name2) `andM` (isJust <$> HashTable.lookup set2 name1))
+          (HashTable.delete set1 name2 *> HashTable.delete set2 name1 *> return True)
+          (loop assoc))
+
+-- A conditional “if” expression but on monads.
+ifM :: Monad m => m Bool -> m a -> m a -> m a
+ifM a x y = a >>= \b -> if b then x else y
+{-# INLINE ifM #-}
 
 -- Boolean “and” but on monads. The second monad will not be executed if the first monad
 -- returns false.
