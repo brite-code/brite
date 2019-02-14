@@ -13,7 +13,6 @@ module Brite.Semantics.Prefix
   , fresh
   , freshWithBound
   , lookup
-  , inCurrentLevel
   , instantiate
   , generalize
   , update
@@ -235,19 +234,6 @@ normalizePrefixEntryQuantifier entry = do
         return quantifier
 
     Type.ExistentialQuantifier _ -> return quantifier
-
--- Is the type variable with the provided identifier in the current level?
-inCurrentLevel :: Prefix s -> Identifier -> Check s Bool
-inCurrentLevel prefix name = liftST $ do
-  levels <- readSTRef (prefixLevels prefix)
-  case levels of
-    [] -> return False
-    currentLevel : _ -> do
-      maybeLevel <- HashTable.lookup (prefixEntries prefix) name >>= mapM (readSTRef . prefixEntryLevel)
-      case maybeLevel of
-        Nothing -> return False
-        Just level -> return (prefixLevelIndex level == prefixLevelIndex currentLevel)
-{-# INLINE inCurrentLevel #-}
 
 -- Merges the bounds of a quantified type into the prefix. If any of the bound names already exist
 -- in the prefix then we need to generate new names. Those names will be substituted in the bounds
