@@ -224,43 +224,66 @@ normalizePrefixEntryQuantifier entry = do
   -- If the type is not in normal form, convert it to normal form and update the quantifier in
   -- our entry.
   case quantifier of
-    Type.UniversalQuantifier flexibility type0 | not (Type.polytypeNormal type0) -> do
-      let type1 = Type.normal type0
-      let newQuantifier = Type.UniversalQuantifier flexibility type1
-      writeSTRef (prefixEntryQuantifier entry) newQuantifier
-      return newQuantifier
+    Type.UniversalQuantifier flexibility type0 ->
+      if not (Type.polytypeNormal type0) then do
+        let type1 = Type.normal type0
+        let newQuantifier = Type.UniversalQuantifier flexibility type1
+        writeSTRef (prefixEntryQuantifier entry) newQuantifier
+        return newQuantifier
+      else
+        return quantifier
 
-    _ -> return quantifier
+    Type.ExistentialQuantifier _ -> return quantifier
 
 -- Merges the bounds of a quantified type into the prefix. If any of the bound names already exist
 -- in the prefix then we need to generate new names. Those names will be substituted in the bounds
 -- and the provided body type. The new body type with substituted names will be returned.
-instantiate :: Prefix s -> Seq (Identifier, Type.Quantifier) -> Monotype -> Check s Monotype
+--
+-- Also returns a list of _existential_ quantifier names which were instantiated in our prefix. The
+-- list does not contain universal quantifier names! If we instantiated an existential quantifier in
+-- our prefix with a new name then that new name will be in the list instead of the old name. We
+-- return existential quantifier names because they are useful for unification.
+instantiate :: Prefix s -> Seq (Identifier, Type.Quantifier) -> Monotype -> Check s (Seq Identifier, Monotype)
 instantiate prefix quantifiers body = do
   -- Loop through our quantifiers and add them to our prefix. All of the quantifiers with a naming
   -- conflict in our prefix will add a substitution to our substitutions map.
-  substitutions2 <-
+  (substitutions2, existentials2) <-
     foldlM
-      (\substitutions1 (name, quantifier) -> do
+      (\(substitutions1, existentials1) (name, quantifier) -> do
         let
           -- If we have some substitutions then apply them to our quantifier.
           newQuantifier =
             if HashMap.null substitutions1 then quantifier
             else case quantifier of
+              Type.ExistentialQuantifier _ -> quantifier
               Type.UniversalQuantifier f t ->
                 maybe quantifier (Type.UniversalQuantifier f) (Type.substitutePolytype substitutions1 t)
         -- Add the quantifier to our prefix.
         maybeNewName <- add prefix name newQuantifier
-        -- If we had to generate a new name then add a substitution to our map.
-        return $ case maybeNewName of
-          Nothing -> substitutions1
-          Just newName -> HashMap.insert name (Left newName) substitutions1)
+        -- Return an update substitutions map and an updated existential sequence.
+        return
+          -- If we had to generate a new name then add a substitution to our map.
+          ( case maybeNewName of
+              Nothing -> substitutions1
+              Just newName -> HashMap.insert name (Left newName) substitutions1
+
+          -- If our quantifier is an existential then add its prefix name to our existentials list.
+          -- We don’t add other quantifier names to our list because unification only needs
+          -- existential names.
+          , case newQuantifier of
+              Type.ExistentialQuantifier _ -> existentials1 |> fromMaybe name maybeNewName
+              _ -> existentials1
+          ))
       -- Start with no substitutions and loop through quantifiers.
-      HashMap.empty
+      (HashMap.empty, Seq.empty)
       quantifiers
-  -- If we have some substitutions we need to apply them to our body type.
-  if HashMap.null substitutions2 then return body
-  else return (fromMaybe body (Type.substituteMonotype substitutions2 body))
+
+  return
+    ( existentials2
+    -- If we have some substitutions we need to apply them to our body type.
+    , if HashMap.null substitutions2 then body
+      else fromMaybe body (Type.substituteMonotype substitutions2 body)
+    )
 
 -- Generalizes a type at the current level of the prefix. If the type references variables in the
 -- prefix at the current level then we will quantify the provided monotype with those type
@@ -375,20 +398,23 @@ updateCheck stack prefix name oldQuantifier newType = do
   nameOccurs <- liftST $ occurs prefix name newType
   if nameOccurs then
     Left <$> infiniteType stack
-  else do
+  else
     -- If the old bound is rigid then we check to make sure that the new type is an abstraction of
     -- the old type. If it is not then we have an invalid update!
-    abstractionCheckSucceeds <-
-      case oldQuantifier of
-        Type.UniversalQuantifier Type.Flexible _ -> return True
-        Type.UniversalQuantifier Type.Rigid oldType -> abstractionCheck (lookup prefix) oldType newType
-    if not abstractionCheckSucceeds then
-      Left <$>
-        doesNotAbstract
-          (rawPolytypeMessage newType)
-          (rawPolytypeMessage (case oldQuantifier of { Type.UniversalQuantifier _ t -> t }))
-          stack
-    else
+    case oldQuantifier of
+      Type.ExistentialQuantifier _ -> abstractionCheckSucceeds
+      Type.UniversalQuantifier Type.Flexible _ -> abstractionCheckSucceeds
+      Type.UniversalQuantifier Type.Rigid oldType -> do
+        result <- abstractionCheck (lookup prefix) oldType newType
+        if result then abstractionCheckSucceeds else
+          Left <$>
+            doesNotAbstract
+              (rawPolytypeMessage newType)
+              (rawPolytypeMessage oldType)
+              stack
+
+  where
+    abstractionCheckSucceeds =
       -- The update is ok. You may proceed to commit changes...
       return (Right ())
 
@@ -422,7 +448,7 @@ update stack prefix name newType = do
   -- diagnostic and abort.
   maybeEntry <- liftST $ HashTable.lookup (prefixEntries prefix) name
   case maybeEntry of
-    Nothing -> Left <$> expectedTypeVariableToExist name stack
+    Nothing -> Left <$> internalExpectedTypeVariableToExist name stack
     Just entry -> do
       -- Make sure our update is safe.
       oldQuantifier <- liftST $ readSTRef (prefixEntryQuantifier entry)
@@ -454,8 +480,8 @@ mergeUpdate stack prefix name1 name2 flex newType = do
   maybeEntry1 <- liftST $ HashTable.lookup (prefixEntries prefix) name1
   maybeEntry2 <- liftST $ HashTable.lookup (prefixEntries prefix) name2
   case (maybeEntry1, maybeEntry2) of
-    (Nothing, _) -> Left <$> expectedTypeVariableToExist name1 stack
-    (_, Nothing) -> Left <$> expectedTypeVariableToExist name2 stack
+    (Nothing, _) -> Left <$> internalExpectedTypeVariableToExist name1 stack
+    (_, Nothing) -> Left <$> internalExpectedTypeVariableToExist name2 stack
     (Just entry1, Just entry2) -> do
       -- Make sure _both_ our updates are safe.
       oldQuantifier1 <- liftST $ readSTRef (prefixEntryQuantifier entry1)

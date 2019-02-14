@@ -8,16 +8,20 @@ import Brite.Diagnostic
 import Brite.Semantics.CheckMonad
 import Brite.Semantics.Prefix (Prefix)
 import qualified Brite.Semantics.Prefix as Prefix
+import Brite.Semantics.TypeNames
 import Brite.Semantics.Type (Monotype, MonotypeDescription(..), Polytype, PolytypeDescription(..), Quantifier(..), Flexibility(..))
 import qualified Brite.Semantics.Type as Type
 import Brite.Semantics.TypeConstruct
 import Brite.Syntax.Identifier
 import Brite.Syntax.Range
-import Data.Foldable (foldlM)
+import Brite.Syntax.Snippet (TypeConstructorSnippet(..))
+import Data.Foldable (foldlM, traverse_)
 import Data.HashTable.ST.Cuckoo (HashTable)
 import qualified Data.HashTable.ST.Cuckoo as HashTable
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust, fromMaybe)
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Data.STRef
 
 -- IMPORTANT: It is expected that all free type variables are bound in the prefix! If this is not
@@ -75,7 +79,7 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
     -- Immediately stop trying to unify this type.
     maybeActualQuantifier <- Prefix.lookup prefix actualName
     case maybeActualQuantifier of
-      Nothing -> Left <$> expectedTypeVariableToExist actualName stack
+      Nothing -> Left <$> internalExpectedTypeVariableToExist actualName stack
       Just actualQuantifier -> do
         -- Pattern match with our quantifier type and our second monotype.
         case (actualQuantifier, expectedDescription) of
@@ -103,7 +107,7 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
             -- error! Immediately stop trying to unify this type.
             maybeExpectedQuantifier <- Prefix.lookup prefix expectedName
             case maybeExpectedQuantifier of
-              Nothing -> Left <$> expectedTypeVariableToExist expectedName stack
+              Nothing -> Left <$> internalExpectedTypeVariableToExist expectedName stack
               Just expectedQuantifier ->
                 case (actualQuantifier, expectedQuantifier) of
                   -- If the bound for our variable is a monotype variable then recursively call
@@ -144,24 +148,77 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
                         -- Merge the two type variables together! Huzzah!
                         Prefix.mergeUpdate stack prefix actualName expectedName flexibility newType
 
-                  -- If we are unifying an existential quantifier with a universal quantifier then
-                  -- update our universal quantifier to the existential type variable.
-                  --
-                  -- This only works if the universal quantifier is flexible with a bottom bound.
-                  -- Since the existential quantifier could be _any_ type!
-                  (ExistentialQuantifier _, UniversalQuantifier Flexible (Type.polytypeDescription -> Bottom _)) ->
-                    Prefix.update stack prefix expectedName (Type.polytype actual)
+                  -- Unify a type variable with an existential quantifier and a type variable with a
+                  -- universal quantifier...
+                  (ExistentialQuantifier actualRange, UniversalQuantifier expectedFlexibility expectedBound) ->
+                    case (expectedFlexibility, Type.polytypeDescription expectedBound) of
+                      -- An existential quantifier could be _any_ type, so we can only update
+                      -- universally quantified types with a flexible bottom type bound.
+                      (Flexible, Bottom _) -> Prefix.update stack prefix expectedName (Type.polytype actual)
 
-                  -- If we are unifying an existential quantifier with a universal quantifier then
-                  -- update our universal quantifier to the existential type variable.
-                  --
-                  -- This only works if the universal quantifier is flexible with a bottom bound.
-                  -- Since the existential quantifier could be _any_ type!
-                  (UniversalQuantifier Flexible (Type.polytypeDescription -> Bottom _), ExistentialQuantifier _) ->
-                    Prefix.update stack prefix actualName (Type.polytype expected)
+                      -- A rigid bottom type bound expects _exactly_ the bottom type. While an
+                      -- existential type may be exactly the bottom type, we can’t be sure so
+                      -- return an error.
+                      (Rigid, Bottom expectedRangeStack) -> Left <$>
+                        doesNotAbstract
+                          (actualRange, identifierText actualName)
+                          (initialRange expectedRangeStack, bottomTypeName)
+                          stack
 
-                  (ExistentialQuantifier _, ExistentialQuantifier _) ->
-                    error "TODO"
+                      -- At this point, we expect our existential quantifier to fail unification
+                      -- with every other type, so unify recursively to get a good error message.
+                      (_, Monotype' expectedMonotype) -> unifyMonotype stack prefix exists actual expectedMonotype >>= expectError stack
+                      (_, Quantify _ _) -> unifyPolytype stack prefix exists True (Type.polytype actual) expectedBound >>= expectError stack
+
+                  -- Unify a type variable with a universal quantifier and a type variable with an
+                  -- existential quantifier...
+                  (UniversalQuantifier actualFlexibility actualBound, ExistentialQuantifier expectedRange) ->
+                    case (actualFlexibility, Type.polytypeDescription actualBound) of
+                      -- An existential quantifier could be _any_ type, so we can only update
+                      -- universally quantified types with a flexible bottom type bound.
+                      (Flexible, Bottom _) -> Prefix.update stack prefix actualName (Type.polytype expected)
+
+                      -- A rigid bottom type bound expects _exactly_ the bottom type. While an
+                      -- existential type may be exactly the bottom type, we can’t be sure so
+                      -- return an error.
+                      (Rigid, Bottom actualRangeStack) -> Left <$>
+                        doesNotAbstract
+                          (expectedRange, identifierText expectedName)
+                          (initialRange actualRangeStack, bottomTypeName)
+                          stack
+
+                      -- At this point, we expect our existential quantifier to fail unification
+                      -- with every other type, so unify recursively to get a good error message.
+                      (_, Monotype' actualMonotype) -> unifyMonotype stack prefix exists actualMonotype expected >>= expectError stack
+                      (_, Quantify _ _) -> unifyPolytype stack prefix exists True actualBound (Type.polytype expected) >>= expectError stack
+
+                  -- We may only unify two existential quantifiers with different names if they were
+                  -- quantified at the same level. Then we create an alias for the two quantifiers
+                  -- by updating one of the existential quantifiers to point at the other in our
+                  -- prefix. If an existentially quantified type was already aliased then our
+                  -- existential association check will fail.
+                  (ExistentialQuantifier actualRange, ExistentialQuantifier expectedRange) -> do
+                    result <- existentialAssociationCheck exists actualName expectedName
+                    if result then
+                      Prefix.update stack prefix expectedName (Type.polytype actual)
+                    else
+                      -- If we fail our existential environment association check then we know that
+                      -- these two existential quantifiers are incompatible. So make sure to fail
+                      -- with an error!
+                      Left <$>
+                        incompatibleTypes
+                          (actualRange, UnknownConstructorSnippet actualName)
+                          (expectedRange, UnknownConstructorSnippet expectedName)
+                          stack
+
+          -- An existentially quantified type is incompatible with a constructed type. Report an
+          -- incompatible types error.
+          (ExistentialQuantifier actualRange, Construct expectedConstruct) ->
+            Left <$>
+              incompatibleTypes
+                (actualRange, UnknownConstructorSnippet actualName)
+                (initialRange (Type.monotypeRangeStack expected), typeConstructorSnippet expectedConstruct)
+                stack
 
           -- Unify the polymorphic bound type with our other monotype. If the unification is
           -- successful then update the type variable in our prefix to our monotype.
@@ -174,12 +231,12 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
 
   -- Unify `expected` with some other monotype. The other monotype is guaranteed to not be a variable
   -- since that case would be caught by the match case above.
-  (_, Variable expectedName) -> do
+  (Construct actualConstruct, Variable expectedName) -> do
     -- Lookup the variable’s quantifier. If it does not exist then we have an internal error!
     -- Immediately stop trying to unify this type.
     maybeExpectedQuantifier <- Prefix.lookup prefix expectedName
     case maybeExpectedQuantifier of
-      Nothing -> Left <$> expectedTypeVariableToExist expectedName stack
+      Nothing -> Left <$> internalExpectedTypeVariableToExist expectedName stack
       Just expectedQuantifier -> do
         -- Pattern match with our quantifier type and our second monotype.
         case expectedQuantifier of
@@ -207,6 +264,15 @@ unifyMonotype stack prefix exists actual expected = case (Type.monotypeDescripti
             case result of
               Left e -> return (Left e)
               Right _ -> Prefix.update stack prefix expectedName actualPolytype
+
+          -- An existentially quantified type is incompatible with a constructed type. Report an
+          -- incompatible types error.
+          ExistentialQuantifier expectedRange ->
+            Left <$>
+              incompatibleTypes
+                (initialRange (Type.monotypeRangeStack actual), typeConstructorSnippet actualConstruct)
+                (expectedRange, UnknownConstructorSnippet expectedName)
+                stack
 
   -- Unify two constructed types.
   (Construct actualConstruct, Construct expectedConstruct) ->
@@ -475,7 +541,9 @@ unifyPolytype stack prefix exists preferActual actual expected = case (Type.poly
   -- type variables that are needed at an earlier level.
 
   (Quantify actualQuantifiers actualBody, Monotype' expectedMonotype) -> Prefix.withLevel prefix $ do
-    newActualBody <- Prefix.instantiate prefix actualQuantifiers actualBody
+    -- NOTE: We don’t bother updating our existential association environment when unifying with a
+    -- monotype since a monotype has no quantifiers to associate with.
+    (_, newActualBody) <- Prefix.instantiate prefix actualQuantifiers actualBody
     result <- unifyMonotype stack prefix exists newActualBody expectedMonotype
     case result of
       Left e -> return (Left e)
@@ -493,7 +561,9 @@ unifyPolytype stack prefix exists preferActual actual expected = case (Type.poly
       Right () -> return (Right (Type.polytype expectedMonotype))
 
   (Monotype' actualMonotype, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
-    newExpectedBody <- Prefix.instantiate prefix expectedQuantifiers expectedBody
+    -- NOTE: We don’t bother updating our existential association environment when unifying with a
+    -- monotype since a monotype has no quantifiers to associate with.
+    (_, newExpectedBody) <- Prefix.instantiate prefix expectedQuantifiers expectedBody
     result <- unifyMonotype stack prefix exists actualMonotype newExpectedBody
     case result of
       Left e -> return (Left e)
@@ -511,9 +581,24 @@ unifyPolytype stack prefix exists preferActual actual expected = case (Type.poly
       Right () -> return (Right (Type.polytype actualMonotype))
 
   (Quantify actualQuantifiers actualBody, Quantify expectedQuantifiers expectedBody) -> Prefix.withLevel prefix $ do
-    newActualBody <- Prefix.instantiate prefix actualQuantifiers actualBody
-    newExpectedBody <- Prefix.instantiate prefix expectedQuantifiers expectedBody
-    result <- unifyMonotype stack prefix exists newActualBody newExpectedBody
+    -- Instantiate our quantifiers in the prefix and remember the list of the existential
+    -- quantifier names.
+    (actualExistentialNames, newActualBody) <- Prefix.instantiate prefix actualQuantifiers actualBody
+    (expectedExistentialNames, newExpectedBody) <- Prefix.instantiate prefix expectedQuantifiers expectedBody
+    -- Update our existential association environment with the names of the type variables we just
+    -- instantiated in our prefix. These type variables may be aliases of each other.
+    --
+    -- Unify the quantified type bodies with our updated prefix and updated existential
+    -- association environment.
+    result <- withExistentialAssociations exists actualExistentialNames expectedExistentialNames $
+      unifyMonotype stack prefix exists newActualBody newExpectedBody
+
+    -- TODO: Escaping existentials?
+    -- TODO: Escaping existentials?
+    -- TODO: Escaping existentials?
+    -- TODO: Escaping existentials?
+
+    -- If unification was successful then generalize the actual type and return it.
     case result of
       Left e -> return (Left e)
       Right () -> Right <$> Prefix.generalize prefix (if preferActual then newActualBody else newExpectedBody)
@@ -527,6 +612,11 @@ eitherOr x@(Left _) (Right _) = x
 eitherOr x1@(Left e1) x2@(Left e2) =
   if rangeStart (diagnosticRange e1) > rangeStart (diagnosticRange e2) then x2
   else x1
+
+-- Expects a unification error. If we don’t get one then we report an internal error instead.
+expectError :: UnifyStack -> Either Diagnostic a -> Check s (Either Diagnostic b)
+expectError stack (Right _) = Left <$> internalExpectedUnificationError stack
+expectError _ (Left e) = return (Left e)
 
 -- An existential association environment ensures that unification between existential quantifiers
 -- only happens if it corresponds to a renaming. The environment represents all possible renames
@@ -554,11 +644,35 @@ newtype ExistentialAssociation s =
 newExistentialAssociation :: Check s (ExistentialAssociation s)
 newExistentialAssociation = liftST (ExistentialAssociation <$> newSTRef [])
 
+-- Adds a pair of existential variable names as a new association set before executing the action.
+-- Removes the association after the action finishes executing.
+withExistentialAssociations :: ExistentialAssociation s -> Seq Identifier -> Seq Identifier -> Check s a -> Check s a
+withExistentialAssociations (ExistentialAssociation assoc) names1 names2 action =
+  -- If either sequence is empty then execute our action without adding a new association. There
+  -- must be at least one name in both sets if we want to associate existential type variables with
+  -- each other.
+  if Seq.null names1 || Seq.null names2 then action else do
+    -- Create two existential variable name sets allocating enough size to fit all our names.
+    set1 <- liftST $ HashTable.newSized (Seq.length names1)
+    set2 <- liftST $ HashTable.newSized (Seq.length names2)
+    -- Insert all the existential variable names into the appropriate set.
+    liftST $ traverse_ (flip (HashTable.insert set1) ()) names1
+    liftST $ traverse_ (flip (HashTable.insert set2) ()) names2
+    -- Push the sets to our existential association environment. Pop the sets off our existential
+    -- association environment after the action has finished executing. In this way, by the end of
+    -- unification we should have an empty existential association environment since we scope our
+    -- association sets.
+    liftST $ modifySTRef assoc ((set1, set2) :)
+    result <- action
+    liftST $ modifySTRef assoc tail
+    -- Return the result of our action.
+    return result
+
 -- Checks if two existential type variables are allowed to unify together. After we check this we
 -- remove the type variables from `ExistentialAssociation` ensuring that the existential quantifiers
 -- unify one-to-one.
-existentialAssociationCheck :: Identifier -> Identifier -> ExistentialAssociation s -> Check s Bool
-existentialAssociationCheck name1 name2 (ExistentialAssociation assoc0) = liftST (readSTRef assoc0 >>= loop)
+existentialAssociationCheck :: ExistentialAssociation s -> Identifier -> Identifier -> Check s Bool
+existentialAssociationCheck (ExistentialAssociation assoc0) name1 name2 = liftST (readSTRef assoc0 >>= loop)
   where
     loop [] = return False
     loop ((set1, set2) : assoc1) = do

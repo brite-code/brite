@@ -82,7 +82,8 @@ module Brite.Diagnostic
   , extraProperty
   , doesNotAbstract
   , infiniteType
-  , expectedTypeVariableToExist
+  , internalExpectedTypeVariableToExist
+  , internalExpectedUnificationError
 
   -- Diagnostic unification stacks.
   , UnifyStack
@@ -184,7 +185,9 @@ data ErrorDiagnosticMessage
 
 data InternalErrorDiagnosticMessage
   -- We expected a type variable to exist in the prefix and it didn’t we throw this error.
-  = ExpectedTypeVariableToExist Identifier
+  = InternalExpectedTypeVariableToExist Identifier
+  -- We expected a unification error but we didn’t get one.
+  | InternalExpectedUnificationError
 
 data WarningDiagnosticMessage
 
@@ -290,9 +293,14 @@ infiniteType stack = report $ Diagnostic (unifyStackRange stack) $ Error $
   InfiniteType stack
 
 -- We expected a type variable to exist in the prefix and it didn’t we throw this error.
-expectedTypeVariableToExist :: DiagnosticMonad m => Identifier -> UnifyStack -> m Diagnostic
-expectedTypeVariableToExist name stack = report $ Diagnostic (unifyStackRange stack) $ Error $ InternalError $
-  ExpectedTypeVariableToExist name
+internalExpectedTypeVariableToExist :: DiagnosticMonad m => Identifier -> UnifyStack -> m Diagnostic
+internalExpectedTypeVariableToExist name stack = report $ Diagnostic (unifyStackRange stack) $ Error $ InternalError $
+  InternalExpectedTypeVariableToExist name
+
+-- We expected a unification error but we didn’t get one.
+internalExpectedUnificationError :: DiagnosticMonad m => UnifyStack -> m Diagnostic
+internalExpectedUnificationError stack = report $ Diagnostic (unifyStackRange stack) $ Error $ InternalError $
+  InternalExpectedUnificationError
 
 -- For error reporting we keep track of the unification “stack”. The unification stack has an
 -- operation which represents _why_ the unification is happening. The unification stack also has a
@@ -576,18 +584,21 @@ diagnosticErrorMessage (IncompatibleTypes actualRange expectedRange actual expec
     actualMessage IntegerConstructorSnippet = code (identifierText integerTypeName)
     actualMessage FunctionConstructorSnippet = plain "a function"
     actualMessage ObjectConstructorSnippet = plain "an object"
+    actualMessage (UnknownConstructorSnippet name) = code (identifierText name)
 
     expectedMessage VoidConstructorSnippet = plain "void"
     expectedMessage BooleanConstructorSnippet = plain "a " <> code (identifierText booleanTypeName)
     expectedMessage IntegerConstructorSnippet = plain "an " <> code (identifierText integerTypeName)
     expectedMessage FunctionConstructorSnippet = plain "a function"
     expectedMessage ObjectConstructorSnippet = plain "an object"
+    expectedMessage (UnknownConstructorSnippet name) = code (identifierText name)
 
     referenceMessage VoidConstructorSnippet = plain "void"
     referenceMessage BooleanConstructorSnippet = code (identifierText booleanTypeName)
     referenceMessage IntegerConstructorSnippet = code (identifierText integerTypeName)
     referenceMessage FunctionConstructorSnippet = plain "function"
     referenceMessage ObjectConstructorSnippet = plain "object"
+    referenceMessage (UnknownConstructorSnippet name) = code (identifierText name)
 
 -- Missing property errors are a bit hard to write well. In the worst case, a missing property error
 -- can point to _many_ lines of code. Like in the case of a large configuration object that is
@@ -706,10 +717,12 @@ diagnosticErrorMessage (InfiniteType stack) = noRelatedInformation $
 -- If a user sees an internal error diagnostic then there’s a bug in Brite. Refer users to the issue
 -- tracker so they can report their problem.
 diagnosticErrorMessage (InternalError x) = noRelatedInformation $
-  plain "Internal Error: " <> internalErrorDiagnosticMessage x <> plain " " <> issueTrackerMessage
+  plain "INTERNAL ERROR: " <> internalErrorDiagnosticMessage x <> plain " " <> issueTrackerMessage
   where
-    internalErrorDiagnosticMessage (ExpectedTypeVariableToExist name) =
+    internalErrorDiagnosticMessage (InternalExpectedTypeVariableToExist name) =
       plain "Expected type variable " <> code (identifierText name) <> plain " to exist in the prefix."
+    internalErrorDiagnosticMessage InternalExpectedUnificationError =
+      plain "Expected a unification error but didn’t get one, so we report this error instead."
 
 -- Utility for constructing an error message with no related information.
 noRelatedInformation :: Markup -> (Markup, [DiagnosticRelatedInformation])

@@ -23,7 +23,6 @@ module Brite.Semantics.Type
   , polytypeNormal
   , Quantifier(..)
   , Flexibility(..)
-  , quantifierBoundType
   , quantifierFreeVariables
   , variable
   , variableWithRangeStack
@@ -166,13 +165,6 @@ data Quantifier
   -- existential quantifier is the bottom type. Existential quantifiers carry around a range so we
   -- can point to where the existential quantifier was defined.
   | ExistentialQuantifier Range
-
--- Returns the bound type of our quantifier disregarding the flexibility. You can think of the bound
--- as the most polymorphic type possible for this quantifier where bottom (⊥) is the most
--- polymorphic type.
-quantifierBoundType :: Quantifier -> Polytype
-quantifierBoundType (UniversalQuantifier _ t) = t
-quantifierBoundType (ExistentialQuantifier r) = bottom r
 
 -- All of the free variables in a quantifier.
 quantifierFreeVariables :: Quantifier -> Set Identifier

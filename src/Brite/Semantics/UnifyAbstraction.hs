@@ -28,6 +28,7 @@ data Skeleton
   = VariableSkeleton Identifier
   | ConstructSkeleton (Construct Skeleton)
   | BottomSkeleton
+  | TopSkeleton
 
 -- IMPORTANT: Both types should be in normal form when calling this function!
 --
@@ -40,7 +41,6 @@ data Skeleton
 -- Multiple calls to the prefix function should return the exact same binding. If the prefix
 -- function does not return a binding when we call it then we treat the type variable as opaque. It
 -- will only match against unbound type variables with the exact same name.
---
 --
 -- This function is used to implement abstraction checks. Since according to Property 2.1.3 (i) of
 -- the instance relation if one type abstracts another then the types have the same skeletons.
@@ -79,13 +79,16 @@ projectionsEqual prefix initialType1 initialType2 =
           context2 =
             foldl
               (\context1 (name, quantifier) ->
-                HashMap.insert name
-                  (polytypeSkeleton context1 (Type.quantifierBoundType quantifier))
-                  context1)
+                HashMap.insert name (quantifierSkeleton context1 quantifier) context1)
             context0
             quantifiers
         in
           monotypeSkeleton context2 body
+
+    -- Converts a quantifier into a skeleton.
+    quantifierSkeleton :: HashMap Identifier Skeleton -> Quantifier -> Skeleton
+    quantifierSkeleton context (UniversalQuantifier _ t) = polytypeSkeleton context t
+    quantifierSkeleton _ (ExistentialQuantifier _) = TopSkeleton
 
     -- Compares two type skeletons for equality.
     skeletonsEqual :: Skeleton -> Skeleton -> Check s Bool
@@ -102,9 +105,7 @@ projectionsEqual prefix initialType1 initialType2 =
         case maybeBinding1 of
           Nothing -> return False
           Just quantifier1 ->
-            skeletonsEqual
-              (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier1))
-              skeleton2
+            skeletonsEqual (quantifierSkeleton HashMap.empty quantifier1) skeleton2
 
       -- De-reference a variable from the prefix, convert that variable to a skeleton, and compare
       -- the equality of our skeletons.
@@ -113,14 +114,17 @@ projectionsEqual prefix initialType1 initialType2 =
         case maybeBinding2 of
           Nothing -> return False
           Just quantifier2 ->
-            skeletonsEqual
-              skeleton1
-              (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier2))
+            skeletonsEqual skeleton1 (quantifierSkeleton HashMap.empty quantifier2)
 
       -- Bottom is only equal to itself.
       (BottomSkeleton, BottomSkeleton) -> return True
       (BottomSkeleton, _) -> return False
       (_, BottomSkeleton) -> return False
+
+      -- Top is only equal to itself.
+      (TopSkeleton, TopSkeleton) -> return True
+      (TopSkeleton, _) -> return False
+      (_, TopSkeleton) -> return False
 
       -- Compare two constructs.
       (ConstructSkeleton construct1, ConstructSkeleton construct2) ->
@@ -165,7 +169,7 @@ projectionsEqual prefix initialType1 initialType2 =
           Nothing -> return False
           Just quantifier1 ->
             constructSkeletonsEqual
-              (Object props1 (Just (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier1))))
+              (Object props1 (Just (quantifierSkeleton HashMap.empty quantifier1)))
               construct2
 
       -- De-reference a variable from the prefix, convert that variable to a skeleton, and compare
@@ -177,7 +181,7 @@ projectionsEqual prefix initialType1 initialType2 =
           Just quantifier2 ->
             constructSkeletonsEqual
               construct1
-              (Object props2 (Just (polytypeSkeleton HashMap.empty (Type.quantifierBoundType quantifier2))))
+              (Object props2 (Just (quantifierSkeleton HashMap.empty quantifier2)))
 
       -- If our object extends another object then merge the two property maps.
       (Object props1A (Just (ConstructSkeleton (Object props1B ext1))), _) ->
@@ -327,7 +331,7 @@ flexibleBindersUnchanged type1 type2 =
           Monotype' _ -> acc0
 
           -- If we find a bottom type and we have some `xs` then add this path to our polynomial.
-          -- The short-circuit above depends on our `xs = 0` check here for correctness.
+          -- The short-circuit above depends on our `xs == 0` check here for correctness.
           Bottom _ -> if xs == 0 then acc0 else Map.insertWith (+) (xs, ys, zs) 1 acc0
 
           -- For quantifications add one to the correct polynomial variable and recurse into the
@@ -340,7 +344,8 @@ flexibleBindersUnchanged type1 type2 =
                   (X, UniversalQuantifier Rigid t1)    -> loop Y acc1 xs (ys + 1) zs t1
                   (Y, UniversalQuantifier Flexible t1) -> loop Z acc1 xs ys (zs + 1) t1
                   (Y, UniversalQuantifier Rigid t1)    -> loop Y acc1 xs (ys + 1) zs t1
-                  (Z, UniversalQuantifier _ t1)             -> loop Z acc1 xs ys (zs + 1) t1)
+                  (Z, UniversalQuantifier _ t1)        -> loop Z acc1 xs ys (zs + 1) t1
+                  (_, ExistentialQuantifier r)         -> loop Z acc1 xs ys (zs + 1) (Type.bottom r))
               acc0
               quantifiers
 
@@ -378,6 +383,7 @@ abstractionCheck prefix initialType1 initialType2 = do
             Nothing -> return False
             Just (UniversalQuantifier Flexible _) -> return False
             Just (UniversalQuantifier Rigid type3) -> loop type1 type3
+            Just (ExistentialQuantifier _) -> return False
 
         -- Finally, we expect the flexible binders to not have changed between the two types.
         _ -> return (flexibleBindersUnchanged type1 type2)

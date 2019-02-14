@@ -125,6 +125,10 @@ data TypeConstructorSnippet
   | FunctionConstructorSnippet
   | ObjectConstructorSnippet
 
+  -- An opaque type variable could be _any_ type constructor. Since we don’t know which one it is,
+  -- we’ll print the name and range of the opaque type variable.
+  | UnknownConstructorSnippet Identifier
+
 -- Prints a list snippet to a comma list.
 printListSnippet :: (a -> Text.Builder) -> ListSnippet a -> Text.Builder
 printListSnippet _ ListSnippet0 = mempty
