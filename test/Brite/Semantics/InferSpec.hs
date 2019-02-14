@@ -271,6 +271,12 @@ testData =
   -- , "infer(<>, (wrap: fun<T>(T) -> {inner: T}, key: <T> {val: T, key: fun(T) -> Int}), wrap(key))"
   -- , "infer(<>, (wrap: fun<T>({val: T, key: fun(T) -> Int}) -> {inner: {val: T, key: fun(T) -> Int}}, key: <T> {val: T, key: fun(T) -> Int}), wrap(key))"
   -- , "infer(<>, (key: <T> {val: T, key: fun(T) -> Int}), (fun(inner) { {inner} })(key))"
+  -- , "infer(<>, (), (42: _))"
+  -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {a: Int, b: Int, c: Int}))"
+  -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {a: Int, b: Int, _}))"
+  -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {a: Int, _}))"
+  -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {b: Int, _}))"
+  -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {c: Int, _}))"
   ]
 
 openSnapshotFile :: IO Handle
