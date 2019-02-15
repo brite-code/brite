@@ -278,6 +278,13 @@ testData =
   -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {a: Int, _}))"
   -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {b: Int, _}))"
   -- , "infer(<>, (), ({a: 1, b: 2, c: 3}: {c: Int, _}))"
+
+  -- TODO: These tests fail
+  , "infer(<>, (), fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} })"
+  , "infer(<>, (), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; poly(fun(x) { x }) })"
+  , "infer(<>, (id: fun<A>(A) -> A), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; poly(id) })"
+  , "infer(<>, (id: fun<A>(A) -> A, app: fun<A, B>(fun(A) -> B) -> fun(A) -> B), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; app(poly)(id) })"
+  , "infer(<>, (id: fun<A>(A) -> A, revapp: fun<A, B>(A) -> fun(fun(A) -> B) -> B), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; revapp(id)(poly) })"
   ]
 
 openSnapshotFile :: IO Handle

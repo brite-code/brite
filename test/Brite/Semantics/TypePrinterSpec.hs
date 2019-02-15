@@ -128,8 +128,8 @@ testData =
   , ("<T2, T: !, U = fun<V>(V) -> {a: T, b: T}, T> fun(U) -> {a: T, b: T, c: T2, d: T2}", "<T2, T3> fun<T>(fun<V>(V) -> {a: T, b: T}) -> {a: T3, b: T3, c: T2, d: T2}")
   , ("<T: !, U = fun<V>(V) -> T, T> fun(U) -> {a: T, b: T}", "<T> fun(fun<V>(V) -> !) -> {a: T, b: T}")
   , ("<T: !, U: fun<V>(V) -> T, T> {a: U, b: U, c: T, d: T}", "<U: fun<V>(V) -> !, T> {a: U, b: U, c: T, d: T}")
-  , ("<A: !> {t: {t: A}", "{t: {t: !}") -- TODO: Printer loses information here. Should we update
-  , ("{t: <A: !> {t: A}", "{t: {t: !}") -- our heuristic to fix this?
+  , ("<A: !> {t: {t: A}}", "{t: {t: !}}") -- TODO: Printer loses information here. Should we update
+  , ("{t: <A: !> {t: A}}", "{t: {t: !}}") -- our heuristic to fix this?
   ]
 
 initialContext :: HashSet Identifier

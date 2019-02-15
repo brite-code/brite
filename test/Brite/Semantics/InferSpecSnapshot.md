@@ -2967,3 +2967,93 @@ infer(<>, (), ({val: 42, key: fun(x) { x }}: <A: !> {val: A, key: fun(A) -> Int}
   - (0:52-0:80): `<A: !> {val: A, key: fun(A) -> Int}`
 
 --------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} })
+```
+
+### Output
+```
+(<>, fun<Type1 = fun<A>(A) -> A>(Type1) -> {fst: Int, snd: Bool})
+```
+
+### Errors
+- (0:50-0:54) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Int) -> Type2`.
+  - (0:27-0:41): `fun<A>(A) -> A`
+- (0:61-0:68) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Bool) -> Type2`.
+  - (0:27-0:41): `fun<A>(A) -> A`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; poly(fun(x) { x }) })
+```
+
+### Output
+```
+(<>, {fst: Int, snd: Bool})
+```
+
+### Errors
+- (0:66-0:70) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Int) -> Type2`.
+  - (0:43-0:57): `fun<A>(A) -> A`
+- (0:77-0:84) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Bool) -> Type2`.
+  - (0:43-0:57): `fun<A>(A) -> A`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (id: fun<A>(A) -> A), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; poly(id) })
+```
+
+### Output
+```
+(<>, {fst: Int, snd: Bool})
+```
+
+### Errors
+- (0:84-0:88) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Int) -> Type2`.
+  - (0:61-0:75): `fun<A>(A) -> A`
+- (0:95-0:102) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Bool) -> Type2`.
+  - (0:61-0:75): `fun<A>(A) -> A`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (id: fun<A>(A) -> A, app: fun<A, B>(fun(A) -> B) -> fun(A) -> B), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; app(poly)(id) })
+```
+
+### Output
+```
+(<>, {fst: Int, snd: Bool})
+```
+
+### Errors
+- (0:128-0:132) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Int) -> Type2`.
+  - (0:105-0:119): `fun<A>(A) -> A`
+- (0:139-0:146) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Bool) -> Type2`.
+  - (0:105-0:119): `fun<A>(A) -> A`
+
+--------------------------------------------------------------------------------
+
+### Input
+```ite
+infer(<>, (id: fun<A>(A) -> A, revapp: fun<A, B>(A) -> fun(fun(A) -> B) -> B), do { let poly = fun(f) { (f: fun<A>(A) -> A); {fst: f(1), snd: f(true)} }; revapp(id)(poly) })
+```
+
+### Output
+```
+(<>, {fst: Int, snd: Bool})
+```
+
+### Errors
+- (0:131-0:135) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Int) -> Type2`.
+  - (0:108-0:122): `fun<A>(A) -> A`
+- (0:142-0:149) Can not call `f` because `fun<A>(A) -> A` is more general than `fun(Bool) -> Type2`.
+  - (0:108-0:122): `fun<A>(A) -> A`
+
+--------------------------------------------------------------------------------
