@@ -1,0 +1,7 @@
+[package]
+name = "brite"
+version = "0.1.0"
+authors = ["Caleb Meredith <calebmeredith8@gmail.com>"]
+edition = "2018"
+
+[dependencies]
