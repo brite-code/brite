@@ -735,8 +735,12 @@ testData =
   , "unify(<X: <A1> {p: A1, q: A1}, Y: <A2, B> {p: A2, q: B}>, Y, X)"
   -- , "unify(<X: <A: !> {t: {t: A}}, Y: <A: <B> {t: B}> {t: A}>, X, Y)"
   -- , "unify(<X: <A: !> {t: {t: A}}, Y: <A: <B> {t: B}> {t: A}>, Y, X)"
-  -- , "unify(<X: <A: !> {t: {t: A}}, Y: {t: <B> {t: B}}>, X, Y)"
-  -- , "unify(<X: <A: !> {t: {t: A}}, Y: {t: <B> {t: B}}>, Y, X)"
+  , "unify(<X: <A: !> {t: {t: A}}, Y: {t: <B> {t: B}}>, X, Y)"
+  , "unify(<X: <A: !> {t: {t: A}}, Y: {t: <B> {t: B}}>, Y, X)"
+  , "unify(<X = <A: !> {t: {t: A}}, Y: {t: <A: !> {t: A}}>, X, Y)"
+  , "unify(<X = <A: !> {t: {t: A}}, Y: {t: <A: !> {t: A}}>, Y, X)"
+  , "unify(<X: <A: !> {t: {t: A}}, Y = {t: <A: !> {t: A}}>, X, Y)"
+  , "unify(<X: <A: !> {t: {t: A}}, Y = {t: <A: !> {t: A}}>, Y, X)"
   ]
 
 openSnapshotFile :: IO Handle

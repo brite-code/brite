@@ -11,6 +11,8 @@ module Brite.Semantics.TypePrinter
   , printQuantifierWithoutInlining
   , printMonotypeWithoutInlining
   , objectPropertyList
+  , debugPolytype
+  , debugMonotype
   ) where
 
 import Brite.Semantics.Namer
@@ -20,6 +22,7 @@ import Brite.Semantics.TypeConstruct
 import Brite.Semantics.TypeNames
 import Brite.Syntax.Identifier (Identifier)
 import Brite.Syntax.Range
+import Brite.Syntax.Printer (printCompactType)
 import qualified Brite.Syntax.PrinterAST as PrinterAST
 import Data.Foldable (toList)
 import Data.HashMap.Lazy (HashMap)
@@ -32,6 +35,7 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq(..))
 import qualified Data.Set as Set
+import qualified Data.Text.Lazy.Builder.Custom as Text.Builder
 
 -- Prints a polytype to a Brite printer AST which may then be printed to text. This printer also
 -- applies a heuristic to simplify [MLF types][1]. All quantifications in MLF may not be written
@@ -443,3 +447,11 @@ objectPropertyList properties0 =
     properties3 = map (\(name, (_, value)) -> (name, value)) properties2
   in
       properties3
+
+-- Prints a polytype to a string for debugging purposes.
+debugPolytype :: Polytype -> String
+debugPolytype = Text.Builder.toString . printCompactType . printPolytypeWithoutInlining
+
+-- Prints a monotype to a string for debugging purposes.
+debugMonotype :: Monotype -> String
+debugMonotype = Text.Builder.toString . printCompactType . printMonotypeWithoutInlining
