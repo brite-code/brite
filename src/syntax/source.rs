@@ -20,17 +20,17 @@ pub struct Token<'src> {
     range: Range,
     leading_trivia: Vec<Trivia<'src>>,
     trailing_trivia: Vec<Trivia<'src>>,
-    kind: TokenKind<'src>,
+    kind: TokenKind,
 }
 
 /// The kind of a token.
-enum TokenKind<'src> {
+enum TokenKind {
     /// A glyph represents some constant sequence of characters that is used in Brite syntax.
     Glyph(Glyph),
     /// A name in the program.
     Identifier(Identifier),
     /// Some number written in the program.
-    Number(Number<'src>),
+    Number(Number),
     /// An unexpected character in the program.
     UnexpectedChar(char),
 }
@@ -267,9 +267,9 @@ impl Identifier {
 /// in our language syntax.
 ///
 /// [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
-struct Number<'src> {
+struct Number {
     /// The raw string this number was parsed from.
-    raw: &'src str,
+    raw: String,
     /// The kind of number we parsed
     kind: NumberKind,
 }
@@ -495,6 +495,125 @@ impl<'src> Iterator for Lexer<'src> {
                 }
             }
 
+            // Number
+            Some(c) if c.is_digit(10) => {
+                let mut raw = String::new();
+                raw.push(c);
+                self.chars.next();
+
+                let kind = match (c, self.chars.peek()) {
+                    // Binary integer
+                    ('0', Some('b')) | ('0', Some('B')) => {
+                        raw.push(self.chars.next().unwrap());
+                        let mut value = BigInt::from(0);
+                        loop {
+                            match self.chars.peek() {
+                                Some('0') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 2 + 0;
+                                }
+                                Some('1') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 2 + 1;
+                                }
+                                _ => break,
+                            }
+                        }
+                        if raw.len() == 2 {
+                            // TODO: Diagnostic
+                            NumberKind::Invalid
+                        } else {
+                            NumberKind::BinaryInteger(value)
+                        }
+                    }
+
+                    // Hexadecimal integer
+                    ('0', Some('x')) | ('0', Some('X')) => {
+                        raw.push(self.chars.next().unwrap());
+                        let mut value = BigInt::from(0);
+                        loop {
+                            match self.chars.peek() {
+                                Some('0') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 0;
+                                }
+                                Some('1') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 1;
+                                }
+                                Some('2') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 2;
+                                }
+                                Some('3') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 3;
+                                }
+                                Some('4') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 4;
+                                }
+                                Some('5') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 5;
+                                }
+                                Some('6') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 6;
+                                }
+                                Some('7') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 7;
+                                }
+                                Some('8') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 8;
+                                }
+                                Some('9') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 9;
+                                }
+                                Some('a') | Some('A') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 10;
+                                }
+                                Some('b') | Some('B') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 11;
+                                }
+                                Some('c') | Some('C') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 12;
+                                }
+                                Some('d') | Some('D') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 13;
+                                }
+                                Some('e') | Some('E') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 14;
+                                }
+                                Some('f') | Some('F') => {
+                                    raw.push(self.chars.next().unwrap());
+                                    value = value * 16 + 15;
+                                }
+                                _ => break,
+                            }
+                        }
+                        if raw.len() == 2 {
+                            // TODO: Diagnostic
+                            NumberKind::Invalid
+                        } else {
+                            NumberKind::HexadecimalInteger(value)
+                        }
+                    }
+
+                    _ => unimplemented!(),
+                };
+                // Return the number token we created.
+                TokenKind::Number(Number { raw, kind })
+            }
+
             // If we encountered an unexpected character then add an unexpected character token.
             Some(c) => TokenKind::UnexpectedChar(c),
 
@@ -642,6 +761,7 @@ impl<'src> Lexer<'src> {
                             let comment = &comment[0..(comment.len() - 1)];
                             trivia.push(Trivia::Comment(Comment::Block(comment, true)));
                         } else {
+                            // TODO: Diagnostic
                             trivia.push(Trivia::Comment(Comment::Block(comment, false)));
                         }
                         // If we are parsing trailing trivia and there was a newline in the block
