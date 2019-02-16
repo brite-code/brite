@@ -63,7 +63,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use super::syntax::{Position, Range};
+use crate::syntax::{Position, Range};
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
@@ -173,6 +173,10 @@ impl Diagnostic {
             ErrorDiagnosticMessage::UnexpectedEnding { expected },
         )
     }
+}
+
+impl Diagnostic {
+    // fn message() -> Markup {}
 }
 
 /// A reference to a diagnostic. Can only be created by calling `DiagnosticsContext::report()` so

@@ -1,6 +1,6 @@
 //! Understanding and manipulating Brite source code.
 
-mod ast;
+// mod ast;
 mod document;
 mod source;
 
