@@ -63,6 +63,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
+use super::markup::Markup;
 use crate::syntax::{Position, Range};
 use std::rc::Rc;
 
@@ -176,7 +177,100 @@ impl Diagnostic {
 }
 
 impl Diagnostic {
-    // fn message() -> Markup {}
+    /// Creates a human readable diagnostic message for a given diagnostic. Also may create some
+    /// related information regarding the error. Remember that this generates a new message every
+    /// time it is called instead of fetching a pre-generated message.
+    fn message(&self) -> Markup {
+        match &self.message {
+            DiagnosticMessage::Error(message) => Self::error_message(message),
+            DiagnosticMessage::Warning(_) => unreachable!(),
+            DiagnosticMessage::Info(_) => unreachable!(),
+        }
+    }
+
+    fn error_message(error_message: &ErrorDiagnosticMessage) -> Markup {
+        use self::ErrorDiagnosticMessage::*;
+        match error_message {
+            // Thought and care that went into this error message:
+            //
+            // - When designing this message we started with “Unexpected character `%`. Expected
+            //   expression.” and ended with the message “We found `%` when we wanted an
+            //   expression.” The latter uses smaller words. It isn’t abrupt. It personifies the
+            //   type checker with “we”.
+            //
+            // - The message starts with what we wanted and ends with what we found. Instead of
+            //   saying “We found `%` when we expected an expression.” the message reads “We wanted
+            //   an expression but we found `%`.” This gets to the resolution of the error message
+            //   faster. In most cases the programmer only really needs to see “We wanted an
+            //   expression” to know the solution.
+            //
+            // - Instead of “we found a `%` character” we print the message as “we found `%`”. The
+            //   latter is shorter. It is also very hard to choose correctly between “a” and “an”
+            //   for arbitrary user input. For example this is wrong “a `=` character” since `=` is
+            //   pronounced “equals” which starts with a vowel sound. It should be “an `=`
+            //   character”. We are unaware of a way to correctly guess the pronunciation people use
+            //   for glyphs in general.
+            //
+            // - For unexpected tokens when we expected a pattern we say “We found `=` when we
+            //   wanted a variable name.” because the word “pattern” is compiler speak. Even though
+            //   patterns can be more than a variable name, 80% of the time the programmer will
+            //   write a variable name.
+            UnexpectedSyntax {
+                unexpected,
+                expected,
+            } => {
+                let mut message = Markup::new();
+                message.push("We want ");
+                expected.add_message(&mut message);
+                message.push(" but we have ");
+                unexpected.add_message(&mut message);
+                message.push(".");
+                message
+            }
+
+            // Follows the same format as the unexpected token error. Except instead of saying “we
+            // found the end of the file” we say “We wanted an expression but the file ended.” This
+            // is less abstract than saying “we found the file’s end.” The end of a file is an
+            // abstract concept and so finding the end of a file is a bit weird. It makes sense from
+            // the perspective of parsing but not from the user’s perspective which we are
+            // designing for.
+            UnexpectedEnding { expected } => {
+                let mut message = Markup::new();
+                message.push("We want ");
+                expected.add_message(&mut message);
+                message.push(" but the file ends.");
+                message
+            }
+        }
+    }
+}
+
+impl UnexpectedSyntax {
+    fn add_message(&self, message: &mut Markup) {
+        match self {
+            UnexpectedSyntax::Char(c) => message.push_code(c.to_string()),
+        }
+    }
+}
+
+impl ExpectedSyntax {
+    fn add_message(&self, message: &mut Markup) {
+        match self {
+            ExpectedSyntax::BlockCommentEnd => message.push_code("*/"),
+
+            // If the user types `0b` or `0x` then, presumably, they know what they are doing and
+            // want a binary or hexadecimal number. So using phrasing like “hexadecimal digit” will
+            // confuse them. If a beginner stumbles upon the error message accidentally they have
+            // something clear to search for.
+            //
+            // Otherwise, if the user types an incorrect number like `0px` we will say that we
+            // expect a _number_ instead of expected a “digit” because “number” is
+            // simpler vocabulary.
+            ExpectedSyntax::DecimalDigit => message.push("a number"),
+            ExpectedSyntax::BinaryDigit => message.push("a binary digit"),
+            ExpectedSyntax::HexadecimalDigit => message.push("a hexadecimal digit"),
+        }
+    }
 }
 
 /// A reference to a diagnostic. Can only be created by calling `DiagnosticsContext::report()` so

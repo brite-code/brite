@@ -2,8 +2,6 @@
 //! intended to be a full markdown parsing and printing framework. Just enough for
 //! diagnostic messages.
 
-use std::borrow::Cow;
-
 /// A structured markup document.
 pub struct Markup {
     segments: Vec<Segment>,
