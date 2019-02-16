@@ -125,6 +125,17 @@ impl Position {
                 .sum()
         }
     }
+
+    /// Formats a position for human consumption. While the [Language Server Protocol][1] positions
+    /// start at 0, we format the position starting at 1 since that’s how most tools display
+    /// positions to the programmer.
+    pub fn format(&self, document: &Document) -> String {
+        format!(
+            "{}:{}",
+            self.line(document) + 1,
+            self.character(document) + 1
+        )
+    }
 }
 
 /// A range in a text document expressed as start and end positions. A range is comparable to a
@@ -166,6 +177,19 @@ impl Range {
     /// position. Remember that range is not inclusive.
     pub fn end(&self) -> Position {
         Position(self.start.0 + self.length)
+    }
+
+    /// Formats a range for human consumption. While the [Language Server Protocol][1] positions
+    /// start at 0, we format the range starting at 1 since that’s how most tools display
+    /// positions to the programmer.
+    pub fn format(&self, document: &Document) -> String {
+        format!(
+            "{}:{}-{}:{}",
+            self.start.line(document) + 1,
+            self.start.character(document) + 1,
+            self.end().line(document) + 1,
+            self.end().character(document) + 1
+        )
     }
 }
 

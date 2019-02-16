@@ -1,6 +1,7 @@
 use super::super::diagnostic::{Diagnostic, DiagnosticRef, DiagnosticsContext, ExpectedSyntax};
 use super::document::{Document, DocumentChars, Position, Range};
 use num::BigInt;
+use std::cmp;
 use std::f64;
 use std::iter;
 use std::str::FromStr;
@@ -854,4 +855,111 @@ enum NumberState {
     ExponentStart,
     ExponentSign,
     Exponent,
+}
+
+impl<'src> Token<'src> {
+    /// Prints a list of tokens and an end token to a markdown table for debugging.
+    pub fn markdown_table(
+        document: &'src Document,
+        tokens: &Vec<Token<'src>>,
+        end_token: &EndToken<'src>,
+    ) -> String {
+        let mut output = String::new();
+        // Add the markdown table header.
+        output.push_str(
+            "| Range    | Kind                           | Data                           |\n",
+        );
+        output.push_str(
+            "|----------|--------------------------------|--------------------------------|\n",
+        );
+        // Print each token.
+        for token in tokens {
+            Self::add_token_to_markdown_table(document, &mut output, token);
+        }
+        // Print each leading trivia of the end token.
+        for trivia in &end_token.leading_trivia {
+            Self::add_trivia_to_markdown_table(&mut output, true, trivia);
+        }
+
+        // Print the end token.
+        let end_position = end_token.position.format(document);
+        output.push_str("| ");
+        output.push_str(&end_position);
+        output.extend(iter::repeat(' ').take(cmp::max(0, 10 - (end_position.len() + 1))));
+        output.push_str("| End                            |                                |\n");
+
+        output
+    }
+
+    fn add_token_to_markdown_table(
+        document: &'src Document,
+        output: &mut String,
+        token: &Token<'src>,
+    ) {
+        for trivia in &token.leading_trivia {
+            Self::add_trivia_to_markdown_table(output, true, trivia);
+        }
+
+        let range = token.range.format(document);
+
+        let (kind, data) = match &token.kind {
+            TokenKind::Glyph(glyph) => ("Glyph", format!("`{}`", glyph.source().to_string())),
+            TokenKind::Identifier(identifier) => ("Identifier", format!("`{}`", identifier.0)),
+            TokenKind::Number(number) => match &number.kind {
+                NumberKind::DecimalInteger(value) => {
+                    ("Number::DecimalInteger", value.to_str_radix(10))
+                }
+                NumberKind::BinaryInteger(value) => {
+                    ("Number::BinaryInteger", value.to_str_radix(2))
+                }
+                NumberKind::HexadecimalInteger(value) => (
+                    "Number::HexadecimalInteger",
+                    value.to_str_radix(16).to_uppercase(),
+                ),
+                NumberKind::Float(value) => ("Number::Float", format!("{}", value)),
+                NumberKind::Invalid(_) => ("Number::Invalid", number.raw.clone()),
+            },
+            TokenKind::UnexpectedChar(c) => ("UnexpectedChar", format!("`{}`", c)),
+        };
+
+        output.push_str("| ");
+        output.push_str(&range);
+        output.extend(iter::repeat(' ').take(cmp::max(0, 10 - (range.len() + 1))));
+        output.push_str("| ");
+        output.push_str(kind);
+        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (kind.len() + 1))));
+        output.push_str("| ");
+        output.push_str(&data);
+        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (data.len() + 1))));
+        output.push_str("|\n");
+
+        for trivia in &token.trailing_trivia {
+            Self::add_trivia_to_markdown_table(output, false, trivia);
+        }
+    }
+
+    fn add_trivia_to_markdown_table(output: &mut String, leading: bool, trivia: &Trivia<'src>) {
+        let (kind, data) = match trivia {
+            Trivia::Spaces(n) => ("Trivia::Spaces", format!("{}", n)),
+            Trivia::Tabs(n) => ("Trivia::Tabs", format!("{}", n)),
+            Trivia::Newlines(Newline::LF, n) => ("Trivia::Newlines::LF", format!("{}", n)),
+            Trivia::Newlines(Newline::CR, n) => ("Trivia::Newlines::CR", format!("{}", n)),
+            Trivia::Newlines(Newline::CRLF, n) => ("Trivia::Newlines::CRLF", format!("{}", n)),
+            Trivia::Comment(Comment::Line(_)) => ("Trivia::Comment::Line", format!("")),
+            Trivia::Comment(Comment::Block(_, _)) => ("Trivia::Comment::Block", format!("")),
+            Trivia::OtherWhitespace(_) => ("Trivia::OtherWhitespace", format!("")),
+        };
+
+        if leading {
+            output.push_str("| leading  | ");
+        } else {
+            output.push_str("| trailing | ");
+        }
+        output.push_str(kind);
+        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (kind.len() + 1))));
+        output.push_str("| ");
+        output.push_str(&data);
+        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (data.len() + 1))));
+        output.push_str("|\n");
+    }
 }
