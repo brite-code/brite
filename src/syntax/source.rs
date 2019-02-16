@@ -1,5 +1,6 @@
 use num::BigInt;
 use std::iter;
+use std::str::CharIndices;
 use unicode_xid::UnicodeXID;
 
 /// A Brite source code document. Source code is represented as text and turned into an AST through
@@ -195,6 +196,22 @@ impl<'src> Token<'src> {
             TokenKind::UnexpectedChar(c) => source.push(*c),
         }
         for trivia in &self.trailing_trivia {
+            trivia.add_source(source);
+        }
+    }
+}
+
+/// The last token in a document. An end token has the position at which the document ended and all
+/// the trivia between the last token and the ending.
+struct EndToken<'src> {
+    position: Position,
+    leading_trivia: Vec<Trivia<'src>>,
+}
+
+impl<'src> EndToken<'src> {
+    /// Add the source code we parsed this token from back to a string.
+    fn add_source(&self, source: &mut String) {
+        for trivia in &self.leading_trivia {
             trivia.add_source(source);
         }
     }
@@ -480,5 +497,44 @@ impl<'src> Trivia<'src> {
                 }
             }
         }
+    }
+}
+
+/// A lexer generates `Token`s based on a `Document` input. Call `Lexer::next()` to advance the
+/// lexer and `Lexer::end()` to get the end token. All of the `Token`s and `EndToken` may be used
+/// to print back out a string which is equivalent to the `Document`’s source.
+struct Lexer<'src> {
+    chars: CharIndices<'src>,
+    end: Option<EndToken<'src>>,
+}
+
+impl<'src> Lexer<'src> {
+    /// Creates a new lexer from a source code `Document`.
+    fn new(document: &'src Document) -> Lexer<'src> {
+        Lexer {
+            chars: document.source.char_indices(),
+            end: None,
+        }
+    }
+
+    /// Once we are done generating tokens with our lexer we can call `end()` which consumes the
+    /// lexer and optionally returns an `EndToken`.
+    fn end(self) -> Option<EndToken<'src>> {
+        self.end
+    }
+}
+
+impl<'src> Iterator for Lexer<'src> {
+    type Item = Token<'src>;
+
+    /// Advances the lexer and returns the next token. We implement this with the `Iterator`
+    /// interface to get some handy methods like `Iterator::collect()`.
+    fn next(&mut self) -> Option<Token<'src>> {
+        // If we have ended then keep returning `None`.
+        if self.end.is_some() {
+            return None;
+        }
+
+        unimplemented!()
     }
 }
