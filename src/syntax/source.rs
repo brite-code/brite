@@ -164,6 +164,7 @@ impl Range {
 ///   line_. If a token is trailed by a line comment then that is part of the trailing trivia along
 ///   with the newline which immediately follows but nothing else!
 pub struct Token<'src> {
+    range: Range,
     leading_trivia: Vec<Trivia<'src>>,
     trailing_trivia: Vec<Trivia<'src>>,
     kind: TokenKind<'src>,
