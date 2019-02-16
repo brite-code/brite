@@ -64,7 +64,7 @@
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
 use super::markup::Markup;
-use crate::syntax::{Position, Range};
+use crate::syntax::{Document, Position, Range};
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
@@ -273,27 +273,45 @@ impl ExpectedSyntax {
     }
 }
 
-/// A reference to a diagnostic. Can only be created by calling `DiagnosticsContext::report()` so
+/// A reference to a diagnostic. Can only be created by calling `DiagnosticsCollection::report()` so
 /// it forces the programmer to report a diagnostic before being able to use a `DiagnosticRef`.
 pub struct DiagnosticRef(Rc<Diagnostic>);
 
 /// A collection of diagnostics.
-pub struct DiagnosticsContext {
+pub struct DiagnosticsCollection {
     diagnostics: Vec<Rc<Diagnostic>>,
 }
 
-impl DiagnosticsContext {
-    /// Creates a new diagnostic context.
+impl DiagnosticsCollection {
+    /// Creates a new diagnostic collection.
     pub fn new() -> Self {
-        DiagnosticsContext {
+        DiagnosticsCollection {
             diagnostics: Vec::new(),
         }
     }
 
-    /// Reports a diagnostic in our diagnostic context.
+    /// Reports a diagnostic in our diagnostic collection.
     pub fn report(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
         let diagnostic = Rc::new(diagnostic);
         self.diagnostics.push(Rc::clone(&diagnostic));
         DiagnosticRef(diagnostic)
+    }
+
+    /// Is this diagnostic collection empty?
+    pub fn is_empty(&self) -> bool {
+        self.diagnostics.is_empty()
+    }
+
+    /// Prints our diagnostic collection to a markdown list for debugging purposes.
+    pub fn markdown_list(&self, document: &Document) -> String {
+        let mut output = String::new();
+        for diagnostic in &self.diagnostics {
+            output.push_str("- (");
+            output.push_str(&diagnostic.range.format(document));
+            output.push_str(") ");
+            output.push_str(&diagnostic.message().to_simple_string());
+            output.push('\n');
+        }
+        output
     }
 }

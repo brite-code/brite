@@ -1,5 +1,5 @@
 use super::document::{Document, DocumentChars, Position, Range};
-use crate::ui::{Diagnostic, DiagnosticRef, DiagnosticsContext, ExpectedSyntax};
+use crate::ui::{Diagnostic, DiagnosticRef, DiagnosticsCollection, ExpectedSyntax};
 use num::BigInt;
 use std::cmp;
 use std::f64;
@@ -386,14 +386,14 @@ impl<'src> Trivia<'src> {
 /// lexer and `Lexer::end()` to get the end token. All of the `Token`s and `EndToken` may be used
 /// to print back out a string which is equivalent to the `Document`’s source.
 pub struct Lexer<'src> {
-    diagnostics: DiagnosticsContext,
+    diagnostics: DiagnosticsCollection,
     chars: DocumentChars<'src>,
     end: Option<EndToken<'src>>,
 }
 
 impl<'src> Lexer<'src> {
     /// Creates a new lexer from a source code `Document`.
-    pub fn new(diagnostics: DiagnosticsContext, document: &'src Document) -> Lexer<'src> {
+    pub fn new(diagnostics: DiagnosticsCollection, document: &'src Document) -> Lexer<'src> {
         Lexer {
             diagnostics,
             chars: document.chars(),
@@ -403,7 +403,7 @@ impl<'src> Lexer<'src> {
 
     /// Once we are done generating tokens with our lexer we can call `end()` which consumes the
     /// lexer and returns the `DiagnosticsContext` and an `EndToken`.
-    pub fn end(self) -> (DiagnosticsContext, Option<EndToken<'src>>) {
+    pub fn end(self) -> (DiagnosticsCollection, Option<EndToken<'src>>) {
         (self.diagnostics, self.end)
     }
 }
