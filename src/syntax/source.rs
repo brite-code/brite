@@ -495,7 +495,17 @@ impl<'src> Iterator for Lexer<'src> {
                 }
             }
 
-            _ => unimplemented!(),
+            // If we encountered an unexpected character then add an unexpected character token.
+            Some(c) => TokenKind::UnexpectedChar(c),
+
+            // If we’ve reached the end then create our `EndToken` and return `None`.
+            None => {
+                self.end = Some(EndToken {
+                    position: self.chars.position(),
+                    leading_trivia,
+                });
+                return None;
+            }
         };
 
         let end = self.chars.position();
