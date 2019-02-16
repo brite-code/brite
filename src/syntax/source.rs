@@ -98,6 +98,8 @@ enum Glyph {
     BracketRight,
     /// `^`
     Caret,
+    /// `:`
+    Colon,
     /// `,`
     Comma,
     /// `.`
@@ -150,6 +152,7 @@ impl Glyph {
             BracketLeft => "[",
             BracketRight => "]",
             Caret => "^",
+            Colon => ":",
             Comma => ",",
             Dot => ".",
             Equals => "=",
@@ -387,7 +390,93 @@ impl<'src> Iterator for Lexer<'src> {
             return None;
         }
 
-        unimplemented!()
+        let leading_trivia = self.next_trivia(true);
+        let start = self.chars.position();
+
+        let kind = match self.chars.next() {
+            // Single character glyphs
+            Some('*') => TokenKind::Glyph(Glyph::Asterisk),
+            Some('{') => TokenKind::Glyph(Glyph::BraceLeft),
+            Some('}') => TokenKind::Glyph(Glyph::BraceRight),
+            Some('[') => TokenKind::Glyph(Glyph::BracketLeft),
+            Some(']') => TokenKind::Glyph(Glyph::BracketRight),
+            Some('^') => TokenKind::Glyph(Glyph::Caret),
+            Some(':') => TokenKind::Glyph(Glyph::Colon),
+            Some(',') => TokenKind::Glyph(Glyph::Comma),
+            Some('(') => TokenKind::Glyph(Glyph::ParenLeft),
+            Some(')') => TokenKind::Glyph(Glyph::ParenRight),
+            Some('%') => TokenKind::Glyph(Glyph::Percent),
+            Some('+') => TokenKind::Glyph(Glyph::Plus),
+            Some(';') => TokenKind::Glyph(Glyph::Semicolon),
+            Some('/') => TokenKind::Glyph(Glyph::Slash),
+
+            // Multiple character glyphs
+            Some('&') => match self.chars.peek() {
+                Some('&') => {
+                    self.chars.next();
+                    TokenKind::Glyph(Glyph::AmpersandDouble)
+                }
+                _ => TokenKind::Glyph(Glyph::Ampersand),
+            },
+            Some('|') => match self.chars.peek() {
+                Some('|') => {
+                    self.chars.next();
+                    TokenKind::Glyph(Glyph::BarDouble)
+                }
+                _ => TokenKind::Glyph(Glyph::Bar),
+            },
+            Some('.') => TokenKind::Glyph(Glyph::Dot), // TODO: Numbers
+            Some('=') => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    TokenKind::Glyph(Glyph::EqualsDouble)
+                }
+                _ => TokenKind::Glyph(Glyph::Equals),
+            },
+            Some('!') => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    TokenKind::Glyph(Glyph::EqualsNot)
+                }
+                _ => TokenKind::Glyph(Glyph::Bang),
+            },
+            Some('>') => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    TokenKind::Glyph(Glyph::GreaterThanOrEqual)
+                }
+                _ => TokenKind::Glyph(Glyph::GreaterThan),
+            },
+            Some('<') => match self.chars.peek() {
+                Some('=') => {
+                    self.chars.next();
+                    TokenKind::Glyph(Glyph::LessThanOrEqual)
+                }
+                _ => TokenKind::Glyph(Glyph::LessThan),
+            },
+            Some('-') => match self.chars.peek() {
+                Some('>') => {
+                    self.chars.next();
+                    TokenKind::Glyph(Glyph::Arrow)
+                }
+                _ => TokenKind::Glyph(Glyph::Minus),
+            },
+
+            _ => unimplemented!(),
+        };
+
+        let end = self.chars.position();
+        let trailing_trivia = self.next_trivia(false);
+
+        let range = Range::new(start, end);
+
+        // Return the token we just parsed.
+        Some(Token {
+            range,
+            leading_trivia,
+            trailing_trivia,
+            kind,
+        })
     }
 }
 

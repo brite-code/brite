@@ -141,7 +141,7 @@ pub struct Range {
 
 impl Range {
     /// Creates a range between two positions.
-    pub fn between(start: Position, end: Position) -> Self {
+    pub fn new(start: Position, end: Position) -> Self {
         if start <= end {
             let length = end.0 - start.0;
             Range { start, length }
