@@ -185,6 +185,17 @@ enum Keyword {
 }
 
 impl Keyword {
+    /// Converts a string into a keyword if the string is a keyword.
+    fn from_str(str: &str) -> Option<Keyword> {
+        use self::Keyword::*;
+        match str {
+            "_" => Some(Hole),
+            "true" => Some(True),
+            "false" => Some(False),
+            _ => None,
+        }
+    }
+
     /// Get the source string this keyword was parsed from. Always a static string.
     fn source(&self) -> &'static str {
         use self::Keyword::*;
@@ -476,8 +487,12 @@ impl<'src> Iterator for Lexer<'src> {
                         _ => break,
                     }
                 }
-                identifier.shrink_to_fit();
-                TokenKind::Identifier(Identifier(identifier))
+                if let Some(keyword) = Keyword::from_str(&identifier) {
+                    TokenKind::Glyph(Glyph::Keyword(keyword))
+                } else {
+                    identifier.shrink_to_fit();
+                    TokenKind::Identifier(Identifier(identifier))
+                }
             }
 
             _ => unimplemented!(),
