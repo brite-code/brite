@@ -173,19 +173,19 @@ impl Diagnostic {
     }
 }
 
-/// A reference to a diagnostic. Can only be created by calling `DiagnosticContext::report()` so
+/// A reference to a diagnostic. Can only be created by calling `DiagnosticsContext::report()` so
 /// it forces the programmer to report a diagnostic before being able to use a `DiagnosticRef`.
 pub struct DiagnosticRef(Rc<Diagnostic>);
 
 /// A collection of diagnostics.
-pub struct DiagnosticContext {
+pub struct DiagnosticsContext {
     diagnostics: Vec<Rc<Diagnostic>>,
 }
 
-impl DiagnosticContext {
+impl DiagnosticsContext {
     /// Creates a new diagnostic context.
     pub fn new() -> Self {
-        DiagnosticContext {
+        DiagnosticsContext {
             diagnostics: Vec::new(),
         }
     }

@@ -1,4 +1,5 @@
-use super::{Document, DocumentChars, Position, Range};
+use super::super::diagnostic::{Diagnostic, DiagnosticRef, DiagnosticsContext, ExpectedSyntax};
+use super::document::{Document, DocumentChars, Position, Range};
 use num::BigInt;
 use std::iter;
 use unicode_xid::UnicodeXID;
@@ -300,7 +301,7 @@ enum NumberKind {
     Float(f64),
     /// An invalid number token. We started trying to parse a number, but we encountered an
     /// unexpected character.
-    Invalid,
+    Invalid(DiagnosticRef),
 }
 
 /// Pieces of Brite syntax which (usually) don’t affect program behavior. Like comments or spaces.
@@ -370,23 +371,25 @@ impl<'src> Trivia<'src> {
 /// lexer and `Lexer::end()` to get the end token. All of the `Token`s and `EndToken` may be used
 /// to print back out a string which is equivalent to the `Document`’s source.
 struct Lexer<'src> {
+    diagnostics: DiagnosticsContext,
     chars: DocumentChars<'src>,
     end: Option<EndToken<'src>>,
 }
 
 impl<'src> Lexer<'src> {
     /// Creates a new lexer from a source code `Document`.
-    fn new(document: &'src Document) -> Lexer<'src> {
+    fn new(diagnostics: DiagnosticsContext, document: &'src Document) -> Lexer<'src> {
         Lexer {
+            diagnostics,
             chars: document.chars(),
             end: None,
         }
     }
 
     /// Once we are done generating tokens with our lexer we can call `end()` which consumes the
-    /// lexer and optionally returns an `EndToken`.
-    fn end(self) -> Option<EndToken<'src>> {
-        self.end
+    /// lexer and returns the `DiagnosticsContext` and an `EndToken`.
+    fn end(self) -> (DiagnosticsContext, Option<EndToken<'src>>) {
+        (self.diagnostics, self.end)
     }
 }
 
@@ -501,7 +504,7 @@ impl<'src> Iterator for Lexer<'src> {
                 raw.push(c);
                 self.chars.next();
 
-                let kind = match (c, self.chars.peek()) {
+                let (expected, kind) = match (c, self.chars.peek()) {
                     // Binary integer
                     ('0', Some('b')) | ('0', Some('B')) => {
                         raw.push(self.chars.next().unwrap());
@@ -519,12 +522,24 @@ impl<'src> Iterator for Lexer<'src> {
                                 _ => break,
                             }
                         }
-                        if raw.len() == 2 {
-                            // TODO: Diagnostic
-                            NumberKind::Invalid
+                        let kind = if raw.len() == 2 {
+                            // If we did not get any digits then report an error.
+                            let diagnostic = match self.chars.peek() {
+                                Some(c) => Diagnostic::unexpected_char(
+                                    self.chars.position(),
+                                    c,
+                                    ExpectedSyntax::BinaryDigit,
+                                ),
+                                None => Diagnostic::unexpected_ending(
+                                    self.chars.position(),
+                                    ExpectedSyntax::BinaryDigit,
+                                ),
+                            };
+                            NumberKind::Invalid(self.diagnostics.report(diagnostic))
                         } else {
                             NumberKind::BinaryInteger(value)
-                        }
+                        };
+                        (ExpectedSyntax::BinaryDigit, kind)
                     }
 
                     // Hexadecimal integer
@@ -600,18 +615,62 @@ impl<'src> Iterator for Lexer<'src> {
                                 _ => break,
                             }
                         }
-                        if raw.len() == 2 {
-                            // TODO: Diagnostic
-                            NumberKind::Invalid
+                        let kind = if raw.len() == 2 {
+                            // If we did not get any digits then report an error.
+                            let diagnostic = match self.chars.peek() {
+                                Some(c) => Diagnostic::unexpected_char(
+                                    self.chars.position(),
+                                    c,
+                                    ExpectedSyntax::HexadecimalDigit,
+                                ),
+                                None => Diagnostic::unexpected_ending(
+                                    self.chars.position(),
+                                    ExpectedSyntax::HexadecimalDigit,
+                                ),
+                            };
+                            NumberKind::Invalid(self.diagnostics.report(diagnostic))
                         } else {
                             NumberKind::HexadecimalInteger(value)
-                        }
+                        };
+                        (ExpectedSyntax::HexadecimalDigit, kind)
                     }
 
                     _ => unimplemented!(),
                 };
-                // Return the number token we created.
-                TokenKind::Number(Number { raw, kind })
+                match self.chars.peek() {
+                    // A number may not be followed by an identifier! If our number is followed by
+                    // an identifier than report a diagnostic and return an invalid number token.
+                    Some(c) if Identifier::is_continue(c) => {
+                        let diagnostic = match kind {
+                            NumberKind::Invalid(diagnostic) => diagnostic,
+                            _ => self.diagnostics.report(Diagnostic::unexpected_char(
+                                self.chars.position(),
+                                c,
+                                expected,
+                            )),
+                        };
+                        raw.push(c);
+                        self.chars.next();
+                        loop {
+                            match self.chars.peek() {
+                                Some(c) if Identifier::is_continue(c) => {
+                                    raw.push(c);
+                                    self.chars.next();
+                                }
+                                _ => break,
+                            }
+                        }
+                        // Return a number token with an invalid number kind.
+                        TokenKind::Number(Number {
+                            raw,
+                            kind: NumberKind::Invalid(diagnostic),
+                        })
+                    }
+
+                    // Return the number token we created. If the next character is not part of
+                    // an identifier.
+                    _ => TokenKind::Number(Number { raw, kind }),
+                }
             }
 
             // If we encountered an unexpected character then add an unexpected character token.
@@ -761,7 +820,11 @@ impl<'src> Lexer<'src> {
                             let comment = &comment[0..(comment.len() - 1)];
                             trivia.push(Trivia::Comment(Comment::Block(comment, true)));
                         } else {
-                            // TODO: Diagnostic
+                            self.chars.next();
+                            self.diagnostics.report(Diagnostic::unexpected_ending(
+                                self.chars.position(),
+                                ExpectedSyntax::BlockCommentEnd,
+                            ));
                             trivia.push(Trivia::Comment(Comment::Block(comment, false)));
                         }
                         // If we are parsing trailing trivia and there was a newline in the block
