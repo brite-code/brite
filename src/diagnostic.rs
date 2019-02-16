@@ -125,6 +125,8 @@ pub enum UnexpectedSyntax {
 pub enum ExpectedSyntax {
     /// Expected the end of a block comment.
     BlockCommentEnd,
+    /// Expected a decimal digit.
+    DecimalDigit,
     /// Expected a binary digit.
     BinaryDigit,
     /// Expected a hexadecimal digit.

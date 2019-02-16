@@ -1,7 +1,9 @@
 use super::super::diagnostic::{Diagnostic, DiagnosticRef, DiagnosticsContext, ExpectedSyntax};
 use super::document::{Document, DocumentChars, Position, Range};
 use num::BigInt;
+use std::f64;
 use std::iter;
+use std::str::FromStr;
 use unicode_xid::UnicodeXID;
 
 /// A token is a more semantic unit for describing Brite source code documents than a character.
@@ -56,7 +58,7 @@ impl<'src> Token<'src> {
 
 /// The last token in a document. An end token has the position at which the document ended and all
 /// the trivia between the last token and the ending.
-struct EndToken<'src> {
+pub struct EndToken<'src> {
     position: Position,
     leading_trivia: Vec<Trivia<'src>>,
 }
@@ -370,7 +372,7 @@ impl<'src> Trivia<'src> {
 /// A lexer generates `Token`s based on a `Document` input. Call `Lexer::next()` to advance the
 /// lexer and `Lexer::end()` to get the end token. All of the `Token`s and `EndToken` may be used
 /// to print back out a string which is equivalent to the `Document`’s source.
-struct Lexer<'src> {
+pub struct Lexer<'src> {
     diagnostics: DiagnosticsContext,
     chars: DocumentChars<'src>,
     end: Option<EndToken<'src>>,
@@ -378,7 +380,7 @@ struct Lexer<'src> {
 
 impl<'src> Lexer<'src> {
     /// Creates a new lexer from a source code `Document`.
-    fn new(diagnostics: DiagnosticsContext, document: &'src Document) -> Lexer<'src> {
+    pub fn new(diagnostics: DiagnosticsContext, document: &'src Document) -> Lexer<'src> {
         Lexer {
             diagnostics,
             chars: document.chars(),
@@ -388,7 +390,7 @@ impl<'src> Lexer<'src> {
 
     /// Once we are done generating tokens with our lexer we can call `end()` which consumes the
     /// lexer and returns the `DiagnosticsContext` and an `EndToken`.
-    fn end(self) -> (DiagnosticsContext, Option<EndToken<'src>>) {
+    pub fn end(self) -> (DiagnosticsContext, Option<EndToken<'src>>) {
         (self.diagnostics, self.end)
     }
 }
@@ -511,31 +513,16 @@ impl<'src> Iterator for Lexer<'src> {
                         let mut value = BigInt::from(0);
                         loop {
                             match self.chars.peek() {
-                                Some('0') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 2 + 0;
-                                }
-                                Some('1') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 2 + 1;
-                                }
+                                Some('0') => value = value * 2 + 0,
+                                Some('1') => value = value * 2 + 1,
                                 _ => break,
                             }
+                            raw.push(self.chars.next().unwrap());
                         }
                         let kind = if raw.len() == 2 {
                             // If we did not get any digits then report an error.
-                            let diagnostic = match self.chars.peek() {
-                                Some(c) => Diagnostic::unexpected_char(
-                                    self.chars.position(),
-                                    c,
-                                    ExpectedSyntax::BinaryDigit,
-                                ),
-                                None => Diagnostic::unexpected_ending(
-                                    self.chars.position(),
-                                    ExpectedSyntax::BinaryDigit,
-                                ),
-                            };
-                            NumberKind::Invalid(self.diagnostics.report(diagnostic))
+                            let diagnostic = self.unexpected_peek(ExpectedSyntax::BinaryDigit);
+                            NumberKind::Invalid(diagnostic)
                         } else {
                             NumberKind::BinaryInteger(value)
                         };
@@ -548,94 +535,90 @@ impl<'src> Iterator for Lexer<'src> {
                         let mut value = BigInt::from(0);
                         loop {
                             match self.chars.peek() {
-                                Some('0') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 0;
-                                }
-                                Some('1') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 1;
-                                }
-                                Some('2') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 2;
-                                }
-                                Some('3') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 3;
-                                }
-                                Some('4') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 4;
-                                }
-                                Some('5') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 5;
-                                }
-                                Some('6') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 6;
-                                }
-                                Some('7') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 7;
-                                }
-                                Some('8') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 8;
-                                }
-                                Some('9') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 9;
-                                }
-                                Some('a') | Some('A') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 10;
-                                }
-                                Some('b') | Some('B') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 11;
-                                }
-                                Some('c') | Some('C') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 12;
-                                }
-                                Some('d') | Some('D') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 13;
-                                }
-                                Some('e') | Some('E') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 14;
-                                }
-                                Some('f') | Some('F') => {
-                                    raw.push(self.chars.next().unwrap());
-                                    value = value * 16 + 15;
-                                }
+                                Some('0') => value = value * 16 + 0,
+                                Some('1') => value = value * 16 + 1,
+                                Some('2') => value = value * 16 + 2,
+                                Some('3') => value = value * 16 + 3,
+                                Some('4') => value = value * 16 + 4,
+                                Some('5') => value = value * 16 + 5,
+                                Some('6') => value = value * 16 + 6,
+                                Some('7') => value = value * 16 + 7,
+                                Some('8') => value = value * 16 + 8,
+                                Some('9') => value = value * 16 + 9,
+                                Some('a') | Some('A') => value = value * 16 + 10,
+                                Some('b') | Some('B') => value = value * 16 + 11,
+                                Some('c') | Some('C') => value = value * 16 + 12,
+                                Some('d') | Some('D') => value = value * 16 + 13,
+                                Some('e') | Some('E') => value = value * 16 + 14,
+                                Some('f') | Some('F') => value = value * 16 + 15,
                                 _ => break,
                             }
+                            raw.push(self.chars.next().unwrap());
                         }
                         let kind = if raw.len() == 2 {
                             // If we did not get any digits then report an error.
-                            let diagnostic = match self.chars.peek() {
-                                Some(c) => Diagnostic::unexpected_char(
-                                    self.chars.position(),
-                                    c,
-                                    ExpectedSyntax::HexadecimalDigit,
-                                ),
-                                None => Diagnostic::unexpected_ending(
-                                    self.chars.position(),
-                                    ExpectedSyntax::HexadecimalDigit,
-                                ),
-                            };
-                            NumberKind::Invalid(self.diagnostics.report(diagnostic))
+                            let diagnostic = self.unexpected_peek(ExpectedSyntax::HexadecimalDigit);
+                            NumberKind::Invalid(diagnostic)
                         } else {
                             NumberKind::HexadecimalInteger(value)
                         };
                         (ExpectedSyntax::HexadecimalDigit, kind)
                     }
 
-                    _ => unimplemented!(),
+                    // Parse either a decimal integer or a floating point number.
+                    _ => {
+                        let mut state = NumberState::Whole;
+                        loop {
+                            match (state, self.chars.peek()) {
+                                // Always add digits to the state. Some states will need to
+                                // be changed.
+                                (NumberState::ExponentStart, Some(c))
+                                | (NumberState::ExponentSign, Some(c))
+                                    if c.is_digit(10) =>
+                                {
+                                    state = NumberState::Exponent;
+                                }
+                                (_, Some(c)) if c.is_digit(10) => {}
+
+                                // Change state based on different characters we see.
+                                (NumberState::Whole, Some('.')) => state = NumberState::Fraction,
+                                (NumberState::Fraction, Some('e'))
+                                | (NumberState::Fraction, Some('E'))
+                                | (NumberState::Whole, Some('e'))
+                                | (NumberState::Whole, Some('E')) => {
+                                    state = NumberState::ExponentStart
+                                }
+                                (NumberState::ExponentStart, Some('+'))
+                                | (NumberState::ExponentStart, Some('-')) => {
+                                    state = NumberState::ExponentSign
+                                }
+
+                                _ => break,
+                            }
+                            raw.push(self.chars.next().unwrap());
+                        }
+                        let kind = match state {
+                            // A whole number parses as an integer of arbitrary precision.
+                            NumberState::Whole => {
+                                NumberKind::DecimalInteger(BigInt::from_str(&raw).unwrap())
+                            }
+
+                            // If there was no digit after the start of an exponent or after the
+                            // exponent’s sign then we need to error. We must have a decimal digit
+                            // after the exponent start.
+                            NumberState::ExponentStart | NumberState::ExponentSign => {
+                                let diagnostic = self.unexpected_peek(ExpectedSyntax::DecimalDigit);
+                                NumberKind::Invalid(diagnostic)
+                            }
+
+                            // If we parsed a fraction part or an exponent part then we have a
+                            // decimal float.
+                            NumberState::Fraction | NumberState::Exponent => {
+                                NumberKind::Float(f64::from_str(&raw).unwrap())
+                            }
+                        };
+                        (ExpectedSyntax::DecimalDigit, kind)
+                    }
                 };
                 match self.chars.peek() {
                     // A number may not be followed by an identifier! If our number is followed by
@@ -661,6 +644,7 @@ impl<'src> Iterator for Lexer<'src> {
                             }
                         }
                         // Return a number token with an invalid number kind.
+                        raw.shrink_to_fit();
                         TokenKind::Number(Number {
                             raw,
                             kind: NumberKind::Invalid(diagnostic),
@@ -669,7 +653,10 @@ impl<'src> Iterator for Lexer<'src> {
 
                     // Return the number token we created. If the next character is not part of
                     // an identifier.
-                    _ => TokenKind::Number(Number { raw, kind }),
+                    _ => {
+                        raw.shrink_to_fit();
+                        TokenKind::Number(Number { raw, kind })
+                    }
                 }
             }
 
@@ -850,4 +837,21 @@ impl<'src> Lexer<'src> {
 
         trivia
     }
+
+    /// Peeks at the next character (or ending) and creates an unexpected diagnostic.
+    fn unexpected_peek(&mut self, expected: ExpectedSyntax) -> DiagnosticRef {
+        self.diagnostics.report(match self.chars.peek() {
+            Some(c) => Diagnostic::unexpected_char(self.chars.position(), c, expected),
+            None => Diagnostic::unexpected_ending(self.chars.position(), expected),
+        })
+    }
+}
+
+#[derive(Clone, Copy)]
+enum NumberState {
+    Whole,
+    Fraction,
+    ExponentStart,
+    ExponentSign,
+    Exponent,
 }
