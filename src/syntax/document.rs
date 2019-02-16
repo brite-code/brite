@@ -140,8 +140,13 @@ pub struct Range {
 }
 
 impl Range {
+    /// Creates a new range with a starting position and a length.
+    pub fn new(start: Position, length: u32) -> Self {
+        Range { start, length }
+    }
+
     /// Creates a range between two positions.
-    pub fn new(start: Position, end: Position) -> Self {
+    pub fn between(start: Position, end: Position) -> Self {
         if start <= end {
             let length = end.0 - start.0;
             Range { start, length }

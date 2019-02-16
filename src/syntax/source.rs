@@ -630,7 +630,7 @@ impl<'src> Iterator for Lexer<'src> {
         let end = self.chars.position();
         let trailing_trivia = self.next_trivia(false);
 
-        let range = Range::new(start, end);
+        let range = Range::new(start, end.utf8_index() - start.utf8_index());
 
         // Return the token we just parsed.
         Some(Token {
