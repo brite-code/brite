@@ -1,4 +1,5 @@
 use num::BigInt;
+use std::iter;
 use unicode_xid::UnicodeXID;
 
 /// A Brite source code document. Source code is represented as text and turned into an AST through
@@ -165,19 +166,37 @@ impl Range {
 pub struct Token<'src> {
     leading_trivia: Vec<Trivia<'src>>,
     trailing_trivia: Vec<Trivia<'src>>,
-    kind: TokenKind,
+    kind: TokenKind<'src>,
 }
 
 /// The kind of a token.
-enum TokenKind {
+enum TokenKind<'src> {
     /// A glyph represents some constant sequence of characters that is used in Brite syntax.
     Glyph(Glyph),
     /// A name in the program.
     Identifier(Identifier),
     /// Some number written in the program.
-    Number(Number),
+    Number(Number<'src>),
     /// An unexpected character in the program.
     UnexpectedChar(char),
+}
+
+impl<'src> Token<'src> {
+    /// Add the source code we parsed this token from back to a string.
+    fn add_source(&self, source: &mut String) {
+        for trivia in &self.leading_trivia {
+            trivia.add_source(source);
+        }
+        match &self.kind {
+            TokenKind::Glyph(glyph) => source.push_str(glyph.source()),
+            TokenKind::Identifier(identifier) => source.push_str(&identifier.0),
+            TokenKind::Number(number) => source.push_str(&number.raw),
+            TokenKind::UnexpectedChar(c) => source.push(*c),
+        }
+        for trivia in &self.trailing_trivia {
+            trivia.add_source(source);
+        }
+    }
 }
 
 /// A glyph represents some constant sequence of characters that is used in Brite syntax.
@@ -243,6 +262,44 @@ enum Glyph {
     Slash,
 }
 
+impl Glyph {
+    /// Get the source string this glyph was parsed from. Always a static string.
+    fn source(&self) -> &'static str {
+        use self::Glyph::*;
+        match self {
+            Keyword(keyword) => keyword.source(),
+            Ampersand => "&",
+            AmpersandDouble => "&&",
+            Arrow => "->",
+            Asterisk => "*",
+            Bang => "!",
+            Bar => "|",
+            BarDouble => "||",
+            BraceLeft => "{",
+            BraceRight => "}",
+            BracketLeft => "[",
+            BracketRight => "]",
+            Caret => "^",
+            Comma => ",",
+            Dot => ".",
+            Equals => "=",
+            EqualsDouble => "==",
+            EqualsNot => "!=",
+            GreaterThan => ">",
+            GreaterThanOrEqual => ">=",
+            LessThan => "<",
+            LessThanOrEqual => "<=",
+            Minus => "-",
+            ParenLeft => "(",
+            ParenRight => ")",
+            Percent => "%",
+            Plus => "+",
+            Semicolon => ";",
+            Slash => "/",
+        }
+    }
+}
+
 /// A reserved identifier.
 #[derive(Clone, Copy)]
 enum Keyword {
@@ -252,6 +309,18 @@ enum Keyword {
     True,
     /// `false`
     False,
+}
+
+impl Keyword {
+    /// Get the source string this keyword was parsed from. Always a static string.
+    fn source(&self) -> &'static str {
+        use self::Keyword::*;
+        match self {
+            Hole => "_",
+            True => "true",
+            False => "false",
+        }
+    }
 }
 
 /// A name written in a Brite program. Brite identifiers follow the [Unicode Identifier
@@ -314,7 +383,15 @@ impl Identifier {
 /// in our language syntax.
 ///
 /// [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
-enum Number {
+struct Number<'src> {
+    /// The raw string this number was parsed from.
+    raw: &'src str,
+    /// The kind of number we parsed
+    kind: NumberKind,
+}
+
+/// The kind of a number.
+enum NumberKind {
     /// `42`
     ///
     /// A base 10 integer. We have the raw text representation of the integer in addition to
@@ -327,16 +404,19 @@ enum Number {
     BinaryInteger(BigInt),
     /// `0xFFF`
     ///
-    /// An integer written in hexadecimal form. The boolean is true if the “x” after `0` was lowercase.
-    /// Then we have the integer’s raw text form and value.
+    /// An integer written in hexadecimal form. The boolean is true if the “x” after `0` was
+    /// lowercase. Then we have the integer’s raw text form and value.
     HexadecimalInteger(BigInt),
     /// `3.1415`, `1e2`
     ///
-    /// A 64-bit floating point number. We aim for our floating point syntax to be compatible with the
-    /// [JSON specification][1].
+    /// A 64-bit floating point number. We aim for our floating point syntax to be compatible with
+    /// the [JSON specification][1].
     ///
     /// [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
     Float(f64),
+    /// An invalid number token. We started trying to parse a number, but we encountered an
+    /// unexpected character.
+    Invalid,
 }
 
 /// Pieces of Brite syntax which (usually) don’t affect program behavior. Like comments or spaces.
@@ -370,6 +450,34 @@ enum Comment<'src> {
     /// `// ...` does not include the newline that ends the comment. Does not include the
     /// `//` characters.
     Line(&'src str),
-    /// `/* ... */` does include the `/*` and `*/` characters.
-    Block(&'src str),
+    /// `/* ... */` does include the `/*` and `*/` characters. If the boolean is false then we
+    /// reached the end of the file before finding `*/`.
+    Block(&'src str, bool),
+}
+
+impl<'src> Trivia<'src> {
+    /// Add the source code we parsed this trivia from back to a string.
+    fn add_source(&self, source: &mut String) {
+        match self {
+            Trivia::Spaces(n) => source.extend(iter::repeat(' ').take(*n)),
+            Trivia::Tabs(n) => source.extend(iter::repeat('\t').take(*n)),
+            Trivia::Newlines(Newline::LF, n) => source.extend(iter::repeat('\n').take(*n)),
+            Trivia::Newlines(Newline::CR, n) => source.extend(iter::repeat('\r').take(*n)),
+            Trivia::Newlines(Newline::CRLF, n) => source.extend(iter::repeat("\r\n").take(*n)),
+            Trivia::OtherWhitespace(c) => source.push(*c),
+
+            Trivia::Comment(Comment::Line(comment_source)) => {
+                source.push_str("//");
+                source.push_str(comment_source)
+            }
+
+            Trivia::Comment(Comment::Block(comment_source, ended)) => {
+                source.push_str("/*");
+                source.push_str(comment_source);
+                if *ended {
+                    source.push_str("*/");
+                }
+            }
+        }
+    }
 }
