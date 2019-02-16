@@ -1,0 +1,26 @@
+{
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
+  "editor.rulers": [80],
+  "editor.wordWrap": "off",
+  "editor.formatOnSave": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/target": true,
+    "**/node_modules": true,
+    "**/.stack-work": true,
+    "**/*.cabal": true
+  },
+  "html.format.endWithNewline": true,
+  "[markdown]": {
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 80
+  },
+  "[rust]": {
+    "editor.tabSize": 4,
+    "editor.rulers": [100]
+  }
+}

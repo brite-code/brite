@@ -5,3 +5,5 @@ authors = ["Caleb Meredith <calebmeredith8@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+num = "0.2.0"
+unicode-xid = "0.1.0"
