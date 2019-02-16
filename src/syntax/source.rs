@@ -425,6 +425,13 @@ impl<'src> Lexer<'src> {
                 Some('\n') => {
                     self.chars.next();
                     let mut n = 1;
+
+                    // After we see one newline in trailing trivia, stop parsing trivia!
+                    if !leading {
+                        trivia.push(Trivia::Newlines(Newline::LF, n));
+                        break;
+                    }
+
                     while let Some('\n') = self.chars.peek() {
                         self.chars.next();
                         n += 1;
@@ -436,9 +443,15 @@ impl<'src> Lexer<'src> {
                 Some('\r') => {
                     self.chars.next();
                     let mut n = 1;
-                    // CRLF
                     if let Some('\n') = self.chars.peek() {
                         self.chars.next();
+
+                        // After we see one newline in trailing trivia, stop parsing trivia!
+                        if !leading {
+                            trivia.push(Trivia::Newlines(Newline::CRLF, n));
+                            break;
+                        }
+
                         while self.chars.peek() == Some('\r') && self.chars.peek2() == Some('\n') {
                             self.chars.next();
                             self.chars.next();
@@ -446,7 +459,12 @@ impl<'src> Lexer<'src> {
                         }
                         trivia.push(Trivia::Newlines(Newline::CRLF, n));
                     } else {
-                        // CR
+                        // After we see one newline in trailing trivia, stop parsing trivia!
+                        if !leading {
+                            trivia.push(Trivia::Newlines(Newline::CR, n));
+                            break;
+                        }
+
                         while let Some('\r') = self.chars.peek() {
                             self.chars.next();
                             n += 1;
@@ -455,14 +473,63 @@ impl<'src> Lexer<'src> {
                     }
                 }
 
-                // // Line comments
-                // Some('/') => if self.chars.peek2() == Some('/') {
-                //     self.chars.next();
-                //     self.chars.next();
-                // } else {
-                //     break;
-                // },
-                _ => unimplemented!(),
+                // Comments
+                Some('/') => match self.chars.peek2() {
+                    // Line comments
+                    Some('/') => {
+                        self.chars.next();
+                        self.chars.next();
+                        let comment = self.chars.span(|c| c != '\n' && c != '\r');
+                        trivia.push(Trivia::Comment(Comment::Line(comment)));
+                    }
+
+                    // Block comments
+                    Some('*') => {
+                        self.chars.next();
+                        self.chars.next();
+                        let mut asterisk = false;
+                        let mut newline = false;
+                        let comment = self.chars.span(|c| {
+                            if c == '*' {
+                                asterisk = true;
+                                true
+                            } else if c == '/' && asterisk {
+                                false
+                            } else {
+                                if asterisk {
+                                    asterisk = false;
+                                }
+                                if c == '\n' || c == '\r' {
+                                    newline = true;
+                                }
+                                true
+                            }
+                        });
+                        if let Some('/') = self.chars.peek() {
+                            self.chars.next();
+                            let comment = &comment[0..(comment.len() - 1)];
+                            trivia.push(Trivia::Comment(Comment::Block(comment, true)));
+                        } else {
+                            trivia.push(Trivia::Comment(Comment::Block(comment, false)));
+                        }
+                        // If we are parsing trailing trivia and there was a newline in the block
+                        // comment then stop parsing trivia.
+                        if !leading && newline {
+                            break;
+                        }
+                    }
+
+                    _ => break,
+                },
+
+                // Other whitespace
+                Some(c) if c.is_whitespace() => {
+                    self.chars.next();
+                    trivia.push(Trivia::OtherWhitespace(c));
+                }
+
+                // If there is no more trivia then we may stop the loop.
+                _ => break,
             }
         }
 

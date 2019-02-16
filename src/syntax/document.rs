@@ -54,6 +54,7 @@ impl Document {
     /// current position.
     pub fn chars<'a>(&'a self) -> DocumentChars<'a> {
         DocumentChars {
+            document: self,
             chars: self.source.chars(),
             peeked1: None,
             peeked2: None,
@@ -166,16 +167,17 @@ impl Range {
 /// An iterator over the characters of a document. Also keeps track of the current `Position` in
 /// the document.
 pub struct DocumentChars<'a> {
+    document: &'a Document,
     chars: Chars<'a>,
     peeked1: Option<Option<char>>,
     peeked2: Option<Option<char>>,
-    position: u32,
+    position: usize,
 }
 
 impl<'a> DocumentChars<'a> {
     /// Gets the current position of the `DocumentChars` iterator.
     pub fn position(&self) -> Position {
-        Position(self.position)
+        Position(self.position as u32)
     }
 
     /// Peek at the next character without advancing the iterator.
@@ -204,12 +206,10 @@ impl<'a> DocumentChars<'a> {
             None => unreachable!(),
         }
     }
-}
 
-impl<'a> Iterator for DocumentChars<'a> {
-    type Item = char;
-
-    fn next(&mut self) -> Option<char> {
+    /// Advance the iterator to the next character. We don’t implement `Iterator` since we don’t
+    /// want to compose `DocumentChars` because of all the utility functions we provide.
+    pub fn next(&mut self) -> Option<char> {
         let next = match self.peeked1 {
             Some(next) => {
                 self.peeked1 = self.peeked2;
@@ -219,8 +219,27 @@ impl<'a> Iterator for DocumentChars<'a> {
             None => self.chars.next(),
         };
         if let Some(c) = next {
-            self.position += c.len_utf8() as u32;
+            self.position += c.len_utf8();
         }
         next
+    }
+
+    /// Advance the iterator while the predicate is true. Returns a string slice from the source
+    /// document which covers the spanned range.
+    pub fn span(&mut self, mut predicate: impl FnMut(char) -> bool) -> &'a str {
+        let start = self.position;
+        loop {
+            if let Some(c) = self.peek() {
+                if predicate(c) {
+                    self.next();
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        let end = self.position;
+        &self.document.source[start..end]
     }
 }
