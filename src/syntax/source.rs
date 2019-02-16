@@ -40,6 +40,18 @@ enum TokenKind {
 }
 
 impl<'src> Token<'src> {
+    /// Re-construct the source code that a list of tokens was parsed from. Every token contains
+    /// all the necessary information to print back out the source code it was parsed from. We can
+    /// use this function to verify that this behavior.
+    pub fn source(tokens: &Vec<Token<'src>>, end_token: &EndToken<'src>) -> String {
+        let mut source = String::new();
+        for token in tokens {
+            token.add_source(&mut source);
+        }
+        end_token.add_source(&mut source);
+        source
+    }
+
     /// Add the source code we parsed this token from back to a string.
     fn add_source(&self, source: &mut String) {
         for trivia in &self.leading_trivia {
