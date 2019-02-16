@@ -462,6 +462,24 @@ impl<'src> Iterator for Lexer<'src> {
                 _ => TokenKind::Glyph(Glyph::Minus),
             },
 
+            // Identifier
+            Some(c) if Identifier::is_start(c) => {
+                let mut identifier = String::new();
+                identifier.push(c);
+                self.chars.next();
+                loop {
+                    match self.chars.peek() {
+                        Some(c) if Identifier::is_continue(c) => {
+                            identifier.push(c);
+                            self.chars.next();
+                        }
+                        _ => break,
+                    }
+                }
+                identifier.shrink_to_fit();
+                TokenKind::Identifier(Identifier(identifier))
+            }
+
             _ => unimplemented!(),
         };
 
