@@ -12,6 +12,10 @@ use unicode_xid::UnicodeXID;
 /// - The trailing trivia of a token is all of the trivia after a token _up until the first new
 ///   line_. If a token is trailed by a line comment then that is part of the trailing trivia along
 ///   with the newline which immediately follows but nothing else!
+///
+/// This heuristic was inspired by the [Swift syntax library][1].
+///
+/// [1]: https://github.com/apple/swift/tree/e07a8cf2a68ad3c2c97a144369d06d427ba240a7/lib/Syntax#trivia
 pub struct Token<'src> {
     range: Range,
     leading_trivia: Vec<Trivia<'src>>,
@@ -384,5 +388,84 @@ impl<'src> Iterator for Lexer<'src> {
         }
 
         unimplemented!()
+    }
+}
+
+impl<'src> Lexer<'src> {
+    /// Parses some token trivia. If `leading` is true then we are parsing leading trivia. Otherwise
+    /// we are parsing trailing trivia.
+    fn next_trivia(&mut self, leading: bool) -> Vec<Trivia<'src>> {
+        let mut trivia = Vec::new();
+
+        loop {
+            match self.chars.peek() {
+                // Spaces
+                Some(' ') => {
+                    self.chars.next();
+                    let mut n = 1;
+                    while let Some(' ') = self.chars.peek() {
+                        self.chars.next();
+                        n += 1;
+                    }
+                    trivia.push(Trivia::Spaces(n));
+                }
+
+                // Tabs
+                Some('\t') => {
+                    self.chars.next();
+                    let mut n = 1;
+                    while let Some('\t') = self.chars.peek() {
+                        self.chars.next();
+                        n += 1;
+                    }
+                    trivia.push(Trivia::Tabs(n));
+                }
+
+                // Newlines (LF)
+                Some('\n') => {
+                    self.chars.next();
+                    let mut n = 1;
+                    while let Some('\n') = self.chars.peek() {
+                        self.chars.next();
+                        n += 1;
+                    }
+                    trivia.push(Trivia::Newlines(Newline::LF, n));
+                }
+
+                // Newlines (CR and CRLF)
+                Some('\r') => {
+                    self.chars.next();
+                    let mut n = 1;
+                    // CRLF
+                    if let Some('\n') = self.chars.peek() {
+                        self.chars.next();
+                        while self.chars.peek() == Some('\r') && self.chars.peek2() == Some('\n') {
+                            self.chars.next();
+                            self.chars.next();
+                            n += 1;
+                        }
+                        trivia.push(Trivia::Newlines(Newline::CRLF, n));
+                    } else {
+                        // CR
+                        while let Some('\r') = self.chars.peek() {
+                            self.chars.next();
+                            n += 1;
+                        }
+                        trivia.push(Trivia::Newlines(Newline::CR, n));
+                    }
+                }
+
+                // // Line comments
+                // Some('/') => if self.chars.peek2() == Some('/') {
+                //     self.chars.next();
+                //     self.chars.next();
+                // } else {
+                //     break;
+                // },
+                _ => unimplemented!(),
+            }
+        }
+
+        trivia
     }
 }

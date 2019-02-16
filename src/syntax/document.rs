@@ -1,4 +1,3 @@
-use std::iter::Peekable;
 use std::str::Chars;
 
 /// A Brite source code document. Source code is represented as text and turned into an AST through
@@ -55,7 +54,9 @@ impl Document {
     /// current position.
     pub fn chars<'a>(&'a self) -> DocumentChars<'a> {
         DocumentChars {
-            chars: self.source.chars().peekable(),
+            chars: self.source.chars(),
+            peeked1: None,
+            peeked2: None,
             position: 0,
         }
     }
@@ -165,7 +166,9 @@ impl Range {
 /// An iterator over the characters of a document. Also keeps track of the current `Position` in
 /// the document.
 pub struct DocumentChars<'a> {
-    chars: Peekable<Chars<'a>>,
+    chars: Chars<'a>,
+    peeked1: Option<Option<char>>,
+    peeked2: Option<Option<char>>,
     position: u32,
 }
 
@@ -177,7 +180,29 @@ impl<'a> DocumentChars<'a> {
 
     /// Peek at the next character without advancing the iterator.
     pub fn peek(&mut self) -> Option<char> {
-        self.chars.peek().cloned()
+        if self.peeked1.is_none() {
+            self.peeked1 = Some(self.chars.next());
+        }
+        match self.peeked1 {
+            Some(Some(c)) => Some(c),
+            Some(None) => None,
+            None => unreachable!(),
+        }
+    }
+
+    /// Peek ahead two characters without advancing the iterator.
+    pub fn peek2(&mut self) -> Option<char> {
+        if self.peeked1.is_none() {
+            self.peeked1 = Some(self.chars.next());
+        }
+        if self.peeked2.is_none() {
+            self.peeked2 = Some(self.chars.next());
+        }
+        match self.peeked2 {
+            Some(Some(c)) => Some(c),
+            Some(None) => None,
+            None => unreachable!(),
+        }
     }
 }
 
@@ -185,7 +210,14 @@ impl<'a> Iterator for DocumentChars<'a> {
     type Item = char;
 
     fn next(&mut self) -> Option<char> {
-        let next = self.chars.next();
+        let next = match self.peeked1 {
+            Some(next) => {
+                self.peeked1 = self.peeked2;
+                self.peeked2 = None;
+                next
+            }
+            None => self.chars.next(),
+        };
         if let Some(c) = next {
             self.position += c.len_utf8() as u32;
         }
