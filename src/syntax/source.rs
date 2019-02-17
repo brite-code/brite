@@ -795,18 +795,30 @@ impl<'src> Lexer<'src> {
                     Some('*') => {
                         self.chars.next();
                         self.chars.next();
-                        let mut asterisk = false;
                         let mut newline = false;
-                        let comment = self.chars.span(|c| {
-                            if c == '*' {
-                                asterisk = true;
+                        let mut state = BlockCommentState::Normal;
+                        let mut depth = 1;
+                        let comment = self.chars.span(|c| match (state, c) {
+                            (BlockCommentState::FoundAsterisk, '/') => {
+                                state = BlockCommentState::Normal;
+                                depth -= 1;
+                                depth != 0
+                            }
+                            (BlockCommentState::FoundSlash, '*') => {
+                                state = BlockCommentState::Normal;
+                                depth += 1;
                                 true
-                            } else if c == '/' && asterisk {
-                                false
-                            } else {
-                                if asterisk {
-                                    asterisk = false;
-                                }
+                            }
+                            (_, '*') => {
+                                state = BlockCommentState::FoundAsterisk;
+                                true
+                            }
+                            (_, '/') => {
+                                state = BlockCommentState::FoundSlash;
+                                true
+                            }
+                            _ => {
+                                state = BlockCommentState::Normal;
                                 if c == '\n' || c == '\r' {
                                     newline = true;
                                 }
@@ -865,6 +877,13 @@ enum NumberState {
     ExponentStart,
     ExponentSign,
     Exponent,
+}
+
+#[derive(Clone, Copy)]
+enum BlockCommentState {
+    Normal,
+    FoundAsterisk,
+    FoundSlash,
 }
 
 impl<'src> Token<'src> {
