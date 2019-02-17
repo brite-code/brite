@@ -926,7 +926,14 @@ impl<'src> Token<'src> {
                     "Number::HexadecimalInteger",
                     value.to_str_radix(16).to_uppercase(),
                 ),
-                NumberKind::Float(value) => ("Number::Float", format!("{}", value)),
+                NumberKind::Float(value) => (
+                    "Number::Float",
+                    if *value >= 10_000_000_000. {
+                        format!("{:e}", value)
+                    } else {
+                        format!("{}", value)
+                    },
+                ),
                 NumberKind::Invalid(_) => ("Number::Invalid", number.raw.clone()),
             },
             TokenKind::UnexpectedChar(c) => ("UnexpectedChar", format!("`{}`", c)),

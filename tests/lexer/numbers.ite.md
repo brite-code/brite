@@ -334,15 +334,15 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 128:1-128:17   | Number::DecimalInteger         | 9007199254740995           |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 129:1-129:18   | Number::Float                  | 9007199254740991           |
+| 129:1-129:18   | Number::Float                  | 9.007199254740991e15       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 130:1-130:18   | Number::Float                  | 9007199254740992           |
+| 130:1-130:18   | Number::Float                  | 9.007199254740992e15       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 131:1-131:18   | Number::Float                  | 9007199254740992           |
+| 131:1-131:18   | Number::Float                  | 9.007199254740992e15       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 132:1-132:18   | Number::Float                  | 9007199254740994           |
+| 132:1-132:18   | Number::Float                  | 9.007199254740994e15       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 133:1-133:18   | Number::Float                  | 9007199254740996           |
+| 133:1-133:18   | Number::Float                  | 9.007199254740996e15       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 134:1-134:21   | Number::DecimalInteger         | 18446744073709552000       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
@@ -356,17 +356,17 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 139:1-139:21   | Number::DecimalInteger         | 18446744073709552005       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 140:1-140:22   | Number::Float                  | 18446744073709552000       |
+| 140:1-140:22   | Number::Float                  | 1.8446744073709552e19      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 141:1-141:22   | Number::Float                  | 18446744073709552000       |
+| 141:1-141:22   | Number::Float                  | 1.8446744073709552e19      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 142:1-142:22   | Number::Float                  | 18446744073709552000       |
+| 142:1-142:22   | Number::Float                  | 1.8446744073709552e19      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 143:1-143:22   | Number::Float                  | 18446744073709552000       |
+| 143:1-143:22   | Number::Float                  | 1.8446744073709552e19      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 144:1-144:22   | Number::Float                  | 18446744073709552000       |
+| 144:1-144:22   | Number::Float                  | 1.8446744073709552e19      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 145:1-145:22   | Number::Float                  | 18446744073709552000       |
+| 145:1-145:22   | Number::Float                  | 1.8446744073709552e19      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 146:1-146:2    | Glyph                          | `.`                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
@@ -431,7 +431,7 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 175:1-175:5    | Number::Float                  | 0.1                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 176:1-176:5    | Number::Float                  | 1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000|
+| 176:1-176:5    | Number::Float                  | 1e90                       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 177:1-177:9    | Number::Float                  | 314.15                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
@@ -501,9 +501,9 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 209:1-209:6    | Number::Float                  | inf                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 210:1-210:24   | Number::Float                  | 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000|
+| 210:1-210:24   | Number::Float                  | 1.7976931348623157e308     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 211:1-211:24   | Number::Float                  | 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000|
+| 211:1-211:24   | Number::Float                  | 1.7976931348623157e308     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 212:1-212:24   | Number::Float                  | inf                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
