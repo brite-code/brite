@@ -495,7 +495,6 @@ impl<'src> Iterator for Lexer<'src> {
             Some(c) if Identifier::is_start(c) => {
                 let mut identifier = String::new();
                 identifier.push(c);
-                self.chars.next();
                 loop {
                     match self.chars.peek() {
                         Some(c) if Identifier::is_continue(c) => {
@@ -517,7 +516,6 @@ impl<'src> Iterator for Lexer<'src> {
             Some(c) if c.is_digit(10) => {
                 let mut raw = String::new();
                 raw.push(c);
-                self.chars.next();
 
                 let (expected, kind) = match (c, self.chars.peek()) {
                     // Binary integer
@@ -879,10 +877,10 @@ impl<'src> Token<'src> {
         let mut output = String::new();
         // Add the markdown table header.
         output.push_str(
-            "| Range    | Kind                           | Data                           |\n",
+            "| Range          | Kind                           | Data                       |\n",
         );
         output.push_str(
-            "|----------|--------------------------------|--------------------------------|\n",
+            "|----------------|--------------------------------|----------------------------|\n",
         );
         // Print each token.
         for token in tokens {
@@ -897,8 +895,8 @@ impl<'src> Token<'src> {
         let end_position = end_token.position.format(document);
         output.push_str("| ");
         output.push_str(&end_position);
-        output.extend(iter::repeat(' ').take(cmp::max(0, 10 - (end_position.len() + 1))));
-        output.push_str("| End                            |                                |\n");
+        output.extend(iter::repeat(' ').take(16 - cmp::min(16, end_position.len() + 1)));
+        output.push_str("| End                            |                            |\n");
 
         output
     }
@@ -936,13 +934,13 @@ impl<'src> Token<'src> {
 
         output.push_str("| ");
         output.push_str(&range);
-        output.extend(iter::repeat(' ').take(cmp::max(0, 10 - (range.len() + 1))));
+        output.extend(iter::repeat(' ').take(16 - cmp::min(16, range.len() + 1)));
         output.push_str("| ");
         output.push_str(kind);
-        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (kind.len() + 1))));
+        output.extend(iter::repeat(' ').take(32 - cmp::min(32, kind.len() + 1)));
         output.push_str("| ");
         output.push_str(&data);
-        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (data.len() + 1))));
+        output.extend(iter::repeat(' ').take(28 - cmp::min(28, data.len() + 1)));
         output.push_str("|\n");
 
         for trivia in &token.trailing_trivia {
@@ -963,15 +961,15 @@ impl<'src> Token<'src> {
         };
 
         if leading {
-            output.push_str("| leading  | ");
+            output.push_str("| leading        | ");
         } else {
-            output.push_str("| trailing | ");
+            output.push_str("| trailing       | ");
         }
         output.push_str(kind);
-        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (kind.len() + 1))));
+        output.extend(iter::repeat(' ').take(32 - cmp::min(32, kind.len() + 1)));
         output.push_str("| ");
         output.push_str(&data);
-        output.extend(iter::repeat(' ').take(cmp::max(0, 32 - (data.len() + 1))));
+        output.extend(iter::repeat(' ').take(28 - cmp::min(28, data.len() + 1)));
         output.push_str("|\n");
     }
 }

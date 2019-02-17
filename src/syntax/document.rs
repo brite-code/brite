@@ -158,6 +158,13 @@ impl Range {
         Range { start, length }
     }
 
+    /// Creates a range that covers a single character. Using the provided `char` for the
+    /// range length.
+    pub fn char(start: Position, c: char) -> Self {
+        let length = c.len_utf8() as u32;
+        Range { start, length }
+    }
+
     /// Creates a range between two positions.
     pub fn between(start: Position, end: Position) -> Self {
         if start <= end {

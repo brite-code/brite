@@ -161,7 +161,7 @@ impl Diagnostic {
     /// The parser ran into a character it did not recognize.
     pub fn unexpected_char(position: Position, unexpected: char, expected: ExpectedSyntax) -> Self {
         Self::unexpected_syntax(
-            Range::new(position, unexpected.len_utf16() as u32),
+            Range::char(position, unexpected),
             UnexpectedSyntax::Char(unexpected),
             expected,
         )
@@ -189,7 +189,6 @@ impl Diagnostic {
     }
 
     fn error_message(error_message: &ErrorDiagnosticMessage) -> Markup {
-        use self::ErrorDiagnosticMessage::*;
         match error_message {
             // Thought and care that went into this error message:
             //
@@ -215,16 +214,23 @@ impl Diagnostic {
             //   wanted a variable name.” because the word “pattern” is compiler speak. Even though
             //   patterns can be more than a variable name, 80% of the time the programmer will
             //   write a variable name.
-            UnexpectedSyntax {
+            ErrorDiagnosticMessage::UnexpectedSyntax {
                 unexpected,
                 expected,
             } => {
                 let mut message = Markup::new();
                 message.push("We want ");
                 expected.add_message(&mut message);
-                message.push(" but we have ");
-                unexpected.add_message(&mut message);
-                message.push(".");
+                match unexpected {
+                    UnexpectedSyntax::Char('\n') | UnexpectedSyntax::Char('\r') => {
+                        message.push(" but the line ends.")
+                    }
+                    _ => {
+                        message.push(" but we have ");
+                        unexpected.add_message(&mut message);
+                        message.push(".");
+                    }
+                }
                 message
             }
 
@@ -234,7 +240,7 @@ impl Diagnostic {
             // abstract concept and so finding the end of a file is a bit weird. It makes sense from
             // the perspective of parsing but not from the user’s perspective which we are
             // designing for.
-            UnexpectedEnding { expected } => {
+            ErrorDiagnosticMessage::UnexpectedEnding { expected } => {
                 let mut message = Markup::new();
                 message.push("We want ");
                 expected.add_message(&mut message);
@@ -248,7 +254,12 @@ impl Diagnostic {
 impl UnexpectedSyntax {
     fn add_message(&self, message: &mut Markup) {
         match self {
-            UnexpectedSyntax::Char(c) => message.push_code(c.to_string()),
+            UnexpectedSyntax::Char(c) => match c {
+                '\n' => message.push_code("\\n"),
+                '\r' => message.push_code("\\r"),
+                '\t' => message.push_code("\\t"),
+                _ => message.push_code(c.to_string()),
+            },
         }
     }
 }

@@ -1,1 +1,2 @@
 test!(glyphs);
+test!(numbers);
