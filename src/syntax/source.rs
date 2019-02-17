@@ -235,7 +235,7 @@ impl Keyword {
 /// pattern identifiers.
 ///
 /// [1]: http://www.unicode.org/reports/tr31
-struct Identifier(
+pub struct Identifier(
     // TODO: Intern identifier strings.
     String,
 );
@@ -405,6 +405,11 @@ impl<'src> Lexer<'src> {
     /// lexer and returns the `DiagnosticsContext` and an `EndToken`.
     pub fn end(self) -> (DiagnosticsCollection, Option<EndToken<'src>>) {
         (self.diagnostics, self.end)
+    }
+
+    /// Report a diagnostic using the `DiagnosticCollection` owned by this lexer.
+    pub fn report_diagnostic(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
+        self.diagnostics.report(diagnostic)
     }
 }
 
