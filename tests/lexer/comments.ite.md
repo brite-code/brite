@@ -88,4 +88,37 @@
 | leading        | Trivia::Spaces                 | 1                          |
 | 43:6-43:7      | Identifier                     | `x`                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 44:1           | End                            |                            |
+| leading        | Trivia::Newlines::LF           | 1                          |
+| 45:1-45:2      | Identifier                     | `a`                        |
+| trailing       | Trivia::Spaces                 | 1                          |
+| trailing       | Trivia::Comment::Block         |                            |
+| trailing       | Trivia::Spaces                 | 1                          |
+| 45:9-45:10     | Identifier                     | `b`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 46:1-46:2      | Identifier                     | `a`                        |
+| trailing       | Trivia::Spaces                 | 1                          |
+| trailing       | Trivia::Comment::Block         |                            |
+| trailing       | Trivia::Spaces                 | 1                          |
+| trailing       | Trivia::Comment::Block         |                            |
+| trailing       | Trivia::Spaces                 | 1                          |
+| 46:15-46:16    | Identifier                     | `b`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 47:1-47:2      | Identifier                     | `a`                        |
+| trailing       | Trivia::Spaces                 | 1                          |
+| trailing       | Trivia::Comment::Block         |                            |
+| leading        | Trivia::Spaces                 | 1                          |
+| 48:5-48:6      | Identifier                     | `b`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 49:1-49:2      | Identifier                     | `a`                        |
+| trailing       | Trivia::Spaces                 | 1                          |
+| trailing       | Trivia::Comment::Block         |                            |
+| leading        | Trivia::Spaces                 | 1                          |
+| 50:5-50:6      | Identifier                     | `b`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 51:1-51:2      | Identifier                     | `a`                        |
+| trailing       | Trivia::Spaces                 | 1                          |
+| trailing       | Trivia::Comment::Block         |                            |
+| leading        | Trivia::Spaces                 | 1                          |
+| 52:5-52:6      | Identifier                     | `b`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 53:1           | End                            |                            |

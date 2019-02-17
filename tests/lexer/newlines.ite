@@ -13,3 +13,14 @@
 \n\r\n\r
 \n\n\r\r
 \n\r
+a   b
+a \n b
+a \r b
+a \r\n b
+a \n\n b
+a \n\n\n b
+a \r\r b
+a \r\r\r b
+a \r\n\r\n b
+a \r\n\r\n\r\n b
+\r\n\r\n\r\r\r\r\r
