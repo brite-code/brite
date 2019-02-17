@@ -1,3 +1,5 @@
+//! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
+
 use super::document::Range;
 use super::source::Identifier;
 use num::BigInt;
@@ -283,11 +285,7 @@ pub enum LogicalOperator {
     Or,
 }
 
-/// ```ite
-/// if E {
-///   // ...
-/// }
-/// ```
+/// A conditional expression chooses a branch to take based on a test expression.
 pub struct ConditionalExpressionIf {
     /// The test expression.
     pub test: Expression,
@@ -297,11 +295,7 @@ pub struct ConditionalExpressionIf {
     pub alternate: Option<ConditionalExpressionElse>,
 }
 
-/// ```ite
-/// else {
-///   // ...
-/// }
-/// ```
+/// If the test of a [`ConditionalExpressionIf`] fails then we execute this else branch.
 pub enum ConditionalExpressionElse {
     /// ```ite
     /// else {
