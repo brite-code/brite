@@ -129,6 +129,8 @@ impl Position {
     /// Formats a position for human consumption. While the [Language Server Protocol][1] positions
     /// start at 0, we format the position starting at 1 since that’s how most tools display
     /// positions to the programmer.
+    ///
+    /// [1]: https://microsoft.github.io/language-server-protocol/specification
     pub fn format(&self, document: &Document) -> String {
         format!(
             "{}:{}",
@@ -182,6 +184,8 @@ impl Range {
     /// Formats a range for human consumption. While the [Language Server Protocol][1] positions
     /// start at 0, we format the range starting at 1 since that’s how most tools display
     /// positions to the programmer.
+    ///
+    /// [1]: https://microsoft.github.io/language-server-protocol/specification
     pub fn format(&self, document: &Document) -> String {
         format!(
             "{}:{}-{}:{}",
