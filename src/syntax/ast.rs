@@ -352,6 +352,14 @@ pub enum TypeKind {
     /// References the current class instance type. If we are in a base class then `this` could be
     /// any of the base class’s children.
     This,
-    // TODO
-    Function,
+    /// The type of a function. Functions may be passed around just like any other value.
+    Function(FunctionType),
+}
+
+/// The type of a function. Functions may be passed around just like any other value.
+pub struct FunctionType {
+    /// The types of this function’s parameters.
+    pub parameters: Vec<Type>,
+    /// The return type of this function.
+    pub return_: Box<Type>,
 }
