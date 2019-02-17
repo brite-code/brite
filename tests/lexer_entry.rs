@@ -13,8 +13,12 @@ macro_rules! test {
             path.set_file_name(stringify!($name));
             path.set_extension("ite");
 
-            let source = fs::read_to_string(&path).unwrap();
-            let document = Document::new(source);
+            let source = fs::read_to_string(&path)
+                .unwrap()
+                .replace("\\n", "\n")
+                .replace("\\r", "\r")
+                .replace("\\t", "\t");
+            let document = Document::new(&source);
 
             let mut lexer = Lexer::new(DiagnosticsCollection::new(), &document);
             let mut tokens = Vec::new();
@@ -37,6 +41,8 @@ macro_rules! test {
             contents.push_str(&Token::markdown_table(&document, &tokens, &end_token));
 
             fs::write(path, contents).unwrap();
+
+            assert_eq!(Token::source(&tokens, &end_token), source);
         }
     };
 }

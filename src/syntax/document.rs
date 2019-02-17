@@ -4,17 +4,17 @@ use std::str::Chars;
 /// the process of lexing and parsing. This object contains metadata about a source document
 /// including the document’s URI, the full document text, and information for determining the
 /// placement of source positions.
-pub struct Document {
+pub struct Document<'src> {
     /// The document’s contents as a UTF-8 string.
-    source: String,
+    source: &'src str,
     /// Locations in our document where new lines begin. New lines are created by `\n`, `\r\n`,
     /// and `\r`.
     lines: Vec<Position>,
 }
 
-impl Document {
+impl<'src> Document<'src> {
     /// Creates a new source code document.
-    pub fn new(source: String) -> Self {
+    pub fn new(source: &'src str) -> Self {
         // Calculate all the line boundaries in our source code.
         let lines = {
             let mut lines = Vec::new();
@@ -52,7 +52,7 @@ impl Document {
 
     /// An iterator over the characters of the document which also keeps track of the
     /// current position.
-    pub fn chars<'a>(&'a self) -> DocumentChars<'a> {
+    pub fn chars(&self) -> DocumentChars {
         DocumentChars {
             document: self,
             chars: self.source.chars(),
@@ -207,7 +207,7 @@ impl Range {
 /// An iterator over the characters of a document. Also keeps track of the current `Position` in
 /// the document.
 pub struct DocumentChars<'a> {
-    document: &'a Document,
+    document: &'a Document<'a>,
     chars: Chars<'a>,
     peeked1: Option<Option<char>>,
     peeked2: Option<Option<char>>,
