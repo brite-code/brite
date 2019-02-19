@@ -4,8 +4,8 @@ macro_rules! test {
     ($name:ident) => {
         #[test]
         fn $name() {
+            use brite::diagnostics::DiagnosticsCollection;
             use brite::syntax::{Document, Lexer, Token};
-            use brite::ui::DiagnosticsCollection;
             use std::fs;
             use std::path::PathBuf;
 

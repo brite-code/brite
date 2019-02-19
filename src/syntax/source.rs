@@ -1,7 +1,5 @@
 use super::document::{Document, DocumentChars, Position, Range};
-use crate::ui::{
-    Diagnostic, DiagnosticRef, DiagnosticsCollection, ExpectedSyntax, UnexpectedSyntax,
-};
+use crate::diagnostics::*;
 use num::BigInt;
 use std::cmp;
 use std::f64;

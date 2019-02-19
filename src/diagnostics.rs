@@ -63,8 +63,8 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use super::markup::Markup;
 use crate::syntax::{Document, Glyph, Position, Range, Token};
+use crate::utils::markup::Markup;
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a

@@ -1,7 +1,7 @@
 use super::ast::*;
 use super::document::Range;
 use super::source::{Glyph, Identifier, Keyword, Lexer, TokenKind};
-use crate::ui::{Diagnostic, DiagnosticRef, ExpectedSyntax};
+use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 
 #[cfg(rustdoc)]
 use super::document::Document;
