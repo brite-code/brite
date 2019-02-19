@@ -64,7 +64,7 @@
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
 use super::markup::Markup;
-use crate::syntax::{Document, Glyph, Position, Range};
+use crate::syntax::{Document, Glyph, Position, Range, Token};
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
@@ -118,6 +118,12 @@ enum InfoDiagnosticMessage {}
 
 /// Some syntax the Brite parser did not expect.
 pub enum UnexpectedSyntax {
+    /// An unexpected glyph.
+    Glyph(Glyph),
+    /// An unexpected identifier.
+    Identifier,
+    /// An unexpected number.
+    Number,
     /// An unexpected character.
     Char(char),
 }
@@ -167,6 +173,11 @@ impl Diagnostic {
             UnexpectedSyntax::Char(unexpected),
             expected,
         )
+    }
+
+    /// The parser ran into a token it did not recognize.
+    pub fn unexpected_token(token: &Token, expected: ExpectedSyntax) -> Self {
+        Self::unexpected_syntax(token.range(), token.unexpected(), expected)
     }
 
     /// The parser ran into the end of the source document unexpectedly.
@@ -256,6 +267,9 @@ impl Diagnostic {
 impl UnexpectedSyntax {
     fn add_message(&self, message: &mut Markup) {
         match self {
+            UnexpectedSyntax::Glyph(glyph) => message.push_code(glyph.source()),
+            UnexpectedSyntax::Identifier => message.push("a variable name"),
+            UnexpectedSyntax::Number => message.push("a number"),
             UnexpectedSyntax::Char(c) => match c {
                 '\n' => message.push_code("\\n"),
                 '\r' => message.push_code("\\r"),

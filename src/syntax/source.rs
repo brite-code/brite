@@ -1,5 +1,7 @@
 use super::document::{Document, DocumentChars, Position, Range};
-use crate::ui::{Diagnostic, DiagnosticRef, DiagnosticsCollection, ExpectedSyntax};
+use crate::ui::{
+    Diagnostic, DiagnosticRef, DiagnosticsCollection, ExpectedSyntax, UnexpectedSyntax,
+};
 use num::BigInt;
 use std::cmp;
 use std::f64;
@@ -40,6 +42,11 @@ pub enum TokenKind {
 }
 
 impl<'src> Token<'src> {
+    /// The range in source code covered by the token. Excluding trivia.
+    pub fn range(&self) -> Range {
+        self.range
+    }
+
     /// The kind of the token.
     pub fn kind(&self) -> &TokenKind {
         &self.kind
@@ -55,6 +62,16 @@ impl<'src> Token<'src> {
         }
         end_token.add_source(&mut source);
         source
+    }
+
+    /// Creates an [`UnexpectedSyntax`] description for this token.
+    pub fn unexpected(&self) -> UnexpectedSyntax {
+        match &self.kind {
+            TokenKind::Glyph(glyph) => UnexpectedSyntax::Glyph(*glyph),
+            TokenKind::Identifier(_) => UnexpectedSyntax::Identifier,
+            TokenKind::Number(_) => UnexpectedSyntax::Number,
+            TokenKind::UnexpectedChar(c) => UnexpectedSyntax::Char(*c),
+        }
     }
 
     /// Add the source code we parsed this token from back to a string.
@@ -82,6 +99,11 @@ pub struct EndToken<'src> {
 }
 
 impl<'src> EndToken<'src> {
+    /// Get the position of our end token.
+    pub fn position(&self) -> Position {
+        self.position
+    }
+
     /// Add the source code we parsed this token from back to a string.
     fn add_source(&self, source: &mut String) {
         for trivia in &self.leading_trivia {
@@ -91,7 +113,7 @@ impl<'src> EndToken<'src> {
 }
 
 /// A glyph represents some constant sequence of characters that is used in Brite syntax.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Glyph {
     /// A reserved identifier.
     Keyword(Keyword),
@@ -195,7 +217,7 @@ impl Glyph {
 }
 
 /// A reserved identifier.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Keyword {
     /// `_`
     Hole,
