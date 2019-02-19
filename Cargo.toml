@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 num = "0.2.0"
+pretty = { git = "https://github.com/calebmer/pretty.rs" }
 unicode-xid = "0.1.0"

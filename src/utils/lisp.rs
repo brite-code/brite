@@ -1,49 +1,49 @@
 //! Construction and printing of [S-expressions][1] for debugging complex tree data structures like
-//! an AST.
+//! an AST. We call this module “lisp” to avoid the common abbreviation for S-expressions.
 //!
 //! [1]: https://en.wikipedia.org/wiki/S-expression
 
 use super::vecn::Vec2;
 use crate::syntax::{Identifier, Range};
 
-/// Creates a `SymbolicExpression`.
+/// Creates a `Lisp`.
 #[macro_export]
-macro_rules! s {
+macro_rules! lisp {
     ($atom:expr) => {
-        SymbolicExpression::from($atom)
+        Lisp::from($atom)
     };
     ($first:expr, $second:expr) => {
-        SymbolicExpression::Expression(vec2![$first.into(), $second.into()])
+        Lisp::List(vec2![$first.into(), $second.into()])
     };
     ($first:expr, $second:expr, $($item:expr),*) => {
-        SymbolicExpression::Expression(vec2![$first.into(), $second.into(), $($item.into()),*])
+        Lisp::List(vec2![$first.into(), $second.into(), $($item.into()),*])
     };
-    ($first:expr, $second:expr, $($item:expr,)*) => (s![$first, $second, $($item),*]);
+    ($first:expr, $second:expr, $($item:expr,)*) => (lisp![$first, $second, $($item),*]);
 }
 
 /// An [S-expression][1].
 ///
 /// [1]: https://en.wikipedia.org/wiki/S-expression
-pub enum SymbolicExpression {
+pub enum Lisp {
     /// An atom.
     Atom(String),
     /// An expression which represents the concatenation of at least two `S` expressions.
-    Expression(Vec2<SymbolicExpression>),
+    List(Vec2<Lisp>),
 }
 
-impl From<&'static str> for SymbolicExpression {
+impl From<&'static str> for Lisp {
     fn from(str: &'static str) -> Self {
-        SymbolicExpression::Atom(str.to_string())
+        Lisp::Atom(str.to_string())
     }
 }
 
-impl<'a> From<&'a Identifier> for SymbolicExpression {
+impl<'a> From<&'a Identifier> for Lisp {
     fn from(identifier: &'a Identifier) -> Self {
-        SymbolicExpression::Atom(identifier.source().to_string())
+        Lisp::Atom(identifier.source().to_string())
     }
 }
 
-impl From<Range> for SymbolicExpression {
+impl From<Range> for Lisp {
     fn from(range: Range) -> Self {
         unimplemented!()
     }

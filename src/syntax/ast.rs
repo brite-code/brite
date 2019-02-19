@@ -2,7 +2,7 @@
 
 use super::document::Range;
 use super::source::Identifier;
-use crate::utils::s_expr::SymbolicExpression;
+use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
 
@@ -368,49 +368,50 @@ pub struct FunctionType {
 
 impl Name {
     /// Converts a name into an S-expression for debugging.
-    fn s_expr(&self) -> SymbolicExpression {
-        s!("name", self.range, &self.identifier)
+    fn lisp(&self) -> Lisp {
+        lisp!("name", self.range, &self.identifier)
     }
 }
 
 impl Declaration {
     /// Converts a declaration into an S-expression for debugging.
-    fn s_expr(&self) -> SymbolicExpression {
+    fn lisp(&self) -> Lisp {
         match self {
-            Declaration::Function(function) => function.function.s_expr(function.name.s_expr()),
+            Declaration::Function(function) => function.function.lisp(function.name.lisp()),
             Declaration::Class(_) => unimplemented!(),
         }
     }
 }
 
 impl Function {
-    /// Converts a function to a symbolic expression.
-    fn s_expr(&self, name: SymbolicExpression) -> SymbolicExpression {
+    /// Converts a function to a symbolic expression. Accepts a name s-expression parameter for
+    /// debugging some name for the function.
+    fn lisp(&self, name: Lisp) -> Lisp {
         let mut expressions = Vec2::new("fun".into(), name);
         for parameter in &self.parameters {
             if let Some(annotation) = &parameter.annotation {
-                expressions.push(s!(
+                expressions.push(lisp!(
                     "param",
-                    parameter.pattern.s_expr(),
-                    s!("type", annotation.s_expr())
+                    parameter.pattern.lisp(),
+                    lisp!("type", annotation.lisp())
                 ));
             } else {
-                expressions.push(s!("param", parameter.pattern.s_expr()));
+                expressions.push(lisp!("param", parameter.pattern.lisp()));
             }
         }
         if let Some(return_type) = &self.return_type {
-            expressions.push(s!("type", return_type.s_expr()));
+            expressions.push(lisp!("type", return_type.lisp()));
         }
-        expressions.push(self.body.s_expr());
-        SymbolicExpression::Expression(expressions)
+        expressions.push(self.body.lisp());
+        Lisp::List(expressions)
     }
 }
 
 impl Block {
     /// Converts a block to a symbolic expression.
-    fn s_expr(&self) -> SymbolicExpression {
+    fn lisp(&self) -> Lisp {
         if self.statements.is_empty() {
-            s!("block")
+            lisp!("block")
         } else {
             unimplemented!()
         }
@@ -419,21 +420,21 @@ impl Block {
 
 impl Pattern {
     /// Converts a pattern to a symbolic expression.
-    fn s_expr(&self) -> SymbolicExpression {
+    fn lisp(&self) -> Lisp {
         match &self.kind {
-            PatternKind::Binding(identifier) => s!("var", self.range, identifier),
-            PatternKind::Hole => s!("hole", self.range),
-            PatternKind::This => s!("this", self.range),
+            PatternKind::Binding(identifier) => lisp!("var", self.range, identifier),
+            PatternKind::Hole => lisp!("hole", self.range),
+            PatternKind::This => lisp!("this", self.range),
         }
     }
 }
 
 impl Type {
     /// Converts a type to a symbolic expression.
-    fn s_expr(&self) -> SymbolicExpression {
+    fn lisp(&self) -> Lisp {
         match &self.kind {
-            TypeKind::Reference(identifier) => s!("var", self.range, identifier),
-            TypeKind::This => s!("this", self.range),
+            TypeKind::Reference(identifier) => lisp!("var", self.range, identifier),
+            TypeKind::This => lisp!("this", self.range),
             TypeKind::Function(_) => unimplemented!(),
         }
     }

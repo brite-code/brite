@@ -4,6 +4,6 @@
 pub mod vecn;
 
 #[macro_use]
-pub mod s_expr;
+pub mod lisp;
 
 pub mod markup;
