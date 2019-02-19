@@ -20,13 +20,13 @@ macro_rules! test {
                 .replace("\\t", "\t");
             let document = Document::new(&source);
 
-            let mut lexer = Lexer::new(DiagnosticsCollection::new(), &document);
+            let mut diagnostics = DiagnosticsCollection::new();
+            let mut lexer = Lexer::new(&mut diagnostics, &document);
             let mut tokens = Vec::new();
             while let Some(token) = lexer.next() {
                 tokens.push(token);
             }
-            let (diagnostics, end_token) = lexer.end();
-            let end_token = end_token.unwrap();
+            let end_token = lexer.end().unwrap();
 
             path.set_extension("ite.md");
             let mut contents = String::new();

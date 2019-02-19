@@ -64,7 +64,7 @@
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
 use super::markup::Markup;
-use crate::syntax::{Document, Position, Range};
+use crate::syntax::{Document, Glyph, Position, Range};
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
@@ -124,6 +124,8 @@ pub enum UnexpectedSyntax {
 
 /// Some syntax the Brite expected but did not receive.
 pub enum ExpectedSyntax {
+    /// Expected a particular glyph.
+    Glyph(Glyph),
     /// Expected the end of a block comment.
     BlockCommentEnd,
     /// Expected a decimal digit.
@@ -267,6 +269,7 @@ impl UnexpectedSyntax {
 impl ExpectedSyntax {
     fn add_message(&self, message: &mut Markup) {
         match self {
+            ExpectedSyntax::Glyph(glyph) => message.push_code(glyph.source()),
             ExpectedSyntax::BlockCommentEnd => message.push_code("*/"),
 
             // If the user types `0b` or `0x` then, presumably, they know what they are doing and

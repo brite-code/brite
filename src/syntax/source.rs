@@ -28,7 +28,7 @@ pub struct Token<'src> {
 }
 
 /// The kind of a token.
-enum TokenKind {
+pub enum TokenKind {
     /// A glyph represents some constant sequence of characters that is used in Brite syntax.
     Glyph(Glyph),
     /// A name in the program.
@@ -40,6 +40,11 @@ enum TokenKind {
 }
 
 impl<'src> Token<'src> {
+    /// The kind of the token.
+    pub fn kind(&self) -> &TokenKind {
+        &self.kind
+    }
+
     /// Re-construct the source code that a list of tokens was parsed from. Every token contains
     /// all the necessary information to print back out the source code it was parsed from. We can
     /// use this function to verify that this behavior.
@@ -87,7 +92,7 @@ impl<'src> EndToken<'src> {
 
 /// A glyph represents some constant sequence of characters that is used in Brite syntax.
 #[derive(Clone, Copy)]
-enum Glyph {
+pub enum Glyph {
     /// A reserved identifier.
     Keyword(Keyword),
     /// `&`
@@ -152,7 +157,7 @@ enum Glyph {
 
 impl Glyph {
     /// Get the source string this glyph was parsed from. Always a static string.
-    fn source(&self) -> &'static str {
+    pub fn source(&self) -> &'static str {
         use self::Glyph::*;
         match self {
             Keyword(keyword) => keyword.source(),
@@ -191,7 +196,7 @@ impl Glyph {
 
 /// A reserved identifier.
 #[derive(Clone, Copy)]
-enum Keyword {
+pub enum Keyword {
     /// `_`
     Hole,
     /// `true`
@@ -283,7 +288,7 @@ impl Identifier {
 /// in our language syntax.
 ///
 /// [1]: http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf
-struct Number {
+pub struct Number {
     /// The raw string this number was parsed from.
     raw: String,
     /// The kind of number we parsed
@@ -382,43 +387,92 @@ impl<'src> Trivia<'src> {
     }
 }
 
-/// A lexer generates `Token`s based on a `Document` input. Call `Lexer::next()` to advance the
-/// lexer and `Lexer::end()` to get the end token. All of the `Token`s and `EndToken` may be used
-/// to print back out a string which is equivalent to the `Document`’s source.
-pub struct Lexer<'src> {
-    diagnostics: DiagnosticsCollection,
+/// A lexer generates [`Token`]s based on a [`Document`] input. Call [`Lexer::next`] to advance the
+/// lexer and [`Lexer::end`] to get the end token. All of the [`Token`]s and [`EndToken`] may be
+/// used to print back out a string which is equivalent to the [`Document`]’s source.
+pub struct Lexer<'errs, 'src> {
+    /// The diagnostics collection we report lexer errors in. Use [`Lexer::report_diagnostic`]
+    /// instead of using this reference directly so that we may switch out the implementation of
+    /// [`Lexer::report_diagnostic`] at any time.
+    _diagnostics: &'errs mut DiagnosticsCollection,
+    /// In iterator of document characters which also keeps track of the current position.
     chars: DocumentChars<'src>,
+    /// The programmer may peek at the next token, if they have done so we’ll have a token here.
+    peeked: Option<Option<Token<'src>>>,
+    /// The last token in a document. If we have an end token then the lexer is done iterating.
     end: Option<EndToken<'src>>,
 }
 
-impl<'src> Lexer<'src> {
-    /// Creates a new lexer from a source code `Document`.
-    pub fn new(diagnostics: DiagnosticsCollection, document: &'src Document) -> Lexer<'src> {
+impl<'errs, 'src> Lexer<'errs, 'src> {
+    /// Creates a new lexer from a source code [`Document`].
+    pub fn new(
+        diagnostics: &'errs mut DiagnosticsCollection,
+        document: &'src Document,
+    ) -> Lexer<'errs, 'src> {
         Lexer {
-            diagnostics,
+            _diagnostics: diagnostics,
             chars: document.chars(),
+            peeked: None,
             end: None,
         }
     }
 
-    /// Once we are done generating tokens with our lexer we can call `end()` which consumes the
-    /// lexer and returns the `DiagnosticsContext` and an `EndToken`.
-    pub fn end(self) -> (DiagnosticsCollection, Option<EndToken<'src>>) {
-        (self.diagnostics, self.end)
+    /// Look at the next token without advancing the iterator. Next time [`Lexer::next`] is called
+    /// the same token will be returned and the iterator will advance.
+    ///
+    /// Peeking _will_ advance the lexer’s end token state which is observed through
+    /// [`Lexer::peek_end`]. If [`Lexer::next`] returns some and [`Lexer::peek`] returns none, then
+    /// [`Lexer::peek_end`] will return an [`EndToken`] even though [`Lexer::next`] has not advanced
+    /// the lexer to the end.
+    pub fn peek(&mut self) -> Option<&Token<'src>> {
+        if self.peeked.is_none() {
+            self.peeked = Some(self.next());
+        }
+        match &self.peeked {
+            Some(next) => next.as_ref(),
+            None => unreachable!(),
+        }
     }
 
-    /// Report a diagnostic using the `DiagnosticCollection` owned by this lexer.
-    pub fn report_diagnostic(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
-        self.diagnostics.report(diagnostic)
+    /// When one is done with their lexer they may call this function to get the final `EndToken`.
+    /// If [`Lexer::next`] returns `None` it is guaranteed that [`Lexer::end`] will return
+    /// an `EndToken`.
+    ///
+    /// If [`Lexer::peek`] returns `None` then [`Lexer::end`] will also return an `EndToken`. This
+    /// means peeking will advance the iterator’s end token state.
+    pub fn end(self) -> Option<EndToken<'src>> {
+        self.end
     }
-}
 
-impl<'src> Iterator for Lexer<'src> {
-    type Item = Token<'src>;
+    /// Allows one to peek at the lexer’s [`EndToken`] without consuming the lexer. If
+    /// [`Lexer::next`] returns `None` it is guaranteed that [`Lexer::peek_end`] will return
+    /// an `EndToken`.
+    ///
+    /// If [`Lexer::peek`] returns `None` then [`Lexer::peek_end`] will also return an `EndToken`.
+    /// This means peeking will advance the iterator’s end token state.
+    pub fn peek_end(&self) -> Option<&EndToken<'src>> {
+        self.end.as_ref()
+    }
 
-    /// Advances the lexer and returns the next token. We implement this with the `Iterator`
-    /// interface to get some handy methods like `Iterator::collect()`.
-    fn next(&mut self) -> Option<Token<'src>> {
+    /// Report a diagnostic.
+    ///
+    /// The implementation may change at any time. Public in the parent-module so that our parser
+    /// can call this function since our lexer owns a unique mutable reference to the
+    /// diagnostics collection.
+    pub(super) fn report_diagnostic(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
+        self._diagnostics.report(diagnostic)
+    }
+
+    /// Advances the lexer and returns the next token.
+    ///
+    /// We don’t implement [`Iterator`] since our lexer provides many stateful services which would
+    /// be hidden or broken by iterator composition.
+    pub fn next(&mut self) -> Option<Token<'src>> {
+        // If we’ve peeked, then let’s return the peeked iterator step.
+        if let Some(next) = self.peeked.take() {
+            return next;
+        }
+
         // If we have ended then keep returning `None`.
         if self.end.is_some() {
             return None;
@@ -642,7 +696,7 @@ impl<'src> Iterator for Lexer<'src> {
                     Some(c) if Identifier::is_continue(c) => {
                         let diagnostic = match kind {
                             NumberKind::Invalid(diagnostic) => diagnostic,
-                            _ => self.diagnostics.report(Diagnostic::unexpected_char(
+                            _ => self.report_diagnostic(Diagnostic::unexpected_char(
                                 self.chars.position(),
                                 c,
                                 expected,
@@ -702,9 +756,7 @@ impl<'src> Iterator for Lexer<'src> {
             kind,
         })
     }
-}
 
-impl<'src> Lexer<'src> {
     /// Parses some token trivia. If `leading` is true then we are parsing leading trivia. Otherwise
     /// we are parsing trailing trivia.
     fn next_trivia(&mut self, leading: bool) -> Vec<Trivia<'src>> {
@@ -836,7 +888,7 @@ impl<'src> Lexer<'src> {
                             trivia.push(Trivia::Comment(Comment::Block(comment, true)));
                         } else {
                             self.chars.next();
-                            self.diagnostics.report(Diagnostic::unexpected_ending(
+                            self.report_diagnostic(Diagnostic::unexpected_ending(
                                 self.chars.position(),
                                 ExpectedSyntax::BlockCommentEnd,
                             ));
@@ -868,10 +920,11 @@ impl<'src> Lexer<'src> {
 
     /// Peeks at the next character (or ending) and creates an unexpected diagnostic.
     fn unexpected_peek(&mut self, expected: ExpectedSyntax) -> DiagnosticRef {
-        self.diagnostics.report(match self.chars.peek() {
+        let diagnostic = match self.chars.peek() {
             Some(c) => Diagnostic::unexpected_char(self.chars.position(), c, expected),
             None => Diagnostic::unexpected_ending(self.chars.position(), expected),
-        })
+        };
+        self.report_diagnostic(diagnostic)
     }
 }
 
