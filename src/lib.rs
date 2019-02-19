@@ -3,6 +3,7 @@
 extern crate num;
 extern crate unicode_xid;
 
+#[macro_use]
 mod utils;
 
 pub mod diagnostics;

@@ -258,12 +258,38 @@ impl Keyword {
 /// pattern identifiers.
 ///
 /// [1]: http://www.unicode.org/reports/tr31
+#[derive(Clone)]
 pub struct Identifier(
     // TODO: Intern identifier strings.
     String,
 );
 
 impl Identifier {
+    /// Creates a new identifier. Returns `None` if the string is not a valid identifier. If the
+    /// identifier is a keyword then it is not a valid identifier so we return `None`.
+    pub fn new(identifier: &str) -> Option<Identifier> {
+        let mut chars = identifier.chars();
+        match chars.next() {
+            None => return None,
+            Some(c) if !Self::is_start(c) => return None,
+            Some(_) => {}
+        }
+        while let Some(c) = chars.next() {
+            if !Self::is_continue(c) {
+                return None;
+            }
+        }
+        if Keyword::from_str(identifier).is_some() {
+            return None;
+        }
+        Some(Identifier(identifier.to_string()))
+    }
+
+    /// Gets the source string for this identifier.
+    pub fn source(&self) -> &str {
+        &self.0
+    }
+
     /// Does this start an identifier?
     fn is_start(c: char) -> bool {
         match c {

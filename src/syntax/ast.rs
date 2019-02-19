@@ -2,6 +2,8 @@
 
 use super::document::Range;
 use super::source::Identifier;
+use crate::utils::s_expr::SymbolicExpression;
+use crate::utils::vecn::Vec2;
 use num::BigInt;
 
 /// A name is an identifier with the identifier’s range in source code.
@@ -362,4 +364,77 @@ pub struct FunctionType {
     pub parameters: Vec<Type>,
     /// The return type of this function.
     pub return_: Box<Type>,
+}
+
+impl Name {
+    /// Converts a name into an S-expression for debugging.
+    fn s_expr(&self) -> SymbolicExpression {
+        s!("name", self.range, &self.identifier)
+    }
+}
+
+impl Declaration {
+    /// Converts a declaration into an S-expression for debugging.
+    fn s_expr(&self) -> SymbolicExpression {
+        match self {
+            Declaration::Function(function) => function.function.s_expr(function.name.s_expr()),
+            Declaration::Class(_) => unimplemented!(),
+        }
+    }
+}
+
+impl Function {
+    /// Converts a function to a symbolic expression.
+    fn s_expr(&self, name: SymbolicExpression) -> SymbolicExpression {
+        let mut expressions = Vec2::new("fun".into(), name);
+        for parameter in &self.parameters {
+            if let Some(annotation) = &parameter.annotation {
+                expressions.push(s!(
+                    "param",
+                    parameter.pattern.s_expr(),
+                    s!("type", annotation.s_expr())
+                ));
+            } else {
+                expressions.push(s!("param", parameter.pattern.s_expr()));
+            }
+        }
+        if let Some(return_type) = &self.return_type {
+            expressions.push(s!("type", return_type.s_expr()));
+        }
+        expressions.push(self.body.s_expr());
+        SymbolicExpression::Expression(expressions)
+    }
+}
+
+impl Block {
+    /// Converts a block to a symbolic expression.
+    fn s_expr(&self) -> SymbolicExpression {
+        if self.statements.is_empty() {
+            s!("block")
+        } else {
+            unimplemented!()
+        }
+    }
+}
+
+impl Pattern {
+    /// Converts a pattern to a symbolic expression.
+    fn s_expr(&self) -> SymbolicExpression {
+        match &self.kind {
+            PatternKind::Binding(identifier) => s!("var", self.range, identifier),
+            PatternKind::Hole => s!("hole", self.range),
+            PatternKind::This => s!("this", self.range),
+        }
+    }
+}
+
+impl Type {
+    /// Converts a type to a symbolic expression.
+    fn s_expr(&self) -> SymbolicExpression {
+        match &self.kind {
+            TypeKind::Reference(identifier) => s!("var", self.range, identifier),
+            TypeKind::This => s!("this", self.range),
+            TypeKind::Function(_) => unimplemented!(),
+        }
+    }
 }
