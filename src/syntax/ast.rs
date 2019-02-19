@@ -374,6 +374,12 @@ impl Name {
 }
 
 impl Declaration {
+    /// Pretty prints a declaration to a lisp-string format with the specified width. We use this
+    /// lisp format for debugging purposes only.
+    pub fn print_lisp(&self, width: usize) -> String {
+        self.lisp().print(width)
+    }
+
     /// Converts a declaration into an S-expression for debugging.
     fn lisp(&self) -> Lisp {
         match self {

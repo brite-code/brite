@@ -1,6 +1,8 @@
 //! Various `Vec` variants with a minimum number of elements. For example, a [`Vec2`] must have a
 //! minimum of two elements.
 
+use std::vec::IntoIter;
+
 /// Creates a `Vec2` which must have at least two elements.
 #[macro_export]
 macro_rules! vec2 {
@@ -37,5 +39,14 @@ impl<T> Vec2<T> {
     /// Push an item to our `Vec2`.
     pub fn push(&mut self, item: T) {
         self.vec.push(item)
+    }
+}
+
+impl<T> IntoIterator for Vec2<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.vec.into_iter()
     }
 }

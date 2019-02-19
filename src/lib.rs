@@ -1,6 +1,7 @@
 #![feature(doc_cfg)]
 
 extern crate num;
+extern crate pretty;
 extern crate unicode_xid;
 
 #[macro_use]
