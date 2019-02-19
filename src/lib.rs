@@ -1,3 +1,5 @@
+#![feature(doc_cfg)]
+
 extern crate num;
 extern crate unicode_xid;
 

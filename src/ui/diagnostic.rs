@@ -132,6 +132,8 @@ pub enum UnexpectedSyntax {
 pub enum ExpectedSyntax {
     /// Expected a particular glyph.
     Glyph(Glyph),
+    /// Expected an identifier.
+    Identifier,
     /// Expected the end of a block comment.
     BlockCommentEnd,
     /// Expected a decimal digit.
@@ -140,6 +142,12 @@ pub enum ExpectedSyntax {
     BinaryDigit,
     /// Expected a hexadecimal digit.
     HexadecimalDigit,
+    /// Expected a declaration.
+    Declaration,
+    /// Expected a pattern.
+    Pattern,
+    /// Expected a type.
+    Type,
 }
 
 impl Diagnostic {
@@ -177,7 +185,7 @@ impl Diagnostic {
 
     /// The parser ran into a token it did not recognize.
     pub fn unexpected_token(token: &Token, expected: ExpectedSyntax) -> Self {
-        Self::unexpected_syntax(token.range(), token.unexpected(), expected)
+        Self::unexpected_syntax(token.range, token.unexpected(), expected)
     }
 
     /// The parser ran into the end of the source document unexpectedly.
@@ -284,6 +292,7 @@ impl ExpectedSyntax {
     fn add_message(&self, message: &mut Markup) {
         match self {
             ExpectedSyntax::Glyph(glyph) => message.push_code(glyph.source()),
+            ExpectedSyntax::Identifier => message.push("a name"),
             ExpectedSyntax::BlockCommentEnd => message.push_code("*/"),
 
             // If the user types `0b` or `0x` then, presumably, they know what they are doing and
@@ -297,6 +306,16 @@ impl ExpectedSyntax {
             ExpectedSyntax::DecimalDigit => message.push("a number"),
             ExpectedSyntax::BinaryDigit => message.push("a binary digit"),
             ExpectedSyntax::HexadecimalDigit => message.push("a hexadecimal digit"),
+
+            // NOTE: Is there a more common word than “declaration”?
+            ExpectedSyntax::Declaration => message.push("a declaration"),
+
+            // The programmer should not need to be familiar with language like “pattern”. Most of
+            // the time when we expect a pattern what we really want is a variable name.
+            // So say that instead of “pattern”.
+            ExpectedSyntax::Pattern => message.push("a variable name"),
+
+            ExpectedSyntax::Type => message.push("a type"),
         }
     }
 }

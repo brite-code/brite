@@ -35,4 +35,6 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 16:1-16:3      | Identifier                     | `do`                       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 17:1           | End                            |                            |
+| 17:1-17:5      | Glyph                          | `this`                     |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 18:1           | End                            |                            |

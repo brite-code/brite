@@ -23,10 +23,10 @@ use unicode_xid::UnicodeXID;
 ///
 /// [1]: https://github.com/apple/swift/tree/e07a8cf2a68ad3c2c97a144369d06d427ba240a7/lib/Syntax#trivia
 pub struct Token<'src> {
-    range: Range,
+    pub range: Range,
     leading_trivia: Vec<Trivia<'src>>,
     trailing_trivia: Vec<Trivia<'src>>,
-    kind: TokenKind,
+    pub kind: TokenKind,
 }
 
 /// The kind of a token.
@@ -42,16 +42,6 @@ pub enum TokenKind {
 }
 
 impl<'src> Token<'src> {
-    /// The range in source code covered by the token. Excluding trivia.
-    pub fn range(&self) -> Range {
-        self.range
-    }
-
-    /// The kind of the token.
-    pub fn kind(&self) -> &TokenKind {
-        &self.kind
-    }
-
     /// Re-construct the source code that a list of tokens was parsed from. Every token contains
     /// all the necessary information to print back out the source code it was parsed from. We can
     /// use this function to verify that this behavior.
@@ -225,6 +215,10 @@ pub enum Keyword {
     True,
     /// `false`
     False,
+    /// `fun`
+    Fun,
+    /// `this`
+    This,
 }
 
 impl Keyword {
@@ -235,6 +229,8 @@ impl Keyword {
             "_" => Some(Hole),
             "true" => Some(True),
             "false" => Some(False),
+            "fun" => Some(Fun),
+            "this" => Some(This),
             _ => None,
         }
     }
@@ -246,6 +242,8 @@ impl Keyword {
             Hole => "_",
             True => "true",
             False => "false",
+            Fun => "fun",
+            This => "this",
         }
     }
 }

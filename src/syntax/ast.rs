@@ -56,7 +56,7 @@ pub struct FunctionParameter {
     pub pattern: Pattern,
     /// The type of our function parameter. Most function parameters must be annotated and may not
     /// be inferred.
-    pub type_: Option<Type>,
+    pub annotation: Option<Type>,
 }
 
 /// A class is some associated data and functions.
