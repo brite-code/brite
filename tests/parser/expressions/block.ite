@@ -1,0 +1,14 @@
+fun main() {
+  do {
+    let a = b;
+    let c = d;
+    c
+  }
+
+  let x = do {
+    let a = b;
+    a
+  };
+
+  do { do { do {} } }
+}

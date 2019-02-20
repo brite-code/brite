@@ -501,7 +501,7 @@ impl Expression {
             ExpressionKind::Infix(_) => unimplemented!(),
             ExpressionKind::Logical(_) => unimplemented!(),
             ExpressionKind::Conditional(_) => unimplemented!(),
-            ExpressionKind::Block(_) => unimplemented!(),
+            ExpressionKind::Block(block) => block.lisp(document),
             ExpressionKind::Wrapped(wrapped) => if let Some(annotation) = &wrapped.annotation {
                 lisp!(
                     "wrap",

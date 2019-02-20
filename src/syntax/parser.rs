@@ -191,6 +191,16 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             });
         }
 
+        // Block Expression
+        if let Some(start) = self.try_parse_keyword(Keyword::Do) {
+            let block = self.parse_block()?;
+            let range = start.between(block.range);
+            return Ok(Expression {
+                range,
+                kind: ExpressionKind::Block(block),
+            });
+        }
+
         self.unexpected(ExpectedSyntax::Expression)
     }
 

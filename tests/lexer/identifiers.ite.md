@@ -33,7 +33,7 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 15:1-15:5      | Identifier                     | `else`                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 16:1-16:3      | Identifier                     | `do`                       |
+| 16:1-16:3      | Glyph                          | `do`                       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 17:1-17:5      | Glyph                          | `this`                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
