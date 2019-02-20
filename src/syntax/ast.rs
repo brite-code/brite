@@ -572,7 +572,14 @@ impl Expression {
                 assert_eq!(member.object.range.union(member.property.range), self.range);
                 lisp!("prop", member.object.lisp(), member.property.lisp())
             }
-            ExpressionKind::Prefix(_) => unimplemented!(),
+            ExpressionKind::Prefix(prefix) => {
+                let name = match &prefix.operator {
+                    PrefixOperator::Not => "not",
+                    PrefixOperator::Negative => "neg",
+                    PrefixOperator::Positive => "pos",
+                };
+                lisp!(name, range, prefix.operand.lisp())
+            }
             ExpressionKind::Infix(_) => unimplemented!(),
             ExpressionKind::Logical(_) => unimplemented!(),
             ExpressionKind::Conditional(conditional) => conditional.lisp(),

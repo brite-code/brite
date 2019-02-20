@@ -7,5 +7,6 @@ test!(construct_line);
 test!(function);
 test!(member);
 test!(number_invalid);
+test!(prefix);
 test!(reference);
 test!(wrapped);

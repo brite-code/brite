@@ -159,27 +159,67 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         Ok(None)
     }
 
+    #[inline]
     fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
         self.parse_expression_with_config(ParseExpressionConfig::default())
     }
 
+    #[inline]
     fn try_parse_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
-        self.try_parse_expression_with_config(ParseExpressionConfig::default())
+        self.try_parse_prefix_expression_with_config(ParseExpressionConfig::default())
     }
 
     /// Parses an expression with some extra configuration.
+    #[inline]
     fn parse_expression_with_config(
         &mut self,
         config: ParseExpressionConfig,
     ) -> Result<Expression, DiagnosticRef> {
-        if let Some(expression) = self.try_parse_expression_with_config(config)? {
+        if let Some(expression) = self.try_parse_prefix_expression_with_config(config)? {
             Ok(expression)
         } else {
             self.unexpected(ExpectedSyntax::Expression)
         }
     }
 
-    fn try_parse_expression_with_config(
+    /// Parses a prefix expression. A prefix expression is a postfix expression extended with some
+    /// operations before the expression. Like the boolean “not” operator or the number
+    /// “negative” operator.
+    fn try_parse_prefix_expression_with_config(
+        &mut self,
+        config: ParseExpressionConfig,
+    ) -> Result<Option<Expression>, DiagnosticRef> {
+        // Try to parse a prefix expression operator. If no such operator exists then try to parse a
+        // postfix expression.
+        let (start, operator) = if let Some(range) = self.try_parse_glyph(Glyph::Bang) {
+            (range, PrefixOperator::Not)
+        } else if let Some(range) = self.try_parse_glyph(Glyph::Minus) {
+            (range, PrefixOperator::Negative)
+        } else if let Some(range) = self.try_parse_glyph(Glyph::Plus) {
+            (range, PrefixOperator::Positive)
+        } else {
+            return self.try_parse_postfix_expression_with_config(config);
+        };
+
+        // If we parsed a prefix operator then we expect there to be an expression after
+        // the operator.
+        let operand =
+            if let Some(expression) = self.try_parse_prefix_expression_with_config(config)? {
+                expression
+            } else {
+                self.unexpected(ExpectedSyntax::Expression)?
+            };
+
+        let range = start.union(operand.range);
+        Ok(Some(Expression {
+            range,
+            kind: ExpressionKind::Prefix(Box::new(PrefixExpression { operator, operand })),
+        }))
+    }
+
+    /// Parses a postfix expression. A postfix expression is a primary expression extended with
+    /// some operations after the expression. Like member access or call arguments.
+    fn try_parse_postfix_expression_with_config(
         &mut self,
         config: ParseExpressionConfig,
     ) -> Result<Option<Expression>, DiagnosticRef> {
