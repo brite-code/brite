@@ -1,4 +1,5 @@
 test!(block);
+test!(call);
 test!(constant);
 test!(function);
 test!(member);

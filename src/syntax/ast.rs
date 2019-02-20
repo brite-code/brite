@@ -538,7 +538,14 @@ impl Expression {
             ExpressionKind::Reference(identifier) => lisp!("var", range, identifier),
             ExpressionKind::This => lisp!("this", range),
             ExpressionKind::Function(function) => function.lisp(range),
-            ExpressionKind::Call(_) => unimplemented!(),
+            ExpressionKind::Call(call) => {
+                let mut expressions = Vec2::new("call".into(), range);
+                expressions.push(call.callee.lisp());
+                for argument in &call.arguments {
+                    expressions.push(argument.lisp());
+                }
+                Lisp::List(expressions)
+            }
             ExpressionKind::Construct(_) => unimplemented!(),
             ExpressionKind::Member(member) => {
                 // We don’t print the range of a member expression since it should be obvious. We

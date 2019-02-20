@@ -44,7 +44,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// Parses the common parts of every function. Starting at the parameters.
     fn parse_function(&mut self) -> Result<Function, DiagnosticRef> {
         self.parse_glyph(Glyph::ParenLeft)?;
-        let parameters =
+        let (parameters, _) =
             self.parse_comma_list(Glyph::ParenRight, Self::parse_function_parameter)?;
         let return_type = if self.try_parse_glyph(Glyph::Arrow).is_some() {
             Some(self.parse_type()?)
@@ -180,6 +180,28 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                     continue;
                 }
 
+                // Call Expression
+                if let Some(token) = self.lexer.peek() {
+                    if let TokenKind::Glyph(Glyph::ParenLeft) = &token.kind {
+                        // NOTE: Call arguments must be on the same line as the callee! This makes
+                        // programming without semicolons in Brite easier.
+                        if expression.range.end().line() == token.range.start().line() {
+                            self.lexer.next();
+                            let (arguments, end) =
+                                self.parse_comma_list(Glyph::ParenRight, Self::parse_expression)?;
+                            let range = expression.range.union(end);
+                            expression = Expression {
+                                range,
+                                kind: ExpressionKind::Call(CallExpression {
+                                    callee: Box::new(expression),
+                                    arguments,
+                                }),
+                            };
+                            continue;
+                        }
+                    }
+                }
+
                 break;
             }
             Ok(Some(expression))
@@ -303,7 +325,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         // Function type
         if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
             self.parse_glyph(Glyph::ParenLeft)?;
-            let parameters = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
+            let (parameters, _) = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
             self.parse_glyph(Glyph::Arrow)?;
             let return_ = self.parse_type()?;
             let range = start.union(return_.range);
@@ -330,25 +352,24 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     /// Parses a list of comma separated items with support for trailing commas. To support trailing
     /// commas we need to know what the glyph which comes after the comma list is. Always parses
-    /// the last glyph.
+    /// the last glyph and returns the range of that last glyph.
     fn parse_comma_list<T>(
         &mut self,
         last_glyph: Glyph,
         parse_item: impl Fn(&mut Self) -> Result<T, DiagnosticRef>,
-    ) -> Result<Vec<T>, DiagnosticRef> {
+    ) -> Result<(Vec<T>, Range), DiagnosticRef> {
         let mut items = Vec::new();
-        loop {
-            if self.try_parse_glyph(last_glyph).is_some() {
-                break;
+        let last_glyph_range = loop {
+            if let Some(range) = self.try_parse_glyph(last_glyph) {
+                break range;
             }
             let item = parse_item(self)?;
             items.push(item);
             if self.try_parse_glyph(Glyph::Comma).is_none() {
-                self.parse_glyph(last_glyph)?;
-                break;
+                break self.parse_glyph(last_glyph)?;
             }
-        }
-        Ok(items)
+        };
+        Ok((items, last_glyph_range))
     }
 
     /// Parses a glyph. Reports an error if the next token is not a glyph.
