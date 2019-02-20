@@ -157,9 +157,10 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     /// Parses a glyph. Reports an error if the next token is not a glyph.
     fn parse_glyph(&mut self, expected: Glyph) -> Result<(), DiagnosticRef> {
-        if let Some(token) = self.lexer.next() {
+        if let Some(token) = self.lexer.peek() {
             if let TokenKind::Glyph(actual) = &token.kind {
                 if expected == *actual {
+                    self.lexer.next();
                     return Ok(());
                 }
             }
@@ -200,10 +201,14 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     /// Parses a name. If no name can be parsed then an error diagnostic will be reported.
     fn parse_name(&mut self) -> Result<Name, DiagnosticRef> {
-        if let Some(token) = self.lexer.next() {
-            if let TokenKind::Identifier(identifier) = token.kind {
+        if let Some(token) = self.lexer.peek() {
+            if let TokenKind::Identifier(_) = &token.kind {
+                let token = self.lexer.next().unwrap();
                 let range = token.range;
-                return Ok(Name { range, identifier });
+                return match token.kind {
+                    TokenKind::Identifier(identifier) => Ok(Name { range, identifier }),
+                    _ => unreachable!(),
+                };
             }
         }
         self.unexpected(ExpectedSyntax::Identifier)
