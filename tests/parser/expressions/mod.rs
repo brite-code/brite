@@ -1,6 +1,8 @@
 test!(block);
 test!(call);
 test!(constant);
+test!(construct);
+test!(construct_line);
 test!(function);
 test!(member);
 test!(number_invalid);

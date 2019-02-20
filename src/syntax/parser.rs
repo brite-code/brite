@@ -202,6 +202,39 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                     }
                 }
 
+                // Construct Expression
+                if let Some(token) = self.lexer.peek() {
+                    if let TokenKind::Glyph(Glyph::BraceLeft) = &token.kind {
+                        // NOTE: Constructor fields must be on the same line as the constructor!
+                        // This makes programming without semicolons in Brite easier.
+                        if expression.range.end().line() == token.range.start().line() {
+                            match into_constructor(expression) {
+                                Err(x) => expression = x,
+
+                                // If the next token is a left brace (`{`) which is on the same line
+                                // as our expression and that expression is convertible into a
+                                // constructor then we have a `ConstructExpression`!
+                                Ok(constructor) => {
+                                    self.lexer.next();
+                                    let (fields, end) = self.parse_comma_list(
+                                        Glyph::BraceRight,
+                                        Self::parse_construct_expression_field,
+                                    )?;
+                                    let range = constructor.range.union(end);
+                                    expression = Expression {
+                                        range,
+                                        kind: ExpressionKind::Construct(ConstructExpression {
+                                            constructor,
+                                            fields,
+                                        }),
+                                    };
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 break;
             }
             Ok(Some(expression))
@@ -275,6 +308,15 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         }
 
         Ok(None)
+    }
+
+    fn parse_construct_expression_field(
+        &mut self,
+    ) -> Result<ConstructExpressionField, DiagnosticRef> {
+        let name = self.parse_name()?;
+        self.parse_glyph(Glyph::Colon)?;
+        let value = self.parse_expression()?;
+        Ok(ConstructExpressionField { name, value })
     }
 
     fn parse_pattern(&mut self) -> Result<Pattern, DiagnosticRef> {
@@ -476,5 +518,20 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// the lexer owns a unique mutable reference to our diagnostics collection.
     fn report_diagnostic(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
         self.lexer.report_diagnostic(diagnostic)
+    }
+}
+
+/// Converts an expression into a class constructor. If the expression cannot be converted into a
+/// class constructor we return `Err` with the expression.
+fn into_constructor(expression: Expression) -> Result<Name, Expression> {
+    match &expression.kind {
+        ExpressionKind::Reference(_) => {
+            let range = expression.range;
+            match expression.kind {
+                ExpressionKind::Reference(identifier) => Ok(Name { range, identifier }),
+                _ => unreachable!(),
+            }
+        }
+        _ => Err(expression),
     }
 }

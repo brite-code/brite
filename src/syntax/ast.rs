@@ -219,7 +219,7 @@ pub struct CallExpression {
 #[derive(Debug)]
 pub struct ConstructExpression {
     /// The class to be constructed.
-    pub class: Name,
+    pub constructor: Name,
     /// The fields we construct the class with.
     pub fields: Vec<ConstructExpressionField>,
 }
@@ -546,7 +546,14 @@ impl Expression {
                 }
                 Lisp::List(expressions)
             }
-            ExpressionKind::Construct(_) => unimplemented!(),
+            ExpressionKind::Construct(construct) => {
+                let mut expressions = Vec2::new("new".into(), range);
+                expressions.push(construct.constructor.lisp());
+                for field in &construct.fields {
+                    expressions.push(lisp!(field.name.lisp(), field.value.lisp()));
+                }
+                Lisp::List(expressions)
+            }
             ExpressionKind::Member(member) => {
                 // We don’t print the range of a member expression since it should be obvious. We
                 // will assert that the range is as we expect instead.

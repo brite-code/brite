@@ -1,0 +1,26 @@
+fun main() {
+  T{};
+  T {};
+  Foo {};
+  Foo {}.p;
+  Foo {}.p();
+  Foo {}();
+  Foo {a: 1};
+  Foo {a: 1, b: 2};
+  Foo {a: 1, b: 2, c: 3};
+  Foo {a: 1,};
+  Foo {a: 1, b: 2,};
+  Foo {a: 1, b: 2, c: 3,};
+  Foo {
+    a: 1,
+  };
+  Foo {
+    a: 1,
+    b: 2,
+  };
+  Foo {
+    a: 1,
+    b: 2,
+    c: 3,
+  };
+}
