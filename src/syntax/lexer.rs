@@ -26,12 +26,12 @@ use unicode_xid::UnicodeXID;
 pub struct Position {
     /// The zero-based line number of this position in the provided document. A new line is
     /// created by `\n`, `\r\n`, or `\r`.
-    pub line: u16,
+    line: u16,
     /// The zero-based character number of this position in the provided document. As per the
     /// [LSP][1] specification, character offsets are measured in UTF-16 code units.
     ///
     /// [1]: https://microsoft.github.io/language-server-protocol/specification
-    pub character: u16,
+    character: u16,
 }
 
 impl Position {
@@ -41,6 +41,20 @@ impl Position {
             line: 0,
             character: 0,
         }
+    }
+
+    /// The zero-based line number of this position in the provided document. A new line is
+    /// created by `\n`, `\r\n`, or `\r`.
+    pub fn line(self) -> u16 {
+        self.line
+    }
+
+    /// The zero-based character number of this position in the provided document. As per the
+    /// [LSP][1] specification, character offsets are measured in UTF-16 code units.
+    ///
+    /// [1]: https://microsoft.github.io/language-server-protocol/specification
+    pub fn character(self) -> u16 {
+        self.character
     }
 }
 
@@ -89,14 +103,31 @@ impl Range {
     }
 
     /// Returns the start position of our range.
-    pub fn start(&self) -> Position {
+    pub fn start(self) -> Position {
         self.start
     }
 
     /// Returns the end position of our range. Will always be greater than or equal to the start
     /// position. Remember that range is not inclusive.
-    pub fn end(&self) -> Position {
+    pub fn end(self) -> Position {
         self.end
+    }
+
+    /// Gets the range of a single [`char`] that starts at the provided position.
+    ///
+    /// This only measures the range of a single [`char`]! It is incorrect in respect to CRLF!
+    pub fn single_char(start: Position, c: char) -> Self {
+        let mut end = start.clone();
+        // This behaves correctly for CRLF (`\r\n`) as well because we would count it as a single
+        // line and we would not be able to measure a position between the CR (`\r`) and LF (`\n`).
+        if c == '\n' || c == '\r' {
+            end.line += 1;
+            end.character = 0;
+        } else {
+            // Make sure to add UTF-16!
+            end.character += c.len_utf16() as u16;
+        }
+        Range { start, end }
     }
 
     /// Creates a new range that covers both of the provided ranges.

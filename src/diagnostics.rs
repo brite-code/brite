@@ -180,18 +180,8 @@ impl Diagnostic {
 
     /// The parser ran into a character it did not recognize.
     pub fn unexpected_char(start: Position, unexpected: char, expected: ExpectedSyntax) -> Self {
-        let mut end = start.clone();
-        // This behaves correctly for CRLF (`\r\n`) as well because we would count it as a single
-        // line and we would not be able to measure a position between the CR (`\r`) and LF (`\n`).
-        if unexpected == '\n' || unexpected == '\r' {
-            end.line += 1;
-            end.character = 0;
-        } else {
-            // Make sure to add UTF-16!
-            end.character += unexpected.len_utf16() as u16;
-        }
         Self::unexpected_syntax(
-            Range::new(start, end),
+            Range::single_char(start, unexpected),
             UnexpectedSyntax::Char(unexpected),
             expected,
         )

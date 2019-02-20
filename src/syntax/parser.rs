@@ -104,7 +104,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             // parse that expression as the return statement’s argument! This makes programming
             // without semicolons in Brite easier.
             let argument = match self.lexer.peek() {
-                Some(token) if keyword.end().line == token.range.start().line => {
+                Some(token) if keyword.end().line() == token.range.start().line() => {
                     self.try_parse_expression()?
                 }
                 _ => None,
