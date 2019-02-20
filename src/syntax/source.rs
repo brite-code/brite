@@ -336,11 +336,11 @@ pub struct Number {
     /// The raw string this number was parsed from.
     raw: String,
     /// The kind of number we parsed
-    kind: NumberKind,
+    pub kind: NumberKind,
 }
 
 /// The kind of a number.
-enum NumberKind {
+pub enum NumberKind {
     /// `42`
     ///
     /// A base 10 integer. We have the raw text representation of the integer in addition to
@@ -557,7 +557,6 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                 }
                 _ => TokenKind::Glyph(Glyph::Bar),
             },
-            Some('.') => TokenKind::Glyph(Glyph::Dot), // TODO: Numbers
             Some('=') => match self.chars.peek() {
                 Some('=') => {
                     self.chars.next();
@@ -616,160 +615,173 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
             }
 
             // Number
-            Some(c) if c.is_digit(10) => {
-                let mut raw = String::new();
-                raw.push(c);
+            Some(c) if c.is_digit(10) || c == '.' => {
+                if c == '.' && self.chars.peek().map(|c| !c.is_digit(10)).unwrap_or(true) {
+                    TokenKind::Glyph(Glyph::Dot)
+                } else {
+                    let mut raw = String::new();
+                    raw.push(c);
 
-                let (expected, kind) = match (c, self.chars.peek()) {
-                    // Binary integer
-                    ('0', Some('b')) | ('0', Some('B')) => {
-                        raw.push(self.chars.next().unwrap());
-                        let mut value = BigInt::from(0);
-                        loop {
-                            match self.chars.peek() {
-                                Some('0') => value = value * 2 + 0,
-                                Some('1') => value = value * 2 + 1,
-                                _ => break,
-                            }
+                    let (expected, kind) = match (c, self.chars.peek()) {
+                        // Binary integer
+                        ('0', Some('b')) | ('0', Some('B')) => {
                             raw.push(self.chars.next().unwrap());
-                        }
-                        let kind = if raw.len() == 2 {
-                            // If we did not get any digits then report an error.
-                            let diagnostic = self.unexpected_peek(ExpectedSyntax::BinaryDigit);
-                            NumberKind::Invalid(diagnostic)
-                        } else {
-                            NumberKind::BinaryInteger(value)
-                        };
-                        (ExpectedSyntax::BinaryDigit, kind)
-                    }
-
-                    // Hexadecimal integer
-                    ('0', Some('x')) | ('0', Some('X')) => {
-                        raw.push(self.chars.next().unwrap());
-                        let mut value = BigInt::from(0);
-                        loop {
-                            match self.chars.peek() {
-                                Some('0') => value = value * 16 + 0,
-                                Some('1') => value = value * 16 + 1,
-                                Some('2') => value = value * 16 + 2,
-                                Some('3') => value = value * 16 + 3,
-                                Some('4') => value = value * 16 + 4,
-                                Some('5') => value = value * 16 + 5,
-                                Some('6') => value = value * 16 + 6,
-                                Some('7') => value = value * 16 + 7,
-                                Some('8') => value = value * 16 + 8,
-                                Some('9') => value = value * 16 + 9,
-                                Some('a') | Some('A') => value = value * 16 + 10,
-                                Some('b') | Some('B') => value = value * 16 + 11,
-                                Some('c') | Some('C') => value = value * 16 + 12,
-                                Some('d') | Some('D') => value = value * 16 + 13,
-                                Some('e') | Some('E') => value = value * 16 + 14,
-                                Some('f') | Some('F') => value = value * 16 + 15,
-                                _ => break,
-                            }
-                            raw.push(self.chars.next().unwrap());
-                        }
-                        let kind = if raw.len() == 2 {
-                            // If we did not get any digits then report an error.
-                            let diagnostic = self.unexpected_peek(ExpectedSyntax::HexadecimalDigit);
-                            NumberKind::Invalid(diagnostic)
-                        } else {
-                            NumberKind::HexadecimalInteger(value)
-                        };
-                        (ExpectedSyntax::HexadecimalDigit, kind)
-                    }
-
-                    // Parse either a decimal integer or a floating point number.
-                    _ => {
-                        let mut state = NumberState::Whole;
-                        loop {
-                            match (state, self.chars.peek()) {
-                                // Always add digits to the state. Some states will need to
-                                // be changed.
-                                (NumberState::ExponentStart, Some(c))
-                                | (NumberState::ExponentSign, Some(c))
-                                    if c.is_digit(10) =>
-                                {
-                                    state = NumberState::Exponent;
+                            let mut value = BigInt::from(0);
+                            loop {
+                                match self.chars.peek() {
+                                    Some('0') => value = value * 2 + 0,
+                                    Some('1') => value = value * 2 + 1,
+                                    _ => break,
                                 }
-                                (_, Some(c)) if c.is_digit(10) => {}
-
-                                // Change state based on different characters we see.
-                                (NumberState::Whole, Some('.')) => state = NumberState::Fraction,
-                                (NumberState::Fraction, Some('e'))
-                                | (NumberState::Fraction, Some('E'))
-                                | (NumberState::Whole, Some('e'))
-                                | (NumberState::Whole, Some('E')) => {
-                                    state = NumberState::ExponentStart
-                                }
-                                (NumberState::ExponentStart, Some('+'))
-                                | (NumberState::ExponentStart, Some('-')) => {
-                                    state = NumberState::ExponentSign
-                                }
-
-                                _ => break,
+                                raw.push(self.chars.next().unwrap());
                             }
-                            raw.push(self.chars.next().unwrap());
-                        }
-                        let kind = match state {
-                            // A whole number parses as an integer of arbitrary precision.
-                            NumberState::Whole => {
-                                NumberKind::DecimalInteger(BigInt::from_str(&raw).unwrap())
-                            }
-
-                            // If there was no digit after the start of an exponent or after the
-                            // exponent’s sign then we need to error. We must have a decimal digit
-                            // after the exponent start.
-                            NumberState::ExponentStart | NumberState::ExponentSign => {
-                                let diagnostic = self.unexpected_peek(ExpectedSyntax::DecimalDigit);
+                            let kind = if raw.len() == 2 {
+                                // If we did not get any digits then report an error.
+                                let diagnostic = self.unexpected_peek(ExpectedSyntax::BinaryDigit);
                                 NumberKind::Invalid(diagnostic)
-                            }
-
-                            // If we parsed a fraction part or an exponent part then we have a
-                            // decimal float.
-                            NumberState::Fraction | NumberState::Exponent => {
-                                NumberKind::Float(f64::from_str(&raw).unwrap())
-                            }
-                        };
-                        (ExpectedSyntax::DecimalDigit, kind)
-                    }
-                };
-                match self.chars.peek() {
-                    // A number may not be followed by an identifier! If our number is followed by
-                    // an identifier than report a diagnostic and return an invalid number token.
-                    Some(c) if Identifier::is_continue(c) => {
-                        let diagnostic = match kind {
-                            NumberKind::Invalid(diagnostic) => diagnostic,
-                            _ => self.report_diagnostic(Diagnostic::unexpected_char(
-                                self.chars.position(),
-                                c,
-                                expected,
-                            )),
-                        };
-                        raw.push(c);
-                        self.chars.next();
-                        loop {
-                            match self.chars.peek() {
-                                Some(c) if Identifier::is_continue(c) => {
-                                    raw.push(c);
-                                    self.chars.next();
-                                }
-                                _ => break,
-                            }
+                            } else {
+                                NumberKind::BinaryInteger(value)
+                            };
+                            (ExpectedSyntax::BinaryDigit, kind)
                         }
-                        // Return a number token with an invalid number kind.
-                        raw.shrink_to_fit();
-                        TokenKind::Number(Number {
-                            raw,
-                            kind: NumberKind::Invalid(diagnostic),
-                        })
-                    }
 
-                    // Return the number token we created. If the next character is not part of
-                    // an identifier.
-                    _ => {
-                        raw.shrink_to_fit();
-                        TokenKind::Number(Number { raw, kind })
+                        // Hexadecimal integer
+                        ('0', Some('x')) | ('0', Some('X')) => {
+                            raw.push(self.chars.next().unwrap());
+                            let mut value = BigInt::from(0);
+                            loop {
+                                match self.chars.peek() {
+                                    Some('0') => value = value * 16 + 0,
+                                    Some('1') => value = value * 16 + 1,
+                                    Some('2') => value = value * 16 + 2,
+                                    Some('3') => value = value * 16 + 3,
+                                    Some('4') => value = value * 16 + 4,
+                                    Some('5') => value = value * 16 + 5,
+                                    Some('6') => value = value * 16 + 6,
+                                    Some('7') => value = value * 16 + 7,
+                                    Some('8') => value = value * 16 + 8,
+                                    Some('9') => value = value * 16 + 9,
+                                    Some('a') | Some('A') => value = value * 16 + 10,
+                                    Some('b') | Some('B') => value = value * 16 + 11,
+                                    Some('c') | Some('C') => value = value * 16 + 12,
+                                    Some('d') | Some('D') => value = value * 16 + 13,
+                                    Some('e') | Some('E') => value = value * 16 + 14,
+                                    Some('f') | Some('F') => value = value * 16 + 15,
+                                    _ => break,
+                                }
+                                raw.push(self.chars.next().unwrap());
+                            }
+                            let kind = if raw.len() == 2 {
+                                // If we did not get any digits then report an error.
+                                let diagnostic =
+                                    self.unexpected_peek(ExpectedSyntax::HexadecimalDigit);
+                                NumberKind::Invalid(diagnostic)
+                            } else {
+                                NumberKind::HexadecimalInteger(value)
+                            };
+                            (ExpectedSyntax::HexadecimalDigit, kind)
+                        }
+
+                        // Parse either a decimal integer or a floating point number.
+                        _ => {
+                            let mut state = if c == '.' {
+                                NumberState::Fraction
+                            } else {
+                                NumberState::Whole
+                            };
+                            loop {
+                                match (state, self.chars.peek()) {
+                                    // Always add digits to the state. Some states will need to
+                                    // be changed.
+                                    (NumberState::ExponentStart, Some(c))
+                                    | (NumberState::ExponentSign, Some(c))
+                                        if c.is_digit(10) =>
+                                    {
+                                        state = NumberState::Exponent;
+                                    }
+                                    (_, Some(c)) if c.is_digit(10) => {}
+
+                                    // Change state based on different characters we see.
+                                    (NumberState::Whole, Some('.')) => {
+                                        state = NumberState::Fraction
+                                    }
+                                    (NumberState::Fraction, Some('e'))
+                                    | (NumberState::Fraction, Some('E'))
+                                    | (NumberState::Whole, Some('e'))
+                                    | (NumberState::Whole, Some('E')) => {
+                                        state = NumberState::ExponentStart
+                                    }
+                                    (NumberState::ExponentStart, Some('+'))
+                                    | (NumberState::ExponentStart, Some('-')) => {
+                                        state = NumberState::ExponentSign
+                                    }
+
+                                    _ => break,
+                                }
+                                raw.push(self.chars.next().unwrap());
+                            }
+                            let kind = match state {
+                                // A whole number parses as an integer of arbitrary precision.
+                                NumberState::Whole => {
+                                    NumberKind::DecimalInteger(BigInt::from_str(&raw).unwrap())
+                                }
+
+                                // If there was no digit after the start of an exponent or after the
+                                // exponent’s sign then we need to error. We must have a decimal
+                                // digit after the exponent start.
+                                NumberState::ExponentStart | NumberState::ExponentSign => {
+                                    let diagnostic =
+                                        self.unexpected_peek(ExpectedSyntax::DecimalDigit);
+                                    NumberKind::Invalid(diagnostic)
+                                }
+
+                                // If we parsed a fraction part or an exponent part then we have a
+                                // decimal float.
+                                NumberState::Fraction | NumberState::Exponent => {
+                                    NumberKind::Float(f64::from_str(&raw).unwrap())
+                                }
+                            };
+                            (ExpectedSyntax::DecimalDigit, kind)
+                        }
+                    };
+                    match self.chars.peek() {
+                        // A number may not be followed by an identifier! If our number is followed
+                        // by an identifier than report a diagnostic and return an invalid
+                        // number token.
+                        Some(c) if Identifier::is_continue(c) => {
+                            let diagnostic = match kind {
+                                NumberKind::Invalid(diagnostic) => diagnostic,
+                                _ => self.report_diagnostic(Diagnostic::unexpected_char(
+                                    self.chars.position(),
+                                    c,
+                                    expected,
+                                )),
+                            };
+                            raw.push(c);
+                            self.chars.next();
+                            loop {
+                                match self.chars.peek() {
+                                    Some(c) if Identifier::is_continue(c) => {
+                                        raw.push(c);
+                                        self.chars.next();
+                                    }
+                                    _ => break,
+                                }
+                            }
+                            // Return a number token with an invalid number kind.
+                            raw.shrink_to_fit();
+                            TokenKind::Number(Number {
+                                raw,
+                                kind: NumberKind::Invalid(diagnostic),
+                            })
+                        }
+
+                        // Return the number token we created. If the next character is not part of
+                        // an identifier.
+                        _ => {
+                            raw.shrink_to_fit();
+                            TokenKind::Number(Number { raw, kind })
+                        }
                     }
                 }
             }

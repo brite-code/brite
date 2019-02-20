@@ -443,12 +443,40 @@ impl Statement {
     }
 }
 
+impl Constant {
+    /// Converts a constant to a symbolic expression. The constant’s range may be provided as an
+    /// extra parameter.
+    fn lisp(&self, range: Lisp) -> Lisp {
+        match self {
+            Constant::Boolean(value) => lisp!("bool", range, if *value { "true" } else { "false" }),
+            Constant::Integer(IntegerBase::Decimal, value) => {
+                lisp!("int", range, value.to_str_radix(10))
+            }
+            Constant::Integer(IntegerBase::Binary, value) => {
+                lisp!("bin", range, value.to_str_radix(2))
+            }
+            Constant::Integer(IntegerBase::Hexadecimal, value) => {
+                lisp!("hex", range, value.to_str_radix(16).to_uppercase())
+            }
+            Constant::Float(value) => lisp!(
+                "float",
+                range,
+                if *value >= 10_000_000_000. {
+                    format!("{:e}", value)
+                } else {
+                    format!("{}", value)
+                }
+            ),
+        }
+    }
+}
+
 impl Expression {
     /// Converts an expression to a symbolic expression.
     fn lisp(&self, document: &Document) -> Lisp {
-        let range = self.range.format(document);
+        let range: Lisp = self.range.format(document).into();
         match &self.kind {
-            ExpressionKind::Constant(_) => unimplemented!(),
+            ExpressionKind::Constant(constant) => constant.lisp(range),
             ExpressionKind::Reference(identifier) => lisp!("var", range, identifier),
             ExpressionKind::This => lisp!("this", range),
             ExpressionKind::Function(_) => unimplemented!(),

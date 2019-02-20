@@ -373,15 +373,13 @@
 | 147:1-147:2    | Glyph                          | `.`                        |
 | 147:2-147:3    | Identifier                     | `p`                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 148:1-148:2    | Glyph                          | `.`                        |
-| 148:2-148:3    | Number::DecimalInteger         | 0                          |
+| 148:1-148:3    | Number::Float                  | 0                          |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 149:1-149:7    | Number::Float                  | 3.1415                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 150:1-150:3    | Number::Float                  | 1                          |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 151:1-151:2    | Glyph                          | `.`                        |
-| 151:2-151:3    | Number::DecimalInteger         | 1                          |
+| 151:1-151:3    | Number::Float                  | 0.1                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 152:1-152:4    | Number::Float                  | 0.1                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
@@ -436,8 +434,7 @@
 | 177:1-177:9    | Number::Float                  | 314.15                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 178:1-178:4    | Number::Float                  | 300                        |
-| 178:4-178:5    | Glyph                          | `.`                        |
-| 178:5-178:9    | Number::DecimalInteger         | 1415                       |
+| 178:4-178:9    | Number::Float                  | 0.1415                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 179:1-179:2    | Number::DecimalInteger         | 3                          |
 | trailing       | Trivia::Newlines::LF           | 1                          |
@@ -513,4 +510,11 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 215:1-215:6    | Number::Invalid                | 1e1px                      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 216:1          | End                            |                            |
+| 216:1-216:5    | Number::Float                  | 0.123                      |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 217:1-217:5    | Number::Float                  | 0.123                      |
+| 217:5-217:9    | Number::Float                  | 0.456                      |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 218:1-218:7    | Number::Float                  | 12.3                       |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 219:1          | End                            |                            |

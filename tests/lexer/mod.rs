@@ -4,5 +4,6 @@ test!(comments);
 test!(glyphs);
 test!(identifiers);
 test!(newlines);
+test!(numbers_dot_end);
 test!(numbers);
 test!(tabs);

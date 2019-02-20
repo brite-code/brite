@@ -1,6 +1,6 @@
 use super::ast::*;
 use super::document::Range;
-use super::source::{Glyph, Identifier, Keyword, Lexer, TokenKind};
+use super::source::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 
 #[cfg(rustdoc)]
@@ -32,7 +32,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_declaration(&mut self) -> Result<Declaration, DiagnosticRef> {
-        // Function declaration
+        // Function Declaration
         if self.try_parse_keyword(Keyword::Fun).is_some() {
             let name = self.parse_name()?;
             let function = self.parse_function()?;
@@ -87,13 +87,42 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
+        // Expression Statement
         let expression = self.parse_expression()?;
         self.try_parse_glyph(Glyph::Semicolon);
         Ok(Statement::Expression(expression))
     }
 
+    fn try_parse_constant(&mut self) -> Result<Option<(Range, Constant)>, DiagnosticRef> {
+        // True Boolean Constant
+        if let Some(range) = self.try_parse_keyword(Keyword::True) {
+            return Ok(Some((range, Constant::Boolean(true))));
+        }
+
+        // False Boolean Constant
+        if let Some(range) = self.try_parse_keyword(Keyword::False) {
+            return Ok(Some((range, Constant::Boolean(false))));
+        }
+
+        // Number Constant
+        if let Some((range, number)) = self.try_parse_number() {
+            let constant = match number.kind {
+                NumberKind::DecimalInteger(value) => Constant::Integer(IntegerBase::Decimal, value),
+                NumberKind::HexadecimalInteger(value) => {
+                    Constant::Integer(IntegerBase::Hexadecimal, value)
+                }
+                NumberKind::BinaryInteger(value) => Constant::Integer(IntegerBase::Binary, value),
+                NumberKind::Float(value) => Constant::Float(value),
+                NumberKind::Invalid(error) => return Err(error),
+            };
+            return Ok(Some((range, constant)));
+        }
+
+        Ok(None)
+    }
+
     fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
-        // Reference expression
+        // Reference Expression
         if let Some((range, identifier)) = self.try_parse_identifier() {
             return Ok(Expression {
                 range,
@@ -101,7 +130,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             });
         }
 
-        // This expression
+        // This Expression
         if let Some(range) = self.try_parse_keyword(Keyword::This) {
             return Ok(Expression {
                 range,
@@ -109,11 +138,19 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             });
         }
 
+        // Constant Expression
+        if let Some((range, constant)) = self.try_parse_constant()? {
+            return Ok(Expression {
+                range,
+                kind: ExpressionKind::Constant(constant),
+            });
+        }
+
         self.unexpected(ExpectedSyntax::Expression)
     }
 
     fn parse_pattern(&mut self) -> Result<Pattern, DiagnosticRef> {
-        // Binding pattern
+        // Binding Pattern
         if let Some((range, identifier)) = self.try_parse_identifier() {
             return Ok(Pattern {
                 range,
@@ -121,7 +158,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             });
         }
 
-        // Hole pattern
+        // Hole Pattern
         if let Some(range) = self.try_parse_keyword(Keyword::Hole) {
             return Ok(Pattern {
                 range,
@@ -129,7 +166,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             });
         }
 
-        // This pattern
+        // This Pattern
         if let Some(range) = self.try_parse_keyword(Keyword::This) {
             return Ok(Pattern {
                 range,
@@ -262,6 +299,22 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }
         }
         self.unexpected(ExpectedSyntax::Identifier)
+    }
+
+    /// Tries to parse a number. If the next token is a number then we advance the lexer
+    /// and return that number. Otherwise we don’t advance the lexer and return nothing.
+    fn try_parse_number(&mut self) -> Option<(Range, Number)> {
+        if let Some(token) = self.lexer.peek() {
+            if let TokenKind::Number(_) = &token.kind {
+                let token = self.lexer.next().unwrap();
+                let range = token.range;
+                return match token.kind {
+                    TokenKind::Number(number) => Some((range, number)),
+                    _ => unreachable!(),
+                };
+            }
+        }
+        None
     }
 
     /// If the next token is unexpected then call this function and say what we did expect. This
