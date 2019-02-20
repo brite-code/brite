@@ -65,11 +65,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     fn parse_function_parameter(&mut self) -> Result<FunctionParameter, DiagnosticRef> {
         let pattern = self.parse_pattern()?;
-        let annotation = if self.try_parse_glyph(Glyph::Colon).is_some() {
-            Some(self.parse_type()?)
-        } else {
-            None
-        };
+        let annotation = self.try_parse_type_annotation()?;
         Ok(FunctionParameter {
             pattern,
             annotation,
@@ -95,11 +91,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         // Binding Statement
         if self.try_parse_keyword(Keyword::Let).is_some() {
             let pattern = self.parse_pattern()?;
-            let annotation = if self.try_parse_glyph(Glyph::Colon).is_some() {
-                Some(self.parse_type()?)
-            } else {
-                None
-            };
+            let annotation = self.try_parse_type_annotation()?;
             self.parse_glyph(Glyph::Equals)?;
             let value = self.parse_expression()?;
             self.try_parse_glyph(Glyph::Semicolon);
@@ -184,6 +176,21 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             });
         }
 
+        // Wrapped Expression
+        if let Some(start) = self.try_parse_glyph(Glyph::ParenLeft) {
+            let expression = self.parse_expression()?;
+            let annotation = self.try_parse_type_annotation()?;
+            let end = self.parse_glyph(Glyph::ParenRight)?;
+            let range = start.between(end);
+            return Ok(Expression {
+                range,
+                kind: ExpressionKind::Wrapped(Box::new(WrappedExpression {
+                    expression,
+                    annotation,
+                })),
+            });
+        }
+
         self.unexpected(ExpectedSyntax::Expression)
     }
 
@@ -249,6 +256,15 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         }
 
         self.unexpected(ExpectedSyntax::Type)
+    }
+
+    /// If there is a colon then we parse a type annotation. Otherwise parse nothing.
+    fn try_parse_type_annotation(&mut self) -> Result<Option<Type>, DiagnosticRef> {
+        if self.try_parse_glyph(Glyph::Colon).is_some() {
+            Ok(Some(self.parse_type()?))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Parses a list of comma separated items with support for trailing commas. To support trailing
