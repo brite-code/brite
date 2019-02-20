@@ -2,6 +2,9 @@
 // from errors by parsing at a different increment. Having syntax with clear semicolons and/
 // declarations makes it really easy for us to determine good, incremental, ranges.
 
+// TODO: Special handling for `a < b < c`?
+// TODO: Disallow `a < b > (c)` since we’ll use that for function call syntax.
+
 use super::ast::*;
 use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
@@ -161,33 +164,205 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     #[inline]
     fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
-        self.parse_expression_with_config(ParseExpressionConfig::default())
+        self.parse_expression_with_config(&ParseExpressionConfig::default())
     }
 
     #[inline]
     fn try_parse_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
-        self.try_parse_prefix_expression_with_config(ParseExpressionConfig::default())
+        self.try_parse_infix_expression(&ParseExpressionConfig::default(), Precedence::LogicalOr)
     }
 
-    /// Parses an expression with some extra configuration.
+    /// Parses an expression with some custom configuration.
     #[inline]
     fn parse_expression_with_config(
         &mut self,
-        config: ParseExpressionConfig,
+        config: &ParseExpressionConfig,
     ) -> Result<Expression, DiagnosticRef> {
-        if let Some(expression) = self.try_parse_prefix_expression_with_config(config)? {
+        if let Some(expression) = self.try_parse_infix_expression(config, Precedence::LogicalOr)? {
             Ok(expression)
         } else {
             self.unexpected(ExpectedSyntax::Expression)
         }
     }
 
+    /// Parses an infix expression. An infix expression is an operation on two expressions written
+    /// in between the expressions. For example, addition or subtraction. Care must be taken to
+    /// maintain the appropriate order of operations when parsing an infix expression.
+    #[inline]
+    fn try_parse_infix_expression(
+        &mut self,
+        config: &ParseExpressionConfig,
+        precedence: Precedence,
+    ) -> Result<Option<Expression>, DiagnosticRef> {
+        if let Some(expression) = self.try_parse_prefix_expression(config)? {
+            let expression = self.try_parse_infix_operator(config, precedence, expression)?;
+            Ok(Some(expression))
+        } else {
+            Ok(None)
+        }
+    }
+
+    #[inline]
+    fn parse_infix_expression(
+        &mut self,
+        config: &ParseExpressionConfig,
+        precedence: Precedence,
+    ) -> Result<Expression, DiagnosticRef> {
+        if let Some(expression) = self.try_parse_infix_expression(config, precedence)? {
+            Ok(expression)
+        } else {
+            self.unexpected(ExpectedSyntax::Expression)
+        }
+    }
+
+    fn try_parse_infix_operator(
+        &mut self,
+        config: &ParseExpressionConfig,
+        precedence: Precedence,
+        left: Expression,
+    ) -> Result<Expression, DiagnosticRef> {
+        // Or Logical Expression
+        if precedence >= Precedence::LogicalOr {
+            let next_precedence = Precedence::LogicalAnd;
+            if self.try_parse_glyph(Glyph::BarDouble).is_some() {
+                let op = LogicalOperator::Or;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::logical(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+        }
+
+        // And Logical Expression
+        if precedence >= Precedence::LogicalAnd {
+            let next_precedence = Precedence::Equality;
+            if self.try_parse_glyph(Glyph::AmpersandDouble).is_some() {
+                let op = LogicalOperator::And;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::logical(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+        }
+
+        // Equality Infix Expression
+        if precedence >= Precedence::Equality {
+            let next_precedence = Precedence::Relational;
+            if self.try_parse_glyph(Glyph::EqualsDouble).is_some() {
+                let op = InfixOperator::Equals;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+            if self.try_parse_glyph(Glyph::EqualsNot).is_some() {
+                let op = InfixOperator::NotEquals;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+        }
+
+        // Relational Infix Expression
+        if precedence >= Precedence::Relational {
+            let next_precedence = Precedence::Additive;
+            if self.try_parse_glyph(Glyph::LessThan).is_some() {
+                let op = InfixOperator::LessThan;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+            if self.try_parse_glyph(Glyph::LessThanOrEqual).is_some() {
+                let op = InfixOperator::LessThanOrEqual;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+            if self.try_parse_glyph(Glyph::GreaterThan).is_some() {
+                let op = InfixOperator::GreaterThan;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+            if self.try_parse_glyph(Glyph::GreaterThanOrEqual).is_some() {
+                let op = InfixOperator::GreaterThanOrEqual;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+        }
+
+        // Additive Infix Expression
+        if precedence >= Precedence::Additive {
+            let next_precedence = Precedence::Multiplicative;
+            if self.try_parse_glyph(Glyph::Plus).is_some() {
+                let op = InfixOperator::Add;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+            if self.try_parse_glyph(Glyph::Minus).is_some() {
+                let op = InfixOperator::Subtract;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+        }
+
+        // Multiplicative Infix Expression
+        if precedence >= Precedence::Multiplicative {
+            let next_precedence = Precedence::Exponentiation;
+            if self.try_parse_glyph(Glyph::Asterisk).is_some() {
+                let op = InfixOperator::Multiply;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+            if self.try_parse_glyph(Glyph::Slash).is_some() {
+                let op = InfixOperator::Divide;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+            if self.try_parse_glyph(Glyph::Percent).is_some() {
+                let op = InfixOperator::Remainder;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+        }
+
+        // Exponentiation Infix Expression
+        if precedence >= Precedence::Exponentiation {
+            let next_precedence = Precedence::Bottom;
+            if self.try_parse_glyph(Glyph::Caret).is_some() {
+                let op = InfixOperator::Exponent;
+                let right = self.parse_infix_expression(config, next_precedence)?;
+                let range = left.range.union(right.range);
+                let node = Expression::infix(range, op, left, right);
+                return self.try_parse_infix_operator(config, precedence, node);
+            }
+        }
+
+        Ok(left)
+    }
+
     /// Parses a prefix expression. A prefix expression is a postfix expression extended with some
     /// operations before the expression. Like the boolean “not” operator or the number
     /// “negative” operator.
-    fn try_parse_prefix_expression_with_config(
+    fn try_parse_prefix_expression(
         &mut self,
-        config: ParseExpressionConfig,
+        config: &ParseExpressionConfig,
     ) -> Result<Option<Expression>, DiagnosticRef> {
         // Try to parse a prefix expression operator. If no such operator exists then try to parse a
         // postfix expression.
@@ -198,17 +373,16 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         } else if let Some(range) = self.try_parse_glyph(Glyph::Plus) {
             (range, PrefixOperator::Positive)
         } else {
-            return self.try_parse_postfix_expression_with_config(config);
+            return self.try_parse_postfix_expression(config);
         };
 
         // If we parsed a prefix operator then we expect there to be an expression after
         // the operator.
-        let operand =
-            if let Some(expression) = self.try_parse_prefix_expression_with_config(config)? {
-                expression
-            } else {
-                self.unexpected(ExpectedSyntax::Expression)?
-            };
+        let operand = if let Some(expression) = self.try_parse_prefix_expression(config)? {
+            expression
+        } else {
+            self.unexpected(ExpectedSyntax::Expression)?
+        };
 
         let range = start.union(operand.range);
         Ok(Some(Expression {
@@ -219,9 +393,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     /// Parses a postfix expression. A postfix expression is a primary expression extended with
     /// some operations after the expression. Like member access or call arguments.
-    fn try_parse_postfix_expression_with_config(
+    fn try_parse_postfix_expression(
         &mut self,
-        config: ParseExpressionConfig,
+        config: &ParseExpressionConfig,
     ) -> Result<Option<Expression>, DiagnosticRef> {
         if let Some(mut expression) = self.try_parse_primary_expression()? {
             loop {
@@ -395,7 +569,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     ) -> Result<ConditionalExpressionIf, DiagnosticRef> {
         let mut test_config = ParseExpressionConfig::default();
         test_config.before_block = true;
-        let test = self.parse_expression_with_config(test_config)?;
+        let test = self.parse_expression_with_config(&test_config)?;
         let consequent = self.parse_block()?;
         let alternate = if self.try_parse_keyword(Keyword::Else).is_some() {
             Some(if self.try_parse_keyword(Keyword::If).is_some() {
@@ -625,6 +799,19 @@ impl Default for ParseExpressionConfig {
             before_block: false,
         }
     }
+}
+
+/// The precedence level at which we parse an infix expression.
+#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
+enum Precedence {
+    Bottom,
+    Exponentiation,
+    Multiplicative,
+    Additive,
+    Relational,
+    Equality,
+    LogicalAnd,
+    LogicalOr,
 }
 
 /// Converts an expression into a class constructor. If the expression cannot be converted into a

@@ -375,6 +375,46 @@ pub struct WrappedExpression {
     pub annotation: Option<Type>,
 }
 
+impl Expression {
+    fn new(range: Range, kind: ExpressionKind) -> Self {
+        Expression { range, kind }
+    }
+
+    /// Create a logical expression.
+    pub fn logical(
+        range: Range,
+        operator: LogicalOperator,
+        left: Expression,
+        right: Expression,
+    ) -> Self {
+        Self::new(
+            range,
+            ExpressionKind::Logical(Box::new(LogicalExpression {
+                operator,
+                left,
+                right,
+            })),
+        )
+    }
+
+    /// Create an infix expression.
+    pub fn infix(
+        range: Range,
+        operator: InfixOperator,
+        left: Expression,
+        right: Expression,
+    ) -> Self {
+        Self::new(
+            range,
+            ExpressionKind::Infix(Box::new(InfixExpression {
+                operator,
+                left,
+                right,
+            })),
+        )
+    }
+}
+
 /// A pattern is used for binding a value to some names in the current block scope.
 #[derive(Debug)]
 pub struct Pattern {
@@ -573,15 +613,43 @@ impl Expression {
                 lisp!("prop", member.object.lisp(), member.property.lisp())
             }
             ExpressionKind::Prefix(prefix) => {
-                let name = match &prefix.operator {
+                let operator = match &prefix.operator {
                     PrefixOperator::Not => "not",
                     PrefixOperator::Negative => "neg",
                     PrefixOperator::Positive => "pos",
                 };
-                lisp!(name, range, prefix.operand.lisp())
+                lisp!(operator, range, prefix.operand.lisp())
             }
-            ExpressionKind::Infix(_) => unimplemented!(),
-            ExpressionKind::Logical(_) => unimplemented!(),
+            ExpressionKind::Infix(infix) => {
+                let operator = match &infix.operator {
+                    InfixOperator::Add => "add",
+                    InfixOperator::Subtract => "sub",
+                    InfixOperator::Multiply => "mul",
+                    InfixOperator::Divide => "div",
+                    InfixOperator::Remainder => "rem",
+                    InfixOperator::Exponent => "exp",
+                    InfixOperator::Equals => "eq",
+                    InfixOperator::NotEquals => "neq",
+                    InfixOperator::LessThan => "lt",
+                    InfixOperator::LessThanOrEqual => "lte",
+                    InfixOperator::GreaterThan => "gt",
+                    InfixOperator::GreaterThanOrEqual => "gte",
+                };
+                // We don’t print the range of an infix expression since it should be obvious. We
+                // will assert that the range is as we expect instead.
+                assert_eq!(infix.left.range.union(infix.right.range), self.range);
+                lisp!(operator, infix.left.lisp(), infix.right.lisp())
+            }
+            ExpressionKind::Logical(logical) => {
+                let operator = match &logical.operator {
+                    LogicalOperator::And => "and",
+                    LogicalOperator::Or => "or",
+                };
+                // We don’t print the range of an infix expression since it should be obvious. We
+                // will assert that the range is as we expect instead.
+                assert_eq!(logical.left.range.union(logical.right.range), self.range);
+                lisp!(operator, logical.left.lisp(), logical.right.lisp())
+            }
             ExpressionKind::Conditional(conditional) => conditional.lisp(),
             ExpressionKind::Block(block) => block.lisp(),
             ExpressionKind::Wrapped(wrapped) => if let Some(annotation) = &wrapped.annotation {

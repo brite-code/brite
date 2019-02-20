@@ -46,4 +46,10 @@ fun main() {
   } else {
     console.log(4);
   }
+
+  if (Foo {}) {}
+  if (Foo {} + 42) {}
+  if (42 + Foo {}) {}
+  if (Foo {}) + 42 {}
+  if 42 + (Foo {}) {}
 }
