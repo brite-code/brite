@@ -354,6 +354,18 @@ pub enum ConditionalExpressionElse {
     ElseIf(Box<ConditionalExpressionIf>),
 }
 
+impl ConditionalExpressionIf {
+    /// The last block in the conditional expression. Could be the consequent’s block or the
+    /// alternate’s block.
+    pub fn last_block(&self) -> &Block {
+        match &self.alternate {
+            None => &self.consequent,
+            Some(ConditionalExpressionElse::Else(alternate)) => alternate,
+            Some(ConditionalExpressionElse::ElseIf(alternate)) => alternate.last_block(),
+        }
+    }
+}
+
 /// Wraps an expression in parentheses with an optional type annotation.
 #[derive(Debug)]
 pub struct WrappedExpression {
@@ -563,7 +575,7 @@ impl Expression {
             ExpressionKind::Prefix(_) => unimplemented!(),
             ExpressionKind::Infix(_) => unimplemented!(),
             ExpressionKind::Logical(_) => unimplemented!(),
-            ExpressionKind::Conditional(_) => unimplemented!(),
+            ExpressionKind::Conditional(conditional) => conditional.lisp(),
             ExpressionKind::Block(block) => block.lisp(),
             ExpressionKind::Wrapped(wrapped) => if let Some(annotation) = &wrapped.annotation {
                 lisp!(
@@ -575,6 +587,27 @@ impl Expression {
             } else {
                 lisp!("wrap", range, wrapped.expression.lisp())
             },
+        }
+    }
+}
+
+impl ConditionalExpressionIf {
+    /// Converts a conditional expression to a symbolic expression.
+    fn lisp(&self) -> Lisp {
+        match &self.alternate {
+            None => lisp!("if", self.test.lisp(), self.consequent.lisp()),
+            Some(ConditionalExpressionElse::Else(alternate)) => lisp!(
+                "if",
+                self.test.lisp(),
+                self.consequent.lisp(),
+                alternate.lisp()
+            ),
+            Some(ConditionalExpressionElse::ElseIf(alternate)) => lisp!(
+                "if",
+                self.test.lisp(),
+                self.consequent.lisp(),
+                alternate.lisp()
+            ),
         }
     }
 }

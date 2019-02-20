@@ -1,5 +1,6 @@
 test!(block);
 test!(call);
+test!(conditional);
 test!(constant);
 test!(construct);
 test!(construct_line);

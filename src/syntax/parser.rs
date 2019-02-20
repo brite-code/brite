@@ -156,14 +156,29 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
-        if let Some(expression) = self.try_parse_expression()? {
+        self.parse_expression_with_config(ParseExpressionConfig::default())
+    }
+
+    fn try_parse_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
+        self.try_parse_expression_with_config(ParseExpressionConfig::default())
+    }
+
+    /// Parses an expression with some extra configuration.
+    fn parse_expression_with_config(
+        &mut self,
+        config: ParseExpressionConfig,
+    ) -> Result<Expression, DiagnosticRef> {
+        if let Some(expression) = self.try_parse_expression_with_config(config)? {
             Ok(expression)
         } else {
             self.unexpected(ExpectedSyntax::Expression)
         }
     }
 
-    fn try_parse_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
+    fn try_parse_expression_with_config(
+        &mut self,
+        config: ParseExpressionConfig,
+    ) -> Result<Option<Expression>, DiagnosticRef> {
         if let Some(mut expression) = self.try_parse_primary_expression()? {
             loop {
                 // Member Expression
@@ -203,32 +218,34 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                 }
 
                 // Construct Expression
-                if let Some(token) = self.lexer.peek() {
-                    if let TokenKind::Glyph(Glyph::BraceLeft) = &token.kind {
-                        // NOTE: Constructor fields must be on the same line as the constructor!
-                        // This makes programming without semicolons in Brite easier.
-                        if expression.range.end().line() == token.range.start().line() {
-                            match into_constructor(expression) {
-                                Err(x) => expression = x,
+                if !config.before_block {
+                    if let Some(token) = self.lexer.peek() {
+                        if let TokenKind::Glyph(Glyph::BraceLeft) = &token.kind {
+                            // NOTE: Constructor fields must be on the same line as the constructor!
+                            // This makes programming without semicolons in Brite easier.
+                            if expression.range.end().line() == token.range.start().line() {
+                                match into_constructor(expression) {
+                                    Err(x) => expression = x,
 
-                                // If the next token is a left brace (`{`) which is on the same line
-                                // as our expression and that expression is convertible into a
-                                // constructor then we have a `ConstructExpression`!
-                                Ok(constructor) => {
-                                    self.lexer.next();
-                                    let (fields, end) = self.parse_comma_list(
-                                        Glyph::BraceRight,
-                                        Self::parse_construct_expression_field,
-                                    )?;
-                                    let range = constructor.range.union(end);
-                                    expression = Expression {
-                                        range,
-                                        kind: ExpressionKind::Construct(ConstructExpression {
-                                            constructor,
-                                            fields,
-                                        }),
-                                    };
-                                    continue;
+                                    // If the next token is a left brace (`{`) which is on the same
+                                    // line as our expression and that expression is convertible
+                                    // into a constructor then we have a `ConstructExpression`!
+                                    Ok(constructor) => {
+                                        self.lexer.next();
+                                        let (fields, end) = self.parse_comma_list(
+                                            Glyph::BraceRight,
+                                            Self::parse_construct_expression_field,
+                                        )?;
+                                        let range = constructor.range.union(end);
+                                        expression = Expression {
+                                            range,
+                                            kind: ExpressionKind::Construct(ConstructExpression {
+                                                constructor,
+                                                fields,
+                                            }),
+                                        };
+                                        continue;
+                                    }
                                 }
                             }
                         }
@@ -282,6 +299,16 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }));
         }
 
+        // Conditional Expression
+        if let Some(start) = self.try_parse_keyword(Keyword::If) {
+            let conditional = self.parse_conditional_expression_if()?;
+            let range = start.union(conditional.last_block().range);
+            return Ok(Some(Expression {
+                range,
+                kind: ExpressionKind::Conditional(Box::new(conditional)),
+            }));
+        }
+
         // Wrapped Expression
         if let Some(start) = self.try_parse_glyph(Glyph::ParenLeft) {
             let expression = self.parse_expression()?;
@@ -317,6 +344,29 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         self.parse_glyph(Glyph::Colon)?;
         let value = self.parse_expression()?;
         Ok(ConstructExpressionField { name, value })
+    }
+
+    fn parse_conditional_expression_if(
+        &mut self,
+    ) -> Result<ConditionalExpressionIf, DiagnosticRef> {
+        let mut test_config = ParseExpressionConfig::default();
+        test_config.before_block = true;
+        let test = self.parse_expression_with_config(test_config)?;
+        let consequent = self.parse_block()?;
+        let alternate = if self.try_parse_keyword(Keyword::Else).is_some() {
+            Some(if self.try_parse_keyword(Keyword::If).is_some() {
+                ConditionalExpressionElse::ElseIf(Box::new(self.parse_conditional_expression_if()?))
+            } else {
+                ConditionalExpressionElse::Else(self.parse_block()?)
+            })
+        } else {
+            None
+        };
+        Ok(ConditionalExpressionIf {
+            test,
+            consequent,
+            alternate,
+        })
     }
 
     fn parse_pattern(&mut self) -> Result<Pattern, DiagnosticRef> {
@@ -518,6 +568,18 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// the lexer owns a unique mutable reference to our diagnostics collection.
     fn report_diagnostic(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
         self.lexer.report_diagnostic(diagnostic)
+    }
+}
+
+struct ParseExpressionConfig {
+    before_block: bool,
+}
+
+impl Default for ParseExpressionConfig {
+    fn default() -> Self {
+        ParseExpressionConfig {
+            before_block: false,
+        }
     }
 }
 

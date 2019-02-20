@@ -29,9 +29,9 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 13:1-13:4      | Glyph                          | `let`                      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 14:1-14:3      | Identifier                     | `if`                       |
+| 14:1-14:3      | Glyph                          | `if`                       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 15:1-15:5      | Identifier                     | `else`                     |
+| 15:1-15:5      | Glyph                          | `else`                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 16:1-16:3      | Glyph                          | `do`                       |
 | trailing       | Trivia::Newlines::LF           | 1                          |

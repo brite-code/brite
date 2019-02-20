@@ -369,6 +369,10 @@ pub enum Keyword {
     Fun,
     /// `let`
     Let,
+    /// `if`
+    If,
+    /// `else`
+    Else,
     /// `return`
     Return,
     /// `do`
@@ -387,6 +391,8 @@ impl Keyword {
             "false" => Some(False),
             "fun" => Some(Fun),
             "let" => Some(Let),
+            "if" => Some(If),
+            "else" => Some(Else),
             "return" => Some(Return),
             "do" => Some(Do),
             "this" => Some(This),
@@ -403,6 +409,8 @@ impl Keyword {
             False => "false",
             Fun => "fun",
             Let => "let",
+            If => "if",
+            Else => "else",
             Return => "return",
             Do => "do",
             This => "this",

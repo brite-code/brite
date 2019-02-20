@@ -1,0 +1,49 @@
+fun main() {
+  if 42 {}
+  if true {}
+  if false {}
+  if x {}
+  if _foo {}
+
+  if a {
+    console.log(1);
+  }
+
+  if a {
+    console.log(1);
+  } else {
+    console.log(2);
+  }
+
+  if a {
+    console.log(1);
+  } else if b {
+    console.log(2);
+  }
+
+  if a {
+    console.log(1);
+  } else if b {
+    console.log(2);
+  } else {
+    console.log(3);
+  }
+
+  if a {
+    console.log(1);
+  } else if b {
+    console.log(2);
+  } else if c {
+    console.log(3);
+  }
+
+  if a {
+    console.log(1);
+  } else if b {
+    console.log(2);
+  } else if c {
+    console.log(3);
+  } else {
+    console.log(4);
+  }
+}
