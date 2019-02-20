@@ -22,8 +22,8 @@ use unicode_xid::UnicodeXID;
 /// [1]: https://github.com/apple/swift/tree/e07a8cf2a68ad3c2c97a144369d06d427ba240a7/lib/Syntax#trivia
 pub struct Token<'src> {
     pub range: Range,
-    leading_trivia: Vec<Trivia<'src>>,
-    trailing_trivia: Vec<Trivia<'src>>,
+    pub leading_trivia: Vec<Trivia<'src>>,
+    pub trailing_trivia: Vec<Trivia<'src>>,
     pub kind: TokenKind,
 }
 
@@ -82,8 +82,10 @@ impl<'src> Token<'src> {
 /// The last token in a document. An end token has the position at which the document ended and all
 /// the trivia between the last token and the ending.
 pub struct EndToken<'src> {
-    position: Position,
-    leading_trivia: Vec<Trivia<'src>>,
+    /// The ending position of our document.
+    pub position: Position,
+    /// All the trivia which comes before the end of our document.
+    pub leading_trivia: Vec<Trivia<'src>>,
 }
 
 impl<'src> EndToken<'src> {
@@ -217,6 +219,8 @@ pub enum Keyword {
     Fun,
     /// `let`
     Let,
+    /// `return`
+    Return,
     /// `do`
     Do,
     /// `this`
@@ -233,6 +237,7 @@ impl Keyword {
             "false" => Some(False),
             "fun" => Some(Fun),
             "let" => Some(Let),
+            "return" => Some(Return),
             "do" => Some(Do),
             "this" => Some(This),
             _ => None,
@@ -248,6 +253,7 @@ impl Keyword {
             False => "false",
             Fun => "fun",
             Let => "let",
+            Return => "return",
             Do => "do",
             This => "this",
         }
@@ -377,7 +383,7 @@ pub enum NumberKind {
 }
 
 /// Pieces of Brite syntax which (usually) don’t affect program behavior. Like comments or spaces.
-enum Trivia<'src> {
+pub enum Trivia<'src> {
     /// Contiguous space characters (` `).
     Spaces(usize),
     /// Contiguous tab characters (`\t`). The Brite formatter prefers spaces to tabs, but since tabs
@@ -394,7 +400,7 @@ enum Trivia<'src> {
 }
 
 /// Supported newline sequences.
-enum Newline {
+pub enum Newline {
     /// `\n`
     LF,
     /// `\r`
@@ -403,7 +409,7 @@ enum Newline {
     CRLF,
 }
 
-enum Comment<'src> {
+pub enum Comment<'src> {
     /// `// ...` does not include the newline that ends the comment. Does not include the
     /// `//` characters.
     Line(&'src str),

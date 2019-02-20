@@ -144,6 +144,8 @@ pub enum ExpectedSyntax {
     HexadecimalDigit,
     /// Expected a declaration.
     Declaration,
+    /// Expected a statement.
+    Statement,
     /// Expected an expression.
     Expression,
     /// Expected a pattern.
@@ -311,6 +313,7 @@ impl ExpectedSyntax {
 
             // NOTE: Are there a more common words than “declaration”, “statement”, or “expression”?
             ExpectedSyntax::Declaration => message.push("a declaration"),
+            ExpectedSyntax::Statement => message.push("a statement"),
             ExpectedSyntax::Expression => message.push("an expression"),
 
             // The programmer should not need to be familiar with language like “pattern”. Most of

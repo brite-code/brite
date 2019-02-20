@@ -102,15 +102,45 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }));
         }
 
+        // Return Statement
+        if let Some(Token {
+            trailing_trivia,
+            kind: TokenKind::Glyph(Glyph::Keyword(Keyword::Return)),
+            ..
+        }) = self.lexer.peek()
+        {
+            let mut trailing_newline = false;
+            for trivia in trailing_trivia {
+                if let Trivia::Newlines(_, _) = trivia {
+                    trailing_newline = true;
+                    break;
+                }
+            }
+            self.lexer.next();
+            // NOTE: If there is a newline between the return keyword and an expression then don’t
+            // parse that expression as the return statement’s argument! This makes programming
+            // without semicolons in Brite easier.
+            let argument = if !trailing_newline {
+                self.try_parse_expression()?
+            } else {
+                None
+            };
+            self.try_parse_glyph(Glyph::Semicolon);
+            return Ok(Statement::Return(argument));
+        }
+
         // Empty Statement
         if self.try_parse_glyph(Glyph::Semicolon).is_some() {
             return Ok(Statement::Empty);
         }
 
         // Expression Statement
-        let expression = self.parse_expression()?;
-        self.try_parse_glyph(Glyph::Semicolon);
-        Ok(Statement::Expression(expression))
+        if let Some(expression) = self.try_parse_expression()? {
+            self.try_parse_glyph(Glyph::Semicolon);
+            return Ok(Statement::Expression(expression));
+        }
+
+        self.unexpected(ExpectedSyntax::Statement)
     }
 
     fn try_parse_constant(&mut self) -> Result<Option<(Range, Constant)>, DiagnosticRef> {
@@ -142,38 +172,46 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
+        if let Some(expression) = self.try_parse_expression()? {
+            Ok(expression)
+        } else {
+            self.unexpected(ExpectedSyntax::Expression)
+        }
+    }
+
+    fn try_parse_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
         // Reference Expression
         if let Some((range, identifier)) = self.try_parse_identifier() {
-            return Ok(Expression {
+            return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Reference(identifier),
-            });
+            }));
         }
 
         // This Expression
         if let Some(range) = self.try_parse_keyword(Keyword::This) {
-            return Ok(Expression {
+            return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::This,
-            });
+            }));
         }
 
         // Constant Expression
         if let Some((range, constant)) = self.try_parse_constant()? {
-            return Ok(Expression {
+            return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Constant(constant),
-            });
+            }));
         }
 
         // Function Expression
         if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
             let function = self.parse_function()?;
             let range = start.between(function.body.range);
-            return Ok(Expression {
+            return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Function(function),
-            });
+            }));
         }
 
         // Wrapped Expression
@@ -182,26 +220,26 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             let annotation = self.try_parse_type_annotation()?;
             let end = self.parse_glyph(Glyph::ParenRight)?;
             let range = start.between(end);
-            return Ok(Expression {
+            return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Wrapped(Box::new(WrappedExpression {
                     expression,
                     annotation,
                 })),
-            });
+            }));
         }
 
         // Block Expression
         if let Some(start) = self.try_parse_keyword(Keyword::Do) {
             let block = self.parse_block()?;
             let range = start.between(block.range);
-            return Ok(Expression {
+            return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Block(block),
-            });
+            }));
         }
 
-        self.unexpected(ExpectedSyntax::Expression)
+        Ok(None)
     }
 
     fn parse_pattern(&mut self) -> Result<Pattern, DiagnosticRef> {

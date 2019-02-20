@@ -452,7 +452,11 @@ impl Statement {
                     binding.value.lisp(document)
                 )
             },
-            Statement::Return(_) => unimplemented!(),
+            Statement::Return(argument) => if let Some(argument) = argument {
+                lisp!("return", argument.lisp(document))
+            } else {
+                lisp!("return")
+            },
             Statement::Empty => lisp!("empty"),
         }
     }

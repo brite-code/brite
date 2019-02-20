@@ -1,0 +1,30 @@
+fun main() {
+  return x;
+  return 0;
+  return 42;
+  return;
+
+  return; x;
+  return;
+  x;
+
+  return
+  x;
+
+  return; 42;
+  return;
+  42;
+
+  return
+  42;
+
+  return (x);
+  return(x);
+
+  return
+  (x)
+
+  return (
+    x
+  );
+}
