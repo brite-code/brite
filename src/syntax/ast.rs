@@ -1,6 +1,6 @@
 //! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
 
-use super::document::Range;
+use super::document::{Document, Range};
 use super::source::Identifier;
 use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
@@ -368,22 +368,24 @@ pub struct FunctionType {
 
 impl Name {
     /// Converts a name into an S-expression for debugging.
-    fn lisp(&self) -> Lisp {
-        lisp!("name", self.range, &self.identifier)
+    fn lisp(&self, document: &Document) -> Lisp {
+        lisp!("name", self.range.format(document), &self.identifier)
     }
 }
 
 impl Declaration {
     /// Pretty prints a declaration to a lisp-string format with the specified width. We use this
     /// lisp format for debugging purposes only.
-    pub fn print_lisp(&self, width: usize) -> String {
-        self.lisp().print(width)
+    pub fn print_lisp(&self, document: &Document, width: usize) -> String {
+        self.lisp(document).print(width)
     }
 
     /// Converts a declaration into an S-expression for debugging.
-    fn lisp(&self) -> Lisp {
+    fn lisp(&self, document: &Document) -> Lisp {
         match self {
-            Declaration::Function(function) => function.function.lisp(function.name.lisp()),
+            Declaration::Function(function) => function
+                .function
+                .lisp(document, function.name.lisp(document)),
             Declaration::Class(_) => unimplemented!(),
         }
     }
@@ -392,21 +394,21 @@ impl Declaration {
 impl Function {
     /// Converts a function to a symbolic expression. Accepts a name s-expression parameter for
     /// debugging some name for the function.
-    fn lisp(&self, name: Lisp) -> Lisp {
+    fn lisp(&self, document: &Document, name: Lisp) -> Lisp {
         let mut expressions = Vec2::new("fun".into(), name);
         for parameter in &self.parameters {
             if let Some(annotation) = &parameter.annotation {
                 expressions.push(lisp!(
                     "param",
-                    parameter.pattern.lisp(),
-                    lisp!("type", annotation.lisp())
+                    parameter.pattern.lisp(document),
+                    lisp!("type", annotation.lisp(document))
                 ));
             } else {
-                expressions.push(lisp!("param", parameter.pattern.lisp()));
+                expressions.push(lisp!("param", parameter.pattern.lisp(document)));
             }
         }
         if let Some(return_type) = &self.return_type {
-            expressions.push(lisp!("type", return_type.lisp()));
+            expressions.push(lisp!("type", return_type.lisp(document)));
         }
         expressions.push(self.body.lisp());
         Lisp::List(expressions)
@@ -426,21 +428,23 @@ impl Block {
 
 impl Pattern {
     /// Converts a pattern to a symbolic expression.
-    fn lisp(&self) -> Lisp {
+    fn lisp(&self, document: &Document) -> Lisp {
+        let range = self.range.format(document);
         match &self.kind {
-            PatternKind::Binding(identifier) => lisp!("var", self.range, identifier),
-            PatternKind::Hole => lisp!("hole", self.range),
-            PatternKind::This => lisp!("this", self.range),
+            PatternKind::Binding(identifier) => lisp!("var", range, identifier),
+            PatternKind::Hole => lisp!("hole", range),
+            PatternKind::This => lisp!("this", range),
         }
     }
 }
 
 impl Type {
     /// Converts a type to a symbolic expression.
-    fn lisp(&self) -> Lisp {
+    fn lisp(&self, document: &Document) -> Lisp {
+        let range = self.range.format(document);
         match &self.kind {
-            TypeKind::Reference(identifier) => lisp!("var", self.range, identifier),
-            TypeKind::This => lisp!("this", self.range),
+            TypeKind::Reference(identifier) => lisp!("var", range, identifier),
+            TypeKind::This => lisp!("this", range),
             TypeKind::Function(_) => unimplemented!(),
         }
     }

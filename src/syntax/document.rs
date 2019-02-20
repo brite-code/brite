@@ -195,11 +195,9 @@ impl Range {
     /// [1]: https://microsoft.github.io/language-server-protocol/specification
     pub fn format(&self, document: &Document) -> String {
         format!(
-            "{}:{}-{}:{}",
-            self.start.line(document) + 1,
-            self.start.character(document) + 1,
-            self.end().line(document) + 1,
-            self.end().character(document) + 1
+            "{}-{}",
+            self.start.format(document),
+            self.end().format(document),
         )
     }
 }

@@ -1,0 +1,3 @@
+mod declarations;
+
+test!(empty);

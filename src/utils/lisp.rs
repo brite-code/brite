@@ -4,7 +4,7 @@
 //! [1]: https://en.wikipedia.org/wiki/S-expression
 
 use super::vecn::Vec2;
-use crate::syntax::{Identifier, Range};
+use crate::syntax::Identifier;
 use pretty::{Arena, DocAllocator, DocBuilder};
 
 /// Creates a `Lisp`.
@@ -57,10 +57,9 @@ impl Lisp {
                         for x in xs_iter {
                             doc = doc.append(doc_allocator.space());
                             doc = doc.append(x.pretty(doc_allocator));
-                            doc = doc.group();
                         }
                     }
-                    doc.nest(1)
+                    doc.nest(1).group()
                 }).append(doc_allocator.text(")")),
         }
     }
@@ -72,14 +71,14 @@ impl From<&'static str> for Lisp {
     }
 }
 
-impl<'a> From<&'a Identifier> for Lisp {
-    fn from(identifier: &'a Identifier) -> Self {
-        Lisp::Atom(identifier.source().to_string())
+impl From<String> for Lisp {
+    fn from(string: String) -> Self {
+        Lisp::Atom(string)
     }
 }
 
-impl From<Range> for Lisp {
-    fn from(range: Range) -> Self {
-        unimplemented!()
+impl<'a> From<&'a Identifier> for Lisp {
+    fn from(identifier: &'a Identifier) -> Self {
+        Lisp::Atom(identifier.source().to_string())
     }
 }

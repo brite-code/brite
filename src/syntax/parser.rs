@@ -77,6 +77,8 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_block(&mut self) -> Result<Block, DiagnosticRef> {
+        self.parse_glyph(Glyph::BraceLeft)?;
+        self.parse_glyph(Glyph::BraceRight)?;
         Ok(Block {
             statements: Vec::new(),
         })
