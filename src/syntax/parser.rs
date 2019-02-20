@@ -1,10 +1,6 @@
 use super::ast::*;
-use super::document::Range;
 use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
-
-#[cfg(rustdoc)]
-use super::document::Document;
 
 /// Manages the parsing of Brite syntactical elements from a [`Document`]. The `Parser` struct is
 /// more like a parsing “context”. It does not hold much state itself. Most of the parsing state is
@@ -83,7 +79,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                 statements.push(statement);
             }
         };
-        let range = start.between(end);
+        let range = start.union(end);
         Ok(Block { range, statements })
     }
 
@@ -103,27 +99,15 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         }
 
         // Return Statement
-        if let Some(Token {
-            trailing_trivia,
-            kind: TokenKind::Glyph(Glyph::Keyword(Keyword::Return)),
-            ..
-        }) = self.lexer.peek()
-        {
-            let mut trailing_newline = false;
-            for trivia in trailing_trivia {
-                if let Trivia::Newlines(_, _) = trivia {
-                    trailing_newline = true;
-                    break;
-                }
-            }
-            self.lexer.next();
+        if let Some(keyword) = self.try_parse_keyword(Keyword::Return) {
             // NOTE: If there is a newline between the return keyword and an expression then don’t
             // parse that expression as the return statement’s argument! This makes programming
             // without semicolons in Brite easier.
-            let argument = if !trailing_newline {
-                self.try_parse_expression()?
-            } else {
-                None
+            let argument = match self.lexer.peek() {
+                Some(token) if keyword.end().line == token.range.start().line => {
+                    self.try_parse_expression()?
+                }
+                _ => None,
             };
             self.try_parse_glyph(Glyph::Semicolon);
             return Ok(Statement::Return(argument));
@@ -185,7 +169,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                 // Member Expression
                 if self.try_parse_glyph(Glyph::Dot).is_some() {
                     let property = self.parse_name()?;
-                    let range = expression.range.between(property.range);
+                    let range = expression.range.union(property.range);
                     expression = Expression {
                         range,
                         kind: ExpressionKind::Member(Box::new(MemberExpression {
@@ -236,7 +220,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         // Function Expression
         if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
             let function = self.parse_function()?;
-            let range = start.between(function.body.range);
+            let range = start.union(function.body.range);
             return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Function(function),
@@ -248,7 +232,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             let expression = self.parse_expression()?;
             let annotation = self.try_parse_type_annotation()?;
             let end = self.parse_glyph(Glyph::ParenRight)?;
-            let range = start.between(end);
+            let range = start.union(end);
             return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Wrapped(Box::new(WrappedExpression {
@@ -261,7 +245,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         // Block Expression
         if let Some(start) = self.try_parse_keyword(Keyword::Do) {
             let block = self.parse_block()?;
-            let range = start.between(block.range);
+            let range = start.union(block.range);
             return Ok(Some(Expression {
                 range,
                 kind: ExpressionKind::Block(block),
@@ -322,7 +306,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             let parameters = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
             self.parse_glyph(Glyph::Arrow)?;
             let return_ = self.parse_type()?;
-            let range = start.between(return_.range);
+            let range = start.union(return_.range);
             return Ok(Type {
                 range,
                 kind: TypeKind::Function(FunctionType {

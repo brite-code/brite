@@ -5,7 +5,7 @@ macro_rules! test {
         #[test]
         fn $name() {
             use brite::diagnostics::DiagnosticsCollection;
-            use brite::syntax::{Document, Lexer, Token};
+            use brite::syntax::{Lexer, Token};
             use std::fs;
             use std::path::PathBuf;
 
@@ -18,10 +18,9 @@ macro_rules! test {
                 .replace("\\n", "\n")
                 .replace("\\r", "\r")
                 .replace("\\t", "\t");
-            let document = Document::new(&source);
 
             let mut diagnostics = DiagnosticsCollection::new();
-            let mut lexer = Lexer::new(&mut diagnostics, &document);
+            let mut lexer = Lexer::new(&mut diagnostics, &source);
             let mut tokens = Vec::new();
             while let Some(token) = lexer.next() {
                 tokens.push(token);
@@ -34,11 +33,11 @@ macro_rules! test {
             if !diagnostics.is_empty() {
                 contents.push_str("\n");
                 contents.push_str("## Errors\n");
-                contents.push_str(&diagnostics.markdown_list(&document));
+                contents.push_str(&diagnostics.markdown_list());
             }
             contents.push_str("\n");
             contents.push_str("## Tokens\n");
-            contents.push_str(&Token::markdown_table(&document, &tokens, &end_token));
+            contents.push_str(&Token::markdown_table(&tokens, &end_token));
 
             fs::write(path, contents).unwrap();
 

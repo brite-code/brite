@@ -7,3 +7,4 @@ pub mod vecn;
 pub mod lisp;
 
 pub mod markup;
+pub mod peek2;

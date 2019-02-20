@@ -1,11 +1,130 @@
-use super::document::{Document, DocumentChars, Position, Range};
 use crate::diagnostics::*;
+use crate::utils::peek2::Peekable2;
 use num::BigInt;
 use std::cmp;
 use std::f64;
+use std::fmt;
 use std::iter;
-use std::str::FromStr;
+use std::str::{Chars, FromStr};
 use unicode_xid::UnicodeXID;
+
+/// A position between two characters in a Brite source code document. This is the same as a
+/// position in the [Language Server Protocol (LSP)][1]. To get the line and character locations of
+/// a position you need a `Document` object.
+///
+/// Some examples of positions where `|` represents a position:
+///
+/// - `|abcdef`: Here the position is 0 since it is at the very beginning of our string.
+/// - `a|bcdef`: Here the position is 1 since it is between our first and second characters.
+/// - `abc|def`: Here the position is 3 since it is between our third and fourth characters.
+/// - `abcdef|`: Here the position is 6 since it is after our sixth character at the end.
+///
+/// We need to keep this small as an AST will contain a _lot_ of positions. Currently 32 bits.
+///
+/// [1]: https://microsoft.github.io/language-server-protocol/specification
+#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Position {
+    /// The zero-based line number of this position in the provided document. A new line is
+    /// created by `\n`, `\r\n`, or `\r`.
+    pub line: u16,
+    /// The zero-based character number of this position in the provided document. As per the
+    /// [LSP][1] specification, character offsets are measured in UTF-16 code units.
+    ///
+    /// [1]: https://microsoft.github.io/language-server-protocol/specification
+    pub character: u16,
+}
+
+impl Position {
+    /// The initial position.
+    pub fn initial() -> Self {
+        Position {
+            line: 0,
+            character: 0,
+        }
+    }
+}
+
+impl fmt::Display for Position {
+    /// Formats a position for human consumption. While the [Language Server Protocol][1] positions
+    /// start at 0, we format the position starting at 1 since that’s how most tools display
+    /// positions to the programmer.
+    ///
+    /// [1]: https://microsoft.github.io/language-server-protocol/specification
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.line + 1, self.character + 1)
+    }
+}
+
+impl fmt::Debug for Position {
+    /// Uses the [`fmt::Display`] implementation.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+/// A range in a text document expressed as start and end positions. A range is comparable to a
+/// selection in an editor. Therefore the end position is exclusive.
+///
+/// We need to keep this small as an AST will contain a _lot_ of ranges. Currently 64 bits.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct Range {
+    /// The range’s start position. Always less than or equal to `end`.
+    start: Position,
+    /// The range’s end position, not-inclusive. Always greater than or equal to `start`.
+    end: Position,
+}
+
+impl Range {
+    /// Creates a new range with a start and end position. If `end` is less than `start` we flip the
+    /// arguments around.
+    pub fn new(start: Position, end: Position) -> Self {
+        if start <= end {
+            Range { start, end }
+        } else {
+            Range {
+                start: end,
+                end: start,
+            }
+        }
+    }
+
+    /// Returns the start position of our range.
+    pub fn start(&self) -> Position {
+        self.start
+    }
+
+    /// Returns the end position of our range. Will always be greater than or equal to the start
+    /// position. Remember that range is not inclusive.
+    pub fn end(&self) -> Position {
+        self.end
+    }
+
+    /// Creates a new range that covers both of the provided ranges.
+    pub fn union(self, other: Range) -> Self {
+        Range {
+            start: cmp::min(self.start, other.start),
+            end: cmp::max(self.end, other.end),
+        }
+    }
+}
+
+impl fmt::Display for Range {
+    /// Formats a range for human consumption. While the [Language Server Protocol][1] positions
+    /// start at 0, we format the position starting at 1 since that’s how most tools display
+    /// positions to the programmer.
+    ///
+    /// [1]: https://microsoft.github.io/language-server-protocol/specification
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}-{}", self.start, self.end)
+    }
+}
+
+impl fmt::Debug for Range {
+    /// Uses the [`fmt::Display`] implementation.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
 
 /// A token is a more semantic unit for describing Brite source code documents than a character.
 /// Through the tokenization of a document we add meaning by parsing low-level code elements like
@@ -272,7 +391,7 @@ impl Keyword {
 /// pattern identifiers.
 ///
 /// [1]: http://www.unicode.org/reports/tr31
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Identifier(
     // TODO: Intern identifier strings.
     String,
@@ -454,24 +573,27 @@ pub struct Lexer<'errs, 'src> {
     /// [`Lexer::report_diagnostic`] at any time.
     _diagnostics: &'errs mut DiagnosticsCollection,
     /// In iterator of document characters which also keeps track of the current position.
-    chars: DocumentChars<'src>,
-    /// The programmer may peek at the next token, if they have done so we’ll have a token here.
-    peeked: Option<Option<Token<'src>>>,
+    chars: Peekable2<Chars<'src>>,
+    /// The current position of the lexer.
+    position: Position,
     /// The last token in a document. If we have an end token then the lexer is done iterating.
     end: Option<EndToken<'src>>,
+    /// The programmer may peek at the next token, if they have done so we’ll have a token here.
+    peeked: Option<Option<Token<'src>>>,
 }
 
 impl<'errs, 'src> Lexer<'errs, 'src> {
     /// Creates a new lexer from a source code [`Document`].
     pub fn new(
         diagnostics: &'errs mut DiagnosticsCollection,
-        document: &'src Document,
+        source: &'src str,
     ) -> Lexer<'errs, 'src> {
         Lexer {
             _diagnostics: diagnostics,
-            chars: document.chars(),
-            peeked: None,
+            chars: Peekable2::new(source.chars()),
+            position: Position::initial(),
             end: None,
+            peeked: None,
         }
     }
 
@@ -537,84 +659,156 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
         }
 
         let leading_trivia = self.next_trivia(true);
-        let start = self.chars.position();
+        let start = self.position;
 
         let kind = match self.chars.next() {
             // Single character glyphs
-            Some('*') => TokenKind::Glyph(Glyph::Asterisk),
-            Some('{') => TokenKind::Glyph(Glyph::BraceLeft),
-            Some('}') => TokenKind::Glyph(Glyph::BraceRight),
-            Some('[') => TokenKind::Glyph(Glyph::BracketLeft),
-            Some(']') => TokenKind::Glyph(Glyph::BracketRight),
-            Some('^') => TokenKind::Glyph(Glyph::Caret),
-            Some(':') => TokenKind::Glyph(Glyph::Colon),
-            Some(',') => TokenKind::Glyph(Glyph::Comma),
-            Some('(') => TokenKind::Glyph(Glyph::ParenLeft),
-            Some(')') => TokenKind::Glyph(Glyph::ParenRight),
-            Some('%') => TokenKind::Glyph(Glyph::Percent),
-            Some('+') => TokenKind::Glyph(Glyph::Plus),
-            Some(';') => TokenKind::Glyph(Glyph::Semicolon),
-            Some('/') => TokenKind::Glyph(Glyph::Slash),
+            Some('*') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Asterisk)
+            }
+            Some('{') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::BraceLeft)
+            }
+            Some('}') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::BraceRight)
+            }
+            Some('[') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::BracketLeft)
+            }
+            Some(']') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::BracketRight)
+            }
+            Some('^') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Caret)
+            }
+            Some(':') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Colon)
+            }
+            Some(',') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Comma)
+            }
+            Some('(') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::ParenLeft)
+            }
+            Some(')') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::ParenRight)
+            }
+            Some('%') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Percent)
+            }
+            Some('+') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Plus)
+            }
+            Some(';') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Semicolon)
+            }
+            Some('/') => {
+                self.position.character += 1;
+                TokenKind::Glyph(Glyph::Slash)
+            }
 
             // Multiple character glyphs
             Some('&') => match self.chars.peek() {
                 Some('&') => {
                     self.chars.next();
+                    self.position.character += 2;
                     TokenKind::Glyph(Glyph::AmpersandDouble)
                 }
-                _ => TokenKind::Glyph(Glyph::Ampersand),
+                _ => {
+                    self.position.character += 1;
+                    TokenKind::Glyph(Glyph::Ampersand)
+                }
             },
             Some('|') => match self.chars.peek() {
                 Some('|') => {
                     self.chars.next();
+                    self.position.character += 2;
                     TokenKind::Glyph(Glyph::BarDouble)
                 }
-                _ => TokenKind::Glyph(Glyph::Bar),
+                _ => {
+                    self.position.character += 1;
+                    TokenKind::Glyph(Glyph::Bar)
+                }
             },
             Some('=') => match self.chars.peek() {
                 Some('=') => {
                     self.chars.next();
+                    self.position.character += 2;
                     TokenKind::Glyph(Glyph::EqualsDouble)
                 }
-                _ => TokenKind::Glyph(Glyph::Equals),
+                _ => {
+                    self.position.character += 1;
+                    TokenKind::Glyph(Glyph::Equals)
+                }
             },
             Some('!') => match self.chars.peek() {
                 Some('=') => {
                     self.chars.next();
+                    self.position.character += 2;
                     TokenKind::Glyph(Glyph::EqualsNot)
                 }
-                _ => TokenKind::Glyph(Glyph::Bang),
+                _ => {
+                    self.position.character += 1;
+                    TokenKind::Glyph(Glyph::Bang)
+                }
             },
             Some('>') => match self.chars.peek() {
                 Some('=') => {
                     self.chars.next();
+                    self.position.character += 2;
                     TokenKind::Glyph(Glyph::GreaterThanOrEqual)
                 }
-                _ => TokenKind::Glyph(Glyph::GreaterThan),
+                _ => {
+                    self.position.character += 1;
+                    TokenKind::Glyph(Glyph::GreaterThan)
+                }
             },
             Some('<') => match self.chars.peek() {
                 Some('=') => {
                     self.chars.next();
+                    self.position.character += 2;
                     TokenKind::Glyph(Glyph::LessThanOrEqual)
                 }
-                _ => TokenKind::Glyph(Glyph::LessThan),
+                _ => {
+                    self.position.character += 1;
+                    TokenKind::Glyph(Glyph::LessThan)
+                }
             },
             Some('-') => match self.chars.peek() {
                 Some('>') => {
                     self.chars.next();
+                    self.position.character += 2;
                     TokenKind::Glyph(Glyph::Arrow)
                 }
-                _ => TokenKind::Glyph(Glyph::Minus),
+                _ => {
+                    self.position.character += 1;
+                    TokenKind::Glyph(Glyph::Minus)
+                }
             },
 
             // Identifier
             Some(c) if Identifier::is_start(c) => {
                 let mut identifier = String::new();
                 identifier.push(c);
+                self.position.character += c.len_utf16() as u16;
                 loop {
                     match self.chars.peek() {
-                        Some(c) if Identifier::is_continue(c) => {
-                            identifier.push(c);
+                        Some(c) if Identifier::is_continue(*c) => {
+                            identifier.push(*c);
+                            self.position.character += c.len_utf16() as u16;
                             self.chars.next();
                         }
                         _ => break,
@@ -630,6 +824,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
             // Number
             Some(c) if c.is_digit(10) || c == '.' => {
+                self.position.character += 1;
                 if c == '.' && self.chars.peek().map(|c| !c.is_digit(10)).unwrap_or(true) {
                     TokenKind::Glyph(Glyph::Dot)
                 } else {
@@ -640,6 +835,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         // Binary integer
                         ('0', Some('b')) | ('0', Some('B')) => {
                             raw.push(self.chars.next().unwrap());
+                            self.position.character += 1;
                             let mut value = BigInt::from(0);
                             loop {
                                 match self.chars.peek() {
@@ -648,6 +844,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                                     _ => break,
                                 }
                                 raw.push(self.chars.next().unwrap());
+                                self.position.character += 1;
                             }
                             let kind = if raw.len() == 2 {
                                 // If we did not get any digits then report an error.
@@ -662,6 +859,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         // Hexadecimal integer
                         ('0', Some('x')) | ('0', Some('X')) => {
                             raw.push(self.chars.next().unwrap());
+                            self.position.character += 1;
                             let mut value = BigInt::from(0);
                             loop {
                                 match self.chars.peek() {
@@ -684,6 +882,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                                     _ => break,
                                 }
                                 raw.push(self.chars.next().unwrap());
+                                self.position.character += 1;
                             }
                             let kind = if raw.len() == 2 {
                                 // If we did not get any digits then report an error.
@@ -733,6 +932,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                                     _ => break,
                                 }
                                 raw.push(self.chars.next().unwrap());
+                                self.position.character += 1;
                             }
                             let kind = match state {
                                 // A whole number parses as an integer of arbitrary precision.
@@ -762,21 +962,24 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         // A number may not be followed by an identifier! If our number is followed
                         // by an identifier than report a diagnostic and return an invalid
                         // number token.
-                        Some(c) if Identifier::is_continue(c) => {
+                        Some(c) if Identifier::is_continue(*c) => {
+                            let c = *c;
                             let diagnostic = match kind {
                                 NumberKind::Invalid(diagnostic) => diagnostic,
-                                _ => self.report_diagnostic(Diagnostic::unexpected_char(
-                                    self.chars.position(),
-                                    c,
-                                    expected,
-                                )),
+                                _ => {
+                                    let diagnostic =
+                                        Diagnostic::unexpected_char(self.position, c, expected);
+                                    self.report_diagnostic(diagnostic)
+                                }
                             };
                             raw.push(c);
+                            self.position.character += c.len_utf16() as u16;
                             self.chars.next();
                             loop {
                                 match self.chars.peek() {
-                                    Some(c) if Identifier::is_continue(c) => {
-                                        raw.push(c);
+                                    Some(c) if Identifier::is_continue(*c) => {
+                                        raw.push(*c);
+                                        self.position.character += c.len_utf16() as u16;
                                         self.chars.next();
                                     }
                                     _ => break,
@@ -801,22 +1004,25 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
             }
 
             // If we encountered an unexpected character then add an unexpected character token.
-            Some(c) => TokenKind::UnexpectedChar(c),
+            Some(c) => {
+                self.position.character += c.len_utf16() as u16;
+                TokenKind::UnexpectedChar(c)
+            }
 
             // If we’ve reached the end then create our `EndToken` and return `None`.
             None => {
                 self.end = Some(EndToken {
-                    position: self.chars.position(),
+                    position: self.position,
                     leading_trivia,
                 });
                 return None;
             }
         };
 
-        let end = self.chars.position();
+        let end = self.position;
         let trailing_trivia = self.next_trivia(false);
 
-        let range = Range::new(start, end.utf8_index() - start.utf8_index());
+        let range = Range::new(start, end);
 
         // Return the token we just parsed.
         Some(Token {
@@ -843,6 +1049,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         n += 1;
                     }
                     trivia.push(Trivia::Spaces(n));
+                    self.position.character += n as u16;
                 }
 
                 // Tabs
@@ -854,6 +1061,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         n += 1;
                     }
                     trivia.push(Trivia::Tabs(n));
+                    self.position.character += n as u16;
                 }
 
                 // Newlines (LF)
@@ -864,6 +1072,8 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                     // After we see one newline in trailing trivia, stop parsing trivia!
                     if !leading {
                         trivia.push(Trivia::Newlines(Newline::LF, n));
+                        self.position.line += 1;
+                        self.position.character = 0;
                         break;
                     }
 
@@ -872,6 +1082,8 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         n += 1;
                     }
                     trivia.push(Trivia::Newlines(Newline::LF, n));
+                    self.position.line += n as u16;
+                    self.position.character = 0;
                 }
 
                 // Newlines (CR and CRLF)
@@ -884,19 +1096,26 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         // After we see one newline in trailing trivia, stop parsing trivia!
                         if !leading {
                             trivia.push(Trivia::Newlines(Newline::CRLF, n));
+                            self.position.line += 1;
+                            self.position.character = 0;
                             break;
                         }
 
-                        while self.chars.peek() == Some('\r') && self.chars.peek2() == Some('\n') {
+                        while self.chars.peek() == Some(&'\r') && self.chars.peek2() == Some(&'\n')
+                        {
                             self.chars.next();
                             self.chars.next();
                             n += 1;
                         }
                         trivia.push(Trivia::Newlines(Newline::CRLF, n));
+                        self.position.line += n as u16;
+                        self.position.character = 0;
                     } else {
                         // After we see one newline in trailing trivia, stop parsing trivia!
                         if !leading {
                             trivia.push(Trivia::Newlines(Newline::CR, n));
+                            self.position.line += 1;
+                            self.position.character = 0;
                             break;
                         }
 
@@ -905,6 +1124,8 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                             n += 1;
                         }
                         trivia.push(Trivia::Newlines(Newline::CR, n));
+                        self.position.line += n as u16;
+                        self.position.character = 0;
                     }
                 }
 
@@ -914,7 +1135,34 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                     Some('/') => {
                         self.chars.next();
                         self.chars.next();
-                        let comment = self.chars.span(|c| c != '\n' && c != '\r');
+                        self.position.character += 2;
+
+                        // Get the remaining string slice. Our comment will be a sub-slice of this.
+                        let source = self.chars.iter().as_str();
+
+                        // Loop through all of the characters in our comment. The comment either
+                        // ends when we’ve reached the end of our source or when we see a newline.
+                        //
+                        // This loop will return the length of the remaining string slice. We will
+                        // use that length to get a sub-slice for our comment.
+                        let source_len = loop {
+                            match self.chars.peek() {
+                                None => break 0,
+                                Some('\n') | Some('\r') => {
+                                    break self.chars.iter().as_str().len() + 1
+                                }
+                                Some(c) => {
+                                    self.position.character += c.len_utf16() as u16;
+                                    self.chars.next();
+                                }
+                            }
+                        };
+
+                        // This is safe because we know that both `source.len()` and `source_len`
+                        // are on character boundaries.
+                        let comment =
+                            unsafe { source.get_unchecked(..(source.len() - source_len)) };
+
                         trivia.push(Trivia::Comment(Comment::Line(comment)));
                     }
 
@@ -922,51 +1170,97 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                     Some('*') => {
                         self.chars.next();
                         self.chars.next();
-                        let mut newline = false;
-                        let mut state = BlockCommentState::Normal;
+                        self.position.character += 2;
+
+                        // Get the remaining string slice. Our comment will be a sub-slice of this.
+                        let source = self.chars.iter().as_str();
+                        // Remember the previous line number. If there’s a new-line inside our
+                        // comment and we’re parsing trailing trivia we’ll want to stop
+                        // parsing trivia.
+                        let last_position_line = self.position.line;
+                        // We allow block comment nesting so keep track of the block comment depth.
                         let mut depth = 1;
-                        let comment = self.chars.span(|c| match (state, c) {
-                            (BlockCommentState::FoundAsterisk, '/') => {
-                                state = BlockCommentState::Normal;
-                                depth -= 1;
-                                depth != 0
-                            }
-                            (BlockCommentState::FoundSlash, '*') => {
-                                state = BlockCommentState::Normal;
-                                depth += 1;
-                                true
-                            }
-                            (_, '*') => {
-                                state = BlockCommentState::FoundAsterisk;
-                                true
-                            }
-                            (_, '/') => {
-                                state = BlockCommentState::FoundSlash;
-                                true
-                            }
-                            _ => {
-                                state = BlockCommentState::Normal;
-                                if c == '\n' || c == '\r' {
-                                    newline = true;
+
+                        // Loop through all the characters in a block comment. There are a couple
+                        // things to consider:
+                        //
+                        // - We need to maintain the correct position as we iterate. Including new
+                        //   lines. Including CRLF.
+                        // - We need to respect block comment depth.
+                        // - We need to break out of the loop when we reach the end of our
+                        //   source code.
+                        // - We need to report the length of our remaining source so that we can get
+                        //   a sub-slice of the source for our comment.
+                        let (ends_ok, source_len) = loop {
+                            match self.chars.next() {
+                                // Subtract from the block comment depth and possible break out of
+                                // the loop.
+                                Some('*') => {
+                                    self.position.character += 1;
+                                    match self.chars.peek() {
+                                        Some('/') => {
+                                            self.chars.next();
+                                            self.position.character += 1;
+                                            depth -= 1;
+                                            if depth == 0 {
+                                                break (true, self.chars.iter().as_str().len() + 2);
+                                            }
+                                        }
+                                        _ => {}
+                                    }
                                 }
-                                true
+                                // Add to the block comment depth.
+                                Some('/') => {
+                                    self.position.character += 1;
+                                    match self.chars.peek() {
+                                        Some('*') => {
+                                            self.chars.next();
+                                            self.position.character += 1;
+                                            depth += 1;
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                // LF
+                                Some('\n') => {
+                                    self.position.line += 1;
+                                    self.position.character = 0;
+                                }
+                                // CR and CRLF
+                                Some('\r') => {
+                                    self.position.line += 1;
+                                    self.position.character = 0;
+                                    if let Some('\n') = self.chars.peek() {
+                                        self.chars.next();
+                                    }
+                                }
+                                // Other characters
+                                Some(c) => self.position.character += c.len_utf16() as u16,
+                                // Exit if there are no more characters.
+                                None => break (false, 0),
                             }
-                        });
-                        if let Some('/') = self.chars.peek() {
-                            self.chars.next();
-                            let comment = &comment[0..(comment.len() - 1)];
+                        };
+
+                        // This is safe because we know that both `source.len()` and `source_len`
+                        // are on character boundaries.
+                        let comment =
+                            unsafe { source.get_unchecked(..(source.len() - source_len)) };
+
+                        // If the block comment did not end ok then we need to report an
+                        // error diagnostic!
+                        if ends_ok {
                             trivia.push(Trivia::Comment(Comment::Block(comment, true)));
                         } else {
-                            self.chars.next();
                             self.report_diagnostic(Diagnostic::unexpected_ending(
-                                self.chars.position(),
+                                self.position,
                                 ExpectedSyntax::BlockCommentEnd,
                             ));
                             trivia.push(Trivia::Comment(Comment::Block(comment, false)));
                         }
+
                         // If we are parsing trailing trivia and there was a newline in the block
                         // comment then stop parsing trivia.
-                        if !leading && newline {
+                        if !leading && last_position_line != self.position.line {
                             break;
                         }
                     }
@@ -976,8 +1270,8 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
                 // Other whitespace
                 Some(c) if c.is_whitespace() => {
+                    trivia.push(Trivia::OtherWhitespace(*c));
                     self.chars.next();
-                    trivia.push(Trivia::OtherWhitespace(c));
                 }
 
                 // If there is no more trivia then we may stop the loop.
@@ -991,8 +1285,8 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
     /// Peeks at the next character (or ending) and creates an unexpected diagnostic.
     fn unexpected_peek(&mut self, expected: ExpectedSyntax) -> DiagnosticRef {
         let diagnostic = match self.chars.peek() {
-            Some(c) => Diagnostic::unexpected_char(self.chars.position(), c, expected),
-            None => Diagnostic::unexpected_ending(self.chars.position(), expected),
+            Some(c) => Diagnostic::unexpected_char(self.position, *c, expected),
+            None => Diagnostic::unexpected_ending(self.position, expected),
         };
         self.report_diagnostic(diagnostic)
     }
@@ -1007,20 +1301,9 @@ enum NumberState {
     Exponent,
 }
 
-#[derive(Clone, Copy)]
-enum BlockCommentState {
-    Normal,
-    FoundAsterisk,
-    FoundSlash,
-}
-
 impl<'src> Token<'src> {
     /// Prints a list of tokens and an end token to a markdown table for debugging.
-    pub fn markdown_table(
-        document: &'src Document,
-        tokens: &Vec<Token<'src>>,
-        end_token: &EndToken<'src>,
-    ) -> String {
+    pub fn markdown_table(tokens: &Vec<Token<'src>>, end_token: &EndToken<'src>) -> String {
         let mut output = String::new();
         // Add the markdown table header.
         output.push_str(
@@ -1031,7 +1314,7 @@ impl<'src> Token<'src> {
         );
         // Print each token.
         for token in tokens {
-            Self::add_token_to_markdown_table(document, &mut output, token);
+            Self::add_token_to_markdown_table(&mut output, token);
         }
         // Print each leading trivia of the end token.
         for trivia in &end_token.leading_trivia {
@@ -1039,7 +1322,7 @@ impl<'src> Token<'src> {
         }
 
         // Print the end token.
-        let end_position = end_token.position.format(document);
+        let end_position = format!("{}", end_token.position);
         output.push_str("| ");
         output.push_str(&end_position);
         output.extend(iter::repeat(' ').take(16 - cmp::min(16, end_position.len() + 1)));
@@ -1048,16 +1331,12 @@ impl<'src> Token<'src> {
         output
     }
 
-    fn add_token_to_markdown_table(
-        document: &'src Document,
-        output: &mut String,
-        token: &Token<'src>,
-    ) {
+    fn add_token_to_markdown_table(output: &mut String, token: &Token<'src>) {
         for trivia in &token.leading_trivia {
             Self::add_trivia_to_markdown_table(output, true, trivia);
         }
 
-        let range = token.range.format(document);
+        let range = format!("{}", token.range);
 
         let (kind, data) = match &token.kind {
             TokenKind::Glyph(glyph) => ("Glyph", format!("`{}`", glyph.source().to_string())),

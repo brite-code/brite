@@ -1,12 +1,12 @@
 //! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
 
-use super::document::{Document, Range};
-use super::lexer::Identifier;
+use super::lexer::{Identifier, Range};
 use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
 
 /// A name is an identifier with the identifier’s range in source code.
+#[derive(Debug)]
 pub struct Name {
     /// The range in source code where the identifier appears.
     pub range: Range,
@@ -42,6 +42,7 @@ pub struct FunctionDeclaration {
 /// - As a `FunctionDeclaration`.
 /// - As a `ClassMethodMember`.
 /// - As a `FunctionExpression`.
+#[derive(Debug)]
 pub struct Function {
     /// The parameters of a function describes what the function accepts as input.
     pub parameters: Vec<FunctionParameter>,
@@ -53,6 +54,7 @@ pub struct Function {
 }
 
 /// An input to a function.
+#[derive(Debug)]
 pub struct FunctionParameter {
     /// The pattern which we match against a function parameter against.
     pub pattern: Pattern,
@@ -110,6 +112,7 @@ pub struct BaseMethodClassMember {
 }
 
 /// A block contains a list of statements which are executed sequentially.
+#[derive(Debug)]
 pub struct Block {
     /// The range of characters covered by this block.
     pub range: Range,
@@ -118,6 +121,7 @@ pub struct Block {
 }
 
 /// A statement describes some action to be executed in the current scope.
+#[derive(Debug)]
 pub enum Statement {
     /// Executes an expression only for the side effects.
     Expression(Expression),
@@ -130,6 +134,7 @@ pub enum Statement {
 }
 
 /// Binds a value to some names in the current scope.
+#[derive(Debug)]
 pub struct BindingStatement {
     /// Binds the value to this pattern in the current scope.
     pub pattern: Pattern,
@@ -140,6 +145,7 @@ pub struct BindingStatement {
 }
 
 /// A constant value in the programmer’s code.
+#[derive(Debug)]
 pub enum Constant {
     /// Either `true` or `false`.
     Boolean(bool),
@@ -150,6 +156,7 @@ pub enum Constant {
 }
 
 /// The Brite supported integer bases.
+#[derive(Debug)]
 pub enum IntegerBase {
     /// Base 2
     Binary,
@@ -160,6 +167,7 @@ pub enum IntegerBase {
 }
 
 /// Some execution which returns a value.
+#[derive(Debug)]
 pub struct Expression {
     /// The range of our expression in source code.
     pub range: Range,
@@ -168,6 +176,7 @@ pub struct Expression {
 }
 
 /// The kind of an Expression AST node.
+#[derive(Debug)]
 pub enum ExpressionKind {
     /// A constant value in the programmer’s code.
     Constant(Constant),
@@ -198,6 +207,7 @@ pub enum ExpressionKind {
 }
 
 /// Calls a function with some arguments.
+#[derive(Debug)]
 pub struct CallExpression {
     /// The function we want to call.
     pub callee: Box<Expression>,
@@ -206,6 +216,7 @@ pub struct CallExpression {
 }
 
 /// Constructs a class instance with some fields.
+#[derive(Debug)]
 pub struct ConstructExpression {
     /// The class to be constructed.
     pub class: Name,
@@ -214,6 +225,7 @@ pub struct ConstructExpression {
 }
 
 /// A field in a [`ConstructExpression`].
+#[derive(Debug)]
 pub struct ConstructExpressionField {
     /// The name of the class field.
     pub name: Name,
@@ -222,6 +234,7 @@ pub struct ConstructExpressionField {
 }
 
 /// Accesses a member of a class instance.
+#[derive(Debug)]
 pub struct MemberExpression {
     /// The object we are accessing a property of.
     pub object: Expression,
@@ -230,6 +243,7 @@ pub struct MemberExpression {
 }
 
 /// An operation using prefix syntax.
+#[derive(Debug)]
 pub struct PrefixExpression {
     /// The operator which describes this operation.
     pub operator: PrefixOperator,
@@ -238,6 +252,7 @@ pub struct PrefixExpression {
 }
 
 /// The operator of a `PrefixExpression`.
+#[derive(Debug)]
 pub enum PrefixOperator {
     /// `!`
     Not,
@@ -248,6 +263,7 @@ pub enum PrefixOperator {
 }
 
 /// An operation using infix syntax.
+#[derive(Debug)]
 pub struct InfixExpression {
     /// The operator which describes this operation.
     pub operator: InfixOperator,
@@ -258,6 +274,7 @@ pub struct InfixExpression {
 }
 
 /// The operator of an `InfixExpression`.
+#[derive(Debug)]
 pub enum InfixOperator {
     /// `+`
     Add,
@@ -290,6 +307,7 @@ pub enum InfixOperator {
 /// These operators are separate from `InfixExpression` because logical operators may only
 /// conditionally execute their second argument. It’s easy to get this confused with
 /// `InfixExpression` which always unconditionally executes both arguments.
+#[derive(Debug)]
 pub struct LogicalExpression {
     /// The operator which describes this operation.
     pub operator: LogicalOperator,
@@ -300,6 +318,7 @@ pub struct LogicalExpression {
 }
 
 /// The operator of a `LogicalExpression`.
+#[derive(Debug)]
 pub enum LogicalOperator {
     /// `&&`
     And,
@@ -308,6 +327,7 @@ pub enum LogicalOperator {
 }
 
 /// A conditional expression chooses a branch to take based on a test expression.
+#[derive(Debug)]
 pub struct ConditionalExpressionIf {
     /// The test expression.
     pub test: Expression,
@@ -318,6 +338,7 @@ pub struct ConditionalExpressionIf {
 }
 
 /// If the test of a [`ConditionalExpressionIf`] fails then we execute this else branch.
+#[derive(Debug)]
 pub enum ConditionalExpressionElse {
     /// ```ite
     /// else {
@@ -334,6 +355,7 @@ pub enum ConditionalExpressionElse {
 }
 
 /// Wraps an expression in parentheses with an optional type annotation.
+#[derive(Debug)]
 pub struct WrappedExpression {
     /// The expression which was wrapped.
     pub expression: Expression,
@@ -342,6 +364,7 @@ pub struct WrappedExpression {
 }
 
 /// A pattern is used for binding a value to some names in the current block scope.
+#[derive(Debug)]
 pub struct Pattern {
     /// The range of our pattern.
     pub range: Range,
@@ -350,6 +373,7 @@ pub struct Pattern {
 }
 
 /// The kind of a pattern AST node.
+#[derive(Debug)]
 pub enum PatternKind {
     /// Binds the value to an identifier name in scope.
     Binding(Identifier),
@@ -360,6 +384,7 @@ pub enum PatternKind {
 }
 
 /// Describes the values which may be assigned to a certain location.
+#[derive(Debug)]
 pub struct Type {
     /// The range of our type.
     pub range: Range,
@@ -368,6 +393,7 @@ pub struct Type {
 }
 
 /// The kind of a type AST node. Not to be confused with type kinds in a higher-order type system.
+#[derive(Debug)]
 pub enum TypeKind {
     /// References a type in our project.
     Reference(Identifier),
@@ -379,6 +405,7 @@ pub enum TypeKind {
 }
 
 /// The type of a function. Functions may be passed around just like any other value.
+#[derive(Debug)]
 pub struct FunctionType {
     /// The types of this function’s parameters.
     pub parameters: Vec<Type>,
@@ -388,24 +415,22 @@ pub struct FunctionType {
 
 impl Name {
     /// Converts a name into an S-expression for debugging.
-    fn lisp(&self, document: &Document) -> Lisp {
-        lisp!("name", self.range.format(document), &self.identifier)
+    fn lisp(&self) -> Lisp {
+        lisp!("name", format!("{}", self.range), &self.identifier)
     }
 }
 
 impl Declaration {
     /// Pretty prints a declaration to a lisp-string format with the specified width. We use this
     /// lisp format for debugging purposes only.
-    pub fn print_lisp(&self, document: &Document, width: usize) -> String {
-        self.lisp(document).print(width)
+    pub fn print_lisp(&self, width: usize) -> String {
+        self.lisp().print(width)
     }
 
     /// Converts a declaration into an S-expression for debugging.
-    fn lisp(&self, document: &Document) -> Lisp {
+    fn lisp(&self) -> Lisp {
         match self {
-            Declaration::Function(function) => function
-                .function
-                .lisp(document, function.name.lisp(document)),
+            Declaration::Function(function) => function.function.lisp(function.name.lisp()),
             Declaration::Class(_) => unimplemented!(),
         }
     }
@@ -414,37 +439,37 @@ impl Declaration {
 impl Function {
     /// Converts a function to a symbolic expression. Accepts a name s-expression parameter for
     /// debugging some name for the function.
-    fn lisp(&self, document: &Document, name: Lisp) -> Lisp {
+    fn lisp(&self, name: Lisp) -> Lisp {
         let mut expressions = Vec2::new("fun".into(), name);
         for parameter in &self.parameters {
             if let Some(annotation) = &parameter.annotation {
                 expressions.push(lisp!(
                     "param",
-                    parameter.pattern.lisp(document),
-                    lisp!("type", annotation.lisp(document))
+                    parameter.pattern.lisp(),
+                    lisp!("type", annotation.lisp())
                 ));
             } else {
-                expressions.push(lisp!("param", parameter.pattern.lisp(document)));
+                expressions.push(lisp!("param", parameter.pattern.lisp()));
             }
         }
         if let Some(return_type) = &self.return_type {
-            expressions.push(lisp!("type", return_type.lisp(document)));
+            expressions.push(lisp!("type", return_type.lisp()));
         }
-        expressions.push(self.body.lisp(document));
+        expressions.push(self.body.lisp());
         Lisp::List(expressions)
     }
 }
 
 impl Block {
     /// Converts a block to a symbolic expression.
-    fn lisp(&self, document: &Document) -> Lisp {
+    fn lisp(&self) -> Lisp {
         if self.statements.is_empty() {
             lisp!("block")
         } else {
             let mut expressions = Vec::with_capacity(1 + self.statements.len());
             expressions.push("block".into());
             for statement in &self.statements {
-                expressions.push(statement.lisp(document));
+                expressions.push(statement.lisp());
             }
             Lisp::List(Vec2::from_vec(expressions))
         }
@@ -453,25 +478,21 @@ impl Block {
 
 impl Statement {
     /// Converts a statement to a symbolic expression.
-    fn lisp(&self, document: &Document) -> Lisp {
+    fn lisp(&self) -> Lisp {
         match self {
-            Statement::Expression(expression) => expression.lisp(document),
+            Statement::Expression(expression) => expression.lisp(),
             Statement::Binding(binding) => if let Some(annotation) = &binding.annotation {
                 lisp!(
                     "let",
-                    binding.pattern.lisp(document),
-                    lisp!("type", annotation.lisp(document)),
-                    binding.value.lisp(document)
+                    binding.pattern.lisp(),
+                    lisp!("type", annotation.lisp()),
+                    binding.value.lisp()
                 )
             } else {
-                lisp!(
-                    "let",
-                    binding.pattern.lisp(document),
-                    binding.value.lisp(document)
-                )
+                lisp!("let", binding.pattern.lisp(), binding.value.lisp())
             },
             Statement::Return(argument) => if let Some(argument) = argument {
-                lisp!("return", argument.lisp(document))
+                lisp!("return", argument.lisp())
             } else {
                 lisp!("return")
             },
@@ -510,42 +531,35 @@ impl Constant {
 
 impl Expression {
     /// Converts an expression to a symbolic expression.
-    fn lisp(&self, document: &Document) -> Lisp {
-        let range: Lisp = self.range.format(document).into();
+    fn lisp(&self) -> Lisp {
+        let range: Lisp = format!("{}", self.range).into();
         match &self.kind {
             ExpressionKind::Constant(constant) => constant.lisp(range),
             ExpressionKind::Reference(identifier) => lisp!("var", range, identifier),
             ExpressionKind::This => lisp!("this", range),
-            ExpressionKind::Function(function) => function.lisp(document, range),
+            ExpressionKind::Function(function) => function.lisp(range),
             ExpressionKind::Call(_) => unimplemented!(),
             ExpressionKind::Construct(_) => unimplemented!(),
             ExpressionKind::Member(member) => {
                 // We don’t print the range of a member expression since it should be obvious. We
                 // will assert that the range is as we expect instead.
-                assert_eq!(
-                    member.object.range.between(member.property.range),
-                    self.range
-                );
-                lisp!(
-                    "prop",
-                    member.object.lisp(document),
-                    member.property.lisp(document)
-                )
+                assert_eq!(member.object.range.union(member.property.range), self.range);
+                lisp!("prop", member.object.lisp(), member.property.lisp())
             }
             ExpressionKind::Prefix(_) => unimplemented!(),
             ExpressionKind::Infix(_) => unimplemented!(),
             ExpressionKind::Logical(_) => unimplemented!(),
             ExpressionKind::Conditional(_) => unimplemented!(),
-            ExpressionKind::Block(block) => block.lisp(document),
+            ExpressionKind::Block(block) => block.lisp(),
             ExpressionKind::Wrapped(wrapped) => if let Some(annotation) = &wrapped.annotation {
                 lisp!(
                     "wrap",
                     range,
-                    wrapped.expression.lisp(document),
-                    lisp!("type", annotation.lisp(document))
+                    wrapped.expression.lisp(),
+                    lisp!("type", annotation.lisp())
                 )
             } else {
-                lisp!("wrap", range, wrapped.expression.lisp(document))
+                lisp!("wrap", range, wrapped.expression.lisp())
             },
         }
     }
@@ -553,8 +567,8 @@ impl Expression {
 
 impl Pattern {
     /// Converts a pattern to a symbolic expression.
-    fn lisp(&self, document: &Document) -> Lisp {
-        let range = self.range.format(document);
+    fn lisp(&self) -> Lisp {
+        let range: Lisp = format!("{}", self.range).into();
         match &self.kind {
             PatternKind::Binding(identifier) => lisp!("var", range, identifier),
             PatternKind::Hole => lisp!("hole", range),
@@ -565,8 +579,8 @@ impl Pattern {
 
 impl Type {
     /// Converts a type to a symbolic expression.
-    fn lisp(&self, document: &Document) -> Lisp {
-        let range = self.range.format(document);
+    fn lisp(&self) -> Lisp {
+        let range: Lisp = format!("{}", self.range).into();
         match &self.kind {
             TypeKind::Reference(identifier) => lisp!("var", range, identifier),
             TypeKind::This => lisp!("this", range),
@@ -574,9 +588,9 @@ impl Type {
                 let mut expressions = Vec::with_capacity(2 + function.parameters.len());
                 expressions.push("fun".into());
                 for parameter in &function.parameters {
-                    expressions.push(lisp!("param", parameter.lisp(document)));
+                    expressions.push(lisp!("param", parameter.lisp()));
                 }
-                expressions.push(function.return_.lisp(document));
+                expressions.push(function.return_.lisp());
                 Lisp::List(Vec2::from_vec(expressions))
             }
         }

@@ -63,7 +63,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use crate::syntax::{Document, Glyph, Position, Range, Token};
+use crate::syntax::{Glyph, Position, Range, Token};
 use crate::utils::markup::Markup;
 use std::rc::Rc;
 
@@ -179,9 +179,19 @@ impl Diagnostic {
     }
 
     /// The parser ran into a character it did not recognize.
-    pub fn unexpected_char(position: Position, unexpected: char, expected: ExpectedSyntax) -> Self {
+    pub fn unexpected_char(start: Position, unexpected: char, expected: ExpectedSyntax) -> Self {
+        let mut end = start.clone();
+        // This behaves correctly for CRLF (`\r\n`) as well because we would count it as a single
+        // line and we would not be able to measure a position between the CR (`\r`) and LF (`\n`).
+        if unexpected == '\n' || unexpected == '\r' {
+            end.line += 1;
+            end.character = 0;
+        } else {
+            // Make sure to add UTF-16!
+            end.character += unexpected.len_utf16() as u16;
+        }
         Self::unexpected_syntax(
-            Range::char(position, unexpected),
+            Range::new(start, end),
             UnexpectedSyntax::Char(unexpected),
             expected,
         )
@@ -195,7 +205,7 @@ impl Diagnostic {
     /// The parser ran into the end of the source document unexpectedly.
     pub fn unexpected_ending(position: Position, expected: ExpectedSyntax) -> Self {
         Self::error(
-            Range::new(position, 0),
+            Range::new(position, position),
             ErrorDiagnosticMessage::UnexpectedEnding { expected },
         )
     }
@@ -356,14 +366,14 @@ impl DiagnosticsCollection {
     }
 
     /// Prints our diagnostic collection to a markdown list for debugging purposes.
-    pub fn markdown_list(&self, document: &Document) -> String {
+    pub fn markdown_list(&self) -> String {
         let mut output = String::new();
         for diagnostic in &self.diagnostics {
-            output.push_str("- (");
-            output.push_str(&diagnostic.range.format(document));
-            output.push_str(") ");
-            output.push_str(&diagnostic.message().to_simple_string());
-            output.push('\n');
+            output.push_str(&format!(
+                "- ({}) {}\n",
+                diagnostic.range,
+                diagnostic.message().to_simple_string()
+            ));
         }
         output
     }

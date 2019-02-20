@@ -25,5 +25,9 @@
   (return (wrap 22:9-22:12 (var 22:10-22:11 x)))
   return
   (wrap 25:3-25:6 (var 25:4-25:5 x))
-  (return (wrap 27:10-29:4 (var 28:5-28:6 x)))))
+  (return (wrap 27:10-29:4 (var 28:5-28:6 x)))
+  return
+  (var 32:6-32:7 x)
+  return
+  (wrap 34:6-34:9 (var 34:7-34:8 x))))
 ```

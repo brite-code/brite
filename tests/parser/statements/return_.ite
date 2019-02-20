@@ -27,4 +27,9 @@ fun main() {
   return (
     x
   );
+
+  return /*
+  */ x
+  return /*
+  */ (x)
 }

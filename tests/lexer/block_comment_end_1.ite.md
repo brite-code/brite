@@ -1,4 +1,4 @@
-# Lexer Test: `block_comment_end`
+# Lexer Test: `block_comment_end_1`
 
 ## Errors
 - (2:1-2:1) We want `*/` but the file ends.

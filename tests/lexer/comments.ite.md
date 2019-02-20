@@ -121,4 +121,25 @@
 | leading        | Trivia::Spaces                 | 1                          |
 | 52:5-52:6      | Identifier                     | `b`                        |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 53:1           | End                            |                            |
+| leading        | Trivia::Newlines::LF           | 1                          |
+| leading        | Trivia::Comment::Line          |                            |
+| leading        | Trivia::Newlines::LF           | 1                          |
+| leading        | Trivia::Comment::Line          |                            |
+| leading        | Trivia::Newlines::LF           | 2                          |
+| leading        | Trivia::Comment::Block         |                            |
+| leading        | Trivia::Spaces                 | 1                          |
+| 57:10-57:11    | Identifier                     | `x`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| leading        | Trivia::Comment::Block         |                            |
+| leading        | Trivia::Spaces                 | 1                          |
+| 58:11-58:12    | Identifier                     | `x`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| leading        | Trivia::Comment::Block         |                            |
+| leading        | Trivia::Spaces                 | 1                          |
+| 59:10-59:11    | Identifier                     | `x`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| leading        | Trivia::Comment::Block         |                            |
+| leading        | Trivia::Spaces                 | 1                          |
+| 60:11-60:12    | Identifier                     | `x`                        |
+| trailing       | Trivia::Newlines::LF           | 1                          |
+| 61:1           | End                            |                            |
