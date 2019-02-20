@@ -440,7 +440,7 @@ impl Statement {
             Statement::Expression(expression) => expression.lisp(document),
             Statement::Binding(_) => unimplemented!(),
             Statement::Return(_) => unimplemented!(),
-            Statement::Empty => unimplemented!(),
+            Statement::Empty => lisp!("empty"),
         }
     }
 }

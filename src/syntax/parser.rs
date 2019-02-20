@@ -92,6 +92,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
+        // Empty Statement
+        if self.try_parse_glyph(Glyph::Semicolon).is_some() {
+            return Ok(Statement::Empty);
+        }
+
         // Expression Statement
         let expression = self.parse_expression()?;
         self.try_parse_glyph(Glyph::Semicolon);
