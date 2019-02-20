@@ -111,6 +111,8 @@ pub struct BaseMethodClassMember {
 
 /// A block contains a list of statements which are executed sequentially.
 pub struct Block {
+    /// The range of characters covered by this block.
+    pub range: Range,
     /// Statements to be executed in the block.
     pub statements: Vec<Statement>,
 }
@@ -479,7 +481,7 @@ impl Expression {
             ExpressionKind::Constant(constant) => constant.lisp(range),
             ExpressionKind::Reference(identifier) => lisp!("var", range, identifier),
             ExpressionKind::This => lisp!("this", range),
-            ExpressionKind::Function(_) => unimplemented!(),
+            ExpressionKind::Function(function) => function.lisp(document, range),
             ExpressionKind::Call(_) => unimplemented!(),
             ExpressionKind::Member(_) => unimplemented!(),
             ExpressionKind::Prefix(_) => unimplemented!(),

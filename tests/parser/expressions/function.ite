@@ -1,0 +1,21 @@
+fun main() {
+  fun() {};
+  fun(a) {};
+  fun(a, b) {};
+  fun(a, b, c) {};
+  fun(a,) {};
+  fun(a, b,) {};
+  fun(a, b, c,) {};
+
+  fun() {
+    a;
+    b;
+    c;
+  };
+
+  fun(a, b, c) {
+    a;
+    b;
+    c;
+  };
+}

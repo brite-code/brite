@@ -78,12 +78,17 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     fn parse_block(&mut self) -> Result<Block, DiagnosticRef> {
         let mut statements = Vec::new();
-        self.parse_glyph(Glyph::BraceLeft)?;
-        while self.try_parse_glyph(Glyph::BraceRight).is_none() {
-            let statement = self.parse_statement()?;
-            statements.push(statement);
-        }
-        Ok(Block { statements })
+        let start = self.parse_glyph(Glyph::BraceLeft)?;
+        let end = loop {
+            if let Some(end) = self.try_parse_glyph(Glyph::BraceRight) {
+                break end;
+            } else {
+                let statement = self.parse_statement()?;
+                statements.push(statement);
+            }
+        };
+        let range = start.between(end);
+        Ok(Block { range, statements })
     }
 
     fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
@@ -143,6 +148,16 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             return Ok(Expression {
                 range,
                 kind: ExpressionKind::Constant(constant),
+            });
+        }
+
+        // Function Expression
+        if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
+            let function = self.parse_function()?;
+            let range = start.between(function.body.range);
+            return Ok(Expression {
+                range,
+                kind: ExpressionKind::Function(function),
             });
         }
 
@@ -237,12 +252,13 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     /// Parses a glyph. Reports an error if the next token is not a glyph.
-    fn parse_glyph(&mut self, expected: Glyph) -> Result<(), DiagnosticRef> {
+    fn parse_glyph(&mut self, expected: Glyph) -> Result<Range, DiagnosticRef> {
         if let Some(token) = self.lexer.peek() {
             if let TokenKind::Glyph(actual) = &token.kind {
                 if expected == *actual {
+                    let range = token.range;
                     self.lexer.next();
-                    return Ok(());
+                    return Ok(range);
                 }
             }
         }
