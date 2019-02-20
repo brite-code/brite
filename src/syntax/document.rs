@@ -1,3 +1,4 @@
+use std::cmp;
 use std::str::Chars;
 
 /// A Brite source code document. Source code is represented as text and turned into an AST through
@@ -165,16 +166,16 @@ impl Range {
         Range { start, length }
     }
 
-    /// Creates a range between two positions.
-    pub fn between(start: Position, end: Position) -> Self {
-        if start <= end {
-            let length = end.0 - start.0;
-            Range { start, length }
+    /// Creates a range between two ranges.
+    pub fn between(self, other: Range) -> Self {
+        let (a, b) = if self.start <= other.start {
+            (self, other)
         } else {
-            let (start, end) = (end, start);
-            let length = end.0 - start.0;
-            Range { start, length }
-        }
+            (other, self)
+        };
+        let start = a.start;
+        let length = cmp::max(b.start.0 - a.start.0 + b.length, a.length);
+        Range { start, length }
     }
 
     /// Returns the start position of our range.

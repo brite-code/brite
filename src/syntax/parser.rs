@@ -33,7 +33,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     fn parse_declaration(&mut self) -> Result<Declaration, DiagnosticRef> {
         // Function declaration
-        if self.try_parse_glyph(Glyph::Keyword(Keyword::Fun)).is_some() {
+        if self.try_parse_keyword(Keyword::Fun).is_some() {
             let name = self.parse_name()?;
             let function = self.parse_function()?;
             return Ok(Declaration::Function(FunctionDeclaration {
@@ -94,7 +94,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         }
 
         // Hole pattern
-        if let Some(range) = self.try_parse_glyph(Glyph::Keyword(Keyword::Hole)) {
+        if let Some(range) = self.try_parse_keyword(Keyword::Hole) {
             return Ok(Pattern {
                 range,
                 kind: PatternKind::Hole,
@@ -102,7 +102,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         }
 
         // This pattern
-        if let Some(range) = self.try_parse_glyph(Glyph::Keyword(Keyword::This)) {
+        if let Some(range) = self.try_parse_keyword(Keyword::This) {
             return Ok(Pattern {
                 range,
                 kind: PatternKind::This,
@@ -122,10 +122,26 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         }
 
         // This type
-        if let Some(range) = self.try_parse_glyph(Glyph::Keyword(Keyword::This)) {
+        if let Some(range) = self.try_parse_keyword(Keyword::This) {
             return Ok(Type {
                 range,
                 kind: TypeKind::This,
+            });
+        }
+
+        // Function type
+        if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
+            self.parse_glyph(Glyph::ParenLeft)?;
+            let parameters = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
+            self.parse_glyph(Glyph::Arrow)?;
+            let return_ = self.parse_type()?;
+            let range = start.between(return_.range);
+            return Ok(Type {
+                range,
+                kind: TypeKind::Function(FunctionType {
+                    parameters,
+                    return_: Box::new(return_),
+                }),
             });
         }
 
@@ -181,6 +197,12 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }
         }
         None
+    }
+
+    /// Tries to parse a keyword. If the next token is the expected token then we advance the lexer
+    /// and return the keyword’s range. Otherwise we don’t advance the lexer and return nothing.
+    fn try_parse_keyword(&mut self, expected: Keyword) -> Option<Range> {
+        self.try_parse_glyph(Glyph::Keyword(expected))
     }
 
     /// Tries to parse an identifier. If the next token is an identifier then we advance the lexer

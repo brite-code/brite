@@ -445,7 +445,15 @@ impl Type {
         match &self.kind {
             TypeKind::Reference(identifier) => lisp!("var", range, identifier),
             TypeKind::This => lisp!("this", range),
-            TypeKind::Function(_) => unimplemented!(),
+            TypeKind::Function(function) => {
+                let mut expressions = Vec::with_capacity(2 + function.parameters.len());
+                expressions.push("fun".into());
+                for parameter in &function.parameters {
+                    expressions.push(lisp!("param", parameter.lisp(document)));
+                }
+                expressions.push(function.return_.lisp(document));
+                Lisp::List(Vec2::from_vec(expressions))
+            }
         }
     }
 }

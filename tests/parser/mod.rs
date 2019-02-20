@@ -1,4 +1,5 @@
 mod declarations;
+mod types;
 
 test!(empty);
 test!(unexpected_char);
