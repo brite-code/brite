@@ -1,6 +1,6 @@
 use super::ast::*;
 use super::document::Range;
-use super::source::*;
+use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 
 #[cfg(rustdoc)]

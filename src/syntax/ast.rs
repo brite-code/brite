@@ -1,7 +1,7 @@
 //! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
 
 use super::document::{Document, Range};
-use super::source::Identifier;
+use super::lexer::Identifier;
 use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
