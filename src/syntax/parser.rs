@@ -1,3 +1,7 @@
+// TODO: Error recovery? Incremental parsing? These can be solved at the same time. We can recover
+// from errors by parsing at a different increment. Having syntax with clear semicolons and/
+// declarations makes it really easy for us to determine good, incremental, ranges.
+
 use super::ast::*;
 use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
