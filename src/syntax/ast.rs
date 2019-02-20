@@ -438,7 +438,20 @@ impl Statement {
     fn lisp(&self, document: &Document) -> Lisp {
         match self {
             Statement::Expression(expression) => expression.lisp(document),
-            Statement::Binding(_) => unimplemented!(),
+            Statement::Binding(binding) => if let Some(annotation) = &binding.annotation {
+                lisp!(
+                    "let",
+                    binding.pattern.lisp(document),
+                    lisp!("type", annotation.lisp(document)),
+                    binding.value.lisp(document)
+                )
+            } else {
+                lisp!(
+                    "let",
+                    binding.pattern.lisp(document),
+                    binding.value.lisp(document)
+                )
+            },
             Statement::Return(_) => unimplemented!(),
             Statement::Empty => lisp!("empty"),
         }

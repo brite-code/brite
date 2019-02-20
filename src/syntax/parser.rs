@@ -92,6 +92,24 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
+        // Binding Statement
+        if self.try_parse_keyword(Keyword::Let).is_some() {
+            let pattern = self.parse_pattern()?;
+            let annotation = if self.try_parse_glyph(Glyph::Colon).is_some() {
+                Some(self.parse_type()?)
+            } else {
+                None
+            };
+            self.parse_glyph(Glyph::Equals)?;
+            let value = self.parse_expression()?;
+            self.try_parse_glyph(Glyph::Semicolon);
+            return Ok(Statement::Binding(BindingStatement {
+                pattern,
+                annotation,
+                value,
+            }));
+        }
+
         // Empty Statement
         if self.try_parse_glyph(Glyph::Semicolon).is_some() {
             return Ok(Statement::Empty);

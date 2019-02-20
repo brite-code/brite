@@ -27,7 +27,7 @@
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 12:1-12:5      | Identifier                     | `void`                     |
 | trailing       | Trivia::Newlines::LF           | 1                          |
-| 13:1-13:4      | Identifier                     | `let`                      |
+| 13:1-13:4      | Glyph                          | `let`                      |
 | trailing       | Trivia::Newlines::LF           | 1                          |
 | 14:1-14:3      | Identifier                     | `if`                       |
 | trailing       | Trivia::Newlines::LF           | 1                          |
