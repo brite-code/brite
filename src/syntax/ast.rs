@@ -410,18 +410,56 @@ impl Function {
         if let Some(return_type) = &self.return_type {
             expressions.push(lisp!("type", return_type.lisp(document)));
         }
-        expressions.push(self.body.lisp());
+        expressions.push(self.body.lisp(document));
         Lisp::List(expressions)
     }
 }
 
 impl Block {
     /// Converts a block to a symbolic expression.
-    fn lisp(&self) -> Lisp {
+    fn lisp(&self, document: &Document) -> Lisp {
         if self.statements.is_empty() {
             lisp!("block")
         } else {
-            unimplemented!()
+            let mut expressions = Vec::with_capacity(1 + self.statements.len());
+            expressions.push("block".into());
+            for statement in &self.statements {
+                expressions.push(statement.lisp(document));
+            }
+            Lisp::List(Vec2::from_vec(expressions))
+        }
+    }
+}
+
+impl Statement {
+    /// Converts a statement to a symbolic expression.
+    fn lisp(&self, document: &Document) -> Lisp {
+        match self {
+            Statement::Expression(expression) => expression.lisp(document),
+            Statement::Binding(_) => unimplemented!(),
+            Statement::Return(_) => unimplemented!(),
+            Statement::Empty => unimplemented!(),
+        }
+    }
+}
+
+impl Expression {
+    /// Converts an expression to a symbolic expression.
+    fn lisp(&self, document: &Document) -> Lisp {
+        let range = self.range.format(document);
+        match &self.kind {
+            ExpressionKind::Constant(_) => unimplemented!(),
+            ExpressionKind::Reference(identifier) => lisp!("var", range, identifier),
+            ExpressionKind::This => lisp!("this", range),
+            ExpressionKind::Function(_) => unimplemented!(),
+            ExpressionKind::Call(_) => unimplemented!(),
+            ExpressionKind::Member(_) => unimplemented!(),
+            ExpressionKind::Prefix(_) => unimplemented!(),
+            ExpressionKind::Infix(_) => unimplemented!(),
+            ExpressionKind::Logical(_) => unimplemented!(),
+            ExpressionKind::Conditional(_) => unimplemented!(),
+            ExpressionKind::Block(_) => unimplemented!(),
+            ExpressionKind::Wrapped(_) => unimplemented!(),
         }
     }
 }

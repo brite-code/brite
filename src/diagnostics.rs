@@ -144,6 +144,8 @@ pub enum ExpectedSyntax {
     HexadecimalDigit,
     /// Expected a declaration.
     Declaration,
+    /// Expected an expression.
+    Expression,
     /// Expected a pattern.
     Pattern,
     /// Expected a type.
@@ -307,8 +309,9 @@ impl ExpectedSyntax {
             ExpectedSyntax::BinaryDigit => message.push("a binary digit"),
             ExpectedSyntax::HexadecimalDigit => message.push("a hexadecimal digit"),
 
-            // NOTE: Is there a more common word than “declaration”?
+            // NOTE: Are there a more common words than “declaration”, “statement”, or “expression”?
             ExpectedSyntax::Declaration => message.push("a declaration"),
+            ExpectedSyntax::Expression => message.push("an expression"),
 
             // The programmer should not need to be familiar with language like “pattern”. Most of
             // the time when we expect a pattern what we really want is a variable name.

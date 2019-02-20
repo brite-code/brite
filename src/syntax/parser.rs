@@ -77,11 +77,39 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn parse_block(&mut self) -> Result<Block, DiagnosticRef> {
+        let mut statements = Vec::new();
         self.parse_glyph(Glyph::BraceLeft)?;
-        self.parse_glyph(Glyph::BraceRight)?;
-        Ok(Block {
-            statements: Vec::new(),
-        })
+        while self.try_parse_glyph(Glyph::BraceRight).is_none() {
+            let statement = self.parse_statement()?;
+            statements.push(statement);
+        }
+        Ok(Block { statements })
+    }
+
+    fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
+        let expression = self.parse_expression()?;
+        self.try_parse_glyph(Glyph::Semicolon);
+        Ok(Statement::Expression(expression))
+    }
+
+    fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
+        // Reference expression
+        if let Some((range, identifier)) = self.try_parse_identifier() {
+            return Ok(Expression {
+                range,
+                kind: ExpressionKind::Reference(identifier),
+            });
+        }
+
+        // This expression
+        if let Some(range) = self.try_parse_keyword(Keyword::This) {
+            return Ok(Expression {
+                range,
+                kind: ExpressionKind::This,
+            });
+        }
+
+        self.unexpected(ExpectedSyntax::Expression)
     }
 
     fn parse_pattern(&mut self) -> Result<Pattern, DiagnosticRef> {

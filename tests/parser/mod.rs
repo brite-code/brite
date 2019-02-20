@@ -1,4 +1,5 @@
 mod declarations;
+mod expressions;
 mod types;
 
 test!(empty);
