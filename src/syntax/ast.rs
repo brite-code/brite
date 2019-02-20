@@ -88,7 +88,7 @@ pub struct FieldClassMember {
     /// The name of the class field.
     pub name: Name,
     /// The type of the class field’s data.
-    pub type_: Type,
+    pub value: Type,
 }
 
 /// A method declares some function behavior that a class may perform.
@@ -179,6 +179,8 @@ pub enum ExpressionKind {
     Function(Function),
     /// Calls a function with some arguments.
     Call(CallExpression),
+    /// Constructs a class instance with some fields.
+    Construct(ConstructExpression),
     /// Accesses the member of a class instance.
     Member(Box<MemberExpression>),
     /// An operation using prefix syntax.
@@ -201,6 +203,22 @@ pub struct CallExpression {
     pub callee: Box<Expression>,
     /// The arguments we want to call the function with.
     pub arguments: Vec<Expression>,
+}
+
+/// Constructs a class instance with some fields.
+pub struct ConstructExpression {
+    /// The class to be constructed.
+    pub class: Name,
+    /// The fields we construct the class with.
+    pub fields: Vec<ConstructExpressionField>,
+}
+
+/// A field in a [`ConstructExpression`].
+pub struct ConstructExpressionField {
+    /// The name of the class field.
+    pub name: Name,
+    /// The value of we use for the class field.
+    pub value: Expression,
 }
 
 /// Accesses the member of a class instance.
@@ -500,6 +518,7 @@ impl Expression {
             ExpressionKind::This => lisp!("this", range),
             ExpressionKind::Function(function) => function.lisp(document, range),
             ExpressionKind::Call(_) => unimplemented!(),
+            ExpressionKind::Construct(_) => unimplemented!(),
             ExpressionKind::Member(_) => unimplemented!(),
             ExpressionKind::Prefix(_) => unimplemented!(),
             ExpressionKind::Infix(_) => unimplemented!(),
