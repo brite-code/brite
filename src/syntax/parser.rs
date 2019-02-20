@@ -180,6 +180,35 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     fn try_parse_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
+        if let Some(mut expression) = self.try_parse_primary_expression()? {
+            loop {
+                // Member Expression
+                if self.try_parse_glyph(Glyph::Dot).is_some() {
+                    let property = self.parse_name()?;
+                    let range = expression.range.between(property.range);
+                    expression = Expression {
+                        range,
+                        kind: ExpressionKind::Member(Box::new(MemberExpression {
+                            object: expression,
+                            property,
+                        })),
+                    };
+                    continue;
+                }
+
+                break;
+            }
+            Ok(Some(expression))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Parses a primary expression. A primary expression is balanced. It may stand on its own. It
+    /// has a start and end which are not expressions themselves. It has the most basic precedence
+    /// because of this. Other expressions which do depend on precedence build themselves out of
+    /// primary expressions.
+    fn try_parse_primary_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
         // Reference Expression
         if let Some((range, identifier)) = self.try_parse_identifier() {
             return Ok(Some(Expression {

@@ -79,7 +79,7 @@ impl<'src> Document<'src> {
 /// unsigned integer which represents the _byte_ offset into the source document.
 ///
 /// [1]: https://microsoft.github.io/language-server-protocol/specification
-#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Position(u32);
 
 impl Position {
@@ -145,7 +145,7 @@ impl Position {
 /// selection in an editor. Therefore the end position is exclusive.
 ///
 /// We need to keep this small as an AST will contain a _lot_ of ranges. Currently 64 bits.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Range {
     /// The range’s start position.
     start: Position,

@@ -1,0 +1,14 @@
+fun main() {
+  o.p;
+  o.p.q;
+  (o.p).q;
+  a.b.c.d.e.f.g;
+  a
+  .b
+  .c
+  .d;
+  a.
+  b.
+  c.
+  d;
+}

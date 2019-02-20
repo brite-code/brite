@@ -181,7 +181,7 @@ pub enum ExpressionKind {
     Call(CallExpression),
     /// Constructs a class instance with some fields.
     Construct(ConstructExpression),
-    /// Accesses the member of a class instance.
+    /// Accesses a member of a class instance.
     Member(Box<MemberExpression>),
     /// An operation using prefix syntax.
     Prefix(Box<PrefixExpression>),
@@ -221,12 +221,12 @@ pub struct ConstructExpressionField {
     pub value: Expression,
 }
 
-/// Accesses the member of a class instance.
+/// Accesses a member of a class instance.
 pub struct MemberExpression {
     /// The object we are accessing a property of.
     pub object: Expression,
     /// The name of the property we are accessing.
-    pub property: Identifier,
+    pub property: Name,
 }
 
 /// An operation using prefix syntax.
@@ -519,7 +519,19 @@ impl Expression {
             ExpressionKind::Function(function) => function.lisp(document, range),
             ExpressionKind::Call(_) => unimplemented!(),
             ExpressionKind::Construct(_) => unimplemented!(),
-            ExpressionKind::Member(_) => unimplemented!(),
+            ExpressionKind::Member(member) => {
+                // We don’t print the range of a member expression since it should be obvious. We
+                // will assert that the range is as we expect instead.
+                assert_eq!(
+                    member.object.range.between(member.property.range),
+                    self.range
+                );
+                lisp!(
+                    "prop",
+                    member.object.lisp(document),
+                    member.property.lisp(document)
+                )
+            }
             ExpressionKind::Prefix(_) => unimplemented!(),
             ExpressionKind::Infix(_) => unimplemented!(),
             ExpressionKind::Logical(_) => unimplemented!(),
