@@ -5,5 +5,6 @@ extern crate unicode_xid;
 #[macro_use]
 mod utils;
 
+pub mod checker;
 pub mod diagnostics;
 pub mod syntax;
