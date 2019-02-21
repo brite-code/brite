@@ -1,0 +1,23 @@
+class C1 {
+  a: A;
+  b: B;
+  c: C;
+  base: T;
+  x: T;
+  y: U;
+  z: V;
+  foo: Bar;
+  qux: Lit;
+}
+
+class C2 {
+  a: A
+  b: B
+  c: C
+  base: T
+  x: T
+  y: U
+  z: V
+  foo: Bar
+  qux: Lit
+}

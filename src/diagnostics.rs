@@ -146,6 +146,8 @@ pub enum ExpectedSyntax {
     HexadecimalDigit,
     /// Expected a declaration.
     Declaration,
+    /// Expected a class member.
+    ClassMember,
     /// Expected a statement.
     Statement,
     /// Expected an expression.
@@ -314,8 +316,15 @@ impl ExpectedSyntax {
             ExpectedSyntax::BinaryDigit => message.push("a binary digit"),
             ExpectedSyntax::HexadecimalDigit => message.push("a hexadecimal digit"),
 
-            // NOTE: Are there a more common words than “declaration”, “statement”, or “expression”?
-            ExpectedSyntax::Declaration => message.push("a declaration"),
+            // While a declaration or class member may be something else other than a function we
+            // still say that we expected a function. Functions are the most common declaration and
+            // class member. If the programmer was trying to write something other than a function
+            // we don’t expect them to be confused since they know a function goes there. However,
+            // a beginner might be more confused to read “class member” or “declaration”.
+            ExpectedSyntax::Declaration => message.push("a function"),
+            ExpectedSyntax::ClassMember => message.push("a function"),
+
+            // NOTE: Are there more common words than “statement”, or “expression”?
             ExpectedSyntax::Statement => message.push("a statement"),
             ExpectedSyntax::Expression => message.push("an expression"),
 

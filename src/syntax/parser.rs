@@ -70,13 +70,32 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         } else {
             None
         };
-        let members = Vec::new();
+        let mut members = Vec::new();
+        if self.try_parse_glyph(Glyph::BraceLeft).is_some() {
+            while self.try_parse_glyph(Glyph::BraceRight).is_none() {
+                let member = self.parse_class_member()?;
+                members.push(member);
+            }
+        }
         Ok(ClassDeclaration {
             base,
             name,
             extends,
             members,
         })
+    }
+
+    /// Parses a class member.
+    fn parse_class_member(&mut self) -> Result<ClassMember, DiagnosticRef> {
+        // Class Field Member
+        if let Some(name) = self.try_parse_name() {
+            self.parse_glyph(Glyph::Colon)?;
+            let value = self.parse_type()?;
+            self.try_parse_glyph(Glyph::Semicolon);
+            return Ok(ClassMember::Field(FieldClassMember { name, value }));
+        }
+
+        self.unexpected(ExpectedSyntax::ClassMember)
     }
 
     /// Parses the common parts of every function. Starting at the parameters.
@@ -796,6 +815,21 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }
         }
         self.unexpected(ExpectedSyntax::IdentifierKeyword(keyword))
+    }
+
+    /// Tries to parse a name. If no name can be parsed then nothing will be returned.
+    fn try_parse_name(&mut self) -> Option<Name> {
+        if let Some(token) = self.lexer.peek() {
+            if let TokenKind::Identifier(_) = &token.kind {
+                let token = self.lexer.next().unwrap();
+                let range = token.range;
+                return match token.kind {
+                    TokenKind::Identifier(identifier) => Some(Name { range, identifier }),
+                    _ => unreachable!(),
+                };
+            }
+        }
+        None
     }
 
     /// Parses a name. If no name can be parsed then an error diagnostic will be reported.

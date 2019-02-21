@@ -506,7 +506,11 @@ impl ClassDeclaration {
 impl ClassMember {
     /// Converts a class member into an S-expression for debugging.
     fn lisp(&self) -> Lisp {
-        unimplemented!()
+        match self {
+            ClassMember::Field(field) => lisp!("field", field.name.lisp(), field.value.lisp()),
+            ClassMember::Method(_) => unimplemented!(),
+            ClassMember::BaseMethod(_) => unimplemented!(),
+        }
     }
 }
 
