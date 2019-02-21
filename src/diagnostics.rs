@@ -63,7 +63,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use crate::syntax::{Glyph, Position, Range, Token};
+use crate::syntax::{Glyph, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::Markup;
 use std::rc::Rc;
 
@@ -134,6 +134,8 @@ pub enum ExpectedSyntax {
     Glyph(Glyph),
     /// Expected an identifier.
     Identifier,
+    /// Expected an identifier keyword.
+    IdentifierKeyword(IdentifierKeyword),
     /// Expected the end of a block comment.
     BlockCommentEnd,
     /// Expected a decimal digit.
@@ -279,7 +281,7 @@ impl Diagnostic {
 impl UnexpectedSyntax {
     fn add_message(&self, message: &mut Markup) {
         match self {
-            UnexpectedSyntax::Glyph(glyph) => message.push_code(glyph.source()),
+            UnexpectedSyntax::Glyph(glyph) => message.push_code(glyph.as_str()),
             UnexpectedSyntax::Identifier => message.push("a variable name"),
             UnexpectedSyntax::Number => message.push("a number"),
             UnexpectedSyntax::Char(c) => match c {
@@ -295,8 +297,9 @@ impl UnexpectedSyntax {
 impl ExpectedSyntax {
     fn add_message(&self, message: &mut Markup) {
         match self {
-            ExpectedSyntax::Glyph(glyph) => message.push_code(glyph.source()),
+            ExpectedSyntax::Glyph(glyph) => message.push_code(glyph.as_str()),
             ExpectedSyntax::Identifier => message.push("a name"),
+            ExpectedSyntax::IdentifierKeyword(keyword) => message.push_code(keyword.as_str()),
             ExpectedSyntax::BlockCommentEnd => message.push_code("*/"),
 
             // If the user types `0b` or `0x` then, presumably, they know what they are doing and

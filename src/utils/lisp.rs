@@ -79,6 +79,6 @@ impl From<String> for Lisp {
 
 impl<'a> From<&'a Identifier> for Lisp {
     fn from(identifier: &'a Identifier) -> Self {
-        Lisp::Atom(identifier.source().to_string())
+        Lisp::Atom(identifier.as_str().to_string())
     }
 }

@@ -483,13 +483,35 @@ impl Declaration {
     fn lisp(&self) -> Lisp {
         match self {
             Declaration::Function(function) => function.function.lisp(function.name.lisp()),
-            Declaration::Class(_) => unimplemented!(),
+            Declaration::Class(class) => class.lisp(),
         }
     }
 }
 
+impl ClassDeclaration {
+    /// Converts a class expression into an S-expression for debugging.
+    fn lisp(&self) -> Lisp {
+        let kind = if self.base { "base class" } else { "class" };
+        let mut expressions = Vec2::new(kind.into(), self.name.lisp());
+        if let Some(extends) = &self.extends {
+            expressions.push(lisp!("extends", extends.lisp()));
+        }
+        for member in &self.members {
+            expressions.push(member.lisp());
+        }
+        Lisp::List(expressions)
+    }
+}
+
+impl ClassMember {
+    /// Converts a class member into an S-expression for debugging.
+    fn lisp(&self) -> Lisp {
+        unimplemented!()
+    }
+}
+
 impl Function {
-    /// Converts a function to a symbolic expression. Accepts a name s-expression parameter for
+    /// Converts a function to a symbolic expression. Accepts a name S-expression parameter for
     /// debugging some name for the function.
     fn lisp(&self, name: Lisp) -> Lisp {
         let mut expressions = Vec2::new("fun".into(), name);

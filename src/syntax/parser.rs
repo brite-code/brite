@@ -45,7 +45,38 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }));
         }
 
+        // Class Declaration
+        if let Some(_) = self.try_parse_identifier_keyword(IdentifierKeyword::Class) {
+            return Ok(Declaration::Class(self.parse_class_declaration(false)?));
+        }
+
+        // Base Class Declaration
+        if let Some(_) = self.try_parse_identifier_keyword(IdentifierKeyword::Base) {
+            self.parse_identifier_keyword(IdentifierKeyword::Class)?;
+            return Ok(Declaration::Class(self.parse_class_declaration(true)?));
+        }
+
         self.unexpected(ExpectedSyntax::Declaration)
+    }
+
+    /// Parses a class declaration.
+    fn parse_class_declaration(&mut self, base: bool) -> Result<ClassDeclaration, DiagnosticRef> {
+        let name = self.parse_name()?;
+        let extends = if self
+            .try_parse_identifier_keyword(IdentifierKeyword::Extends)
+            .is_some()
+        {
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
+        let members = Vec::new();
+        Ok(ClassDeclaration {
+            base,
+            name,
+            extends,
+            members,
+        })
     }
 
     /// Parses the common parts of every function. Starting at the parameters.
@@ -731,6 +762,40 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }
         }
         None
+    }
+
+    /// Tries to parse a specific identifier that we give special meaning to. Not all keywords need
+    /// to be reserved. If the next token is the keyword then we advance the lexer and return the
+    /// keyword’s range. Otherwise we don’t advance the lexer and return nothing.
+    fn try_parse_identifier_keyword(&mut self, keyword: IdentifierKeyword) -> Option<Range> {
+        if let Some(token) = self.lexer.peek() {
+            if let TokenKind::Identifier(identifier) = &token.kind {
+                if keyword.test(identifier) {
+                    let range = token.range;
+                    self.lexer.next();
+                    return Some(range);
+                }
+            }
+        }
+        None
+    }
+
+    /// Parses a specific identifier that we give special meaning to. Not all keywords need to
+    /// be reserved. If no name can be parsed then an error diagnostic will be reported.
+    fn parse_identifier_keyword(
+        &mut self,
+        keyword: IdentifierKeyword,
+    ) -> Result<Range, DiagnosticRef> {
+        if let Some(token) = self.lexer.peek() {
+            if let TokenKind::Identifier(identifier) = &token.kind {
+                if keyword.test(identifier) {
+                    let range = token.range;
+                    self.lexer.next();
+                    return Ok(range);
+                }
+            }
+        }
+        self.unexpected(ExpectedSyntax::IdentifierKeyword(keyword))
     }
 
     /// Parses a name. If no name can be parsed then an error diagnostic will be reported.

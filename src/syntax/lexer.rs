@@ -218,8 +218,8 @@ impl<'src> Token<'src> {
             trivia.add_source(source);
         }
         match &self.kind {
-            TokenKind::Glyph(glyph) => source.push_str(glyph.source()),
-            TokenKind::Identifier(identifier) => source.push_str(&identifier.0),
+            TokenKind::Glyph(glyph) => source.push_str(glyph.as_str()),
+            TokenKind::Identifier(identifier) => source.push_str(&identifier.as_str()),
             TokenKind::Number(number) => source.push_str(&number.raw),
             TokenKind::UnexpectedChar(c) => source.push(*c),
         }
@@ -319,10 +319,10 @@ pub enum Glyph {
 
 impl Glyph {
     /// Get the source string this glyph was parsed from. Always a static string.
-    pub fn source(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         use self::Glyph::*;
         match self {
-            Keyword(keyword) => keyword.source(),
+            Keyword(keyword) => keyword.as_str(),
             Ampersand => "&",
             AmpersandDouble => "&&",
             Arrow => "->",
@@ -357,6 +357,8 @@ impl Glyph {
 }
 
 /// A reserved identifier.
+///
+/// There are also some [`IdentifierKeyword`]s which are not reserved in our [`Identifier`] syntax.
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Keyword {
     /// `_`
@@ -401,7 +403,7 @@ impl Keyword {
     }
 
     /// Get the source string this keyword was parsed from. Always a static string.
-    fn source(&self) -> &'static str {
+    fn as_str(&self) -> &'static str {
         use self::Keyword::*;
         match self {
             Hole => "_",
@@ -415,6 +417,39 @@ impl Keyword {
             Do => "do",
             This => "this",
         }
+    }
+}
+
+/// An identifier that we give special meaning to. These keywords are not reserved in the identifier
+/// syntax like [`Keyword`] but nevertheless have syntactic meaning.
+///
+/// We choose a [`Keyword`] when using an [`Identifier`] would be ambiguous. For example, `if` is a
+/// [`Keyword`] because if we see `if` it could be ambiguous to whether we want a conditional
+/// expression or a variable reference expression.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum IdentifierKeyword {
+    /// `class`
+    Class,
+    /// `base`
+    Base,
+    /// `extends`
+    Extends,
+}
+
+impl IdentifierKeyword {
+    /// Get the source string for this identifier keyword was parsed from. Always a static string.
+    pub fn as_str(&self) -> &'static str {
+        use self::IdentifierKeyword::*;
+        match self {
+            Class => "class",
+            Base => "base",
+            Extends => "extends",
+        }
+    }
+
+    /// Tests if this identifier keyword matches the provided identifier.
+    pub fn test(&self, identifier: &Identifier) -> bool {
+        self.as_str() == identifier.as_str()
     }
 }
 
@@ -458,7 +493,7 @@ impl Identifier {
     }
 
     /// Gets the source string for this identifier.
-    pub fn source(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         &self.0
     }
 
@@ -1378,7 +1413,7 @@ impl<'src> Token<'src> {
         let range = format!("{}", token.range);
 
         let (kind, data) = match &token.kind {
-            TokenKind::Glyph(glyph) => ("Glyph", format!("`{}`", glyph.source().to_string())),
+            TokenKind::Glyph(glyph) => ("Glyph", format!("`{}`", glyph.as_str())),
             TokenKind::Identifier(identifier) => ("Identifier", format!("`{}`", identifier.0)),
             TokenKind::Number(number) => match &number.kind {
                 NumberKind::DecimalInteger(value) => {
