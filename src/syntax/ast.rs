@@ -508,7 +508,7 @@ impl ClassMember {
     fn lisp(&self) -> Lisp {
         match self {
             ClassMember::Field(field) => lisp!("field", field.name.lisp(), field.value.lisp()),
-            ClassMember::Method(_) => unimplemented!(),
+            ClassMember::Method(method) => method.function.lisp(method.name.lisp()),
             ClassMember::BaseMethod(_) => unimplemented!(),
         }
     }

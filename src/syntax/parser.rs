@@ -95,6 +95,13 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             return Ok(ClassMember::Field(FieldClassMember { name, value }));
         }
 
+        // Class Method Member
+        if self.try_parse_keyword(Keyword::Fun).is_some() {
+            let name = self.parse_name()?;
+            let function = self.parse_function()?;
+            return Ok(ClassMember::Method(MethodClassMember { name, function }));
+        }
+
         self.unexpected(ExpectedSyntax::ClassMember)
     }
 
