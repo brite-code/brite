@@ -1,4 +1,5 @@
 use crate::diagnostics::*;
+use crate::utils::intern::{Intern, STRING_INTERN_POOL};
 use crate::utils::peek2::Peekable2;
 use num::BigInt;
 use std::cmp;
@@ -464,12 +465,11 @@ impl IdentifierKeyword {
 /// means, in this example, code transformations could not easily make expression identifiers out of
 /// pattern identifiers.
 ///
+/// Identifiers are interned so that many identifiers with the same value can shared an instance.
+///
 /// [1]: http://www.unicode.org/reports/tr31
-#[derive(Clone, Debug)]
-pub struct Identifier(
-    // TODO: Intern identifier strings.
-    String,
-);
+#[derive(Clone)]
+pub struct Identifier(Intern<str>);
 
 impl Identifier {
     /// Creates a new identifier. Returns `None` if the string is not a valid identifier. If the
@@ -489,7 +489,7 @@ impl Identifier {
         if Keyword::from_str(identifier).is_some() {
             return None;
         }
-        Some(Identifier(identifier.to_string()))
+        Some(Identifier(STRING_INTERN_POOL.intern_borrow(identifier)))
     }
 
     /// Gets the source string for this identifier.
@@ -522,6 +522,18 @@ impl Identifier {
             // Delegate to `UnicodeXID::is_xid_continue` for everything else.
             c => UnicodeXID::is_xid_continue(c),
         }
+    }
+}
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl fmt::Debug for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -892,7 +904,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                     TokenKind::Glyph(Glyph::Keyword(keyword))
                 } else {
                     identifier.shrink_to_fit();
-                    TokenKind::Identifier(Identifier(identifier))
+                    TokenKind::Identifier(Identifier(STRING_INTERN_POOL.intern(identifier)))
                 }
             }
 
@@ -1414,7 +1426,7 @@ impl<'src> Token<'src> {
 
         let (kind, data) = match &token.kind {
             TokenKind::Glyph(glyph) => ("Glyph", format!("`{}`", glyph.as_str())),
-            TokenKind::Identifier(identifier) => ("Identifier", format!("`{}`", identifier.0)),
+            TokenKind::Identifier(identifier) => ("Identifier", format!("`{}`", identifier)),
             TokenKind::Number(number) => match &number.kind {
                 NumberKind::DecimalInteger(value) => {
                     ("Number::DecimalInteger", value.to_str_radix(10))
