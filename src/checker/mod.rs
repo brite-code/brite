@@ -1,2 +1,1 @@
-mod avt;
 mod checker;
