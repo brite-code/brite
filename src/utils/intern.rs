@@ -44,14 +44,15 @@ impl<T: Eq + Hash + ?Sized> InternPool<T> {
     where
         U: Borrow<T> + 'static,
     {
-        if let Some(value) = self.pool.read().unwrap().get(value.borrow()) {
-            Intern(value)
-        } else {
-            let value: &'static U = Box::leak(Box::new(value));
-            let value = value.borrow();
-            self.pool.write().unwrap().insert(value);
-            Intern(value)
+        {
+            if let Some(value) = self.pool.read().unwrap().get(value.borrow()) {
+                return Intern(value);
+            }
         }
+        let value: &'static U = Box::leak(Box::new(value));
+        let value = value.borrow();
+        self.pool.write().unwrap().insert(value);
+        Intern(value)
     }
 
     /// Interns a borrowed value. Either returns a reference to the previously interned value or
@@ -63,14 +64,15 @@ impl<T: Eq + Hash + ?Sized> InternPool<T> {
     where
         T: ToOwned,
     {
-        if let Some(value) = self.pool.read().unwrap().get(value) {
-            Intern(value)
-        } else {
-            let value: &'static T::Owned = Box::leak(Box::new(value.to_owned()));
-            let value = value.borrow();
-            self.pool.write().unwrap().insert(value);
-            Intern(value)
+        {
+            if let Some(value) = self.pool.read().unwrap().get(value) {
+                return Intern(value);
+            }
         }
+        let value: &'static T::Owned = Box::leak(Box::new(value.to_owned()));
+        let value = value.borrow();
+        self.pool.write().unwrap().insert(value);
+        Intern(value)
     }
 }
 

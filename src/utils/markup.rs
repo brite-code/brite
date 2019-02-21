@@ -16,10 +16,17 @@ enum Segment {
 }
 
 impl Markup {
-    /// Creates a new markup document.
+    /// Creates a new, empty, markup document.
     pub fn new() -> Self {
         Markup {
             segments: Vec::new(),
+        }
+    }
+
+    /// Creates a new markdown document that’s just the provided inline code.
+    pub fn code(code: String) -> Self {
+        Markup {
+            segments: vec![Segment::Code(code)],
         }
     }
 

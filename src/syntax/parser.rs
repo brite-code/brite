@@ -9,7 +9,7 @@ use super::ast::*;
 use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 
-/// Manages the parsing of Brite syntactical elements from a [`Document`]. The `Parser` struct is
+/// Manages the parsing of Brite syntactical elements from source code. The `Parser` struct is
 /// more like a parsing “context”. It does not hold much state itself. Most of the parsing state is
 /// implemented in our [`Lexer`].
 pub struct Parser<'errs, 'src> {

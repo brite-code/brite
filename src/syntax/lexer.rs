@@ -468,7 +468,7 @@ impl IdentifierKeyword {
 /// Identifiers are interned so that many identifiers with the same value can shared an instance.
 ///
 /// [1]: http://www.unicode.org/reports/tr31
-#[derive(Clone)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Identifier(Intern<str>);
 
 impl Identifier {
@@ -650,9 +650,9 @@ impl<'src> Trivia<'src> {
     }
 }
 
-/// A lexer generates [`Token`]s based on a [`Document`] input. Call [`Lexer::next`] to advance the
+/// A lexer generates [`Token`]s based on a source string input. Call [`Lexer::next`] to advance the
 /// lexer and [`Lexer::end`] to get the end token. All of the [`Token`]s and [`EndToken`] may be
-/// used to print back out a string which is equivalent to the [`Document`]’s source.
+/// used to print back out a string which is equivalent to the source code we parsed from.
 pub struct Lexer<'errs, 'src> {
     /// The diagnostics collection we report lexer errors in. Use [`Lexer::report_diagnostic`]
     /// instead of using this reference directly so that we may switch out the implementation of
@@ -669,7 +669,7 @@ pub struct Lexer<'errs, 'src> {
 }
 
 impl<'errs, 'src> Lexer<'errs, 'src> {
-    /// Creates a new lexer from a source code [`Document`].
+    /// Creates a new lexer from source code.
     pub fn new(
         diagnostics: &'errs mut DiagnosticsCollection,
         source: &'src str,

@@ -63,7 +63,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use crate::syntax::{Glyph, IdentifierKeyword, Position, Range, Token};
+use crate::syntax::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::Markup;
 use std::rc::Rc;
 
@@ -110,6 +110,11 @@ enum ErrorDiagnosticMessage {
     },
     /// The parser ran into the end of the source document unexpectedly.
     UnexpectedEnding { expected: ExpectedSyntax },
+    /// A declaration with this name already exists.
+    DeclarationNameAlreadyUsed {
+        identifier: Identifier,
+        exists: Range,
+    },
 }
 
 enum WarningDiagnosticMessage {}
@@ -203,13 +208,43 @@ impl Diagnostic {
             ErrorDiagnosticMessage::UnexpectedEnding { expected },
         )
     }
+
+    /// A declaration with this name already exists.
+    ///
+    /// The first range is the range of the duplicated name. The second range is the range of the
+    /// declaration that was already declared.
+    pub fn declaration_name_already_used(
+        range: Range,
+        identifier: Identifier,
+        exists: Range,
+    ) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::DeclarationNameAlreadyUsed { identifier, exists },
+        )
+    }
+}
+
+/// Related information for a diagnostic in case the primary message was not enough. Most
+/// importantly, related information carries a location so we can point to source code which
+/// contributed to an error.
+///
+/// See related information in the [Language Server Protocol (LSP) Specification][1].
+///
+/// See an example of [related information rendered in VSCode][2].
+///
+/// [1]: https://microsoft.github.io/language-server-protocol/specification
+/// [2]: https://code.visualstudio.com/updates/v1_22#_related-information-in-errors-and-warnings
+struct DiagnosticRelatedInformation {
+    range: Range,
+    message: Markup,
 }
 
 impl Diagnostic {
     /// Creates a human readable diagnostic message for a given diagnostic. Also may create some
     /// related information regarding the error. Remember that this generates a new message every
     /// time it is called instead of fetching a pre-generated message.
-    fn message(&self) -> Markup {
+    fn message(&self) -> (Markup, Vec<DiagnosticRelatedInformation>) {
         match &self.message {
             DiagnosticMessage::Error(message) => Self::error_message(message),
             DiagnosticMessage::Warning(_) => unreachable!(),
@@ -217,7 +252,9 @@ impl Diagnostic {
         }
     }
 
-    fn error_message(error_message: &ErrorDiagnosticMessage) -> Markup {
+    fn error_message(
+        error_message: &ErrorDiagnosticMessage,
+    ) -> (Markup, Vec<DiagnosticRelatedInformation>) {
         match error_message {
             // Thought and care that went into this error message:
             //
@@ -260,7 +297,7 @@ impl Diagnostic {
                         message.push(".");
                     }
                 }
-                message
+                (message, Vec::new())
             }
 
             // Follows the same format as the unexpected token error. Except instead of saying “we
@@ -274,7 +311,23 @@ impl Diagnostic {
                 message.push("We want ");
                 expected.add_message(&mut message);
                 message.push(" but the file ends.");
-                message
+                (message, Vec::new())
+            }
+
+            // Tell the programmer that they can not use their name a second time. We also make sure
+            // that we point out the first place they use the declaration name in related
+            // information in case the programmer is confused.
+            ErrorDiagnosticMessage::DeclarationNameAlreadyUsed { identifier, exists } => {
+                let mut message = Markup::new();
+                message.push("Can not use the name ");
+                message.push_code(identifier.as_str());
+                message.push(" again.");
+                let mut related_information = Vec::new();
+                related_information.push(DiagnosticRelatedInformation {
+                    range: *exists,
+                    message: Markup::code(identifier.as_str().into()),
+                });
+                (message, related_information)
             }
         }
     }
@@ -371,11 +424,19 @@ impl DiagnosticsCollection {
     pub fn markdown_list(&self) -> String {
         let mut output = String::new();
         for diagnostic in &self.diagnostics {
+            let (message, related_information) = diagnostic.message();
             output.push_str(&format!(
                 "- ({}) {}\n",
                 diagnostic.range,
-                diagnostic.message().to_simple_string()
+                message.to_simple_string()
             ));
+            for info in related_information {
+                output.push_str(&format!(
+                    "  - ({}) {}\n",
+                    info.range,
+                    info.message.to_simple_string()
+                ));
+            }
         }
         output
     }
