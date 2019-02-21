@@ -89,7 +89,25 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     fn parse_class_member(&mut self) -> Result<ClassMember, DiagnosticRef> {
         // Class Field Member
         if let Some(name) = self.try_parse_name() {
-            self.parse_glyph(Glyph::Colon)?;
+            // Class Base Method Member
+            if IdentifierKeyword::Base.test(&name.identifier) {
+                if self.try_parse_glyph(Glyph::Colon).is_none() {
+                    self.parse_keyword(Keyword::Fun)?;
+                    let name = self.parse_name()?;
+                    self.parse_glyph(Glyph::ParenLeft)?;
+                    let (parameters, _) =
+                        self.parse_comma_list(Glyph::ParenRight, Self::parse_function_parameter)?;
+                    self.parse_glyph(Glyph::Arrow)?;
+                    let return_type = self.parse_type()?;
+                    return Ok(ClassMember::BaseMethod(BaseMethodClassMember {
+                        name,
+                        parameters,
+                        return_type,
+                    }));
+                }
+            } else {
+                self.parse_glyph(Glyph::Colon)?;
+            }
             let value = self.parse_type()?;
             self.try_parse_glyph(Glyph::Semicolon);
             return Ok(ClassMember::Field(FieldClassMember { name, value }));
@@ -766,6 +784,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             }
         }
         None
+    }
+
+    /// Parses a keyword. Reports an error if the next token is not a glyph.
+    fn parse_keyword(&mut self, expected: Keyword) -> Result<Range, DiagnosticRef> {
+        self.parse_glyph(Glyph::Keyword(expected))
     }
 
     /// Tries to parse a keyword. If the next token is the expected token then we advance the lexer

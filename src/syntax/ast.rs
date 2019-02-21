@@ -509,7 +509,22 @@ impl ClassMember {
         match self {
             ClassMember::Field(field) => lisp!("field", field.name.lisp(), field.value.lisp()),
             ClassMember::Method(method) => method.function.lisp(method.name.lisp()),
-            ClassMember::BaseMethod(_) => unimplemented!(),
+            ClassMember::BaseMethod(method) => {
+                let mut expressions = Vec2::new("base fun".into(), method.name.lisp());
+                for parameter in &method.parameters {
+                    if let Some(annotation) = &parameter.annotation {
+                        expressions.push(lisp!(
+                            "param",
+                            parameter.pattern.lisp(),
+                            lisp!("type", annotation.lisp())
+                        ));
+                    } else {
+                        expressions.push(lisp!("param", parameter.pattern.lisp()));
+                    }
+                }
+                expressions.push(lisp!("type", method.return_type.lisp()));
+                Lisp::List(expressions)
+            }
         }
     }
 }
