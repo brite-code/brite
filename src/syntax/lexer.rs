@@ -102,6 +102,16 @@ impl Range {
         }
     }
 
+    /// Create an empty range at the provided position.
+    pub fn position(position: Position) -> Self {
+        Self::new(position, position)
+    }
+
+    /// Create an empty range at the initial position.
+    pub fn initial() -> Self {
+        Self::position(Position::initial())
+    }
+
     /// Returns the start position of our range.
     pub fn start(self) -> Position {
         self.start

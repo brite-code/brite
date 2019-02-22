@@ -40,13 +40,10 @@ impl<'errs> Checker<'errs> {
         for declaration in &module.declarations {
             // Get the name and the scope entry kind of our declaration.
             let (name, entry_kind) = match declaration {
-                ast::Declaration::Function(function) => {
-                    (&function.name, ScopeEntryKind::FunctionDeclaration)
+                ast::Declaration::Function(function) => (&function.name, ScopeEntryKind::Function),
+                ast::Declaration::Class(class) => {
+                    (&class.name, ScopeEntryKind::Class { base: class.base })
                 }
-                ast::Declaration::Class(class) => (
-                    &class.name,
-                    ScopeEntryKind::ClassDeclaration { base: class.base },
-                ),
             };
             // If we’ve already seen this declaration name then report an error. We’ll still
             // type-check the declaration, but any references will get access to the first
@@ -90,7 +87,15 @@ impl<'errs> Checker<'errs> {
         // When checking a function, we want to add parameters to the block. So introduce a level
         // of nesting in the scope.
         self.scope.nest();
+
+        // Add function parameters to our current, nested, scope.
+        for _ in &function.parameters {
+            unimplemented!()
+        }
+
+        // Check our block in the current scope.
         self.check_block_without_nest(&function.body);
+
         self.scope.unnest();
     }
 
@@ -105,7 +110,7 @@ impl<'errs> Checker<'errs> {
 
                 // If the identifier is a base class then yippee skippy!
                 Ok(ScopeEntry {
-                    kind: ScopeEntryKind::ClassDeclaration { base },
+                    kind: ScopeEntryKind::Class { base },
                     ..
                 })
                     if *base =>
@@ -171,9 +176,11 @@ impl<'errs> Checker<'errs> {
 
     fn check_expression(&mut self, expression: &ast::Expression) -> Type {
         match &expression.kind {
+            // Check a constant. Provide our range since constants don’t have a range themselves.
             ast::ExpressionKind::Constant(constant) => {
                 self.check_constant(expression.range, constant)
             }
+
             ast::ExpressionKind::Reference(_) => unimplemented!(),
             ast::ExpressionKind::This => unimplemented!(),
             ast::ExpressionKind::Function(_) => unimplemented!(),
@@ -184,7 +191,10 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Infix(_) => unimplemented!(),
             ast::ExpressionKind::Logical(_) => unimplemented!(),
             ast::ExpressionKind::Conditional(_) => unimplemented!(),
+
+            // Checking a block is simple.
             ast::ExpressionKind::Block(block) => self.check_block(block),
+
             ast::ExpressionKind::Wrapped(_) => unimplemented!(),
         }
     }
@@ -212,17 +222,48 @@ struct ScopeEntry {
 
 /// The kind of a [`ScopeEntry`].
 enum ScopeEntryKind {
-    /// The name references a function declaration.
-    FunctionDeclaration,
+    /// Some value bound at runtime.
+    Value(Type),
+    /// A declared type.
+    Type(Type),
+    /// The name references a function declaration. Very similar to `ScopeEntryKind::Value` with a
+    /// function type except we know the exact function which is bound.
+    Function,
     /// The name references a class declaration.
-    ClassDeclaration { base: bool },
+    Class { base: bool },
 }
 
 impl Scope {
     /// Creates a new scope.
     fn new() -> Self {
+        // TODO: Use proper ranges for the prelude.
+        // TODO: It should be ok to shadow names in the prelude.
+        let mut root = HashMap::new();
+        let range = Range::initial();
+        insert_root_entry(&mut root, "Never", Type::never(range));
+        insert_root_entry(&mut root, "Unknown", Type::unknown(range));
+        insert_root_entry(&mut root, "Void", Type::void(range));
+        insert_root_entry(&mut root, "Bool", Type::boolean(range));
+        insert_root_entry(&mut root, "Num", Type::number(range));
+        insert_root_entry(&mut root, "Int", Type::integer(range));
+        insert_root_entry(&mut root, "Float", Type::float(range));
+
+        fn insert_root_entry(
+            root: &mut HashMap<Identifier, ScopeEntry>,
+            name: &'static str,
+            type_: Type,
+        ) {
+            root.insert(
+                Identifier::new(name).unwrap(),
+                ScopeEntry {
+                    range: type_.range(),
+                    kind: ScopeEntryKind::Type(type_),
+                },
+            );
+        }
+
         Scope {
-            stack: Vec1::new(HashMap::new()),
+            stack: Vec1::new(root),
         }
     }
 

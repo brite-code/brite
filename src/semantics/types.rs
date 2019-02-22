@@ -48,6 +48,27 @@ struct FunctionType {
 }
 
 impl Type {
+    /// The range of the type.
+    pub fn range(&self) -> Range {
+        self.range
+    }
+
+    /// Creates a never type.
+    pub fn never(range: Range) -> Self {
+        Type {
+            range,
+            kind: TypeKind::Never,
+        }
+    }
+
+    /// Creates an unknown type.
+    pub fn unknown(range: Range) -> Self {
+        Type {
+            range,
+            kind: TypeKind::Unknown,
+        }
+    }
+
     /// Creates a void type.
     pub fn void(range: Range) -> Self {
         Type {
