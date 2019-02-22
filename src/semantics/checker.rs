@@ -83,7 +83,7 @@ impl<'errs> Checker<'errs> {
     }
 
     fn check_function_declaration(&mut self, function: &ast::FunctionDeclaration) {
-        // self.check_function(&function.function);
+        self.check_function(&function.function);
     }
 
     fn check_function(&mut self, function: &ast::Function) {
@@ -135,14 +135,28 @@ impl<'errs> Checker<'errs> {
     /// Checks a block but does not introduce a new level of nesting in the [`Scope`]. Useful for
     /// checking functions which add parameters in their body’s scope.
     fn check_block_without_nest(&mut self, block: &ast::Block) -> Type {
+        // The type returned by the block. The last non-empty statement in the block is returned.
+        let mut block_type = Type::void(block.range);
+
         for statement in &block.statements {
-            self.check_statement(statement);
+            // Skip empty statements entirely.
+            if let ast::StatementKind::Empty = &statement.kind {
+                continue;
+            }
+            // Check the statement and assign its type as the last block type.
+            block_type = self.check_statement(statement);
         }
-        unimplemented!()
+
+        block_type
     }
 
-    fn check_statement(&mut self, statement: &ast::Statement) -> Option<Type> {
-        unimplemented!()
+    fn check_statement(&mut self, statement: &ast::Statement) -> Type {
+        match &statement.kind {
+            ast::StatementKind::Expression(expression) => self.check_expression(expression),
+            ast::StatementKind::Binding(_) => unimplemented!(),
+            ast::StatementKind::Return(_) => unimplemented!(),
+            ast::StatementKind::Empty => unimplemented!(),
+        }
     }
 
     fn check_constant(&mut self, range: Range, constant: &ast::Constant) -> Type {
