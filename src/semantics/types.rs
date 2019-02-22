@@ -1,18 +1,20 @@
+use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection};
 use crate::syntax::Range;
+use crate::utils::vecn::Vec1;
 
 /// Describes the values which may be assigned to a particular binding.
 pub struct Type {
     /// The range of our type in source code.
-    range: Range,
+    pub range: Range,
     /// What kind of type is this?
-    kind: TypeKind,
+    pub kind: TypeKind,
 }
 
 // TODO: Having never, void, and null is a bit much. How can we trim it down to maybe one or
 // two concepts?
 
 /// The kind of a type.
-enum TypeKind {
+pub enum TypeKind {
     /// No value that exists at runtime may ever be typed as `Never`. The name comes from the fact
     /// that this type will “never” be reachable at runtime. This is the bottom type in our system.
     /// Written as ⊥ in academic literature.
@@ -35,24 +37,19 @@ enum TypeKind {
     ///
     /// [1]: https://en.wikipedia.org/wiki/IEEE_754
     Float,
-    /// The type of a function. Functions may be passed around just like any other value.
-    Function(FunctionType),
+    // /// The type of a function. Functions may be passed around just like any other value.
+    // Function(FunctionType),
 }
 
-/// The type of a function. Functions may be passed around just like any other value.
-struct FunctionType {
-    /// The types of this function’s parameters.
-    parameters: Vec<Type>,
-    /// The return type of this function.
-    return_: Box<Type>,
-}
+// /// The type of a function. Functions may be passed around just like any other value.
+// struct FunctionType {
+//     /// The types of this function’s parameters.
+//     parameters: Vec<Type>,
+//     /// The return type of this function.
+//     return_: Box<Type>,
+// }
 
 impl Type {
-    /// The range of the type.
-    pub fn range(&self) -> Range {
-        self.range
-    }
-
     /// Creates a never type.
     pub fn never(range: Range) -> Self {
         Type {

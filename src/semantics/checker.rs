@@ -202,7 +202,7 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Wrapped(wrapped) => {
                 if let Some(annotation) = &wrapped.annotation {
                     let annotation = self.check_type(annotation);
-                    self.check_expression_with_type(&wrapped.expression, &annotation)
+                    self.check_expression_with_type(&wrapped.expression, annotation)
                 } else {
                     self.check_expression(&wrapped.expression)
                 }
@@ -221,8 +221,14 @@ impl<'errs> Checker<'errs> {
     ///
     /// Most of the time we will call [`Self::check_expression`] and check if the returned type is
     /// a subtype of our provided type. However, for function expressions we break apart the type.
-    fn check_expression_with_type(&mut self, expression: &ast::Expression, type_: &Type) -> Type {
+    fn check_expression_with_type(&mut self, expression: &ast::Expression, expected: Type) -> Type {
         match &expression.kind {
+            // If we only wrap an expression without adding a type annotation then let’s call
+            // `check_expression_with_type` to preserve the benefits of this function.
+            ast::ExpressionKind::Wrapped(wrapped) if wrapped.annotation.is_none() => {
+                self.check_expression_with_type(&wrapped.expression, expected)
+            }
+
             // We manually write every case in [`ExpressionKind`] instead of using a hole pattern
             // (`_`) so that the Rust compiler will warn us when we add a new case.
             ast::ExpressionKind::Constant(_)
@@ -237,7 +243,11 @@ impl<'errs> Checker<'errs> {
             | ast::ExpressionKind::Logical(_)
             | ast::ExpressionKind::Conditional(_)
             | ast::ExpressionKind::Block(_)
-            | ast::ExpressionKind::Wrapped(_) => unimplemented!(),
+            | ast::ExpressionKind::Wrapped(_) => {
+                let actual = self.check_expression(expression);
+                let _ = self.subtype(&actual, &expected);
+                expected
+            }
         }
     }
 
@@ -257,6 +267,51 @@ impl<'errs> Checker<'errs> {
             }
             ast::TypeKind::This => unimplemented!(),
             ast::TypeKind::Function(_) => unimplemented!(),
+        }
+    }
+
+    /// Determines if one type is the subtype of another. If it is determined that the types are
+    /// not subtypes then a diagnostic error is reported. Even if an incompatibility is found, we
+    /// will continue to try and find as many errors as possible. Returns `Ok` if the two types
+    /// uphold the subtyping relationship and returns `Err` with the first diagnostic we reported if
+    /// the two types do not uphold the subtyping relationship. In academic literature this
+    /// operation is written as `actual <: expected`.
+    fn subtype(&mut self, actual: &Type, expected: &Type) -> Result<(), DiagnosticRef> {
+        use self::TypeKind::*;
+        match (&actual.kind, &expected.kind) {
+            // The never type is our bottom type and so the subtype of everything but the supertype
+            // of nothing.
+            (Never, _) => Ok(()),
+            (_, Never) => Err(unimplemented!()),
+
+            // The unknown type is our top type and so the supertype of everything but the subtype
+            // of nothing.
+            (_, Unknown) => Ok(()),
+            (Unknown, _) => Err(unimplemented!()),
+
+            // Void is only the subtype of itself.
+            (Void, Void) => Ok(()),
+            (Void, _) => Err(unimplemented!()),
+
+            // Boolean is only the subtype of itself.
+            (Boolean, Boolean) => Ok(()),
+            (Boolean, _) => Err(unimplemented!()),
+
+            // Number is the subtype of itself.
+            (Number, Number) => Ok(()),
+
+            // Number is the supertype of both integer and float.
+            (Integer, Number) => Ok(()),
+            (Float, Number) => Ok(()),
+
+            // Integer and float are subtypes of themselves.
+            (Integer, Integer) => Ok(()),
+            (Float, Float) => Ok(()),
+
+            // Number error cases.
+            (Number, _) => Err(unimplemented!()),
+            (Integer, _) => Err(unimplemented!()),
+            (Float, _) => Err(unimplemented!()),
         }
     }
 
@@ -317,7 +372,7 @@ impl Scope {
             root.insert(
                 Identifier::new(name).unwrap(),
                 ScopeEntry {
-                    range: type_.range(),
+                    range: type_.range,
                     kind: ScopeEntryKind::Type(type_),
                 },
             );
