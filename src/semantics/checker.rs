@@ -195,7 +195,68 @@ impl<'errs> Checker<'errs> {
             // Checking a block is simple.
             ast::ExpressionKind::Block(block) => self.check_block(block),
 
-            ast::ExpressionKind::Wrapped(_) => unimplemented!(),
+            // If the wrapped expression does not have an annotation then we may simply check the
+            // wrapped expression. If the wrapped expression does have a type annotation then we
+            // will check the type annotation and check our wrapped expression with that
+            // type annotation.
+            ast::ExpressionKind::Wrapped(wrapped) => {
+                if let Some(annotation) = &wrapped.annotation {
+                    let annotation = self.check_type(annotation);
+                    self.check_expression_with_type(&wrapped.expression, &annotation)
+                } else {
+                    self.check_expression(&wrapped.expression)
+                }
+            }
+        }
+    }
+
+    /// When we expect an expression to be of a certain type, we don’t just call
+    /// [`Self::check_expression`]. Instead we call this function,
+    /// [`Self::check_expression_with_type`]. This function will check to make sure that the
+    /// expression does indeed match the provided type and will report an error diagnostic if
+    /// it doesn’t.
+    ///
+    /// This function gives us the ability to do type inference for function expression parameters
+    /// whose types are immediately known. This function also gives us better error messages.
+    ///
+    /// Most of the time we will call [`Self::check_expression`] and check if the returned type is
+    /// a subtype of our provided type. However, for function expressions we break apart the type.
+    fn check_expression_with_type(&mut self, expression: &ast::Expression, type_: &Type) -> Type {
+        match &expression.kind {
+            // We manually write every case in [`ExpressionKind`] instead of using a hole pattern
+            // (`_`) so that the Rust compiler will warn us when we add a new case.
+            ast::ExpressionKind::Constant(_)
+            | ast::ExpressionKind::Reference(_)
+            | ast::ExpressionKind::This
+            | ast::ExpressionKind::Function(_)
+            | ast::ExpressionKind::Call(_)
+            | ast::ExpressionKind::Construct(_)
+            | ast::ExpressionKind::Member(_)
+            | ast::ExpressionKind::Prefix(_)
+            | ast::ExpressionKind::Infix(_)
+            | ast::ExpressionKind::Logical(_)
+            | ast::ExpressionKind::Conditional(_)
+            | ast::ExpressionKind::Block(_)
+            | ast::ExpressionKind::Wrapped(_) => unimplemented!(),
+        }
+    }
+
+    fn check_type(&mut self, type_: &ast::Type) -> Type {
+        match &type_.kind {
+            ast::TypeKind::Reference(identifier) => {
+                match self.scope.resolve(&type_.range, identifier) {
+                    // If the identifier was not found report our error and use the never type. The
+                    // never type will error when the programmer tries to use it to create a value.
+                    Err(diagnostic) => {
+                        self.report_diagnostic(diagnostic);
+                        Type::never(type_.range)
+                    }
+
+                    Ok(_) => unimplemented!(),
+                }
+            }
+            ast::TypeKind::This => unimplemented!(),
+            ast::TypeKind::Function(_) => unimplemented!(),
         }
     }
 
