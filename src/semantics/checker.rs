@@ -1,4 +1,4 @@
-use super::avt::*;
+use super::types::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection};
 use crate::syntax::ast;
 use crate::syntax::{Identifier, Range};
