@@ -32,4 +32,9 @@ fun main() {
   */ x
   return /*
   */ (x)
+
+  return
+  return;
+  return x
+  return x;
 }

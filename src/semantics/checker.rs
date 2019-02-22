@@ -83,7 +83,7 @@ impl<'errs> Checker<'errs> {
     }
 
     fn check_function_declaration(&mut self, function: &ast::FunctionDeclaration) {
-        self.check_function(&function.function);
+        // self.check_function(&function.function);
     }
 
     fn check_function(&mut self, function: &ast::Function) {

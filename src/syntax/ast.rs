@@ -122,7 +122,16 @@ pub struct Block {
 
 /// A statement describes some action to be executed in the current scope.
 #[derive(Debug)]
-pub enum Statement {
+pub struct Statement {
+    /// The range of our statement in source code.
+    pub range: Range,
+    /// What kind of statement is this?
+    pub kind: StatementKind,
+}
+
+/// The kind of a Statement AST node.
+#[derive(Debug)]
+pub enum StatementKind {
     /// Executes an expression only for the side effects.
     Expression(Expression),
     /// Binds a value to some names in the current scope.
@@ -572,24 +581,26 @@ impl Block {
 impl Statement {
     /// Converts a statement to a symbolic expression.
     fn lisp(&self) -> Lisp {
-        match self {
-            Statement::Expression(expression) => expression.lisp(),
-            Statement::Binding(binding) => if let Some(annotation) = &binding.annotation {
+        let range: Lisp = format!("{}", self.range).into();
+        match &self.kind {
+            StatementKind::Expression(expression) => expression.lisp(),
+            StatementKind::Binding(binding) => if let Some(annotation) = &binding.annotation {
                 lisp!(
                     "let",
+                    range,
                     binding.pattern.lisp(),
                     lisp!("type", annotation.lisp()),
                     binding.value.lisp()
                 )
             } else {
-                lisp!("let", binding.pattern.lisp(), binding.value.lisp())
+                lisp!("let", range, binding.pattern.lisp(), binding.value.lisp())
             },
-            Statement::Return(argument) => if let Some(argument) = argument {
-                lisp!("return", argument.lisp())
+            StatementKind::Return(argument) => if let Some(argument) = argument {
+                lisp!("return", range, argument.lisp())
             } else {
-                lisp!("return")
+                lisp!("return", range)
             },
-            Statement::Empty => lisp!("empty"),
+            StatementKind::Empty => lisp!("empty", range),
         }
     }
 }

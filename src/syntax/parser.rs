@@ -167,43 +167,61 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
         // Binding Statement
-        if self.try_parse_keyword(Keyword::Let).is_some() {
+        if let Some(start) = self.try_parse_keyword(Keyword::Let) {
             let pattern = self.parse_pattern()?;
             let annotation = self.try_parse_type_annotation()?;
             self.parse_glyph(Glyph::Equals)?;
             let value = self.parse_expression()?;
-            self.try_parse_glyph(Glyph::Semicolon);
-            return Ok(Statement::Binding(BindingStatement {
-                pattern,
-                annotation,
-                value,
-            }));
+            let maybe_end = self.try_parse_glyph(Glyph::Semicolon);
+            return Ok(Statement {
+                range: start.union(maybe_end.unwrap_or(value.range)),
+                kind: StatementKind::Binding(BindingStatement {
+                    pattern,
+                    annotation,
+                    value,
+                }),
+            });
         }
 
         // Return Statement
-        if let Some(keyword) = self.try_parse_keyword(Keyword::Return) {
+        if let Some(start) = self.try_parse_keyword(Keyword::Return) {
             // NOTE: If there is a newline between the return keyword and an expression then don’t
             // parse that expression as the return statement’s argument! This makes programming
             // without semicolons in Brite easier.
             let argument = match self.lexer.peek() {
-                Some(token) if keyword.end().line() == token.range.start().line() => {
+                Some(token) if start.end().line() == token.range.start().line() => {
                     self.try_parse_expression()?
                 }
                 _ => None,
             };
-            self.try_parse_glyph(Glyph::Semicolon);
-            return Ok(Statement::Return(argument));
+            let maybe_end = self.try_parse_glyph(Glyph::Semicolon);
+            let end =
+                maybe_end.unwrap_or_else(|| argument.as_ref().map(|x| x.range).unwrap_or(start));
+            return Ok(Statement {
+                range: start.union(end),
+                kind: StatementKind::Return(argument),
+            });
         }
 
         // Empty Statement
-        if self.try_parse_glyph(Glyph::Semicolon).is_some() {
-            return Ok(Statement::Empty);
+        if let Some(range) = self.try_parse_glyph(Glyph::Semicolon) {
+            return Ok(Statement {
+                range,
+                kind: StatementKind::Empty,
+            });
         }
 
         // Expression Statement
         if let Some(expression) = self.try_parse_expression()? {
-            self.try_parse_glyph(Glyph::Semicolon);
-            return Ok(Statement::Expression(expression));
+            let maybe_end = self.try_parse_glyph(Glyph::Semicolon);
+            return Ok(Statement {
+                range: if let Some(end) = maybe_end {
+                    expression.range.union(end)
+                } else {
+                    expression.range
+                },
+                kind: StatementKind::Expression(expression),
+            });
         }
 
         self.unexpected(ExpectedSyntax::Statement)
