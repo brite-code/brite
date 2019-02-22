@@ -1,3 +1,4 @@
+use super::avt::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection};
 use crate::syntax::ast;
 use crate::syntax::{Identifier, Range};
@@ -53,12 +54,12 @@ impl<'errs> Checker<'errs> {
             if let Some(entry) = self.scope.resolve_maybe(&name.identifier) {
                 self.report_diagnostic(Diagnostic::declaration_name_already_used(
                     name.range,
-                    name.identifier,
+                    name.identifier.clone(),
                     entry.range,
                 ));
             } else {
                 self.scope.declare(
-                    name.identifier,
+                    name.identifier.clone(),
                     ScopeEntry {
                         range: name.range,
                         kind: entry_kind,
@@ -82,7 +83,15 @@ impl<'errs> Checker<'errs> {
     }
 
     fn check_function_declaration(&mut self, function: &ast::FunctionDeclaration) {
-        // self.nest_scope()
+        self.check_function(&function.function);
+    }
+
+    fn check_function(&mut self, function: &ast::Function) {
+        // When checking a function, we want to add parameters to the block. So introduce a level
+        // of nesting in the scope.
+        self.scope.nest();
+        self.check_block_without_nest(&function.body);
+        self.scope.unnest();
     }
 
     fn check_class_declaration(&mut self, class: &ast::ClassDeclaration) {
@@ -108,11 +117,61 @@ impl<'errs> Checker<'errs> {
                 Ok(entry) => {
                     self.report_diagnostic(Diagnostic::can_only_extend_base_class(
                         extends.range,
-                        extends.identifier,
+                        extends.identifier.clone(),
                         entry.range,
                     ));
                 }
             }
+        }
+    }
+
+    fn check_block(&mut self, block: &ast::Block) -> Type {
+        self.scope.nest();
+        let result = self.check_block_without_nest(block);
+        self.scope.unnest();
+        result
+    }
+
+    /// Checks a block but does not introduce a new level of nesting in the [`Scope`]. Useful for
+    /// checking functions which add parameters in their body’s scope.
+    fn check_block_without_nest(&mut self, block: &ast::Block) -> Type {
+        for statement in &block.statements {
+            self.check_statement(statement);
+        }
+        unimplemented!()
+    }
+
+    fn check_statement(&mut self, statement: &ast::Statement) -> Option<Type> {
+        unimplemented!()
+    }
+
+    fn check_constant(&mut self, range: Range, constant: &ast::Constant) -> Type {
+        match constant {
+            ast::Constant::Boolean(_) => Type::boolean(range),
+            ast::Constant::Integer(ast::IntegerBase::Decimal, _) => Type::number(range),
+            ast::Constant::Integer(ast::IntegerBase::Binary, _) => Type::integer(range),
+            ast::Constant::Integer(ast::IntegerBase::Hexadecimal, _) => Type::integer(range),
+            ast::Constant::Float(_) => Type::float(range),
+        }
+    }
+
+    fn check_expression(&mut self, expression: &ast::Expression) -> Type {
+        match &expression.kind {
+            ast::ExpressionKind::Constant(constant) => {
+                self.check_constant(expression.range, constant)
+            }
+            ast::ExpressionKind::Reference(_) => unimplemented!(),
+            ast::ExpressionKind::This => unimplemented!(),
+            ast::ExpressionKind::Function(_) => unimplemented!(),
+            ast::ExpressionKind::Call(_) => unimplemented!(),
+            ast::ExpressionKind::Construct(_) => unimplemented!(),
+            ast::ExpressionKind::Member(_) => unimplemented!(),
+            ast::ExpressionKind::Prefix(_) => unimplemented!(),
+            ast::ExpressionKind::Infix(_) => unimplemented!(),
+            ast::ExpressionKind::Logical(_) => unimplemented!(),
+            ast::ExpressionKind::Conditional(_) => unimplemented!(),
+            ast::ExpressionKind::Block(block) => self.check_block(block),
+            ast::ExpressionKind::Wrapped(_) => unimplemented!(),
         }
     }
 
@@ -183,7 +242,7 @@ impl Scope {
         if let Some(entry) = self.resolve_maybe(identifier) {
             Ok(entry)
         } else {
-            Err(Diagnostic::identifier_not_found(*range, *identifier))
+            Err(Diagnostic::identifier_not_found(*range, identifier.clone()))
         }
     }
 

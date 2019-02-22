@@ -1,5 +1,4 @@
 use crate::diagnostics::*;
-use crate::utils::intern::{Intern, STRING_INTERN_POOL};
 use crate::utils::peek2::Peekable2;
 use num::BigInt;
 use std::cmp;
@@ -468,11 +467,10 @@ impl IdentifierKeyword {
 /// Identifiers are interned so that many identifiers with the same value can shared an instance.
 ///
 /// [1]: http://www.unicode.org/reports/tr31
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Identifier(
-    // TODO: We currently use a global intern pool. Instead use references on a
-    // shared (`Rc`) string.
-    Intern<str>,
+    // TODO: Use a shared reference to the source document?
+    String,
 );
 
 impl Identifier {
@@ -493,7 +491,7 @@ impl Identifier {
         if Keyword::from_str(identifier).is_some() {
             return None;
         }
-        Some(Identifier(STRING_INTERN_POOL.intern_borrow(identifier)))
+        Some(Identifier(identifier.to_string()))
     }
 
     /// Gets the source string for this identifier.
@@ -908,7 +906,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                     TokenKind::Glyph(Glyph::Keyword(keyword))
                 } else {
                     identifier.shrink_to_fit();
-                    TokenKind::Identifier(Identifier(STRING_INTERN_POOL.intern(identifier)))
+                    TokenKind::Identifier(Identifier(identifier))
                 }
             }
 
