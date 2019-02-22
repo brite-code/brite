@@ -1,6 +1,7 @@
 use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection};
 use crate::syntax::ast;
 use crate::syntax::{Identifier, Range};
+use crate::utils::vecn::Vec1;
 use std::collections::HashMap;
 
 /// Checks the Brite Abstract Syntax Tree (AST) for errors and warnings. Reports diagnostics for any
@@ -18,24 +19,8 @@ pub struct Checker<'errs> {
     /// The collection we report diagnostics to. Please use `Checker::report_diagnostic` instead of
     /// accessing our collection directly.
     _diagnostics: &'errs mut DiagnosticsCollection,
-    /// All the identifiers currently in scope and the behavior of each identifier in a program.
-    scope: HashMap<Identifier, ScopeEntry>,
-}
-
-/// The behavior of an identifier in scope.
-struct ScopeEntry {
-    /// The range of the scope entry’s name.
-    range: Range,
-    /// The kind of scope entry this is.
-    kind: ScopeEntryKind,
-}
-
-/// The kind of a [`ScopeEntry`].
-enum ScopeEntryKind {
-    /// The entry is a function declaration.
-    FunctionDeclaration,
-    /// The entry is a class declaration.
-    ClassDeclaration { base: bool },
+    /// The scope contains all the variables accessible at different points in the program.
+    scope: Scope,
 }
 
 impl<'errs> Checker<'errs> {
@@ -43,7 +28,7 @@ impl<'errs> Checker<'errs> {
     pub fn new(diagnostics: &'errs mut DiagnosticsCollection) -> Self {
         Checker {
             _diagnostics: diagnostics,
-            scope: HashMap::new(),
+            scope: Scope::new(),
         }
     }
 
@@ -65,14 +50,14 @@ impl<'errs> Checker<'errs> {
             // If we’ve already seen this declaration name then report an error. We’ll still
             // type-check the declaration, but any references will get access to the first
             // declaration we saw.
-            if let Some(entry) = self.scope.get(&name.identifier) {
+            if let Some(entry) = self.scope.resolve_maybe(&name.identifier) {
                 self.report_diagnostic(Diagnostic::declaration_name_already_used(
                     name.range,
                     name.identifier,
                     entry.range,
                 ));
             } else {
-                self.scope.insert(
+                self.scope.declare(
                     name.identifier,
                     ScopeEntry {
                         range: name.range,
@@ -91,35 +76,42 @@ impl<'errs> Checker<'errs> {
 
     fn check_declaration(&mut self, declaration: &ast::Declaration) {
         match declaration {
-            ast::Declaration::Function(_) => {}
+            ast::Declaration::Function(function) => self.check_function_declaration(function),
             ast::Declaration::Class(class) => self.check_class_declaration(class),
         }
+    }
+
+    fn check_function_declaration(&mut self, function: &ast::FunctionDeclaration) {
+        // self.nest_scope()
     }
 
     fn check_class_declaration(&mut self, class: &ast::ClassDeclaration) {
         // Check to make sure that we are extending a base class.
         if let Some(extends) = &class.extends {
-            if let Some(entry) = self.scope.get(&extends.identifier) {
-                match &entry.kind {
-                    ScopeEntryKind::ClassDeclaration { base } if *base => {
-                        // TODO: Class extension cycle error?
-                    }
-                    _ => {
-                        // Report an error if we are trying to extend something other than a
-                        // base class.
-                        self.report_diagnostic(Diagnostic::can_only_extend_base_class(
-                            extends.range,
-                            extends.identifier,
-                            entry.range,
-                        ));
-                    }
+            match self.scope.resolve_name(extends) {
+                // If the identifier was not found report our error...
+                Err(diagnostic) => {
+                    self.report_diagnostic(diagnostic);
                 }
-            } else {
-                // Report an error if we can’t find the class we are trying to extend.
-                self.report_diagnostic(Diagnostic::identifier_not_found(
-                    extends.range,
-                    extends.identifier,
-                ));
+
+                // If the identifier is a base class then yippee skippy!
+                Ok(ScopeEntry {
+                    kind: ScopeEntryKind::ClassDeclaration { base },
+                    ..
+                })
+                    if *base =>
+                {
+                    // TODO: Class extension cycle error?
+                }
+
+                // If the identifier is not a base class report an error!
+                Ok(entry) => {
+                    self.report_diagnostic(Diagnostic::can_only_extend_base_class(
+                        extends.range,
+                        extends.identifier,
+                        entry.range,
+                    ));
+                }
             }
         }
     }
@@ -129,5 +121,74 @@ impl<'errs> Checker<'errs> {
     /// Written so that we may swap out the implementation at any time.
     fn report_diagnostic(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
         self._diagnostics.report(diagnostic)
+    }
+}
+
+/// The scope of a program contains all the variables accessible at different points in the program.
+struct Scope {
+    stack: Vec1<HashMap<Identifier, ScopeEntry>>,
+}
+
+/// A name bound in our scope.
+struct ScopeEntry {
+    /// The range of the scope entry’s name.
+    range: Range,
+    /// The kind of scope entry this is.
+    kind: ScopeEntryKind,
+}
+
+/// The kind of a [`ScopeEntry`].
+enum ScopeEntryKind {
+    /// The name references a function declaration.
+    FunctionDeclaration,
+    /// The name references a class declaration.
+    ClassDeclaration { base: bool },
+}
+
+impl Scope {
+    /// Creates a new scope.
+    fn new() -> Self {
+        Scope {
+            stack: Vec1::new(HashMap::new()),
+        }
+    }
+
+    /// Add a new level of scope nesting. When [`Scope::unnest`] is called we will remove all
+    /// variables added at this nesting level.
+    fn nest(&mut self) {
+        self.stack.push(HashMap::new());
+    }
+
+    /// Remove all variables added in the last level of scope nesting added with [`Scope::nest`].
+    /// Never removes variables from the root scope.
+    fn unnest(&mut self) {
+        self.stack.pop();
+    }
+
+    /// Declares an entry in the current scope. If an entry with this name already exists we will
+    /// override it.
+    ///
+    /// If we are in a level of nesting we’ll remove the entry when [`Scope::unnest`] is called.
+    fn declare(&mut self, identifier: Identifier, entry: ScopeEntry) {
+        self.stack.last_mut().insert(identifier, entry);
+    }
+
+    /// Resolves a name in our current scope. If we could not find it then return `None`.
+    fn resolve_maybe(&self, identifier: &Identifier) -> Option<&ScopeEntry> {
+        self.stack.last().get(identifier)
+    }
+
+    /// Resolves a name in our current scope. If we could not find it then return an error.
+    fn resolve(&self, range: &Range, identifier: &Identifier) -> Result<&ScopeEntry, Diagnostic> {
+        if let Some(entry) = self.resolve_maybe(identifier) {
+            Ok(entry)
+        } else {
+            Err(Diagnostic::identifier_not_found(*range, *identifier))
+        }
+    }
+
+    /// Resolves a name in our current scope. If we could not find it then return an error.
+    fn resolve_name(&self, name: &ast::Name) -> Result<&ScopeEntry, Diagnostic> {
+        self.resolve(&name.range, &name.identifier)
     }
 }

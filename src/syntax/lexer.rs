@@ -469,7 +469,11 @@ impl IdentifierKeyword {
 ///
 /// [1]: http://www.unicode.org/reports/tr31
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-pub struct Identifier(Intern<str>);
+pub struct Identifier(
+    // TODO: We currently use a global intern pool. Instead use references on a
+    // shared (`Rc`) string.
+    Intern<str>,
+);
 
 impl Identifier {
     /// Creates a new identifier. Returns `None` if the string is not a valid identifier. If the
