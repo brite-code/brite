@@ -66,7 +66,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             .try_parse_identifier_keyword(IdentifierKeyword::Extends)
             .is_some()
         {
-            Some(self.parse_type()?)
+            Some(self.parse_name()?)
         } else {
             None
         };

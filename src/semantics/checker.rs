@@ -81,6 +81,27 @@ impl<'errs> Checker<'errs> {
                 );
             }
         }
+
+        // Now that all of our declarations are in scope, loop through our declaration list again
+        // and type check all our declarations.
+        for declaration in &module.declarations {
+            match declaration {
+                ast::Declaration::Function(_) => {}
+                ast::Declaration::Class(class) => {
+                    if let Some(extends) = &class.extends {
+                        if let Some(_) = self.scope.get(&extends.identifier) {
+
+                        } else {
+                            self.report_diagnostic(Diagnostic::identifier_not_found(
+                                extends.range,
+                                extends.identifier,
+                            ));
+                        }
+                    }
+                    // Other stuff...
+                }
+            }
+        }
     }
 
     /// Reports a diagnostic.

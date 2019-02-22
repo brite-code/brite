@@ -1,0 +1,3 @@
+class Foo extends DoesNotExist1 {}
+
+base class Bar extends DoesNotExist2 {}

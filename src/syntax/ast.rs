@@ -70,7 +70,7 @@ pub struct ClassDeclaration {
     /// The name of a class.
     pub name: Name,
     /// A class may optionally extend a base class.
-    pub extends: Option<Type>,
+    pub extends: Option<Name>,
     /// The members of a class.
     pub members: Vec<ClassMember>,
 }

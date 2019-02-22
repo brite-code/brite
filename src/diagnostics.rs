@@ -110,6 +110,8 @@ enum ErrorDiagnosticMessage {
     },
     /// The parser ran into the end of the source document unexpectedly.
     UnexpectedEnding { expected: ExpectedSyntax },
+    /// Could not find a declaration for an identifier.
+    IdentifierNotFound { identifier: Identifier },
     /// A declaration with this name already exists.
     DeclarationNameAlreadyUsed {
         identifier: Identifier,
@@ -206,6 +208,14 @@ impl Diagnostic {
         Self::error(
             Range::new(position, position),
             ErrorDiagnosticMessage::UnexpectedEnding { expected },
+        )
+    }
+
+    /// Could not find a declaration for an identifier.
+    pub fn identifier_not_found(range: Range, identifier: Identifier) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::IdentifierNotFound { identifier },
         )
     }
 
@@ -311,6 +321,20 @@ impl Diagnostic {
                 message.push("We want ");
                 expected.add_message(&mut message);
                 message.push(" but the file ends.");
+                (message, Vec::new())
+            }
+
+            // We tell the user directly that the name they were looking for is missing. “does not
+            // exist” is a bit harsh. It might also be untrue from the user’s point of view. The
+            // variable could exist in a different scope or with a small mis-spelling. Instead we
+            // use “can not find” which is simple and to the point.
+            //
+            // TODO: Propose names that are spelled similarly as “did you mean `x`”?
+            ErrorDiagnosticMessage::IdentifierNotFound { identifier } => {
+                let mut message = Markup::new();
+                message.push("Can not find ");
+                message.push_code(identifier.as_str());
+                message.push(".");
                 (message, Vec::new())
             }
 
