@@ -89,9 +89,21 @@ impl<'errs> Checker<'errs> {
                 ast::Declaration::Function(_) => {}
                 ast::Declaration::Class(class) => {
                     if let Some(extends) = &class.extends {
-                        if let Some(_) = self.scope.get(&extends.identifier) {
-
+                        if let Some(entry) = self.scope.get(&extends.identifier) {
+                            match &entry.kind {
+                                ScopeEntryKind::ClassDeclaration { base } if *base => {}
+                                _ => {
+                                    // Report an error if we are trying to extend something other
+                                    // than a base class.
+                                    self.report_diagnostic(Diagnostic::can_only_extend_base_class(
+                                        extends.range,
+                                        extends.identifier,
+                                        entry.range,
+                                    ));
+                                }
+                            }
                         } else {
+                            // Report an error if we can’t find the class we are trying to extend.
                             self.report_diagnostic(Diagnostic::identifier_not_found(
                                 extends.range,
                                 extends.identifier,

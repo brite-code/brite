@@ -1,8 +1,6 @@
 # Checker Test: `declaration_already_exists`
 
 ## Errors
-- (2:7-2:10) Can not use the name `Foo` again.
-  - (1:7-1:10) `Foo`
 - (5:5-5:8) Can not use the name `bar` again.
   - (4:5-4:8) `bar`
 - (8:5-8:8) Can not use the name `Qux` again.

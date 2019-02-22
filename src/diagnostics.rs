@@ -115,7 +115,12 @@ enum ErrorDiagnosticMessage {
     /// A declaration with this name already exists.
     DeclarationNameAlreadyUsed {
         identifier: Identifier,
-        exists: Range,
+        declaration_range: Range,
+    },
+    /// Tried to extend a declaration which is not a base class.
+    CanOnlyExtendBaseClass {
+        identifier: Identifier,
+        declaration_range: Range,
     },
 }
 
@@ -226,11 +231,32 @@ impl Diagnostic {
     pub fn declaration_name_already_used(
         range: Range,
         identifier: Identifier,
-        exists: Range,
+        declaration_range: Range,
     ) -> Self {
         Self::error(
             range,
-            ErrorDiagnosticMessage::DeclarationNameAlreadyUsed { identifier, exists },
+            ErrorDiagnosticMessage::DeclarationNameAlreadyUsed {
+                identifier,
+                declaration_range,
+            },
+        )
+    }
+
+    /// Tried to extend a declaration which is not a base class.
+    ///
+    /// The first range is the range of the bad extends name. The second range is the range of the
+    /// declaration that is not a base class.
+    pub fn can_only_extend_base_class(
+        range: Range,
+        identifier: Identifier,
+        declaration_range: Range,
+    ) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::CanOnlyExtendBaseClass {
+                identifier,
+                declaration_range,
+            },
         )
     }
 }
@@ -341,14 +367,36 @@ impl Diagnostic {
             // Tell the programmer that they can not use their name a second time. We also make sure
             // that we point out the first place they use the declaration name in related
             // information in case the programmer is confused.
-            ErrorDiagnosticMessage::DeclarationNameAlreadyUsed { identifier, exists } => {
+            ErrorDiagnosticMessage::DeclarationNameAlreadyUsed {
+                identifier,
+                declaration_range,
+            } => {
                 let mut message = Markup::new();
                 message.push("Can not use the name ");
                 message.push_code(identifier.as_str());
                 message.push(" again.");
                 let mut related_information = Vec::new();
                 related_information.push(DiagnosticRelatedInformation {
-                    range: *exists,
+                    range: *declaration_range,
+                    message: Markup::code(identifier.as_str().into()),
+                });
+                (message, related_information)
+            }
+
+            // Tell the programmer they can’t extend the declaration because it is not a base class.
+            // Make sure we point to the declaration in related information so the programmer can
+            // see that, indeed, the declaration that is not a base class.
+            ErrorDiagnosticMessage::CanOnlyExtendBaseClass {
+                identifier,
+                declaration_range,
+            } => {
+                let mut message = Markup::new();
+                message.push("Can not extend ");
+                message.push_code(identifier.as_str());
+                message.push(" because it is not a base class.");
+                let mut related_information = Vec::new();
+                related_information.push(DiagnosticRelatedInformation {
+                    range: *declaration_range,
                     message: Markup::code(identifier.as_str().into()),
                 });
                 (message, related_information)
