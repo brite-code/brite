@@ -13,14 +13,14 @@ pub struct Type {
 
 /// The kind of a type.
 enum TypeKind {
-    // /// No value that exists at runtime may ever be typed as `Never`. The name comes from the fact
-    // /// that this type will “never” be reachable at runtime. This is the bottom type in our system.
-    // /// Written as ⊥ in academic literature.
-    // Never,
-    // /// Every value may be typed as `Unknown`. The name comes from the fact that when we have a
-    // /// value of this type then the underlying type of the value is “unknown”. This is the top type
-    // /// in our system. Written as ⊤ in academic literature.
-    // Unknown,
+    /// No value that exists at runtime may ever be typed as `Never`. The name comes from the fact
+    /// that this type will “never” be reachable at runtime. This is the bottom type in our system.
+    /// Written as ⊥ in academic literature.
+    Never,
+    /// Every value may be typed as `Unknown`. The name comes from the fact that when we have a
+    /// value of this type then the underlying type of the value is “unknown”. This is the top type
+    /// in our system. Written as ⊤ in academic literature.
+    Unknown,
     /// Type with only one value, void. This is the “unit” type for Brite.
     Void,
     /// A boolean can either be the value true or false.
@@ -35,17 +35,17 @@ enum TypeKind {
     ///
     /// [1]: https://en.wikipedia.org/wiki/IEEE_754
     Float,
-    // /// The type of a function. Functions may be passed around just like any other value.
-    // Function(FunctionType),
+    /// The type of a function. Functions may be passed around just like any other value.
+    Function(FunctionType),
 }
 
-// /// The type of a function. Functions may be passed around just like any other value.
-// struct FunctionType {
-//     /// The types of this function’s parameters.
-//     parameters: Vec<Type>,
-//     /// The return type of this function.
-//     return_: Box<Type>,
-// }
+/// The type of a function. Functions may be passed around just like any other value.
+struct FunctionType {
+    /// The types of this function’s parameters.
+    parameters: Vec<Type>,
+    /// The return type of this function.
+    return_: Box<Type>,
+}
 
 impl Type {
     /// Creates a void type.
