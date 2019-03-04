@@ -1,6 +1,8 @@
 //! Various `Vec` variants with a minimum number of elements. For example, a [`Vec2`] must have a
 //! minimum of two elements.
 
+use std::fmt;
+use std::slice::Iter;
 use std::vec::IntoIter;
 
 /// Creates a `Vec1` which must have at least one element.
@@ -57,16 +59,29 @@ impl<T> Vec1<T> {
         }
     }
 
-    /// Gets a reference to the last element.
+    /// Gets an [`Iterator`] for traversing through the vector.
+    pub fn iter(&self) -> Iter<T> {
+        self.vec.iter()
+    }
+
+    /// Gets a reference to the last element. A last element always exists because a `Vec1` has at
+    /// least one element.
     pub fn last(&self) -> &T {
         let i = self.vec.len() - 1;
         &self.vec[i]
     }
 
-    /// Gets a mutable reference to the last element.
+    /// Gets a mutable reference to the last element. A last element always exists because a `Vec1`
+    /// has at least one element.
     pub fn last_mut(&mut self) -> &mut T {
         let i = self.vec.len() - 1;
         &mut self.vec[i]
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for Vec1<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.vec.fmt(f)
     }
 }
 

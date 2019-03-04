@@ -262,7 +262,14 @@ impl<'errs> Checker<'errs> {
                         Type::never(type_.range)
                     }
 
-                    Ok(_) => unimplemented!(),
+                    Ok(entry) => match &entry.kind {
+                        ScopeEntryKind::Value(_) => unimplemented!(),
+                        ScopeEntryKind::Function => unimplemented!(),
+                        ScopeEntryKind::Class { .. } => unimplemented!(),
+
+                        // If we are referencing a type then return that.
+                        ScopeEntryKind::Type(type_) => type_.clone(),
+                    },
                 }
             }
             ast::TypeKind::This => unimplemented!(),
@@ -329,6 +336,7 @@ struct Scope {
 }
 
 /// A name bound in our scope.
+#[derive(Debug)]
 struct ScopeEntry {
     /// The range of the scope entry’s name.
     range: Range,
@@ -337,6 +345,7 @@ struct ScopeEntry {
 }
 
 /// The kind of a [`ScopeEntry`].
+#[derive(Debug)]
 enum ScopeEntryKind {
     /// Some value bound at runtime.
     Value(Type),
@@ -405,7 +414,12 @@ impl Scope {
 
     /// Resolves a name in our current scope. If we could not find it then return `None`.
     fn resolve_maybe(&self, identifier: &Identifier) -> Option<&ScopeEntry> {
-        self.stack.last().get(identifier)
+        for entries in self.stack.iter().rev() {
+            if let Some(entry) = entries.get(identifier) {
+                return Some(entry);
+            }
+        }
+        None
     }
 
     /// Resolves a name in our current scope. If we could not find it then return an error.

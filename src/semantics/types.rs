@@ -1,8 +1,10 @@
-use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection};
 use crate::syntax::Range;
-use crate::utils::vecn::Vec1;
 
 /// Describes the values which may be assigned to a particular binding.
+///
+/// NOTE: The implementation of `Clone` needs to stay fairly cheap since we’ll clone a type whenever
+/// it is referenced. (Which is itself a form of type reuse.)
+#[derive(Clone, Debug)]
 pub struct Type {
     /// The range of our type in source code.
     pub range: Range,
@@ -14,6 +16,7 @@ pub struct Type {
 // two concepts?
 
 /// The kind of a type.
+#[derive(Clone, Debug)]
 pub enum TypeKind {
     /// No value that exists at runtime may ever be typed as `Never`. The name comes from the fact
     /// that this type will “never” be reachable at runtime. This is the bottom type in our system.
