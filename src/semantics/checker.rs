@@ -197,7 +197,25 @@ impl<'errs> Checker<'errs> {
                 self.check_constant(expression.range, constant)
             }
 
-            ast::ExpressionKind::Reference(_) => unimplemented!(),
+            ast::ExpressionKind::Reference(identifier) => {
+                match self.scope.resolve(&expression.range, identifier) {
+                    // If the identifier was not found report our error and use the never type. The
+                    // never type will error when the programmer tries to use it to create a value.
+                    Err(diagnostic) => {
+                        self.report_diagnostic(diagnostic);
+                        Type::never(expression.range)
+                    }
+
+                    Ok(entry) => match &entry.kind {
+                        ScopeEntryKind::Type(_) => unimplemented!(),
+                        ScopeEntryKind::Function => unimplemented!(),
+                        ScopeEntryKind::Class { .. } => unimplemented!(),
+
+                        // If we are referencing a value then return that.
+                        ScopeEntryKind::Value(type_) => type_.clone(),
+                    },
+                }
+            }
             ast::ExpressionKind::This => unimplemented!(),
             ast::ExpressionKind::Function(_) => unimplemented!(),
             ast::ExpressionKind::Call(_) => unimplemented!(),

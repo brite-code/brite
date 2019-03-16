@@ -1,4 +1,14 @@
 fun main() {
+  (a: Int);
+  (a: Bool);
+  (b: Int);
+  (b: Bool);
+
   let a = 42;
   let b: Int = true;
+
+  (a: Int);
+  (a: Bool);
+  (b: Int);
+  (b: Bool);
 }
