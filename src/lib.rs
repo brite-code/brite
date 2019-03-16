@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate lazy_static;
-
 extern crate num;
 extern crate pretty;
 extern crate unicode_xid;

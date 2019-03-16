@@ -1,3 +1,4 @@
+use crate::diagnostics::TypeSnippet;
 use crate::syntax::Range;
 
 /// Describes the values which may be assigned to a particular binding.
@@ -106,6 +107,19 @@ impl Type {
         Type {
             range,
             kind: TypeKind::Float,
+        }
+    }
+
+    /// Gets a snippet of a type for error reporting.
+    pub fn snippet(&self) -> TypeSnippet {
+        match &self.kind {
+            TypeKind::Never => TypeSnippet::Never,
+            TypeKind::Unknown => TypeSnippet::Unknown,
+            TypeKind::Void => TypeSnippet::Void,
+            TypeKind::Boolean => TypeSnippet::Boolean,
+            TypeKind::Number => TypeSnippet::Number,
+            TypeKind::Integer => TypeSnippet::Integer,
+            TypeKind::Float => TypeSnippet::Float,
         }
     }
 }

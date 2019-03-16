@@ -10,4 +10,12 @@ fun test() {
   (42: Unknown);
   (0xC0FF33: Unknown);
   (3.1415: Unknown);
+
+  (true: Num);
+  (42: Bool);
+  (42: Int);
+  (42: Float);
+  (0xC0FF33: Float);
+  (3.1415: Int);
+  (true: Never);
 }

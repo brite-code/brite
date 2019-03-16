@@ -122,6 +122,14 @@ enum ErrorDiagnosticMessage {
         identifier: Identifier,
         declaration_range: Range,
     },
+    /// We found two types that were incompatible with one another during unification.
+    IncompatibleTypes {
+        operation: OperationSnippet,
+        actual_range: Range,
+        actual_snippet: TypeSnippet,
+        expected_range: Range,
+        expected_snippet: TypeSnippet,
+    },
 }
 
 enum WarningDiagnosticMessage {}
@@ -168,6 +176,30 @@ pub enum ExpectedSyntax {
     Pattern,
     /// Expected a type.
     Type,
+}
+
+/// A snippet describing some operation that we were trying to perform when a diagnostic occurred.
+pub enum OperationSnippet {
+    /// An annotated expression failed to type check.
+    ExpressionAnnotation,
+}
+
+/// A snippet of some type for error message printing.
+pub enum TypeSnippet {
+    /// The never type.
+    Never,
+    /// The unknown type.
+    Unknown,
+    /// The void type.
+    Void,
+    /// The boolean type.
+    Boolean,
+    /// The number type.
+    Number,
+    /// The integer type.
+    Integer,
+    /// The float type.
+    Float,
 }
 
 impl Diagnostic {
@@ -259,6 +291,28 @@ impl Diagnostic {
             },
         )
     }
+
+    /// We found two types that were incompatible with one another during unification.
+    ///
+    /// We will report the error at the first range. The second and third ranges will be used as
+    /// related locations if the information is necessary.
+    pub fn incompatible_types(
+        range: Range,
+        operation: OperationSnippet,
+        (actual_range, actual_snippet): (Range, TypeSnippet),
+        (expected_range, expected_snippet): (Range, TypeSnippet),
+    ) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::IncompatibleTypes {
+                operation,
+                actual_range,
+                actual_snippet,
+                expected_range,
+                expected_snippet,
+            },
+        )
+    }
 }
 
 /// Related information for a diagnostic in case the primary message was not enough. Most
@@ -282,13 +336,14 @@ impl Diagnostic {
     /// time it is called instead of fetching a pre-generated message.
     fn message(&self) -> (Markup, Vec<DiagnosticRelatedInformation>) {
         match &self.message {
-            DiagnosticMessage::Error(message) => Self::error_message(message),
+            DiagnosticMessage::Error(message) => self.error_message(message),
             DiagnosticMessage::Warning(_) => unreachable!(),
             DiagnosticMessage::Info(_) => unreachable!(),
         }
     }
 
     fn error_message(
+        &self,
         error_message: &ErrorDiagnosticMessage,
     ) -> (Markup, Vec<DiagnosticRelatedInformation>) {
         match error_message {
@@ -322,14 +377,14 @@ impl Diagnostic {
             } => {
                 let mut message = Markup::new();
                 message.push("We want ");
-                expected.add_message(&mut message);
+                expected.print(&mut message);
                 match unexpected {
                     UnexpectedSyntax::Char('\n') | UnexpectedSyntax::Char('\r') => {
                         message.push(" but the line ends.")
                     }
                     _ => {
                         message.push(" but we have ");
-                        unexpected.add_message(&mut message);
+                        unexpected.print(&mut message);
                         message.push(".");
                     }
                 }
@@ -345,7 +400,7 @@ impl Diagnostic {
             ErrorDiagnosticMessage::UnexpectedEnding { expected } => {
                 let mut message = Markup::new();
                 message.push("We want ");
-                expected.add_message(&mut message);
+                expected.print(&mut message);
                 message.push(" but the file ends.");
                 (message, Vec::new())
             }
@@ -401,12 +456,69 @@ impl Diagnostic {
                 });
                 (message, related_information)
             }
+
+            // A Brite programmer will see this error message quite frequently so we need to take
+            // some time and make sure it’s real good.
+            //
+            // We get an incompatible types error message when during type checking we find two
+            // types that are incompatible. We will add those two types in an error message in
+            // addition to the operation that failed.
+            //
+            // We start our error message by referencing the operation. “Cannot call”, “Cannot
+            // assign”, etc. This allows us to tie our incompatibility _to an actual place in the
+            // programmer’s code_. We don’t just say “these two types are incompatible”, we say “you
+            // can’t do this _because_ you didn’t provide the right types”.
+            //
+            // We then tell the programmer the type we found and _then_ the type we expected. This
+            // order was carefully thought of. The expected type is pretty static. It doesn’t change
+            // much over time. However, the programmer is constantly changing which values should
+            // flow into the expected type. Even if, say, the programmer changes the type of a
+            // function parameter (an example of an expected type) they will then go to _all_ the
+            // code sites where that function was called and update the values being passed.
+            //
+            // We use the related information to tell the user the exact location of the expected
+            // type. We also show them the exact location of the actual type, but only if our
+            // diagnostic wasn’t already pointing to the actual type. If our diagnostic is pointing
+            // to the actual type we reduce clutter by not including the extra information.
+            ErrorDiagnosticMessage::IncompatibleTypes {
+                operation,
+                actual_range,
+                actual_snippet,
+                expected_range,
+                expected_snippet,
+            } => {
+                let mut message = Markup::new();
+                operation.print(&mut message);
+                message.push(" because ");
+                actual_snippet.print(&mut message);
+                message.push(" cannot be used as ");
+                expected_snippet.print(&mut message);
+                message.push(".");
+                let mut related_information = Vec::new();
+                if !self.range.intersects(*actual_range) {
+                    let mut message = Markup::new();
+                    actual_snippet.print(&mut message);
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: *actual_range,
+                        message,
+                    });
+                }
+                if !self.range.intersects(*expected_range) {
+                    let mut message = Markup::new();
+                    expected_snippet.print(&mut message);
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: *expected_range,
+                        message,
+                    });
+                }
+                (message, related_information)
+            }
         }
     }
 }
 
 impl UnexpectedSyntax {
-    fn add_message(&self, message: &mut Markup) {
+    fn print(&self, message: &mut Markup) {
         match self {
             UnexpectedSyntax::Glyph(glyph) => message.push_code(glyph.as_str()),
             UnexpectedSyntax::Identifier => message.push("a variable name"),
@@ -422,7 +534,7 @@ impl UnexpectedSyntax {
 }
 
 impl ExpectedSyntax {
-    fn add_message(&self, message: &mut Markup) {
+    fn print(&self, message: &mut Markup) {
         match self {
             ExpectedSyntax::Glyph(glyph) => message.push_code(glyph.as_str()),
             ExpectedSyntax::Identifier => message.push("a name"),
@@ -459,6 +571,28 @@ impl ExpectedSyntax {
             ExpectedSyntax::Pattern => message.push("a variable name"),
 
             ExpectedSyntax::Type => message.push("a type"),
+        }
+    }
+}
+
+impl OperationSnippet {
+    fn print(&self, message: &mut Markup) {
+        match self {
+            OperationSnippet::ExpressionAnnotation => message.push("Cannot change the type"),
+        }
+    }
+}
+
+impl TypeSnippet {
+    fn print(&self, message: &mut Markup) {
+        match self {
+            TypeSnippet::Never => message.push("never"),
+            TypeSnippet::Unknown => message.push("unknown"),
+            TypeSnippet::Void => message.push("void"),
+            TypeSnippet::Boolean => message.push("a boolean"),
+            TypeSnippet::Number => message.push("a number"),
+            TypeSnippet::Integer => message.push("an integer"),
+            TypeSnippet::Float => message.push("a float"),
         }
     }
 }

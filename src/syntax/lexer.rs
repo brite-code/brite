@@ -147,6 +147,11 @@ impl Range {
             end: cmp::max(self.end, other.end),
         }
     }
+
+    /// Does this range intersect with the other range?
+    pub fn intersects(self, other: Range) -> bool {
+        !(self.end < other.start || other.end < self.start)
+    }
 }
 
 impl fmt::Display for Range {
