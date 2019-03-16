@@ -158,7 +158,23 @@ impl<'errs> Checker<'errs> {
     fn check_statement(&mut self, statement: &ast::Statement) -> Type {
         match &statement.kind {
             ast::StatementKind::Expression(expression) => self.check_expression(expression),
-            ast::StatementKind::Binding(_) => unimplemented!(),
+
+            ast::StatementKind::Binding(binding) => {
+                if let Some(annotation) = &binding.annotation {
+                    let type_ = self.check_type(annotation);
+                    let type_ = self.check_expression_with_type(
+                        OperationSnippet::BindingStatementAnnotation,
+                        &binding.value,
+                        type_,
+                    );
+                    self.check_pattern(&binding.pattern, type_);
+                } else {
+                    let type_ = self.check_expression(&binding.value);
+                    self.check_pattern(&binding.pattern, type_);
+                }
+                Type::void(statement.range)
+            }
+
             ast::StatementKind::Return(_) => unimplemented!(),
             ast::StatementKind::Empty => unimplemented!(),
         }
@@ -257,6 +273,25 @@ impl<'errs> Checker<'errs> {
                 let _ = self.subtype(expression.range, operation, &actual, &expected);
                 expected
             }
+        }
+    }
+
+    /// Checks a pattern which is supposed to bind a value with the provided type. If the pattern
+    /// is of a different type, say we are trying to bind a number to an object pattern, then we
+    /// will report a diagnostic.
+    fn check_pattern(&mut self, pattern: &ast::Pattern, type_: Type) {
+        match &pattern.kind {
+            // Declare a value variable in this scope with the pattern’s binding identifier.
+            ast::PatternKind::Binding(identifier) => self.scope.declare(
+                identifier.clone(),
+                ScopeEntry {
+                    range: pattern.range,
+                    kind: ScopeEntryKind::Value(type_),
+                },
+            ),
+
+            ast::PatternKind::Hole => unimplemented!(),
+            ast::PatternKind::This => unimplemented!(),
         }
     }
 

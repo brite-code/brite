@@ -1,0 +1,4 @@
+fun main() {
+  let a = 42;
+  let b: Int = true;
+}

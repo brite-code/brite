@@ -182,6 +182,8 @@ pub enum ExpectedSyntax {
 pub enum OperationSnippet {
     /// An annotated expression failed to type check.
     ExpressionAnnotation,
+    /// An annotated binding statement failed to type check.
+    BindingStatementAnnotation,
 }
 
 /// A snippet of some type for error message printing.
@@ -497,7 +499,7 @@ impl Diagnostic {
                 let mut related_information = Vec::new();
                 if !self.range.intersects(*actual_range) {
                     let mut message = Markup::new();
-                    actual_snippet.print(&mut message);
+                    actual_snippet.print(&mut message); // TODO: Technical name. Not “an integer” or “a boolean”
                     related_information.push(DiagnosticRelatedInformation {
                         range: *actual_range,
                         message,
@@ -578,7 +580,11 @@ impl ExpectedSyntax {
 impl OperationSnippet {
     fn print(&self, message: &mut Markup) {
         match self {
-            OperationSnippet::ExpressionAnnotation => message.push("Cannot change the type"),
+            // TODO: Better error message. “Can not change the type of `x`”
+            OperationSnippet::ExpressionAnnotation => message.push("Can not change the type"),
+
+            // TODO: Better error message. “Can not set `x` to `y`”
+            OperationSnippet::BindingStatementAnnotation => message.push("Can not set"),
         }
     }
 }
