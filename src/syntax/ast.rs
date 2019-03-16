@@ -1,6 +1,7 @@
 //! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
 
 use super::lexer::{Identifier, Range};
+use crate::diagnostics::{ExpressionSnippet, PatternSnippet};
 use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
@@ -154,7 +155,7 @@ pub struct BindingStatement {
 }
 
 /// A constant value in the programmer’s code.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Constant {
     /// Either `true` or `false`.
     Boolean(bool),
@@ -165,7 +166,7 @@ pub enum Constant {
 }
 
 /// The Brite supported integer bases.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum IntegerBase {
     /// Base 2
     Binary,
@@ -474,6 +475,67 @@ pub struct FunctionType {
     pub return_: Box<Type>,
 }
 
+impl Constant {
+    /// Prints an AST constant to a string.
+    ///
+    /// - Hexadecimal numbers are always printed in uppercase so that all glyphs have a
+    ///   consistent height.
+    /// - Floats greater than 1e10 are printed in scientific notation.
+    pub fn print(&self) -> String {
+        match self {
+            Constant::Boolean(value) => if *value {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            },
+            Constant::Integer(IntegerBase::Decimal, value) => value.to_str_radix(10),
+            Constant::Integer(IntegerBase::Binary, value) => format!("0b{}", value.to_str_radix(2)),
+            Constant::Integer(IntegerBase::Hexadecimal, value) => {
+                format!("0x{}", value.to_str_radix(16).to_uppercase())
+            }
+            Constant::Float(value) => if *value >= 10_000_000_000. {
+                format!("{:e}", value)
+            } else {
+                format!("{}", value)
+            },
+        }
+    }
+}
+
+impl Expression {
+    /// Gets a snippet of this expression for error message printing.
+    pub fn snippet(&self) -> ExpressionSnippet {
+        match &self.kind {
+            ExpressionKind::Constant(constant) => ExpressionSnippet::Constant(constant.clone()),
+            ExpressionKind::Reference(identifier) => {
+                ExpressionSnippet::Reference(identifier.clone())
+            }
+            ExpressionKind::This => unimplemented!(),
+            ExpressionKind::Function(_) => unimplemented!(),
+            ExpressionKind::Call(_) => unimplemented!(),
+            ExpressionKind::Construct(_) => unimplemented!(),
+            ExpressionKind::Member(_) => unimplemented!(),
+            ExpressionKind::Prefix(_) => unimplemented!(),
+            ExpressionKind::Infix(_) => unimplemented!(),
+            ExpressionKind::Logical(_) => unimplemented!(),
+            ExpressionKind::Conditional(_) => unimplemented!(),
+            ExpressionKind::Block(_) => unimplemented!(),
+            ExpressionKind::Wrapped(_) => unimplemented!(),
+        }
+    }
+}
+
+impl Pattern {
+    /// A snippet of this pattern for error message printing.
+    pub fn snippet(&self) -> PatternSnippet {
+        match &self.kind {
+            PatternKind::Binding(identifier) => PatternSnippet::Binding(identifier.clone()),
+            PatternKind::Hole => unimplemented!(),
+            PatternKind::This => unimplemented!(),
+        }
+    }
+}
+
 impl Name {
     /// Converts a name into an S-expression for debugging.
     fn lisp(&self) -> Lisp {
@@ -609,27 +671,14 @@ impl Constant {
     /// Converts a constant to a symbolic expression. The constant’s range may be provided as an
     /// extra parameter.
     fn lisp(&self, range: Lisp) -> Lisp {
-        match self {
-            Constant::Boolean(value) => lisp!("bool", range, if *value { "true" } else { "false" }),
-            Constant::Integer(IntegerBase::Decimal, value) => {
-                lisp!("int", range, value.to_str_radix(10))
-            }
-            Constant::Integer(IntegerBase::Binary, value) => {
-                lisp!("bin", range, value.to_str_radix(2))
-            }
-            Constant::Integer(IntegerBase::Hexadecimal, value) => {
-                lisp!("hex", range, value.to_str_radix(16).to_uppercase())
-            }
-            Constant::Float(value) => lisp!(
-                "float",
-                range,
-                if *value >= 10_000_000_000. {
-                    format!("{:e}", value)
-                } else {
-                    format!("{}", value)
-                }
-            ),
-        }
+        let kind = match self {
+            Constant::Boolean(value) => "bool",
+            Constant::Integer(IntegerBase::Decimal, _) => "int",
+            Constant::Integer(IntegerBase::Binary, _) => "bin",
+            Constant::Integer(IntegerBase::Hexadecimal, _) => "hex",
+            Constant::Float(value) => "float",
+        };
+        lisp!(kind, range, self.print())
     }
 }
 

@@ -163,7 +163,10 @@ impl<'errs> Checker<'errs> {
                 if let Some(annotation) = &binding.annotation {
                     let type_ = self.check_type(annotation);
                     let type_ = self.check_expression_with_type(
-                        OperationSnippet::BindingStatementAnnotation,
+                        OperationSnippet::BindingStatementAnnotation(
+                            binding.pattern.snippet(),
+                            binding.value.snippet(),
+                        ),
                         &binding.value,
                         type_,
                     );
@@ -237,7 +240,7 @@ impl<'errs> Checker<'errs> {
                 if let Some(annotation) = &wrapped.annotation {
                     let annotation = self.check_type(annotation);
                     self.check_expression_with_type(
-                        OperationSnippet::ExpressionAnnotation,
+                        OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
                         &wrapped.expression,
                         annotation,
                     )

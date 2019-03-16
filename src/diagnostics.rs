@@ -63,6 +63,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
+use crate::syntax::ast::Constant;
 use crate::syntax::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::Markup;
 use std::rc::Rc;
@@ -181,9 +182,9 @@ pub enum ExpectedSyntax {
 /// A snippet describing some operation that we were trying to perform when a diagnostic occurred.
 pub enum OperationSnippet {
     /// An annotated expression failed to type check.
-    ExpressionAnnotation,
+    ExpressionAnnotation(ExpressionSnippet),
     /// An annotated binding statement failed to type check.
-    BindingStatementAnnotation,
+    BindingStatementAnnotation(PatternSnippet, ExpressionSnippet),
 }
 
 /// A snippet of some type for error message printing.
@@ -202,6 +203,21 @@ pub enum TypeSnippet {
     Integer,
     /// The float type.
     Float,
+}
+
+/// A snippet of some expression for error message printing. We try to keep the snippet small. A
+/// mere description of the full expression.
+pub enum ExpressionSnippet {
+    /// Some constant value in the program.
+    Constant(Constant),
+    /// A reference to some value in the program.
+    Reference(Identifier),
+}
+
+/// A snippet of some pattern for error message printing.
+pub enum PatternSnippet {
+    /// A binding for some value in the program.
+    Binding(Identifier),
 }
 
 impl Diagnostic {
@@ -492,14 +508,14 @@ impl Diagnostic {
                 let mut message = Markup::new();
                 operation.print(&mut message);
                 message.push(" because ");
-                actual_snippet.print(&mut message);
+                actual_snippet.print_plain(&mut message);
                 message.push(" cannot be used as ");
-                expected_snippet.print(&mut message);
+                expected_snippet.print_plain(&mut message);
                 message.push(".");
                 let mut related_information = Vec::new();
                 if !self.range.intersects(*actual_range) {
                     let mut message = Markup::new();
-                    actual_snippet.print(&mut message); // TODO: Technical name. Not “an integer” or “a boolean”
+                    actual_snippet.print_code(&mut message);
                     related_information.push(DiagnosticRelatedInformation {
                         range: *actual_range,
                         message,
@@ -507,7 +523,7 @@ impl Diagnostic {
                 }
                 if !self.range.intersects(*expected_range) {
                     let mut message = Markup::new();
-                    expected_snippet.print(&mut message);
+                    expected_snippet.print_code(&mut message);
                     related_information.push(DiagnosticRelatedInformation {
                         range: *expected_range,
                         message,
@@ -580,17 +596,41 @@ impl ExpectedSyntax {
 impl OperationSnippet {
     fn print(&self, message: &mut Markup) {
         match self {
-            // TODO: Better error message. “Can not change the type of `x`”
-            OperationSnippet::ExpressionAnnotation => message.push("Can not change the type"),
+            OperationSnippet::ExpressionAnnotation(value) => {
+                message.push("Can not change the type of ");
+                value.print(message);
+            }
+            OperationSnippet::BindingStatementAnnotation(pattern, value) => {
+                message.push("Can not set ");
+                pattern.print(message);
+                message.push(" to ");
+                value.print(message);
+            }
+        }
+    }
+}
 
-            // TODO: Better error message. “Can not set `x` to `y`”
-            OperationSnippet::BindingStatementAnnotation => message.push("Can not set"),
+impl ExpressionSnippet {
+    fn print(&self, message: &mut Markup) {
+        match self {
+            ExpressionSnippet::Constant(constant) => message.push_code(constant.print()),
+            ExpressionSnippet::Reference(identifier) => message.push_code(identifier.as_str()),
+        }
+    }
+}
+
+impl PatternSnippet {
+    fn print(&self, message: &mut Markup) {
+        match self {
+            PatternSnippet::Binding(identifier) => message.push_code(identifier.as_str()),
         }
     }
 }
 
 impl TypeSnippet {
-    fn print(&self, message: &mut Markup) {
+    /// Prints a type snippet to human readable plain-text when appropriate. Sometimes uses
+    /// `TypeSnippet::print_code()` for complicated types.
+    fn print_plain(&self, message: &mut Markup) {
         match self {
             TypeSnippet::Never => message.push("never"),
             TypeSnippet::Unknown => message.push("unknown"),
@@ -599,6 +639,19 @@ impl TypeSnippet {
             TypeSnippet::Number => message.push("a number"),
             TypeSnippet::Integer => message.push("an integer"),
             TypeSnippet::Float => message.push("a float"),
+        }
+    }
+
+    /// Prints a type snippet to code.
+    fn print_code(&self, message: &mut Markup) {
+        match self {
+            TypeSnippet::Never => message.push_code("Never"),
+            TypeSnippet::Unknown => message.push_code("Unknown"),
+            TypeSnippet::Void => message.push_code("Void"),
+            TypeSnippet::Boolean => message.push_code("Bool"),
+            TypeSnippet::Number => message.push_code("Num"),
+            TypeSnippet::Integer => message.push_code("Int"),
+            TypeSnippet::Float => message.push_code("Float"),
         }
     }
 }
