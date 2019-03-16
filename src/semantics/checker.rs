@@ -333,7 +333,11 @@ impl<'errs> Checker<'errs> {
                         ScopeEntryKind::Class { .. } => unimplemented!(),
 
                         // If we are referencing a type then return that.
-                        ScopeEntryKind::Type(type_) => type_.clone(),
+                        ScopeEntryKind::Type(referenced_type) => {
+                            let mut referenced_type = referenced_type.clone();
+                            referenced_type.range = type_.range;
+                            referenced_type
+                        }
                     },
                 }
             }
