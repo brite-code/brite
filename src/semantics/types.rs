@@ -1,4 +1,4 @@
-use crate::diagnostics::TypeSnippet;
+use crate::diagnostics::{DiagnosticRef, TypeSnippet};
 use crate::syntax::Range;
 
 /// Describes the values which may be assigned to a particular binding.
@@ -27,6 +27,14 @@ pub enum TypeKind {
     /// value of this type then the underlying type of the value is “unknown”. This is the top type
     /// in our system. Written as ⊤ in academic literature.
     Unknown,
+    /// The error type exists as an unsound “any” type. It is both the subtype of everything _and_
+    /// the supertype of everything combining the behaviors of both the bottom and top types. Of
+    /// course this is completely unsound which is why the error type should never exist in a valid
+    /// Brite program.
+    ///
+    /// Error types always carry around the diagnostic which created them. This is important for
+    /// figuring out what to blame for the source of an error type.
+    Error(DiagnosticRef),
     /// Type with only one value, void. This is the “unit” type for Brite.
     Void,
     /// A boolean can either be the value true or false.
@@ -67,6 +75,14 @@ impl Type {
         Type {
             range,
             kind: TypeKind::Unknown,
+        }
+    }
+
+    /// Creates an error type.
+    pub fn error(range: Range, error: DiagnosticRef) -> Self {
+        Type {
+            range,
+            kind: TypeKind::Error(error),
         }
     }
 
@@ -113,6 +129,7 @@ impl Type {
     /// Gets a snippet of a type for error reporting.
     pub fn snippet(&self) -> TypeSnippet {
         match &self.kind {
+            TypeKind::Error(_) => unimplemented!(),
             TypeKind::Never => TypeSnippet::Never,
             TypeKind::Unknown => TypeSnippet::Unknown,
             TypeKind::Void => TypeSnippet::Void,

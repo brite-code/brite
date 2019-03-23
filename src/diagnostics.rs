@@ -76,6 +76,7 @@ use std::rc::Rc;
 /// Our diagnostic format is based on the [Language Server Protocol][1].
 ///
 /// [1]: https://microsoft.github.io/language-server-protocol/specification
+#[derive(Debug)]
 pub struct Diagnostic {
     range: Range,
     message: DiagnosticMessage,
@@ -86,6 +87,7 @@ pub struct Diagnostic {
 ///
 /// Diagnostic messages may not be constructed outside of this module. We always construct and
 /// report a diagnostic at the same time as well.
+#[derive(Debug)]
 enum DiagnosticMessage {
     /// Error diagnostics must be resolved by the programmer. Error diagnostics will prevent the
     /// program from being deployed. However, the program may still run in development, but
@@ -103,6 +105,7 @@ enum DiagnosticMessage {
     Info(InfoDiagnosticMessage),
 }
 
+#[derive(Debug)]
 enum ErrorDiagnosticMessage {
     /// The parser ran into syntax it did not recognize.
     UnexpectedSyntax {
@@ -133,11 +136,14 @@ enum ErrorDiagnosticMessage {
     },
 }
 
+#[derive(Debug)]
 enum WarningDiagnosticMessage {}
 
+#[derive(Debug)]
 enum InfoDiagnosticMessage {}
 
 /// Some syntax the Brite parser did not expect.
+#[derive(Debug)]
 pub enum UnexpectedSyntax {
     /// An unexpected glyph.
     Glyph(Glyph),
@@ -150,6 +156,7 @@ pub enum UnexpectedSyntax {
 }
 
 /// Some syntax the Brite expected but did not receive.
+#[derive(Debug)]
 pub enum ExpectedSyntax {
     /// Expected a particular glyph.
     Glyph(Glyph),
@@ -180,6 +187,7 @@ pub enum ExpectedSyntax {
 }
 
 /// A snippet describing some operation that we were trying to perform when a diagnostic occurred.
+#[derive(Debug)]
 pub enum OperationSnippet {
     /// An annotated expression failed to type check.
     ExpressionAnnotation(ExpressionSnippet),
@@ -188,6 +196,7 @@ pub enum OperationSnippet {
 }
 
 /// A snippet of some type for error message printing.
+#[derive(Debug)]
 pub enum TypeSnippet {
     /// The never type.
     Never,
@@ -207,6 +216,7 @@ pub enum TypeSnippet {
 
 /// A snippet of some expression for error message printing. We try to keep the snippet small. A
 /// mere description of the full expression.
+#[derive(Debug)]
 pub enum ExpressionSnippet {
     /// Some constant value in the program.
     Constant(Constant),
@@ -215,6 +225,7 @@ pub enum ExpressionSnippet {
 }
 
 /// A snippet of some pattern for error message printing.
+#[derive(Debug)]
 pub enum PatternSnippet {
     /// A binding for some value in the program.
     Binding(Identifier),
@@ -658,6 +669,7 @@ impl TypeSnippet {
 
 /// A reference to a diagnostic. Can only be created by calling `DiagnosticsCollection::report()` so
 /// it forces the programmer to report a diagnostic before being able to use a `DiagnosticRef`.
+#[derive(Clone, Debug)]
 pub struct DiagnosticRef(Rc<Diagnostic>);
 
 /// A collection of diagnostics.

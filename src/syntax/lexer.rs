@@ -268,7 +268,7 @@ impl<'src> EndToken<'src> {
 }
 
 /// A glyph represents some constant sequence of characters that is used in Brite syntax.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Glyph {
     /// A reserved identifier.
     Keyword(Keyword),
@@ -374,7 +374,7 @@ impl Glyph {
 /// A reserved identifier.
 ///
 /// There are also some [`IdentifierKeyword`]s which are not reserved in our [`Identifier`] syntax.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Keyword {
     /// `_`
     Hole,
@@ -441,7 +441,7 @@ impl Keyword {
 /// We choose a [`Keyword`] when using an [`Identifier`] would be ambiguous. For example, `if` is a
 /// [`Keyword`] because if we see `if` it could be ambiguous to whether we want a conditional
 /// expression or a variable reference expression.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IdentifierKeyword {
     /// `class`
     Class,

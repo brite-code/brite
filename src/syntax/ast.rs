@@ -672,11 +672,11 @@ impl Constant {
     /// extra parameter.
     fn lisp(&self, range: Lisp) -> Lisp {
         let kind = match self {
-            Constant::Boolean(value) => "bool",
+            Constant::Boolean(_) => "bool",
             Constant::Integer(IntegerBase::Decimal, _) => "int",
             Constant::Integer(IntegerBase::Binary, _) => "bin",
             Constant::Integer(IntegerBase::Hexadecimal, _) => "hex",
-            Constant::Float(value) => "float",
+            Constant::Float(_) => "float",
         };
         lisp!(kind, range, self.print())
     }

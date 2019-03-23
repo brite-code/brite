@@ -202,11 +202,10 @@ impl<'errs> Checker<'errs> {
 
             ast::ExpressionKind::Reference(identifier) => {
                 match self.scope.resolve(&expression.range, identifier) {
-                    // If the identifier was not found report our error and use the never type. The
-                    // never type will error when the programmer tries to use it to create a value.
+                    // If the identifier was not found report our error and return the unsound
+                    // error type.
                     Err(diagnostic) => {
-                        self.report_diagnostic(diagnostic);
-                        Type::never(expression.range)
+                        Type::error(expression.range, self.report_diagnostic(diagnostic))
                     }
 
                     Ok(entry) => match &entry.kind {
@@ -320,12 +319,9 @@ impl<'errs> Checker<'errs> {
         match &type_.kind {
             ast::TypeKind::Reference(identifier) => {
                 match self.scope.resolve(&type_.range, identifier) {
-                    // If the identifier was not found report our error and use the never type. The
-                    // never type will error when the programmer tries to use it to create a value.
-                    Err(diagnostic) => {
-                        self.report_diagnostic(diagnostic);
-                        Type::never(type_.range)
-                    }
+                    // If the identifier was not found report our error and return the unsound
+                    // error type.
+                    Err(diagnostic) => Type::error(type_.range, self.report_diagnostic(diagnostic)),
 
                     Ok(entry) => match &entry.kind {
                         ScopeEntryKind::Value(_) => unimplemented!(),
@@ -361,6 +357,12 @@ impl<'errs> Checker<'errs> {
     ) -> Result<(), DiagnosticRef> {
         use self::TypeKind::*;
         match (&actual.kind, &expected.kind) {
+            // The error type is both the subtype and the supertype of everything. Which totally
+            // breaks our type lattice. It is completely unsound and should never appear in a valid
+            // program. It is useful for “forgetting” type information when an error occurs.
+            (Error(_), _) => Ok(()),
+            (_, Error(_)) => Ok(()),
+
             // The never type is our bottom type and so the subtype of everything but the supertype
             // of nothing.
             (Never, _) => Ok(()),
