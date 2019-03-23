@@ -788,13 +788,13 @@ impl PatternSnippet {
 impl TypeKindSnippet {
     fn print(&self, message: &mut Markup) {
         match self {
-            TypeKindSnippet::Never => message.push_code("Never"),
-            TypeKindSnippet::Unknown => message.push_code("Unknown"),
-            TypeKindSnippet::Void => message.push_code("Void"),
-            TypeKindSnippet::Boolean => message.push_code("Bool"),
-            TypeKindSnippet::Number => message.push_code("Num"),
-            TypeKindSnippet::Integer => message.push_code("Int"),
-            TypeKindSnippet::Float => message.push_code("Float"),
+            TypeKindSnippet::Never => message.push("never"),
+            TypeKindSnippet::Unknown => message.push("unknown"),
+            TypeKindSnippet::Void => message.push("void"),
+            TypeKindSnippet::Boolean => message.push("a boolean"),
+            TypeKindSnippet::Number => message.push("a number"),
+            TypeKindSnippet::Integer => message.push("an integer"),
+            TypeKindSnippet::Float => message.push("a float"),
             TypeKindSnippet::Function => message.push("a function"),
         }
     }
