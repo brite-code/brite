@@ -121,6 +121,15 @@ pub struct Block {
     pub statements: Vec<Statement>,
 }
 
+impl Block {
+    /// Gets the range of the brace that opens this block.
+    pub fn open_brace_range(&self) -> Range {
+        // NOTE: This is currently just an estimation. Since anyone can create a `Block` we aren’t
+        // guaranteed that the first character in our range will be the open brace.
+        Range::after(self.range.start(), 1)
+    }
+}
+
 /// A statement describes some action to be executed in the current scope.
 #[derive(Debug)]
 pub struct Statement {
@@ -483,21 +492,25 @@ impl Constant {
     /// - Floats greater than 1e10 are printed in scientific notation.
     pub fn print(&self) -> String {
         match self {
-            Constant::Boolean(value) => if *value {
-                "true".to_string()
-            } else {
-                "false".to_string()
-            },
+            Constant::Boolean(value) => {
+                if *value {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
             Constant::Integer(IntegerBase::Decimal, value) => value.to_str_radix(10),
             Constant::Integer(IntegerBase::Binary, value) => format!("0b{}", value.to_str_radix(2)),
             Constant::Integer(IntegerBase::Hexadecimal, value) => {
                 format!("0x{}", value.to_str_radix(16).to_uppercase())
             }
-            Constant::Float(value) => if *value >= 10_000_000_000. {
-                format!("{:e}", value)
-            } else {
-                format!("{}", value)
-            },
+            Constant::Float(value) => {
+                if *value >= 10_000_000_000. {
+                    format!("{:e}", value)
+                } else {
+                    format!("{}", value)
+                }
+            }
         }
     }
 }
@@ -646,22 +659,26 @@ impl Statement {
         let range: Lisp = format!("{}", self.range).into();
         match &self.kind {
             StatementKind::Expression(expression) => expression.lisp(),
-            StatementKind::Binding(binding) => if let Some(annotation) = &binding.annotation {
-                lisp!(
-                    "let",
-                    range,
-                    binding.pattern.lisp(),
-                    lisp!("type", annotation.lisp()),
-                    binding.value.lisp()
-                )
-            } else {
-                lisp!("let", range, binding.pattern.lisp(), binding.value.lisp())
-            },
-            StatementKind::Return(argument) => if let Some(argument) = argument {
-                lisp!("return", range, argument.lisp())
-            } else {
-                lisp!("return", range)
-            },
+            StatementKind::Binding(binding) => {
+                if let Some(annotation) = &binding.annotation {
+                    lisp!(
+                        "let",
+                        range,
+                        binding.pattern.lisp(),
+                        lisp!("type", annotation.lisp()),
+                        binding.value.lisp()
+                    )
+                } else {
+                    lisp!("let", range, binding.pattern.lisp(), binding.value.lisp())
+                }
+            }
+            StatementKind::Return(argument) => {
+                if let Some(argument) = argument {
+                    lisp!("return", range, argument.lisp())
+                } else {
+                    lisp!("return", range)
+                }
+            }
             StatementKind::Empty => lisp!("empty", range),
         }
     }
@@ -753,16 +770,18 @@ impl Expression {
             }
             ExpressionKind::Conditional(conditional) => conditional.lisp(),
             ExpressionKind::Block(block) => block.lisp(),
-            ExpressionKind::Wrapped(wrapped) => if let Some(annotation) = &wrapped.annotation {
-                lisp!(
-                    "wrap",
-                    range,
-                    wrapped.expression.lisp(),
-                    lisp!("type", annotation.lisp())
-                )
-            } else {
-                lisp!("wrap", range, wrapped.expression.lisp())
-            },
+            ExpressionKind::Wrapped(wrapped) => {
+                if let Some(annotation) = &wrapped.annotation {
+                    lisp!(
+                        "wrap",
+                        range,
+                        wrapped.expression.lisp(),
+                        lisp!("type", annotation.lisp())
+                    )
+                } else {
+                    lisp!("wrap", range, wrapped.expression.lisp())
+                }
+            }
         }
     }
 }

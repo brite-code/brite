@@ -143,8 +143,8 @@ enum ErrorDiagnosticMessage {
         range2: Range,
         len2: usize,
     },
-    /// We found a pattern that needs a type annotation since we can’t infer one.
-    MissingTypeAnnotation { pattern: PatternSnippet },
+    /// We found a function parameter that needs a type annotation since we can’t infer one.
+    MissingFunctionParameterType { pattern: PatternSnippet },
 }
 
 #[derive(Debug)]
@@ -374,10 +374,10 @@ impl Diagnostic {
     }
 
     /// We found a pattern that needs a type annotation since we can’t infer one.
-    pub fn missing_type_annotation(range: Range, pattern: PatternSnippet) -> Self {
+    pub fn missing_function_parameter_type(range: Range, pattern: PatternSnippet) -> Self {
         Self::error(
             range,
-            ErrorDiagnosticMessage::MissingTypeAnnotation { pattern },
+            ErrorDiagnosticMessage::MissingFunctionParameterType { pattern },
         )
     }
 }
@@ -651,9 +651,9 @@ impl Diagnostic {
             // We want a message here that helps the programmer know that they need to add a type
             // annotation without saying the word “annotation” since that falls in the category
             // of technical language the programmer doesn’t need to know.
-            ErrorDiagnosticMessage::MissingTypeAnnotation { pattern } => {
+            ErrorDiagnosticMessage::MissingFunctionParameterType { pattern } => {
                 let mut message = Markup::new();
-                message.push("We need a type for ");
+                message.push("We need a type for function argument ");
                 pattern.print(&mut message);
                 message.push(".");
                 (message, Vec::new())

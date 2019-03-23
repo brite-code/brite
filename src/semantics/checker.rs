@@ -101,7 +101,7 @@ impl<'errs> Checker<'errs> {
                 Some(annotation) => self.check_type(annotation),
                 None => Type::error(
                     parameter.pattern.range,
-                    self.report_diagnostic(Diagnostic::missing_type_annotation(
+                    self.report_diagnostic(Diagnostic::missing_function_parameter_type(
                         parameter.pattern.range,
                         parameter.pattern.snippet(),
                     )),
@@ -362,6 +362,7 @@ impl<'errs> Checker<'errs> {
                     },
                 }
             }
+
             ast::TypeKind::This => unimplemented!(),
 
             ast::TypeKind::Function(function) => {

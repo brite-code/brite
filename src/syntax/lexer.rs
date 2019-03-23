@@ -95,11 +95,17 @@ impl Range {
         if start <= end {
             Range { start, end }
         } else {
-            Range {
-                start: end,
-                end: start,
-            }
+            let (start, end) = (end, start);
+            Range { start, end }
         }
+    }
+
+    /// Creates a new range that starts at the provided position and ends `length` characters away
+    /// from that position.
+    pub fn after(start: Position, length: u16) -> Self {
+        let mut end = start;
+        end.character += length;
+        Range { start, end }
     }
 
     /// Create an empty range at the provided position.
