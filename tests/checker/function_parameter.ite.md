@@ -1,8 +1,8 @@
 # Checker Test: `function_parameter`
 
 ## Errors
-- (1:7-1:19) We need a type for `missingType1`.
-- (1:21-1:33) We need a type for `missingType2`.
+- (1:7-1:19) We need a type for argument `missingType1`.
+- (1:21-1:33) We need a type for argument `missingType2`.
 - (10:4-10:7) Can not change the type of `int` because an integer can not be used as a boolean.
   - (8:12-8:15) an integer
   - (10:9-10:13) a boolean

@@ -653,7 +653,7 @@ impl Diagnostic {
             // of technical language the programmer doesn’t need to know.
             ErrorDiagnosticMessage::MissingFunctionParameterType { pattern } => {
                 let mut message = Markup::new();
-                message.push("We need a type for function argument ");
+                message.push("We need a type for argument ");
                 pattern.print(&mut message);
                 message.push(".");
                 (message, Vec::new())

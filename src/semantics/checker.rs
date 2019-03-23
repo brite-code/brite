@@ -182,22 +182,24 @@ impl<'errs> Checker<'errs> {
 
     fn check_statement(&mut self, statement: &ast::Statement) -> Type {
         match &statement.kind {
-            ast::StatementKind::Expression(expression) => self.check_expression(expression),
+            ast::StatementKind::Expression(expression) => self.check_expression(expression, None),
 
             ast::StatementKind::Binding(binding) => {
                 if let Some(annotation) = &binding.annotation {
                     let type_ = self.check_type(annotation);
-                    let type_ = self.check_expression_with_type(
-                        &OperationSnippet::BindingStatementAnnotation(
-                            binding.pattern.snippet(),
-                            binding.value.snippet(),
-                        ),
+                    let type_ = self.check_expression(
                         &binding.value,
-                        type_,
+                        Some((
+                            OperationSnippet::BindingStatementAnnotation(
+                                binding.pattern.snippet(),
+                                binding.value.snippet(),
+                            ),
+                            type_,
+                        )),
                     );
                     self.check_pattern(&binding.pattern, type_);
                 } else {
-                    let type_ = self.check_expression(&binding.value);
+                    let type_ = self.check_expression(&binding.value, None);
                     self.check_pattern(&binding.pattern, type_);
                 }
                 Type::void(statement.range)
@@ -218,8 +220,22 @@ impl<'errs> Checker<'errs> {
         }
     }
 
-    fn check_expression(&mut self, expression: &ast::Expression) -> Type {
-        match &expression.kind {
+    /// When we expect an expression to be of a certain type, we call [`Self::check_expression`]
+    /// with a type. This will check to make sure that the expression does indeed match the provided
+    /// type and will report an error diagnostic if it doesn’t.
+    ///
+    /// This gives us the ability to do type inference for function expression parameters whose
+    /// types are known by the surrounding context. This function also gives us better
+    /// error messages.
+    ///
+    /// The `OperationSnippet` included with the expression type explains the reason why the
+    /// expression has this type.
+    fn check_expression(
+        &mut self,
+        expression: &ast::Expression,
+        mut expression_type: Option<(OperationSnippet, Type)>,
+    ) -> Type {
+        let actual_expression_type = match &expression.kind {
             // Check a constant. Provide our range since constants don’t have a range themselves.
             ast::ExpressionKind::Constant(constant) => {
                 self.check_constant(expression.range, constant)
@@ -263,61 +279,30 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Wrapped(wrapped) => {
                 if let Some(annotation) = &wrapped.annotation {
                     let annotation = self.check_type(annotation);
-                    self.check_expression_with_type(
-                        &OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
+                    self.check_expression(
                         &wrapped.expression,
-                        annotation,
+                        Some((
+                            OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
+                            annotation,
+                        )),
                     )
                 } else {
-                    self.check_expression(&wrapped.expression)
+                    self.check_expression(&wrapped.expression, expression_type.take())
                 }
             }
-        }
-    }
+        };
 
-    /// When we expect an expression to be of a certain type, we don’t just call
-    /// [`Self::check_expression`]. Instead we call this function,
-    /// [`Self::check_expression_with_type`]. This function will check to make sure that the
-    /// expression does indeed match the provided type and will report an error diagnostic if
-    /// it doesn’t.
-    ///
-    /// This function gives us the ability to do type inference for function expression parameters
-    /// whose types are immediately known. This function also gives us better error messages.
-    ///
-    /// Most of the time we will call [`Self::check_expression`] and check if the returned type is
-    /// a subtype of our provided type. However, for function expressions we break apart the type.
-    fn check_expression_with_type(
-        &mut self,
-        operation: &OperationSnippet,
-        expression: &ast::Expression,
-        expected: Type,
-    ) -> Type {
-        match &expression.kind {
-            // If we only wrap an expression without adding a type annotation then let’s call
-            // `check_expression_with_type` to preserve the benefits of this function.
-            ast::ExpressionKind::Wrapped(wrapped) if wrapped.annotation.is_none() => {
-                self.check_expression_with_type(operation, &wrapped.expression, expected)
-            }
-
-            // We manually write every case in [`ExpressionKind`] instead of using a hole pattern
-            // (`_`) so that the Rust compiler will warn us when we add a new case.
-            ast::ExpressionKind::Constant(_)
-            | ast::ExpressionKind::Reference(_)
-            | ast::ExpressionKind::This
-            | ast::ExpressionKind::Function(_)
-            | ast::ExpressionKind::Call(_)
-            | ast::ExpressionKind::Construct(_)
-            | ast::ExpressionKind::Member(_)
-            | ast::ExpressionKind::Prefix(_)
-            | ast::ExpressionKind::Infix(_)
-            | ast::ExpressionKind::Logical(_)
-            | ast::ExpressionKind::Conditional(_)
-            | ast::ExpressionKind::Block(_)
-            | ast::ExpressionKind::Wrapped(_) => {
-                let actual = self.check_expression(expression);
-                let _ = self.subtype(expression.range, operation, &actual, &expected);
-                expected
-            }
+        // If we have an expected type then let’s subtype it against our actual type.
+        if let Some((operation, expected_expression_type)) = expression_type {
+            let _ = self.subtype(
+                expression.range,
+                &operation,
+                &actual_expression_type,
+                &expected_expression_type,
+            );
+            expected_expression_type
+        } else {
+            actual_expression_type
         }
     }
 

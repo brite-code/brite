@@ -533,7 +533,7 @@ impl Expression {
             ExpressionKind::Logical(_) => unimplemented!(),
             ExpressionKind::Conditional(_) => unimplemented!(),
             ExpressionKind::Block(_) => unimplemented!(),
-            ExpressionKind::Wrapped(_) => unimplemented!(),
+            ExpressionKind::Wrapped(wrapped) => wrapped.expression.snippet(),
         }
     }
 }
