@@ -134,6 +134,8 @@ enum ErrorDiagnosticMessage {
         expected_range: Range,
         expected_snippet: TypeSnippet,
     },
+    /// We found a pattern that needs a type annotation since we can’t infer one.
+    MissingTypeAnnotation { pattern: PatternSnippet },
 }
 
 #[derive(Debug)]
@@ -342,6 +344,14 @@ impl Diagnostic {
             },
         )
     }
+
+    /// We found a pattern that needs a type annotation since we can’t infer one.
+    pub fn missing_type_annotation(range: Range, pattern: PatternSnippet) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::MissingTypeAnnotation { pattern },
+        )
+    }
 }
 
 /// Related information for a diagnostic in case the primary message was not enough. Most
@@ -520,7 +530,7 @@ impl Diagnostic {
                 operation.print(&mut message);
                 message.push(" because ");
                 actual_snippet.print_plain(&mut message);
-                message.push(" cannot be used as ");
+                message.push(" can not be used as ");
                 expected_snippet.print_plain(&mut message);
                 message.push(".");
                 let mut related_information = Vec::new();
@@ -541,6 +551,17 @@ impl Diagnostic {
                     });
                 }
                 (message, related_information)
+            }
+
+            // We want a message here that helps the programmer know that they need to add a type
+            // annotation without saying the word “annotation” since that falls in the category
+            // of technical language the programmer doesn’t need to know.
+            ErrorDiagnosticMessage::MissingTypeAnnotation { pattern } => {
+                let mut message = Markup::new();
+                message.push("We need a type for ");
+                pattern.print(&mut message);
+                message.push(".");
+                (message, Vec::new())
             }
         }
     }

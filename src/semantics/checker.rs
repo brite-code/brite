@@ -89,8 +89,21 @@ impl<'errs> Checker<'errs> {
         self.scope.nest();
 
         // Add function parameters to our current, nested, scope.
-        for _ in &function.parameters {
-            unimplemented!()
+        for parameter in &function.parameters {
+            // Get the type for all of our function parameters. If a function parameter is missing
+            // an annotation then we will report an error and will create an unsound error type.
+            let type_ = match &parameter.annotation {
+                Some(annotation) => self.check_type(annotation),
+                None => Type::error(
+                    parameter.pattern.range,
+                    self.report_diagnostic(Diagnostic::missing_type_annotation(
+                        parameter.pattern.range,
+                        parameter.pattern.snippet(),
+                    )),
+                ),
+            };
+            // Check the pattern with this parameter’s type annotation.
+            self.check_pattern(&parameter.pattern, type_);
         }
 
         // Check our block in the current scope.

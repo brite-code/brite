@@ -39,6 +39,7 @@ impl<T> Vec1<T> {
     /// # Panics
     ///
     /// Panics if the `Vec` has less than one element.
+    #[allow(dead_code)]
     pub fn from_vec(vec: Vec<T>) -> Self {
         assert!(vec.len() >= 1);
         Vec1 { vec }
@@ -62,13 +63,6 @@ impl<T> Vec1<T> {
     /// Gets an [`Iterator`] for traversing through the vector.
     pub fn iter(&self) -> Iter<T> {
         self.vec.iter()
-    }
-
-    /// Gets a reference to the last element. A last element always exists because a `Vec1` has at
-    /// least one element.
-    pub fn last(&self) -> &T {
-        let i = self.vec.len() - 1;
-        &self.vec[i]
     }
 
     /// Gets a mutable reference to the last element. A last element always exists because a `Vec1`
