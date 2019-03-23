@@ -1,18 +1,15 @@
 # Checker Test: `function_type`
 
 ## Errors
-- (10:4-10:5) Can not change the type of `b` because unknown can not be used as never.
-  - (10:11-10:18) unknown
+- (10:4-10:5) Can not change the type of `b` because a boolean can not be used as never.
+  - (10:11-10:15) a boolean
   - (3:10-3:15) never
-- (10:4-10:5) Can not change the type of `b` because unknown can not be used as never.
-  - (3:20-3:27) unknown
-  - (10:23-10:28) never
-- (11:4-11:5) Can not change the type of `b` because an integer can not be used as never.
-  - (11:11-11:14) an integer
+- (10:4-10:5) Can not change the type of `b` because a boolean can not be used as never.
+  - (3:20-3:24) a boolean
+  - (10:20-10:25) never
+- (11:4-11:5) Can not change the type of `b` because a boolean can not be used as never.
+  - (11:11-11:15) a boolean
   - (3:10-3:15) never
-- (11:4-11:5) Can not change the type of `b` because unknown can not be used as an integer.
-  - (3:20-3:27) unknown
-  - (11:19-11:22) an integer
 - (12:4-12:5) Can not change the type of `c` because a number can not be used as an integer.
   - (12:11-12:14) a number
   - (4:10-4:13) an integer

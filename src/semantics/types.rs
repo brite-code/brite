@@ -22,11 +22,12 @@ pub enum TypeKind {
     /// No value that exists at runtime may ever be typed as `Never`. The name comes from the fact
     /// that this type will “never” be reachable at runtime. This is the bottom type in our system.
     /// Written as ⊥ in academic literature.
+    ///
+    /// We don’t have a top type (written as ⊤ in academic literature) because that would imply
+    /// there are operations we may perform on all values. This isn’t true. It would also, probably,
+    /// require a dynamic size check which means we couldn’t optimize using types of non-standard
+    /// sizes (like zero sized types).
     Never,
-    /// Every value may be typed as `Unknown`. The name comes from the fact that when we have a
-    /// value of this type then the underlying type of the value is “unknown”. This is the top type
-    /// in our system. Written as ⊤ in academic literature.
-    Unknown,
     /// The error type exists as an unsound “any” type. It is both the subtype of everything _and_
     /// the supertype of everything combining the behaviors of both the bottom and top types. Of
     /// course this is completely unsound which is why the error type should never exist in a valid
@@ -68,14 +69,6 @@ impl Type {
         Type {
             range,
             kind: TypeKind::Never,
-        }
-    }
-
-    /// Creates an unknown type.
-    pub fn unknown(range: Range) -> Self {
-        Type {
-            range,
-            kind: TypeKind::Unknown,
         }
     }
 
@@ -151,7 +144,6 @@ impl Type {
         match &self.kind {
             TypeKind::Error(_) => unimplemented!(),
             TypeKind::Never => TypeKindSnippet::Never,
-            TypeKind::Unknown => TypeKindSnippet::Unknown,
             TypeKind::Void => TypeKindSnippet::Void,
             TypeKind::Boolean => TypeKindSnippet::Boolean,
             TypeKind::Number => TypeKindSnippet::Number,

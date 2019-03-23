@@ -1,14 +1,14 @@
 fun subtype(
-  a: fun(Unknown) -> Never,
-  b: fun(Never) -> Unknown,
+  a: fun(Bool) -> Never,
+  b: fun(Never) -> Bool,
   c: fun(Int) -> Int,
   d: fun(Num) -> Int,
   e: fun(Int) -> Num,
 ) {
-  (a: fun(Never) -> Unknown);
-  (a: fun(Int) -> Int);
-  (b: fun(Unknown) -> Never);
-  (b: fun(Int) -> Int);
+  (a: fun(Never) -> Bool);
+  (a: fun(Bool) -> Bool);
+  (b: fun(Bool) -> Never);
+  (b: fun(Bool) -> Bool);
   (c: fun(Num) -> Int);
   (c: fun(Int) -> Num);
   (c: fun(Num) -> Num);

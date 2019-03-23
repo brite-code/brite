@@ -211,8 +211,6 @@ pub enum OperationSnippet {
 pub enum TypeKindSnippet {
     /// The never type.
     Never,
-    /// The unknown type.
-    Unknown,
     /// The void type.
     Void,
     /// The boolean type.
@@ -789,7 +787,6 @@ impl TypeKindSnippet {
     fn print(&self, message: &mut Markup) {
         match self {
             TypeKindSnippet::Never => message.push("never"),
-            TypeKindSnippet::Unknown => message.push("unknown"),
             TypeKindSnippet::Void => message.push("void"),
             TypeKindSnippet::Boolean => message.push("a boolean"),
             TypeKindSnippet::Number => message.push("a number"),

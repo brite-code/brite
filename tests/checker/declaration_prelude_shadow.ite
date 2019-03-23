@@ -1,7 +1,6 @@
 // TODO: It should be ok to shadow names in the prelude!
 
 class Never
-class Unknown
 class Void
 class Bool
 class Num

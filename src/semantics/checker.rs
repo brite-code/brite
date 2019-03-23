@@ -401,10 +401,6 @@ impl<'errs> Checker<'errs> {
             // of nothing.
             (Never, _) => Ok(()),
 
-            // The unknown type is our top type and so the supertype of everything but the subtype
-            // of nothing.
-            (_, Unknown) => Ok(()),
-
             // Void is only the subtype of itself.
             (Void, Void) => Ok(()),
 
@@ -475,7 +471,6 @@ impl<'errs> Checker<'errs> {
             // Error cases. We don’t use a hole (`_`) because we want the compiler to warn us
             // whenever we are missing a subtyping case.
             (_, Never)
-            | (Unknown, _)
             | (Void, _)
             | (Boolean, _)
             | (Number, _)
@@ -534,7 +529,6 @@ impl Scope {
         let mut root = HashMap::new();
         let range = Range::initial();
         insert_root_entry(&mut root, "Never", Type::never(range));
-        insert_root_entry(&mut root, "Unknown", Type::unknown(range));
         insert_root_entry(&mut root, "Void", Type::void(range));
         insert_root_entry(&mut root, "Bool", Type::boolean(range));
         insert_root_entry(&mut root, "Num", Type::number(range));
