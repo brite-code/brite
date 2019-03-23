@@ -1,4 +1,4 @@
-use crate::diagnostics::{DiagnosticRef, TypeSnippet};
+use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
 use crate::syntax::Range;
 
 /// Describes the values which may be assigned to a particular binding.
@@ -49,17 +49,18 @@ pub enum TypeKind {
     ///
     /// [1]: https://en.wikipedia.org/wiki/IEEE_754
     Float,
-    // /// The type of a function. Functions may be passed around just like any other value.
-    // Function(FunctionType),
+    /// The type of a function. Functions may be passed around just like any other value.
+    Function(FunctionType),
 }
 
-// /// The type of a function. Functions may be passed around just like any other value.
-// struct FunctionType {
-//     /// The types of this function’s parameters.
-//     parameters: Vec<Type>,
-//     /// The return type of this function.
-//     return_: Box<Type>,
-// }
+/// The type of a function. Functions may be passed around just like any other value.
+#[derive(Clone, Debug)]
+pub struct FunctionType {
+    /// The types of this function’s parameters.
+    pub parameters: Vec<Type>,
+    /// The return type of this function.
+    pub return_: Box<Type>,
+}
 
 impl Type {
     /// Creates a never type.
@@ -126,17 +127,29 @@ impl Type {
         }
     }
 
+    /// Creates a function type.
+    pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
+        Type {
+            range,
+            kind: TypeKind::Function(FunctionType {
+                parameters,
+                return_: Box::new(return_),
+            }),
+        }
+    }
+
     /// Gets a snippet of a type for error reporting.
-    pub fn snippet(&self) -> TypeSnippet {
+    pub fn snippet(&self) -> TypeKindSnippet {
         match &self.kind {
             TypeKind::Error(_) => unimplemented!(),
-            TypeKind::Never => TypeSnippet::Never,
-            TypeKind::Unknown => TypeSnippet::Unknown,
-            TypeKind::Void => TypeSnippet::Void,
-            TypeKind::Boolean => TypeSnippet::Boolean,
-            TypeKind::Number => TypeSnippet::Number,
-            TypeKind::Integer => TypeSnippet::Integer,
-            TypeKind::Float => TypeSnippet::Float,
+            TypeKind::Never => TypeKindSnippet::Never,
+            TypeKind::Unknown => TypeKindSnippet::Unknown,
+            TypeKind::Void => TypeKindSnippet::Void,
+            TypeKind::Boolean => TypeKindSnippet::Boolean,
+            TypeKind::Number => TypeKindSnippet::Number,
+            TypeKind::Integer => TypeKindSnippet::Integer,
+            TypeKind::Float => TypeKindSnippet::Float,
+            TypeKind::Function(_) => TypeKindSnippet::Function,
         }
     }
 }

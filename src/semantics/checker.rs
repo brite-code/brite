@@ -3,6 +3,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection, Opera
 use crate::syntax::ast;
 use crate::syntax::{Identifier, Range};
 use crate::utils::vecn::Vec1;
+use std::cmp;
 use std::collections::HashMap;
 
 /// Checks the Brite Abstract Syntax Tree (AST) for errors and warnings. Reports diagnostics for any
@@ -125,9 +126,7 @@ impl<'errs> Checker<'errs> {
                 Ok(ScopeEntry {
                     kind: ScopeEntryKind::Class { base },
                     ..
-                })
-                    if *base =>
-                {
+                }) if *base => {
                     // TODO: Class extension cycle error?
                 }
 
@@ -176,7 +175,7 @@ impl<'errs> Checker<'errs> {
                 if let Some(annotation) = &binding.annotation {
                     let type_ = self.check_type(annotation);
                     let type_ = self.check_expression_with_type(
-                        OperationSnippet::BindingStatementAnnotation(
+                        &OperationSnippet::BindingStatementAnnotation(
                             binding.pattern.snippet(),
                             binding.value.snippet(),
                         ),
@@ -252,7 +251,7 @@ impl<'errs> Checker<'errs> {
                 if let Some(annotation) = &wrapped.annotation {
                     let annotation = self.check_type(annotation);
                     self.check_expression_with_type(
-                        OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
+                        &OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
                         &wrapped.expression,
                         annotation,
                     )
@@ -276,7 +275,7 @@ impl<'errs> Checker<'errs> {
     /// a subtype of our provided type. However, for function expressions we break apart the type.
     fn check_expression_with_type(
         &mut self,
-        operation: OperationSnippet,
+        operation: &OperationSnippet,
         expression: &ast::Expression,
         expected: Type,
     ) -> Type {
@@ -351,7 +350,16 @@ impl<'errs> Checker<'errs> {
                 }
             }
             ast::TypeKind::This => unimplemented!(),
-            ast::TypeKind::Function(_) => unimplemented!(),
+
+            ast::TypeKind::Function(function) => {
+                let parameters = function
+                    .parameters
+                    .iter()
+                    .map(|type_| self.check_type(type_))
+                    .collect();
+                let return_ = self.check_type(&function.return_);
+                Type::function(type_.range, parameters, return_)
+            }
         }
     }
 
@@ -360,16 +368,16 @@ impl<'errs> Checker<'errs> {
     /// will continue to try and find as many errors as possible. Returns `Ok` if the two types
     /// uphold the subtyping relationship and returns `Err` with the first diagnostic we reported if
     /// the two types do not uphold the subtyping relationship. In academic literature this
-    /// operation is written as `actual <: expected`.
+    /// operation is written as `type1 <: type2`.
     fn subtype(
         &mut self,
         range: Range,
-        operation: OperationSnippet,
-        actual: &Type,
-        expected: &Type,
+        operation: &OperationSnippet,
+        type1: &Type,
+        type2: &Type,
     ) -> Result<(), DiagnosticRef> {
         use self::TypeKind::*;
-        match (&actual.kind, &expected.kind) {
+        match (&type1.kind, &type2.kind) {
             // The error type is both the subtype and the supertype of everything. Which totally
             // breaks our type lattice. It is completely unsound and should never appear in a valid
             // program. It is useful for “forgetting” type information when an error occurs.
@@ -401,6 +409,58 @@ impl<'errs> Checker<'errs> {
             (Integer, Integer) => Ok(()),
             (Float, Float) => Ok(()),
 
+            // Functions will subtype with other functions.
+            (Function(function1), Function(function2)) => {
+                let mut result = Ok(());
+
+                // If the two functions have different numbers of parameters then error.
+                //
+                // NOTE: We could allow `function1` to have less parameters then
+                // `function2`. This is something all JavaScript type systems do. Say you
+                // have a function of type `fun(Int, Int) -> Int` and you call it as `f(1, 2, 3)`.
+                // The third parameter will be ignored at runtime and this type checks as a
+                // valid program. Whether or not we want this runtime behavior should be decided
+                // at a later time. While completely possible in JavaScript, we’re not sure if this
+                // is possible in LLVM or JVM environments.
+                if function1.parameters.len() != function2.parameters.len() {
+                    result = result.and(Err(self.report_diagnostic(
+                        Diagnostic::incompatible_function_parameter_lengths(
+                            range,
+                            operation.clone(),
+                            (type1.range, function1.parameters.len()),
+                            (type2.range, function2.parameters.len()),
+                        ),
+                    )));
+                }
+
+                // We want to check all the parameters that are shared in both function types.
+                let parameter_len = cmp::min(
+                    function1.parameters.len(),
+                    function2.parameters.len(),
+                );
+
+                // Subtype all the function parameters we can with one another. Remember to reverse
+                // the subtyping direction! Function parameters are contravariant.
+                for i in 0..parameter_len {
+                    result = result.and(self.subtype(
+                        range,
+                        operation,
+                        &function2.parameters[i],
+                        &function1.parameters[i],
+                    ));
+                }
+
+                // Finally, make sure to subtype the function return types.
+                result = result.and(self.subtype(
+                    range,
+                    operation,
+                    &function1.return_,
+                    &function2.return_,
+                ));
+
+                result
+            }
+
             // Error cases. We don’t use a hole (`_`) because we want the compiler to warn us
             // whenever we are missing a subtyping case.
             (_, Never)
@@ -409,11 +469,12 @@ impl<'errs> Checker<'errs> {
             | (Boolean, _)
             | (Number, _)
             | (Integer, _)
-            | (Float, _) => Err(self.report_diagnostic(Diagnostic::incompatible_types(
+            | (Float, _)
+            | (Function(_), _) => Err(self.report_diagnostic(Diagnostic::incompatible_types(
                 range,
-                operation,
-                (actual.range, actual.snippet()),
-                (expected.range, expected.snippet()),
+                operation.clone(),
+                (type1.range, type1.snippet()),
+                (type2.range, type2.snippet()),
             ))),
         }
     }

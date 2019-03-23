@@ -66,6 +66,7 @@
 use crate::syntax::ast::Constant;
 use crate::syntax::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::Markup;
+use std::mem;
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
@@ -126,13 +127,21 @@ enum ErrorDiagnosticMessage {
         identifier: Identifier,
         declaration_range: Range,
     },
-    /// We found two types that were incompatible with one another during unification.
+    /// We found two types that were incompatible with one another during subtyping.
     IncompatibleTypes {
         operation: OperationSnippet,
-        actual_range: Range,
-        actual_snippet: TypeSnippet,
-        expected_range: Range,
-        expected_snippet: TypeSnippet,
+        range1: Range,
+        snippet1: TypeKindSnippet,
+        range2: Range,
+        snippet2: TypeKindSnippet,
+    },
+    /// We found two functions that had different parameter list lengths.
+    IncompatibleFunctionParameterLengths {
+        operation: OperationSnippet,
+        range1: Range,
+        len1: usize,
+        range2: Range,
+        len2: usize,
     },
     /// We found a pattern that needs a type annotation since we can’t infer one.
     MissingTypeAnnotation { pattern: PatternSnippet },
@@ -189,7 +198,7 @@ pub enum ExpectedSyntax {
 }
 
 /// A snippet describing some operation that we were trying to perform when a diagnostic occurred.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum OperationSnippet {
     /// An annotated expression failed to type check.
     ExpressionAnnotation(ExpressionSnippet),
@@ -199,7 +208,7 @@ pub enum OperationSnippet {
 
 /// A snippet of some type for error message printing.
 #[derive(Debug)]
-pub enum TypeSnippet {
+pub enum TypeKindSnippet {
     /// The never type.
     Never,
     /// The unknown type.
@@ -214,11 +223,13 @@ pub enum TypeSnippet {
     Integer,
     /// The float type.
     Float,
+    /// A function type.
+    Function,
 }
 
 /// A snippet of some expression for error message printing. We try to keep the snippet small. A
 /// mere description of the full expression.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ExpressionSnippet {
     /// Some constant value in the program.
     Constant(Constant),
@@ -227,7 +238,7 @@ pub enum ExpressionSnippet {
 }
 
 /// A snippet of some pattern for error message printing.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum PatternSnippet {
     /// A binding for some value in the program.
     Binding(Identifier),
@@ -323,24 +334,43 @@ impl Diagnostic {
         )
     }
 
-    /// We found two types that were incompatible with one another during unification.
+    /// We found two types that were incompatible with one another during subtyping.
     ///
     /// We will report the error at the first range. The second and third ranges will be used as
     /// related locations if the information is necessary.
     pub fn incompatible_types(
         range: Range,
         operation: OperationSnippet,
-        (actual_range, actual_snippet): (Range, TypeSnippet),
-        (expected_range, expected_snippet): (Range, TypeSnippet),
+        (range1, snippet1): (Range, TypeKindSnippet),
+        (range2, snippet2): (Range, TypeKindSnippet),
     ) -> Self {
         Self::error(
             range,
             ErrorDiagnosticMessage::IncompatibleTypes {
                 operation,
-                actual_range,
-                actual_snippet,
-                expected_range,
-                expected_snippet,
+                range1,
+                snippet1,
+                range2,
+                snippet2,
+            },
+        )
+    }
+
+    /// We found two functions that had different parameter list lengths.
+    pub fn incompatible_function_parameter_lengths(
+        range: Range,
+        operation: OperationSnippet,
+        (range1, len1): (Range, usize),
+        (range2, len2): (Range, usize),
+    ) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::IncompatibleFunctionParameterLengths {
+                operation,
+                range1,
+                len1,
+                range2,
+                len2,
             },
         )
     }
@@ -521,35 +551,102 @@ impl Diagnostic {
             // to the actual type we reduce clutter by not including the extra information.
             ErrorDiagnosticMessage::IncompatibleTypes {
                 operation,
-                actual_range,
-                actual_snippet,
-                expected_range,
-                expected_snippet,
+                range1,
+                snippet1,
+                range2,
+                snippet2,
             } => {
                 let mut message = Markup::new();
                 operation.print(&mut message);
                 message.push(" because ");
-                actual_snippet.print(&mut message);
+                snippet1.print(&mut message);
                 message.push(" can not be used as ");
-                expected_snippet.print(&mut message);
+                snippet2.print(&mut message);
                 message.push(".");
                 let mut related_information = Vec::new();
-                if !self.range.intersects(*actual_range) {
+                if !self.range.intersects(*range1) {
                     let mut message = Markup::new();
-                    actual_snippet.print(&mut message);
+                    snippet1.print(&mut message);
                     related_information.push(DiagnosticRelatedInformation {
-                        range: *actual_range,
+                        range: *range1,
                         message,
                     });
                 }
-                if !self.range.intersects(*expected_range) {
+                if !self.range.intersects(*range2) {
                     let mut message = Markup::new();
-                    expected_snippet.print(&mut message);
+                    snippet2.print(&mut message);
                     related_information.push(DiagnosticRelatedInformation {
-                        range: *expected_range,
+                        range: *range2,
                         message,
                     });
                 }
+                (message, related_information)
+            }
+
+            // We tell the programmer we can not perform their operation because we don’t have the
+            // right number of arguments. In related information we then point them to the
+            // function we found and the function we expect.
+            //
+            // - We use the word “argument” over “parameter” since “argument” is more common. We
+            //   should always use “argument” over “parameter” in our error messages to
+            //   be consistent.
+            // - We don’t print out the two types since they would be really big. We trust the
+            //   programmer to look them up in their IDE if necessary. We do point to the two
+            //   functions in related information, though, so that the programmer has easy access
+            //   to them.
+            ErrorDiagnosticMessage::IncompatibleFunctionParameterLengths {
+                operation,
+                mut range1,
+                mut len1,
+                mut range2,
+                mut len2,
+            } => {
+                // Flip so that `len1` is always the smaller of the two.
+                if len1 > len2 {
+                    mem::swap(&mut len1, &mut len2);
+                    mem::swap(&mut range1, &mut range2);
+                }
+                let mut message = Markup::new();
+                operation.print(&mut message);
+                message.push(" because we have ");
+                argument_len(&mut message, len1, true);
+                message.push(" but we need ");
+                argument_len(&mut message, len2, false);
+                message.push(".");
+                let mut related_information = Vec::new();
+                if !self.range.intersects(range1) {
+                    let mut message = Markup::new();
+                    argument_len(&mut message, len1, true);
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: range1,
+                        message,
+                    });
+                }
+                if !self.range.intersects(range2) {
+                    let mut message = Markup::new();
+                    argument_len(&mut message, len2, true);
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: range2,
+                        message,
+                    });
+                }
+
+                fn argument_len(message: &mut Markup, len: usize, unit: bool) {
+                    if let Some(len) = cardinal(len) {
+                        message.push(len);
+                    } else {
+                        message.push(&len.to_string());
+                    }
+                    if unit {
+                        message.push(" ");
+                        if len == 1 {
+                            message.push("argument");
+                        } else {
+                            message.push("arguments");
+                        }
+                    }
+                }
+
                 (message, related_information)
             }
 
@@ -564,6 +661,35 @@ impl Diagnostic {
                 (message, Vec::new())
             }
         }
+    }
+}
+
+/// Converts a number to its cardinal string representation. We use a word for small numbers
+/// and we return `None` for larger numbers.
+fn cardinal(n: usize) -> Option<&'static str> {
+    match n {
+        0 => Some("zero"),
+        1 => Some("one"),
+        2 => Some("two"),
+        3 => Some("three"),
+        4 => Some("four"),
+        5 => Some("five"),
+        6 => Some("six"),
+        7 => Some("seven"),
+        8 => Some("eight"),
+        9 => Some("nine"),
+        10 => Some("ten"),
+        11 => Some("eleven"),
+        12 => Some("twelve"),
+        13 => Some("thirteen"),
+        14 => Some("fourteen"),
+        15 => Some("fifteen"),
+        16 => Some("sixteen"),
+        17 => Some("seventeen"),
+        18 => Some("eighteen"),
+        19 => Some("nineteen"),
+        20 => Some("twenty"),
+        _ => None,
     }
 }
 
@@ -659,16 +785,17 @@ impl PatternSnippet {
     }
 }
 
-impl TypeSnippet {
+impl TypeKindSnippet {
     fn print(&self, message: &mut Markup) {
         match self {
-            TypeSnippet::Never => message.push_code("Never"),
-            TypeSnippet::Unknown => message.push_code("Unknown"),
-            TypeSnippet::Void => message.push_code("Void"),
-            TypeSnippet::Boolean => message.push_code("Bool"),
-            TypeSnippet::Number => message.push_code("Num"),
-            TypeSnippet::Integer => message.push_code("Int"),
-            TypeSnippet::Float => message.push_code("Float"),
+            TypeKindSnippet::Never => message.push_code("Never"),
+            TypeKindSnippet::Unknown => message.push_code("Unknown"),
+            TypeKindSnippet::Void => message.push_code("Void"),
+            TypeKindSnippet::Boolean => message.push_code("Bool"),
+            TypeKindSnippet::Number => message.push_code("Num"),
+            TypeKindSnippet::Integer => message.push_code("Int"),
+            TypeKindSnippet::Float => message.push_code("Float"),
+            TypeKindSnippet::Function => message.push("a function"),
         }
     }
 }
