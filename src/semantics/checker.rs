@@ -84,10 +84,14 @@ impl<'errs> Checker<'errs> {
         self.check_function(&function.function);
     }
 
-    fn check_function(&mut self, function: &ast::Function) {
+    /// Checks a function and returns the type of the function.
+    fn check_function(&mut self, function: &ast::Function) -> FunctionType {
         // When checking a function, we want to add parameters to the block. So introduce a level
         // of nesting in the scope.
         self.scope.nest();
+
+        // Create our parameter types vector which we will push to as we type-check parameters.
+        let mut parameter_types = Vec::with_capacity(function.parameters.len());
 
         // Add function parameters to our current, nested, scope.
         for parameter in &function.parameters {
@@ -104,13 +108,22 @@ impl<'errs> Checker<'errs> {
                 ),
             };
             // Check the pattern with this parameter’s type annotation.
-            self.check_pattern(&parameter.pattern, type_);
+            self.check_pattern(&parameter.pattern, type_.clone());
+            // Add the type of this parameter to our vector.
+            parameter_types.push(type_);
         }
 
-        // Check our block in the current scope.
-        self.check_block_without_nest(&function.body);
+        // Check our block in the current scope. Remember the return type we infer for
+        // the function.
+        let inferred_return_type = self.check_block_without_nest(&function.body);
 
+        // TODO: Don’t use the inferred return type as the return type of our function.
+
+        // Leave the scope we created for this function.
         self.scope.unnest();
+
+        // Return a function type.
+        FunctionType::new(parameter_types, inferred_return_type)
     }
 
     fn check_class_declaration(&mut self, class: &ast::ClassDeclaration) {
@@ -434,10 +447,8 @@ impl<'errs> Checker<'errs> {
                 }
 
                 // We want to check all the parameters that are shared in both function types.
-                let parameter_len = cmp::min(
-                    function1.parameters.len(),
-                    function2.parameters.len(),
-                );
+                let parameter_len =
+                    cmp::min(function1.parameters.len(), function2.parameters.len());
 
                 // Subtype all the function parameters we can with one another. Remember to reverse
                 // the subtyping direction! Function parameters are contravariant.

@@ -131,13 +131,21 @@ impl Type {
     pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
         Type {
             range,
-            kind: TypeKind::Function(FunctionType {
-                parameters,
-                return_: Box::new(return_),
-            }),
+            kind: TypeKind::Function(FunctionType::new(parameters, return_)),
         }
     }
+}
 
+impl FunctionType {
+    pub fn new(parameters: Vec<Type>, return_: Type) -> Self {
+        FunctionType {
+            parameters,
+            return_: Box::new(return_),
+        }
+    }
+}
+
+impl Type {
     /// Gets a snippet of a type for error reporting.
     pub fn snippet(&self) -> TypeKindSnippet {
         match &self.kind {
