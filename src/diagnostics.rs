@@ -529,14 +529,14 @@ impl Diagnostic {
                 let mut message = Markup::new();
                 operation.print(&mut message);
                 message.push(" because ");
-                actual_snippet.print_plain(&mut message);
+                actual_snippet.print(&mut message);
                 message.push(" can not be used as ");
-                expected_snippet.print_plain(&mut message);
+                expected_snippet.print(&mut message);
                 message.push(".");
                 let mut related_information = Vec::new();
                 if !self.range.intersects(*actual_range) {
                     let mut message = Markup::new();
-                    actual_snippet.print_code(&mut message);
+                    actual_snippet.print(&mut message);
                     related_information.push(DiagnosticRelatedInformation {
                         range: *actual_range,
                         message,
@@ -544,7 +544,7 @@ impl Diagnostic {
                 }
                 if !self.range.intersects(*expected_range) {
                     let mut message = Markup::new();
-                    expected_snippet.print_code(&mut message);
+                    expected_snippet.print(&mut message);
                     related_information.push(DiagnosticRelatedInformation {
                         range: *expected_range,
                         message,
@@ -660,22 +660,7 @@ impl PatternSnippet {
 }
 
 impl TypeSnippet {
-    /// Prints a type snippet to human readable plain-text when appropriate. Sometimes uses
-    /// `TypeSnippet::print_code()` for complicated types.
-    fn print_plain(&self, message: &mut Markup) {
-        match self {
-            TypeSnippet::Never => message.push("never"),
-            TypeSnippet::Unknown => message.push("unknown"),
-            TypeSnippet::Void => message.push("void"),
-            TypeSnippet::Boolean => message.push("a boolean"),
-            TypeSnippet::Number => message.push("a number"),
-            TypeSnippet::Integer => message.push("an integer"),
-            TypeSnippet::Float => message.push("a float"),
-        }
-    }
-
-    /// Prints a type snippet to code.
-    fn print_code(&self, message: &mut Markup) {
+    fn print(&self, message: &mut Markup) {
         match self {
             TypeSnippet::Never => message.push_code("Never"),
             TypeSnippet::Unknown => message.push_code("Unknown"),
