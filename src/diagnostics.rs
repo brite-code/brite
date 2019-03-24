@@ -605,7 +605,7 @@ impl Diagnostic {
                 operation.print(&mut message)?;
                 write!(message, " because ")?;
                 snippet1.print(&mut message)?;
-                write!(message, " can not be used as ")?;
+                write!(message, " is not ")?;
                 snippet2.print(&mut message)?;
                 write!(message, ".")?;
                 let mut related_information = Vec::new();

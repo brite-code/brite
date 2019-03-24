@@ -1,28 +1,28 @@
 # Checker Test: `function_type`
 
 ## Errors
-- (10:4-10:5) Can not change the type of `b` because `Bool` can not be used as `Never`.
+- (10:4-10:5) Can not change the type of `b` because `Bool` is not `Never`.
   - (10:11-10:15) `Bool`
   - (3:10-3:15) `Never`
-- (10:4-10:5) Can not change the type of `b` because `Bool` can not be used as `Never`.
+- (10:4-10:5) Can not change the type of `b` because `Bool` is not `Never`.
   - (3:20-3:24) `Bool`
   - (10:20-10:25) `Never`
-- (11:4-11:5) Can not change the type of `b` because `Bool` can not be used as `Never`.
+- (11:4-11:5) Can not change the type of `b` because `Bool` is not `Never`.
   - (11:11-11:15) `Bool`
   - (3:10-3:15) `Never`
-- (12:4-12:5) Can not change the type of `c` because `Num` can not be used as `Int`.
+- (12:4-12:5) Can not change the type of `c` because `Num` is not `Int`.
   - (12:11-12:14) `Num`
   - (4:10-4:13) `Int`
-- (14:4-14:5) Can not change the type of `c` because `Num` can not be used as `Int`.
+- (14:4-14:5) Can not change the type of `c` because `Num` is not `Int`.
   - (14:11-14:14) `Num`
   - (4:10-4:13) `Int`
-- (15:4-15:5) Can not change the type of `c` because `Bool` can not be used as `Int`.
+- (15:4-15:5) Can not change the type of `c` because `Bool` is not `Int`.
   - (15:11-15:15) `Bool`
   - (4:10-4:13) `Int`
-- (15:4-15:5) Can not change the type of `c` because `Int` can not be used as `Bool`.
+- (15:4-15:5) Can not change the type of `c` because `Int` is not `Bool`.
   - (4:18-4:21) `Int`
   - (15:20-15:24) `Bool`
-- (17:4-17:5) Can not change the type of `e` because `Num` can not be used as `Int`.
+- (17:4-17:5) Can not change the type of `e` because `Num` is not `Int`.
   - (6:18-6:21) `Num`
   - (17:19-17:22) `Int`
 - (26:4-26:5) Can not change the type of `a` because we have one argument but we need two.
@@ -43,100 +43,100 @@
 - (32:4-32:5) Can not change the type of `c` because we have two arguments but we need three.
   - (32:7-32:27) two arguments
   - (23:6-23:31) three arguments
-- (34:4-34:5) Can not change the type of `a` because `Bool` can not be used as `Int`.
+- (34:4-34:5) Can not change the type of `a` because `Bool` is not `Int`.
   - (34:11-34:15) `Bool`
   - (21:10-21:13) `Int`
-- (34:4-34:5) Can not change the type of `a` because `Int` can not be used as `Bool`.
+- (34:4-34:5) Can not change the type of `a` because `Int` is not `Bool`.
   - (21:18-21:21) `Int`
   - (34:20-34:24) `Bool`
 - (35:4-35:5) Can not change the type of `a` because we have one argument but we need two.
   - (21:6-21:21) one argument
   - (35:7-35:30) two arguments
-- (35:4-35:5) Can not change the type of `a` because `Bool` can not be used as `Int`.
+- (35:4-35:5) Can not change the type of `a` because `Bool` is not `Int`.
   - (35:11-35:15) `Bool`
   - (21:10-21:13) `Int`
-- (35:4-35:5) Can not change the type of `a` because `Int` can not be used as `Bool`.
+- (35:4-35:5) Can not change the type of `a` because `Int` is not `Bool`.
   - (21:18-21:21) `Int`
   - (35:26-35:30) `Bool`
 - (36:4-36:5) Can not change the type of `a` because we have one argument but we need three.
   - (21:6-21:21) one argument
   - (36:7-36:36) three arguments
-- (36:4-36:5) Can not change the type of `a` because `Bool` can not be used as `Int`.
+- (36:4-36:5) Can not change the type of `a` because `Bool` is not `Int`.
   - (36:11-36:15) `Bool`
   - (21:10-21:13) `Int`
-- (36:4-36:5) Can not change the type of `a` because `Int` can not be used as `Bool`.
+- (36:4-36:5) Can not change the type of `a` because `Int` is not `Bool`.
   - (21:18-21:21) `Int`
   - (36:32-36:36) `Bool`
 - (37:4-37:5) Can not change the type of `b` because we have one argument but we need two.
   - (37:7-37:24) one argument
   - (22:6-22:26) two arguments
-- (37:4-37:5) Can not change the type of `b` because `Bool` can not be used as `Int`.
+- (37:4-37:5) Can not change the type of `b` because `Bool` is not `Int`.
   - (37:11-37:15) `Bool`
   - (22:10-22:13) `Int`
-- (37:4-37:5) Can not change the type of `b` because `Int` can not be used as `Bool`.
+- (37:4-37:5) Can not change the type of `b` because `Int` is not `Bool`.
   - (22:23-22:26) `Int`
   - (37:20-37:24) `Bool`
-- (38:4-38:5) Can not change the type of `b` because `Bool` can not be used as `Int`.
+- (38:4-38:5) Can not change the type of `b` because `Bool` is not `Int`.
   - (38:11-38:15) `Bool`
   - (22:10-22:13) `Int`
-- (38:4-38:5) Can not change the type of `b` because `Bool` can not be used as `Int`.
+- (38:4-38:5) Can not change the type of `b` because `Bool` is not `Int`.
   - (38:17-38:21) `Bool`
   - (22:15-22:18) `Int`
-- (38:4-38:5) Can not change the type of `b` because `Int` can not be used as `Bool`.
+- (38:4-38:5) Can not change the type of `b` because `Int` is not `Bool`.
   - (22:23-22:26) `Int`
   - (38:26-38:30) `Bool`
 - (39:4-39:5) Can not change the type of `b` because we have two arguments but we need three.
   - (22:6-22:26) two arguments
   - (39:7-39:36) three arguments
-- (39:4-39:5) Can not change the type of `b` because `Bool` can not be used as `Int`.
+- (39:4-39:5) Can not change the type of `b` because `Bool` is not `Int`.
   - (39:11-39:15) `Bool`
   - (22:10-22:13) `Int`
-- (39:4-39:5) Can not change the type of `b` because `Bool` can not be used as `Int`.
+- (39:4-39:5) Can not change the type of `b` because `Bool` is not `Int`.
   - (39:17-39:21) `Bool`
   - (22:15-22:18) `Int`
-- (39:4-39:5) Can not change the type of `b` because `Int` can not be used as `Bool`.
+- (39:4-39:5) Can not change the type of `b` because `Int` is not `Bool`.
   - (22:23-22:26) `Int`
   - (39:32-39:36) `Bool`
 - (40:4-40:5) Can not change the type of `c` because we have one argument but we need three.
   - (40:7-40:24) one argument
   - (23:6-23:31) three arguments
-- (40:4-40:5) Can not change the type of `c` because `Bool` can not be used as `Int`.
+- (40:4-40:5) Can not change the type of `c` because `Bool` is not `Int`.
   - (40:11-40:15) `Bool`
   - (23:10-23:13) `Int`
-- (40:4-40:5) Can not change the type of `c` because `Int` can not be used as `Bool`.
+- (40:4-40:5) Can not change the type of `c` because `Int` is not `Bool`.
   - (23:28-23:31) `Int`
   - (40:20-40:24) `Bool`
 - (41:4-41:5) Can not change the type of `c` because we have two arguments but we need three.
   - (41:7-41:30) two arguments
   - (23:6-23:31) three arguments
-- (41:4-41:5) Can not change the type of `c` because `Bool` can not be used as `Int`.
+- (41:4-41:5) Can not change the type of `c` because `Bool` is not `Int`.
   - (41:11-41:15) `Bool`
   - (23:10-23:13) `Int`
-- (41:4-41:5) Can not change the type of `c` because `Bool` can not be used as `Int`.
+- (41:4-41:5) Can not change the type of `c` because `Bool` is not `Int`.
   - (41:17-41:21) `Bool`
   - (23:15-23:18) `Int`
-- (41:4-41:5) Can not change the type of `c` because `Int` can not be used as `Bool`.
+- (41:4-41:5) Can not change the type of `c` because `Int` is not `Bool`.
   - (23:28-23:31) `Int`
   - (41:26-41:30) `Bool`
-- (42:4-42:5) Can not change the type of `c` because `Bool` can not be used as `Int`.
+- (42:4-42:5) Can not change the type of `c` because `Bool` is not `Int`.
   - (42:11-42:15) `Bool`
   - (23:10-23:13) `Int`
-- (42:4-42:5) Can not change the type of `c` because `Bool` can not be used as `Int`.
+- (42:4-42:5) Can not change the type of `c` because `Bool` is not `Int`.
   - (42:17-42:21) `Bool`
   - (23:15-23:18) `Int`
-- (42:4-42:5) Can not change the type of `c` because `Bool` can not be used as `Int`.
+- (42:4-42:5) Can not change the type of `c` because `Bool` is not `Int`.
   - (42:23-42:27) `Bool`
   - (23:20-23:23) `Int`
-- (42:4-42:5) Can not change the type of `c` because `Int` can not be used as `Bool`.
+- (42:4-42:5) Can not change the type of `c` because `Int` is not `Bool`.
   - (23:28-23:31) `Int`
   - (42:32-42:36) `Bool`
-- (46:4-46:6) Can not change the type of `42` because `Num` can not be used as function.
+- (46:4-46:6) Can not change the type of `42` because `Num` is not function.
   - (46:8-46:20) function
-- (47:4-47:8) Can not change the type of `true` because `Bool` can not be used as function.
+- (47:4-47:8) Can not change the type of `true` because `Bool` is not function.
   - (47:10-47:23) function
-- (48:4-48:5) Can not change the type of `f` because function can not be used as `Int`.
+- (48:4-48:5) Can not change the type of `f` because function is not `Int`.
   - (45:26-45:38) function
   - (48:7-48:10) `Int`
-- (49:4-49:5) Can not change the type of `f` because function can not be used as `Bool`.
+- (49:4-49:5) Can not change the type of `f` because function is not `Bool`.
   - (45:26-45:38) function
   - (49:7-49:11) `Bool`
