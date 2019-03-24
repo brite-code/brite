@@ -216,10 +216,9 @@ impl<'errs> Checker<'errs> {
                 &actual_block_type,
                 &expected_block_type,
             );
-            expected_block_type
-        } else {
-            actual_block_type
         }
+
+        actual_block_type
     }
 
     fn check_statement(
@@ -234,18 +233,18 @@ impl<'errs> Checker<'errs> {
 
             ast::StatementKind::Binding(binding) => {
                 if let Some(annotation) = &binding.annotation {
-                    let type_ = self.check_type(annotation);
-                    let type_ = self.check_expression(
+                    let annotation = self.check_type(annotation);
+                    self.check_expression(
                         &binding.value,
                         Some((
                             OperationSnippet::BindingStatementAnnotation(
                                 binding.pattern.snippet(),
                                 binding.value.snippet(),
                             ),
-                            type_,
+                            annotation.clone(),
                         )),
                     );
-                    self.check_pattern(&binding.pattern, type_);
+                    self.check_pattern(&binding.pattern, annotation);
                 } else {
                     let type_ = self.check_expression(&binding.value, None);
                     self.check_pattern(&binding.pattern, type_);
@@ -264,10 +263,9 @@ impl<'errs> Checker<'errs> {
                 &actual_statement_type,
                 &expected_statement_type,
             );
-            expected_statement_type
-        } else {
-            actual_statement_type
         }
+
+        actual_statement_type
     }
 
     fn check_constant(&mut self, range: Range, constant: &ast::Constant) -> Type {
@@ -352,9 +350,10 @@ impl<'errs> Checker<'errs> {
                         &wrapped.expression,
                         Some((
                             OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
-                            annotation,
+                            annotation.clone(),
                         )),
-                    )
+                    );
+                    annotation
                 } else {
                     self.check_expression(&wrapped.expression, expression_type.take())
                 }
@@ -369,10 +368,9 @@ impl<'errs> Checker<'errs> {
                 &actual_expression_type,
                 &expected_expression_type,
             );
-            expected_expression_type
-        } else {
-            actual_expression_type
         }
+
+        actual_expression_type
     }
 
     /// Checks a pattern which is supposed to bind a value with the provided type. If the pattern
