@@ -557,12 +557,12 @@ impl Diagnostic {
             } => {
                 let mut message = Markup::new();
                 write!(message, "We need ")?;
-                snippet2.print(&mut message)?;
+                snippet2.print(&mut message, true)?;
                 write!(message, " to be returned from this function.")?;
                 let mut related_information = Vec::new();
                 if !self.range.intersects(*range2) {
                     let mut message = Markup::new();
-                    snippet2.print(&mut message)?;
+                    snippet2.print(&mut message, false)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: *range2,
                         message,
@@ -604,14 +604,14 @@ impl Diagnostic {
                 let mut message = Markup::new();
                 operation.print(&mut message)?;
                 write!(message, " because ")?;
-                snippet1.print(&mut message)?;
+                snippet1.print(&mut message, true)?;
                 write!(message, " is not ")?;
-                snippet2.print(&mut message)?;
+                snippet2.print(&mut message, true)?;
                 write!(message, ".")?;
                 let mut related_information = Vec::new();
                 if !self.range.intersects(*range1) {
                     let mut message = Markup::new();
-                    snippet1.print(&mut message)?;
+                    snippet1.print(&mut message, false)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: *range1,
                         message,
@@ -619,7 +619,7 @@ impl Diagnostic {
                 }
                 if !self.range.intersects(*range2) {
                     let mut message = Markup::new();
-                    snippet2.print(&mut message)?;
+                    snippet2.print(&mut message, false)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: *range2,
                         message,
@@ -869,15 +869,31 @@ impl PatternSnippet {
 }
 
 impl TypeKindSnippet {
-    fn print(&self, message: &mut Markup) -> Result<(), fmt::Error> {
+    fn print(&self, message: &mut Markup, article: bool) -> Result<(), fmt::Error> {
         match self {
             TypeKindSnippet::Never => write!(message.code(), "Never"),
             TypeKindSnippet::Void => write!(message.code(), "Void"),
-            TypeKindSnippet::Boolean => write!(message.code(), "Bool"),
-            TypeKindSnippet::Number => write!(message.code(), "Num"),
-            TypeKindSnippet::Integer => write!(message.code(), "Int"),
-            TypeKindSnippet::Float => write!(message.code(), "Float"),
-            TypeKindSnippet::Function => write!(message, "function"),
+            TypeKindSnippet::Boolean => {
+                if article {
+                    write!(message, "a ")?;
+                }
+                write!(message.code(), "Bool")
+            }
+            TypeKindSnippet::Number => {
+                if article {
+                    write!(message, "a ")?;
+                }
+                write!(message.code(), "Num")
+            }
+            TypeKindSnippet::Integer => {if article {
+                    write!(message, "an ")?;
+                }write!(message.code(), "Int")},
+            TypeKindSnippet::Float => {if article {
+                    write!(message, "a ")?
+                }write!(message.code(), "Float")},
+            TypeKindSnippet::Function => {if article {
+                    write!(message, "a ")?
+                }write!(message, "function")},
         }
     }
 }
