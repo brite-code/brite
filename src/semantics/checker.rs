@@ -164,13 +164,12 @@ impl<'errs> Checker<'errs> {
                 // If we have neither a function parameter annotation or an expected function
                 // parameter type then complain to the programmer that we are missing a function
                 // parameter type annotation.
-                (None, None) => Type::error(
-                    parameter.pattern.range,
-                    self.report_diagnostic(Diagnostic::missing_function_parameter_type(
+                (None, None) => Type::error(self.report_diagnostic(
+                    Diagnostic::missing_function_parameter_type(
                         parameter.pattern.range,
                         parameter.pattern.snippet(),
-                    )),
-                ),
+                    ),
+                )),
             };
 
             // Check the pattern with this parameter’s type annotation.
@@ -387,9 +386,7 @@ impl<'errs> Checker<'errs> {
                 match self.scope.resolve(&expression.range, identifier) {
                     // If the identifier was not found report our error and return the unsound
                     // error type.
-                    Err(diagnostic) => {
-                        Type::error(expression.range, self.report_diagnostic(diagnostic))
-                    }
+                    Err(diagnostic) => Type::error(self.report_diagnostic(diagnostic)),
 
                     Ok(entry) => match &entry.kind {
                         ScopeEntryKind::Type(_) => unimplemented!(),
@@ -408,22 +405,23 @@ impl<'errs> Checker<'errs> {
                 // Attempt to narrow our expected type to a function type.
                 let function_type = match expression_type.take() {
                     None => None,
-                    Some((operation, expression_type)) => match &expression_type.kind {
+                    Some((operation, expression_type)) => match expression_type {
                         // An error type is the supertype of everything.
-                        TypeKind::Error(_) => None,
+                        Type::Error { .. } => None,
 
                         // Successfully narrow if this type is a function type.
-                        TypeKind::Function(function_type) => {
-                            Some((operation, expression_type.range, function_type))
-                        }
+                        Type::Ok {
+                            range,
+                            kind: TypeKind::Function(function_type),
+                        } => Some((operation, *range, function_type)),
 
                         // For everything else, report a diagnostics error.
-                        _ => {
+                        Type::Ok { range, kind } => {
                             self.report_diagnostic(Diagnostic::incompatible_types(
                                 expression.range,
                                 operation,
                                 (expression.range, TypeKindSnippet::Function),
-                                (expression_type.range, expression_type.snippet()),
+                                (*range, kind.snippet()),
                             ));
                             None
                         }
@@ -431,7 +429,7 @@ impl<'errs> Checker<'errs> {
                 };
 
                 let function_type = self.check_function(expression.range, function, function_type);
-                Type {
+                Type::Ok {
                     range: expression.range,
                     kind: TypeKind::Function(function_type),
                 }
@@ -507,7 +505,7 @@ impl<'errs> Checker<'errs> {
                 match self.scope.resolve(&type_.range, identifier) {
                     // If the identifier was not found report our error and return the unsound
                     // error type.
-                    Err(diagnostic) => Type::error(type_.range, self.report_diagnostic(diagnostic)),
+                    Err(diagnostic) => Type::error(self.report_diagnostic(diagnostic)),
 
                     Ok(entry) => match &entry.kind {
                         ScopeEntryKind::Value(_) => unimplemented!(),
@@ -515,11 +513,19 @@ impl<'errs> Checker<'errs> {
                         ScopeEntryKind::Class { .. } => unimplemented!(),
 
                         // If we are referencing a type then return that.
-                        //
-                        // TODO: Find a better way to do this then mutating the type’s range.
                         ScopeEntryKind::Type(referenced_type) => {
                             let mut referenced_type = referenced_type.clone();
-                            referenced_type.range = type_.range;
+
+                            // TODO: Find a better way to do this then mutating the type’s range
+                            // which is very hacky!
+                            if let Type::Ok {
+                                ref mut range,
+                                kind: _,
+                            } = referenced_type
+                            {
+                                *range = type_.range;
+                            }
+
                             referenced_type
                         }
                     },
@@ -554,13 +560,28 @@ impl<'errs> Checker<'errs> {
         type2: &Type,
     ) -> Result<(), DiagnosticRef> {
         use self::TypeKind::*;
-        match (&type1.kind, &type2.kind) {
+
+        let ((range1, kind1), (range2, kind2)) = match (type1, type2) {
             // The error type is both the subtype and the supertype of everything. Which totally
             // breaks our type lattice. It is completely unsound and should never appear in a valid
             // program. It is useful for “forgetting” type information when an error occurs.
-            (Error(_), _) => Ok(()),
-            (_, Error(_)) => Ok(()),
+            (Type::Error { .. }, _) => return Ok(()),
+            (_, Type::Error { .. }) => return Ok(()),
 
+            // Unwrap two “ok” types and actually perform subtyping on them below.
+            (
+                Type::Ok {
+                    range: range1,
+                    kind: kind1,
+                },
+                Type::Ok {
+                    range: range2,
+                    kind: kind2,
+                },
+            ) => ((range1, kind1), (range2, kind2)),
+        };
+
+        match (kind1, kind2) {
             // The never type is our bottom type and so the subtype of everything but the supertype
             // of nothing.
             (Never, _) => Ok(()),
@@ -603,8 +624,8 @@ impl<'errs> Checker<'errs> {
                         Diagnostic::incompatible_function_parameter_lengths(
                             range,
                             operation.clone(),
-                            (type1.range, function1.parameters.len()),
-                            (type2.range, function2.parameters.len()),
+                            (*range1, function1.parameters.len()),
+                            (*range2, function2.parameters.len()),
                         ),
                     )));
                 }
@@ -646,8 +667,8 @@ impl<'errs> Checker<'errs> {
             | (Function(_), _) => Err(self.report_diagnostic(Diagnostic::incompatible_types(
                 range,
                 operation.clone(),
-                (type1.range, type1.snippet()),
-                (type2.range, type2.snippet()),
+                (*range1, kind1.snippet()),
+                (*range2, kind2.snippet()),
             ))),
         }
     }
@@ -695,22 +716,23 @@ impl Scope {
         // TODO: It should be ok to shadow names in the prelude.
         let mut root = HashMap::new();
         let range = Range::initial();
-        insert_root_entry(&mut root, "Never", Type::never(range));
-        insert_root_entry(&mut root, "Void", Type::void(range));
-        insert_root_entry(&mut root, "Bool", Type::boolean(range));
-        insert_root_entry(&mut root, "Num", Type::number(range));
-        insert_root_entry(&mut root, "Int", Type::integer(range));
-        insert_root_entry(&mut root, "Float", Type::float(range));
+        insert_root_entry(&mut root, "Never", range, Type::never(range));
+        insert_root_entry(&mut root, "Void", range, Type::void(range));
+        insert_root_entry(&mut root, "Bool", range, Type::boolean(range));
+        insert_root_entry(&mut root, "Num", range, Type::number(range));
+        insert_root_entry(&mut root, "Int", range, Type::integer(range));
+        insert_root_entry(&mut root, "Float", range, Type::float(range));
 
         fn insert_root_entry(
             root: &mut HashMap<Identifier, ScopeEntry>,
             name: &'static str,
+            range: Range,
             type_: Type,
         ) {
             root.insert(
                 Identifier::new(name).unwrap(),
                 ScopeEntry {
-                    range: type_.range,
+                    range,
                     kind: ScopeEntryKind::Type(type_),
                 },
             );

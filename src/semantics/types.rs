@@ -3,14 +3,34 @@ use crate::syntax::Range;
 
 /// Describes the values which may be assigned to a particular binding.
 ///
-/// NOTE: The implementation of `Clone` needs to stay fairly cheap since we’ll clone a type whenever
-/// it is referenced. (Which is itself a form of type reuse.)
+/// NOTE: The implementation of [`Clone`] needs to stay fairly cheap since we’ll clone a type
+/// whenever it is referenced. (Which is itself a form of type reuse.)
 #[derive(Clone, Debug)]
-pub struct Type {
-    /// The range of our type in source code.
-    pub range: Range,
-    /// What kind of type is this?
-    pub kind: TypeKind,
+pub enum Type {
+    /// A normal type which was produced by some bit of valid code. These types will behave soundly
+    /// in our type lattice unlike the error type which is unsound.
+    ///
+    /// We split up “ok” types and “error” types one level above [`TypeKind`] as a very clear
+    /// reminder that the programmer must explicitly handle the error case differently from the
+    /// happy path.
+    Ok {
+        /// The range of our type in source code.
+        range: Range,
+        /// What kind of type is this?
+        kind: TypeKind,
+    },
+
+    /// The error type exists as an unsound “any” type. It is both the subtype of everything _and_
+    /// the supertype of everything combining the behaviors of both the bottom and top types. Of
+    /// course this is completely unsound which is why the error type should never exist in a valid
+    /// Brite program.
+    ///
+    /// Error types always carry around the diagnostic which created them. This is important for
+    /// figuring out what to blame for the source of an error type.
+    Error {
+        /// What caused this error type to be created?
+        error: DiagnosticRef,
+    },
 }
 
 // TODO: Having never, void, and null is a bit much. How can we trim it down to maybe one or
@@ -28,14 +48,6 @@ pub enum TypeKind {
     /// require a dynamic size check which means we couldn’t optimize using types of non-standard
     /// sizes (like zero sized types).
     Never,
-    /// The error type exists as an unsound “any” type. It is both the subtype of everything _and_
-    /// the supertype of everything combining the behaviors of both the bottom and top types. Of
-    /// course this is completely unsound which is why the error type should never exist in a valid
-    /// Brite program.
-    ///
-    /// Error types always carry around the diagnostic which created them. This is important for
-    /// figuring out what to blame for the source of an error type.
-    Error(DiagnosticRef),
     /// Type with only one value, void. This is the “unit” type for Brite.
     Void,
     /// A boolean can either be the value true or false.
@@ -66,23 +78,20 @@ pub struct FunctionType {
 impl Type {
     /// Creates a never type.
     pub fn never(range: Range) -> Self {
-        Type {
+        Type::Ok {
             range,
             kind: TypeKind::Never,
         }
     }
 
     /// Creates an error type.
-    pub fn error(range: Range, error: DiagnosticRef) -> Self {
-        Type {
-            range,
-            kind: TypeKind::Error(error),
-        }
+    pub fn error(error: DiagnosticRef) -> Self {
+        Type::Error { error }
     }
 
     /// Creates a void type.
     pub fn void(range: Range) -> Self {
-        Type {
+        Type::Ok {
             range,
             kind: TypeKind::Void,
         }
@@ -90,7 +99,7 @@ impl Type {
 
     /// Creates a boolean type.
     pub fn boolean(range: Range) -> Self {
-        Type {
+        Type::Ok {
             range,
             kind: TypeKind::Boolean,
         }
@@ -98,7 +107,7 @@ impl Type {
 
     /// Creates a number type.
     pub fn number(range: Range) -> Self {
-        Type {
+        Type::Ok {
             range,
             kind: TypeKind::Number,
         }
@@ -106,7 +115,7 @@ impl Type {
 
     /// Creates an integer type.
     pub fn integer(range: Range) -> Self {
-        Type {
+        Type::Ok {
             range,
             kind: TypeKind::Integer,
         }
@@ -114,7 +123,7 @@ impl Type {
 
     /// Creates a float type.
     pub fn float(range: Range) -> Self {
-        Type {
+        Type::Ok {
             range,
             kind: TypeKind::Float,
         }
@@ -122,7 +131,7 @@ impl Type {
 
     /// Creates a function type.
     pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
-        Type {
+        Type::Ok {
             range,
             kind: TypeKind::Function(FunctionType::new(parameters, return_)),
         }
@@ -138,11 +147,10 @@ impl FunctionType {
     }
 }
 
-impl Type {
+impl TypeKind {
     /// Gets a snippet of a type for error reporting.
     pub fn snippet(&self) -> TypeKindSnippet {
-        match &self.kind {
-            TypeKind::Error(_) => unimplemented!(),
+        match self {
             TypeKind::Never => TypeKindSnippet::Never,
             TypeKind::Void => TypeKindSnippet::Void,
             TypeKind::Boolean => TypeKindSnippet::Boolean,
