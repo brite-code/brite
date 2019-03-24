@@ -65,7 +65,8 @@
 
 use crate::syntax::ast::Constant;
 use crate::syntax::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
-use crate::utils::markup::Markup;
+use crate::utils::markup::{Markup, MarkupCode};
+use std::fmt::{self, Write};
 use std::mem;
 use std::rc::Rc;
 
@@ -416,7 +417,7 @@ impl Diagnostic {
     /// time it is called instead of fetching a pre-generated message.
     fn message(&self) -> (Markup, Vec<DiagnosticRelatedInformation>) {
         match &self.message {
-            DiagnosticMessage::Error(message) => self.error_message(message),
+            DiagnosticMessage::Error(message) => self.error_message(message).unwrap(),
             DiagnosticMessage::Warning(_) => unreachable!(),
             DiagnosticMessage::Info(_) => unreachable!(),
         }
@@ -425,7 +426,7 @@ impl Diagnostic {
     fn error_message(
         &self,
         error_message: &ErrorDiagnosticMessage,
-    ) -> (Markup, Vec<DiagnosticRelatedInformation>) {
+    ) -> Result<(Markup, Vec<DiagnosticRelatedInformation>), fmt::Error> {
         match error_message {
             // Thought and care that went into this error message:
             //
@@ -456,19 +457,19 @@ impl Diagnostic {
                 expected,
             } => {
                 let mut message = Markup::new();
-                message.push("We want ");
-                expected.print(&mut message);
+                write!(message, "We want ")?;
+                expected.print(&mut message)?;
                 match unexpected {
                     UnexpectedSyntax::Char('\n') | UnexpectedSyntax::Char('\r') => {
-                        message.push(" but the line ends.")
+                        write!(message, " but the line ends.")?
                     }
                     _ => {
-                        message.push(" but we have ");
-                        unexpected.print(&mut message);
-                        message.push(".");
+                        write!(message, " but we have ")?;
+                        unexpected.print(&mut message)?;
+                        write!(message, ".")?;
                     }
                 }
-                (message, Vec::new())
+                Ok((message, Vec::new()))
             }
 
             // Follows the same format as the unexpected token error. Except instead of saying “we
@@ -479,10 +480,10 @@ impl Diagnostic {
             // designing for.
             ErrorDiagnosticMessage::UnexpectedEnding { expected } => {
                 let mut message = Markup::new();
-                message.push("We want ");
-                expected.print(&mut message);
-                message.push(" but the file ends.");
-                (message, Vec::new())
+                write!(message, "We want ")?;
+                expected.print(&mut message)?;
+                write!(message, " but the file ends.")?;
+                Ok((message, Vec::new()))
             }
 
             // We tell the user directly that the name they were looking for is missing. “does not
@@ -493,10 +494,10 @@ impl Diagnostic {
             // TODO: Propose names that are spelled similarly as “did you mean `x`”?
             ErrorDiagnosticMessage::IdentifierNotFound { identifier } => {
                 let mut message = Markup::new();
-                message.push("Can not find ");
-                message.push_code(identifier.as_str());
-                message.push(".");
-                (message, Vec::new())
+                write!(message, "Can not find ")?;
+                write!(message.code(), "{}", identifier.as_str())?;
+                write!(message, ".")?;
+                Ok((message, Vec::new()))
             }
 
             // Tell the programmer that they can not use their name a second time. We also make sure
@@ -507,15 +508,19 @@ impl Diagnostic {
                 declaration_range,
             } => {
                 let mut message = Markup::new();
-                message.push("Can not use the name ");
-                message.push_code(identifier.as_str());
-                message.push(" again.");
+                write!(message, "Can not use the name ")?;
+                write!(message.code(), "{}", identifier.as_str())?;
+                write!(message, " again.")?;
                 let mut related_information = Vec::new();
-                related_information.push(DiagnosticRelatedInformation {
-                    range: *declaration_range,
-                    message: Markup::code(identifier.as_str().into()),
-                });
-                (message, related_information)
+                {
+                    let mut message = Markup::new();
+                    write!(message.code(), "{}", identifier.as_str())?;
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: *declaration_range,
+                        message: message,
+                    });
+                }
+                Ok((message, related_information))
             }
 
             // Tell the programmer they can’t extend the declaration because it is not a base class.
@@ -526,15 +531,19 @@ impl Diagnostic {
                 declaration_range,
             } => {
                 let mut message = Markup::new();
-                message.push("Can not extend ");
-                message.push_code(identifier.as_str());
-                message.push(" because it is not a base class.");
+                write!(message, "Can not extend ")?;
+                write!(message.code(), "{}", identifier.as_str())?;
+                write!(message, " because it is not a base class.")?;
                 let mut related_information = Vec::new();
-                related_information.push(DiagnosticRelatedInformation {
-                    range: *declaration_range,
-                    message: Markup::code(identifier.as_str().into()),
-                });
-                (message, related_information)
+                {
+                    let mut message = Markup::new();
+                    write!(message.code(), "{}", identifier.as_str())?;
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: *declaration_range,
+                        message: message,
+                    });
+                }
+                Ok((message, related_information))
             }
 
             // Add a special case for `FunctionReturnAnnotation(None)` since the error message which
@@ -547,19 +556,19 @@ impl Diagnostic {
                 snippet2,
             } => {
                 let mut message = Markup::new();
-                message.push("We need ");
-                snippet2.print(&mut message);
-                message.push(" to be returned from this function.");
+                write!(message, "We need ")?;
+                snippet2.print(&mut message)?;
+                write!(message, " to be returned from this function.")?;
                 let mut related_information = Vec::new();
                 if !self.range.intersects(*range2) {
                     let mut message = Markup::new();
-                    snippet2.print(&mut message);
+                    snippet2.print(&mut message)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: *range2,
                         message,
                     });
                 }
-                (message, related_information)
+                Ok((message, related_information))
             }
 
             // A Brite programmer will see this error message quite frequently so we need to take
@@ -593,16 +602,16 @@ impl Diagnostic {
                 snippet2,
             } => {
                 let mut message = Markup::new();
-                operation.print(&mut message);
-                message.push(" because ");
-                snippet1.print(&mut message);
-                message.push(" can not be used as ");
-                snippet2.print(&mut message);
-                message.push(".");
+                operation.print(&mut message)?;
+                write!(message, " because ")?;
+                snippet1.print(&mut message)?;
+                write!(message, " can not be used as ")?;
+                snippet2.print(&mut message)?;
+                write!(message, ".")?;
                 let mut related_information = Vec::new();
                 if !self.range.intersects(*range1) {
                     let mut message = Markup::new();
-                    snippet1.print(&mut message);
+                    snippet1.print(&mut message)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: *range1,
                         message,
@@ -610,13 +619,13 @@ impl Diagnostic {
                 }
                 if !self.range.intersects(*range2) {
                     let mut message = Markup::new();
-                    snippet2.print(&mut message);
+                    snippet2.print(&mut message)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: *range2,
                         message,
                     });
                 }
-                (message, related_information)
+                Ok((message, related_information))
             }
 
             // We tell the programmer we can not perform their operation because we don’t have the
@@ -643,16 +652,16 @@ impl Diagnostic {
                     mem::swap(&mut range1, &mut range2);
                 }
                 let mut message = Markup::new();
-                operation.print(&mut message);
-                message.push(" because we have ");
-                argument_len(&mut message, len1, true);
-                message.push(" but we need ");
-                argument_len(&mut message, len2, false);
-                message.push(".");
+                operation.print(&mut message)?;
+                write!(message, " because we have ")?;
+                argument_len(&mut message, len1, true)?;
+                write!(message, " but we need ")?;
+                argument_len(&mut message, len2, false)?;
+                write!(message, ".")?;
                 let mut related_information = Vec::new();
                 if !self.range.intersects(range1) {
                     let mut message = Markup::new();
-                    argument_len(&mut message, len1, true);
+                    argument_len(&mut message, len1, true)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: range1,
                         message,
@@ -660,30 +669,34 @@ impl Diagnostic {
                 }
                 if !self.range.intersects(range2) {
                     let mut message = Markup::new();
-                    argument_len(&mut message, len2, true);
+                    argument_len(&mut message, len2, true)?;
                     related_information.push(DiagnosticRelatedInformation {
                         range: range2,
                         message,
                     });
                 }
 
-                fn argument_len(message: &mut Markup, len: usize, unit: bool) {
+                fn argument_len(
+                    message: &mut Markup,
+                    len: usize,
+                    unit: bool,
+                ) -> Result<(), fmt::Error> {
                     if let Some(len) = cardinal(len) {
-                        message.push(len);
+                        write!(message, "{}", len)?;
                     } else {
-                        message.push(&len.to_string());
+                        write!(message, "{}", len)?;
                     }
                     if unit {
-                        message.push(" ");
                         if len == 1 {
-                            message.push("argument");
+                            write!(message, " argument")?;
                         } else {
-                            message.push("arguments");
+                            write!(message, " arguments")?;
                         }
                     }
+                    Ok(())
                 }
 
-                (message, related_information)
+                Ok((message, related_information))
             }
 
             // We want a message here that helps the programmer know that they need to add a type
@@ -691,10 +704,10 @@ impl Diagnostic {
             // of technical language the programmer doesn’t need to know.
             ErrorDiagnosticMessage::MissingFunctionParameterType { pattern } => {
                 let mut message = Markup::new();
-                message.push("We need a type for argument ");
-                pattern.print(&mut message);
-                message.push(".");
-                (message, Vec::new())
+                write!(message, "We need a type for argument ")?;
+                pattern.print(&mut message.code())?;
+                write!(message, ".")?;
+                Ok((message, Vec::new()))
             }
         }
     }
@@ -730,28 +743,30 @@ fn cardinal(n: usize) -> Option<&'static str> {
 }
 
 impl UnexpectedSyntax {
-    fn print(&self, message: &mut Markup) {
+    fn print(&self, message: &mut Markup) -> Result<(), fmt::Error> {
         match self {
-            UnexpectedSyntax::Glyph(glyph) => message.push_code(glyph.as_str()),
-            UnexpectedSyntax::Identifier => message.push("a variable name"),
-            UnexpectedSyntax::Number => message.push("a number"),
+            UnexpectedSyntax::Glyph(glyph) => write!(message.code(), "{}", glyph.as_str()),
+            UnexpectedSyntax::Identifier => write!(message, "a variable name"),
+            UnexpectedSyntax::Number => write!(message, "a number"),
             UnexpectedSyntax::Char(c) => match c {
-                '\n' => message.push_code("\\n"),
-                '\r' => message.push_code("\\r"),
-                '\t' => message.push_code("\\t"),
-                _ => message.push_code(c.to_string()),
+                '\n' => write!(message.code(), "\\n"),
+                '\r' => write!(message.code(), "\\r"),
+                '\t' => write!(message.code(), "\\t"),
+                _ => write!(message.code(), "{}", c),
             },
         }
     }
 }
 
 impl ExpectedSyntax {
-    fn print(&self, message: &mut Markup) {
+    fn print(&self, message: &mut Markup) -> Result<(), fmt::Error> {
         match self {
-            ExpectedSyntax::Glyph(glyph) => message.push_code(glyph.as_str()),
-            ExpectedSyntax::Identifier => message.push("a name"),
-            ExpectedSyntax::IdentifierKeyword(keyword) => message.push_code(keyword.as_str()),
-            ExpectedSyntax::BlockCommentEnd => message.push_code("*/"),
+            ExpectedSyntax::Glyph(glyph) => write!(message.code(), "{}", glyph.as_str()),
+            ExpectedSyntax::Identifier => write!(message, "a name"),
+            ExpectedSyntax::IdentifierKeyword(keyword) => {
+                write!(message.code(), "{}", keyword.as_str())
+            }
+            ExpectedSyntax::BlockCommentEnd => write!(message.code(), "*/"),
 
             // If the user types `0b` or `0x` then, presumably, they know what they are doing and
             // want a binary or hexadecimal number. So using phrasing like “hexadecimal digit” will
@@ -761,49 +776,49 @@ impl ExpectedSyntax {
             // Otherwise, if the user types an incorrect number like `0px` we will say that we
             // expect a _number_ instead of expected a “digit” because “number” is
             // simpler vocabulary.
-            ExpectedSyntax::DecimalDigit => message.push("a number"),
-            ExpectedSyntax::BinaryDigit => message.push("a binary digit"),
-            ExpectedSyntax::HexadecimalDigit => message.push("a hexadecimal digit"),
+            ExpectedSyntax::DecimalDigit => write!(message, "a number"),
+            ExpectedSyntax::BinaryDigit => write!(message, "a binary digit"),
+            ExpectedSyntax::HexadecimalDigit => write!(message, "a hexadecimal digit"),
 
             // While a declaration or class member may be something else other than a function we
             // still say that we expected a function. Functions are the most common declaration and
             // class member. If the programmer was trying to write something other than a function
             // we don’t expect them to be confused since they know a function goes there. However,
             // a beginner might be more confused to read “class member” or “declaration”.
-            ExpectedSyntax::Declaration => message.push("a function"),
-            ExpectedSyntax::ClassMember => message.push("a function"),
+            ExpectedSyntax::Declaration => write!(message, "a function"),
+            ExpectedSyntax::ClassMember => write!(message, "a function"),
 
             // NOTE: Are there more common words than “statement”, or “expression”?
-            ExpectedSyntax::Statement => message.push("a statement"),
-            ExpectedSyntax::Expression => message.push("an expression"),
+            ExpectedSyntax::Statement => write!(message, "a statement"),
+            ExpectedSyntax::Expression => write!(message, "an expression"),
 
             // The programmer should not need to be familiar with language like “pattern”. Most of
             // the time when we expect a pattern what we really want is a variable name.
             // So say that instead of “pattern”.
-            ExpectedSyntax::Pattern => message.push("a variable name"),
+            ExpectedSyntax::Pattern => write!(message, "a variable name"),
 
-            ExpectedSyntax::Type => message.push("a type"),
+            ExpectedSyntax::Type => write!(message, "a type"),
         }
     }
 }
 
 impl OperationSnippet {
-    fn print(&self, message: &mut Markup) {
+    fn print(&self, message: &mut Markup) -> Result<(), fmt::Error> {
         match self {
             OperationSnippet::ExpressionAnnotation(value) => {
-                message.push("Can not change the type of ");
-                value.print(message);
+                write!(message, "Can not change the type of ")?;
+                value.print(&mut message.code())?;
             }
             OperationSnippet::BindingStatementAnnotation(pattern, value) => {
-                message.push("Can not set ");
-                pattern.print(message);
-                message.push(" to ");
-                value.print(message);
+                write!(message, "Can not set ")?;
+                pattern.print(&mut message.code())?;
+                write!(message, " to ")?;
+                value.print(&mut message.code())?;
             }
             OperationSnippet::FunctionReturnAnnotation(statement) => {
-                message.push("Can not return ");
+                write!(message, "Can not return ")?;
                 if let Some(statement) = statement {
-                    statement.print(message);
+                    statement.print(&mut message.code())?;
                 } else {
                     // We expect all errors with this operation to be handled by our special case
                     // in `IncompatibleTypes`. So in case this expectation ever turns out to not
@@ -812,15 +827,16 @@ impl OperationSnippet {
                         false,
                         "Should be handled by special case in `IncompatibleTypes` error message."
                     );
-                    message.push("nothing");
+                    write!(message, "nothing")?;
                 }
             }
-        }
+        };
+        Ok(())
     }
 }
 
 impl StatementSnippet {
-    fn print(&self, message: &mut Markup) {
+    fn print(&self, message: &mut MarkupCode) -> Result<(), fmt::Error> {
         match self {
             StatementSnippet::Expression(expression) => expression.print(message),
             StatementSnippet::Binding(_, _) => unimplemented!(),
@@ -829,33 +845,33 @@ impl StatementSnippet {
 }
 
 impl ExpressionSnippet {
-    fn print(&self, message: &mut Markup) {
+    fn print(&self, message: &mut MarkupCode) -> Result<(), fmt::Error> {
         match self {
-            ExpressionSnippet::Constant(constant) => message.push_code(constant.print()),
-            ExpressionSnippet::Reference(identifier) => message.push_code(identifier.as_str()),
-            ExpressionSnippet::Block => message.push_code("do { ... }"),
+            ExpressionSnippet::Constant(constant) => write!(message, "{}", constant.print()),
+            ExpressionSnippet::Reference(identifier) => write!(message, "{}", identifier.as_str()),
+            ExpressionSnippet::Block => write!(message, "do {{ ... }}"),
         }
     }
 }
 
 impl PatternSnippet {
-    fn print(&self, message: &mut Markup) {
+    fn print(&self, message: &mut MarkupCode) -> Result<(), fmt::Error> {
         match self {
-            PatternSnippet::Binding(identifier) => message.push_code(identifier.as_str()),
+            PatternSnippet::Binding(identifier) => write!(message, "{}", identifier.as_str()),
         }
     }
 }
 
 impl TypeKindSnippet {
-    fn print(&self, message: &mut Markup) {
+    fn print(&self, message: &mut Markup) -> Result<(), fmt::Error> {
         match self {
-            TypeKindSnippet::Never => message.push("never"),
-            TypeKindSnippet::Void => message.push("void"),
-            TypeKindSnippet::Boolean => message.push("a boolean"),
-            TypeKindSnippet::Number => message.push("a number"),
-            TypeKindSnippet::Integer => message.push("an integer"),
-            TypeKindSnippet::Float => message.push("a float"),
-            TypeKindSnippet::Function => message.push("a function"),
+            TypeKindSnippet::Never => write!(message, "never"),
+            TypeKindSnippet::Void => write!(message, "void"),
+            TypeKindSnippet::Boolean => write!(message, "a boolean"),
+            TypeKindSnippet::Number => write!(message, "a number"),
+            TypeKindSnippet::Integer => write!(message, "an integer"),
+            TypeKindSnippet::Float => write!(message, "a float"),
+            TypeKindSnippet::Function => write!(message, "a function"),
         }
     }
 }

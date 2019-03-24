@@ -2,51 +2,25 @@
 //! intended to be a full markdown parsing and printing framework. Just enough for
 //! diagnostic messages.
 
-/// A structured markup document.
-pub struct Markup {
-    segments: Vec<Segment>,
-}
+use std::fmt;
 
-/// An item in our markup document.
-enum Segment {
-    /// Plain text.
-    Plain(String),
-    /// Inline code.
-    Code(String),
+/// A structured markup document that implements `fmt::Write`, so write away!
+pub struct Markup {
+    text: String,
 }
 
 impl Markup {
     /// Creates a new, empty, markup document.
     pub fn new() -> Self {
         Markup {
-            segments: Vec::new(),
+            text: String::new(),
         }
     }
 
-    /// Creates a new markdown document that’s just the provided inline code.
-    pub fn code(code: String) -> Self {
-        Markup {
-            segments: vec![Segment::Code(code)],
-        }
-    }
-
-    /// Pushes a plain text string to our markup.
-    ///
-    /// As an optimization we might append the string to an internal buffer which is why we take
-    /// `&str` instead of `String`.
-    pub fn push(&mut self, text: &str) {
-        // As an optimization if our last item is a plain text item then push the string to there.
-        match self.segments.last_mut() {
-            Some(Segment::Plain(current_text)) => current_text.push_str(text),
-            _ => self.segments.push(Segment::Plain(text.into())),
-        }
-    }
-
-    /// Pushes an inline code string to our markup. This will always create a new inline code
-    /// segment. Adjacent code segments will not be merged! Unlike plain text segments where there
-    /// is no difference between adjacent segments.
-    pub fn push_code(&mut self, code: impl Into<String>) {
-        self.segments.push(Segment::Code(code.into()))
+    /// Create a writer for inline code markup. When `MarkupCode` drops we finish the inline
+    /// code segment.
+    pub fn code(&mut self) -> MarkupCode {
+        MarkupCode::new(self)
     }
 
     /// Converts markup to a simple string format. This format is not intended to be parsed by any
@@ -54,41 +28,53 @@ impl Markup {
     ///
     /// Don’t use this function to create markdown! Markdown requires more escapes. Use this
     /// function when you intend to display the markup to the user without any formatting.
-    pub fn to_simple_string(&self) -> String {
-        // Compute a rough estimate for our string’s capacity based on the segments. We will only
-        // exceed that capacity if there are backticks which need to be escaped.
-        let mut s = String::with_capacity(
-            self.segments
-                .iter()
-                .map(|segment| match segment {
-                    Segment::Plain(s) => s.len(),
-                    Segment::Code(s) => s.len() + 2,
-                }).sum(),
-        );
-        // Push every character in every segment to our final string. Surround code segments in
-        // backticks (`\``) and escape all other backticks.
-        for segment in &self.segments {
-            match segment {
-                Segment::Plain(cs) => {
-                    for c in cs.chars() {
-                        match c {
-                            '`' => s.push_str("\\`"),
-                            _ => s.push(c),
-                        }
-                    }
-                }
-                Segment::Code(cs) => {
-                    s.push('`');
-                    for c in cs.chars() {
-                        match c {
-                            '`' => s.push_str("\\`"),
-                            _ => s.push(c),
-                        }
-                    }
-                    s.push('`');
-                }
+    pub fn to_simple_string(self) -> String {
+        self.text
+    }
+}
+
+impl fmt::Write for Markup {
+    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
+        // Reserve enough length for the string we’re about to push.
+        self.text.reserve(s.len());
+
+        // Add all the characters to our markup text.
+        for c in s.chars() {
+            match c {
+                // We use backslashes to escape special characters, like backticks.
+                '\\' => self.text.push_str("\\\\"),
+
+                // We use backticks to denote inline code segments.
+                '`' => self.text.push_str("\\`"),
+
+                _ => self.text.push(c),
             }
         }
-        s
+
+        Ok(())
+    }
+}
+
+/// A writer for inline code in a `Markup` object. When dropped we finish the inline code segment.
+pub struct MarkupCode<'a> {
+    markup: &'a mut Markup,
+}
+
+impl<'a> MarkupCode<'a> {
+    fn new(markup: &mut Markup) -> MarkupCode {
+        markup.text.push('`');
+        MarkupCode { markup }
+    }
+}
+
+impl<'a> Drop for MarkupCode<'a> {
+    fn drop(&mut self) {
+        self.markup.text.push('`');
+    }
+}
+
+impl<'a> fmt::Write for MarkupCode<'a> {
+    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
+        self.markup.write_str(s)
     }
 }
