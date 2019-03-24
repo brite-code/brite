@@ -1,5 +1,7 @@
 use super::types::*;
-use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection, OperationSnippet};
+use crate::diagnostics::{
+    Diagnostic, DiagnosticRef, DiagnosticsCollection, OperationSnippet, TypeKindSnippet,
+};
 use crate::syntax::ast;
 use crate::syntax::{Identifier, Range};
 use crate::utils::vecn::Vec1;
@@ -81,11 +83,18 @@ impl<'errs> Checker<'errs> {
     }
 
     fn check_function_declaration(&mut self, function: &ast::FunctionDeclaration) {
-        self.check_function(&function.function);
+        self.check_function(function.name.range, &function.function, None);
     }
 
     /// Checks a function and returns the type of the function.
-    fn check_function(&mut self, function: &ast::Function) -> FunctionType {
+    ///
+    /// The provided range is used for error reporting when we don’t have any better range.
+    fn check_function(
+        &mut self,
+        range: Range,
+        function: &ast::Function,
+        expected_function_type: Option<(OperationSnippet, Range, FunctionType)>,
+    ) -> FunctionType {
         // When checking a function, we want to add parameters to the block. So introduce a level
         // of nesting in the scope.
         self.scope.nest();
@@ -93,13 +102,64 @@ impl<'errs> Checker<'errs> {
         // Create our parameter types vector which we will push to as we type-check parameters.
         let mut parameter_types = Vec::with_capacity(function.parameters.len());
 
+        // If we have an expected function type, check to make sure that it has the same number of
+        // parameters as our actual function expression.
+        if let Some((operation, expected_range, expected_function_type)) = &expected_function_type {
+            if function.parameters.len() != expected_function_type.parameters.len() {
+                self.report_diagnostic(Diagnostic::incompatible_function_parameter_lengths(
+                    range,
+                    operation.clone(),
+                    (range, function.parameters.len()),
+                    (*expected_range, expected_function_type.parameters.len()),
+                ));
+            }
+        }
+
         // Add function parameters to our current, nested, scope.
-        for parameter in &function.parameters {
+        for i in 0..function.parameters.len() {
+            let parameter = &function.parameters[i];
+
+            // If we have an expected function type then get our expected function parameter type!
+            // If we have more function expression parameters then function type parameters we will
+            // return none.
+            let expected_parameter_type =
+                if let Some((operation, _, expected_function_type)) = &expected_function_type {
+                    if i < expected_function_type.parameters.len() {
+                        Some((operation, &expected_function_type.parameters[i]))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
             // Get the type for all of our function parameters. If a function parameter is missing
             // an annotation then we will report an error and will create an unsound error type.
-            let type_ = match &parameter.annotation {
-                Some(annotation) => self.check_type(annotation),
-                None => Type::error(
+            let type_ = match (&parameter.annotation, expected_parameter_type) {
+                // If our function parameter has an annotation and no expected type then the type
+                // of our parameter is the type of our annotation.
+                (Some(actual_type), None) => self.check_type(actual_type),
+
+                // If our function parameter has no annotation, but it does have an expected type
+                // then use the expected type as the type of our function parameter.
+                //
+                // NOTE: This is where we actually “infer” the type of function parameters when we
+                // have enough context to do so.
+                (None, Some((_, expected_type))) => expected_type.clone(),
+
+                // If we have both a parameter type annotation _and_ an expected type then we need
+                // to subtype them. Remember that function parameters are contravariant so we
+                // subtype in the opposite direction.
+                (Some(actual_type), Some((operation, expected_type))) => {
+                    let actual_type = self.check_type(actual_type);
+                    let _ = self.subtype(actual_type.range, operation, expected_type, &actual_type);
+                    actual_type
+                }
+
+                // If we have neither a function parameter annotation or an expected function
+                // parameter type then complain to the programmer that we are missing a function
+                // parameter type annotation.
+                (None, None) => Type::error(
                     parameter.pattern.range,
                     self.report_diagnostic(Diagnostic::missing_function_parameter_type(
                         parameter.pattern.range,
@@ -107,6 +167,7 @@ impl<'errs> Checker<'errs> {
                     )),
                 ),
             };
+
             // Check the pattern with this parameter’s type annotation.
             self.check_pattern(&parameter.pattern, type_.clone());
             // Add the type of this parameter to our vector.
@@ -123,12 +184,27 @@ impl<'errs> Checker<'errs> {
                 let operation = OperationSnippet::FunctionReturnAnnotation(
                     function.body.statements.last().map(ast::Statement::snippet),
                 );
-                self.check_block_without_nest(&function.body, Some((operation, return_type)))
+                self.check_block_without_nest(
+                    &function.body,
+                    Some((operation, return_type.clone())),
+                );
+                return_type
             }
 
             // Infer a type based on our function body and return that.
             None => self.check_block_without_nest(&function.body, None),
         };
+
+        // If we have an expected function type then make sure we verify that the return type
+        // is correct!
+        if let Some((operation, _, expected_function_type)) = &expected_function_type {
+            let _ = self.subtype(
+                return_type.range,
+                operation,
+                &return_type,
+                &expected_function_type.return_,
+            );
+        }
 
         // Leave the scope we created for this function.
         self.scope.unnest();
@@ -321,7 +397,32 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::This => unimplemented!(),
 
             ast::ExpressionKind::Function(function) => {
-                let function_type = self.check_function(function);
+                // Attempt to narrow our expected type to a function type.
+                let function_type = match expression_type.take() {
+                    None => None,
+                    Some((operation, expression_type)) => match expression_type.kind {
+                        // An error type is the supertype of everything.
+                        TypeKind::Error(_) => None,
+
+                        // Successfully narrow if this type is a function type.
+                        TypeKind::Function(function_type) => {
+                            Some((operation, expression_type.range, function_type))
+                        }
+
+                        // For everything else, report a diagnostics error.
+                        _ => {
+                            self.report_diagnostic(Diagnostic::incompatible_types(
+                                expression.range,
+                                operation,
+                                (expression.range, TypeKindSnippet::Function),
+                                (expression_type.range, expression_type.snippet()),
+                            ));
+                            None
+                        }
+                    },
+                };
+
+                let function_type = self.check_function(expression.range, function, function_type);
                 Type {
                     range: expression.range,
                     kind: TypeKind::Function(function_type),
@@ -472,6 +573,9 @@ impl<'errs> Checker<'errs> {
             (Float, Float) => Ok(()),
 
             // Functions will subtype with other functions.
+            //
+            // **IMPORTANT:** If you update the subtyping logic of functions down here, also make
+            // sure to update the subtyping logic of functions in `check_function()`!
             (Function(function1), Function(function2)) => {
                 let mut result = Ok(());
 

@@ -1,18 +1,42 @@
 # Checker Test: `function_expression`
 
 ## Errors
-- (2:4-2:16) Can not change the type of `fun() { ... }` because a `Num` is not an `Int`.
+- (2:12-2:14) Can not change the type of `fun() { ... }` because a `Num` is not an `Int`.
   - (2:27-2:30) `Int`
-- (3:4-3:16) Can not change the type of `fun() { ... }` because a `Num` is not a `Bool`.
+- (3:12-3:14) Can not change the type of `fun() { ... }` because a `Num` is not a `Bool`.
   - (3:27-3:31) `Bool`
-- (5:4-5:21) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+- (5:11-5:14) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
   - (5:35-5:39) `Bool`
-- (6:4-6:21) Can not change the type of `fun(x) { ... }` because a `Bool` is not an `Int`.
+- (6:11-6:14) Can not change the type of `fun(x) { ... }` because a `Bool` is not an `Int`.
   - (6:27-6:31) `Bool`
-- (7:4-7:21) Can not change the type of `fun(x) { ... }` because a `Bool` is not an `Int`.
+- (7:11-7:14) Can not change the type of `fun(x) { ... }` because a `Bool` is not an `Int`.
   - (7:27-7:31) `Bool`
-- (7:4-7:21) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+- (7:11-7:14) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
   - (7:36-7:40) `Bool`
-- (9:8-9:9) We need a type for argument `x`.
-- (10:8-10:9) We need a type for argument `x`.
-- (11:8-11:9) We need a type for argument `x`.
+- (11:22-11:25) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+  - (11:30-11:34) `Bool`
+- (13:19-13:21) Can not return `42` because a `Num` is not an `Int`.
+  - (13:13-13:16) `Int`
+- (14:19-14:21) Can not return `42` because a `Num` is not an `Int`.
+  - (14:13-14:16) `Int`
+- (14:13-14:16) Can not change the type of `fun() { ... }` because an `Int` is not a `Bool`.
+  - (14:34-14:38) `Bool`
+- (15:19-15:23) Can not return `true` because a `Bool` is not an `Int`.
+  - (15:13-15:16) `Int`
+- (16:19-16:23) Can not return `true` because a `Bool` is not an `Int`.
+  - (16:13-16:16) `Int`
+- (16:13-16:16) Can not change the type of `fun() { ... }` because an `Int` is not a `Bool`.
+  - (16:36-16:40) `Bool`
+- (18:4-18:29) Can not change the type of `fun(x, y) { ... }` because we have one argument but we need two.
+  - (18:31-18:46) one argument
+- (19:4-19:21) Can not change the type of `fun(x) { ... }` because we have one argument but we need two.
+  - (19:23-19:43) two arguments
+- (21:4-21:19) Can not change the type of `fun(x, y) { ... }` because we have one argument but we need two.
+  - (21:21-21:36) one argument
+- (21:11-21:12) We need a type for argument `y`.
+- (22:4-22:16) Can not change the type of `fun(x) { ... }` because we have one argument but we need two.
+  - (22:18-22:38) two arguments
+- (24:11-24:16) Can not change the type of `fun(x) { ... }` because an `Int` is not `Never`.
+  - (24:29-24:32) `Int`
+- (27:11-27:16) Can not change the type of `fun(x) { ... }` because an `Int` is not `Never`.
+  - (27:29-27:32) `Int`

@@ -9,4 +9,20 @@ fun main() {
   (fun(x) { x }: fun(Int) -> Int);
   (fun(x) { x }: fun(Bool) -> Bool);
   (fun(x) { x }: fun(Int) -> Bool);
+
+  (fun() -> Int { 42 }: fun() -> Int);
+  (fun() -> Int { 42 }: fun() -> Bool);
+  (fun() -> Int { true }: fun() -> Int);
+  (fun() -> Int { true }: fun() -> Bool);
+
+  (fun(x: Int, y: Int) { x }: fun(Int) -> Int);
+  (fun(x: Int) { x }: fun(Int, Int) -> Int);
+
+  (fun(x, y) { x }: fun(Int) -> Int);
+  (fun(x) { x }: fun(Int, Int) -> Int);
+
+  (fun(x: Never) { x }: fun(Int) -> Int);
+  (fun(x: Never) { x }: fun(Never) -> Never);
+  (fun(x: Never) { x }: fun(Never) -> Int);
+  (fun(x: Never) { x }: fun(Int) -> Never);
 }
