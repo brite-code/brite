@@ -60,7 +60,8 @@ impl Lisp {
                         }
                     }
                     doc.nest(1).group()
-                }).append(doc_allocator.text(")")),
+                })
+                .append(doc_allocator.text(")")),
         }
     }
 }

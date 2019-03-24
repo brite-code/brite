@@ -1,7 +1,7 @@
 //! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
 
 use super::lexer::{Identifier, Range};
-use crate::diagnostics::{ExpressionSnippet, PatternSnippet, StatementSnippet};
+use crate::diagnostics::{ExpressionSnippet, PatternSnippet, StatementSnippet, VecSnippet};
 use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
@@ -537,7 +537,14 @@ impl Expression {
                 ExpressionSnippet::Reference(identifier.clone())
             }
             ExpressionKind::This => unimplemented!(),
-            ExpressionKind::Function(_) => unimplemented!(),
+            ExpressionKind::Function(function) => {
+                ExpressionSnippet::Function(VecSnippet::from_iter(
+                    function
+                        .parameters
+                        .iter()
+                        .map(|parameter| parameter.pattern.snippet()),
+                ))
+            }
             ExpressionKind::Call(_) => unimplemented!(),
             ExpressionKind::Construct(_) => unimplemented!(),
             ExpressionKind::Member(_) => unimplemented!(),

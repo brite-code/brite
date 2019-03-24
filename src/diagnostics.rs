@@ -228,6 +228,37 @@ pub enum TypeKindSnippet {
     Function,
 }
 
+/// A snippet of a [`Vec`]. May contain up to 2 items.
+#[derive(Clone, Debug)]
+pub enum VecSnippet<Item> {
+    Vec0,
+    Vec1(Item),
+    Vec2(Item, Item),
+    VecN(Item, Item),
+}
+
+impl<Item> VecSnippet<Item> {
+    pub fn from_iter(mut iter: impl Iterator<Item = Item>) -> VecSnippet<Item>
+    where
+        Item: Clone,
+    {
+        let mut vec = VecSnippet::Vec0;
+
+        while let Some(next_item) = iter.next() {
+            match vec {
+                VecSnippet::Vec0 => vec = VecSnippet::Vec1(next_item),
+                VecSnippet::Vec1(item1) => vec = VecSnippet::Vec2(item1, next_item),
+                VecSnippet::Vec2(item1, item2) | VecSnippet::VecN(item1, item2) => {
+                    vec = VecSnippet::VecN(item1, item2);
+                    break;
+                }
+            }
+        }
+
+        vec
+    }
+}
+
 /// A snippet of some statement for error message printing.
 #[derive(Clone, Debug)]
 pub enum StatementSnippet {
@@ -245,6 +276,9 @@ pub enum ExpressionSnippet {
     Constant(Constant),
     /// A reference to some value in the program.
     Reference(Identifier),
+    /// A function expression. We only keep some of the parameters in the function
+    /// expression snippet.
+    Function(VecSnippet<PatternSnippet>),
     /// A block expression which contains some statements.
     Block,
 }
@@ -843,8 +877,7 @@ impl StatementSnippet {
                 write!(message, "let ")?;
                 pattern.print(message)?;
                 write!(message, " = ")?;
-                value.print(message)?;
-                Ok(())
+                value.print(message)
             }
         }
     }
@@ -855,6 +888,25 @@ impl ExpressionSnippet {
         match self {
             ExpressionSnippet::Constant(constant) => write!(message, "{}", constant.print()),
             ExpressionSnippet::Reference(identifier) => write!(message, "{}", identifier.as_str()),
+            ExpressionSnippet::Function(parameters) => {
+                write!(message, "fun(")?;
+                match parameters {
+                    VecSnippet::Vec0 => {}
+                    VecSnippet::Vec1(item) => item.print(message)?,
+                    VecSnippet::Vec2(item1, item2) => {
+                        item1.print(message)?;
+                        write!(message, ", ")?;
+                        item2.print(message)?;
+                    }
+                    VecSnippet::VecN(item1, item2) => {
+                        item1.print(message)?;
+                        write!(message, ", ")?;
+                        item2.print(message)?;
+                        write!(message, ", ...")?;
+                    }
+                }
+                write!(message, ") {{ ... }}")
+            }
             ExpressionSnippet::Block => write!(message, "do {{ ... }}"),
         }
     }
@@ -869,6 +921,9 @@ impl PatternSnippet {
 }
 
 impl TypeKindSnippet {
+    /// The variable name `article` comes from the [grammatical element][1] of the same name.
+    ///
+    /// [1]: https://en.wikipedia.org/wiki/Article_(grammar)
     fn print(&self, message: &mut Markup, article: bool) -> Result<(), fmt::Error> {
         match self {
             TypeKindSnippet::Never => write!(message.code(), "Never"),
@@ -885,15 +940,24 @@ impl TypeKindSnippet {
                 }
                 write!(message.code(), "Num")
             }
-            TypeKindSnippet::Integer => {if article {
+            TypeKindSnippet::Integer => {
+                if article {
                     write!(message, "an ")?;
-                }write!(message.code(), "Int")},
-            TypeKindSnippet::Float => {if article {
+                }
+                write!(message.code(), "Int")
+            }
+            TypeKindSnippet::Float => {
+                if article {
                     write!(message, "a ")?
-                }write!(message.code(), "Float")},
-            TypeKindSnippet::Function => {if article {
+                }
+                write!(message.code(), "Float")
+            }
+            TypeKindSnippet::Function => {
+                if article {
                     write!(message, "a ")?
-                }write!(message, "function")},
+                }
+                write!(message, "function")
+            }
         }
     }
 }

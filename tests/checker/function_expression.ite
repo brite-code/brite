@@ -1,0 +1,12 @@
+fun main() {
+  (fun() { 42 }: fun() -> Int);
+  (fun() { 42 }: fun() -> Bool);
+  (fun(x: Int) { x }: fun(Int) -> Int);
+  (fun(x: Int) { x }: fun(Int) -> Bool);
+  (fun(x: Int) { x }: fun(Bool) -> Int);
+  (fun(x: Int) { x }: fun(Bool) -> Bool);
+
+  (fun(x) { x }: fun(Int) -> Int);
+  (fun(x) { x }: fun(Bool) -> Bool);
+  (fun(x) { x }: fun(Int) -> Bool);
+}

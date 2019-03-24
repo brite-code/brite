@@ -321,7 +321,15 @@ impl<'errs> Checker<'errs> {
             }
 
             ast::ExpressionKind::This => unimplemented!(),
-            ast::ExpressionKind::Function(_) => unimplemented!(),
+
+            ast::ExpressionKind::Function(function) => {
+                let function_type = self.check_function(function);
+                Type {
+                    range: expression.range,
+                    kind: TypeKind::Function(function_type),
+                }
+            }
+
             ast::ExpressionKind::Call(_) => unimplemented!(),
             ast::ExpressionKind::Construct(_) => unimplemented!(),
             ast::ExpressionKind::Member(_) => unimplemented!(),
