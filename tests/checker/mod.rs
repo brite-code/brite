@@ -6,5 +6,6 @@ test!(declaration_already_exists);
 test!(declaration_prelude_shadow);
 test!(error_type);
 test!(function_parameter);
+test!(function_return);
 test!(function_type);
 test!(wrapped_expression);

@@ -1,7 +1,7 @@
 //! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
 
 use super::lexer::{Identifier, Range};
-use crate::diagnostics::{ExpressionSnippet, PatternSnippet};
+use crate::diagnostics::{ExpressionSnippet, PatternSnippet, StatementSnippet};
 use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
@@ -148,8 +148,6 @@ pub enum StatementKind {
     Binding(BindingStatement),
     /// Returns a value from a block early.
     Return(Option<Expression>),
-    /// An empty statement does nothing. Exists only to avoid syntax errors.
-    Empty,
 }
 
 /// Binds a value to some names in the current scope.
@@ -515,6 +513,21 @@ impl Constant {
     }
 }
 
+impl Statement {
+    /// Gets a snippet of this statement for error message printing.
+    pub fn snippet(&self) -> StatementSnippet {
+        match &self.kind {
+            StatementKind::Expression(expression) => {
+                StatementSnippet::Expression(expression.snippet())
+            }
+            StatementKind::Binding(binding) => {
+                StatementSnippet::Binding(binding.pattern.snippet(), binding.value.snippet())
+            }
+            StatementKind::Return(_) => unimplemented!(),
+        }
+    }
+}
+
 impl Expression {
     /// Gets a snippet of this expression for error message printing.
     pub fn snippet(&self) -> ExpressionSnippet {
@@ -679,7 +692,6 @@ impl Statement {
                     lisp!("return", range)
                 }
             }
-            StatementKind::Empty => lisp!("empty", range),
         }
     }
 }

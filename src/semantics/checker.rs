@@ -113,17 +113,28 @@ impl<'errs> Checker<'errs> {
             parameter_types.push(type_);
         }
 
-        // Check our block in the current scope. Remember the return type we infer for
-        // the function.
-        let inferred_return_type = self.check_block_without_nest(&function.body, None);
+        // Get the return type for our function. If our return type was annotated then we need to
+        // check that annotation against the function body. If our return type was not annotated
+        // then use the inferred type of the function’s body.
+        let return_type = match &function.return_type {
+            // Check our annotated return type against the body of our function.
+            Some(return_type) => {
+                let return_type = self.check_type(return_type);
+                let operation = OperationSnippet::FunctionReturnAnnotation(
+                    function.body.statements.last().map(ast::Statement::snippet),
+                );
+                self.check_block_without_nest(&function.body, Some((operation, return_type)))
+            }
 
-        // TODO: Don’t use the inferred return type as the return type of our function.
+            // Infer a type based on our function body and return that.
+            None => self.check_block_without_nest(&function.body, None),
+        };
 
         // Leave the scope we created for this function.
         self.scope.unnest();
 
         // Return a function type.
-        FunctionType::new(parameter_types, inferred_return_type)
+        FunctionType::new(parameter_types, return_type)
     }
 
     fn check_class_declaration(&mut self, class: &ast::ClassDeclaration) {
@@ -179,11 +190,6 @@ impl<'errs> Checker<'errs> {
         for i in 0..block.statements.len() {
             let statement = &block.statements[i];
 
-            // Skip empty statements entirely.
-            if let ast::StatementKind::Empty = &statement.kind {
-                continue;
-            }
-
             // Check the statement and assign its type as the last block type. For the last
             // statement we will check with the expected type provided to our function.
             actual_block_type = self.check_statement(
@@ -196,7 +202,24 @@ impl<'errs> Checker<'errs> {
             );
         }
 
-        actual_block_type
+        // If we still have our `expected_block_type` then check it against our `actual_block_type`.
+        // This will happen if we have zero block statements!
+        if let Some((operation, expected_block_type)) = expected_block_type.take() {
+            // We only expect this to happen when we have no block statements. Otherwise by checking
+            // the type here we will lose the ability to do type inference on the function returned
+            // by a block. In releases, this isn’t panic worthy so only panic in debug.
+            debug_assert_eq!(block.statements.len(), 0);
+
+            let _ = self.subtype(
+                block.range,
+                &operation,
+                &actual_block_type,
+                &expected_block_type,
+            );
+            expected_block_type
+        } else {
+            actual_block_type
+        }
     }
 
     fn check_statement(
@@ -231,7 +254,6 @@ impl<'errs> Checker<'errs> {
             }
 
             ast::StatementKind::Return(_) => unimplemented!(),
-            ast::StatementKind::Empty => unimplemented!(),
         };
 
         // If we have an expected type then let’s subtype it against our actual type.
@@ -297,6 +319,7 @@ impl<'errs> Checker<'errs> {
                     },
                 }
             }
+
             ast::ExpressionKind::This => unimplemented!(),
             ast::ExpressionKind::Function(_) => unimplemented!(),
             ast::ExpressionKind::Call(_) => unimplemented!(),

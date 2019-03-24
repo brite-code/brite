@@ -6,3 +6,15 @@ fun main() {
   x;;
   ;x;
 }
+
+fun a() {
+  ;;;x
+}
+
+fun b() {
+  x;;;
+}
+
+fun c() {
+  x;;;y
+}

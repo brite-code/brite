@@ -154,6 +154,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         let mut statements = Vec::new();
         let start = self.parse_glyph(Glyph::BraceLeft)?;
         let end = loop {
+            // Parse all semicolons which were left hanging around...
+            while self.try_parse_glyph(Glyph::Semicolon).is_some() {}
+
             if let Some(end) = self.try_parse_glyph(Glyph::BraceRight) {
                 break end;
             } else {
@@ -200,14 +203,6 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             return Ok(Statement {
                 range: start.union(end),
                 kind: StatementKind::Return(argument),
-            });
-        }
-
-        // Empty Statement
-        if let Some(range) = self.try_parse_glyph(Glyph::Semicolon) {
-            return Ok(Statement {
-                range,
-                kind: StatementKind::Empty,
             });
         }
 
