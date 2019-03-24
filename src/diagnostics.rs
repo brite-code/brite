@@ -871,13 +871,13 @@ impl PatternSnippet {
 impl TypeKindSnippet {
     fn print(&self, message: &mut Markup) -> Result<(), fmt::Error> {
         match self {
-            TypeKindSnippet::Never => write!(message, "never"),
-            TypeKindSnippet::Void => write!(message, "void"),
-            TypeKindSnippet::Boolean => write!(message, "a boolean"),
-            TypeKindSnippet::Number => write!(message, "a number"),
-            TypeKindSnippet::Integer => write!(message, "an integer"),
-            TypeKindSnippet::Float => write!(message, "a float"),
-            TypeKindSnippet::Function => write!(message, "a function"),
+            TypeKindSnippet::Never => write!(message.code(), "Never"),
+            TypeKindSnippet::Void => write!(message.code(), "Void"),
+            TypeKindSnippet::Boolean => write!(message.code(), "Bool"),
+            TypeKindSnippet::Number => write!(message.code(), "Num"),
+            TypeKindSnippet::Integer => write!(message.code(), "Int"),
+            TypeKindSnippet::Float => write!(message.code(), "Float"),
+            TypeKindSnippet::Function => write!(message, "function"),
         }
     }
 }
