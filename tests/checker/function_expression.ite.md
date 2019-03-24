@@ -33,7 +33,7 @@
   - (19:23-19:43) two arguments
 - (21:4-21:19) Can not change the type of `fun(x, y) { ... }` because we have one argument but we need two.
   - (21:21-21:36) one argument
-- (21:11-21:12) We need a type for argument `y`.
+- (21:11-21:12) We need a type for `y`.
 - (22:4-22:16) Can not change the type of `fun(x) { ... }` because we have one argument but we need two.
   - (22:18-22:38) two arguments
 - (24:11-24:16) Can not change the type of `fun(x) { ... }` because an `Int` is not `Never`.
