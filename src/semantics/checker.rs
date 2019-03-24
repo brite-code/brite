@@ -155,8 +155,9 @@ impl<'errs> Checker<'errs> {
                 // to subtype them. Remember that function parameters are contravariant so we
                 // subtype in the opposite direction.
                 (Some(actual_type), Some((operation, expected_type))) => {
+                    let range = actual_type.range;
                     let actual_type = self.check_type(actual_type);
-                    let _ = self.subtype(actual_type.range, operation, expected_type, &actual_type);
+                    let _ = self.subtype(range, operation, expected_type, &actual_type);
                     actual_type
                 }
 
@@ -202,8 +203,14 @@ impl<'errs> Checker<'errs> {
         // If we have an expected function type then make sure we verify that the return type
         // is correct!
         if let Some((operation, _, expected_function_type)) = &expected_function_type {
+            // Report any subtyping errors against the return type range (if we have one) or the
+            // range of the last statement in the function body.
+            let range = match &function.return_type {
+                Some(return_type) => return_type.range,
+                None => function.body.return_range(),
+            };
             let _ = self.subtype(
-                return_type.range,
+                range,
                 operation,
                 &return_type,
                 &expected_function_type.return_,

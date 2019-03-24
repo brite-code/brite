@@ -128,6 +128,16 @@ impl Block {
         // guaranteed that the first character in our range will be the open brace.
         Range::after(self.range.start(), 1)
     }
+
+    /// Gets the range of the statement which returns from this block. If the block is empty then
+    /// we return the range of the block itself.
+    pub fn return_range(&self) -> Range {
+        if let Some(statement) = self.statements.last() {
+            statement.range
+        } else {
+            self.range
+        }
+    }
 }
 
 /// A statement describes some action to be executed in the current scope.

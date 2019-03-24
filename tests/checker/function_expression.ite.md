@@ -5,15 +5,18 @@
   - (2:27-2:30) `Int`
 - (3:12-3:14) Can not change the type of `fun() { ... }` because a `Num` is not a `Bool`.
   - (3:27-3:31) `Bool`
-- (5:11-5:14) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+- (5:18-5:19) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+  - (5:11-5:14) `Int`
   - (5:35-5:39) `Bool`
 - (6:11-6:14) Can not change the type of `fun(x) { ... }` because a `Bool` is not an `Int`.
   - (6:27-6:31) `Bool`
 - (7:11-7:14) Can not change the type of `fun(x) { ... }` because a `Bool` is not an `Int`.
   - (7:27-7:31) `Bool`
-- (7:11-7:14) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+- (7:18-7:19) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+  - (7:11-7:14) `Int`
   - (7:36-7:40) `Bool`
-- (11:22-11:25) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+- (11:13-11:14) Can not change the type of `fun(x) { ... }` because an `Int` is not a `Bool`.
+  - (11:22-11:25) `Int`
   - (11:30-11:34) `Bool`
 - (13:19-13:21) Can not return `42` because a `Num` is not an `Int`.
   - (13:13-13:16) `Int`
@@ -42,12 +45,14 @@
   - (27:29-27:32) `Int`
 - (29:15-29:16) We need a type for `a`.
 - (29:18-29:19) We need a type for `b`.
-- (33:11-33:13) Can not return `fun(a, b) { ... }` because a `Num` is not an `Int`.
+- (34:15-34:16) Can not return `fun(a, b) { ... }` because a `Num` is not an `Int`.
+  - (33:11-33:13) `Num`
   - (32:33-32:36) `Int`
 - (39:7-39:8) We need a type for `a`.
 - (39:10-39:11) We need a type for `b`.
 - (44:32-44:33) Can not return `c` because a `Num` is not an `Int`.
   - (43:11-43:13) `Num`
   - (44:26-44:29) `Int`
-- (48:11-48:15) Can not return `fun(a, b) { ... }` because a `Bool` is not an `Int`.
+- (49:15-49:16) Can not return `fun(a, b) { ... }` because a `Bool` is not an `Int`.
+  - (48:11-48:15) `Bool`
   - (47:33-47:36) `Int`
