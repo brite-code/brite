@@ -31,18 +31,18 @@
 - (27:4-27:5) Can not change the type of `a` because we have one argument but we need three.
   - (21:6-21:21) one argument
   - (27:7-27:32) three arguments
-- (28:4-28:5) Can not change the type of `b` because we have one argument but we need two.
-  - (28:7-28:22) one argument
+- (28:4-28:5) Can not change the type of `b` because we have two arguments but we only need one.
   - (22:6-22:26) two arguments
+  - (28:7-28:22) one argument
 - (30:4-30:5) Can not change the type of `b` because we have two arguments but we need three.
   - (22:6-22:26) two arguments
   - (30:7-30:32) three arguments
-- (31:4-31:5) Can not change the type of `c` because we have one argument but we need three.
+- (31:4-31:5) Can not change the type of `c` because we have three arguments but we only need one.
+  - (23:6-23:31) three arguments
   - (31:7-31:22) one argument
+- (32:4-32:5) Can not change the type of `c` because we have three arguments but we only need two.
   - (23:6-23:31) three arguments
-- (32:4-32:5) Can not change the type of `c` because we have two arguments but we need three.
   - (32:7-32:27) two arguments
-  - (23:6-23:31) three arguments
 - (34:4-34:5) Can not change the type of `a` because a `Bool` is not an `Int`.
   - (34:11-34:15) `Bool`
   - (21:10-21:13) `Int`
@@ -67,9 +67,9 @@
 - (36:4-36:5) Can not change the type of `a` because an `Int` is not a `Bool`.
   - (21:18-21:21) `Int`
   - (36:32-36:36) `Bool`
-- (37:4-37:5) Can not change the type of `b` because we have one argument but we need two.
-  - (37:7-37:24) one argument
+- (37:4-37:5) Can not change the type of `b` because we have two arguments but we only need one.
   - (22:6-22:26) two arguments
+  - (37:7-37:24) one argument
 - (37:4-37:5) Can not change the type of `b` because a `Bool` is not an `Int`.
   - (37:11-37:15) `Bool`
   - (22:10-22:13) `Int`
@@ -97,18 +97,18 @@
 - (39:4-39:5) Can not change the type of `b` because an `Int` is not a `Bool`.
   - (22:23-22:26) `Int`
   - (39:32-39:36) `Bool`
-- (40:4-40:5) Can not change the type of `c` because we have one argument but we need three.
-  - (40:7-40:24) one argument
+- (40:4-40:5) Can not change the type of `c` because we have three arguments but we only need one.
   - (23:6-23:31) three arguments
+  - (40:7-40:24) one argument
 - (40:4-40:5) Can not change the type of `c` because a `Bool` is not an `Int`.
   - (40:11-40:15) `Bool`
   - (23:10-23:13) `Int`
 - (40:4-40:5) Can not change the type of `c` because an `Int` is not a `Bool`.
   - (23:28-23:31) `Int`
   - (40:20-40:24) `Bool`
-- (41:4-41:5) Can not change the type of `c` because we have two arguments but we need three.
-  - (41:7-41:30) two arguments
+- (41:4-41:5) Can not change the type of `c` because we have three arguments but we only need two.
   - (23:6-23:31) three arguments
+  - (41:7-41:30) two arguments
 - (41:4-41:5) Can not change the type of `c` because a `Bool` is not an `Int`.
   - (41:11-41:15) `Bool`
   - (23:10-23:13) `Int`

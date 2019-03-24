@@ -555,7 +555,7 @@ impl Expression {
                         .map(|parameter| parameter.pattern.snippet()),
                 ))
             }
-            ExpressionKind::Call(_) => unimplemented!(),
+            ExpressionKind::Call(call) => ExpressionSnippet::Call(Box::new(call.callee.snippet())),
             ExpressionKind::Construct(_) => unimplemented!(),
             ExpressionKind::Member(_) => unimplemented!(),
             ExpressionKind::Prefix(_) => unimplemented!(),

@@ -415,7 +415,7 @@ impl<'errs> Checker<'errs> {
                             kind: TypeKind::Function(function_type),
                         } => Some((operation, *range, function_type)),
 
-                        // For everything else, report a diagnostics error.
+                        // For everything else, report an error.
                         Type::Ok { range, kind } => {
                             self.report_diagnostic(Diagnostic::incompatible_types(
                                 expression.range,
@@ -435,7 +435,86 @@ impl<'errs> Checker<'errs> {
                 }
             }
 
-            ast::ExpressionKind::Call(_) => unimplemented!(),
+            // Call a function type with some arguments...
+            ast::ExpressionKind::Call(call) => {
+                // We can infer either the type of function we are calling or we can infer the
+                // argument types. We choose to infer the argument types using the callee type which
+                // is why we pass `None` to `check_expression()` here.
+                let callee_type = self.check_expression(&call.callee, None);
+
+                // Narrow the callee type down to only function types. Error for any
+                // non-function types.
+                let callee_type = match callee_type {
+                    // An error type is the supertype of everything.
+                    Type::Error { error } => Err(error),
+
+                    // Function types may actually be called!
+                    Type::Ok {
+                        range,
+                        kind: TypeKind::Function(function_type),
+                    } => Ok((range, function_type)),
+
+                    // For everything else, report an error.
+                    Type::Ok {
+                        range: callee_range,
+                        kind: callee_type_kind,
+                    } => Err(self.report_diagnostic(Diagnostic::cannot_call(
+                        call.callee.range,
+                        callee_range,
+                        callee_type_kind.snippet(),
+                    ))),
+                };
+
+                match callee_type {
+                    // If we have a function type then make sure to check our stuffs!
+                    Ok((callee_type_range, callee_type)) => {
+                        // If we called the function with an incorrect number of arguments then
+                        // report an error with the correct number of arguments.
+                        if call.arguments.len() != callee_type.parameters.len() {
+                            self.report_diagnostic(
+                                Diagnostic::incompatible_function_parameter_lengths(
+                                    call.callee.range,
+                                    OperationSnippet::FunctionCall(call.callee.snippet()),
+                                    (expression.range, call.arguments.len()),
+                                    (callee_type_range, callee_type.parameters.len()),
+                                ),
+                            );
+                        }
+
+                        // Check all the arguments in our call expression for type errors...
+                        for i in 0..call.arguments.len() {
+                            let argument = &call.arguments[i];
+
+                            // If our expected callee type has a parameter in the same position as
+                            // this one then let’s get that type as our expected argument type.
+                            let expected_argument_type = if i < callee_type.parameters.len() {
+                                let operation =
+                                    OperationSnippet::FunctionCall(call.callee.snippet());
+                                Some((operation, &callee_type.parameters[i]))
+                            } else {
+                                None
+                            };
+
+                            // Check our argument with our optional expected type.
+                            self.check_expression(argument, expected_argument_type);
+                        }
+
+                        // The type of our expression is the type returned by our callee’s
+                        // function type!
+                        *callee_type.return_
+                    }
+
+                    // If we have an error type then still make sure to check all our arguments.
+                    // Even if we don’t have any expected types for them.
+                    Err(error) => {
+                        for argument in &call.arguments {
+                            self.check_expression(argument, None);
+                        }
+                        Type::error(error)
+                    }
+                }
+            }
+
             ast::ExpressionKind::Construct(_) => unimplemented!(),
             ast::ExpressionKind::Member(_) => unimplemented!(),
             ast::ExpressionKind::Prefix(_) => unimplemented!(),

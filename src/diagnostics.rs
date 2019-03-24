@@ -67,7 +67,6 @@ use crate::syntax::ast::Constant;
 use crate::syntax::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::{Markup, MarkupCode};
 use std::fmt::{self, Write};
-use std::mem;
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
@@ -146,6 +145,11 @@ enum ErrorDiagnosticMessage {
     },
     /// We found a function parameter that needs a type annotation since we can’t infer one.
     MissingFunctionParameterType { pattern: PatternSnippet },
+    /// We found the programmer trying to call a type that is not a function.
+    CannotCall {
+        callee_range: Range,
+        callee_type: TypeKindSnippet,
+    },
 }
 
 #[derive(Debug)]
@@ -207,6 +211,8 @@ pub enum OperationSnippet {
     BindingStatementAnnotation(PatternSnippet, ExpressionSnippet),
     /// An annotated function return type failed to type check.
     FunctionReturnAnnotation(Option<StatementSnippet>),
+    /// Calling a function failed to type check.
+    FunctionCall(ExpressionSnippet),
 }
 
 /// A snippet of some type for error message printing.
@@ -279,6 +285,8 @@ pub enum ExpressionSnippet {
     /// A function expression. We only keep some of the parameters in the function
     /// expression snippet.
     Function(VecSnippet<PatternSnippet>),
+    /// A call expression. We only remember the callee.
+    Call(Box<ExpressionSnippet>),
     /// A block expression which contains some statements.
     Block,
 }
@@ -426,6 +434,17 @@ impl Diagnostic {
         Self::error(
             range,
             ErrorDiagnosticMessage::MissingFunctionParameterType { pattern },
+        )
+    }
+
+    /// We found the programmer trying to call a type that is not a function.
+    pub fn cannot_call(range: Range, callee_range: Range, callee_type: TypeKindSnippet) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::CannotCall {
+                callee_range,
+                callee_type,
+            },
         )
     }
 }
@@ -675,37 +694,36 @@ impl Diagnostic {
             //   to them.
             ErrorDiagnosticMessage::IncompatibleFunctionParameterLengths {
                 operation,
-                mut range1,
-                mut len1,
-                mut range2,
-                mut len2,
+                range1,
+                len1,
+                range2,
+                len2,
             } => {
-                // Flip so that `len1` is always the smaller of the two.
-                if len1 > len2 {
-                    mem::swap(&mut len1, &mut len2);
-                    mem::swap(&mut range1, &mut range2);
-                }
                 let mut message = Markup::new();
                 operation.print(&mut message)?;
                 write!(message, " because we have ")?;
-                argument_len(&mut message, len1, true)?;
-                write!(message, " but we need ")?;
-                argument_len(&mut message, len2, false)?;
+                argument_len(&mut message, *len1, true)?;
+                if len1 < len2 {
+                    write!(message, " but we need ")?;
+                } else {
+                    write!(message, " but we only need ")?;
+                }
+                argument_len(&mut message, *len2, false)?;
                 write!(message, ".")?;
                 let mut related_information = Vec::new();
-                if !self.range.intersects(range1) {
+                if !self.range.intersects(*range1) {
                     let mut message = Markup::new();
-                    argument_len(&mut message, len1, true)?;
+                    argument_len(&mut message, *len1, true)?;
                     related_information.push(DiagnosticRelatedInformation {
-                        range: range1,
+                        range: *range1,
                         message,
                     });
                 }
-                if !self.range.intersects(range2) {
+                if !self.range.intersects(*range2) {
                     let mut message = Markup::new();
-                    argument_len(&mut message, len2, true)?;
+                    argument_len(&mut message, *len2, true)?;
                     related_information.push(DiagnosticRelatedInformation {
-                        range: range2,
+                        range: *range2,
                         message,
                     });
                 }
@@ -742,6 +760,28 @@ impl Diagnostic {
                 pattern.print(&mut message.code())?;
                 write!(message, ".")?;
                 Ok((message, Vec::new()))
+            }
+
+            // Tell the user we cannot call their type which is not a function. Also point to where
+            // that type is defined.
+            ErrorDiagnosticMessage::CannotCall {
+                callee_range,
+                callee_type,
+            } => {
+                let mut message = Markup::new();
+                write!(message, "Cannot call ")?;
+                callee_type.print(&mut message, true)?;
+                write!(message, ".")?;
+                let mut related_information = Vec::new();
+                if !self.range.intersects(*callee_range) {
+                    let mut message = Markup::new();
+                    callee_type.print(&mut message, false)?;
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: *callee_range,
+                        message,
+                    });
+                }
+                Ok((message, related_information))
             }
         }
     }
@@ -864,6 +904,10 @@ impl OperationSnippet {
                     write!(message, "nothing")?;
                 }
             }
+            OperationSnippet::FunctionCall(callee) => {
+                write!(message, "Can not call ")?;
+                callee.print(&mut message.code())?;
+            }
         };
         Ok(())
     }
@@ -906,6 +950,10 @@ impl ExpressionSnippet {
                     }
                 }
                 write!(message, ") {{ ... }}")
+            }
+            ExpressionSnippet::Call(callee) => {
+                callee.print(message)?;
+                write!(message, "()")
             }
             ExpressionSnippet::Block => write!(message, "do {{ ... }}"),
         }
