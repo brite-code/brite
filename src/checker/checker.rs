@@ -3,8 +3,8 @@ use crate::diagnostics::{
     Diagnostic, DiagnosticRef, DiagnosticsCollection, OperationSnippet, OperatorSnippet,
     TypeKindSnippet,
 };
-use crate::syntax::ast;
-use crate::syntax::{Identifier, Range};
+use crate::parser::ast;
+use crate::parser::{Identifier, Range};
 use crate::utils::vecn::Vec1;
 use std::cmp;
 use std::collections::HashMap;

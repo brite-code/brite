@@ -4,9 +4,9 @@ macro_rules! test {
     ($name:ident) => {
         #[test]
         fn $name() {
+            use brite::checker::Checker;
             use brite::diagnostics::DiagnosticsCollection;
-            use brite::semantics::Checker;
-            use brite::syntax::{Lexer, Parser};
+            use brite::parser::{Lexer, Parser};
             use std::fs;
             use std::path::PathBuf;
 

@@ -63,8 +63,8 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use crate::syntax::ast::{Constant, LogicalOperator, PrefixOperator};
-use crate::syntax::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
+use crate::parser::ast::{Constant, LogicalOperator, PrefixOperator};
+use crate::parser::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::{Markup, MarkupCode};
 use std::fmt::{self, Write};
 use std::rc::Rc;

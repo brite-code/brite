@@ -1,5 +1,5 @@
 use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
-use crate::syntax::Range;
+use crate::parser::Range;
 
 /// Describes the values which may be assigned to a particular binding.
 ///

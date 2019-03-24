@@ -5,7 +5,7 @@ macro_rules! test {
         #[test]
         fn $name() {
             use brite::diagnostics::DiagnosticsCollection;
-            use brite::syntax::{Lexer, Token};
+            use brite::parser::{Lexer, Token};
             use std::fs;
             use std::path::PathBuf;
 

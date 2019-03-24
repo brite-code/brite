@@ -4,7 +4,7 @@
 //! [1]: https://en.wikipedia.org/wiki/S-expression
 
 use super::vecn::Vec2;
-use crate::syntax::Identifier;
+use crate::parser::Identifier;
 use pretty::{Arena, DocAllocator, DocBuilder};
 
 /// Creates a `Lisp`.
