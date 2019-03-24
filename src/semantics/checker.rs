@@ -1,6 +1,7 @@
 use super::types::*;
 use crate::diagnostics::{
-    Diagnostic, DiagnosticRef, DiagnosticsCollection, OperationSnippet, TypeKindSnippet,
+    Diagnostic, DiagnosticRef, DiagnosticsCollection, OperationSnippet, OperatorSnippet,
+    TypeKindSnippet,
 };
 use crate::syntax::ast;
 use crate::syntax::{Identifier, Range};
@@ -518,14 +519,13 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Construct(_) => unimplemented!(),
             ast::ExpressionKind::Member(_) => unimplemented!(),
 
+            // Make sure the operand to a prefix expression is of the correct type.
             ast::ExpressionKind::Prefix(prefix) => match prefix.operator {
                 ast::PrefixOperator::Not => {
+                    let operation = OperationSnippet::OperatorExpression(OperatorSnippet::Not);
                     self.check_expression(
                         &prefix.operand,
-                        Some((
-                            OperationSnippet::NotOperator,
-                            &Type::boolean(prefix.operand.range),
-                        )),
+                        Some((operation, &Type::boolean(prefix.operand.range))),
                     );
                     Type::boolean(expression.range)
                 }
@@ -535,7 +535,24 @@ impl<'errs> Checker<'errs> {
             },
 
             ast::ExpressionKind::Infix(_) => unimplemented!(),
-            ast::ExpressionKind::Logical(_) => unimplemented!(),
+
+            // Make sure both operands to a logical expression are of the correct type.
+            ast::ExpressionKind::Logical(logical) => {
+                let operation = OperationSnippet::OperatorExpression(match &logical.operator {
+                    ast::LogicalOperator::And => OperatorSnippet::And,
+                    ast::LogicalOperator::Or => OperatorSnippet::Or,
+                });
+                self.check_expression(
+                    &logical.left,
+                    Some((operation.clone(), &Type::boolean(logical.left.range))),
+                );
+                self.check_expression(
+                    &logical.right,
+                    Some((operation, &Type::boolean(logical.right.range))),
+                );
+                Type::boolean(expression.range)
+            }
+
             ast::ExpressionKind::Conditional(_) => unimplemented!(),
 
             // Checking a block is simple.

@@ -63,7 +63,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use crate::syntax::ast::{Constant, PrefixOperator};
+use crate::syntax::ast::{Constant, LogicalOperator, PrefixOperator};
 use crate::syntax::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::{Markup, MarkupCode};
 use std::fmt::{self, Write};
@@ -213,8 +213,19 @@ pub enum OperationSnippet {
     FunctionReturnAnnotation(Option<StatementSnippet>),
     /// Calling a function failed to type check.
     FunctionCall(ExpressionSnippet),
-    /// Some use of the not operator failed to type check.
-    NotOperator,
+    /// Some use of an operator failed to type check.
+    OperatorExpression(OperatorSnippet),
+}
+
+/// A snippet describing any operator we might use in Brite programs.
+#[derive(Clone, Debug)]
+pub enum OperatorSnippet {
+    /// `!`
+    Not,
+    /// `&&`
+    And,
+    /// `||`
+    Or,
 }
 
 /// A snippet of some type for error message printing.
@@ -291,6 +302,12 @@ pub enum ExpressionSnippet {
     Call(Box<ExpressionSnippet>),
     /// Some expression using a prefix operator.
     Prefix(PrefixOperator, Box<ExpressionSnippet>),
+    /// Some infix expression using a logical operator.
+    Logical(
+        Box<ExpressionSnippet>,
+        LogicalOperator,
+        Box<ExpressionSnippet>,
+    ),
     /// A block expression which contains some statements.
     Block,
 }
@@ -912,9 +929,13 @@ impl OperationSnippet {
                 write!(message, "Can not call ")?;
                 callee.print(&mut message.code())?;
             }
-            OperationSnippet::NotOperator => {
+            OperationSnippet::OperatorExpression(operator) => {
                 write!(message, "Can not use ")?;
-                write!(message.code(), "!")?;
+                match operator {
+                    OperatorSnippet::Not => write!(message.code(), "!")?,
+                    OperatorSnippet::And => write!(message.code(), "&&")?,
+                    OperatorSnippet::Or => write!(message.code(), "||")?,
+                }
             }
         };
         Ok(())
@@ -970,6 +991,14 @@ impl ExpressionSnippet {
                     PrefixOperator::Positive => write!(message, "+")?,
                 }
                 operand.print(message)
+            }
+            ExpressionSnippet::Logical(left, operator, right) => {
+                left.print(message)?;
+                match operator {
+                    LogicalOperator::And => write!(message, " && ")?,
+                    LogicalOperator::Or => write!(message, " || ")?,
+                }
+                right.print(message)
             }
             ExpressionSnippet::Block => write!(message, "do {{ ... }}"),
         }

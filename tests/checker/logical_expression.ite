@@ -10,4 +10,19 @@ fun main() {
   let n = 42;
   !n;
   !!n;
+
+  true && false;
+  1.2 && 2.3;
+  n && n;
+  n && true;
+  true && n;
+
+  true || false;
+  1.2 || 2.3;
+  n || n;
+  n || true;
+  true || n;
+
+  (true && false: Int);
+  (true || false: Int);
 }

@@ -301,7 +301,7 @@ pub struct InfixExpression {
 }
 
 /// The operator of an `InfixExpression`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum InfixOperator {
     /// `+`
     Add,
@@ -345,7 +345,7 @@ pub struct LogicalExpression {
 }
 
 /// The operator of a `LogicalExpression`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum LogicalOperator {
     /// `&&`
     And,
@@ -563,7 +563,11 @@ impl Expression {
                 Box::new(prefix.operand.snippet()),
             ),
             ExpressionKind::Infix(_) => unimplemented!(),
-            ExpressionKind::Logical(_) => unimplemented!(),
+            ExpressionKind::Logical(logical) => ExpressionSnippet::Logical(
+                Box::new(logical.left.snippet()),
+                logical.operator.clone(),
+                Box::new(logical.right.snippet()),
+            ),
             ExpressionKind::Conditional(_) => unimplemented!(),
             ExpressionKind::Block(_) => ExpressionSnippet::Block,
             ExpressionKind::Wrapped(wrapped) => wrapped.expression.snippet(),

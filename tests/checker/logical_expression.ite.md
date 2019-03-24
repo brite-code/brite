@@ -13,3 +13,27 @@
   - (10:11-10:13) `Num`
 - (12:5-12:6) Can not use `!` because a `Num` is not a `Bool`.
   - (10:11-10:13) `Num`
+- (15:3-15:6) Can not use `&&` because a `Float` is not a `Bool`.
+- (15:10-15:13) Can not use `&&` because a `Float` is not a `Bool`.
+- (16:3-16:4) Can not use `&&` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (16:8-16:9) Can not use `&&` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (17:3-17:4) Can not use `&&` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (18:11-18:12) Can not use `&&` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (21:3-21:6) Can not use `||` because a `Float` is not a `Bool`.
+- (21:10-21:13) Can not use `||` because a `Float` is not a `Bool`.
+- (22:3-22:4) Can not use `||` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (22:8-22:9) Can not use `||` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (23:3-23:4) Can not use `||` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (24:11-24:12) Can not use `||` because a `Num` is not a `Bool`.
+  - (10:11-10:13) `Num`
+- (26:4-26:17) Can not change the type of `true && false` because a `Bool` is not an `Int`.
+  - (26:19-26:22) `Int`
+- (27:4-27:17) Can not change the type of `true || false` because a `Bool` is not an `Int`.
+  - (27:19-27:22) `Int`
