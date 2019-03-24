@@ -115,7 +115,7 @@ impl<'errs> Checker<'errs> {
 
         // Check our block in the current scope. Remember the return type we infer for
         // the function.
-        let inferred_return_type = self.check_block_without_nest(&function.body);
+        let inferred_return_type = self.check_block_without_nest(&function.body, None);
 
         // TODO: Don’t use the inferred return type as the return type of our function.
 
@@ -155,34 +155,59 @@ impl<'errs> Checker<'errs> {
         }
     }
 
-    fn check_block(&mut self, block: &ast::Block) -> Type {
+    fn check_block(
+        &mut self,
+        block: &ast::Block,
+        block_type: Option<(OperationSnippet, Type)>,
+    ) -> Type {
         self.scope.nest();
-        let result = self.check_block_without_nest(block);
+        let result = self.check_block_without_nest(block, block_type);
         self.scope.unnest();
         result
     }
 
     /// Checks a block but does not introduce a new level of nesting in the [`Scope`]. Useful for
     /// checking functions which add parameters in their body’s scope.
-    fn check_block_without_nest(&mut self, block: &ast::Block) -> Type {
+    fn check_block_without_nest(
+        &mut self,
+        block: &ast::Block,
+        mut expected_block_type: Option<(OperationSnippet, Type)>,
+    ) -> Type {
         // The type returned by the block. The last non-empty statement in the block is returned.
-        let mut block_type = Type::void(block.range);
+        let mut actual_block_type = Type::void(block.range);
 
-        for statement in &block.statements {
+        for i in 0..block.statements.len() {
+            let statement = &block.statements[i];
+
             // Skip empty statements entirely.
             if let ast::StatementKind::Empty = &statement.kind {
                 continue;
             }
-            // Check the statement and assign its type as the last block type.
-            block_type = self.check_statement(statement);
+
+            // Check the statement and assign its type as the last block type. For the last
+            // statement we will check with the expected type provided to our function.
+            actual_block_type = self.check_statement(
+                statement,
+                if i == block.statements.len() - 1 {
+                    expected_block_type.take()
+                } else {
+                    None
+                },
+            );
         }
 
-        block_type
+        actual_block_type
     }
 
-    fn check_statement(&mut self, statement: &ast::Statement) -> Type {
-        match &statement.kind {
-            ast::StatementKind::Expression(expression) => self.check_expression(expression, None),
+    fn check_statement(
+        &mut self,
+        statement: &ast::Statement,
+        mut statement_type: Option<(OperationSnippet, Type)>,
+    ) -> Type {
+        let actual_statement_type = match &statement.kind {
+            ast::StatementKind::Expression(expression) => {
+                self.check_expression(expression, statement_type.take())
+            }
 
             ast::StatementKind::Binding(binding) => {
                 if let Some(annotation) = &binding.annotation {
@@ -207,6 +232,19 @@ impl<'errs> Checker<'errs> {
 
             ast::StatementKind::Return(_) => unimplemented!(),
             ast::StatementKind::Empty => unimplemented!(),
+        };
+
+        // If we have an expected type then let’s subtype it against our actual type.
+        if let Some((operation, expected_statement_type)) = statement_type {
+            let _ = self.subtype(
+                statement.range,
+                &operation,
+                &actual_statement_type,
+                &expected_statement_type,
+            );
+            expected_statement_type
+        } else {
+            actual_statement_type
         }
     }
 
@@ -270,7 +308,7 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Conditional(_) => unimplemented!(),
 
             // Checking a block is simple.
-            ast::ExpressionKind::Block(block) => self.check_block(block),
+            ast::ExpressionKind::Block(block) => self.check_block(block, expression_type.take()),
 
             // If the wrapped expression does not have an annotation then we may simply check the
             // wrapped expression. If the wrapped expression does have a type annotation then we

@@ -1,0 +1,9 @@
+fun main() {
+  (do {
+    let x = true;
+    x
+  }: Int);
+  (do {
+    let x = 42;
+  }: Int);
+}

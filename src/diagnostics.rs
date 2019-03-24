@@ -233,6 +233,8 @@ pub enum ExpressionSnippet {
     Constant(Constant),
     /// A reference to some value in the program.
     Reference(Identifier),
+    /// A block expression which contains some statements.
+    Block,
 }
 
 /// A snippet of some pattern for error message printing.
@@ -771,6 +773,7 @@ impl ExpressionSnippet {
         match self {
             ExpressionSnippet::Constant(constant) => message.push_code(constant.print()),
             ExpressionSnippet::Reference(identifier) => message.push_code(identifier.as_str()),
+            ExpressionSnippet::Block => message.push_code("do { ... }"),
         }
     }
 }
