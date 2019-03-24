@@ -10,4 +10,5 @@ test!(function_expression);
 test!(function_parameter);
 test!(function_return);
 test!(function_type);
+test!(logical_expression);
 test!(wrapped_expression);

@@ -279,7 +279,7 @@ pub struct PrefixExpression {
 }
 
 /// The operator of a `PrefixExpression`.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum PrefixOperator {
     /// `!`
     Not,
@@ -558,7 +558,10 @@ impl Expression {
             ExpressionKind::Call(call) => ExpressionSnippet::Call(Box::new(call.callee.snippet())),
             ExpressionKind::Construct(_) => unimplemented!(),
             ExpressionKind::Member(_) => unimplemented!(),
-            ExpressionKind::Prefix(_) => unimplemented!(),
+            ExpressionKind::Prefix(prefix) => ExpressionSnippet::Prefix(
+                prefix.operator.clone(),
+                Box::new(prefix.operand.snippet()),
+            ),
             ExpressionKind::Infix(_) => unimplemented!(),
             ExpressionKind::Logical(_) => unimplemented!(),
             ExpressionKind::Conditional(_) => unimplemented!(),

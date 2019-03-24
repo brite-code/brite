@@ -1,0 +1,13 @@
+fun main() {
+  (!true: Int);
+  (!!true: Int);
+
+  !nope;
+  !42;
+  !!nope;
+  !!42;
+
+  let n = 42;
+  !n;
+  !!n;
+}

@@ -517,7 +517,23 @@ impl<'errs> Checker<'errs> {
 
             ast::ExpressionKind::Construct(_) => unimplemented!(),
             ast::ExpressionKind::Member(_) => unimplemented!(),
-            ast::ExpressionKind::Prefix(_) => unimplemented!(),
+
+            ast::ExpressionKind::Prefix(prefix) => match prefix.operator {
+                ast::PrefixOperator::Not => {
+                    self.check_expression(
+                        &prefix.operand,
+                        Some((
+                            OperationSnippet::NotOperator,
+                            &Type::boolean(prefix.operand.range),
+                        )),
+                    );
+                    Type::boolean(expression.range)
+                }
+
+                ast::PrefixOperator::Negative => unimplemented!(),
+                ast::PrefixOperator::Positive => unimplemented!(),
+            },
+
             ast::ExpressionKind::Infix(_) => unimplemented!(),
             ast::ExpressionKind::Logical(_) => unimplemented!(),
             ast::ExpressionKind::Conditional(_) => unimplemented!(),
