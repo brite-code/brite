@@ -839,7 +839,13 @@ impl StatementSnippet {
     fn print(&self, message: &mut MarkupCode) -> Result<(), fmt::Error> {
         match self {
             StatementSnippet::Expression(expression) => expression.print(message),
-            StatementSnippet::Binding(_, _) => unimplemented!(),
+            StatementSnippet::Binding(pattern, value) => {
+                write!(message, "let ")?;
+                pattern.print(message)?;
+                write!(message, " = ")?;
+                value.print(message)?;
+                Ok(())
+            }
         }
     }
 }
