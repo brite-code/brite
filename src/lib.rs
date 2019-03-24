@@ -6,5 +6,6 @@ extern crate unicode_xid;
 mod utils;
 
 pub mod checker;
+pub mod compiler;
 pub mod diagnostics;
 pub mod parser;
