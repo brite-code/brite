@@ -25,4 +25,26 @@ fun main() {
   (fun(x: Never) { x }: fun(Never) -> Never);
   (fun(x: Never) { x }: fun(Never) -> Int);
   (fun(x: Never) { x }: fun(Int) -> Never);
+
+  let f = fun(a, b) { a };
+}
+
+fun test1() -> fun(Int, Int) -> Int {
+  let c = 42;
+  fun(a, b) { c }
+}
+
+fun test2() {
+  let c = 42;
+  fun(a, b) { c }
+}
+
+fun test3() {
+  let c = 42;
+  fun(a: Int, b: Int) -> Int { c }
+}
+
+fun test4() -> fun(Int, Int) -> Int {
+  let c = true;
+  fun(a, b) { c }
 }

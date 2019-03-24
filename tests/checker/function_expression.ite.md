@@ -40,3 +40,14 @@
   - (24:29-24:32) `Int`
 - (27:11-27:16) Can not change the type of `fun(x) { ... }` because an `Int` is not `Never`.
   - (27:29-27:32) `Int`
+- (29:15-29:16) We need a type for `a`.
+- (29:18-29:19) We need a type for `b`.
+- (33:11-33:13) Can not return `fun(a, b) { ... }` because a `Num` is not an `Int`.
+  - (32:33-32:36) `Int`
+- (39:7-39:8) We need a type for `a`.
+- (39:10-39:11) We need a type for `b`.
+- (44:32-44:33) Can not return `c` because a `Num` is not an `Int`.
+  - (43:11-43:13) `Num`
+  - (44:26-44:29) `Int`
+- (48:11-48:15) Can not return `fun(a, b) { ... }` because a `Bool` is not an `Int`.
+  - (47:33-47:36) `Int`

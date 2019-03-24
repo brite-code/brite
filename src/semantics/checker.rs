@@ -89,6 +89,10 @@ impl<'errs> Checker<'errs> {
     /// Checks a function and returns the type of the function.
     ///
     /// The provided range is used for error reporting when we don’t have any better range.
+    ///
+    /// If we have an expected function type then we’ll check our function AST against that type.
+    /// The expected function type can be used to infer the types of function parameters where are
+    /// not annotated.
     fn check_function(
         &mut self,
         range: Range,
