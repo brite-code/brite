@@ -97,7 +97,7 @@ impl<'errs> Checker<'errs> {
         &mut self,
         range: Range,
         function: &ast::Function,
-        expected_function_type: Option<(OperationSnippet, Range, FunctionType)>,
+        expected_function_type: Option<(OperationSnippet, Range, &FunctionType)>,
     ) -> FunctionType {
         // When checking a function, we want to add parameters to the block. So introduce a level
         // of nesting in the scope.
@@ -189,10 +189,7 @@ impl<'errs> Checker<'errs> {
                 let operation = OperationSnippet::FunctionReturnAnnotation(
                     function.body.statements.last().map(ast::Statement::snippet),
                 );
-                self.check_block_without_nest(
-                    &function.body,
-                    Some((operation, return_type.clone())),
-                );
+                self.check_block_without_nest(&function.body, Some((operation, &return_type)));
                 return_type
             }
 
@@ -256,7 +253,7 @@ impl<'errs> Checker<'errs> {
     fn check_block(
         &mut self,
         block: &ast::Block,
-        block_type: Option<(OperationSnippet, Type)>,
+        block_type: Option<(OperationSnippet, &Type)>,
     ) -> Type {
         self.scope.nest();
         let result = self.check_block_without_nest(block, block_type);
@@ -269,7 +266,7 @@ impl<'errs> Checker<'errs> {
     fn check_block_without_nest(
         &mut self,
         block: &ast::Block,
-        mut expected_block_type: Option<(OperationSnippet, Type)>,
+        mut expected_block_type: Option<(OperationSnippet, &Type)>,
     ) -> Type {
         // The type returned by the block. The last non-empty statement in the block is returned.
         let mut actual_block_type = Type::void(block.range);
@@ -311,7 +308,7 @@ impl<'errs> Checker<'errs> {
     fn check_statement(
         &mut self,
         statement: &ast::Statement,
-        mut statement_type: Option<(OperationSnippet, Type)>,
+        mut statement_type: Option<(OperationSnippet, &Type)>,
     ) -> Type {
         let actual_statement_type = match &statement.kind {
             ast::StatementKind::Expression(expression) => {
@@ -328,7 +325,7 @@ impl<'errs> Checker<'errs> {
                                 binding.pattern.snippet(),
                                 binding.value.snippet(),
                             ),
-                            annotation.clone(),
+                            &annotation,
                         )),
                     );
                     self.check_pattern(&binding.pattern, annotation);
@@ -378,7 +375,7 @@ impl<'errs> Checker<'errs> {
     fn check_expression(
         &mut self,
         expression: &ast::Expression,
-        mut expression_type: Option<(OperationSnippet, Type)>,
+        mut expression_type: Option<(OperationSnippet, &Type)>,
     ) -> Type {
         let actual_expression_type = match &expression.kind {
             // Check a constant. Provide our range since constants don’t have a range themselves.
@@ -411,7 +408,7 @@ impl<'errs> Checker<'errs> {
                 // Attempt to narrow our expected type to a function type.
                 let function_type = match expression_type.take() {
                     None => None,
-                    Some((operation, expression_type)) => match expression_type.kind {
+                    Some((operation, expression_type)) => match &expression_type.kind {
                         // An error type is the supertype of everything.
                         TypeKind::Error(_) => None,
 
@@ -462,7 +459,7 @@ impl<'errs> Checker<'errs> {
                         &wrapped.expression,
                         Some((
                             OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
-                            annotation.clone(),
+                            &annotation,
                         )),
                     );
                     annotation
@@ -518,6 +515,8 @@ impl<'errs> Checker<'errs> {
                         ScopeEntryKind::Class { .. } => unimplemented!(),
 
                         // If we are referencing a type then return that.
+                        //
+                        // TODO: Find a better way to do this then mutating the type’s range.
                         ScopeEntryKind::Type(referenced_type) => {
                             let mut referenced_type = referenced_type.clone();
                             referenced_type.range = type_.range;
