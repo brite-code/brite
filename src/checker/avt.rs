@@ -1,3 +1,8 @@
+//! The Abstract Value Tree (AVT) is a tree representation of our program after it has been type
+//! checked. If there was an error in type checking then we insert an error node into the AVT which
+//! will crash at runtime. The AVT contains type information to respond to IDE requests and aid
+//! in compilation.
+
 use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
 use crate::parser::Range;
 

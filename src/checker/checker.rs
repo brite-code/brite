@@ -1,4 +1,4 @@
-use super::types::*;
+use super::avt::*;
 use crate::diagnostics::{
     Diagnostic, DiagnosticRef, DiagnosticsCollection, OperationSnippet, OperatorSnippet,
     TypeKindSnippet,
