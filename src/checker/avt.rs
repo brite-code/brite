@@ -5,6 +5,7 @@
 
 use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
 use crate::parser::{Identifier, Range};
+use std::rc::Rc;
 
 pub use crate::parser::ast::{Constant, IntegerBase, LogicalOperator};
 
@@ -230,7 +231,7 @@ pub enum TypeKind {
     /// [1]: https://en.wikipedia.org/wiki/IEEE_754
     Float,
     /// The type of a function. Functions may be passed around just like any other value.
-    Function(FunctionType),
+    Function(Rc<FunctionType>),
 }
 
 /// The type of a function. Functions may be passed around just like any other value.
@@ -300,7 +301,7 @@ impl Type {
     pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
         Type::Ok {
             range,
-            kind: TypeKind::Function(FunctionType::new(parameters, return_)),
+            kind: TypeKind::Function(Rc::new(FunctionType::new(parameters, return_))),
         }
     }
 }

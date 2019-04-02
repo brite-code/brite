@@ -8,6 +8,7 @@ use crate::parser::{Identifier, Range};
 use crate::utils::vecn::Vec1;
 use std::cmp;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Checks the Brite Abstract Syntax Tree (AST) for errors and warnings. Reports diagnostics for any
 /// invalid code.
@@ -414,7 +415,7 @@ impl<'errs> Checker<'errs> {
                         Type::Ok {
                             range,
                             kind: TypeKind::Function(function_type),
-                        } => Some((operation, *range, function_type)),
+                        } => Some((operation, *range, &**function_type)),
 
                         // For everything else, report an error.
                         Type::Ok { range, kind } => {
@@ -432,7 +433,7 @@ impl<'errs> Checker<'errs> {
                 let function_type = self.check_function(expression.range, function, function_type);
                 Type::Ok {
                     range: expression.range,
-                    kind: TypeKind::Function(function_type),
+                    kind: TypeKind::Function(Rc::new(function_type)),
                 }
             }
 
@@ -502,7 +503,7 @@ impl<'errs> Checker<'errs> {
 
                         // The type of our expression is the type returned by our callee’s
                         // function type!
-                        *callee_type.return_
+                        (&*callee_type.return_).clone()
                     }
 
                     // If we have an error type then still make sure to check all our arguments.
