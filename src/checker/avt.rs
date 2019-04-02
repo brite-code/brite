@@ -4,7 +4,169 @@
 //! in compilation.
 
 use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
-use crate::parser::Range;
+use crate::parser::{Identifier, Range};
+
+pub use crate::parser::ast::{Constant, IntegerBase, LogicalOperator};
+
+/// A function describes some reusable code which may be executed at any time. There are many places
+/// in our code where a function may be written.
+///
+/// - As a `FunctionDeclaration`.
+/// - As a `ClassMethodMember`.
+/// - As a `FunctionExpression`.
+#[derive(Debug)]
+pub struct Function {
+    /// The parameters of a function describes what the function accepts as input.
+    pub parameters: Vec<FunctionParameter>,
+    /// The programmer may optionally write a return type. The return type is inferred if it is
+    /// not explicit.
+    pub return_type: Option<Type>,
+    /// The code to be executed when the function is called.
+    pub body: Block,
+}
+
+/// An input to a function.
+#[derive(Debug)]
+pub struct FunctionParameter {
+    /// The pattern which we match against a function parameter against.
+    pub pattern: Pattern,
+    /// The type of our function parameter. Most function parameters must be annotated and may not
+    /// be inferred.
+    pub annotation: Option<Type>,
+}
+
+/// A block contains a list of statements which are executed sequentially.
+#[derive(Debug)]
+pub struct Block {
+    /// The range of characters covered by this block.
+    pub range: Range,
+    /// Statements to be executed in the block.
+    pub statements: Vec<Statement>,
+}
+
+/// A statement describes some action to be executed in the current scope.
+#[derive(Debug)]
+pub struct Statement {
+    /// The range of our statement in source code.
+    pub range: Range,
+    /// What kind of statement is this?
+    pub kind: StatementKind,
+}
+
+/// The kind of a Statement AST node.
+#[derive(Debug)]
+pub enum StatementKind {
+    /// Executes an expression only for the side effects.
+    Expression(Expression),
+    /// Binds a value to some names in the current scope.
+    Binding(BindingStatement),
+}
+
+/// Binds a value to some names in the current scope.
+#[derive(Debug)]
+pub struct BindingStatement {
+    /// Binds the value to this pattern in the current scope.
+    pub pattern: Pattern,
+    /// An optional type annotation. If a type annotation is not added then the type is inferred.
+    pub annotation: Option<Type>,
+    /// The value being bound.
+    pub value: Expression,
+}
+
+/// Some execution which returns a value.
+#[derive(Debug)]
+pub struct Expression {
+    /// The range of our expression in source code.
+    pub range: Range,
+    /// What kind of expression is this?
+    pub kind: ExpressionKind,
+}
+
+/// The kind of an Expression AVT node.
+#[derive(Debug)]
+pub enum ExpressionKind {
+    /// A constant value in the programmer’s code.
+    Constant(Constant),
+    /// References a variable bound in this expression’s scope.
+    Reference(Identifier),
+    /// A higher-order function.
+    Function(Function),
+    /// Calls a function with some arguments.
+    Call(CallExpression),
+    /// An operation using prefix syntax.
+    Prefix(Box<PrefixExpression>),
+    /// A logical operation using infix syntax.
+    Logical(Box<LogicalExpression>),
+    /// Embeds a block into an expression.
+    Block(Block),
+    /// Wraps an expression in parentheses with an optional type annotation.
+    Wrapped(Box<WrappedExpression>),
+}
+
+/// Calls a function with some arguments.
+#[derive(Debug)]
+pub struct CallExpression {
+    /// The function we want to call.
+    pub callee: Box<Expression>,
+    /// The arguments we want to call the function with.
+    pub arguments: Vec<Expression>,
+}
+
+/// An operation using prefix syntax.
+#[derive(Debug)]
+pub struct PrefixExpression {
+    /// The operator which describes this operation.
+    pub operator: PrefixOperator,
+    /// The operand we are performing the operation on.
+    pub operand: Expression,
+}
+
+/// The operator of a `PrefixExpression`.
+#[derive(Clone, Debug)]
+pub enum PrefixOperator {
+    /// `!`
+    Not,
+}
+
+/// A logical operation using infix syntax.
+///
+/// These operators are separate from `InfixExpression` because logical operators may only
+/// conditionally execute their second argument. It’s easy to get this confused with
+/// `InfixExpression` which always unconditionally executes both arguments.
+#[derive(Debug)]
+pub struct LogicalExpression {
+    /// The operator which describes this operation.
+    pub operator: LogicalOperator,
+    /// The left-hand-side operand.
+    pub left: Expression,
+    /// The right-hand-side operand.
+    pub right: Expression,
+}
+
+/// Wraps an expression in parentheses with an optional type annotation.
+#[derive(Debug)]
+pub struct WrappedExpression {
+    /// The expression which was wrapped.
+    pub expression: Expression,
+    /// A wrapped expression may optionally have a type annotation.
+    pub annotation: Type,
+}
+
+/// A pattern is used for binding a value to some names in the current block scope.
+#[derive(Debug)]
+pub struct Pattern {
+    /// The range of our pattern.
+    pub range: Range,
+    /// What kind of pattern is this?
+    pub kind: PatternKind,
+}
+
+/// The kind of a pattern AST node.
+#[derive(Debug)]
+pub enum PatternKind {
+    /// Binds the value to an identifier name in scope.
+    Binding(Identifier),
+}
 
 /// Describes the values which may be assigned to a particular binding.
 ///
