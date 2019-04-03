@@ -102,6 +102,8 @@ pub enum ExpressionKind {
     Block(Block),
     /// Wraps an expression in parentheses with an optional type annotation.
     Wrapped(Box<WrappedExpression>),
+    /// When the type checker fails we insert an error expression which will panic at runtime.
+    Error(ErrorExpression),
 }
 
 /// Calls a function with some arguments.
@@ -151,6 +153,37 @@ pub struct WrappedExpression {
     pub expression: Expression,
     /// A wrapped expression may optionally have a type annotation.
     pub annotation: Type,
+}
+
+/// When the type checker fails we insert an error expression which will panic at runtime.
+#[derive(Debug)]
+pub struct ErrorExpression {
+    /// The diagnostic our error expression failed with.
+    pub error: DiagnosticRef,
+    /// The underlying expression the type checker erred on.
+    pub expression: Option<Box<Expression>>,
+}
+
+impl Expression {
+    fn new(range: Range, kind: ExpressionKind) -> Self {
+        Expression { range, kind }
+    }
+
+    /// Creates a reference expression.
+    pub fn reference(range: Range, identifier: Identifier) -> Self {
+        Self::new(range, ExpressionKind::Reference(identifier))
+    }
+
+    /// Creates an error expression.
+    pub fn error(range: Range, error: DiagnosticRef, expression: Option<Expression>) -> Self {
+        Self::new(
+            range,
+            ExpressionKind::Error(ErrorExpression {
+                error,
+                expression: expression.map(Box::new),
+            }),
+        )
+    }
 }
 
 /// A pattern is used for binding a value to some names in the current block scope.
@@ -299,9 +332,14 @@ impl Type {
 
     /// Creates a function type.
     pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
+        Self::from_function(range, FunctionType::new(parameters, return_))
+    }
+
+    /// Creates a function type from a `FunctionType`.
+    pub fn from_function(range: Range, function: FunctionType) -> Self {
         Type::Ok {
             range,
-            kind: TypeKind::Function(Rc::new(FunctionType::new(parameters, return_))),
+            kind: TypeKind::Function(Rc::new(function)),
         }
     }
 }
