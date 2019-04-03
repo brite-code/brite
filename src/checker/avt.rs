@@ -367,3 +367,79 @@ impl TypeKind {
         }
     }
 }
+
+use crate::parser::ast;
+
+pub fn simple_block_conversion(block: &ast::Block) -> Block {
+    Block {
+        range: block.range,
+        statements: block
+            .statements
+            .iter()
+            .map(simple_statement_conversion)
+            .collect(),
+    }
+}
+
+pub fn simple_statement_conversion(statement: &ast::Statement) -> Statement {
+    let kind = match &statement.kind {
+        ast::StatementKind::Expression(expression) => {
+            StatementKind::Expression(simple_expression_conversion(expression))
+        }
+        ast::StatementKind::Binding(binding) => {
+            if let Some(_) = &binding.annotation {
+                unimplemented!();
+            }
+            StatementKind::Binding(BindingStatement {
+                pattern: simple_pattern_conversion(&binding.pattern),
+                annotation: None,
+                value: simple_expression_conversion(&binding.value),
+            })
+        }
+        ast::StatementKind::Return(_) => unimplemented!(),
+    };
+    Statement {
+        range: statement.range,
+        kind,
+    }
+}
+
+pub fn simple_expression_conversion(expression: &ast::Expression) -> Expression {
+    let kind = match &expression.kind {
+        ast::ExpressionKind::Constant(constant) => ExpressionKind::Constant(constant.clone()),
+        ast::ExpressionKind::Reference(identifier) => ExpressionKind::Reference(identifier.clone()),
+        ast::ExpressionKind::This => unimplemented!(),
+        ast::ExpressionKind::Function(_) => unimplemented!(),
+        ast::ExpressionKind::Call(_) => unimplemented!(),
+        ast::ExpressionKind::Construct(_) => unimplemented!(),
+        ast::ExpressionKind::Member(_) => unimplemented!(),
+        ast::ExpressionKind::Prefix(_) => unimplemented!(),
+        ast::ExpressionKind::Infix(_) => unimplemented!(),
+        ast::ExpressionKind::Logical(logical) => {
+            ExpressionKind::Logical(Box::new(LogicalExpression {
+                operator: logical.operator.clone(),
+                left: simple_expression_conversion(&logical.left),
+                right: simple_expression_conversion(&logical.right),
+            }))
+        }
+        ast::ExpressionKind::Conditional(_) => unimplemented!(),
+        ast::ExpressionKind::Block(_) => unimplemented!(),
+        ast::ExpressionKind::Wrapped(_) => unimplemented!(),
+    };
+    Expression {
+        range: expression.range,
+        kind,
+    }
+}
+
+pub fn simple_pattern_conversion(pattern: &ast::Pattern) -> Pattern {
+    let kind = match &pattern.kind {
+        ast::PatternKind::Binding(identifier) => PatternKind::Binding(identifier.clone()),
+        ast::PatternKind::Hole => unimplemented!(),
+        ast::PatternKind::This => unimplemented!(),
+    };
+    Pattern {
+        range: pattern.range,
+        kind,
+    }
+}
