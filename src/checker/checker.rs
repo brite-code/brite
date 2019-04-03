@@ -8,6 +8,7 @@ use crate::parser::{Identifier, Range};
 use crate::utils::vecn::Vec1;
 use std::cmp;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 /// Checks the Brite Abstract Syntax Tree (AST) for errors and warnings. Reports diagnostics for any
 /// invalid code.
@@ -99,7 +100,7 @@ impl<'errs> Checker<'errs> {
         range: Range,
         function: &ast::Function,
         expected_function_type: Option<(OperationSnippet, Range, &FunctionType)>,
-    ) -> (FunctionType, Function) {
+    ) -> FunctionType {
         // When checking a function, we want to add parameters to the block. So introduce a level
         // of nesting in the scope.
         self.scope.nest();
@@ -376,29 +377,18 @@ impl<'errs> Checker<'errs> {
         &mut self,
         expression: &ast::Expression,
         mut expression_type: Option<(OperationSnippet, &Type)>,
-    ) -> (Type, Expression) {
+    ) -> Type {
         let actual_expression_type = match &expression.kind {
             // Check a constant. Provide our range since constants don’t have a range themselves.
             ast::ExpressionKind::Constant(constant) => {
-                let constant_type = self.check_constant(expression.range, constant);
-                let constant_expression = Expression {
-                    range: expression.range,
-                    kind: ExpressionKind::Constant(constant.clone()),
-                };
-                (constant_type, constant_expression)
+                self.check_constant(expression.range, constant)
             }
 
             ast::ExpressionKind::Reference(identifier) => {
                 match self.scope.resolve(&expression.range, identifier) {
                     // If the identifier was not found report our error and return the unsound
                     // error type.
-                    Err(diagnostic) => {
-                        let diagnostic = self.report_diagnostic(diagnostic);
-                        (
-                            Type::error(diagnostic.clone()),
-                            Expression::error(expression.range, diagnostic, None),
-                        )
-                    }
+                    Err(diagnostic) => Type::error(self.report_diagnostic(diagnostic)),
 
                     Ok(entry) => match &entry.kind {
                         ScopeEntryKind::Type(_) => unimplemented!(),
@@ -406,10 +396,7 @@ impl<'errs> Checker<'errs> {
                         ScopeEntryKind::Class { .. } => unimplemented!(),
 
                         // If we are referencing a value then return that.
-                        ScopeEntryKind::Value(type_) => (
-                            type_.clone(),
-                            Expression::reference(expression.range, identifier.clone()),
-                        ),
+                        ScopeEntryKind::Value(type_) => type_.clone(),
                     },
                 }
             }
@@ -428,43 +415,25 @@ impl<'errs> Checker<'errs> {
                         Type::Ok {
                             range,
                             kind: TypeKind::Function(function_type),
-                        } => Some(Ok((operation, *range, &**function_type))),
+                        } => Some((operation, *range, &**function_type)),
 
                         // For everything else, report an error.
                         Type::Ok { range, kind } => {
-                            Some(Err(self.report_diagnostic(Diagnostic::incompatible_types(
+                            self.report_diagnostic(Diagnostic::incompatible_types(
                                 expression.range,
                                 operation,
                                 (expression.range, TypeKindSnippet::Function),
                                 (*range, kind.snippet()),
-                            ))))
+                            ));
+                            None
                         }
                     },
                 };
-                match function_type {
-                    None => {
-                        let function_type = self.check_function(expression.range, function, None);
-                        let function_type = Type::from_function(expression.range, function_type);
-                        (function_type, unimplemented!())
-                    }
-                    Some(Err(error)) => {
-                        let function_type = self.check_function(expression.range, function, None);
-                        let function_type = Type::from_function(expression.range, function_type);
-                        let function_expression = unimplemented!();
-                        let function_expression = Expression::error(
-                            function_expression.range,
-                            error,
-                            Some(function_expression),
-                        );
-                        (function_type, function_expression)
-                    }
-                    Some(Ok((operation, range, function_type))) => {
-                        let function_type = Some((operation, range, function_type));
-                        let function_type =
-                            self.check_function(expression.range, function, function_type);
-                        let function_type = Type::from_function(expression.range, function_type);
-                        (function_type, unimplemented!())
-                    }
+
+                let function_type = self.check_function(expression.range, function, function_type);
+                Type::Ok {
+                    range: expression.range,
+                    kind: TypeKind::Function(Rc::new(function_type)),
                 }
             }
 
