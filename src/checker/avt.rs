@@ -2,6 +2,8 @@
 //! checked. If there was an error in type checking then we insert an error node into the AVT which
 //! will crash at runtime. The AVT contains type information to respond to IDE requests and aid
 //! in compilation.
+//!
+//! We erase type annotations in the AVT. An AVT is assumed to be properly typed.
 
 use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
 use crate::parser::{Identifier, Range};
@@ -18,22 +20,22 @@ pub use crate::parser::ast::{Constant, IntegerBase, LogicalOperator};
 #[derive(Debug)]
 pub struct Function {
     /// The parameters of a function describes what the function accepts as input.
-    pub parameters: Vec<FunctionParameter>,
-    /// The programmer may optionally write a return type. The return type is inferred if it is
-    /// not explicit.
-    pub return_type: Option<Type>,
+    pub parameters: Vec<Pattern>,
     /// The code to be executed when the function is called.
     pub body: Block,
+    /// Do not allow this struct to be constructed outside of this module.
+    _private: (),
 }
 
-/// An input to a function.
-#[derive(Debug)]
-pub struct FunctionParameter {
-    /// The pattern which we match against a function parameter against.
-    pub pattern: Pattern,
-    /// The type of our function parameter. Most function parameters must be annotated and may not
-    /// be inferred.
-    pub annotation: Option<Type>,
+impl Function {
+    /// Create a new function.
+    pub fn new(parameters: Vec<Pattern>, body: Block) -> Self {
+        Function {
+            parameters,
+            body,
+            _private: (),
+        }
+    }
 }
 
 /// A block contains a list of statements which are executed sequentially.
@@ -77,8 +79,6 @@ pub enum StatementKind {
 pub struct BindingStatement {
     /// Binds the value to this pattern in the current scope.
     pub pattern: Pattern,
-    /// An optional type annotation. If a type annotation is not added then the type is inferred.
-    pub annotation: Option<Type>,
     /// The value being bound.
     pub value: Expression,
 }
@@ -98,19 +98,10 @@ impl Statement {
     }
 
     /// Creates a binding statement.
-    pub fn binding(
-        range: Range,
-        pattern: Pattern,
-        annotation: Option<Type>,
-        value: Expression,
-    ) -> Self {
+    pub fn binding(range: Range, pattern: Pattern, value: Expression) -> Self {
         Self::new(
             range,
-            StatementKind::Binding(BindingStatement {
-                pattern,
-                annotation,
-                value,
-            }),
+            StatementKind::Binding(BindingStatement { pattern, value }),
         )
     }
 }
@@ -143,8 +134,6 @@ pub enum ExpressionKind {
     Logical(Box<LogicalExpression>),
     /// Embeds a block into an expression.
     Block(Block),
-    /// Wraps an expression in parentheses with an optional type annotation.
-    Wrapped(Box<WrappedExpression>),
     /// When the type checker fails we insert an error expression which will panic at runtime.
     Error(ErrorExpression),
 
@@ -191,15 +180,6 @@ pub struct LogicalExpression {
     pub left: Expression,
     /// The right-hand-side operand.
     pub right: Expression,
-}
-
-/// Wraps an expression in parentheses with an optional type annotation.
-#[derive(Debug)]
-pub struct WrappedExpression {
-    /// The expression which was wrapped.
-    pub expression: Expression,
-    /// A wrapped expression may optionally have a type annotation.
-    pub annotation: Type,
 }
 
 /// When the type checker fails we insert an error expression which will panic at runtime.
@@ -487,7 +467,6 @@ pub fn simple_statement_conversion(statement: &ast::Statement) -> Statement {
             }
             StatementKind::Binding(BindingStatement {
                 pattern: simple_pattern_conversion(&binding.pattern),
-                annotation: None,
                 value: simple_expression_conversion(&binding.value),
             })
         }

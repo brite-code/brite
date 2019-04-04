@@ -49,7 +49,6 @@ fn compile_expression(expression: &Expression) -> js::Expression {
         ),
 
         ExpressionKind::Block(_) => unimplemented!(),
-        ExpressionKind::Wrapped(_) => unimplemented!(),
         ExpressionKind::Error(_) => unimplemented!(),
 
         ExpressionKind::Unimplemented => unimplemented!(),

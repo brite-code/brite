@@ -100,12 +100,13 @@ impl<'errs> Checker<'errs> {
         range: Range,
         function: &ast::Function,
         expected: Option<WithFunctionType>,
-    ) -> FunctionType {
+    ) -> CheckedFunction {
         // When checking a function, we want to add parameters to the block. So introduce a level
         // of nesting in the scope.
         self.scope.nest();
 
-        // Create our parameter types vector which we will push to as we type-check parameters.
+        // Create our parameter vectors which we will push to as we type-check parameters.
+        let mut parameters = Vec::with_capacity(function.parameters.len());
         let mut parameter_types = Vec::with_capacity(function.parameters.len());
 
         // If we have an expected function type, check to make sure that it has the same number of
@@ -174,30 +175,32 @@ impl<'errs> Checker<'errs> {
             };
 
             // Check the pattern with this parameter’s type annotation.
-            self.check_pattern(&parameter.pattern, type_.clone());
-            // Add the type of this parameter to our vector.
+            let pattern = self.check_pattern(&parameter.pattern, type_.clone());
+
+            // Add this parameter to our list.
+            parameters.push(pattern);
             parameter_types.push(type_);
         }
 
-        // Get the return type for our function. If our return type was annotated then we need to
+        // Get the body of our function. If our return type was annotated then we need to
         // check that annotation against the function body. If our return type was not annotated
         // then use the inferred type of the function’s body.
-        let return_type = match &function.return_type {
+        let body: Checked<Block> = match &function.return_type {
             // Check our annotated return type against the body of our function.
             Some(return_type) => {
                 let return_type = self.check_type(return_type);
                 let operation = OperationSnippet::FunctionReturnAnnotation(
                     function.body.statements.last().map(ast::Statement::snippet),
                 );
-                self.check_block_without_nest(
+                let body = self.check_block_without_nest(
                     &function.body,
                     Some(WithType::new(operation, &return_type)),
                 );
-                return_type
+                Checked::new(return_type, body.node)
             }
 
             // Infer a type based on our function body and return that.
-            None => self.check_block_without_nest(&function.body, None).type_,
+            None => self.check_block_without_nest(&function.body, None),
         };
 
         // If we have an expected function type then make sure we verify that the return type
@@ -212,7 +215,7 @@ impl<'errs> Checker<'errs> {
             let _ = self.subtype(
                 range,
                 &expected.operation,
-                &return_type,
+                &body.type_,
                 &expected.function_type.return_,
             );
         }
@@ -220,8 +223,11 @@ impl<'errs> Checker<'errs> {
         // Leave the scope we created for this function.
         self.scope.unnest();
 
-        // Return a function type.
-        FunctionType::new(parameter_types, return_type)
+        // Return a function and its type.
+        CheckedFunction::new(
+            FunctionType::new(parameter_types, body.type_),
+            Function::new(parameters, body.node),
+        )
     }
 
     fn check_class_declaration(&mut self, class: &ast::ClassDeclaration) {
@@ -344,17 +350,17 @@ impl<'errs> Checker<'errs> {
                         &binding.value,
                         &annotation,
                     );
-                    let pattern = self.check_pattern(&binding.pattern, annotation.clone());
+                    let pattern = self.check_pattern(&binding.pattern, annotation);
                     Checked::new(
                         Type::void(range),
-                        Statement::binding(range, pattern, Some(annotation), value.node),
+                        Statement::binding(range, pattern, value.node),
                     )
                 } else {
                     let value = self.check_expression(&binding.value);
                     let pattern = self.check_pattern(&binding.pattern, value.type_);
                     Checked::new(
                         Type::void(range),
-                        Statement::binding(range, pattern, None, value.node),
+                        Statement::binding(range, pattern, value.node),
                     )
                 }
             }
@@ -481,12 +487,14 @@ impl<'errs> Checker<'errs> {
                     },
                 };
 
-                let function_type = self.check_function(expression.range, function, expected);
-                let function_type = Type::Ok {
-                    range: expression.range,
-                    kind: TypeKind::Function(Rc::new(function_type)),
-                };
-                Checked::new(function_type, Expression::unimplemented(range))
+                let function = self.check_function(expression.range, function, expected);
+                Checked::new(
+                    Type::Ok {
+                        range: expression.range,
+                        kind: TypeKind::Function(Rc::new(function.type_)),
+                    },
+                    Expression::unimplemented(range),
+                )
             }
 
             // Call a function type with some arguments...
@@ -902,6 +910,20 @@ struct Checked<Node> {
 impl<Node> Checked<Node> {
     fn new(type_: Type, node: Node) -> Self {
         Checked { type_, node }
+    }
+}
+
+/// A typed AVT node. Specifically for functions. All AVT nodes carry around enough type information
+/// for compilation and IDE tooling. During type checking, though, we want to remember the type of
+/// every block.
+struct CheckedFunction {
+    type_: FunctionType,
+    node: Function,
+}
+
+impl CheckedFunction {
+    fn new(type_: FunctionType, node: Function) -> Self {
+        CheckedFunction { type_, node }
     }
 }
 
