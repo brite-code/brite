@@ -9,7 +9,56 @@ use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
 use crate::parser::{Identifier, Range};
 use std::rc::Rc;
 
-pub use crate::parser::ast::{Constant, IntegerBase, LogicalOperator};
+pub use crate::parser::ast::{Constant, IntegerBase, LogicalOperator, Name};
+
+/// A Brite module is a list of declarations. The order of the declarations does not matter.
+pub struct Module {
+    /// The declarations which make up our module.
+    pub declarations: Vec<Declaration>,
+    /// Do not allow this struct to be constructed outside of this module.
+    _private: (),
+}
+
+impl Module {
+    /// Create a new module.
+    pub fn new(declarations: Vec<Declaration>) -> Self {
+        Module {
+            declarations,
+            _private: (),
+        }
+    }
+}
+
+/// A declaration describes the properties of some identifier.
+pub enum Declaration {
+    /// A function describes some reusable code which may be executed at any time.
+    Function(FunctionDeclaration),
+
+    // TODO: While upgrading the checker to return an AVT we use this to represent an unimplemented
+    // AST to AVT conversion.
+    Unimplemented,
+}
+
+/// A function describes some reusable code which may be executed at any time.
+pub struct FunctionDeclaration {
+    /// The name of a function declaration.
+    pub name: Name,
+    /// Shared function node.
+    pub function: Function,
+    /// Do not allow this struct to be constructed outside of this module.
+    _private: (),
+}
+
+impl FunctionDeclaration {
+    /// Create a new function declaration.
+    pub fn new(name: Name, function: Function) -> Self {
+        FunctionDeclaration {
+            name,
+            function,
+            _private: (),
+        }
+    }
+}
 
 /// A function describes some reusable code which may be executed at any time. There are many places
 /// in our code where a function may be written.

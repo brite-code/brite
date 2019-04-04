@@ -7,7 +7,7 @@ use crate::utils::vecn::Vec2;
 use num::BigInt;
 
 /// A name is an identifier with the identifier’s range in source code.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Name {
     /// The range in source code where the identifier appears.
     pub range: Range,

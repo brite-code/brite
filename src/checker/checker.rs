@@ -39,7 +39,7 @@ impl<'errs> Checker<'errs> {
     }
 
     /// Checks an AST module for errors.
-    pub fn check_module(&mut self, module: &ast::Module) {
+    pub fn check_module(mut self, module: &ast::Module) -> Module {
         // Add all our declarations to scope. We need to do this before type checking our
         // declarations because all declarations are mutually recursive.
         for declaration in &module.declarations {
@@ -70,22 +70,38 @@ impl<'errs> Checker<'errs> {
             }
         }
 
+        let mut declarations = Vec::with_capacity(module.declarations.len());
+
         // Now that all of our declarations are in scope, loop through our declaration list again
         // and type check all our declarations.
         for declaration in &module.declarations {
-            self.check_declaration(declaration);
+            let declaration = self.check_declaration(declaration);
+            declarations.push(declaration);
         }
+
+        Module::new(declarations)
     }
 
-    fn check_declaration(&mut self, declaration: &ast::Declaration) {
+    fn check_declaration(&mut self, declaration: &ast::Declaration) -> Declaration {
         match declaration {
-            ast::Declaration::Function(function) => self.check_function_declaration(function),
-            ast::Declaration::Class(class) => self.check_class_declaration(class),
+            ast::Declaration::Function(function) => {
+                let function = self.check_function_declaration(function);
+                Declaration::Function(function)
+            }
+            ast::Declaration::Class(class) => {
+                self.check_class_declaration(class);
+                Declaration::Unimplemented
+            }
         }
     }
 
-    fn check_function_declaration(&mut self, function: &ast::FunctionDeclaration) {
-        self.check_function(function.name.range, &function.function, None);
+    fn check_function_declaration(
+        &mut self,
+        function: &ast::FunctionDeclaration,
+    ) -> FunctionDeclaration {
+        let name = function.name.clone();
+        let function = self.check_function(function.name.range, &function.function, None);
+        FunctionDeclaration::new(name, function.node)
     }
 
     /// Checks a function and returns the type of the function.

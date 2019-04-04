@@ -1,4 +1,4 @@
-use super::ast as js;
+use super::js;
 use crate::checker::avt::*;
 
 /// Compiles a Brite module into a JavaScript module. Code compiled into JavaScript should have the
