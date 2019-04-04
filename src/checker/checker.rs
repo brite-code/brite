@@ -99,7 +99,7 @@ impl<'errs> Checker<'errs> {
         &mut self,
         range: Range,
         function: &ast::Function,
-        expected_function_type: Option<(OperationSnippet, Range, &FunctionType)>,
+        expected: Option<WithFunctionType>,
     ) -> FunctionType {
         // When checking a function, we want to add parameters to the block. So introduce a level
         // of nesting in the scope.
@@ -110,13 +110,13 @@ impl<'errs> Checker<'errs> {
 
         // If we have an expected function type, check to make sure that it has the same number of
         // parameters as our actual function expression.
-        if let Some((operation, expected_range, expected_function_type)) = &expected_function_type {
-            if function.parameters.len() != expected_function_type.parameters.len() {
+        if let Some(expected) = &expected {
+            if function.parameters.len() != expected.function_type.parameters.len() {
                 self.report_diagnostic(Diagnostic::incompatible_function_parameter_lengths(
                     range,
-                    operation.clone(),
+                    expected.operation.clone(),
                     (range, function.parameters.len()),
-                    (*expected_range, expected_function_type.parameters.len()),
+                    (expected.range, expected.function_type.parameters.len()),
                 ));
             }
         }
@@ -128,16 +128,15 @@ impl<'errs> Checker<'errs> {
             // If we have an expected function type then get our expected function parameter type!
             // If we have more function expression parameters then function type parameters we will
             // return none.
-            let expected_parameter_type =
-                if let Some((operation, _, expected_function_type)) = &expected_function_type {
-                    if i < expected_function_type.parameters.len() {
-                        Some((operation, &expected_function_type.parameters[i]))
-                    } else {
-                        None
-                    }
+            let expected_parameter_type = if let Some(expected) = &expected {
+                if i < expected.function_type.parameters.len() {
+                    Some((&expected.operation, &expected.function_type.parameters[i]))
                 } else {
                     None
-                };
+                }
+            } else {
+                None
+            };
 
             // Get the type for all of our function parameters. If a function parameter is missing
             // an annotation then we will report an error and will create an unsound error type.
@@ -190,7 +189,13 @@ impl<'errs> Checker<'errs> {
                 let operation = OperationSnippet::FunctionReturnAnnotation(
                     function.body.statements.last().map(ast::Statement::snippet),
                 );
-                self.check_block_without_nest(&function.body, Some((operation, &return_type)));
+                self.check_block_without_nest(
+                    &function.body,
+                    Some(WithType {
+                        operation,
+                        type_: &return_type,
+                    }),
+                );
                 return_type
             }
 
@@ -200,7 +205,7 @@ impl<'errs> Checker<'errs> {
 
         // If we have an expected function type then make sure we verify that the return type
         // is correct!
-        if let Some((operation, _, expected_function_type)) = &expected_function_type {
+        if let Some(expected) = &expected {
             // Report any subtyping errors against the return type range (if we have one) or the
             // range of the last statement in the function body.
             let range = match &function.return_type {
@@ -209,9 +214,9 @@ impl<'errs> Checker<'errs> {
             };
             let _ = self.subtype(
                 range,
-                operation,
+                &expected.operation,
                 &return_type,
-                &expected_function_type.return_,
+                &expected.function_type.return_,
             );
         }
 
@@ -251,13 +256,9 @@ impl<'errs> Checker<'errs> {
         }
     }
 
-    fn check_block(
-        &mut self,
-        block: &ast::Block,
-        block_type: Option<(OperationSnippet, &Type)>,
-    ) -> Type {
+    fn check_block(&mut self, block: &ast::Block, expected: Option<WithType>) -> Type {
         self.scope.nest();
-        let result = self.check_block_without_nest(block, block_type);
+        let result = self.check_block_without_nest(block, expected);
         self.scope.unnest();
         result
     }
@@ -267,29 +268,29 @@ impl<'errs> Checker<'errs> {
     fn check_block_without_nest(
         &mut self,
         block: &ast::Block,
-        mut expected_block_type: Option<(OperationSnippet, &Type)>,
+        mut expected: Option<WithType>,
     ) -> Type {
         // The type returned by the block. The last non-empty statement in the block is returned.
-        let mut actual_block_type = Type::void(block.range);
+        let mut actual_type = Type::void(block.range);
 
         for i in 0..block.statements.len() {
             let statement = &block.statements[i];
 
             // Check the statement and assign its type as the last block type. For the last
             // statement we will check with the expected type provided to our function.
-            actual_block_type = self.check_statement(
+            actual_type = self.check_statement(
                 statement,
                 if i == block.statements.len() - 1 {
-                    expected_block_type.take()
+                    expected.take()
                 } else {
                     None
                 },
             );
         }
 
-        // If we still have our `expected_block_type` then check it against our `actual_block_type`.
+        // If we still have our `expected` type then check it against our `actual_type`.
         // This will happen if we have zero block statements!
-        if let Some((operation, expected_block_type)) = expected_block_type.take() {
+        if let Some(expected) = expected {
             // We only expect this to happen when we have no block statements. Otherwise by checking
             // the type here we will lose the ability to do type inference on the function returned
             // by a block. In releases, this isn’t panic worthy so only panic in debug.
@@ -297,41 +298,39 @@ impl<'errs> Checker<'errs> {
 
             let _ = self.subtype(
                 block.range,
-                &operation,
-                &actual_block_type,
-                &expected_block_type,
+                &expected.operation,
+                &actual_type,
+                expected.type_,
             );
         }
 
-        actual_block_type
+        actual_type
     }
 
     fn check_statement(
         &mut self,
         statement: &ast::Statement,
-        mut statement_type: Option<(OperationSnippet, &Type)>,
+        mut expected: Option<WithType>,
     ) -> Type {
-        let actual_statement_type = match &statement.kind {
+        let actual_type = match &statement.kind {
             ast::StatementKind::Expression(expression) => {
-                self.check_expression(expression, statement_type.take())
+                self.check_expression_with_optional_type(expression, expected.take())
             }
 
             ast::StatementKind::Binding(binding) => {
                 if let Some(annotation) = &binding.annotation {
                     let annotation = self.check_type(annotation);
-                    self.check_expression(
+                    self.check_expression_with_type(
+                        OperationSnippet::BindingStatementAnnotation(
+                            binding.pattern.snippet(),
+                            binding.value.snippet(),
+                        ),
                         &binding.value,
-                        Some((
-                            OperationSnippet::BindingStatementAnnotation(
-                                binding.pattern.snippet(),
-                                binding.value.snippet(),
-                            ),
-                            &annotation,
-                        )),
+                        &annotation,
                     );
                     self.check_pattern(&binding.pattern, annotation);
                 } else {
-                    let type_ = self.check_expression(&binding.value, None);
+                    let type_ = self.check_expression(&binding.value);
                     self.check_pattern(&binding.pattern, type_);
                 }
                 Type::void(statement.range)
@@ -341,16 +340,16 @@ impl<'errs> Checker<'errs> {
         };
 
         // If we have an expected type then let’s subtype it against our actual type.
-        if let Some((operation, expected_statement_type)) = statement_type {
+        if let Some(expected) = expected {
             let _ = self.subtype(
                 statement.range,
-                &operation,
-                &actual_statement_type,
-                &expected_statement_type,
+                &expected.operation,
+                &actual_type,
+                &expected.type_,
             );
         }
 
-        actual_statement_type
+        actual_type
     }
 
     fn check_constant(&mut self, range: Range, constant: &ast::Constant) -> Type {
@@ -363,6 +362,19 @@ impl<'errs> Checker<'errs> {
         }
     }
 
+    fn check_expression(&mut self, expression: &ast::Expression) -> Type {
+        self.check_expression_with_optional_type(expression, None)
+    }
+
+    fn check_expression_with_type(
+        &mut self,
+        operation: OperationSnippet,
+        expression: &ast::Expression,
+        type_: &Type,
+    ) -> Type {
+        self.check_expression_with_optional_type(expression, Some(WithType { operation, type_ }))
+    }
+
     /// When we expect an expression to be of a certain type, we call [`Self::check_expression`]
     /// with a type. This will check to make sure that the expression does indeed match the provided
     /// type and will report an error diagnostic if it doesn’t.
@@ -373,12 +385,12 @@ impl<'errs> Checker<'errs> {
     ///
     /// The `OperationSnippet` included with the expression type explains the reason why the
     /// expression has this type.
-    fn check_expression(
+    fn check_expression_with_optional_type(
         &mut self,
         expression: &ast::Expression,
-        mut expression_type: Option<(OperationSnippet, &Type)>,
+        mut expected: Option<WithType>,
     ) -> Type {
-        let actual_expression_type = match &expression.kind {
+        let actual_type = match &expression.kind {
             // Check a constant. Provide our range since constants don’t have a range themselves.
             ast::ExpressionKind::Constant(constant) => {
                 self.check_constant(expression.range, constant)
@@ -405,9 +417,9 @@ impl<'errs> Checker<'errs> {
 
             ast::ExpressionKind::Function(function) => {
                 // Attempt to narrow our expected type to a function type.
-                let function_type = match expression_type.take() {
+                let expected = match expected.take() {
                     None => None,
-                    Some((operation, expression_type)) => match expression_type {
+                    Some(expected) => match expected.type_ {
                         // An error type is the supertype of everything.
                         Type::Error { .. } => None,
 
@@ -415,13 +427,17 @@ impl<'errs> Checker<'errs> {
                         Type::Ok {
                             range,
                             kind: TypeKind::Function(function_type),
-                        } => Some((operation, *range, &**function_type)),
+                        } => Some(WithFunctionType {
+                            operation: expected.operation,
+                            range: *range,
+                            function_type: &**function_type,
+                        }),
 
                         // For everything else, report an error.
                         Type::Ok { range, kind } => {
                             self.report_diagnostic(Diagnostic::incompatible_types(
                                 expression.range,
-                                operation,
+                                expected.operation,
                                 (expression.range, TypeKindSnippet::Function),
                                 (*range, kind.snippet()),
                             ));
@@ -430,7 +446,7 @@ impl<'errs> Checker<'errs> {
                     },
                 };
 
-                let function_type = self.check_function(expression.range, function, function_type);
+                let function_type = self.check_function(expression.range, function, expected);
                 Type::Ok {
                     range: expression.range,
                     kind: TypeKind::Function(Rc::new(function_type)),
@@ -441,8 +457,8 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Call(call) => {
                 // We can infer either the type of function we are calling or we can infer the
                 // argument types. We choose to infer the argument types using the callee type which
-                // is why we pass `None` to `check_expression()` here.
-                let callee_type = self.check_expression(&call.callee, None);
+                // is why we don’t provide a type here.
+                let callee_type = self.check_expression(&call.callee);
 
                 // Narrow the callee type down to only function types. Error for any
                 // non-function types.
@@ -488,17 +504,16 @@ impl<'errs> Checker<'errs> {
                             let argument = &call.arguments[i];
 
                             // If our expected callee type has a parameter in the same position as
-                            // this one then let’s get that type as our expected argument type.
-                            let expected_argument_type = if i < callee_type.parameters.len() {
-                                let operation =
-                                    OperationSnippet::FunctionCall(call.callee.snippet());
-                                Some((operation, &callee_type.parameters[i]))
+                            // this one then let’s check our expression with that argument type.
+                            if i < callee_type.parameters.len() {
+                                self.check_expression_with_type(
+                                    OperationSnippet::FunctionCall(call.callee.snippet()),
+                                    argument,
+                                    &callee_type.parameters[i],
+                                );
                             } else {
-                                None
-                            };
-
-                            // Check our argument with our optional expected type.
-                            self.check_expression(argument, expected_argument_type);
+                                self.check_expression(argument);
+                            }
                         }
 
                         // The type of our expression is the type returned by our callee’s
@@ -510,7 +525,7 @@ impl<'errs> Checker<'errs> {
                     // Even if we don’t have any expected types for them.
                     Err(error) => {
                         for argument in &call.arguments {
-                            self.check_expression(argument, None);
+                            self.check_expression(argument);
                         }
                         Type::error(error)
                     }
@@ -523,10 +538,10 @@ impl<'errs> Checker<'errs> {
             // Make sure the operand to a prefix expression is of the correct type.
             ast::ExpressionKind::Prefix(prefix) => match prefix.operator {
                 ast::PrefixOperator::Not => {
-                    let operation = OperationSnippet::OperatorExpression(OperatorSnippet::Not);
-                    self.check_expression(
+                    self.check_expression_with_type(
+                        OperationSnippet::OperatorExpression(OperatorSnippet::Not),
                         &prefix.operand,
-                        Some((operation, &Type::boolean(prefix.operand.range))),
+                        &Type::boolean(prefix.operand.range),
                     );
                     Type::boolean(expression.range)
                 }
@@ -543,13 +558,15 @@ impl<'errs> Checker<'errs> {
                     ast::LogicalOperator::And => OperatorSnippet::And,
                     ast::LogicalOperator::Or => OperatorSnippet::Or,
                 });
-                self.check_expression(
+                self.check_expression_with_type(
+                    operation.clone(),
                     &logical.left,
-                    Some((operation.clone(), &Type::boolean(logical.left.range))),
+                    &Type::boolean(logical.left.range),
                 );
-                self.check_expression(
+                self.check_expression_with_type(
+                    operation.clone(),
                     &logical.right,
-                    Some((operation, &Type::boolean(logical.right.range))),
+                    &Type::boolean(logical.right.range),
                 );
                 Type::boolean(expression.range)
             }
@@ -557,7 +574,7 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Conditional(_) => unimplemented!(),
 
             // Checking a block is simple.
-            ast::ExpressionKind::Block(block) => self.check_block(block, expression_type.take()),
+            ast::ExpressionKind::Block(block) => self.check_block(block, expected.take()),
 
             // If the wrapped expression does not have an annotation then we may simply check the
             // wrapped expression. If the wrapped expression does have a type annotation then we
@@ -566,31 +583,29 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Wrapped(wrapped) => {
                 if let Some(annotation) = &wrapped.annotation {
                     let annotation = self.check_type(annotation);
-                    self.check_expression(
+                    self.check_expression_with_type(
+                        OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
                         &wrapped.expression,
-                        Some((
-                            OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
-                            &annotation,
-                        )),
+                        &annotation,
                     );
                     annotation
                 } else {
-                    self.check_expression(&wrapped.expression, expression_type.take())
+                    self.check_expression_with_optional_type(&wrapped.expression, expected.take())
                 }
             }
         };
 
         // If we have an expected type then let’s subtype it against our actual type.
-        if let Some((operation, expected_expression_type)) = expression_type {
+        if let Some(expected) = expected {
             let _ = self.subtype(
                 expression.range,
-                &operation,
-                &actual_expression_type,
-                &expected_expression_type,
+                &expected.operation,
+                &actual_type,
+                &expected.type_,
             );
         }
 
-        actual_expression_type
+        actual_type
     }
 
     /// Checks a pattern which is supposed to bind a value with the provided type. If the pattern
@@ -792,6 +807,17 @@ impl<'errs> Checker<'errs> {
     fn report_diagnostic(&mut self, diagnostic: Diagnostic) -> DiagnosticRef {
         self._diagnostics.report(diagnostic)
     }
+}
+
+struct WithType<'a> {
+    operation: OperationSnippet,
+    type_: &'a Type,
+}
+
+struct WithFunctionType<'a> {
+    operation: OperationSnippet,
+    range: Range,
+    function_type: &'a FunctionType,
 }
 
 /// The scope of a program contains all the variables accessible at different points in the program.
