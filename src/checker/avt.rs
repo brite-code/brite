@@ -52,6 +52,8 @@ pub struct Statement {
     pub range: Range,
     /// What kind of statement is this?
     pub kind: StatementKind,
+    /// Do not allow this struct to be constructed outside of this module.
+    _private: (),
 }
 
 /// The kind of a Statement AST node.
@@ -81,6 +83,8 @@ pub struct Expression {
     pub range: Range,
     /// What kind of expression is this?
     pub kind: ExpressionKind,
+    /// Do not allow this struct to be constructed outside of this module.
+    _private: (),
 }
 
 /// The kind of an Expression AVT node.
@@ -104,6 +108,10 @@ pub enum ExpressionKind {
     Wrapped(Box<WrappedExpression>),
     /// When the type checker fails we insert an error expression which will panic at runtime.
     Error(ErrorExpression),
+
+    // TODO: While upgrading the checker to return an AVT we use this to represent an unimplemented
+    // AST to AVT conversion.
+    Unimplemented,
 }
 
 /// Calls a function with some arguments.
@@ -166,12 +174,38 @@ pub struct ErrorExpression {
 
 impl Expression {
     fn new(range: Range, kind: ExpressionKind) -> Self {
-        Expression { range, kind }
+        Expression {
+            range,
+            kind,
+            _private: (),
+        }
+    }
+
+    /// Creates a constant expression.
+    pub fn constant(range: Range, constant: Constant) -> Self {
+        Self::new(range, ExpressionKind::Constant(constant))
     }
 
     /// Creates a reference expression.
     pub fn reference(range: Range, identifier: Identifier) -> Self {
         Self::new(range, ExpressionKind::Reference(identifier))
+    }
+
+    /// Creates a logical expression.
+    pub fn logical(
+        range: Range,
+        operator: LogicalOperator,
+        left: Expression,
+        right: Expression,
+    ) -> Self {
+        Self::new(
+            range,
+            ExpressionKind::Logical(Box::new(LogicalExpression {
+                operator,
+                left,
+                right,
+            })),
+        )
     }
 
     /// Creates an error expression.
@@ -184,6 +218,11 @@ impl Expression {
             }),
         )
     }
+
+    // TODO: Remove this.
+    pub fn unimplemented(range: Range) -> Self {
+        Self::new(range, ExpressionKind::Unimplemented)
+    }
 }
 
 /// A pattern is used for binding a value to some names in the current block scope.
@@ -193,6 +232,8 @@ pub struct Pattern {
     pub range: Range,
     /// What kind of pattern is this?
     pub kind: PatternKind,
+    /// Do not allow this struct to be constructed outside of this module.
+    _private: (),
 }
 
 /// The kind of a pattern AST node.
@@ -401,6 +442,7 @@ pub fn simple_statement_conversion(statement: &ast::Statement) -> Statement {
     Statement {
         range: statement.range,
         kind,
+        _private: (),
     }
 }
 
@@ -435,6 +477,7 @@ pub fn simple_expression_conversion(expression: &ast::Expression) -> Expression 
     Expression {
         range: expression.range,
         kind,
+        _private: (),
     }
 }
 
@@ -447,5 +490,6 @@ pub fn simple_pattern_conversion(pattern: &ast::Pattern) -> Pattern {
     Pattern {
         range: pattern.range,
         kind,
+        _private: (),
     }
 }

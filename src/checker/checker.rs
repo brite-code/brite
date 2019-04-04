@@ -191,10 +191,7 @@ impl<'errs> Checker<'errs> {
                 );
                 self.check_block_without_nest(
                     &function.body,
-                    Some(WithType {
-                        operation,
-                        type_: &return_type,
-                    }),
+                    Some(WithType::new(operation, &return_type)),
                 );
                 return_type
             }
@@ -312,9 +309,10 @@ impl<'errs> Checker<'errs> {
         statement: &ast::Statement,
         mut expected: Option<WithType>,
     ) -> Type {
-        let actual_type = match &statement.kind {
+        let actual_type: Type = match &statement.kind {
             ast::StatementKind::Expression(expression) => {
                 self.check_expression_with_optional_type(expression, expected.take())
+                    .type_
             }
 
             ast::StatementKind::Binding(binding) => {
@@ -330,7 +328,7 @@ impl<'errs> Checker<'errs> {
                     );
                     self.check_pattern(&binding.pattern, annotation);
                 } else {
-                    let type_ = self.check_expression(&binding.value);
+                    let type_ = self.check_expression(&binding.value).type_;
                     self.check_pattern(&binding.pattern, type_);
                 }
                 Type::void(statement.range)
@@ -362,7 +360,7 @@ impl<'errs> Checker<'errs> {
         }
     }
 
-    fn check_expression(&mut self, expression: &ast::Expression) -> Type {
+    fn check_expression(&mut self, expression: &ast::Expression) -> CheckedExpression {
         self.check_expression_with_optional_type(expression, None)
     }
 
@@ -371,8 +369,8 @@ impl<'errs> Checker<'errs> {
         operation: OperationSnippet,
         expression: &ast::Expression,
         type_: &Type,
-    ) -> Type {
-        self.check_expression_with_optional_type(expression, Some(WithType { operation, type_ }))
+    ) -> CheckedExpression {
+        self.check_expression_with_optional_type(expression, Some(WithType::new(operation, type_)))
     }
 
     /// When we expect an expression to be of a certain type, we call [`Self::check_expression`]
@@ -389,18 +387,27 @@ impl<'errs> Checker<'errs> {
         &mut self,
         expression: &ast::Expression,
         mut expected: Option<WithType>,
-    ) -> Type {
-        let actual_type = match &expression.kind {
+    ) -> CheckedExpression {
+        let range = expression.range;
+
+        let expression: CheckedExpression = match &expression.kind {
             // Check a constant. Provide our range since constants don’t have a range themselves.
-            ast::ExpressionKind::Constant(constant) => {
-                self.check_constant(expression.range, constant)
-            }
+            ast::ExpressionKind::Constant(constant) => CheckedExpression::new(
+                self.check_constant(range, constant),
+                Expression::constant(range, constant.clone()),
+            ),
 
             ast::ExpressionKind::Reference(identifier) => {
-                match self.scope.resolve(&expression.range, identifier) {
+                match self.scope.resolve(&range, identifier) {
                     // If the identifier was not found report our error and return the unsound
                     // error type.
-                    Err(diagnostic) => Type::error(self.report_diagnostic(diagnostic)),
+                    Err(diagnostic) => {
+                        let diagnostic = self.report_diagnostic(diagnostic);
+                        CheckedExpression::new(
+                            Type::error(diagnostic.clone()),
+                            Expression::error(range, diagnostic, None),
+                        )
+                    }
 
                     Ok(entry) => match &entry.kind {
                         ScopeEntryKind::Type(_) => unimplemented!(),
@@ -408,7 +415,10 @@ impl<'errs> Checker<'errs> {
                         ScopeEntryKind::Class { .. } => unimplemented!(),
 
                         // If we are referencing a value then return that.
-                        ScopeEntryKind::Value(type_) => type_.clone(),
+                        ScopeEntryKind::Value(type_) => CheckedExpression::new(
+                            type_.clone(),
+                            Expression::reference(range, identifier.clone()),
+                        ),
                     },
                 }
             }
@@ -427,11 +437,11 @@ impl<'errs> Checker<'errs> {
                         Type::Ok {
                             range,
                             kind: TypeKind::Function(function_type),
-                        } => Some(WithFunctionType {
-                            operation: expected.operation,
-                            range: *range,
-                            function_type: &**function_type,
-                        }),
+                        } => Some(WithFunctionType::new(
+                            expected.operation,
+                            *range,
+                            &**function_type,
+                        )),
 
                         // For everything else, report an error.
                         Type::Ok { range, kind } => {
@@ -447,10 +457,11 @@ impl<'errs> Checker<'errs> {
                 };
 
                 let function_type = self.check_function(expression.range, function, expected);
-                Type::Ok {
+                let function_type = Type::Ok {
                     range: expression.range,
                     kind: TypeKind::Function(Rc::new(function_type)),
-                }
+                };
+                CheckedExpression::new(function_type, Expression::unimplemented(range))
             }
 
             // Call a function type with some arguments...
@@ -458,11 +469,11 @@ impl<'errs> Checker<'errs> {
                 // We can infer either the type of function we are calling or we can infer the
                 // argument types. We choose to infer the argument types using the callee type which
                 // is why we don’t provide a type here.
-                let callee_type = self.check_expression(&call.callee);
+                let callee = self.check_expression(&call.callee);
 
                 // Narrow the callee type down to only function types. Error for any
                 // non-function types.
-                let callee_type = match callee_type {
+                let callee_type = match callee.type_ {
                     // An error type is the supertype of everything.
                     Type::Error { error } => Err(error),
 
@@ -518,7 +529,10 @@ impl<'errs> Checker<'errs> {
 
                         // The type of our expression is the type returned by our callee’s
                         // function type!
-                        (&*callee_type.return_).clone()
+                        CheckedExpression::new(
+                            (&*callee_type.return_).clone(),
+                            Expression::unimplemented(range),
+                        )
                     }
 
                     // If we have an error type then still make sure to check all our arguments.
@@ -527,7 +541,7 @@ impl<'errs> Checker<'errs> {
                         for argument in &call.arguments {
                             self.check_expression(argument);
                         }
-                        Type::error(error)
+                        CheckedExpression::new(Type::error(error), Expression::unimplemented(range))
                     }
                 }
             }
@@ -543,7 +557,10 @@ impl<'errs> Checker<'errs> {
                         &prefix.operand,
                         &Type::boolean(prefix.operand.range),
                     );
-                    Type::boolean(expression.range)
+                    CheckedExpression::new(
+                        Type::boolean(expression.range),
+                        Expression::unimplemented(range),
+                    )
                 }
 
                 ast::PrefixOperator::Negative => unimplemented!(),
@@ -558,23 +575,34 @@ impl<'errs> Checker<'errs> {
                     ast::LogicalOperator::And => OperatorSnippet::And,
                     ast::LogicalOperator::Or => OperatorSnippet::Or,
                 });
-                self.check_expression_with_type(
+                let left = self.check_expression_with_type(
                     operation.clone(),
                     &logical.left,
                     &Type::boolean(logical.left.range),
                 );
-                self.check_expression_with_type(
+                let right = self.check_expression_with_type(
                     operation.clone(),
                     &logical.right,
                     &Type::boolean(logical.right.range),
                 );
-                Type::boolean(expression.range)
+                CheckedExpression::new(
+                    Type::boolean(expression.range),
+                    Expression::logical(
+                        range,
+                        logical.operator.clone(),
+                        left.expression,
+                        right.expression,
+                    ),
+                )
             }
 
             ast::ExpressionKind::Conditional(_) => unimplemented!(),
 
             // Checking a block is simple.
-            ast::ExpressionKind::Block(block) => self.check_block(block, expected.take()),
+            ast::ExpressionKind::Block(block) => CheckedExpression::new(
+                self.check_block(block, expected.take()),
+                Expression::unimplemented(range),
+            ),
 
             // If the wrapped expression does not have an annotation then we may simply check the
             // wrapped expression. If the wrapped expression does have a type annotation then we
@@ -583,12 +611,12 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Wrapped(wrapped) => {
                 if let Some(annotation) = &wrapped.annotation {
                     let annotation = self.check_type(annotation);
-                    self.check_expression_with_type(
+                    let expression = self.check_expression_with_type(
                         OperationSnippet::ExpressionAnnotation(wrapped.expression.snippet()),
                         &wrapped.expression,
                         &annotation,
                     );
-                    annotation
+                    CheckedExpression::new(annotation, expression.expression)
                 } else {
                     self.check_expression_with_optional_type(&wrapped.expression, expected.take())
                 }
@@ -598,14 +626,14 @@ impl<'errs> Checker<'errs> {
         // If we have an expected type then let’s subtype it against our actual type.
         if let Some(expected) = expected {
             let _ = self.subtype(
-                expression.range,
+                range,
                 &expected.operation,
-                &actual_type,
+                &expression.type_,
                 &expected.type_,
             );
         }
 
-        actual_type
+        expression
     }
 
     /// Checks a pattern which is supposed to bind a value with the provided type. If the pattern
@@ -809,15 +837,47 @@ impl<'errs> Checker<'errs> {
     }
 }
 
+/// Struct for representing a type associated with an operation which required checking that type
+/// against the actual program’s type.
 struct WithType<'a> {
     operation: OperationSnippet,
     type_: &'a Type,
 }
 
+impl<'a> WithType<'a> {
+    fn new(operation: OperationSnippet, type_: &'a Type) -> Self {
+        WithType { operation, type_ }
+    }
+}
+
+/// A specialization of `WithType` for only `FunctionType`s.
 struct WithFunctionType<'a> {
     operation: OperationSnippet,
     range: Range,
     function_type: &'a FunctionType,
+}
+
+impl<'a> WithFunctionType<'a> {
+    fn new(operation: OperationSnippet, range: Range, function_type: &'a FunctionType) -> Self {
+        WithFunctionType {
+            operation,
+            range,
+            function_type,
+        }
+    }
+}
+
+/// A typed AVT expression. All AVT expressions carry around enough type information for compilation
+/// and IDE tooling. During type checking, though, we want to remember the type of every expression.
+struct CheckedExpression {
+    type_: Type,
+    expression: Expression,
+}
+
+impl CheckedExpression {
+    fn new(type_: Type, expression: Expression) -> Self {
+        CheckedExpression { type_, expression }
+    }
 }
 
 /// The scope of a program contains all the variables accessible at different points in the program.
