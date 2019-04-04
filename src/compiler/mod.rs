@@ -1,1 +1,1 @@
-mod js;
+pub mod js;

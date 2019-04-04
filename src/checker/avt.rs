@@ -424,7 +424,13 @@ pub fn simple_expression_conversion(expression: &ast::Expression) -> Expression 
         }
         ast::ExpressionKind::Conditional(_) => unimplemented!(),
         ast::ExpressionKind::Block(_) => unimplemented!(),
-        ast::ExpressionKind::Wrapped(_) => unimplemented!(),
+        ast::ExpressionKind::Wrapped(wrapped) => {
+            if wrapped.annotation.is_some() {
+                unimplemented!()
+            } else {
+                return simple_expression_conversion(&wrapped.expression);
+            }
+        }
     };
     Expression {
         range: expression.range,
