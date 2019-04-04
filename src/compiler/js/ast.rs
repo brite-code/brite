@@ -106,28 +106,35 @@ impl Pattern {
     }
 }
 
+/// Precedence levels in the [JavaScript expression][1] syntax. We don’t need all the precedence
+/// levels so the ones which are currently unused are commented out.
+///
+/// We also have `Top` which represents all expressions and `Bottom` which represents
+/// no expressions.
+///
+/// [1]: https://tc39.github.io/ecma262/#prod-Expression
 #[derive(Eq, Ord, PartialEq, PartialOrd)]
 enum Precedence {
     Top,
-    Assignment,
-    Conditional,
+    // Assignment,
+    // Conditional,
     LogicalOr,
     LogicalAnd,
-    BitwiseOr,
-    BitwiseXor,
-    BitwiseAnd,
-    Equality,
-    Relational,
-    Shift,
-    Additive,
-    Multiplicative,
-    Exponential,
-    Unary,
-    Update,
-    Call,
-    Member,
+    // BitwiseOr,
+    // BitwiseXor,
+    // BitwiseAnd,
+    // Equality,
+    // Relational,
+    // Shift,
+    // Additive,
+    // Multiplicative,
+    // Exponential,
+    // Unary,
+    // Update,
+    // Call,
+    // Member,
     Primary,
-    Bottom,
+    // Bottom,
 }
 
 impl Statement {
@@ -154,6 +161,8 @@ impl Statement {
 }
 
 impl Expression {
+    /// Print an expression at the provided level of indentation. All expressions with a smaller
+    /// precedence than `p` will be wrapped in parentheses.
     fn write(&self, w: &mut io::Write, i: usize, p: Precedence) -> io::Result<()> {
         let precedence = match &self.0 {
             ExpressionKind::Identifier(_) => Precedence::Primary,
