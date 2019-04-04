@@ -643,10 +643,10 @@ impl<'errs> Checker<'errs> {
             ast::ExpressionKind::Conditional(_) => unimplemented!(),
 
             // Checking a block is simple.
-            ast::ExpressionKind::Block(block) => Checked::new(
-                self.check_block(block, expected.take()).type_,
-                Expression::unimplemented(range),
-            ),
+            ast::ExpressionKind::Block(block) => {
+                let block = self.check_block(block, expected.take());
+                Checked::new(block.type_, Expression::block(range, block.node))
+            }
 
             // If the wrapped expression does not have an annotation then we may simply check the
             // wrapped expression. If the wrapped expression does have a type annotation then we

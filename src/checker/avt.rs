@@ -276,6 +276,11 @@ impl Expression {
         )
     }
 
+    /// Creates a block expression.
+    pub fn block(range: Range, block: Block) -> Self {
+        Self::new(range, ExpressionKind::Block(block))
+    }
+
     /// Creates an error expression.
     pub fn error(range: Range, error: DiagnosticRef, expression: Option<Expression>) -> Self {
         Self::new(
