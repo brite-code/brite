@@ -45,6 +45,13 @@ pub struct Block {
     pub statements: Vec<Statement>,
 }
 
+impl Block {
+    /// Creates a new block.
+    pub fn new(range: Range, statements: Vec<Statement>) -> Self {
+        Block { range, statements }
+    }
+}
+
 /// A statement describes some action to be executed in the current scope.
 #[derive(Debug)]
 pub struct Statement {
@@ -74,6 +81,38 @@ pub struct BindingStatement {
     pub annotation: Option<Type>,
     /// The value being bound.
     pub value: Expression,
+}
+
+impl Statement {
+    fn new(range: Range, kind: StatementKind) -> Self {
+        Statement {
+            range,
+            kind,
+            _private: (),
+        }
+    }
+
+    /// Creates an expression statement.
+    pub fn expression(range: Range, expression: Expression) -> Self {
+        Self::new(range, StatementKind::Expression(expression))
+    }
+
+    /// Creates a binding statement.
+    pub fn binding(
+        range: Range,
+        pattern: Pattern,
+        annotation: Option<Type>,
+        value: Expression,
+    ) -> Self {
+        Self::new(
+            range,
+            StatementKind::Binding(BindingStatement {
+                pattern,
+                annotation,
+                value,
+            }),
+        )
+    }
 }
 
 /// Some execution which returns a value.
@@ -241,6 +280,21 @@ pub struct Pattern {
 pub enum PatternKind {
     /// Binds the value to an identifier name in scope.
     Binding(Identifier),
+}
+
+impl Pattern {
+    fn new(range: Range, kind: PatternKind) -> Self {
+        Pattern {
+            range,
+            kind,
+            _private: (),
+        }
+    }
+
+    /// Creates a binding pattern.
+    pub fn binding(range: Range, identifier: Identifier) -> Self {
+        Self::new(range, PatternKind::Binding(identifier))
+    }
 }
 
 /// Describes the values which may be assigned to a particular binding.
