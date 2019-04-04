@@ -20,7 +20,7 @@ macro_rules! test {
             let lexer = Lexer::new(&mut diagnostics, &source);
             let parser = Parser::new(lexer);
             let module = parser.parse_module();
-            let mut checker = Checker::new(&mut diagnostics);
+            let checker = Checker::new(&mut diagnostics);
             if let Ok(module) = module {
                 checker.check_module(&module);
             }

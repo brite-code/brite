@@ -99,7 +99,7 @@ impl<'errs> Checker<'errs> {
         &mut self,
         function: &ast::FunctionDeclaration,
     ) -> FunctionDeclaration {
-        let name = function.name.clone();
+        let name = function.name.identifier.clone();
         let function = self.check_function(function.name.range, &function.function, None);
         FunctionDeclaration::new(name, function.node)
     }

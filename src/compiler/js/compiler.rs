@@ -3,8 +3,39 @@ use crate::checker::avt::*;
 
 /// Compiles a Brite module into a JavaScript module. Code compiled into JavaScript should have the
 /// same behavior as code compiled into another language, like LLVM.
-pub fn compile_module(statements: &Vec<Statement>) -> Vec<js::Statement> {
-    statements.iter().map(compile_statement).collect()
+pub fn compile_module(module: &Module) -> js::Program {
+    js::Program::new(
+        module
+            .declarations
+            .iter()
+            .map(compile_declaration)
+            .collect(),
+    )
+}
+
+fn compile_declaration(declaration: &Declaration) -> js::Statement {
+    match declaration {
+        Declaration::Function(function) => {
+            // TODO: Make sure to check, escape, and deduplicate identifiers.
+            let id = js::Identifier::new_unchecked(function.name.as_str().to_string());
+            let params = function
+                .function
+                .parameters
+                .iter()
+                .map(compile_pattern)
+                .collect();
+            let body = function
+                .function
+                .body
+                .statements
+                .iter()
+                .map(compile_statement)
+                .collect();
+            js::Statement::function_declaration(id, params, js::BlockStatement::new(body))
+        }
+
+        Declaration::Unimplemented => unimplemented!(),
+    }
 }
 
 fn compile_statement(statement: &Statement) -> js::Statement {

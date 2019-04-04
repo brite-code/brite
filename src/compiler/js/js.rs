@@ -15,11 +15,40 @@ impl Identifier {
     }
 }
 
+/// A complete JavaScript program source tree.
+pub struct Program {
+    body: Vec<Statement>,
+    _private: (),
+}
+
+impl Program {
+    pub fn new(body: Vec<Statement>) -> Self {
+        Program { body, _private: () }
+    }
+}
+
 pub struct Statement(StatementKind);
 
 enum StatementKind {
     Expression(Expression),
+    FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
+}
+
+pub struct BlockStatement {
+    body: Vec<Statement>,
+}
+
+impl BlockStatement {
+    pub fn new(body: Vec<Statement>) -> Self {
+        BlockStatement { body }
+    }
+}
+
+struct FunctionDeclaration {
+    id: Identifier,
+    params: Vec<Pattern>,
+    body: BlockStatement,
 }
 
 struct VariableDeclaration {
@@ -63,6 +92,18 @@ enum PatternKind {
 impl Statement {
     pub fn expression(expression: Expression) -> Self {
         Statement(StatementKind::Expression(expression))
+    }
+
+    pub fn function_declaration(
+        id: Identifier,
+        params: Vec<Pattern>,
+        body: BlockStatement,
+    ) -> Self {
+        Statement(StatementKind::FunctionDeclaration(FunctionDeclaration {
+            id,
+            params,
+            body,
+        }))
     }
 
     pub fn variable_declaration(
@@ -137,12 +178,43 @@ enum Precedence {
     // Bottom,
 }
 
+impl Identifier {
+    fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
+        write!(w, "{}", &self.0)
+    }
+}
+
+impl Program {
+    pub fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
+        for statement in &self.body {
+            statement.write(w, 0)?;
+        }
+        Ok(())
+    }
+}
+
 impl Statement {
-    pub fn write(&self, w: &mut io::Write, i: usize) -> io::Result<()> {
+    fn write<W: io::Write>(&self, w: &mut W, i: usize) -> io::Result<()> {
+        write_indentation(w, i)?;
+
         match &self.0 {
             StatementKind::Expression(expression) => {
                 expression.write(w, i, Precedence::Top)?;
-                write!(w, ";")
+                write!(w, ";\n")
+            }
+            StatementKind::FunctionDeclaration(function_declaration) => {
+                write!(w, "function ")?;
+                function_declaration.id.write(w)?;
+                write!(w, "(")?;
+                for i in 0..function_declaration.params.len() {
+                    if i != 0 {
+                        write!(w, ", ")?;
+                    }
+                    function_declaration.params[i].write(w)?;
+                }
+                write!(w, ") ")?;
+                function_declaration.body.write(w, i)?;
+                write!(w, "\n")
             }
             StatementKind::VariableDeclaration(variable_declaration) => {
                 match &variable_declaration.kind {
@@ -154,8 +226,22 @@ impl Statement {
                 variable_declaration.id.write(w)?;
                 write!(w, " = ")?;
                 variable_declaration.init.write(w, i, Precedence::Top)?;
-                write!(w, ";")
+                write!(w, ";\n")
             }
+        }
+    }
+}
+
+impl BlockStatement {
+    fn write<W: io::Write>(&self, w: &mut W, i: usize) -> io::Result<()> {
+        if self.body.is_empty() {
+            write!(w, "{{}}")
+        } else {
+            write!(w, "{{\n")?;
+            for statement in &self.body {
+                statement.write(w, i + 1)?;
+            }
+            write!(w, "}}")
         }
     }
 }
@@ -163,7 +249,7 @@ impl Statement {
 impl Expression {
     /// Print an expression at the provided level of indentation. All expressions with a smaller
     /// precedence than `p` will be wrapped in parentheses.
-    fn write(&self, w: &mut io::Write, i: usize, p: Precedence) -> io::Result<()> {
+    fn write<W: io::Write>(&self, w: &mut W, i: usize, p: Precedence) -> io::Result<()> {
         let precedence = match &self.0 {
             ExpressionKind::Identifier(_) => Precedence::Primary,
             ExpressionKind::BooleanLiteral(_) => Precedence::Primary,
@@ -177,7 +263,7 @@ impl Expression {
             write!(w, "(")?;
         }
         match &self.0 {
-            ExpressionKind::Identifier(identifier) => write!(w, "{}", &identifier.0)?,
+            ExpressionKind::Identifier(identifier) => identifier.write(w)?,
             ExpressionKind::BooleanLiteral(true) => write!(w, "true")?,
             ExpressionKind::BooleanLiteral(false) => write!(w, "false")?,
             ExpressionKind::NumericLiteral(value) => {
@@ -216,10 +302,18 @@ impl Expression {
 }
 
 impl Pattern {
-    fn write(&self, w: &mut io::Write) -> io::Result<()> {
+    fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
         match &self.0 {
-            PatternKind::Identifier(identifier) => write!(w, "{}", &identifier.0)?,
+            PatternKind::Identifier(identifier) => identifier.write(w)?,
         }
         Ok(())
     }
+}
+
+/// Writes some spaces at the specified indentation level.
+fn write_indentation<W: io::Write>(w: &mut W, i: usize) -> io::Result<()> {
+    for _ in 0..i {
+        write!(w, "  ")?;
+    }
+    Ok(())
 }

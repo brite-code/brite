@@ -4,10 +4,10 @@ macro_rules! test {
     ($name:ident) => {
         #[test]
         fn $name() {
-            use brite::checker::avt::simple_statement_conversion;
+            use brite::checker::Checker;
             use brite::compiler::js::compile_module;
             use brite::diagnostics::DiagnosticsCollection;
-            use brite::parser::{ast, Lexer, Parser};
+            use brite::parser::{Lexer, Parser};
             use std::fs;
             use std::io::prelude::*;
             use std::path::PathBuf;
@@ -22,36 +22,9 @@ macro_rules! test {
             let lexer = Lexer::new(&mut diagnostics, &source);
             let parser = Parser::new(lexer);
             let module = parser.parse_module().unwrap();
+            let module = Checker::new(&mut diagnostics).check_module(&module);
 
-            if module.declarations.len() != 1 {
-                unimplemented!();
-            }
-
-            let declaration = &module.declarations[0];
-
-            let block = match declaration {
-                ast::Declaration::Function(function) => {
-                    if function.name.identifier.as_str() != "main" {
-                        unimplemented!();
-                    }
-                    if function.function.parameters.len() != 0 {
-                        unimplemented!();
-                    }
-                    if function.function.return_type.is_some() {
-                        unimplemented!();
-                    }
-                    &function.function.body
-                }
-                ast::Declaration::Class(_) => unimplemented!(),
-            };
-
-            let statements = compile_module(
-                &block
-                    .statements
-                    .iter()
-                    .map(simple_statement_conversion)
-                    .collect(),
-            );
+            let program = compile_module(&module);
 
             path.set_extension("ite.md");
             let mut file = fs::File::create(path).unwrap();
@@ -61,10 +34,7 @@ macro_rules! test {
             }
 
             write!(&mut file, "\n## JS\n```js\n").unwrap();
-            for statement in statements {
-                statement.write(&mut file, 0).unwrap();
-                write!(&mut file, "\n").unwrap();
-            }
+            program.write(&mut file).unwrap();
             write!(&mut file, "```\n").unwrap();
         }
     };
