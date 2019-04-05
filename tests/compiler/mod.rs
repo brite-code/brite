@@ -1,2 +1,2 @@
-test!(bindings);
-test!(logical);
+mod expressions;
+mod statements;

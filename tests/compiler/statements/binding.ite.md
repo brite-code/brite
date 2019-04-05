@@ -1,4 +1,4 @@
-# Compiler Test: `bindings`
+# Compiler Test: `binding`
 
 ## JS
 ```js
