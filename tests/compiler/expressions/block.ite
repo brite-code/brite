@@ -1,0 +1,53 @@
+fun f1() {
+  do {}
+
+  do {
+    let a = true;
+    let b = true;
+  }
+
+  do {
+    let c = true;
+    let d = true;
+    c && d
+  }
+
+  let x = do {};
+
+  let y = do {
+    let e = true;
+    let f = true;
+  };
+
+  let z = do {
+    let g = true;
+    let h = true;
+    g && h
+  };
+
+  do {}
+
+  do {
+    let a = true;
+    let b = true;
+  }
+
+  do {
+    let c = true;
+    let d = true;
+    c && d
+  }
+
+  let x = do {};
+
+  let y = do {
+    let e = true;
+    let f = true;
+  };
+
+  let z = do {
+    let g = true;
+    let h = true;
+    g && h
+  };
+}

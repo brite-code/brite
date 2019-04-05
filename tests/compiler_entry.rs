@@ -29,7 +29,12 @@ macro_rules! test {
             let mut file = fs::File::create(path).unwrap();
             write!(&mut file, "# Compiler Test: `{}`\n", stringify!($name)).unwrap();
             if !diagnostics.is_empty() {
-                write!(&mut file, "\n## Errors\n{}", diagnostics.markdown_list(&document)).unwrap();
+                write!(
+                    &mut file,
+                    "\n## Errors\n{}",
+                    diagnostics.markdown_list(&document)
+                )
+                .unwrap();
             }
 
             write!(&mut file, "\n## JS\n```js\n").unwrap();

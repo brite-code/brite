@@ -48,7 +48,9 @@ impl Compiler {
     }
 
     fn compile_function(&mut self, function: &Function) -> (Vec<js::Pattern>, js::BlockStatement) {
-        self.scope_nest(|compiler| compiler.compile_function_without_nest(function))
+        self.scope_nest_js(|compiler| {
+            compiler.scope_nest(|compiler| compiler.compile_function_without_nest(function))
+        })
     }
 
     fn compile_function_without_nest(
@@ -60,29 +62,60 @@ impl Compiler {
             .iter()
             .map(|pattern| self.compile_pattern(pattern))
             .collect();
-        let body = function
-            .body
-            .statements
-            .iter()
-            .map(|statement| self.compile_statement(statement))
-            .collect();
-        (params, js::BlockStatement::new(body))
+        let mut js_statements = Vec::with_capacity(function.body.statements.len());
+        let return_expression = self.compile_block_without_nest(&mut js_statements, &function.body);
+        if let Some(return_expression) = return_expression {
+            js_statements.push(js::Statement::return_(return_expression));
+        }
+        (params, js::BlockStatement::new(js_statements))
     }
 
-    fn compile_statement(&mut self, statement: &Statement) -> js::Statement {
-        match &statement.kind {
+    /// Compiles the block without introducing a level of nesting. Pushes any statements into the
+    /// statement array and returns the final value of the block as a [`js::Expression`].
+    fn compile_block_without_nest(
+        &mut self,
+        js_statements: &mut Vec<js::Statement>,
+        block: &Block,
+    ) -> Option<js::Expression> {
+        for i in 0..block.statements.len() {
+            let statement = &block.statements[i];
+            if i == block.statements.len() - 1 {
+                if let StatementKind::Expression(expression) = &statement.kind {
+                    return Some(self.compile_expression(js_statements, expression));
+                } else {
+                    self.compile_statement(js_statements, statement);
+                    return None;
+                }
+            } else {
+                self.compile_statement(js_statements, statement);
+            }
+        }
+        debug_assert!(
+            block.statements.is_empty(),
+            "If there are block statements we should return from the above for-loop."
+        );
+        None
+    }
+
+    fn compile_statement(&mut self, js_statements: &mut Vec<js::Statement>, statement: &Statement) {
+        let js_statement = match &statement.kind {
             StatementKind::Expression(expression) => {
-                js::Statement::expression(self.compile_expression(expression))
+                js::Statement::expression(self.compile_expression(js_statements, expression))
             }
             StatementKind::Binding(binding) => js::Statement::variable_declaration(
                 js::VariableDeclarationKind::Const,
                 self.compile_pattern(&binding.pattern),
-                self.compile_expression(&binding.value),
+                self.compile_expression(js_statements, &binding.value),
             ),
-        }
+        };
+        js_statements.push(js_statement);
     }
 
-    fn compile_expression(&mut self, expression: &Expression) -> js::Expression {
+    fn compile_expression(
+        &mut self,
+        js_statements: &mut Vec<js::Statement>,
+        expression: &Expression,
+    ) -> js::Expression {
         match &expression.kind {
             ExpressionKind::Constant(Constant::Boolean(value)) => {
                 js::Expression::boolean_literal(*value)
@@ -110,11 +143,16 @@ impl Compiler {
                     LogicalOperator::And => js::LogicalOperator::And,
                     LogicalOperator::Or => js::LogicalOperator::Or,
                 },
-                self.compile_expression(&logical.left),
-                self.compile_expression(&logical.right),
+                self.compile_expression(js_statements, &logical.left),
+                self.compile_expression(js_statements, &logical.right),
             ),
 
-            ExpressionKind::Block(_) => unimplemented!(),
+            ExpressionKind::Block(block) => self.scope_nest(|compiler| {
+                compiler
+                    .compile_block_without_nest(js_statements, block)
+                    .unwrap_or_else(js::Expression::undefined_literal)
+            }),
+
             ExpressionKind::Error(_) => unimplemented!(),
 
             ExpressionKind::Unimplemented => unimplemented!(),
@@ -132,10 +170,16 @@ impl Compiler {
     /// Introduces a new level of nesting for Brite bindings.
     fn scope_nest<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
         self.bindings.manual_nest();
+        let x = f(self);
+        self.bindings.manual_unnest();
+        x
+    }
+
+    /// Introduces a new level of nesting for JavaScript bindings.
+    fn scope_nest_js<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
         self.bindings_js.manual_nest();
         let x = f(self);
         self.bindings_js.manual_unnest();
-        self.bindings.manual_unnest();
         x
     }
 

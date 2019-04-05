@@ -37,6 +37,7 @@ pub struct Statement(StatementKind);
 
 enum StatementKind {
     Expression(Expression),
+    Return(Expression),
     FunctionDeclaration(FunctionDeclaration),
     VariableDeclaration(VariableDeclaration),
 }
@@ -73,6 +74,7 @@ pub struct Expression(ExpressionKind);
 
 enum ExpressionKind {
     Identifier(Identifier),
+    UndefinedLiteral, // NOTE: Technically, `undefined` is not a keyword. We treat it like one anyway.
     BooleanLiteral(bool),
     NumericLiteral(f64),
     Logical(Box<LogicalExpression>),
@@ -98,6 +100,10 @@ enum PatternKind {
 impl Statement {
     pub fn expression(expression: Expression) -> Self {
         Statement(StatementKind::Expression(expression))
+    }
+
+    pub fn return_(argument: Expression) -> Self {
+        Statement(StatementKind::Return(argument))
     }
 
     pub fn function_declaration(
@@ -128,6 +134,10 @@ impl Statement {
 impl Expression {
     pub fn identifier(identifier: Identifier) -> Self {
         Expression(ExpressionKind::Identifier(identifier))
+    }
+
+    pub fn undefined_literal() -> Self {
+        Expression(ExpressionKind::UndefinedLiteral)
     }
 
     pub fn boolean_literal(value: bool) -> Self {
@@ -208,6 +218,7 @@ impl Statement {
             if k > 0 {
                 let newline = match &statements[k - 1].0 {
                     StatementKind::Expression(_) => false,
+                    StatementKind::Return(_) => false,
                     StatementKind::FunctionDeclaration(_) => true,
                     StatementKind::VariableDeclaration(_) => false,
                 };
@@ -227,6 +238,11 @@ impl Statement {
         match &self.0 {
             StatementKind::Expression(expression) => {
                 expression.write(w, i, Precedence::Top)?;
+                write!(w, ";\n")
+            }
+            StatementKind::Return(argument) => {
+                write!(w, "return ")?;
+                argument.write(w, i, Precedence::Top)?;
                 write!(w, ";\n")
             }
             StatementKind::FunctionDeclaration(function_declaration) => {
@@ -277,6 +293,7 @@ impl Expression {
     fn write<W: io::Write>(&self, w: &mut W, i: usize, p: Precedence) -> io::Result<()> {
         let precedence = match &self.0 {
             ExpressionKind::Identifier(_) => Precedence::Primary,
+            ExpressionKind::UndefinedLiteral => Precedence::Primary,
             ExpressionKind::BooleanLiteral(_) => Precedence::Primary,
             ExpressionKind::NumericLiteral(_) => Precedence::Primary,
             ExpressionKind::Logical(logical) => match &logical.operator {
@@ -289,6 +306,7 @@ impl Expression {
         }
         match &self.0 {
             ExpressionKind::Identifier(identifier) => identifier.write(w)?,
+            ExpressionKind::UndefinedLiteral => write!(w, "undefined")?,
             ExpressionKind::BooleanLiteral(true) => write!(w, "true")?,
             ExpressionKind::BooleanLiteral(false) => write!(w, "false")?,
             ExpressionKind::NumericLiteral(value) => {
