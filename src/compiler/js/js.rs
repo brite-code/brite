@@ -7,7 +7,11 @@ use std::io;
 
 /// A valid JavaScript identifier.
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Identifier(String);
+pub struct Identifier(
+    // TODO: We end up cloning `js_identifier` a lot. Benchmark to see if sharing the identifier
+    // with an `Rc` or `Arena` is faster.
+    String,
+);
 
 impl Identifier {
     /// Create a new identifier without checking to see if the string is a valid
