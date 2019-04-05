@@ -64,7 +64,7 @@
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
 use crate::parser::ast::{Constant, LogicalOperator, PrefixOperator};
-use crate::parser::{Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
+use crate::parser::{Document, Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::{Markup, MarkupCode};
 use std::fmt::{self, Write};
 use std::rc::Rc;
@@ -360,7 +360,7 @@ impl Diagnostic {
     /// The parser ran into the end of the source document unexpectedly.
     pub fn unexpected_ending(position: Position, expected: ExpectedSyntax) -> Self {
         Self::error(
-            Range::new(position, position),
+            Range::position(position),
             ErrorDiagnosticMessage::UnexpectedEnding { expected },
         )
     }
@@ -1086,19 +1086,19 @@ impl DiagnosticsCollection {
     }
 
     /// Prints our diagnostic collection to a markdown list for debugging purposes.
-    pub fn markdown_list(&self) -> String {
+    pub fn markdown_list(&self, document: &Document) -> String {
         let mut output = String::new();
         for diagnostic in &self.diagnostics {
             let (message, related_information) = diagnostic.message();
             output.push_str(&format!(
                 "- ({}) {}\n",
-                diagnostic.range,
+                diagnostic.range.display(document),
                 message.to_simple_string()
             ));
             for info in related_information {
                 output.push_str(&format!(
                     "  - ({}) {}\n",
-                    info.range,
+                    info.range.display(document),
                     info.message.to_simple_string()
                 ));
             }

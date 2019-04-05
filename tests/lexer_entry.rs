@@ -5,7 +5,7 @@ macro_rules! test {
         #[test]
         fn $name() {
             use brite::diagnostics::DiagnosticsCollection;
-            use brite::parser::{Lexer, Token};
+            use brite::parser::{Document, Lexer, Token};
             use std::fs;
             use std::path::PathBuf;
 
@@ -20,9 +20,10 @@ macro_rules! test {
                 .replace("\\t", "\t");
 
             let mut diagnostics = DiagnosticsCollection::new();
-            let mut lexer = Lexer::new(&mut diagnostics, &source);
+            let document = Document::new(source);
+            let mut lexer = Lexer::new(&mut diagnostics, &document);
             let mut tokens = Vec::new();
-            while let Some(token) = lexer.next() {
+            while let Some(token) = lexer.advance() {
                 tokens.push(token);
             }
             let end_token = lexer.end().unwrap();
@@ -33,15 +34,15 @@ macro_rules! test {
             if !diagnostics.is_empty() {
                 contents.push_str("\n");
                 contents.push_str("## Errors\n");
-                contents.push_str(&diagnostics.markdown_list());
+                contents.push_str(&diagnostics.markdown_list(&document));
             }
             contents.push_str("\n");
             contents.push_str("## Tokens\n");
-            contents.push_str(&Token::markdown_table(&tokens, &end_token));
+            contents.push_str(&Token::markdown_table(&document, &tokens, &end_token));
 
             fs::write(path, contents).unwrap();
 
-            assert_eq!(Token::source(&tokens, &end_token), source);
+            assert_eq!(Token::source(&tokens, &end_token), document.source());
         }
     };
 }

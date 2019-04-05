@@ -1,182 +1,14 @@
+use super::document::{Document, DocumentChars, Position, Range};
 use crate::diagnostics::*;
-use crate::utils::peek2::Peekable2;
 use num::BigInt;
 use std::cmp;
 use std::f64;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::iter;
-use std::str::{Chars, FromStr};
+use std::rc::Rc;
+use std::str::FromStr;
 use unicode_xid::UnicodeXID;
-
-/// A position between two characters in a Brite source code document. This is the same as a
-/// position in the [Language Server Protocol (LSP)][1]. To get the line and character locations of
-/// a position you need a `Document` object.
-///
-/// Some examples of positions where `|` represents a position:
-///
-/// - `|abcdef`: Here the position is 0 since it is at the very beginning of our string.
-/// - `a|bcdef`: Here the position is 1 since it is between our first and second characters.
-/// - `abc|def`: Here the position is 3 since it is between our third and fourth characters.
-/// - `abcdef|`: Here the position is 6 since it is after our sixth character at the end.
-///
-/// We need to keep this small as an AST will contain a _lot_ of positions. Currently 32 bits.
-///
-/// [1]: https://microsoft.github.io/language-server-protocol/specification
-#[derive(Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Position {
-    /// The zero-based line number of this position in the provided document. A new line is
-    /// created by `\n`, `\r\n`, or `\r`.
-    line: u16,
-    /// The zero-based character number of this position in the provided document. As per the
-    /// [LSP][1] specification, character offsets are measured in UTF-16 code units.
-    ///
-    /// [1]: https://microsoft.github.io/language-server-protocol/specification
-    character: u16,
-}
-
-impl Position {
-    /// The initial position.
-    pub fn initial() -> Self {
-        Position {
-            line: 0,
-            character: 0,
-        }
-    }
-
-    /// The zero-based line number of this position in the provided document. A new line is
-    /// created by `\n`, `\r\n`, or `\r`.
-    pub fn line(self) -> u16 {
-        self.line
-    }
-
-    /// The zero-based character number of this position in the provided document. As per the
-    /// [LSP][1] specification, character offsets are measured in UTF-16 code units.
-    ///
-    /// [1]: https://microsoft.github.io/language-server-protocol/specification
-    pub fn character(self) -> u16 {
-        self.character
-    }
-}
-
-impl fmt::Display for Position {
-    /// Formats a position for human consumption. While the [Language Server Protocol][1] positions
-    /// start at 0, we format the position starting at 1 since that’s how most tools display
-    /// positions to the programmer.
-    ///
-    /// [1]: https://microsoft.github.io/language-server-protocol/specification
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}", self.line + 1, self.character + 1)
-    }
-}
-
-impl fmt::Debug for Position {
-    /// Uses the [`fmt::Display`] implementation.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
-
-/// A range in a text document expressed as start and end positions. A range is comparable to a
-/// selection in an editor. Therefore the end position is exclusive.
-///
-/// We need to keep this small as an AST will contain a _lot_ of ranges. Currently 64 bits.
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub struct Range {
-    /// The range’s start position. Always less than or equal to `end`.
-    start: Position,
-    /// The range’s end position, not-inclusive. Always greater than or equal to `start`.
-    end: Position,
-}
-
-impl Range {
-    /// Creates a new range with a start and end position. If `end` is less than `start` we flip the
-    /// arguments around.
-    pub fn new(start: Position, end: Position) -> Self {
-        if start <= end {
-            Range { start, end }
-        } else {
-            let (start, end) = (end, start);
-            Range { start, end }
-        }
-    }
-
-    /// Creates a new range that starts at the provided position and ends `length` characters away
-    /// from that position.
-    pub fn after(start: Position, length: u16) -> Self {
-        let mut end = start;
-        end.character += length;
-        Range { start, end }
-    }
-
-    /// Create an empty range at the provided position.
-    pub fn position(position: Position) -> Self {
-        Self::new(position, position)
-    }
-
-    /// Create an empty range at the initial position.
-    pub fn initial() -> Self {
-        Self::position(Position::initial())
-    }
-
-    /// Returns the start position of our range.
-    pub fn start(self) -> Position {
-        self.start
-    }
-
-    /// Returns the end position of our range. Will always be greater than or equal to the start
-    /// position. Remember that range is not inclusive.
-    pub fn end(self) -> Position {
-        self.end
-    }
-
-    /// Gets the range of a single [`char`] that starts at the provided position.
-    ///
-    /// This only measures the range of a single [`char`]! It is incorrect in respect to CRLF!
-    pub fn single_char(start: Position, c: char) -> Self {
-        let mut end = start.clone();
-        // This behaves correctly for CRLF (`\r\n`) as well because we would count it as a single
-        // line and we would not be able to measure a position between the CR (`\r`) and LF (`\n`).
-        if c == '\n' || c == '\r' {
-            end.line += 1;
-            end.character = 0;
-        } else {
-            // Make sure to add UTF-16!
-            end.character += c.len_utf16() as u16;
-        }
-        Range { start, end }
-    }
-
-    /// Creates a new range that covers both of the provided ranges.
-    pub fn union(self, other: Range) -> Self {
-        Range {
-            start: cmp::min(self.start, other.start),
-            end: cmp::max(self.end, other.end),
-        }
-    }
-
-    /// Does this range intersect with the other range?
-    pub fn intersects(self, other: Range) -> bool {
-        !(self.end < other.start || other.end < self.start)
-    }
-}
-
-impl fmt::Display for Range {
-    /// Formats a range for human consumption. While the [Language Server Protocol][1] positions
-    /// start at 0, we format the position starting at 1 since that’s how most tools display
-    /// positions to the programmer.
-    ///
-    /// [1]: https://microsoft.github.io/language-server-protocol/specification
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}-{}", self.start, self.end)
-    }
-}
-
-impl fmt::Debug for Range {
-    /// Uses the [`fmt::Display`] implementation.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(self, f)
-    }
-}
 
 /// A token is a more semantic unit for describing Brite source code documents than a character.
 /// Through the tokenization of a document we add meaning by parsing low-level code elements like
@@ -485,16 +317,27 @@ impl IdentifierKeyword {
 /// means, in this example, code transformations could not easily make expression identifiers out of
 /// pattern identifiers.
 ///
+/// ## Representation
+///
+/// Identifiers are represented using a backing, shared, string and a pointer/length into the
+/// string. You can think of an identifier as a slice of a reference-counted [`String`].
+///
+/// We use `u32`s for the start and length since we’ll have a lot of identifiers in our AST. Also
+/// `u32`s match the representation for [`Position`].
+///
 /// [1]: http://www.unicode.org/reports/tr31
-#[derive(Clone, Eq, Hash, PartialEq)]
-pub struct Identifier(
-    // TODO: Use a shared reference to the source document?
-    String,
-);
+pub struct Identifier {
+    source: Rc<String>,
+    start: u32,
+    length: u32,
+}
 
 impl Identifier {
     /// Creates a new identifier. Returns `None` if the string is not a valid identifier. If the
     /// identifier is a keyword then it is not a valid identifier so we return `None`.
+    ///
+    /// If we have a valid identifier then this allocates a new reference-counted string based on
+    /// the provided identifier string.
     pub fn new(identifier: &str) -> Option<Identifier> {
         let mut chars = identifier.chars();
         match chars.next() {
@@ -510,12 +353,17 @@ impl Identifier {
         if Keyword::from_str(identifier).is_some() {
             return None;
         }
-        Some(Identifier(identifier.to_string()))
+        Some(Identifier {
+            source: Rc::new(identifier.to_string()),
+            start: 0,
+            length: identifier.len() as u32,
+        })
     }
 
     /// Gets the source string for this identifier.
+    #[inline(always)]
     pub fn as_str(&self) -> &str {
-        &self.0
+        &self.source[(self.start as usize)..((self.start + self.length) as usize)]
     }
 
     /// Does this start an identifier?
@@ -546,9 +394,36 @@ impl Identifier {
     }
 }
 
+impl Clone for Identifier {
+    #[inline(always)]
+    fn clone(&self) -> Self {
+        Identifier {
+            source: Rc::clone(&self.source),
+            start: self.start,
+            length: self.length,
+        }
+    }
+}
+
+impl PartialEq<Identifier> for Identifier {
+    #[inline(always)]
+    fn eq(&self, other: &Identifier) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Eq for Identifier {}
+
+impl Hash for Identifier {
+    #[inline(always)]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
+}
+
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        self.as_str().fmt(f)
     }
 }
 
@@ -679,65 +554,66 @@ pub struct Lexer<'errs, 'src> {
     /// instead of using this reference directly so that we may switch out the implementation of
     /// [`Lexer::report_diagnostic`] at any time.
     _diagnostics: &'errs mut DiagnosticsCollection,
+    /// The document itself we are lexing.
+    document: &'src Document,
     /// In iterator of document characters which also keeps track of the current position.
-    chars: Peekable2<Chars<'src>>,
-    /// The current position of the lexer.
-    position: Position,
+    chars: DocumentChars<'src>,
     /// The last token in a document. If we have an end token then the lexer is done iterating.
     end: Option<EndToken<'src>>,
-    /// The programmer may peek at the next token, if they have done so we’ll have a token here.
-    peeked: Option<Option<Token<'src>>>,
+    /// The programmer may lookahead at the next token, if they have done so we’ll have a
+    /// token here.
+    lookahead: Option<Option<Token<'src>>>,
 }
 
 impl<'errs, 'src> Lexer<'errs, 'src> {
     /// Creates a new lexer from source code.
     pub fn new(
         diagnostics: &'errs mut DiagnosticsCollection,
-        source: &'src str,
+        document: &'src Document,
     ) -> Lexer<'errs, 'src> {
         Lexer {
             _diagnostics: diagnostics,
-            chars: Peekable2::new(source.chars()),
-            position: Position::initial(),
+            document,
+            chars: document.chars(),
             end: None,
-            peeked: None,
+            lookahead: None,
         }
     }
 
-    /// Look at the next token without advancing the iterator. Next time [`Lexer::next`] is called
-    /// the same token will be returned and the iterator will advance.
+    /// Look at the next token without advancing the iterator. Next time [`Lexer::advance`] is
+    /// called the same token will be returned and the iterator will advance.
     ///
     /// Peeking _will_ advance the lexer’s end token state which is observed through
-    /// [`Lexer::peek_end`]. If [`Lexer::next`] returns some and [`Lexer::peek`] returns none, then
-    /// [`Lexer::peek_end`] will return an [`EndToken`] even though [`Lexer::next`] has not advanced
-    /// the lexer to the end.
-    pub fn peek(&mut self) -> Option<&Token<'src>> {
-        if self.peeked.is_none() {
-            self.peeked = Some(self.next());
+    /// [`Lexer::lookahead_end`]. If [`Lexer::advance`] returns `Some()` and [`Lexer::lookahead`]
+    /// returns `None`, then [`Lexer::lookahead_end`] will return an [`EndToken`] even though
+    /// [`Lexer::advance`] has not advanced the lexer to the end.
+    pub fn lookahead(&mut self) -> Option<&Token<'src>> {
+        if self.lookahead.is_none() {
+            self.lookahead = Some(self.advance());
         }
-        match &self.peeked {
+        match &self.lookahead {
             Some(next) => next.as_ref(),
             None => unreachable!(),
         }
     }
 
-    /// When one is done with their lexer they may call this function to get the final `EndToken`.
-    /// If [`Lexer::next`] returns `None` it is guaranteed that [`Lexer::end`] will return
-    /// an `EndToken`.
+    /// When one is done with their lexer they may call this function to get the final [`EndToken`].
+    /// If [`Lexer::advance`] returns `None` it is guaranteed that [`Lexer::end`] will return
+    /// an [`EndToken`].
     ///
-    /// If [`Lexer::peek`] returns `None` then [`Lexer::end`] will also return an `EndToken`. This
-    /// means peeking will advance the iterator’s end token state.
+    /// If [`Lexer::lookahead`] returns `None` then [`Lexer::end`] will also return an [`EndToken`].
+    /// This means peeking will advance the iterator’s end token state.
     pub fn end(self) -> Option<EndToken<'src>> {
         self.end
     }
 
     /// Allows one to peek at the lexer’s [`EndToken`] without consuming the lexer. If
     /// [`Lexer::next`] returns `None` it is guaranteed that [`Lexer::peek_end`] will return
-    /// an `EndToken`.
+    /// an [`EndToken`].
     ///
-    /// If [`Lexer::peek`] returns `None` then [`Lexer::peek_end`] will also return an `EndToken`.
-    /// This means peeking will advance the iterator’s end token state.
-    pub fn peek_end(&self) -> Option<&EndToken<'src>> {
+    /// If [`Lexer::lookahead`] returns `None` then [`Lexer::lookahead_end`] will also return an
+    /// [`EndToken`]. This means peeking will advance the iterator’s end token state.
+    pub fn lookahead_end(&self) -> Option<&EndToken<'src>> {
         self.end.as_ref()
     }
 
@@ -754,9 +630,9 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
     ///
     /// We don’t implement [`Iterator`] since our lexer provides many stateful services which would
     /// be hidden or broken by iterator composition.
-    pub fn next(&mut self) -> Option<Token<'src>> {
+    pub fn advance(&mut self) -> Option<Token<'src>> {
         // If we’ve peeked, then let’s return the peeked iterator step.
-        if let Some(next) = self.peeked.take() {
+        if let Some(next) = self.lookahead.take() {
             return next;
         }
 
@@ -766,192 +642,126 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
         }
 
         let leading_trivia = self.next_trivia(true);
-        let start = self.position;
+        let start = self.chars.position();
 
-        let kind = match self.chars.next() {
+        let kind = match self.chars.advance() {
             // Single character glyphs
-            Some('*') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Asterisk)
-            }
-            Some('{') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::BraceLeft)
-            }
-            Some('}') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::BraceRight)
-            }
-            Some('[') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::BracketLeft)
-            }
-            Some(']') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::BracketRight)
-            }
-            Some('^') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Caret)
-            }
-            Some(':') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Colon)
-            }
-            Some(',') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Comma)
-            }
-            Some('(') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::ParenLeft)
-            }
-            Some(')') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::ParenRight)
-            }
-            Some('%') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Percent)
-            }
-            Some('+') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Plus)
-            }
-            Some(';') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Semicolon)
-            }
-            Some('/') => {
-                self.position.character += 1;
-                TokenKind::Glyph(Glyph::Slash)
-            }
+            Some('*') => TokenKind::Glyph(Glyph::Asterisk),
+            Some('{') => TokenKind::Glyph(Glyph::BraceLeft),
+            Some('}') => TokenKind::Glyph(Glyph::BraceRight),
+            Some('[') => TokenKind::Glyph(Glyph::BracketLeft),
+            Some(']') => TokenKind::Glyph(Glyph::BracketRight),
+            Some('^') => TokenKind::Glyph(Glyph::Caret),
+            Some(':') => TokenKind::Glyph(Glyph::Colon),
+            Some(',') => TokenKind::Glyph(Glyph::Comma),
+            Some('(') => TokenKind::Glyph(Glyph::ParenLeft),
+            Some(')') => TokenKind::Glyph(Glyph::ParenRight),
+            Some('%') => TokenKind::Glyph(Glyph::Percent),
+            Some('+') => TokenKind::Glyph(Glyph::Plus),
+            Some(';') => TokenKind::Glyph(Glyph::Semicolon),
+            Some('/') => TokenKind::Glyph(Glyph::Slash),
 
             // Multiple character glyphs
-            Some('&') => match self.chars.peek() {
+            Some('&') => match self.chars.lookahead() {
                 Some('&') => {
-                    self.chars.next();
-                    self.position.character += 2;
+                    self.chars.advance();
                     TokenKind::Glyph(Glyph::AmpersandDouble)
                 }
-                _ => {
-                    self.position.character += 1;
-                    TokenKind::Glyph(Glyph::Ampersand)
-                }
+                _ => TokenKind::Glyph(Glyph::Ampersand),
             },
-            Some('|') => match self.chars.peek() {
+            Some('|') => match self.chars.lookahead() {
                 Some('|') => {
-                    self.chars.next();
-                    self.position.character += 2;
+                    self.chars.advance();
                     TokenKind::Glyph(Glyph::BarDouble)
                 }
-                _ => {
-                    self.position.character += 1;
-                    TokenKind::Glyph(Glyph::Bar)
-                }
+                _ => TokenKind::Glyph(Glyph::Bar),
             },
-            Some('=') => match self.chars.peek() {
+            Some('=') => match self.chars.lookahead() {
                 Some('=') => {
-                    self.chars.next();
-                    self.position.character += 2;
+                    self.chars.advance();
                     TokenKind::Glyph(Glyph::EqualsDouble)
                 }
-                _ => {
-                    self.position.character += 1;
-                    TokenKind::Glyph(Glyph::Equals)
-                }
+                _ => TokenKind::Glyph(Glyph::Equals),
             },
-            Some('!') => match self.chars.peek() {
+            Some('!') => match self.chars.lookahead() {
                 Some('=') => {
-                    self.chars.next();
-                    self.position.character += 2;
+                    self.chars.advance();
                     TokenKind::Glyph(Glyph::EqualsNot)
                 }
-                _ => {
-                    self.position.character += 1;
-                    TokenKind::Glyph(Glyph::Bang)
-                }
+                _ => TokenKind::Glyph(Glyph::Bang),
             },
-            Some('>') => match self.chars.peek() {
+            Some('>') => match self.chars.lookahead() {
                 Some('=') => {
-                    self.chars.next();
-                    self.position.character += 2;
+                    self.chars.advance();
                     TokenKind::Glyph(Glyph::GreaterThanOrEqual)
                 }
-                _ => {
-                    self.position.character += 1;
-                    TokenKind::Glyph(Glyph::GreaterThan)
-                }
+                _ => TokenKind::Glyph(Glyph::GreaterThan),
             },
-            Some('<') => match self.chars.peek() {
+            Some('<') => match self.chars.lookahead() {
                 Some('=') => {
-                    self.chars.next();
-                    self.position.character += 2;
+                    self.chars.advance();
                     TokenKind::Glyph(Glyph::LessThanOrEqual)
                 }
-                _ => {
-                    self.position.character += 1;
-                    TokenKind::Glyph(Glyph::LessThan)
-                }
+                _ => TokenKind::Glyph(Glyph::LessThan),
             },
-            Some('-') => match self.chars.peek() {
+            Some('-') => match self.chars.lookahead() {
                 Some('>') => {
-                    self.chars.next();
-                    self.position.character += 2;
+                    self.chars.advance();
                     TokenKind::Glyph(Glyph::Arrow)
                 }
-                _ => {
-                    self.position.character += 1;
-                    TokenKind::Glyph(Glyph::Minus)
-                }
+                _ => TokenKind::Glyph(Glyph::Minus),
             },
 
             // Identifier
             Some(c) if Identifier::is_start(c) => {
-                let mut identifier = String::new();
-                identifier.push(c);
-                self.position.character += c.len_utf16() as u16;
                 loop {
-                    match self.chars.peek() {
-                        Some(c) if Identifier::is_continue(*c) => {
-                            identifier.push(*c);
-                            self.position.character += c.len_utf16() as u16;
-                            self.chars.next();
+                    match self.chars.lookahead() {
+                        Some(c) if Identifier::is_continue(c) => {
+                            self.chars.advance();
                         }
                         _ => break,
                     }
                 }
-                if let Some(keyword) = Keyword::from_str(&identifier) {
+                let start = start.index_utf8();
+                let end = self.chars.position().index_utf8();
+                let identifier = &self.document.source()[(start as usize)..(end as usize)];
+                if let Some(keyword) = Keyword::from_str(identifier) {
                     TokenKind::Glyph(Glyph::Keyword(keyword))
                 } else {
-                    identifier.shrink_to_fit();
-                    TokenKind::Identifier(Identifier(identifier))
+                    TokenKind::Identifier(Identifier {
+                        source: self.document.source_rc(),
+                        start,
+                        length: end - start,
+                    })
                 }
             }
 
             // Number
             Some(c) if c.is_digit(10) || c == '.' => {
-                self.position.character += 1;
-                if c == '.' && self.chars.peek().map(|c| !c.is_digit(10)).unwrap_or(true) {
+                if c == '.'
+                    && self
+                        .chars
+                        .lookahead()
+                        .map(|c| !c.is_digit(10))
+                        .unwrap_or(true)
+                {
                     TokenKind::Glyph(Glyph::Dot)
                 } else {
                     let mut raw = String::new();
                     raw.push(c);
 
-                    let (expected, kind) = match (c, self.chars.peek()) {
+                    let (expected, kind) = match (c, self.chars.lookahead()) {
                         // Binary integer
                         ('0', Some('b')) | ('0', Some('B')) => {
-                            raw.push(self.chars.next().unwrap());
-                            self.position.character += 1;
+                            raw.push(self.chars.advance().unwrap());
                             let mut value = BigInt::from(0);
                             loop {
-                                match self.chars.peek() {
+                                match self.chars.lookahead() {
                                     Some('0') => value = value * 2 + 0,
                                     Some('1') => value = value * 2 + 1,
                                     _ => break,
                                 }
-                                raw.push(self.chars.next().unwrap());
-                                self.position.character += 1;
+                                raw.push(self.chars.advance().unwrap());
                             }
                             let kind = if raw.len() == 2 {
                                 // If we did not get any digits then report an error.
@@ -965,11 +775,10 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
                         // Hexadecimal integer
                         ('0', Some('x')) | ('0', Some('X')) => {
-                            raw.push(self.chars.next().unwrap());
-                            self.position.character += 1;
+                            raw.push(self.chars.advance().unwrap());
                             let mut value = BigInt::from(0);
                             loop {
-                                match self.chars.peek() {
+                                match self.chars.lookahead() {
                                     Some('0') => value = value * 16 + 0,
                                     Some('1') => value = value * 16 + 1,
                                     Some('2') => value = value * 16 + 2,
@@ -988,8 +797,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                                     Some('f') | Some('F') => value = value * 16 + 15,
                                     _ => break,
                                 }
-                                raw.push(self.chars.next().unwrap());
-                                self.position.character += 1;
+                                raw.push(self.chars.advance().unwrap());
                             }
                             let kind = if raw.len() == 2 {
                                 // If we did not get any digits then report an error.
@@ -1010,7 +818,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                                 NumberState::Whole
                             };
                             loop {
-                                match (state, self.chars.peek()) {
+                                match (state, self.chars.lookahead()) {
                                     // Always add digits to the state. Some states will need to
                                     // be changed.
                                     (NumberState::ExponentStart, Some(c))
@@ -1038,8 +846,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
                                     _ => break,
                                 }
-                                raw.push(self.chars.next().unwrap());
-                                self.position.character += 1;
+                                raw.push(self.chars.advance().unwrap());
                             }
                             let kind = match state {
                                 // A whole number parses as an integer of arbitrary precision.
@@ -1065,29 +872,27 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                             (ExpectedSyntax::DecimalDigit, kind)
                         }
                     };
-                    match self.chars.peek() {
+                    match self.chars.lookahead() {
                         // A number may not be followed by an identifier! If our number is followed
                         // by an identifier than report a diagnostic and return an invalid
                         // number token.
-                        Some(c) if Identifier::is_continue(*c) => {
-                            let c = *c;
+                        Some(c) if Identifier::is_continue(c) => {
                             let diagnostic = match kind {
                                 NumberKind::Invalid(diagnostic) => diagnostic,
                                 _ => {
+                                    let position = self.chars.position();
                                     let diagnostic =
-                                        Diagnostic::unexpected_char(self.position, c, expected);
+                                        Diagnostic::unexpected_char(position, c, expected);
                                     self.report_diagnostic(diagnostic)
                                 }
                             };
                             raw.push(c);
-                            self.position.character += c.len_utf16() as u16;
-                            self.chars.next();
+                            self.chars.advance();
                             loop {
-                                match self.chars.peek() {
-                                    Some(c) if Identifier::is_continue(*c) => {
-                                        raw.push(*c);
-                                        self.position.character += c.len_utf16() as u16;
-                                        self.chars.next();
+                                match self.chars.lookahead() {
+                                    Some(c) if Identifier::is_continue(c) => {
+                                        raw.push(c);
+                                        self.chars.advance();
                                     }
                                     _ => break,
                                 }
@@ -1111,25 +916,22 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
             }
 
             // If we encountered an unexpected character then add an unexpected character token.
-            Some(c) => {
-                self.position.character += c.len_utf16() as u16;
-                TokenKind::UnexpectedChar(c)
-            }
+            Some(c) => TokenKind::UnexpectedChar(c),
 
             // If we’ve reached the end then create our `EndToken` and return `None`.
             None => {
                 self.end = Some(EndToken {
-                    position: self.position,
+                    position: self.chars.position(),
                     leading_trivia,
                 });
                 return None;
             }
         };
 
-        let end = self.position;
+        let end = self.chars.position();
         let trailing_trivia = self.next_trivia(false);
 
-        let range = Range::new(start, end);
+        let range = Range::new(start, end.index_utf8() - start.index_utf8());
 
         // Return the token we just parsed.
         Some(Token {
@@ -1146,145 +948,126 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
         let mut trivia = Vec::new();
 
         loop {
-            match self.chars.peek() {
+            match self.chars.lookahead() {
                 // Spaces
                 Some(' ') => {
-                    self.chars.next();
+                    self.chars.advance();
                     let mut n = 1;
-                    while let Some(' ') = self.chars.peek() {
-                        self.chars.next();
+                    while let Some(' ') = self.chars.lookahead() {
+                        self.chars.advance();
                         n += 1;
                     }
                     trivia.push(Trivia::Spaces(n));
-                    self.position.character += n as u16;
                 }
 
                 // Tabs
                 Some('\t') => {
-                    self.chars.next();
+                    self.chars.advance();
                     let mut n = 1;
-                    while let Some('\t') = self.chars.peek() {
-                        self.chars.next();
+                    while let Some('\t') = self.chars.lookahead() {
+                        self.chars.advance();
                         n += 1;
                     }
                     trivia.push(Trivia::Tabs(n));
-                    self.position.character += n as u16;
                 }
 
                 // Newlines (LF)
                 Some('\n') => {
-                    self.chars.next();
+                    self.chars.advance();
                     let mut n = 1;
 
                     // After we see one newline in trailing trivia, stop parsing trivia!
                     if !leading {
                         trivia.push(Trivia::Newlines(Newline::LF, n));
-                        self.position.line += 1;
-                        self.position.character = 0;
                         break;
                     }
 
-                    while let Some('\n') = self.chars.peek() {
-                        self.chars.next();
+                    while let Some('\n') = self.chars.lookahead() {
+                        self.chars.advance();
                         n += 1;
                     }
                     trivia.push(Trivia::Newlines(Newline::LF, n));
-                    self.position.line += n as u16;
-                    self.position.character = 0;
                 }
 
                 // Newlines (CR and CRLF)
                 Some('\r') => {
-                    self.chars.next();
+                    self.chars.advance();
                     let mut n = 1;
-                    if let Some('\n') = self.chars.peek() {
-                        self.chars.next();
+                    if let Some('\n') = self.chars.lookahead() {
+                        self.chars.advance();
 
                         // After we see one newline in trailing trivia, stop parsing trivia!
                         if !leading {
                             trivia.push(Trivia::Newlines(Newline::CRLF, n));
-                            self.position.line += 1;
-                            self.position.character = 0;
                             break;
                         }
 
-                        while self.chars.peek() == Some(&'\r') && self.chars.peek2() == Some(&'\n')
+                        while self.chars.lookahead() == Some('\r')
+                            && self.chars.lookahead2() == Some('\n')
                         {
-                            self.chars.next();
-                            self.chars.next();
+                            self.chars.advance();
+                            self.chars.advance();
                             n += 1;
                         }
                         trivia.push(Trivia::Newlines(Newline::CRLF, n));
-                        self.position.line += n as u16;
-                        self.position.character = 0;
                     } else {
                         // After we see one newline in trailing trivia, stop parsing trivia!
                         if !leading {
                             trivia.push(Trivia::Newlines(Newline::CR, n));
-                            self.position.line += 1;
-                            self.position.character = 0;
                             break;
                         }
 
-                        while let Some('\r') = self.chars.peek() {
-                            self.chars.next();
+                        while let Some('\r') = self.chars.lookahead() {
+                            self.chars.advance();
                             n += 1;
                         }
                         trivia.push(Trivia::Newlines(Newline::CR, n));
-                        self.position.line += n as u16;
-                        self.position.character = 0;
                     }
                 }
 
                 // Comments
-                Some('/') => match self.chars.peek2() {
+                Some('/') => match self.chars.lookahead2() {
                     // Line comments
                     Some('/') => {
-                        self.chars.next();
-                        self.chars.next();
-                        self.position.character += 2;
+                        self.chars.advance();
+                        self.chars.advance();
 
-                        // Get the remaining string slice. Our comment will be a sub-slice of this.
-                        let source = self.chars.iter().as_str();
+                        // Get the starting index.
+                        let start = self.chars.position().index_utf8() as usize;
 
                         // Loop through all of the characters in our comment. The comment either
                         // ends when we’ve reached the end of our source or when we see a newline.
                         //
                         // This loop will return the length of the remaining string slice. We will
                         // use that length to get a sub-slice for our comment.
-                        let source_len = loop {
-                            match self.chars.peek() {
-                                None => break 0,
-                                Some('\n') | Some('\r') => {
-                                    break self.chars.iter().as_str().len() + 1
-                                }
-                                Some(c) => {
-                                    self.position.character += c.len_utf16() as u16;
-                                    self.chars.next();
+                        loop {
+                            match self.chars.lookahead() {
+                                None => break,
+                                Some('\n') | Some('\r') => break,
+                                Some(_) => {
+                                    self.chars.advance();
                                 }
                             }
-                        };
+                        }
 
-                        // This is safe because we know that both `source.len()` and `source_len`
-                        // are on character boundaries.
-                        let comment =
-                            unsafe { source.get_unchecked(..(source.len() - source_len)) };
+                        // This is safe because we know that `Position` falls on UTF-8 boundaries.
+                        let end = self.chars.position().index_utf8() as usize;
+                        let comment = &self.document.source()[start..end];
 
                         trivia.push(Trivia::Comment(Comment::Line(comment)));
                     }
 
                     // Block comments
                     Some('*') => {
-                        self.chars.next();
-                        self.chars.next();
-                        self.position.character += 2;
+                        self.chars.advance();
+                        self.chars.advance();
 
-                        // Get the remaining string slice. Our comment will be a sub-slice of this.
-                        let source = self.chars.iter().as_str();
-                        // Remember the previous line number. If there’s a new-line inside our
-                        // comment and we’re parsing trailing trivia we’ll want to stop
+                        // Get the starting index.
+                        let start = self.chars.position().index_utf8() as usize;
+                        // Remember if we see newlines in our comment. If there’s a newline inside
+                        // our comment and we’re parsing trailing trivia we’ll want to stop
                         // parsing trivia.
-                        let last_position_line = self.position.line;
+                        let mut newline = false;
                         // We allow block comment nesting so keep track of the block comment depth.
                         let mut depth = 1;
 
@@ -1298,60 +1081,48 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         //   source code.
                         // - We need to report the length of our remaining source so that we can get
                         //   a sub-slice of the source for our comment.
-                        let (ends_ok, source_len) = loop {
-                            match self.chars.next() {
+                        let ends_ok = loop {
+                            match self.chars.advance() {
                                 // Subtract from the block comment depth and possible break out of
                                 // the loop.
-                                Some('*') => {
-                                    self.position.character += 1;
-                                    match self.chars.peek() {
-                                        Some('/') => {
-                                            self.chars.next();
-                                            self.position.character += 1;
-                                            depth -= 1;
-                                            if depth == 0 {
-                                                break (true, self.chars.iter().as_str().len() + 2);
-                                            }
+                                Some('*') => match self.chars.lookahead() {
+                                    Some('/') => {
+                                        self.chars.advance();
+                                        depth -= 1;
+                                        if depth == 0 {
+                                            break true;
                                         }
-                                        _ => {}
                                     }
-                                }
+                                    _ => {}
+                                },
                                 // Add to the block comment depth.
-                                Some('/') => {
-                                    self.position.character += 1;
-                                    match self.chars.peek() {
-                                        Some('*') => {
-                                            self.chars.next();
-                                            self.position.character += 1;
-                                            depth += 1;
-                                        }
-                                        _ => {}
+                                Some('/') => match self.chars.lookahead() {
+                                    Some('*') => {
+                                        self.chars.advance();
+                                        depth += 1;
                                     }
-                                }
+                                    _ => {}
+                                },
                                 // LF
-                                Some('\n') => {
-                                    self.position.line += 1;
-                                    self.position.character = 0;
-                                }
+                                Some('\n') => newline = true,
                                 // CR and CRLF
                                 Some('\r') => {
-                                    self.position.line += 1;
-                                    self.position.character = 0;
-                                    if let Some('\n') = self.chars.peek() {
-                                        self.chars.next();
+                                    newline = true;
+                                    if let Some('\n') = self.chars.lookahead() {
+                                        self.chars.advance();
                                     }
                                 }
                                 // Other characters
-                                Some(c) => self.position.character += c.len_utf16() as u16,
+                                Some(_) => {}
                                 // Exit if there are no more characters.
-                                None => break (false, 0),
+                                None => break false,
                             }
                         };
 
-                        // This is safe because we know that both `source.len()` and `source_len`
-                        // are on character boundaries.
-                        let comment =
-                            unsafe { source.get_unchecked(..(source.len() - source_len)) };
+                        // This is safe because we know that `Position` falls on UTF-8 boundaries.
+                        let end = self.chars.position().index_utf8() as usize;
+                        let end = if ends_ok { end - 2 } else { end };
+                        let comment = &self.document.source()[start..end];
 
                         // If the block comment did not end ok then we need to report an
                         // error diagnostic!
@@ -1359,7 +1130,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                             trivia.push(Trivia::Comment(Comment::Block(comment, true)));
                         } else {
                             self.report_diagnostic(Diagnostic::unexpected_ending(
-                                self.position,
+                                self.chars.position(),
                                 ExpectedSyntax::BlockCommentEnd,
                             ));
                             trivia.push(Trivia::Comment(Comment::Block(comment, false)));
@@ -1367,7 +1138,7 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
                         // If we are parsing trailing trivia and there was a newline in the block
                         // comment then stop parsing trivia.
-                        if !leading && last_position_line != self.position.line {
+                        if !leading && newline {
                             break;
                         }
                     }
@@ -1377,8 +1148,8 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
                 // Other whitespace
                 Some(c) if c.is_whitespace() => {
-                    trivia.push(Trivia::OtherWhitespace(*c));
-                    self.chars.next();
+                    trivia.push(Trivia::OtherWhitespace(c));
+                    self.chars.advance();
                 }
 
                 // If there is no more trivia then we may stop the loop.
@@ -1391,9 +1162,10 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
     /// Peeks at the next character (or ending) and creates an unexpected diagnostic.
     fn unexpected_peek(&mut self, expected: ExpectedSyntax) -> DiagnosticRef {
-        let diagnostic = match self.chars.peek() {
-            Some(c) => Diagnostic::unexpected_char(self.position, *c, expected),
-            None => Diagnostic::unexpected_ending(self.position, expected),
+        let position = self.chars.position();
+        let diagnostic = match self.chars.lookahead() {
+            Some(c) => Diagnostic::unexpected_char(position, c, expected),
+            None => Diagnostic::unexpected_ending(position, expected),
         };
         self.report_diagnostic(diagnostic)
     }
@@ -1410,7 +1182,11 @@ enum NumberState {
 
 impl<'src> Token<'src> {
     /// Prints a list of tokens and an end token to a markdown table for debugging.
-    pub fn markdown_table(tokens: &Vec<Token<'src>>, end_token: &EndToken<'src>) -> String {
+    pub fn markdown_table(
+        document: &Document,
+        tokens: &Vec<Token<'src>>,
+        end_token: &EndToken<'src>,
+    ) -> String {
         let mut output = String::new();
         // Add the markdown table header.
         output.push_str(
@@ -1421,7 +1197,7 @@ impl<'src> Token<'src> {
         );
         // Print each token.
         for token in tokens {
-            Self::add_token_to_markdown_table(&mut output, token);
+            Self::add_token_to_markdown_table(document, &mut output, token);
         }
         // Print each leading trivia of the end token.
         for trivia in &end_token.leading_trivia {
@@ -1429,7 +1205,7 @@ impl<'src> Token<'src> {
         }
 
         // Print the end token.
-        let end_position = format!("{}", end_token.position);
+        let end_position = end_token.position.display(document);
         output.push_str("| ");
         output.push_str(&end_position);
         output.extend(iter::repeat(' ').take(16 - cmp::min(16, end_position.len() + 1)));
@@ -1438,12 +1214,12 @@ impl<'src> Token<'src> {
         output
     }
 
-    fn add_token_to_markdown_table(output: &mut String, token: &Token<'src>) {
+    fn add_token_to_markdown_table(document: &Document, output: &mut String, token: &Token<'src>) {
         for trivia in &token.leading_trivia {
             Self::add_trivia_to_markdown_table(output, true, trivia);
         }
 
-        let range = format!("{}", token.range);
+        let range = token.range.display(document);
 
         let (kind, data) = match &token.kind {
             TokenKind::Glyph(glyph) => ("Glyph", format!("`{}`", glyph.as_str())),

@@ -8,4 +8,3 @@ pub mod lisp;
 
 pub mod binding;
 pub mod markup;
-pub mod peek2;
