@@ -193,9 +193,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             // parse that expression as the return statement’s argument! This makes programming
             // without semicolons in Brite easier.
             let argument = match self.lexer.lookahead() {
-                Some(token) if !token.first_on_newline() => {
-                    self.try_parse_expression()?
-                }
+                Some(token) if !token.first_on_newline() => self.try_parse_expression()?,
                 _ => None,
             };
             let maybe_end = self.try_parse_glyph(Glyph::Semicolon);

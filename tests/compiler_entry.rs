@@ -7,7 +7,7 @@ macro_rules! test {
             use brite::checker::Checker;
             use brite::compiler::js::Compiler;
             use brite::diagnostics::DiagnosticsCollection;
-            use brite::parser::{Lexer, Parser};
+            use brite::parser::{Document, Lexer, Parser};
             use std::fs;
             use std::io::prelude::*;
             use std::path::PathBuf;
@@ -19,7 +19,8 @@ macro_rules! test {
             let source = fs::read_to_string(&path).unwrap();
 
             let mut diagnostics = DiagnosticsCollection::new();
-            let lexer = Lexer::new(&mut diagnostics, &source);
+            let document = Document::new(source);
+            let lexer = Lexer::new(&mut diagnostics, &document);
             let module = Parser::new(lexer).parse_module().unwrap();
             let module = Checker::new(&mut diagnostics).check_module(&module);
             let program = Compiler::new().compile_module(&module);
@@ -28,7 +29,7 @@ macro_rules! test {
             let mut file = fs::File::create(path).unwrap();
             write!(&mut file, "# Compiler Test: `{}`\n", stringify!($name)).unwrap();
             if !diagnostics.is_empty() {
-                write!(&mut file, "\n## Errors\n{}", diagnostics.markdown_list()).unwrap();
+                write!(&mut file, "\n## Errors\n{}", diagnostics.markdown_list(&document)).unwrap();
             }
 
             write!(&mut file, "\n## JS\n```js\n").unwrap();
@@ -38,4 +39,4 @@ macro_rules! test {
     };
 }
 
-// mod compiler;
+mod compiler;

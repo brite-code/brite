@@ -8,7 +8,7 @@ extern crate unicode_xid;
 #[macro_use]
 mod utils;
 
-// pub mod checker;
-// pub mod compiler;
+pub mod checker;
+pub mod compiler;
 pub mod diagnostics;
 pub mod parser;
