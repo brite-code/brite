@@ -6,6 +6,7 @@
 // TODO: Disallow `a < b > (c)` since we’ll use that for function call syntax.
 
 use super::ast::*;
+use super::document::Range;
 use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 
@@ -28,7 +29,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// error diagnostic.
     pub fn parse_module(mut self) -> Result<Module, DiagnosticRef> {
         let mut declarations = Vec::new();
-        while self.lexer.peek().is_some() {
+        while self.lexer.lookahead().is_some() {
             declarations.push(self.parse_declaration()?);
         }
         Ok(Module { declarations })
@@ -191,8 +192,8 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             // NOTE: If there is a newline between the return keyword and an expression then don’t
             // parse that expression as the return statement’s argument! This makes programming
             // without semicolons in Brite easier.
-            let argument = match self.lexer.peek() {
-                Some(token) if start.end().line() == token.range.start().line() => {
+            let argument = match self.lexer.lookahead() {
+                Some(token) if !token.first_on_newline() => {
                     self.try_parse_expression()?
                 }
                 _ => None,
@@ -502,12 +503,12 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                 }
 
                 // Call Expression
-                if let Some(token) = self.lexer.peek() {
+                if let Some(token) = self.lexer.lookahead() {
                     if let TokenKind::Glyph(Glyph::ParenLeft) = &token.kind {
                         // NOTE: Call arguments must be on the same line as the callee! This makes
                         // programming without semicolons in Brite easier.
-                        if expression.range.end().line() == token.range.start().line() {
-                            self.lexer.next();
+                        if !token.first_on_newline() {
+                            self.lexer.advance();
                             let (arguments, end) =
                                 self.parse_comma_list(Glyph::ParenRight, Self::parse_expression)?;
                             let range = expression.range.union(end);
@@ -525,11 +526,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
                 // Construct Expression
                 if !config.before_block {
-                    if let Some(token) = self.lexer.peek() {
+                    if let Some(token) = self.lexer.lookahead() {
                         if let TokenKind::Glyph(Glyph::BraceLeft) = &token.kind {
                             // NOTE: Constructor fields must be on the same line as the constructor!
                             // This makes programming without semicolons in Brite easier.
-                            if expression.range.end().line() == token.range.start().line() {
+                            if !token.first_on_newline() {
                                 match into_constructor(expression) {
                                     Err(x) => expression = x,
 
@@ -537,7 +538,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                                     // line as our expression and that expression is convertible
                                     // into a constructor then we have a `ConstructExpression`!
                                     Ok(constructor) => {
-                                        self.lexer.next();
+                                        self.lexer.advance();
                                         let (fields, end) = self.parse_comma_list(
                                             Glyph::BraceRight,
                                             Self::parse_construct_expression_field,
@@ -772,11 +773,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     /// Parses a glyph. Reports an error if the next token is not a glyph.
     fn parse_glyph(&mut self, expected: Glyph) -> Result<Range, DiagnosticRef> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Glyph(actual) = &token.kind {
                 if expected == *actual {
                     let range = token.range;
-                    self.lexer.next();
+                    self.lexer.advance();
                     return Ok(range);
                 }
             }
@@ -787,11 +788,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// Tries to parse a glyph. If the next token is the expected token then we advance the lexer
     /// and return the glyph’s range. Otherwise we don’t advance the lexer and return nothing.
     fn try_parse_glyph(&mut self, expected: Glyph) -> Option<Range> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Glyph(actual) = &token.kind {
                 if expected == *actual {
                     let range = token.range;
-                    self.lexer.next();
+                    self.lexer.advance();
                     return Some(range);
                 }
             }
@@ -813,9 +814,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// Tries to parse an identifier. If the next token is an identifier then we advance the lexer
     /// and return that identifier. Otherwise we don’t advance the lexer and return nothing.
     fn try_parse_identifier(&mut self) -> Option<(Range, Identifier)> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Identifier(_) = &token.kind {
-                let token = self.lexer.next().unwrap();
+                let token = self.lexer.advance().unwrap();
                 let range = token.range;
                 return match token.kind {
                     TokenKind::Identifier(identifier) => Some((range, identifier)),
@@ -830,11 +831,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// to be reserved. If the next token is the keyword then we advance the lexer and return the
     /// keyword’s range. Otherwise we don’t advance the lexer and return nothing.
     fn try_parse_identifier_keyword(&mut self, keyword: IdentifierKeyword) -> Option<Range> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Identifier(identifier) = &token.kind {
                 if keyword.test(identifier) {
                     let range = token.range;
-                    self.lexer.next();
+                    self.lexer.advance();
                     return Some(range);
                 }
             }
@@ -848,11 +849,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         &mut self,
         keyword: IdentifierKeyword,
     ) -> Result<Range, DiagnosticRef> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Identifier(identifier) = &token.kind {
                 if keyword.test(identifier) {
                     let range = token.range;
-                    self.lexer.next();
+                    self.lexer.advance();
                     return Ok(range);
                 }
             }
@@ -862,9 +863,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     /// Tries to parse a name. If no name can be parsed then nothing will be returned.
     fn try_parse_name(&mut self) -> Option<Name> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Identifier(_) = &token.kind {
-                let token = self.lexer.next().unwrap();
+                let token = self.lexer.advance().unwrap();
                 let range = token.range;
                 return match token.kind {
                     TokenKind::Identifier(identifier) => Some(Name { range, identifier }),
@@ -877,9 +878,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     /// Parses a name. If no name can be parsed then an error diagnostic will be reported.
     fn parse_name(&mut self) -> Result<Name, DiagnosticRef> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Identifier(_) = &token.kind {
-                let token = self.lexer.next().unwrap();
+                let token = self.lexer.advance().unwrap();
                 let range = token.range;
                 return match token.kind {
                     TokenKind::Identifier(identifier) => Ok(Name { range, identifier }),
@@ -893,9 +894,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// Tries to parse a number. If the next token is a number then we advance the lexer
     /// and return that number. Otherwise we don’t advance the lexer and return nothing.
     fn try_parse_number(&mut self) -> Option<(Range, Number)> {
-        if let Some(token) = self.lexer.peek() {
+        if let Some(token) = self.lexer.lookahead() {
             if let TokenKind::Number(_) = &token.kind {
-                let token = self.lexer.next().unwrap();
+                let token = self.lexer.advance().unwrap();
                 let range = token.range;
                 return match token.kind {
                     TokenKind::Number(number) => Some((range, number)),
@@ -909,13 +910,13 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// If the next token is unexpected then call this function and say what we did expect. This
     /// function will throw an unexpected syntax error.
     fn unexpected<T>(&mut self, expected: ExpectedSyntax) -> Result<T, DiagnosticRef> {
-        match self.lexer.peek() {
+        match self.lexer.lookahead() {
             Some(token) => {
                 let diagnostic = Diagnostic::unexpected_token(token, expected);
                 Err(self.report_diagnostic(diagnostic))
             }
             None => {
-                let end_position = self.lexer.peek_end().unwrap().position();
+                let end_position = self.lexer.lookahead_end().unwrap().position();
                 let diagnostic = Diagnostic::unexpected_ending(end_position, expected);
                 Err(self.report_diagnostic(diagnostic))
             }

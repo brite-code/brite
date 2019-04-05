@@ -65,6 +65,16 @@ impl<'src> Token<'src> {
         }
     }
 
+    /// Is this the first token on a newline?
+    pub fn first_on_newline(&self) -> bool {
+        for trivia in &self.leading_trivia {
+            if let Trivia::Newlines(_, _) = trivia {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Add the source code we parsed this token from back to a string.
     fn add_source(&self, source: &mut String) {
         for trivia in &self.leading_trivia {
@@ -973,14 +983,13 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
                 // Newlines (LF)
                 Some('\n') => {
-                    self.chars.advance();
-                    let mut n = 1;
-
-                    // After we see one newline in trailing trivia, stop parsing trivia!
+                    // If we are parsing trailing trivia then don’t parse newlines!
                     if !leading {
-                        trivia.push(Trivia::Newlines(Newline::LF, n));
                         break;
                     }
+
+                    self.chars.advance();
+                    let mut n = 1;
 
                     while let Some('\n') = self.chars.lookahead() {
                         self.chars.advance();
@@ -991,16 +1000,16 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
 
                 // Newlines (CR and CRLF)
                 Some('\r') => {
+                    // If we are parsing trailing trivia then don’t parse newlines!
+                    if !leading {
+                        break;
+                    }
+
                     self.chars.advance();
                     let mut n = 1;
+
                     if let Some('\n') = self.chars.lookahead() {
                         self.chars.advance();
-
-                        // After we see one newline in trailing trivia, stop parsing trivia!
-                        if !leading {
-                            trivia.push(Trivia::Newlines(Newline::CRLF, n));
-                            break;
-                        }
 
                         while self.chars.lookahead() == Some('\r')
                             && self.chars.lookahead2() == Some('\n')
@@ -1011,12 +1020,6 @@ impl<'errs, 'src> Lexer<'errs, 'src> {
                         }
                         trivia.push(Trivia::Newlines(Newline::CRLF, n));
                     } else {
-                        // After we see one newline in trailing trivia, stop parsing trivia!
-                        if !leading {
-                            trivia.push(Trivia::Newlines(Newline::CR, n));
-                            break;
-                        }
-
                         while let Some('\r') = self.chars.lookahead() {
                             self.chars.advance();
                             n += 1;

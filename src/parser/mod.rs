@@ -2,10 +2,10 @@
 
 mod document;
 mod lexer;
-// mod parser;
+mod parser;
 
 pub mod ast;
 
 pub use self::document::*;
 pub use self::lexer::*;
-// pub use self::parser::*;
+pub use self::parser::*;

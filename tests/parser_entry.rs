@@ -5,7 +5,7 @@ macro_rules! test {
         #[test]
         fn $name() {
             use brite::diagnostics::DiagnosticsCollection;
-            use brite::parser::{Lexer, Parser};
+            use brite::parser::{Document, Lexer, Parser};
             use std::fs;
             use std::path::PathBuf;
 
@@ -16,7 +16,8 @@ macro_rules! test {
             let source = fs::read_to_string(&path).unwrap();
 
             let mut diagnostics = DiagnosticsCollection::new();
-            let lexer = Lexer::new(&mut diagnostics, &source);
+            let document = Document::new(source);
+            let lexer = Lexer::new(&mut diagnostics, &document);
             let parser = Parser::new(lexer);
             let module = parser.parse_module();
 
@@ -26,14 +27,14 @@ macro_rules! test {
             if !diagnostics.is_empty() {
                 contents.push_str("\n");
                 contents.push_str("## Errors\n");
-                contents.push_str(&diagnostics.markdown_list());
+                contents.push_str(&diagnostics.markdown_list(&document));
             }
             if let Ok(module) = &module {
                 contents.push_str("\n");
                 contents.push_str("## AST\n");
                 contents.push_str("```\n");
                 for declaration in &module.declarations {
-                    contents.push_str(&declaration.print_lisp(80));
+                    contents.push_str(&declaration.print_lisp(&document, 80));
                     contents.push_str("\n");
                 }
                 contents.push_str("```\n");
@@ -46,4 +47,4 @@ macro_rules! test {
     };
 }
 
-// mod parser;
+mod parser;
