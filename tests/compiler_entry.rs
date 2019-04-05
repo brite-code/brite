@@ -5,7 +5,7 @@ macro_rules! test {
         #[test]
         fn $name() {
             use brite::checker::Checker;
-            use brite::compiler::js::compile_module;
+            use brite::compiler::js::Compiler;
             use brite::diagnostics::DiagnosticsCollection;
             use brite::parser::{Lexer, Parser};
             use std::fs;
@@ -20,11 +20,9 @@ macro_rules! test {
 
             let mut diagnostics = DiagnosticsCollection::new();
             let lexer = Lexer::new(&mut diagnostics, &source);
-            let parser = Parser::new(lexer);
-            let module = parser.parse_module().unwrap();
+            let module = Parser::new(lexer).parse_module().unwrap();
             let module = Checker::new(&mut diagnostics).check_module(&module);
-
-            let program = compile_module(&module);
+            let program = Compiler::new().compile_module(&module);
 
             path.set_extension("ite.md");
             let mut file = fs::File::create(path).unwrap();

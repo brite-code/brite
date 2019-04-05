@@ -2,9 +2,11 @@
 //!
 //! https://github.com/babel/babel/blob/master/packages/babel-parser/ast/spec.md
 
+use std::collections::HashSet;
 use std::io;
 
 /// A valid JavaScript identifier.
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Identifier(String);
 
 impl Identifier {
@@ -186,14 +188,35 @@ impl Identifier {
 
 impl Program {
     pub fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
-        for statement in &self.body {
-            statement.write(w, 0)?;
-        }
-        Ok(())
+        Statement::write_many(&self.body, w, 0)
     }
 }
 
 impl Statement {
+    fn write_many<W: io::Write>(
+        statements: &Vec<Statement>,
+        w: &mut W,
+        i: usize,
+    ) -> io::Result<()> {
+        for k in 0..statements.len() {
+            let statement = &statements[k];
+
+            if k > 0 {
+                let newline = match &statements[k - 1].0 {
+                    StatementKind::Expression(_) => false,
+                    StatementKind::FunctionDeclaration(_) => true,
+                    StatementKind::VariableDeclaration(_) => false,
+                };
+                if newline {
+                    write!(w, "\n")?;
+                }
+            }
+
+            statement.write(w, i)?;
+        }
+        Ok(())
+    }
+
     fn write<W: io::Write>(&self, w: &mut W, i: usize) -> io::Result<()> {
         write_indentation(w, i)?;
 
@@ -238,9 +261,7 @@ impl BlockStatement {
             write!(w, "{{}}")
         } else {
             write!(w, "{{\n")?;
-            for statement in &self.body {
-                statement.write(w, i + 1)?;
-            }
+            Statement::write_many(&self.body, w, i + 1)?;
             write!(w, "}}")
         }
     }
@@ -316,4 +337,95 @@ fn write_indentation<W: io::Write>(w: &mut W, i: usize) -> io::Result<()> {
         write!(w, "  ")?;
     }
     Ok(())
+}
+
+lazy_static! {
+    /// All the [reserved words][1] of the ECMAScript specification and some common names
+    /// for globals.
+    ///
+    /// [1]: https://tc39.github.io/ecma262/#sec-reserved-words
+    pub static ref RESERVED_WORDS: HashSet<&'static str> = {
+        let mut set = HashSet::new();
+
+        // Reserved Words
+        set.insert("null");
+        set.insert("true");
+        set.insert("false");
+        set.insert("if");
+        set.insert("in");
+        set.insert("do");
+        set.insert("var");
+        set.insert("for");
+        set.insert("new");
+        set.insert("try");
+        set.insert("this");
+        set.insert("else");
+        set.insert("case");
+        set.insert("void");
+        set.insert("with");
+
+        // Future Reserved Words
+        set.insert("enum");
+        set.insert("while");
+        set.insert("break");
+        set.insert("catch");
+        set.insert("throw");
+        set.insert("const");
+        set.insert("yield");
+        set.insert("class");
+        set.insert("super");
+        set.insert("return");
+        set.insert("typeof");
+        set.insert("delete");
+        set.insert("switch");
+        set.insert("export");
+        set.insert("import");
+        set.insert("default");
+        set.insert("finally");
+        set.insert("extends");
+        set.insert("function");
+        set.insert("continue");
+        set.insert("debugger");
+        set.insert("instanceof");
+        set.insert("implements");
+        set.insert("interface");
+        set.insert("package");
+        set.insert("private");
+        set.insert("protected");
+        set.insert("public");
+        set.insert("static");
+        set.insert("let");
+
+        // Common Globals
+        set.insert("undefined");
+        set.insert("Infinity");
+        set.insert("NaN");
+        set.insert("isFinite");
+        set.insert("isNaN");
+        set.insert("Number");
+        set.insert("String");
+        set.insert("Object");
+        set.insert("Array");
+        set.insert("Function");
+        set.insert("Date");
+        set.insert("Math");
+        set.insert("Promise");
+        set.insert("document");
+        set.insert("window");
+        set.insert("global");
+        set.insert("process");
+        set.insert("eval");
+        set.insert("alert");
+        set.insert("prompt");
+        set.insert("setInterval");
+        set.insert("setTimeout");
+        set.insert("setImmediate");
+        set.insert("decodeURI");
+        set.insert("decodeURIComponent");
+        set.insert("encodeURI");
+        set.insert("encodeURIComponent");
+
+        set.shrink_to_fit();
+        set
+    };
 }

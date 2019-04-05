@@ -1,1 +1,2 @@
+test!(bindings);
 test!(logical);

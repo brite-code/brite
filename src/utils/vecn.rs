@@ -65,6 +65,13 @@ impl<T> Vec1<T> {
         self.vec.iter()
     }
 
+    /// Gets an immutable reference to the last element. A last element always exists because a
+    /// `Vec1` has at least one element.
+    pub fn last(&self) -> &T {
+        let i = self.vec.len() - 1;
+        &self.vec[i]
+    }
+
     /// Gets a mutable reference to the last element. A last element always exists because a `Vec1`
     /// has at least one element.
     pub fn last_mut(&mut self) -> &mut T {

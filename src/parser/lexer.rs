@@ -485,8 +485,6 @@ impl IdentifierKeyword {
 /// means, in this example, code transformations could not easily make expression identifiers out of
 /// pattern identifiers.
 ///
-/// Identifiers are interned so that many identifiers with the same value can shared an instance.
-///
 /// [1]: http://www.unicode.org/reports/tr31
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Identifier(
