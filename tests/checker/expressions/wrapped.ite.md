@@ -1,4 +1,4 @@
-# Checker Test: `wrapped_expression`
+# Checker Test: `wrapped`
 
 ## Errors
 - (2:4-2:6) Can not change the type of `42` because a `Num` is not a `Bool`.

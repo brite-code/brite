@@ -1,4 +1,4 @@
-# Checker Test: `call_expression`
+# Checker Test: `call`
 
 ## Errors
 - (4:4-4:5) Can not call `f` because we have one argument but we need two.

@@ -1,14 +1,4 @@
-test!(binding_statement);
-test!(block_expression);
-test!(call_expression);
-test!(class_extends);
-test!(constants);
-test!(declaration_already_exists);
-test!(declaration_prelude_shadow);
-test!(error_type);
-test!(function_expression);
-test!(function_parameter);
-test!(function_return);
-test!(function_type);
-test!(logical_expression);
-test!(wrapped_expression);
+mod declarations;
+mod expressions;
+mod statements;
+mod types;

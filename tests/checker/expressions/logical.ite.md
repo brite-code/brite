@@ -1,4 +1,4 @@
-# Checker Test: `logical_expression`
+# Checker Test: `logical`
 
 ## Errors
 - (2:4-2:9) Can not change the type of `!true` because a `Bool` is not an `Int`.

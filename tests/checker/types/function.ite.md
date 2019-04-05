@@ -1,4 +1,4 @@
-# Checker Test: `function_type`
+# Checker Test: `function`
 
 ## Errors
 - (10:4-10:5) Can not change the type of `b` because a `Bool` is not `Never`.

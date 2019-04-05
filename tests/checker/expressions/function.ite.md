@@ -1,4 +1,4 @@
-# Checker Test: `function_expression`
+# Checker Test: `function`
 
 ## Errors
 - (2:12-2:14) Can not change the type of `fun() { ... }` because a `Num` is not an `Int`.

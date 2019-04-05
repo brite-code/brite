@@ -1,4 +1,4 @@
-# Checker Test: `error_type`
+# Checker Test: `error`
 
 ## Errors
 - (2:8-2:12) Can not find `Nope`.
