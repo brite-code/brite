@@ -259,6 +259,11 @@ impl Expression {
         Self::new(range, ExpressionKind::Reference(identifier))
     }
 
+    /// Creates a function expression.
+    pub fn function(range: Range, function: Function) -> Self {
+        Self::new(range, ExpressionKind::Function(function))
+    }
+
     /// Creates a logical expression.
     pub fn logical(
         range: Range,

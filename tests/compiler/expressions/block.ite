@@ -12,14 +12,27 @@ fun f1() {
     c && d
   }
 
-  let x = do {};
+  let x1 = do {};
 
-  let y = do {
+  let y1 = do {
     let e = true;
     let f = true;
   };
 
-  let z = do {
+  let z1 = do {
+    let g = true;
+    let h = true;
+    g && h
+  };
+
+  let x2 = fun() {};
+
+  let y2 = fun() {
+    let e = true;
+    let f = true;
+  };
+
+  let z2 = fun() {
     let g = true;
     let h = true;
     g && h
@@ -38,14 +51,27 @@ fun f1() {
     c && d
   }
 
-  let x = do {};
+  let x1 = do {};
 
-  let y = do {
+  let y1 = do {
     let e = true;
     let f = true;
   };
 
-  let z = do {
+  let z1 = do {
+    let g = true;
+    let h = true;
+    g && h
+  };
+
+  let x2 = fun() {};
+
+  let y2 = fun() {
+    let e = true;
+    let f = true;
+  };
+
+  let z2 = fun() {
     let g = true;
     let h = true;
     g && h

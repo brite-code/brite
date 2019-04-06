@@ -37,9 +37,19 @@ impl Compiler {
 
     fn compile_declaration(&mut self, declaration: &Declaration) -> js::Statement {
         match declaration {
+            // Compile a function declaration. Always use a JavaScript function declaration instead
+            // of an arrow function expression. Some JavaScript developers like to only use arrow
+            // functions for their top-level functions, but function declarations better match the
+            // aesthetics of the Brite language.
             Declaration::Function(function) => {
                 let id = self.scope_declare(&function.name);
                 let (params, body) = self.compile_function(&function.function);
+                let body = match body {
+                    js::ArrowFunctionBody::Block(block) => block,
+                    js::ArrowFunctionBody::Expression(expression) => {
+                        js::BlockStatement::new(vec![js::Statement::return_(*expression)])
+                    }
+                };
                 js::Statement::function_declaration(id, params, body)
             }
 
@@ -47,33 +57,48 @@ impl Compiler {
         }
     }
 
-    fn compile_function(&mut self, function: &Function) -> (Vec<js::Pattern>, js::BlockStatement) {
+    fn compile_function(
+        &mut self,
+        function: &Function,
+    ) -> (Vec<js::Pattern>, js::ArrowFunctionBody) {
         self.scope_nest_js(|compiler| {
             compiler.scope_nest(|compiler| compiler.compile_function_without_nest(function))
         })
     }
 
+    /// Compiles a function without introducing any levels of nesting. Call
+    /// [`Compiler::compile_function`] if you want to introduce scope nesting.
     fn compile_function_without_nest(
         &mut self,
         function: &Function,
-    ) -> (Vec<js::Pattern>, js::BlockStatement) {
+    ) -> (Vec<js::Pattern>, js::ArrowFunctionBody) {
+        // Compile our function’s parameters.
         let params = function
             .parameters
             .iter()
             .map(|pattern| self.compile_pattern(pattern))
             .collect();
+
+        // Compile our block with a fresh array of JavaScript statements.
         let mut js_statements = Vec::with_capacity(function.body.statements.len());
         let return_expression = self.compile_block_without_nest(&mut js_statements, &function.body);
 
-        // If the return expression is `undefined` then don’t bother adding a return statement.
-        // JavaScript will implicitly return `undefined`.
-        //
-        // This is a small aesthetic improvement.
-        if !return_expression.is_undefined_literal() {
-            js_statements.push(js::Statement::return_(return_expression));
-        }
+        // If compiling the block did not add any statements, then let’s use a simple arrow
+        // expression body instead of an arrow expression block body.
+        let body = if js_statements.is_empty() && !return_expression.is_undefined_literal() {
+            js::ArrowFunctionBody::Expression(Box::new(return_expression))
+        } else {
+            // If the return expression is `undefined` then don’t bother adding a return statement.
+            // JavaScript will implicitly return `undefined`.
+            //
+            // This is a small aesthetic improvement.
+            if !return_expression.is_undefined_literal() {
+                js_statements.push(js::Statement::return_(return_expression));
+            }
+            js::ArrowFunctionBody::Block(js::BlockStatement::new(js_statements))
+        };
 
-        (params, js::BlockStatement::new(js_statements))
+        (params, body)
     }
 
     /// Compiles the block without introducing a level of nesting. Pushes any statements into the
@@ -168,7 +193,12 @@ impl Compiler {
                 })
             }
 
-            ExpressionKind::Function(_) => unimplemented!(),
+            // Compile a Brite function expression to a JavaScript arrow function.
+            ExpressionKind::Function(function) => {
+                let (params, body) = self.compile_function(function);
+                js::Expression::arrow_function(params, body)
+            }
+
             ExpressionKind::Call(_) => unimplemented!(),
             ExpressionKind::Prefix(_) => unimplemented!(),
 

@@ -77,7 +77,18 @@ enum ExpressionKind {
     UndefinedLiteral, // NOTE: Technically, `undefined` is not a keyword. We treat it like one anyway.
     BooleanLiteral(bool),
     NumericLiteral(f64),
+    ArrowFunction(ArrowFunctionExpression),
     Logical(Box<LogicalExpression>),
+}
+
+struct ArrowFunctionExpression {
+    params: Vec<Pattern>,
+    body: ArrowFunctionBody,
+}
+
+pub enum ArrowFunctionBody {
+    Block(BlockStatement),
+    Expression(Box<Expression>), // NOTE: We need to wrap in a `Box` to prevent an infinite type.
 }
 
 struct LogicalExpression {
@@ -95,6 +106,10 @@ pub struct Pattern(PatternKind);
 
 enum PatternKind {
     Identifier(Identifier),
+
+    // TODO: Actually have another pattern kind...
+    #[allow(dead_code)]
+    Unimplemented,
 }
 
 impl Statement {
@@ -148,6 +163,13 @@ impl Expression {
         Expression(ExpressionKind::NumericLiteral(value))
     }
 
+    pub fn arrow_function(params: Vec<Pattern>, body: ArrowFunctionBody) -> Self {
+        Expression(ExpressionKind::ArrowFunction(ArrowFunctionExpression {
+            params,
+            body,
+        }))
+    }
+
     pub fn logical(operator: LogicalOperator, left: Expression, right: Expression) -> Self {
         Expression(ExpressionKind::Logical(Box::new(LogicalExpression {
             operator,
@@ -180,7 +202,7 @@ impl Pattern {
 #[derive(Eq, Ord, PartialEq, PartialOrd)]
 enum Precedence {
     Top,
-    // Assignment,
+    Assignment,
     // Conditional,
     LogicalOr,
     LogicalAnd,
@@ -289,6 +311,7 @@ impl BlockStatement {
         } else {
             write!(w, "{{\n")?;
             Statement::write_many(&self.body, w, i + 1)?;
+            write_indentation(w, i)?;
             write!(w, "}}")
         }
     }
@@ -303,6 +326,7 @@ impl Expression {
             ExpressionKind::UndefinedLiteral => Precedence::Primary,
             ExpressionKind::BooleanLiteral(_) => Precedence::Primary,
             ExpressionKind::NumericLiteral(_) => Precedence::Primary,
+            ExpressionKind::ArrowFunction(_) => Precedence::Assignment,
             ExpressionKind::Logical(logical) => match &logical.operator {
                 LogicalOperator::Or => Precedence::LogicalOr,
                 LogicalOperator::And => Precedence::LogicalAnd,
@@ -313,9 +337,12 @@ impl Expression {
         }
         match &self.0 {
             ExpressionKind::Identifier(identifier) => identifier.write(w)?,
+
             ExpressionKind::UndefinedLiteral => write!(w, "undefined")?,
+
             ExpressionKind::BooleanLiteral(true) => write!(w, "true")?,
             ExpressionKind::BooleanLiteral(false) => write!(w, "false")?,
+
             ExpressionKind::NumericLiteral(value) => {
                 if value.is_nan() {
                     write!(w, "NaN")?
@@ -331,6 +358,44 @@ impl Expression {
                     write!(w, "{}", value)?
                 }
             }
+
+            ExpressionKind::ArrowFunction(arrow_function) => {
+                // Write the arrow function’s parameters. If the arrow function has a single,
+                // identifier, parameter then we don’t need to emit the parentheses.
+                if arrow_function.params.len() == 1 {
+                    if let PatternKind::Identifier(identifier) = &arrow_function.params[0].0 {
+                        identifier.write(w)?;
+                    } else {
+                        write!(w, "(")?;
+                        arrow_function.params[0].write(w)?;
+                        write!(w, ")")?;
+                    }
+                } else {
+                    write!(w, "(")?;
+                    for i in 0..arrow_function.params.len() {
+                        if i > 0 {
+                            write!(w, ", ")?;
+                        }
+                        arrow_function.params[i].write(w)?;
+                    }
+                    write!(w, ")")?;
+                }
+
+                // Write the arrow itself!
+                write!(w, " => ")?;
+
+                // Write the arrow function’s body...
+                match &arrow_function.body {
+                    ArrowFunctionBody::Block(block) => {
+                        block.write(w, i)?;
+                    }
+                    ArrowFunctionBody::Expression(expression) => {
+                        // TODO: Wrap object expressions.
+                        expression.write(w, i, Precedence::Top)?;
+                    }
+                }
+            }
+
             ExpressionKind::Logical(logical) => match &logical.operator {
                 LogicalOperator::Or => {
                     logical.left.write(w, i, Precedence::LogicalOr)?;
@@ -355,6 +420,7 @@ impl Pattern {
     fn write<W: io::Write>(&self, w: &mut W) -> io::Result<()> {
         match &self.0 {
             PatternKind::Identifier(identifier) => identifier.write(w)?,
+            PatternKind::Unimplemented => unimplemented!(),
         }
         Ok(())
     }

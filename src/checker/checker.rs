@@ -509,7 +509,7 @@ impl<'errs> Checker<'errs> {
                         range: expression.range,
                         kind: TypeKind::Function(Rc::new(function.type_)),
                     },
-                    Expression::unimplemented(range),
+                    Expression::function(range, function.node),
                 )
             }
 
