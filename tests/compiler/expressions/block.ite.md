@@ -3,10 +3,8 @@
 ## JS
 ```js
 function f1() {
-  undefined;
   const a = true;
   const b = true;
-  undefined;
   const c = true;
   const d = true;
   c && d;
@@ -17,10 +15,8 @@ function f1() {
   const g = true;
   const h = true;
   const z = g && h;
-  undefined;
   const a2 = true;
   const b2 = true;
-  undefined;
   const c2 = true;
   const d2 = true;
   c2 && d2;

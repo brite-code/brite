@@ -98,19 +98,34 @@ impl Compiler {
     }
 
     fn compile_statement(&mut self, js_statements: &mut Vec<js::Statement>, statement: &Statement) {
-        let js_statement = match &statement.kind {
+        match &statement.kind {
             StatementKind::Expression(expression) => {
-                js::Statement::expression(self.compile_expression(js_statements, expression))
+                let js_expression = self.compile_expression(js_statements, expression);
+
+                // If we compile the expression to only an undefined literal then don’t bother
+                // adding it as an expression statement. The literal will have no
+                // side-effects anyway.
+                //
+                // Presumably if the expression did need to discharge side-effects then it would
+                // add statements to `js_statements`.
+                if !js_expression.is_undefined_literal() {
+                    js_statements.push(js::Statement::expression(js_expression));
+                }
             }
-            StatementKind::Binding(binding) => js::Statement::variable_declaration(
-                js::VariableDeclarationKind::Const,
-                self.compile_pattern(&binding.pattern),
-                self.compile_expression(js_statements, &binding.value),
-            ),
-        };
-        js_statements.push(js_statement);
+            StatementKind::Binding(binding) => {
+                let js_statement = js::Statement::variable_declaration(
+                    js::VariableDeclarationKind::Const,
+                    self.compile_pattern(&binding.pattern),
+                    self.compile_expression(js_statements, &binding.value),
+                );
+                js_statements.push(js_statement);
+            }
+        }
     }
 
+    /// Compiles an expression, possibly adding some JavaScript statements as we compile. For
+    /// example, if we have a block expression then the block will want to add its statements to
+    /// our JavaScript scope.
     fn compile_expression(
         &mut self,
         js_statements: &mut Vec<js::Statement>,
