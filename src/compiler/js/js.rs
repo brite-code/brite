@@ -159,7 +159,7 @@ impl Expression {
     pub fn is_undefined_literal(&self) -> bool {
         match &self.0 {
             ExpressionKind::UndefinedLiteral => true,
-            _ => false
+            _ => false,
         }
     }
 }

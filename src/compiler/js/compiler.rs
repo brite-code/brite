@@ -64,9 +64,15 @@ impl Compiler {
             .collect();
         let mut js_statements = Vec::with_capacity(function.body.statements.len());
         let return_expression = self.compile_block_without_nest(&mut js_statements, &function.body);
-        if let Some(return_expression) = return_expression {
+
+        // If the return expression is `undefined` then don’t bother adding a return statement.
+        // JavaScript will implicitly return `undefined`.
+        //
+        // This is a small aesthetic improvement.
+        if !return_expression.is_undefined_literal() {
             js_statements.push(js::Statement::return_(return_expression));
         }
+
         (params, js::BlockStatement::new(js_statements))
     }
 
@@ -76,15 +82,18 @@ impl Compiler {
         &mut self,
         js_statements: &mut Vec<js::Statement>,
         block: &Block,
-    ) -> Option<js::Expression> {
+    ) -> js::Expression {
         for i in 0..block.statements.len() {
             let statement = &block.statements[i];
+
+            // If this is the last statement and the last statement is an expression statement then
+            // return the compiled expression instead of adding a statement to `js_statements`.
             if i == block.statements.len() - 1 {
                 if let StatementKind::Expression(expression) = &statement.kind {
-                    return Some(self.compile_expression(js_statements, expression));
+                    return self.compile_expression(js_statements, expression);
                 } else {
                     self.compile_statement(js_statements, statement);
-                    return None;
+                    return js::Expression::undefined_literal();
                 }
             } else {
                 self.compile_statement(js_statements, statement);
@@ -94,7 +103,7 @@ impl Compiler {
             block.statements.is_empty(),
             "If there are block statements we should return from the above for-loop."
         );
-        None
+        js::Expression::undefined_literal()
     }
 
     fn compile_statement(&mut self, js_statements: &mut Vec<js::Statement>, statement: &Statement) {
@@ -108,6 +117,10 @@ impl Compiler {
                 //
                 // Presumably if the expression did need to discharge side-effects then it would
                 // add statements to `js_statements`.
+                //
+                // We could skip adding expression statements for all lazy expressions, but this
+                // optimization would be very shallow and wouldn’t apply to unused variable
+                // declarations, for example. This is merely an aesthetic improvement.
                 if !js_expression.is_undefined_literal() {
                     js_statements.push(js::Statement::expression(js_expression));
                 }
@@ -132,16 +145,22 @@ impl Compiler {
         expression: &Expression,
     ) -> js::Expression {
         match &expression.kind {
+            // A Brite boolean is a JavaScript boolean...
             ExpressionKind::Constant(Constant::Boolean(value)) => {
                 js::Expression::boolean_literal(*value)
             }
 
+            // A Brite float is 64 bits which is the same as a JavaScript float which is also
+            // 64 bits...
             ExpressionKind::Constant(Constant::Float(value)) => {
                 js::Expression::numeric_literal(*value)
             }
 
             ExpressionKind::Constant(Constant::Integer(_, _)) => unimplemented!(),
 
+            // Resolve the JavaScript identifier we are using to represent the referenced Brite
+            // variable. If we can’t resolve a variable then we have an internal error! Unresolved
+            // variables should be handled by the checker!
             ExpressionKind::Reference(identifier) => {
                 js::Expression::identifier(match self.scope_resolve(identifier) {
                     Some(js_identifier) => js_identifier.clone(),
@@ -153,6 +172,11 @@ impl Compiler {
             ExpressionKind::Call(_) => unimplemented!(),
             ExpressionKind::Prefix(_) => unimplemented!(),
 
+            // Compile both operands of a logical expression and create a JavaScript
+            // logical expression.
+            //
+            // NOTE: Remember that logical expressions are short circuiting! That means, say, in
+            // `E1 && E2` if `E1` is `false` then `E2` will not be evaluated at all.
             ExpressionKind::Logical(logical) => js::Expression::logical(
                 match &logical.operator {
                     LogicalOperator::And => js::LogicalOperator::And,
@@ -162,14 +186,13 @@ impl Compiler {
                 self.compile_expression(js_statements, &logical.right),
             ),
 
-            ExpressionKind::Block(block) => self.scope_nest(|compiler| {
-                compiler
-                    .compile_block_without_nest(js_statements, block)
-                    .unwrap_or_else(js::Expression::undefined_literal)
-            }),
+            // Add a level of Brite nesting and compile our block...
+            ExpressionKind::Block(block) => self
+                .scope_nest(|compiler| compiler.compile_block_without_nest(js_statements, block)),
 
             ExpressionKind::Error(_) => unimplemented!(),
 
+            // TODO: Remove this...
             ExpressionKind::Unimplemented => unimplemented!(),
         }
     }
