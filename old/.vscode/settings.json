@@ -11,15 +11,17 @@
     "**/.DS_Store": true,
     "**/target": true,
     "**/node_modules": true,
-    "Cargo.lock": true
+    "**/.stack-work": true,
+    "**/*.cabal": true
   },
   "html.format.endWithNewline": true,
   "[markdown]": {
     "editor.wordWrap": "wordWrapColumn",
     "editor.wordWrapColumn": 80
   },
-  "[rust]": {
-    "editor.tabSize": 4,
+  "[haskell]": {
     "editor.rulers": [100]
-  }
+  },
+  "haskell.hlint.logLevel": "warn",
+  "haskell.hlint.hints": ["-XNoPatternSynonyms"] // https://github.com/ndmitchell/hlint/issues/199
 }

@@ -9,19 +9,22 @@
   "files.exclude": {
     "**/.git": true,
     "**/.DS_Store": true,
-    "**/target": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
     "**/node_modules": true,
-    "**/.stack-work": true,
-    "**/*.cabal": true
+    "**/build": true
   },
   "html.format.endWithNewline": true,
   "[markdown]": {
     "editor.wordWrap": "wordWrapColumn",
     "editor.wordWrapColumn": 80
   },
-  "[haskell]": {
-    "editor.rulers": [100]
-  },
-  "haskell.hlint.logLevel": "warn",
-  "haskell.hlint.hints": ["-XNoPatternSynonyms"] // https://github.com/ndmitchell/hlint/issues/199
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "es5",
+  "prettier.proseWrap": "always",
+  "prettier.bracketSpacing": false,
+  "tslint.jsEnable": true,
+  "tslint.alwaysShowRuleFailuresAsWarnings": true,
+  "tslint.autoFixOnSave": true
 }

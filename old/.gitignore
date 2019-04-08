@@ -1,9 +1,12 @@
-# OS
-**/.DS_Store
+# Operating System
+.DS_Store
+
+# Haskell
+.stack-work/
+brite.cabal
+
+# Node.js
+node_modules/
 
 # Playground
-/.play
-
-# Rust
-/target
-**/*.rs.bk
+.play/
