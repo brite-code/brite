@@ -1,0 +1,51 @@
+fun f1(a: Bool, a: Bool, b: Bool) {
+  let a = true;
+  let b = true;
+  let c = true;
+  let a = true;
+}
+
+// Test JavaScript keyword escaping
+fun f2(delete: Bool, delete: Bool, delete: Bool) {
+  let delete = true;
+}
+
+// Test JavaScript keyword escaping
+fun f3() {
+  let delete = true;
+  let delete = true;
+  let delete = true;
+}
+
+// Test JavaScript common global escaping
+fun f4() {
+  let undefined = true;
+  let NaN = true;
+  let Infinity = true;
+  let Promise = true;
+
+  let undefined = true;
+  let NaN = true;
+  let Infinity = true;
+  let Promise = true;
+}
+
+fun f5() {
+  let x2 = true;
+  let x = true;
+  let x = true;
+  let x4 = true;
+  let x = true;
+  let x1 = true;
+  let x2 = true;
+  let x3 = true;
+}
+
+fun f6() {
+  let x2 = true;
+  let x3 = true;
+  let x4 = true;
+  let x5 = true;
+  let x = true;
+  let x = true;
+}

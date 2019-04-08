@@ -1,0 +1,8 @@
+// TODO: It should be ok to shadow names in the prelude!
+
+class Never
+class Void
+class Bool
+class Num
+class Int
+class Float

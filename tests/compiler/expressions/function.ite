@@ -1,0 +1,18 @@
+fun main() {
+  let x1 = fun() {};
+
+  let x2 = fun() {
+    let a = true;
+    let b = true;
+  };
+
+  let x3 = fun() {
+    let a = true;
+    let b = true;
+    a && b
+  };
+
+  let x4 = fun() {
+    true && false
+  };
+}

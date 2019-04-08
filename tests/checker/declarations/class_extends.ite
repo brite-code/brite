@@ -1,0 +1,21 @@
+class Foo extends DoesNotExist1 // Error: Parent not found
+base class Bar extends DoesNotExist2 // Error: Parent not found
+
+class MyFunction1 extends Function // Error: Function is not a base class
+base class MyFunction2 extends Function // Error: Function is not a base class
+fun Function() {}
+class MyFunction3 extends Function // Error: Function is not a base class
+base class MyFunction4 extends Function // Error: Function is not a base class
+
+class BadParent
+class BadChild extends BadParent // Error: Parent is not a base class
+
+base class GoodGrandparent
+base class GoodParent extends GoodGrandparent // Ok
+
+class GoodGrandchild extends GoodGrandparent // Ok
+class GoodChild extends GoodParent // Ok
+
+class BadGrandparent
+base class BadBaseParent extends BadGrandparent // Error: Parent is not a base class
+class MehChild extends BadBaseParent // Ok

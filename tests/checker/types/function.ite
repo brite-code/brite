@@ -1,0 +1,50 @@
+fun subtype(
+  a: fun(Bool) -> Never,
+  b: fun(Never) -> Bool,
+  c: fun(Int) -> Int,
+  d: fun(Num) -> Int,
+  e: fun(Int) -> Num,
+) {
+  (a: fun(Never) -> Bool);
+  (a: fun(Bool) -> Bool);
+  (b: fun(Bool) -> Never);
+  (b: fun(Bool) -> Bool);
+  (c: fun(Num) -> Int);
+  (c: fun(Int) -> Num);
+  (c: fun(Num) -> Num);
+  (c: fun(Bool) -> Bool);
+  (d: fun(Int) -> Int);
+  (e: fun(Int) -> Int);
+}
+
+fun differentParameterLengths(
+  a: fun(Int) -> Int,
+  b: fun(Int, Int) -> Int,
+  c: fun(Int, Int, Int) -> Int,
+) {
+  (a: fun(Int) -> Int);
+  (a: fun(Int, Int) -> Int);
+  (a: fun(Int, Int, Int) -> Int);
+  (b: fun(Int) -> Int);
+  (b: fun(Int, Int) -> Int);
+  (b: fun(Int, Int, Int) -> Int);
+  (c: fun(Int) -> Int);
+  (c: fun(Int, Int) -> Int);
+  (c: fun(Int, Int, Int) -> Int);
+  (a: fun(Bool) -> Bool);
+  (a: fun(Bool, Bool) -> Bool);
+  (a: fun(Bool, Bool, Bool) -> Bool);
+  (b: fun(Bool) -> Bool);
+  (b: fun(Bool, Bool) -> Bool);
+  (b: fun(Bool, Bool, Bool) -> Bool);
+  (c: fun(Bool) -> Bool);
+  (c: fun(Bool, Bool) -> Bool);
+  (c: fun(Bool, Bool, Bool) -> Bool);
+}
+
+fun incompatibleTypes(f: fun() -> Int) {
+  (42: fun() -> Int);
+  (true: fun() -> Bool);
+  (f: Int);
+  (f: Bool);
+}

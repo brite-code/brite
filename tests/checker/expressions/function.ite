@@ -1,0 +1,50 @@
+fun main() {
+  (fun() { 42 }: fun() -> Int);
+  (fun() { 42 }: fun() -> Bool);
+  (fun(x: Int) { x }: fun(Int) -> Int);
+  (fun(x: Int) { x }: fun(Int) -> Bool);
+  (fun(x: Int) { x }: fun(Bool) -> Int);
+  (fun(x: Int) { x }: fun(Bool) -> Bool);
+
+  (fun(x) { x }: fun(Int) -> Int);
+  (fun(x) { x }: fun(Bool) -> Bool);
+  (fun(x) { x }: fun(Int) -> Bool);
+
+  (fun() -> Int { 42 }: fun() -> Int);
+  (fun() -> Int { 42 }: fun() -> Bool);
+  (fun() -> Int { true }: fun() -> Int);
+  (fun() -> Int { true }: fun() -> Bool);
+
+  (fun(x: Int, y: Int) { x }: fun(Int) -> Int);
+  (fun(x: Int) { x }: fun(Int, Int) -> Int);
+
+  (fun(x, y) { x }: fun(Int) -> Int);
+  (fun(x) { x }: fun(Int, Int) -> Int);
+
+  (fun(x: Never) { x }: fun(Int) -> Int);
+  (fun(x: Never) { x }: fun(Never) -> Never);
+  (fun(x: Never) { x }: fun(Never) -> Int);
+  (fun(x: Never) { x }: fun(Int) -> Never);
+
+  let f = fun(a, b) { a };
+}
+
+fun test1() -> fun(Int, Int) -> Int {
+  let c = 42;
+  fun(a, b) { c }
+}
+
+fun test2() {
+  let c = 42;
+  fun(a, b) { c }
+}
+
+fun test3() {
+  let c = 42;
+  fun(a: Int, b: Int) -> Int { c }
+}
+
+fun test4() -> fun(Int, Int) -> Int {
+  let c = true;
+  fun(a, b) { c }
+}

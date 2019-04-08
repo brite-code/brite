@@ -1,0 +1,6 @@
+# Operating System
+.DS_Store
+
+# Rust
+/target
+**/*.rs.bk

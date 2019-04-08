@@ -1,0 +1,16 @@
+fun main() {
+  let a = b;
+  let x = y;
+  let foo = bar;
+  let _ = 42;
+  let f = fun() {
+    let a = b;
+    a
+  };
+
+  let x: T = y;
+  let x: fun(T) -> T = y;
+
+  let a = b
+  let x: T = y
+}

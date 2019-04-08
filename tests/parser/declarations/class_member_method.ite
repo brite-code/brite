@@ -1,0 +1,16 @@
+class C {
+  fun f() {}
+  fun f(a) {}
+  fun f(a, b) {}
+  fun f(a, b, c) {}
+  fun f(a,) {}
+  fun f(a, b,) {}
+  fun f(a, b, c,) {}
+
+  fun base(x) {}
+  fun class(x) {}
+
+  fun add(this) -> String {
+    this.a + this.b
+  }
+}

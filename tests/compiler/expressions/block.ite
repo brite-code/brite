@@ -1,0 +1,79 @@
+fun f1() {
+  do {}
+
+  do {
+    let a = true;
+    let b = true;
+  }
+
+  do {
+    let c = true;
+    let d = true;
+    c && d
+  }
+
+  let x1 = do {};
+
+  let y1 = do {
+    let e = true;
+    let f = true;
+  };
+
+  let z1 = do {
+    let g = true;
+    let h = true;
+    g && h
+  };
+
+  let x2 = fun() {};
+
+  let y2 = fun() {
+    let e = true;
+    let f = true;
+  };
+
+  let z2 = fun() {
+    let g = true;
+    let h = true;
+    g && h
+  };
+
+  do {}
+
+  do {
+    let a = true;
+    let b = true;
+  }
+
+  do {
+    let c = true;
+    let d = true;
+    c && d
+  }
+
+  let x1 = do {};
+
+  let y1 = do {
+    let e = true;
+    let f = true;
+  };
+
+  let z1 = do {
+    let g = true;
+    let h = true;
+    g && h
+  };
+
+  let x2 = fun() {};
+
+  let y2 = fun() {
+    let e = true;
+    let f = true;
+  };
+
+  let z2 = fun() {
+    let g = true;
+    let h = true;
+    g && h
+  };
+}

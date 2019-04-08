@@ -1,0 +1,13 @@
+fun a(missingType1, missingType2) {
+  (missingType1: Int);
+  (missingType1: Bool);
+  (missingType2: Int);
+  (missingType2: Bool);
+}
+
+fun b(int: Int, bool: Bool) {
+  (int: Int);
+  (int: Bool);
+  (bool: Int);
+  (bool: Bool);
+}

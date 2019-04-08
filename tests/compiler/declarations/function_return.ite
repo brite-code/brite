@@ -1,0 +1,18 @@
+fun f1() {
+  let a = true;
+  let b = true;
+  a && b
+}
+
+fun f2() {
+  let a = true;
+  let b = true;
+  let c = a && b;
+}
+
+fun f3() {
+  let a = true;
+  let b = true;
+  let c = a && b;
+  c
+}

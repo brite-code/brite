@@ -1,0 +1,12 @@
+fun main() {
+  let a = true;
+  let b = false;
+  let c = a && b;
+  let d = a || b;
+  let e = a && b && c && b;
+  let f = a || b || c || b;
+  let g = a && b || c && d;
+  let h = a && (b || c) && d;
+  let i = a || b && c || d;
+  let j = (a || b) && (c || d);
+}

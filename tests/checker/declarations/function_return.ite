@@ -1,0 +1,15 @@
+fun a() -> Int {
+  let x = true;
+  x
+}
+
+fun b() -> Int {
+  let x = 42;
+}
+
+fun c() -> Int {
+  let x = true;
+  x;;;;;
+}
+
+fun d() -> Int {}

@@ -1,0 +1,9 @@
+fun main() {
+  (42: Nope);
+
+  let x: Nope = 42;
+  (x: Bool);
+
+  (nope: Bool);
+  (nope: Int);
+}

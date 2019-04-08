@@ -1,0 +1,21 @@
+fun test() {
+  (true: Bool);
+  (false: Bool);
+  (42: Num);
+  (0xC0FF33: Num);
+  (0xC0FF33: Int);
+  (3.1415: Num);
+  (3.1415: Float);
+  (true: Int);
+  (42: Bool);
+  (0xC0FF33: Float);
+  (3.1415: Int);
+
+  (true: Num);
+  (42: Bool);
+  (42: Int);
+  (42: Float);
+  (0xC0FF33: Float);
+  (3.1415: Int);
+  (true: Never);
+}

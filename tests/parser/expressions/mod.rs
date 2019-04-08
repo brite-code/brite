@@ -1,0 +1,16 @@
+test!(block);
+test!(call);
+test!(conditional);
+test!(conditional_construct_1);
+test!(conditional_construct_2);
+test!(conditional_construct_3);
+test!(constant);
+test!(construct);
+test!(construct_line);
+test!(function);
+test!(infix);
+test!(member);
+test!(number_invalid);
+test!(prefix);
+test!(reference);
+test!(wrapped);

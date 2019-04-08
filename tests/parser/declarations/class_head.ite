@@ -1,0 +1,8 @@
+class Foo
+class Bar
+
+base class Animal
+class Dog extends Animal
+class Cat extends Animal
+
+base class Fish extends Animal
