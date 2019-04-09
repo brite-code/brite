@@ -207,6 +207,8 @@ impl Compiler {
             //
             // NOTE: Remember that logical expressions are short circuiting! That means, say, in
             // `E1 && E2` if `E1` is `false` then `E2` will not be evaluated at all.
+            //
+            // TODO: `false && do { foo(); true }`
             ExpressionKind::Logical(logical) => js::Expression::logical(
                 match &logical.operator {
                     LogicalOperator::And => js::LogicalOperator::And,

@@ -1,0 +1,7 @@
+fun f() {
+  true
+}
+
+fun f() {
+  false
+}
