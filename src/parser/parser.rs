@@ -32,7 +32,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         while self.lexer.lookahead().is_some() {
             declarations.push(self.parse_declaration()?);
         }
-        Ok(Module::new(declarations))
+        Ok(Module { declarations })
     }
 
     fn parse_declaration(&mut self) -> Result<Declaration, DiagnosticRef> {
@@ -40,7 +40,10 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         if self.try_parse_keyword(Keyword::Fun).is_some() {
             let name = self.parse_name()?;
             let function = self.parse_function()?;
-            return Ok(FunctionDeclaration::new(name, function).into());
+            return Ok(Declaration::Function(FunctionDeclaration {
+                name,
+                function,
+            }));
         }
 
         // Class Declaration
@@ -132,13 +135,20 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             None
         };
         let body = self.parse_block()?;
-        Ok(Function::new(parameters, return_type, body))
+        Ok(Function {
+            parameters,
+            return_type,
+            body,
+        })
     }
 
     fn parse_function_parameter(&mut self) -> Result<FunctionParameter, DiagnosticRef> {
         let pattern = self.parse_pattern()?;
         let annotation = self.try_parse_type_annotation()?;
-        Ok(FunctionParameter::new(pattern, annotation))
+        Ok(FunctionParameter {
+            pattern,
+            annotation,
+        })
     }
 
     fn parse_block(&mut self) -> Result<Block, DiagnosticRef> {
@@ -856,7 +866,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                 let token = self.lexer.advance().unwrap();
                 let range = token.range;
                 return match token.kind {
-                    TokenKind::Identifier(identifier) => Some(Name::new(range, identifier)),
+                    TokenKind::Identifier(identifier) => Some(Name { range, identifier }),
                     _ => unreachable!(),
                 };
             }
@@ -871,7 +881,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                 let token = self.lexer.advance().unwrap();
                 let range = token.range;
                 return match token.kind {
-                    TokenKind::Identifier(identifier) => Ok(Name::new(range, identifier)),
+                    TokenKind::Identifier(identifier) => Ok(Name { range, identifier }),
                     _ => unreachable!(),
                 };
             }
@@ -952,7 +962,7 @@ fn into_constructor(expression: Expression) -> Result<Name, Expression> {
         ExpressionKind::Reference(_) => {
             let range = expression.range;
             match expression.kind {
-                ExpressionKind::Reference(identifier) => Ok(Name::new(range, identifier)),
+                ExpressionKind::Reference(identifier) => Ok(Name { range, identifier }),
                 _ => unreachable!(),
             }
         }

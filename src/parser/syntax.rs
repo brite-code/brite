@@ -15,35 +15,12 @@ pub struct Name {
     pub range: Range,
     /// The identifier for this name.
     pub identifier: Identifier,
-    /// The struct constructor should be private.
-    _private: (),
-}
-
-impl Name {
-    pub fn new(range: Range, identifier: Identifier) -> Self {
-        Name {
-            range,
-            identifier,
-            _private: (),
-        }
-    }
 }
 
 /// A Brite module is a list of declarations. The order of the declarations does not matter.
 pub struct Module {
     /// The declarations which make up our module.
     pub declarations: Vec<Declaration>,
-    /// The struct constructor should be private.
-    _private: (),
-}
-
-impl Module {
-    pub fn new(declarations: Vec<Declaration>) -> Self {
-        Module {
-            declarations,
-            _private: (),
-        }
-    }
 }
 
 /// A declaration describes the properties of some identifier.
@@ -60,24 +37,6 @@ pub struct FunctionDeclaration {
     pub name: Name,
     /// Shared function node.
     pub function: Function,
-    /// The struct constructor should be private.
-    _private: (),
-}
-
-impl FunctionDeclaration {
-    pub fn new(name: Name, function: Function) -> Self {
-        FunctionDeclaration {
-            name,
-            function,
-            _private: (),
-        }
-    }
-}
-
-impl Into<Declaration> for FunctionDeclaration {
-    fn into(self) -> Declaration {
-        Declaration::Function(self)
-    }
 }
 
 /// A function describes some reusable code which may be executed at any time. There are many places
@@ -95,19 +54,6 @@ pub struct Function {
     pub return_type: Option<Type>,
     /// The code to be executed when the function is called.
     pub body: Block,
-    /// The struct constructor should be private.
-    _private: (),
-}
-
-impl Function {
-    pub fn new(parameters: Vec<FunctionParameter>, return_type: Option<Type>, body: Block) -> Self {
-        Function {
-            parameters,
-            return_type,
-            body,
-            _private: (),
-        }
-    }
 }
 
 /// An input to a function.
@@ -118,18 +64,6 @@ pub struct FunctionParameter {
     /// The type of our function parameter. Most function parameters must be annotated and may not
     /// be inferred.
     pub annotation: Option<Type>,
-    /// The struct constructor should be private.
-    _private: (),
-}
-
-impl FunctionParameter {
-    pub fn new(pattern: Pattern, annotation: Option<Type>) -> Self {
-        FunctionParameter {
-            pattern,
-            annotation,
-            _private: (),
-        }
-    }
 }
 
 /// A class is some associated data and functions.
@@ -142,18 +76,6 @@ pub struct ClassDeclaration {
     pub extends: Option<Name>,
     /// The members of a class.
     pub members: Vec<ClassMember>,
-    /// The struct constructor should be private.
-    _private: (),
-}
-
-impl ClassDeclaration {
-    pub fn new(base: bool, name: Name, extends: Option<Name>, members: Vec<ClassMember>) -> Self {}
-}
-
-impl Into<Declaration> for ClassDeclaration {
-    fn into(self) -> Declaration {
-        Declaration::Class(self)
-    }
 }
 
 /// A single member of a class. Either data (field) or a function (method).
