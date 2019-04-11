@@ -113,11 +113,13 @@ impl Into<Type> for FunctionType {
     }
 }
 
+/// The identity of a class. We know two classes are the same if they have the same identity.
 pub struct ClassIdentity {
     name: Identifier,
     dedupe: u8,
 }
 
+/// The type of a class. See [`BaseClassType`] for base classes.
 pub type ClassType = Rc<ClassTypeData>;
 
 /// The data which makes up the type of a normal class. See [`BaseClassType`] for base classes.
@@ -141,20 +143,26 @@ pub struct ClassTypeData {
     _private: (),
 }
 
+/// The type of a field in a class.
 pub struct ClassFieldType {
+    /// The type of value in this field.
     value: Type,
     /// The struct constructor should be private.
     _private: (),
 }
 
+/// The type of a class method.
 pub struct ClassMethodType {
+    /// The function type of this method.
     function: FunctionType,
     /// The struct constructor should be private.
     _private: (),
 }
 
+/// The type of a base class. See [`ClassType`] for normal classes.
 pub type BaseClassType = Rc<BaseClassTypeData>;
 
+/// The data which makes up the type of a base class. See [`ClassType`] for normal classes.
 pub struct BaseClassTypeData {
     /// The range of our class name. We use this to point at a class.
     name_range: Range,
@@ -175,13 +183,17 @@ pub struct BaseClassTypeData {
     _private: (),
 }
 
+/// The type of a base class method.
 pub struct BaseClassMethodType {
+    /// Is this a base method or not?
     base: bool,
+    /// The function type of this method.
     function: FunctionType,
     /// The struct constructor should be private.
     _private: (),
 }
 
+/// The type of a declaration.
 pub enum DeclarationType {
     Function(FunctionType),
     Class(ClassType),
