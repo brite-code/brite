@@ -3,7 +3,7 @@ use crate::diagnostics::{
     Diagnostic, DiagnosticRef, DiagnosticsCollection, OperationSnippet, OperatorSnippet,
     TypeKindSnippet,
 };
-use crate::parser::ast;
+use crate::parser::syntax as ast;
 use crate::parser::{Identifier, Range};
 use crate::utils::vecn::Vec1;
 use std::cmp;

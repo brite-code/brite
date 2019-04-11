@@ -4,7 +4,7 @@ mod document;
 mod lexer;
 mod parser;
 
-pub mod ast;
+pub mod syntax;
 
 pub use self::document::*;
 pub use self::lexer::*;

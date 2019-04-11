@@ -5,9 +5,9 @@
 // TODO: Special handling for `a < b < c`?
 // TODO: Disallow `a < b > (c)` since we’ll use that for function call syntax.
 
-use super::ast::*;
 use super::document::Range;
 use super::lexer::*;
+use super::syntax::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 
 /// Manages the parsing of Brite syntactical elements from source code. The `Parser` struct is

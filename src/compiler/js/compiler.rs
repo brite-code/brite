@@ -1,5 +1,5 @@
 use super::js;
-use crate::parser::ast::*;
+use crate::parser::syntax::*;
 use crate::parser::Identifier;
 use crate::utils::binding::BindingMap;
 
@@ -232,7 +232,9 @@ impl Compiler {
             ExpressionKind::Block(block) => self
                 .scope_nest(|compiler| compiler.compile_block_without_nest(js_statements, block)),
 
-            ExpressionKind::Wrapped(wrapped) => self.compile_expression(js_statements, &wrapped.expression)
+            ExpressionKind::Wrapped(wrapped) => {
+                self.compile_expression(js_statements, &wrapped.expression)
+            }
         }
     }
 

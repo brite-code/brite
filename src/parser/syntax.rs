@@ -1,4 +1,5 @@
-//! The Abstract Syntax Tree (AST) represents the source code structure of a Brite program.
+//! The Abstract Syntax Tree (AST) represents the syntactic source code structure of a
+//! Brite program.
 
 use super::document::{Document, Range};
 use super::lexer::Identifier;
