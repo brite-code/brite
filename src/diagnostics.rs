@@ -67,6 +67,7 @@ use crate::parser::ast::{Constant, LogicalOperator, PrefixOperator};
 use crate::parser::{Document, Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::{Markup, MarkupCode};
 use std::fmt::{self, Write};
+use std::ops::Deref;
 use std::rc::Rc;
 
 /// A diagnostic is some message presented to the user about their program. Diagnostics contain a
@@ -79,7 +80,9 @@ use std::rc::Rc;
 /// [1]: https://microsoft.github.io/language-server-protocol/specification
 #[derive(Debug)]
 pub struct Diagnostic {
-    range: Range,
+    /// The range of our diagnostic.
+    pub range: Range,
+    /// A representation of every possible diagnostic message.
     message: DiagnosticMessage,
 }
 
@@ -1059,6 +1062,14 @@ impl TypeKindSnippet {
 /// it forces the programmer to report a diagnostic before being able to use a `DiagnosticRef`.
 #[derive(Clone, Debug)]
 pub struct DiagnosticRef(Rc<Diagnostic>);
+
+impl Deref for DiagnosticRef {
+    type Target = Diagnostic;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// A collection of diagnostics.
 pub struct DiagnosticsCollection {

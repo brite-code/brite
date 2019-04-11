@@ -1,5 +1,5 @@
 use super::js;
-use crate::checker::avt::*;
+use crate::parser::ast::*;
 use crate::parser::Identifier;
 use crate::utils::binding::BindingMap;
 
@@ -42,7 +42,7 @@ impl Compiler {
             // functions for their top-level functions, but function declarations better match the
             // aesthetics of the Brite language.
             Declaration::Function(function) => {
-                let id = self.scope_declare(&function.name);
+                let id = self.scope_declare(&function.name.identifier);
                 let (params, body) = self.compile_function(&function.function);
                 let body = match body {
                     js::ArrowFunctionBody::Block(block) => block,
@@ -53,7 +53,7 @@ impl Compiler {
                 js::Statement::function_declaration(id, params, body)
             }
 
-            Declaration::Unimplemented => unimplemented!(),
+            Declaration::Class(_) => unimplemented!(),
         }
     }
 
@@ -76,7 +76,7 @@ impl Compiler {
         let params = function
             .parameters
             .iter()
-            .map(|pattern| self.compile_pattern(pattern))
+            .map(|parameter| self.compile_pattern(&parameter.pattern))
             .collect();
 
         // Compile our block with a fresh array of JavaScript statements.
@@ -150,6 +150,7 @@ impl Compiler {
                     js_statements.push(js::Statement::expression(js_expression));
                 }
             }
+
             StatementKind::Binding(binding) => {
                 let js_statement = js::Statement::variable_declaration(
                     js::VariableDeclarationKind::Const,
@@ -158,6 +159,8 @@ impl Compiler {
                 );
                 js_statements.push(js_statement);
             }
+
+            StatementKind::Return(_) => unimplemented!(),
         }
     }
 
@@ -193,6 +196,8 @@ impl Compiler {
                 })
             }
 
+            ExpressionKind::This => unimplemented!(),
+
             // Compile a Brite function expression to a JavaScript arrow function.
             ExpressionKind::Function(function) => {
                 let (params, body) = self.compile_function(function);
@@ -200,7 +205,10 @@ impl Compiler {
             }
 
             ExpressionKind::Call(_) => unimplemented!(),
+            ExpressionKind::Construct(_) => unimplemented!(),
+            ExpressionKind::Member(_) => unimplemented!(),
             ExpressionKind::Prefix(_) => unimplemented!(),
+            ExpressionKind::Infix(_) => unimplemented!(),
 
             // Compile both operands of a logical expression and create a JavaScript
             // logical expression.
@@ -218,14 +226,13 @@ impl Compiler {
                 self.compile_expression(js_statements, &logical.right),
             ),
 
+            ExpressionKind::Conditional(_) => unimplemented!(),
+
             // Add a level of Brite nesting and compile our block...
             ExpressionKind::Block(block) => self
                 .scope_nest(|compiler| compiler.compile_block_without_nest(js_statements, block)),
 
-            ExpressionKind::Error(_) => unimplemented!(),
-
-            // TODO: Remove this...
-            ExpressionKind::Unimplemented => unimplemented!(),
+            ExpressionKind::Wrapped(wrapped) => self.compile_expression(js_statements, &wrapped.expression)
         }
     }
 
@@ -234,6 +241,8 @@ impl Compiler {
             PatternKind::Binding(identifier) => {
                 js::Pattern::identifier(self.scope_declare(identifier))
             }
+            PatternKind::Hole => unimplemented!(),
+            PatternKind::This => unimplemented!(),
         }
     }
 
