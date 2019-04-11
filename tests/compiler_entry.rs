@@ -22,7 +22,7 @@ macro_rules! test {
             let document = Document::new(source);
             let lexer = Lexer::new(&mut diagnostics, &document);
             let module = Parser::new(lexer).parse_module().unwrap();
-            let module = Checker::new(&mut diagnostics).check_module(&module);
+            Checker::new(&mut diagnostics).check_module(&module);
             let program = Compiler::new().compile_module(&module);
 
             path.set_extension("ite.md");
