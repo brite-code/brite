@@ -114,6 +114,16 @@ pub struct BaseMethodClassMember {
     pub return_type: Type,
 }
 
+impl Declaration {
+    /// Gets the range for our declaration’s name.
+    pub fn name(&self) -> &Name {
+        match self {
+            Declaration::Function(x) => &x.name,
+            Declaration::Class(x) => &x.name,
+        }
+    }
+}
+
 /// A block contains a list of statements which are executed sequentially.
 #[derive(Debug)]
 pub struct Block {

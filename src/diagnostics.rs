@@ -56,6 +56,11 @@
 //!   of "phrase". Same for single quotes. For instance ‘phrase’ instead of 'phrase'. Unless you
 //!   are talking about quotes inside of code.
 //!
+//! - The message in related information should be present somewhere in the main message of a
+//!   diagnostic. It’s like the related information is a “link” to something mentioned in
+//!   the message. We can’t be sure of all the ways an IDE might choose to display
+//!   related information.
+//!
 //! ## Helpful Tools
 //!
 //! Some tools we find are helpful when designing on an error message.
@@ -122,6 +127,11 @@ enum ErrorDiagnosticMessage {
     IdentifierNotFound { identifier: Identifier },
     /// A declaration with this name already exists.
     DeclarationNameAlreadyUsed {
+        identifier: Identifier,
+        declaration_range: Range,
+    },
+    /// While trying to type check a declaration we ended up checking ourselves.
+    DeclarationCycleDetected {
         identifier: Identifier,
         declaration_range: Range,
     },
@@ -394,6 +404,23 @@ impl Diagnostic {
         )
     }
 
+    /// While trying to type check a declaration we ended up checking ourselves.
+    ///
+    /// The first range is the range of the declaration which references itself.
+    pub fn declaration_cycle_detected(
+        range: Range,
+        identifier: Identifier,
+        declaration_range: Range,
+    ) -> Self {
+        Self::error(
+            range,
+            ErrorDiagnosticMessage::DeclarationCycleDetected {
+                identifier,
+                declaration_range,
+            },
+        )
+    }
+
     /// Tried to extend a declaration which is not a base class.
     ///
     /// The first range is the range of the bad extends name. The second range is the range of the
@@ -588,6 +615,38 @@ impl Diagnostic {
                 write!(message, "Can not use the name ")?;
                 write!(message.code(), "{}", identifier.as_str())?;
                 write!(message, " again.")?;
+                let mut related_information = Vec::new();
+                {
+                    let mut message = Markup::new();
+                    write!(message.code(), "{}", identifier.as_str())?;
+                    related_information.push(DiagnosticRelatedInformation {
+                        range: *declaration_range,
+                        message: message,
+                    });
+                }
+                Ok((message, related_information))
+            }
+
+            // This error usually happens when there is a class extension cycle. However, in the
+            // type checker implementation, theoretically it could happen anywhere we need
+            // information from a declaration. So we need an error message that is sufficiently
+            // general which means we can’t say the word “class” even though that’s the most common
+            // use case.
+            //
+            // We choose to use the range where we detected the cycle as the range for this
+            // diagnostic and reference the declaration in related information. This way the user
+            // can see where the cycle is formed.
+            //
+            // Unfortunately because a cycle is, well, circular, it’s kind of arbitrary where we end
+            // up breaking a cycle.
+            ErrorDiagnosticMessage::DeclarationCycleDetected {
+                identifier,
+                declaration_range,
+            } => {
+                let mut message = Markup::new();
+                write!(message, "Can not use ")?;
+                write!(message.code(), "{}", identifier.as_str())?;
+                write!(message, " because it would create a circular reference.")?;
                 let mut related_information = Vec::new();
                 {
                     let mut message = Markup::new();
