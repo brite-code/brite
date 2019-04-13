@@ -7,6 +7,7 @@ use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 /// A name is an identifier with the identifier’s range in source code.
 #[derive(Clone, Debug)]
@@ -475,95 +476,129 @@ pub enum PatternKind {
 }
 
 /// Describes the values which may be assigned to a certain location.
-#[derive(Debug)]
-pub struct Type {
-    /// The range of our type.
-    pub range: Range,
-    /// What kind of type is this?
-    pub kind: TypeKind,
-    /// The struct constructor should be private.
-    _private: (),
-}
-
-/// The kind of a type AST node. Not to be confused with type kinds in a higher-order type system.
-#[derive(Debug)]
-pub enum TypeKind {
+#[derive(Clone, Debug)]
+pub enum Type {
     /// References a type in our project.
     Reference(ReferenceType),
     /// References the current class instance type. If we are in a base class then `this` could be
     /// any of the base class’s children.
-    This,
+    This(ThisType),
+    /// A resolved type which an unresolved type like a reference type may point to.
+    Resolved(ResolvedType),
+}
+
+/// A resolved type is one that some type “pointer” points to. For example, a [`ReferenceType`]
+/// points to an underlying [`ResolvedType`].
+#[derive(Clone, Debug)]
+pub enum ResolvedType {
+    /// A type with no recursive type parts.
+    Scalar(ScalarType),
+    /// Some type that is recursively made up of other types.
+    Composite(Rc<CompositeType>),
+}
+
+/// A type with no recursive type parts. Unlike a [`CompositeType`] which is recursively made up of
+/// some types.
+#[derive(Clone, Debug)]
+pub struct ScalarType {
+    /// The range that our scalar type is defined in source code.
+    pub range: Range,
+    /// The kind of our scalar type.
+    pub kind: ScalarTypeKind,
+    /// The struct constructor should be private.
+    _private: (),
+}
+
+/// The kind of a [`ScalarType`].
+#[derive(Clone, Debug)]
+pub enum ScalarTypeKind {
+    /// Type with only one value, void. This is the “unit” type for Brite.
+    Void,
+}
+
+/// Some type that is recursively made up of composite and [`ScalarType`]s.
+#[derive(Debug)]
+pub enum CompositeType {
     /// The type of a function. Functions may be passed around just like any other value.
     Function(FunctionType),
 }
 
 impl Type {
-    /// Do not make this public!
-    fn new(range: Range, kind: TypeKind) -> Self {
-        Type {
-            range,
-            kind,
-            _private: (),
-        }
-    }
-
     pub fn reference(range: Range, identifier: Identifier) -> Self {
-        Self::new(range, TypeKind::Reference(ReferenceType::new(identifier)))
+        Type::Reference(ReferenceType {
+            range,
+            identifier,
+            reference: RefCell::new(None),
+            _private: (),
+        })
     }
 
     pub fn this(range: Range) -> Self {
-        Self::new(range, TypeKind::This)
+        Type::This(ThisType {
+            range,
+            _private: (),
+        })
     }
 
     pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
-        Self::new(
-            range,
-            TypeKind::Function(FunctionType::new(parameters, return_)),
-        )
+        Type::Resolved(ResolvedType::Composite(Rc::new(CompositeType::Function(
+            FunctionType {
+                range,
+                parameters,
+                return_,
+                _private: (),
+            },
+        ))))
+    }
+
+    /// Gets the range of a type.
+    pub fn range(&self) -> Range {
+        match self {
+            Type::Reference(reference) => reference.range,
+            Type::This(this) => this.range,
+            Type::Resolved(ResolvedType::Scalar(scalar)) => scalar.range,
+            Type::Resolved(ResolvedType::Composite(composite)) => match &**composite {
+                CompositeType::Function(function) => function.range,
+            },
+        }
     }
 }
 
 /// A reference to some other type in the program.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ReferenceType {
+    /// The range of this reference type.
+    pub range: Range,
     /// The identifier the programmer wrote to reference their type.
     pub identifier: Identifier,
     /// The type we are referencing. We will not know the actual type until after we check the
     /// program. Until then our reference will be `None`.
-    reference: RefCell<Option<Box<Type>>>,
+    reference: RefCell<Option<ResolvedType>>,
     /// The struct constructor should be private.
     _private: (),
 }
 
-impl ReferenceType {
-    fn new(identifier: Identifier) -> Self {
-        ReferenceType {
-            identifier,
-            reference: RefCell::new(None),
-            _private: (),
-        }
-    }
+/// References the current class instance type. If we are in a base class then `this` could be
+/// any of the base class’s children.
+#[derive(Clone, Debug)]
+pub struct ThisType {
+    /// The range of this reference type.
+    pub range: Range,
+    /// The struct constructor should be private.
+    _private: (),
 }
 
 /// The type of a function. Functions may be passed around just like any other value.
 #[derive(Debug)]
 pub struct FunctionType {
+    /// The range of this function type.
+    pub range: Range,
     /// The types of this function’s parameters.
     pub parameters: Vec<Type>,
     /// The return type of this function.
-    pub return_: Box<Type>,
+    pub return_: Type,
     /// The struct constructor should be private.
     _private: (),
-}
-
-impl FunctionType {
-    fn new(parameters: Vec<Type>, return_: Type) -> Self {
-        FunctionType {
-            parameters,
-            return_: Box::new(return_),
-            _private: (),
-        }
-    }
 }
 
 impl Constant {
@@ -939,19 +974,22 @@ impl Pattern {
 impl Type {
     /// Converts a type to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
-        let range: Lisp = self.range.display(doc).into();
-        match &self.kind {
-            TypeKind::Reference(reference) => lisp!("var", range, &reference.identifier),
-            TypeKind::This => lisp!("this", range),
-            TypeKind::Function(function) => {
-                let mut expressions = Vec::with_capacity(2 + function.parameters.len());
-                expressions.push("fun".into());
-                for parameter in &function.parameters {
-                    expressions.push(lisp!("param", parameter.lisp(doc)));
+        let range: Lisp = self.range().display(doc).into();
+        match self {
+            Type::Reference(reference) => lisp!("var", range, &reference.identifier),
+            Type::This(_) => lisp!("this", range),
+            Type::Resolved(ResolvedType::Scalar(_)) => unimplemented!(),
+            Type::Resolved(ResolvedType::Composite(composite)) => match &**composite {
+                CompositeType::Function(function) => {
+                    let mut expressions = Vec::with_capacity(2 + function.parameters.len());
+                    expressions.push("fun".into());
+                    for parameter in &function.parameters {
+                        expressions.push(lisp!("param", parameter.lisp(doc)));
+                    }
+                    expressions.push(function.return_.lisp(doc));
+                    Lisp::List(Vec2::from_vec(expressions))
                 }
-                expressions.push(function.return_.lisp(doc));
-                Lisp::List(Vec2::from_vec(expressions))
-            }
+            },
         }
     }
 }

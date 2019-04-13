@@ -719,7 +719,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             let (parameters, _) = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
             self.parse_glyph(Glyph::Arrow)?;
             let return_ = self.parse_type()?;
-            let range = start.union(return_.range);
+            let range = start.union(return_.range());
             return Ok(Type::function(range, parameters, return_));
         }
 
