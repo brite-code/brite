@@ -7,7 +7,7 @@ use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
 use std::cell::RefCell;
-use typed_arena::Arena as TypedArena;
+use typed_arena::Arena;
 
 /// A name is an identifier with the identifier’s range in source code.
 #[derive(Clone, Debug)]
@@ -496,8 +496,8 @@ pub enum TypeKind<'a> {
 
 impl<'a> Type<'a> {
     /// Allocates self into the provided arena.
-    pub fn alloc(self, arena: ArenaRef<'a>) -> TypeRef<'a> {
-        arena.alloc_type(self)
+    pub fn alloc(self, arena: &'a Arena<Type<'a>>) -> TypeRef<'a> {
+        arena.alloc(self)
     }
 
     /// Do not make this public!
@@ -565,34 +565,6 @@ impl<'a> FunctionType<'a> {
             return_,
             _private: (),
         }
-    }
-}
-
-/// A reference to a [`Arena`] where you only have to write the lifetime once.
-pub type ArenaRef<'a> = &'a Arena<'a>;
-
-/// An arena to hold all of our language nodes.
-pub struct Arena<'a> {
-    /// An arena just for [`Type`]s.
-    types: TypedArena<Type<'a>>,
-}
-
-impl<'a> Arena<'a> {
-    /// Creates a new arena.
-    pub fn new() -> Self {
-        Arena {
-            types: TypedArena::new(),
-        }
-    }
-
-    /// Allocates a type in our arena.
-    pub fn alloc_type(&'a self, type_: Type<'a>) -> TypeRef<'a> {
-        self.types.alloc(type_)
-    }
-
-    /// Allocates many types in our arena.
-    pub fn alloc_types(&'a self, types: impl IntoIterator<Item = Type<'a>>) -> TypeSlice<'a> {
-        self.types.alloc_extend(types)
     }
 }
 

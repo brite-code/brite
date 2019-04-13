@@ -9,20 +9,21 @@ use super::document::Range;
 use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 use crate::language::*;
+use typed_arena::Arena;
 
 /// Manages the parsing of Brite syntactical elements from source code. The `Parser` struct is
 /// more like a parsing “context”. It does not hold much state itself. Most of the parsing state is
 /// implemented in our [`Lexer`].
 pub struct Parser<'a, 'errs, 'src> {
     /// The arena for allocating language nodes.
-    arena: ArenaRef<'a>,
+    arena: &'a Arena<Type<'a>>,
     /// The lexer our parser uses.
     lexer: Lexer<'errs, 'src>,
 }
 
 impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     /// Creates a new parser.
-    pub fn new(arena: ArenaRef<'a>, lexer: Lexer<'errs, 'src>) -> Self {
+    pub fn new(arena: &'a Arena<Type<'a>>, lexer: Lexer<'errs, 'src>) -> Self {
         Parser { arena, lexer }
     }
 
@@ -723,7 +724,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
             self.parse_glyph(Glyph::ParenLeft)?;
             let (parameters, _) = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
-            let parameters = self.arena.alloc_types(parameters);
+            let parameters = self.arena.alloc_extend(parameters);
             self.parse_glyph(Glyph::Arrow)?;
             let return_ = self.parse_type()?.alloc(self.arena);
             let range = start.union(return_.range);
