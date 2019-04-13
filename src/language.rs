@@ -480,6 +480,8 @@ pub struct Type {
     pub range: Range,
     /// What kind of type is this?
     pub kind: TypeKind,
+    /// The struct constructor should be private.
+    _private: (),
 }
 
 /// The kind of a type AST node. Not to be confused with type kinds in a higher-order type system.
@@ -494,6 +496,36 @@ pub enum TypeKind {
     Function(FunctionType),
 }
 
+impl Type {
+    /// Do not make this public!
+    fn new(range: Range, kind: TypeKind) -> Self {
+        Type {
+            range,
+            kind,
+            _private: (),
+        }
+    }
+
+    pub fn reference(range: Range, identifier: Identifier) -> Self {
+        Self::new(range, TypeKind::Reference(identifier))
+    }
+
+    pub fn this(range: Range) -> Self {
+        Self::new(range, TypeKind::This)
+    }
+
+    pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
+        Self::new(
+            range,
+            TypeKind::Function(FunctionType {
+                parameters,
+                return_: Box::new(return_),
+                _private: (),
+            }),
+        )
+    }
+}
+
 /// The type of a function. Functions may be passed around just like any other value.
 #[derive(Debug)]
 pub struct FunctionType {
@@ -501,6 +533,8 @@ pub struct FunctionType {
     pub parameters: Vec<Type>,
     /// The return type of this function.
     pub return_: Box<Type>,
+    /// The struct constructor should be private.
+    _private: (),
 }
 
 impl Constant {

@@ -705,18 +705,12 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     fn parse_type(&mut self) -> Result<Type, DiagnosticRef> {
         // Reference type
         if let Some((range, identifier)) = self.try_parse_identifier() {
-            return Ok(Type {
-                range,
-                kind: TypeKind::Reference(identifier),
-            });
+            return Ok(Type::reference(range, identifier));
         }
 
         // This type
         if let Some(range) = self.try_parse_keyword(Keyword::This) {
-            return Ok(Type {
-                range,
-                kind: TypeKind::This,
-            });
+            return Ok(Type::this(range));
         }
 
         // Function type
@@ -726,13 +720,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             self.parse_glyph(Glyph::Arrow)?;
             let return_ = self.parse_type()?;
             let range = start.union(return_.range);
-            return Ok(Type {
-                range,
-                kind: TypeKind::Function(FunctionType {
-                    parameters,
-                    return_: Box::new(return_),
-                }),
-            });
+            return Ok(Type::function(range, parameters, return_));
         }
 
         self.unexpected(ExpectedSyntax::Type)
