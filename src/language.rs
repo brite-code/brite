@@ -6,6 +6,7 @@ use crate::parser::{Document, Identifier, Range};
 use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
+use std::cell::RefCell;
 
 /// A name is an identifier with the identifier’s range in source code.
 #[derive(Clone, Debug)]
@@ -488,7 +489,7 @@ pub struct Type {
 #[derive(Debug)]
 pub enum TypeKind {
     /// References a type in our project.
-    Reference(Identifier),
+    Reference(ReferenceType),
     /// References the current class instance type. If we are in a base class then `this` could be
     /// any of the base class’s children.
     This,
@@ -507,7 +508,7 @@ impl Type {
     }
 
     pub fn reference(range: Range, identifier: Identifier) -> Self {
-        Self::new(range, TypeKind::Reference(identifier))
+        Self::new(range, TypeKind::Reference(ReferenceType::new(identifier)))
     }
 
     pub fn this(range: Range) -> Self {
@@ -517,12 +518,30 @@ impl Type {
     pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
         Self::new(
             range,
-            TypeKind::Function(FunctionType {
-                parameters,
-                return_: Box::new(return_),
-                _private: (),
-            }),
+            TypeKind::Function(FunctionType::new(parameters, return_)),
         )
+    }
+}
+
+/// A reference to some other type in the program.
+#[derive(Debug)]
+pub struct ReferenceType {
+    /// The identifier the programmer wrote to reference their type.
+    pub identifier: Identifier,
+    /// The type we are referencing. We will not know the actual type until after we check the
+    /// program. Until then our reference will be `None`.
+    reference: RefCell<Option<Box<Type>>>,
+    /// The struct constructor should be private.
+    _private: (),
+}
+
+impl ReferenceType {
+    fn new(identifier: Identifier) -> Self {
+        ReferenceType {
+            identifier,
+            reference: RefCell::new(None),
+            _private: (),
+        }
     }
 }
 
@@ -535,6 +554,16 @@ pub struct FunctionType {
     pub return_: Box<Type>,
     /// The struct constructor should be private.
     _private: (),
+}
+
+impl FunctionType {
+    fn new(parameters: Vec<Type>, return_: Type) -> Self {
+        FunctionType {
+            parameters,
+            return_: Box::new(return_),
+            _private: (),
+        }
+    }
 }
 
 impl Constant {
@@ -912,7 +941,7 @@ impl Type {
     fn lisp(&self, doc: &Document) -> Lisp {
         let range: Lisp = self.range.display(doc).into();
         match &self.kind {
-            TypeKind::Reference(identifier) => lisp!("var", range, identifier),
+            TypeKind::Reference(reference) => lisp!("var", range, &reference.identifier),
             TypeKind::This => lisp!("this", range),
             TypeKind::Function(function) => {
                 let mut expressions = Vec::with_capacity(2 + function.parameters.len());

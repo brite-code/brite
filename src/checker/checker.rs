@@ -706,8 +706,8 @@ impl<'errs> Checker<'errs> {
 
     fn check_type(&mut self, type_: &ast::Type) -> Type {
         match &type_.kind {
-            ast::TypeKind::Reference(identifier) => {
-                match self.scope.resolve(&type_.range, identifier) {
+            ast::TypeKind::Reference(reference) => {
+                match self.scope.resolve(&type_.range, &reference.identifier) {
                     // If the identifier was not found report our error and return the unsound
                     // error type.
                     Err(diagnostic) => Type::error(self.report_diagnostic(diagnostic)),
