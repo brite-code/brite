@@ -1,6 +1,7 @@
 //! The Abstract Syntax Tree (AST) represents the syntactic source code structure of a
 //! Brite program.
 
+use crate::diagnostics::DiagnosticRef;
 use crate::diagnostics::{ExpressionSnippet, PatternSnippet, StatementSnippet, VecSnippet};
 use crate::parser::{Document, Identifier, Range};
 use crate::utils::lisp::Lisp;
@@ -495,6 +496,14 @@ pub enum ResolvedType {
     Scalar(ScalarType),
     /// Some type that is recursively made up of other types.
     Composite(Rc<CompositeType>),
+    /// The error type exists as an unsound “any” type. It is both the subtype of everything _and_
+    /// the supertype of everything combining the behaviors of both the bottom and top types. Of
+    /// course this is completely unsound which is why the error type should never exist in a valid
+    /// Brite program.
+    ///
+    /// Error types always carry around the diagnostic which created them. This is important for
+    /// figuring out what to blame for the source of an error type.
+    Error(DiagnosticRef),
 }
 
 /// A type with no recursive type parts. Unlike a [`CompositeType`] which is recursively made up of
@@ -528,7 +537,7 @@ impl Type {
         Type::Reference(ReferenceType {
             range,
             identifier,
-            reference: RefCell::new(None),
+            resolved: RefCell::new(None),
             _private: (),
         })
     }
@@ -551,16 +560,50 @@ impl Type {
         ))))
     }
 
+    pub fn error(diagnostic: DiagnosticRef) -> Self {
+        Type::Resolved(ResolvedType::Error(diagnostic))
+    }
+
     /// Gets the range of a type.
     pub fn range(&self) -> Range {
         match self {
             Type::Reference(reference) => reference.range,
             Type::This(this) => this.range,
             Type::Resolved(ResolvedType::Scalar(scalar)) => scalar.range,
+            Type::Resolved(ResolvedType::Error(error)) => error.range,
             Type::Resolved(ResolvedType::Composite(composite)) => match &**composite {
                 CompositeType::Function(function) => function.range,
             },
         }
+    }
+}
+
+impl CompositeType {
+    /// Iterates over each component type of our composite type.
+    ///
+    /// NOTE: This is only a shallow iteration! If one of the component types is itself a composite
+    /// type then that composite type will *not* be recursively visited.
+    pub fn visit<'me>(&'me self, mut visit: impl FnMut(&'me Type)) {
+        match self {
+            CompositeType::Function(function) => {
+                for parameter in &function.parameters {
+                    visit(parameter);
+                }
+                visit(&function.return_);
+            }
+        }
+    }
+}
+
+impl Into<ResolvedType> for DiagnosticRef {
+    fn into(self) -> ResolvedType {
+        ResolvedType::Error(self)
+    }
+}
+
+impl Into<Type> for DiagnosticRef {
+    fn into(self) -> Type {
+        Type::Resolved(self.into())
     }
 }
 
@@ -573,9 +616,27 @@ pub struct ReferenceType {
     pub identifier: Identifier,
     /// The type we are referencing. We will not know the actual type until after we check the
     /// program. Until then our reference will be `None`.
-    reference: RefCell<Option<ResolvedType>>,
+    ///
+    /// Because this takes a [`ResolvedType`] instead of a [`Type`] it is impossible in the type
+    /// system to create a cycle between two [`ReferenceType`]s.
+    resolved: RefCell<Option<ResolvedType>>,
     /// The struct constructor should be private.
     _private: (),
+}
+
+impl ReferenceType {
+    /// Resolves a reference type to a particular resolved type. You should not call this function
+    /// if the reference type is already resolved!
+    ///
+    /// In debug mode, we will panic if you try to resolve an already resolved reference type. In
+    /// release mode we will silently ignore the error instead of noisily panicking.
+    pub fn resolve(&self, type_: ResolvedType) {
+        let prev_type = self.resolved.replace(Some(type_));
+        debug_assert!(
+            prev_type.is_none(),
+            "Can not resolve a reference that is already resolved!"
+        );
+    }
 }
 
 /// References the current class instance type. If we are in a base class then `this` could be
@@ -979,6 +1040,7 @@ impl Type {
             Type::Reference(reference) => lisp!("var", range, &reference.identifier),
             Type::This(_) => lisp!("this", range),
             Type::Resolved(ResolvedType::Scalar(_)) => unimplemented!(),
+            Type::Resolved(ResolvedType::Error(_)) => unimplemented!(),
             Type::Resolved(ResolvedType::Composite(composite)) => match &**composite {
                 CompositeType::Function(function) => {
                     let mut expressions = Vec::with_capacity(2 + function.parameters.len());

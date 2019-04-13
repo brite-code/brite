@@ -2,6 +2,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection};
 use crate::language::*;
 use crate::parser::{Identifier, Range};
 use std::collections::HashMap;
+use std::mem;
 
 pub fn precheck_module(diagnostics: &mut DiagnosticsCollection, module: &Module) {
     let mut declarations: PrecheckDeclarationMap =
@@ -61,11 +62,17 @@ pub fn precheck_module(diagnostics: &mut DiagnosticsCollection, module: &Module)
     }
 }
 
-type PrecheckDeclarationMap<'source> = HashMap<Identifier, PrecheckDeclarationLazy<'source>>;
+type PrecheckDeclarationMap<'src> = HashMap<Identifier, PrecheckDeclarationLazy<'src>>;
 
 enum PrecheckDeclaration {
     Function(PrecheckFunctionDeclaration),
     Class(PrecheckClassDeclaration),
+}
+
+impl PrecheckDeclaration {
+    fn resolve_type(&self, reference: &ReferenceType) {
+        unimplemented!()
+    }
 }
 
 fn precheck_declaration(
@@ -124,23 +131,23 @@ fn precheck_class_declaration(
 /// references to the declaration. We then go through each declaration and type check it. If one
 /// declaration depends on another (like `class extends`) we will make sure to check that class even
 /// if it appears after our own in source code.
-enum PrecheckDeclarationLazy<'source> {
+enum PrecheckDeclarationLazy<'src> {
     /// The declaration is unchecked or is currently in the process of type checking.
     Unchecked {
         /// The range of the declaration’s name.
         name_range: Range,
         /// The declaration which needs to be checked. If `None` then we are currently type checking
         /// this declaration.
-        declaration: Option<&'source Declaration>,
+        declaration: Option<&'src Declaration>,
         /// References to the declaration that we find before we finish checking.
-        references: Vec<()>,
+        references: Vec<&'src ReferenceType>,
     },
     /// We’ve finished checking the declaration.
     Checked(PrecheckDeclaration),
 }
 
-impl<'source> PrecheckDeclarationLazy<'source> {
-    fn unchecked(name_range: Range, declaration: &'source Declaration) -> Self {
+impl<'src> PrecheckDeclarationLazy<'src> {
+    fn unchecked(name_range: Range, declaration: &'src Declaration) -> Self {
         PrecheckDeclarationLazy::Unchecked {
             name_range,
             declaration: Some(declaration),
@@ -191,9 +198,13 @@ fn resolve_precheck_declaration<'scope>(
                 // Take the declaration we need to check. This will set the `declaration` field to
                 // `None`. That way we can detect circular references.
                 if let Some(declaration) = declaration.take() {
+                    let references = mem::replace(references, Vec::new());
                     let declaration = precheck_declaration(diagnostics, declarations, declaration);
                     let declaration_lazy = declarations.get_mut(identifier).unwrap();
                     debug_assert!(declaration_lazy.is_checking());
+                    for reference in references {
+                        declaration.resolve_type(reference);
+                    }
                     *declaration_lazy = PrecheckDeclarationLazy::Checked(declaration);
                 } else {
                     // If we are already checking this declaration then we found a
@@ -219,4 +230,50 @@ fn resolve_precheck_declaration<'scope>(
     }
 }
 
-fn check_type(diagnostics: &mut DiagnosticsCollection, type_: &Type) {}
+/// Checks a type using only the declaration information we have during the precheck stage.
+///
+/// We aren’t guaranteed to precheck the type or any of its components. If the type depends on an
+/// unchecked declaration then we will wait until the declaration has been checked to finish
+/// checking the type.
+fn precheck_type<'src>(
+    diagnostics: &mut DiagnosticsCollection,
+    declarations: &mut PrecheckDeclarationMap<'src>,
+    type_: &'src Type,
+) {
+    match type_ {
+        Type::Reference(reference) => match declarations.get_mut(&reference.identifier) {
+            // If we have a checked declaration then use it to resolve our reference type.
+            Some(PrecheckDeclarationLazy::Checked(declaration)) => {
+                declaration.resolve_type(reference);
+            }
+
+            // If there’s a declaration with the referenced name but the declaration hasn’t been
+            // checked yet, add our reference to its internal list so that we can resolve the
+            // reference once the declaration has type checked.
+            Some(PrecheckDeclarationLazy::Unchecked { references, .. }) => {
+                references.push(reference);
+            }
+
+            // If there is no declaration with the referenced name then resolve our reference type
+            // to an error type.
+            None => {
+                let error = diagnostics.report(Diagnostic::identifier_not_found(
+                    reference.range,
+                    reference.identifier.clone(),
+                ));
+                reference.resolve(error.into());
+            }
+        },
+
+        Type::This(_) => unimplemented!(),
+
+        // Scalar and error types are ok as they are!
+        Type::Resolved(ResolvedType::Scalar(_)) => {}
+        Type::Resolved(ResolvedType::Error(_)) => {}
+
+        // Iterate through all the component types of our composite type.
+        Type::Resolved(ResolvedType::Composite(composite)) => {
+            composite.visit(|type_| precheck_type(diagnostics, declarations, type_));
+        }
+    }
+}
