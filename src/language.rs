@@ -206,9 +206,6 @@ pub enum IntegerBase {
     Hexadecimal,
 }
 
-/// A reference to a [`Expression`] where you only have to write the lifetime once.
-pub type ExpressionRef<'a> = &'a Expression<'a>;
-
 /// Some execution which returns a value.
 #[derive(Debug)]
 pub struct Expression<'a> {
@@ -216,8 +213,6 @@ pub struct Expression<'a> {
     pub range: Range,
     /// What kind of expression is this?
     pub kind: ExpressionKind<'a>,
-    /// The struct constructor should be private.
-    _private: (),
 }
 
 /// The kind of an Expression AST node.
@@ -236,105 +231,58 @@ pub enum ExpressionKind<'a> {
     /// Constructs a class instance with some fields.
     Construct(ConstructExpression<'a>),
     /// Accesses a member of a class instance.
-    Member(MemberExpression<'a>),
+    Member(Box<MemberExpression<'a>>),
     /// An operation using prefix syntax.
-    Prefix(PrefixExpression<'a>),
+    Prefix(Box<PrefixExpression<'a>>),
     /// An operation using infix syntax.
-    Infix(InfixExpression<'a>),
+    Infix(Box<InfixExpression<'a>>),
     /// A logical operation using infix syntax.
-    Logical(LogicalExpression<'a>),
+    Logical(Box<LogicalExpression<'a>>),
     /// A conditional expression chooses a branch to take based on a test expression.
-    Conditional(ConditionalExpressionIf<'a>),
+    Conditional(Box<ConditionalExpressionIf<'a>>),
     /// Embeds a block into an expression.
     Block(Block<'a>),
     /// Wraps an expression in parentheses with an optional type annotation.
-    Wrapped(WrappedExpression<'a>),
+    Wrapped(Box<WrappedExpression<'a>>),
 }
 
 impl<'a> Expression<'a> {
-    /// NOTE: Do not make this public!
-    fn new(arena: ArenaRef<'a>, range: Range, kind: ExpressionKind<'a>) -> ExpressionRef<'a> {
-        arena.alloc_expression(Expression {
-            range,
-            kind,
-            _private: (),
-        })
+    fn new(range: Range, kind: ExpressionKind<'a>) -> Self {
+        Expression { range, kind }
     }
 
-    pub fn constant(arena: ArenaRef<'a>, range: Range, constant: Constant) -> ExpressionRef<'a> {
-        Expression::new(arena, range, ExpressionKind::Constant(constant))
-    }
-
-    // pub fn reference(arena: ArenaRef<'a>, range: Range, identifier: ) -> ExpressionRef<'a> {
-    //     Expression::new(arena, range, ExpressionKind::Reference(identifier))
-    // }
-
-    pub fn this(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn function(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn call(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn construct(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn member(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn prefix(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn infix(
-        arena: ArenaRef<'a>,
-        range: Range,
-        operator: InfixOperator,
-        left: ExpressionRef<'a>,
-        right: ExpressionRef<'a>,
-    ) -> ExpressionRef<'a> {
-        Expression::new(
-            arena,
+    /// Create a logical expression.
+    pub fn logical(range: Range, operator: LogicalOperator, left: Self, right: Self) -> Self {
+        Self::new(
             range,
-            ExpressionKind::Infix(InfixExpression {
+            ExpressionKind::Logical(Box::new(LogicalExpression {
                 operator,
                 left,
                 right,
-                _private: (),
-            }),
+            })),
         )
     }
 
-    pub fn logical(
-        arena: ArenaRef<'a>,
-        range: Range,
-        operator: LogicalOperator,
-        left: ExpressionRef<'a>,
-        right: ExpressionRef<'a>,
-    ) -> ExpressionRef<'a> {
-        Expression::new(
-            arena,
+    /// Create an infix expression.
+    pub fn infix(range: Range, operator: InfixOperator, left: Self, right: Self) -> Self {
+        Self::new(
             range,
-            ExpressionKind::Logical(LogicalExpression {
+            ExpressionKind::Infix(Box::new(InfixExpression {
                 operator,
                 left,
                 right,
-                _private: (),
-            }),
+            })),
         )
     }
-
-    pub fn conditional(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn block(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
-
-    pub fn wrapped(arena: ArenaRef<'a>, range: Range) -> ExpressionRef<'a> {}
 }
 
 /// Calls a function with some arguments.
 #[derive(Debug)]
 pub struct CallExpression<'a> {
     /// The function we want to call.
-    pub callee: ExpressionRef<'a>,
+    pub callee: Box<Expression<'a>>,
     /// The arguments we want to call the function with.
-    pub arguments: Vec<ExpressionRef<'a>>,
-    /// The struct constructor should be private.
-    _private: (),
+    pub arguments: Vec<Expression<'a>>,
 }
 
 /// Constructs a class instance with some fields.
@@ -344,8 +292,6 @@ pub struct ConstructExpression<'a> {
     pub constructor: Name,
     /// The fields we construct the class with.
     pub fields: Vec<ConstructExpressionField<'a>>,
-    /// The struct constructor should be private.
-    _private: (),
 }
 
 /// A field in a [`ConstructExpression`].
@@ -354,20 +300,16 @@ pub struct ConstructExpressionField<'a> {
     /// The name of the class field.
     pub name: Name,
     /// The value of we use for the class field.
-    pub value: ExpressionRef<'a>,
-    /// The struct constructor should be private.
-    _private: (),
+    pub value: Expression<'a>,
 }
 
 /// Accesses a member of a class instance.
 #[derive(Debug)]
 pub struct MemberExpression<'a> {
     /// The object we are accessing a property of.
-    pub object: ExpressionRef<'a>,
+    pub object: Expression<'a>,
     /// The name of the property we are accessing.
     pub property: Name,
-    /// The struct constructor should be private.
-    _private: (),
 }
 
 /// An operation using prefix syntax.
@@ -376,9 +318,7 @@ pub struct PrefixExpression<'a> {
     /// The operator which describes this operation.
     pub operator: PrefixOperator,
     /// The operand we are performing the operation on.
-    pub operand: ExpressionRef<'a>,
-    /// The struct constructor should be private.
-    _private: (),
+    pub operand: Expression<'a>,
 }
 
 /// The operator of a `PrefixExpression`.
@@ -398,11 +338,9 @@ pub struct InfixExpression<'a> {
     /// The operator which describes this operation.
     pub operator: InfixOperator,
     /// The left-hand-side operand.
-    pub left: ExpressionRef<'a>,
+    pub left: Expression<'a>,
     /// The right-hand-side operand.
-    pub right: ExpressionRef<'a>,
-    /// The struct constructor should be private.
-    _private: (),
+    pub right: Expression<'a>,
 }
 
 /// The operator of an `InfixExpression`.
@@ -444,11 +382,9 @@ pub struct LogicalExpression<'a> {
     /// The operator which describes this operation.
     pub operator: LogicalOperator,
     /// The left-hand-side operand.
-    pub left: ExpressionRef<'a>,
+    pub left: Expression<'a>,
     /// The right-hand-side operand.
-    pub right: ExpressionRef<'a>,
-    /// The struct constructor should be private.
-    _private: (),
+    pub right: Expression<'a>,
 }
 
 /// The operator of a `LogicalExpression`.
@@ -464,13 +400,11 @@ pub enum LogicalOperator {
 #[derive(Debug)]
 pub struct ConditionalExpressionIf<'a> {
     /// The test expression.
-    pub test: ExpressionRef<'a>,
+    pub test: Expression<'a>,
     /// Executes if the test expression is true.
     pub consequent: Block<'a>,
     /// Executes if the test expression is false.
     pub alternate: Option<ConditionalExpressionElse<'a>>,
-    /// The struct constructor should be private.
-    _private: (),
 }
 
 /// If the test of a [`ConditionalExpressionIf`] fails then we execute this else branch.
@@ -487,8 +421,6 @@ pub enum ConditionalExpressionElse<'a> {
     ///   // ...
     /// }
     /// ```
-    ///
-    /// TODO: Get rid of the box?
     ElseIf(Box<ConditionalExpressionIf<'a>>),
 }
 
@@ -508,11 +440,9 @@ impl<'a> ConditionalExpressionIf<'a> {
 #[derive(Debug)]
 pub struct WrappedExpression<'a> {
     /// The expression which was wrapped.
-    pub expression: ExpressionRef<'a>,
+    pub expression: Expression<'a>,
     /// A wrapped expression may optionally have a type annotation.
     pub annotation: Option<TypeRef<'a>>,
-    /// The struct constructor should be private.
-    _private: (),
 }
 
 /// A pattern is used for binding a value to some names in the current block scope.
@@ -643,8 +573,6 @@ pub type ArenaRef<'a> = &'a Arena<'a>;
 
 /// An arena to hold all of our language nodes.
 pub struct Arena<'a> {
-    /// An arena just for [`Expression`]s.
-    expressions: TypedArena<Expression<'a>>,
     /// An arena just for [`Type`]s.
     types: TypedArena<Type<'a>>,
 }
@@ -653,14 +581,8 @@ impl<'a> Arena<'a> {
     /// Creates a new arena.
     pub fn new() -> Self {
         Arena {
-            expressions: TypedArena::new(),
             types: TypedArena::new(),
         }
-    }
-
-    /// Allocates an expression in our arena.
-    pub fn alloc_expression(&'a self, expression: Expression<'a>) -> ExpressionRef<'a> {
-        self.expressions.alloc(expression)
     }
 
     /// Allocates a type in our arena.
