@@ -9,25 +9,28 @@ use super::document::Range;
 use super::lexer::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
 use crate::language::*;
+use typed_arena::Arena;
 
 /// Manages the parsing of Brite syntactical elements from source code. The `Parser` struct is
 /// more like a parsing “context”. It does not hold much state itself. Most of the parsing state is
 /// implemented in our [`Lexer`].
-pub struct Parser<'errs, 'src> {
+pub struct Parser<'ctx, 'errs, 'src> {
+    /// The arena for allocating language nodes.
+    arena: &'ctx Arena<Type<'ctx>>,
     /// The lexer our parser uses.
     lexer: Lexer<'errs, 'src>,
 }
 
-impl<'errs, 'src> Parser<'errs, 'src> {
+impl<'ctx, 'errs, 'src> Parser<'ctx, 'errs, 'src> {
     /// Creates a new parser.
-    pub fn new(lexer: Lexer<'errs, 'src>) -> Self {
-        Parser { lexer }
+    pub fn new(arena: &'ctx Arena<Type<'ctx>>, lexer: Lexer<'errs, 'src>) -> Self {
+        Parser { arena, lexer }
     }
 
     /// Parses a Brite module to the end of the document being parsed. Consumes the parser as we
     /// consume the provided lexer. Either succeeds and returns a module or fails and returns the
     /// error diagnostic.
-    pub fn parse_module(mut self) -> Result<Module, DiagnosticRef> {
+    pub fn parse_module(mut self) -> Result<Module<'ctx>, DiagnosticRef> {
         let mut declarations = Vec::new();
         while self.lexer.lookahead().is_some() {
             declarations.push(self.parse_declaration()?);
@@ -35,7 +38,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         Ok(Module { declarations })
     }
 
-    fn parse_declaration(&mut self) -> Result<Declaration, DiagnosticRef> {
+    fn parse_declaration(&mut self) -> Result<Declaration<'ctx>, DiagnosticRef> {
         // Function Declaration
         if self.try_parse_keyword(Keyword::Fun).is_some() {
             let name = self.parse_name()?;
@@ -61,7 +64,10 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     /// Parses a class declaration.
-    fn parse_class_declaration(&mut self, base: bool) -> Result<ClassDeclaration, DiagnosticRef> {
+    fn parse_class_declaration(
+        &mut self,
+        base: bool,
+    ) -> Result<ClassDeclaration<'ctx>, DiagnosticRef> {
         let name = self.parse_name()?;
         let extends = if self
             .try_parse_identifier_keyword(IdentifierKeyword::Extends)
@@ -87,7 +93,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     /// Parses a class member.
-    fn parse_class_member(&mut self) -> Result<ClassMember, DiagnosticRef> {
+    fn parse_class_member(&mut self) -> Result<ClassMember<'ctx>, DiagnosticRef> {
         // Class Field Member
         if let Some(name) = self.try_parse_name() {
             // Class Base Method Member
@@ -99,7 +105,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                     let (parameters, _) =
                         self.parse_comma_list(Glyph::ParenRight, Self::parse_function_parameter)?;
                     self.parse_glyph(Glyph::Arrow)?;
-                    let return_type = self.parse_type()?;
+                    let return_type = self.parse_type()?.alloc(self.arena);
                     return Ok(ClassMember::BaseMethod(BaseMethodClassMember {
                         name,
                         parameters,
@@ -109,7 +115,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             } else {
                 self.parse_glyph(Glyph::Colon)?;
             }
-            let value = self.parse_type()?;
+            let value = self.parse_type()?.alloc(self.arena);
             self.try_parse_glyph(Glyph::Semicolon);
             return Ok(ClassMember::Field(FieldClassMember { name, value }));
         }
@@ -125,12 +131,13 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     /// Parses the common parts of every function. Starting at the parameters.
-    fn parse_function(&mut self) -> Result<Function, DiagnosticRef> {
+    fn parse_function(&mut self) -> Result<Function<'ctx>, DiagnosticRef> {
         self.parse_glyph(Glyph::ParenLeft)?;
         let (parameters, _) =
             self.parse_comma_list(Glyph::ParenRight, Self::parse_function_parameter)?;
         let return_type = if self.try_parse_glyph(Glyph::Arrow).is_some() {
-            Some(self.parse_type()?)
+            let return_type = self.parse_type()?.alloc(self.arena);
+            Some(return_type)
         } else {
             None
         };
@@ -142,7 +149,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         })
     }
 
-    fn parse_function_parameter(&mut self) -> Result<FunctionParameter, DiagnosticRef> {
+    fn parse_function_parameter(&mut self) -> Result<FunctionParameter<'ctx>, DiagnosticRef> {
         let pattern = self.parse_pattern()?;
         let annotation = self.try_parse_type_annotation()?;
         Ok(FunctionParameter {
@@ -151,7 +158,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         })
     }
 
-    fn parse_block(&mut self) -> Result<Block, DiagnosticRef> {
+    fn parse_block(&mut self) -> Result<Block<'ctx>, DiagnosticRef> {
         let mut statements = Vec::new();
         let start = self.parse_glyph(Glyph::BraceLeft)?;
         let end = loop {
@@ -169,7 +176,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         Ok(Block { range, statements })
     }
 
-    fn parse_statement(&mut self) -> Result<Statement, DiagnosticRef> {
+    fn parse_statement(&mut self) -> Result<Statement<'ctx>, DiagnosticRef> {
         // Binding Statement
         if let Some(start) = self.try_parse_keyword(Keyword::Let) {
             let pattern = self.parse_pattern()?;
@@ -250,12 +257,12 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     #[inline]
-    fn parse_expression(&mut self) -> Result<Expression, DiagnosticRef> {
+    fn parse_expression(&mut self) -> Result<Expression<'ctx>, DiagnosticRef> {
         self.parse_expression_with_config(&ParseExpressionConfig::default())
     }
 
     #[inline]
-    fn try_parse_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
+    fn try_parse_expression(&mut self) -> Result<Option<Expression<'ctx>>, DiagnosticRef> {
         self.try_parse_infix_expression(&ParseExpressionConfig::default(), Precedence::LogicalOr)
     }
 
@@ -264,7 +271,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     fn parse_expression_with_config(
         &mut self,
         config: &ParseExpressionConfig,
-    ) -> Result<Expression, DiagnosticRef> {
+    ) -> Result<Expression<'ctx>, DiagnosticRef> {
         if let Some(expression) = self.try_parse_infix_expression(config, Precedence::LogicalOr)? {
             Ok(expression)
         } else {
@@ -280,7 +287,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         &mut self,
         config: &ParseExpressionConfig,
         precedence: Precedence,
-    ) -> Result<Option<Expression>, DiagnosticRef> {
+    ) -> Result<Option<Expression<'ctx>>, DiagnosticRef> {
         if let Some(expression) = self.try_parse_prefix_expression(config)? {
             let expression = self.try_parse_infix_operator(config, precedence, expression)?;
             Ok(Some(expression))
@@ -294,7 +301,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         &mut self,
         config: &ParseExpressionConfig,
         precedence: Precedence,
-    ) -> Result<Expression, DiagnosticRef> {
+    ) -> Result<Expression<'ctx>, DiagnosticRef> {
         if let Some(expression) = self.try_parse_infix_expression(config, precedence)? {
             Ok(expression)
         } else {
@@ -306,8 +313,8 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         &mut self,
         config: &ParseExpressionConfig,
         precedence: Precedence,
-        left: Expression,
-    ) -> Result<Expression, DiagnosticRef> {
+        left: Expression<'ctx>,
+    ) -> Result<Expression<'ctx>, DiagnosticRef> {
         // Or Logical Expression
         if precedence >= Precedence::LogicalOr {
             let next_precedence = Precedence::LogicalAnd;
@@ -450,7 +457,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     fn try_parse_prefix_expression(
         &mut self,
         config: &ParseExpressionConfig,
-    ) -> Result<Option<Expression>, DiagnosticRef> {
+    ) -> Result<Option<Expression<'ctx>>, DiagnosticRef> {
         // Try to parse a prefix expression operator. If no such operator exists then try to parse a
         // postfix expression.
         let (start, operator) = if let Some(range) = self.try_parse_glyph(Glyph::Bang) {
@@ -483,7 +490,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     fn try_parse_postfix_expression(
         &mut self,
         config: &ParseExpressionConfig,
-    ) -> Result<Option<Expression>, DiagnosticRef> {
+    ) -> Result<Option<Expression<'ctx>>, DiagnosticRef> {
         if let Some(mut expression) = self.try_parse_primary_expression()? {
             loop {
                 // Member Expression
@@ -569,7 +576,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     /// has a start and end which are not expressions themselves. It has the most basic precedence
     /// because of this. Other expressions which do depend on precedence build themselves out of
     /// primary expressions.
-    fn try_parse_primary_expression(&mut self) -> Result<Option<Expression>, DiagnosticRef> {
+    fn try_parse_primary_expression(&mut self) -> Result<Option<Expression<'ctx>>, DiagnosticRef> {
         // Reference Expression
         if let Some((range, identifier)) = self.try_parse_identifier() {
             return Ok(Some(Expression {
@@ -644,7 +651,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     fn parse_construct_expression_field(
         &mut self,
-    ) -> Result<ConstructExpressionField, DiagnosticRef> {
+    ) -> Result<ConstructExpressionField<'ctx>, DiagnosticRef> {
         let name = self.parse_name()?;
         self.parse_glyph(Glyph::Colon)?;
         let value = self.parse_expression()?;
@@ -653,7 +660,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
 
     fn parse_conditional_expression_if(
         &mut self,
-    ) -> Result<ConditionalExpressionIf, DiagnosticRef> {
+    ) -> Result<ConditionalExpressionIf<'ctx>, DiagnosticRef> {
         let mut test_config = ParseExpressionConfig::default();
         test_config.before_block = true;
         let test = self.parse_expression_with_config(&test_config)?;
@@ -702,7 +709,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         self.unexpected(ExpectedSyntax::Pattern)
     }
 
-    fn parse_type(&mut self) -> Result<Type, DiagnosticRef> {
+    fn parse_type(&mut self) -> Result<Type<'ctx>, DiagnosticRef> {
         // Reference type
         if let Some((range, identifier)) = self.try_parse_identifier() {
             return Ok(Type::reference(range, identifier));
@@ -717,8 +724,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
             self.parse_glyph(Glyph::ParenLeft)?;
             let (parameters, _) = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
+            let parameters = self.arena.alloc_extend(parameters);
             self.parse_glyph(Glyph::Arrow)?;
-            let return_ = self.parse_type()?;
+            let return_ = self.parse_type()?.alloc(self.arena);
             let range = start.union(return_.range);
             return Ok(Type::function(range, parameters, return_));
         }
@@ -727,9 +735,9 @@ impl<'errs, 'src> Parser<'errs, 'src> {
     }
 
     /// If there is a colon then we parse a type annotation. Otherwise parse nothing.
-    fn try_parse_type_annotation(&mut self) -> Result<Option<Type>, DiagnosticRef> {
+    fn try_parse_type_annotation(&mut self) -> Result<Option<TypeRef<'ctx>>, DiagnosticRef> {
         if self.try_parse_glyph(Glyph::Colon).is_some() {
-            Ok(Some(self.parse_type()?))
+            Ok(Some(self.parse_type()?.alloc(self.arena)))
         } else {
             Ok(None)
         }

@@ -8,4 +8,5 @@ edition = "2018"
 lazy_static = "1.3.0"
 num = "0.2.0"
 pretty = { git = "https://github.com/calebmer/pretty.rs" }
+typed-arena = "1.4.1"
 unicode-xid = "0.1.0"

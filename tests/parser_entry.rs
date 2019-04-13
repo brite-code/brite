@@ -8,6 +8,7 @@ macro_rules! test {
             use brite::parser::{Document, Lexer, Parser};
             use std::fs;
             use std::path::PathBuf;
+            use typed_arena::Arena;
 
             let mut path = PathBuf::from(file!());
             path.set_file_name(stringify!($name));
@@ -16,9 +17,10 @@ macro_rules! test {
             let source = fs::read_to_string(&path).unwrap();
 
             let mut diagnostics = DiagnosticsCollection::new();
+            let arena = Arena::new();
             let document = Document::new(source);
             let lexer = Lexer::new(&mut diagnostics, &document);
-            let parser = Parser::new(lexer);
+            let parser = Parser::new(&arena, lexer);
             let module = parser.parse_module();
 
             path.set_extension("ite.md");

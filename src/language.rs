@@ -7,6 +7,7 @@ use crate::utils::lisp::Lisp;
 use crate::utils::vecn::Vec2;
 use num::BigInt;
 use std::cell::RefCell;
+use typed_arena::Arena;
 
 /// A name is an identifier with the identifier’s range in source code.
 #[derive(Clone, Debug)]
@@ -18,25 +19,25 @@ pub struct Name {
 }
 
 /// A Brite module is a list of declarations. The order of the declarations does not matter.
-pub struct Module {
+pub struct Module<'ctx> {
     /// The declarations which make up our module.
-    pub declarations: Vec<Declaration>,
+    pub declarations: Vec<Declaration<'ctx>>,
 }
 
 /// A declaration describes the properties of some identifier.
-pub enum Declaration {
+pub enum Declaration<'ctx> {
     /// A function describes some reusable code which may be executed at any time.
-    Function(FunctionDeclaration),
+    Function(FunctionDeclaration<'ctx>),
     /// A class is some associated data and functions.
-    Class(ClassDeclaration),
+    Class(ClassDeclaration<'ctx>),
 }
 
 /// A function describes some reusable code which may be executed at any time.
-pub struct FunctionDeclaration {
+pub struct FunctionDeclaration<'ctx> {
     /// The name of a function declaration.
     pub name: Name,
     /// Shared function node.
-    pub function: Function,
+    pub function: Function<'ctx>,
 }
 
 /// A function describes some reusable code which may be executed at any time. There are many places
@@ -46,28 +47,28 @@ pub struct FunctionDeclaration {
 /// - As a `ClassMethodMember`.
 /// - As a `FunctionExpression`.
 #[derive(Debug)]
-pub struct Function {
+pub struct Function<'ctx> {
     /// The parameters of a function describes what the function accepts as input.
-    pub parameters: Vec<FunctionParameter>,
+    pub parameters: Vec<FunctionParameter<'ctx>>,
     /// The programmer may optionally write a return type. The return type is inferred if it is
     /// not explicit.
-    pub return_type: Option<Type>,
+    pub return_type: Option<TypeRef<'ctx>>,
     /// The code to be executed when the function is called.
-    pub body: Block,
+    pub body: Block<'ctx>,
 }
 
 /// An input to a function.
 #[derive(Debug)]
-pub struct FunctionParameter {
+pub struct FunctionParameter<'ctx> {
     /// The pattern which we match against a function parameter against.
     pub pattern: Pattern,
     /// The type of our function parameter. Most function parameters must be annotated and may not
     /// be inferred.
-    pub annotation: Option<Type>,
+    pub annotation: Option<TypeRef<'ctx>>,
 }
 
 /// A class is some associated data and functions.
-pub struct ClassDeclaration {
+pub struct ClassDeclaration<'ctx> {
     /// Is this a base class?
     pub base: bool,
     /// The name of a class.
@@ -75,46 +76,46 @@ pub struct ClassDeclaration {
     /// A class may optionally extend a base class.
     pub extends: Option<Name>,
     /// The members of a class.
-    pub members: Vec<ClassMember>,
+    pub members: Vec<ClassMember<'ctx>>,
 }
 
 /// A single member of a class. Either data (field) or a function (method).
-pub enum ClassMember {
+pub enum ClassMember<'ctx> {
     /// A field declares some data needed by the class.
-    Field(FieldClassMember),
+    Field(FieldClassMember<'ctx>),
     /// A method declares some function behavior that a class may perform.
-    Method(MethodClassMember),
+    Method(MethodClassMember<'ctx>),
     /// A base method is a function which may be overriden in a class which extends the current one.
-    BaseMethod(BaseMethodClassMember),
+    BaseMethod(BaseMethodClassMember<'ctx>),
 }
 
 /// A field declares some data needed by the class.
-pub struct FieldClassMember {
+pub struct FieldClassMember<'ctx> {
     /// The name of the class field.
     pub name: Name,
     /// The type of the class field’s data.
-    pub value: Type,
+    pub value: TypeRef<'ctx>,
 }
 
 /// A method declares some function behavior that a class may perform.
-pub struct MethodClassMember {
+pub struct MethodClassMember<'ctx> {
     /// The name of the class method.
     pub name: Name,
     /// Shared function node.
-    pub function: Function,
+    pub function: Function<'ctx>,
 }
 
 /// A base method is a function which may be overriden in a class which extends the current one.
-pub struct BaseMethodClassMember {
+pub struct BaseMethodClassMember<'ctx> {
     /// The name of the base class method.
     pub name: Name,
     /// The parameters which the base method’s implementation must accept.
-    pub parameters: Vec<FunctionParameter>,
+    pub parameters: Vec<FunctionParameter<'ctx>>,
     /// The type which the base method’s implementation must return.
-    pub return_type: Type,
+    pub return_type: TypeRef<'ctx>,
 }
 
-impl Declaration {
+impl<'ctx> Declaration<'ctx> {
     /// Gets the range for our declaration’s name.
     pub fn name(&self) -> &Name {
         match self {
@@ -126,14 +127,14 @@ impl Declaration {
 
 /// A block contains a list of statements which are executed sequentially.
 #[derive(Debug)]
-pub struct Block {
+pub struct Block<'ctx> {
     /// The range of characters covered by this block.
     pub range: Range,
     /// Statements to be executed in the block.
-    pub statements: Vec<Statement>,
+    pub statements: Vec<Statement<'ctx>>,
 }
 
-impl Block {
+impl<'ctx> Block<'ctx> {
     /// Gets the range of the brace that opens this block.
     pub fn open_brace_range(&self) -> Range {
         // NOTE: This is currently just an estimation. Since anyone can create a `Block` we aren’t
@@ -154,33 +155,33 @@ impl Block {
 
 /// A statement describes some action to be executed in the current scope.
 #[derive(Debug)]
-pub struct Statement {
+pub struct Statement<'ctx> {
     /// The range of our statement in source code.
     pub range: Range,
     /// What kind of statement is this?
-    pub kind: StatementKind,
+    pub kind: StatementKind<'ctx>,
 }
 
 /// The kind of a Statement AST node.
 #[derive(Debug)]
-pub enum StatementKind {
+pub enum StatementKind<'ctx> {
     /// Executes an expression only for the side effects.
-    Expression(Expression),
+    Expression(Expression<'ctx>),
     /// Binds a value to some names in the current scope.
-    Binding(BindingStatement),
+    Binding(BindingStatement<'ctx>),
     /// Returns a value from a block early.
-    Return(Option<Expression>),
+    Return(Option<Expression<'ctx>>),
 }
 
 /// Binds a value to some names in the current scope.
 #[derive(Debug)]
-pub struct BindingStatement {
+pub struct BindingStatement<'ctx> {
     /// Binds the value to this pattern in the current scope.
     pub pattern: Pattern,
     /// An optional type annotation. If a type annotation is not added then the type is inferred.
-    pub annotation: Option<Type>,
+    pub annotation: Option<TypeRef<'ctx>>,
     /// The value being bound.
-    pub value: Expression,
+    pub value: Expression<'ctx>,
 }
 
 /// A constant value in the programmer’s code.
@@ -207,16 +208,16 @@ pub enum IntegerBase {
 
 /// Some execution which returns a value.
 #[derive(Debug)]
-pub struct Expression {
+pub struct Expression<'ctx> {
     /// The range of our expression in source code.
     pub range: Range,
     /// What kind of expression is this?
-    pub kind: ExpressionKind,
+    pub kind: ExpressionKind<'ctx>,
 }
 
 /// The kind of an Expression AST node.
 #[derive(Debug)]
-pub enum ExpressionKind {
+pub enum ExpressionKind<'ctx> {
     /// A constant value in the programmer’s code.
     Constant(Constant),
     /// References a variable bound in this expression’s scope.
@@ -224,70 +225,100 @@ pub enum ExpressionKind {
     /// A special reference to the current class instance.
     This,
     /// A higher-order function.
-    Function(Function),
+    Function(Function<'ctx>),
     /// Calls a function with some arguments.
-    Call(CallExpression),
+    Call(CallExpression<'ctx>),
     /// Constructs a class instance with some fields.
-    Construct(ConstructExpression),
+    Construct(ConstructExpression<'ctx>),
     /// Accesses a member of a class instance.
-    Member(Box<MemberExpression>),
+    Member(Box<MemberExpression<'ctx>>),
     /// An operation using prefix syntax.
-    Prefix(Box<PrefixExpression>),
+    Prefix(Box<PrefixExpression<'ctx>>),
     /// An operation using infix syntax.
-    Infix(Box<InfixExpression>),
+    Infix(Box<InfixExpression<'ctx>>),
     /// A logical operation using infix syntax.
-    Logical(Box<LogicalExpression>),
+    Logical(Box<LogicalExpression<'ctx>>),
     /// A conditional expression chooses a branch to take based on a test expression.
-    Conditional(Box<ConditionalExpressionIf>),
+    Conditional(Box<ConditionalExpressionIf<'ctx>>),
     /// Embeds a block into an expression.
-    Block(Block),
+    Block(Block<'ctx>),
     /// Wraps an expression in parentheses with an optional type annotation.
-    Wrapped(Box<WrappedExpression>),
+    Wrapped(Box<WrappedExpression<'ctx>>),
+}
+
+impl<'ctx> Expression<'ctx> {
+    fn new(range: Range, kind: ExpressionKind<'ctx>) -> Self {
+        Expression { range, kind }
+    }
+
+    /// Create a logical expression.
+    pub fn logical(range: Range, operator: LogicalOperator, left: Self, right: Self) -> Self {
+        Self::new(
+            range,
+            ExpressionKind::Logical(Box::new(LogicalExpression {
+                operator,
+                left,
+                right,
+            })),
+        )
+    }
+
+    /// Create an infix expression.
+    pub fn infix(range: Range, operator: InfixOperator, left: Self, right: Self) -> Self {
+        Self::new(
+            range,
+            ExpressionKind::Infix(Box::new(InfixExpression {
+                operator,
+                left,
+                right,
+            })),
+        )
+    }
 }
 
 /// Calls a function with some arguments.
 #[derive(Debug)]
-pub struct CallExpression {
+pub struct CallExpression<'ctx> {
     /// The function we want to call.
-    pub callee: Box<Expression>,
+    pub callee: Box<Expression<'ctx>>,
     /// The arguments we want to call the function with.
-    pub arguments: Vec<Expression>,
+    pub arguments: Vec<Expression<'ctx>>,
 }
 
 /// Constructs a class instance with some fields.
 #[derive(Debug)]
-pub struct ConstructExpression {
+pub struct ConstructExpression<'ctx> {
     /// The class to be constructed.
     pub constructor: Name,
     /// The fields we construct the class with.
-    pub fields: Vec<ConstructExpressionField>,
+    pub fields: Vec<ConstructExpressionField<'ctx>>,
 }
 
 /// A field in a [`ConstructExpression`].
 #[derive(Debug)]
-pub struct ConstructExpressionField {
+pub struct ConstructExpressionField<'ctx> {
     /// The name of the class field.
     pub name: Name,
     /// The value of we use for the class field.
-    pub value: Expression,
+    pub value: Expression<'ctx>,
 }
 
 /// Accesses a member of a class instance.
 #[derive(Debug)]
-pub struct MemberExpression {
+pub struct MemberExpression<'ctx> {
     /// The object we are accessing a property of.
-    pub object: Expression,
+    pub object: Expression<'ctx>,
     /// The name of the property we are accessing.
     pub property: Name,
 }
 
 /// An operation using prefix syntax.
 #[derive(Debug)]
-pub struct PrefixExpression {
+pub struct PrefixExpression<'ctx> {
     /// The operator which describes this operation.
     pub operator: PrefixOperator,
     /// The operand we are performing the operation on.
-    pub operand: Expression,
+    pub operand: Expression<'ctx>,
 }
 
 /// The operator of a `PrefixExpression`.
@@ -303,13 +334,13 @@ pub enum PrefixOperator {
 
 /// An operation using infix syntax.
 #[derive(Debug)]
-pub struct InfixExpression {
+pub struct InfixExpression<'ctx> {
     /// The operator which describes this operation.
     pub operator: InfixOperator,
     /// The left-hand-side operand.
-    pub left: Expression,
+    pub left: Expression<'ctx>,
     /// The right-hand-side operand.
-    pub right: Expression,
+    pub right: Expression<'ctx>,
 }
 
 /// The operator of an `InfixExpression`.
@@ -347,13 +378,13 @@ pub enum InfixOperator {
 /// conditionally execute their second argument. It’s easy to get this confused with
 /// `InfixExpression` which always unconditionally executes both arguments.
 #[derive(Debug)]
-pub struct LogicalExpression {
+pub struct LogicalExpression<'ctx> {
     /// The operator which describes this operation.
     pub operator: LogicalOperator,
     /// The left-hand-side operand.
-    pub left: Expression,
+    pub left: Expression<'ctx>,
     /// The right-hand-side operand.
-    pub right: Expression,
+    pub right: Expression<'ctx>,
 }
 
 /// The operator of a `LogicalExpression`.
@@ -367,36 +398,36 @@ pub enum LogicalOperator {
 
 /// A conditional expression chooses a branch to take based on a test expression.
 #[derive(Debug)]
-pub struct ConditionalExpressionIf {
+pub struct ConditionalExpressionIf<'ctx> {
     /// The test expression.
-    pub test: Expression,
+    pub test: Expression<'ctx>,
     /// Executes if the test expression is true.
-    pub consequent: Block,
+    pub consequent: Block<'ctx>,
     /// Executes if the test expression is false.
-    pub alternate: Option<ConditionalExpressionElse>,
+    pub alternate: Option<ConditionalExpressionElse<'ctx>>,
 }
 
 /// If the test of a [`ConditionalExpressionIf`] fails then we execute this else branch.
 #[derive(Debug)]
-pub enum ConditionalExpressionElse {
+pub enum ConditionalExpressionElse<'ctx> {
     /// ```ite
     /// else {
     ///   // ...
     /// }
     /// ```
-    Else(Block),
+    Else(Block<'ctx>),
     /// ```ite
     /// else if E {
     ///   // ...
     /// }
     /// ```
-    ElseIf(Box<ConditionalExpressionIf>),
+    ElseIf(Box<ConditionalExpressionIf<'ctx>>),
 }
 
-impl ConditionalExpressionIf {
+impl<'ctx> ConditionalExpressionIf<'ctx> {
     /// The last block in the conditional expression. Could be the consequent’s block or the
     /// alternate’s block.
-    pub fn last_block(&self) -> &Block {
+    pub fn last_block(&self) -> &Block<'ctx> {
         match &self.alternate {
             None => &self.consequent,
             Some(ConditionalExpressionElse::Else(alternate)) => alternate,
@@ -407,51 +438,11 @@ impl ConditionalExpressionIf {
 
 /// Wraps an expression in parentheses with an optional type annotation.
 #[derive(Debug)]
-pub struct WrappedExpression {
+pub struct WrappedExpression<'ctx> {
     /// The expression which was wrapped.
-    pub expression: Expression,
+    pub expression: Expression<'ctx>,
     /// A wrapped expression may optionally have a type annotation.
-    pub annotation: Option<Type>,
-}
-
-impl Expression {
-    fn new(range: Range, kind: ExpressionKind) -> Self {
-        Expression { range, kind }
-    }
-
-    /// Create a logical expression.
-    pub fn logical(
-        range: Range,
-        operator: LogicalOperator,
-        left: Expression,
-        right: Expression,
-    ) -> Self {
-        Self::new(
-            range,
-            ExpressionKind::Logical(Box::new(LogicalExpression {
-                operator,
-                left,
-                right,
-            })),
-        )
-    }
-
-    /// Create an infix expression.
-    pub fn infix(
-        range: Range,
-        operator: InfixOperator,
-        left: Expression,
-        right: Expression,
-    ) -> Self {
-        Self::new(
-            range,
-            ExpressionKind::Infix(Box::new(InfixExpression {
-                operator,
-                left,
-                right,
-            })),
-        )
-    }
+    pub annotation: Option<TypeRef<'ctx>>,
 }
 
 /// A pattern is used for binding a value to some names in the current block scope.
@@ -474,32 +465,43 @@ pub enum PatternKind {
     This,
 }
 
+/// A reference to a [`Type`] where you only have to write the lifetime once.
+pub type TypeRef<'ctx> = &'ctx Type<'ctx>;
+
+/// A reference to a [`Type`] slice where you only have to write the lifetime once.
+pub type TypeSlice<'ctx> = &'ctx [Type<'ctx>];
+
 /// Describes the values which may be assigned to a certain location.
 #[derive(Debug)]
-pub struct Type {
+pub struct Type<'ctx> {
     /// The range of our type.
     pub range: Range,
     /// What kind of type is this?
-    pub kind: TypeKind,
+    pub kind: TypeKind<'ctx>,
     /// The struct constructor should be private.
     _private: (),
 }
 
 /// The kind of a type AST node. Not to be confused with type kinds in a higher-order type system.
 #[derive(Debug)]
-pub enum TypeKind {
+pub enum TypeKind<'ctx> {
     /// References a type in our project.
-    Reference(ReferenceType),
+    Reference(ReferenceType<'ctx>),
     /// References the current class instance type. If we are in a base class then `this` could be
     /// any of the base class’s children.
     This,
     /// The type of a function. Functions may be passed around just like any other value.
-    Function(FunctionType),
+    Function(FunctionType<'ctx>),
 }
 
-impl Type {
+impl<'ctx> Type<'ctx> {
+    /// Allocates self into the provided arena.
+    pub fn alloc(self, arena: &'ctx Arena<Type<'ctx>>) -> TypeRef<'ctx> {
+        arena.alloc(self)
+    }
+
     /// Do not make this public!
-    fn new(range: Range, kind: TypeKind) -> Self {
+    fn new(range: Range, kind: TypeKind<'ctx>) -> Self {
         Type {
             range,
             kind,
@@ -515,7 +517,7 @@ impl Type {
         Self::new(range, TypeKind::This)
     }
 
-    pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
+    pub fn function(range: Range, parameters: TypeSlice<'ctx>, return_: TypeRef<'ctx>) -> Self {
         Self::new(
             range,
             TypeKind::Function(FunctionType::new(parameters, return_)),
@@ -525,17 +527,17 @@ impl Type {
 
 /// A reference to some other type in the program.
 #[derive(Debug)]
-pub struct ReferenceType {
+pub struct ReferenceType<'ctx> {
     /// The identifier the programmer wrote to reference their type.
     pub identifier: Identifier,
     /// The type we are referencing. We will not know the actual type until after we check the
     /// program. Until then our reference will be `None`.
-    reference: RefCell<Option<Box<Type>>>,
+    reference: RefCell<Option<TypeRef<'ctx>>>,
     /// The struct constructor should be private.
     _private: (),
 }
 
-impl ReferenceType {
+impl<'ctx> ReferenceType<'ctx> {
     fn new(identifier: Identifier) -> Self {
         ReferenceType {
             identifier,
@@ -547,20 +549,20 @@ impl ReferenceType {
 
 /// The type of a function. Functions may be passed around just like any other value.
 #[derive(Debug)]
-pub struct FunctionType {
+pub struct FunctionType<'ctx> {
     /// The types of this function’s parameters.
-    pub parameters: Vec<Type>,
+    pub parameters: TypeSlice<'ctx>,
     /// The return type of this function.
-    pub return_: Box<Type>,
+    pub return_: TypeRef<'ctx>,
     /// The struct constructor should be private.
     _private: (),
 }
 
-impl FunctionType {
-    fn new(parameters: Vec<Type>, return_: Type) -> Self {
+impl<'ctx> FunctionType<'ctx> {
+    fn new(parameters: TypeSlice<'ctx>, return_: TypeRef<'ctx>) -> Self {
         FunctionType {
             parameters,
-            return_: Box::new(return_),
+            return_,
             _private: (),
         }
     }
@@ -597,7 +599,7 @@ impl Constant {
     }
 }
 
-impl Statement {
+impl<'ctx> Statement<'ctx> {
     /// Gets a snippet of this statement for error message printing.
     pub fn snippet(&self) -> StatementSnippet {
         match &self.kind {
@@ -612,7 +614,7 @@ impl Statement {
     }
 }
 
-impl Expression {
+impl<'ctx> Expression<'ctx> {
     /// Gets a snippet of this expression for error message printing.
     pub fn snippet(&self) -> ExpressionSnippet {
         match &self.kind {
@@ -667,7 +669,7 @@ impl Name {
     }
 }
 
-impl Declaration {
+impl<'ctx> Declaration<'ctx> {
     /// Pretty prints a declaration to a lisp-string format with the specified width. We use this
     /// lisp format for debugging purposes only.
     pub fn print_lisp(&self, document: &Document, width: usize) -> String {
@@ -683,7 +685,7 @@ impl Declaration {
     }
 }
 
-impl ClassDeclaration {
+impl<'ctx> ClassDeclaration<'ctx> {
     /// Converts a class expression into an S-expression for debugging.
     fn lisp(&self, doc: &Document) -> Lisp {
         let kind = if self.base { "base class" } else { "class" };
@@ -698,7 +700,7 @@ impl ClassDeclaration {
     }
 }
 
-impl ClassMember {
+impl<'ctx> ClassMember<'ctx> {
     /// Converts a class member into an S-expression for debugging.
     fn lisp(&self, doc: &Document) -> Lisp {
         match self {
@@ -726,7 +728,7 @@ impl ClassMember {
     }
 }
 
-impl Function {
+impl<'ctx> Function<'ctx> {
     /// Converts a function to a symbolic expression. Accepts a name S-expression parameter for
     /// debugging some name for the function.
     fn lisp(&self, doc: &Document, name: Lisp) -> Lisp {
@@ -750,7 +752,7 @@ impl Function {
     }
 }
 
-impl Block {
+impl<'ctx> Block<'ctx> {
     /// Converts a block to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         if self.statements.is_empty() {
@@ -766,7 +768,7 @@ impl Block {
     }
 }
 
-impl Statement {
+impl<'ctx> Statement<'ctx> {
     /// Converts a statement to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         let range: Lisp = self.range.display(doc).into();
@@ -816,7 +818,7 @@ impl Constant {
     }
 }
 
-impl Expression {
+impl<'ctx> Expression<'ctx> {
     /// Converts an expression to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         let range: Lisp = self.range.display(doc).into();
@@ -903,7 +905,7 @@ impl Expression {
     }
 }
 
-impl ConditionalExpressionIf {
+impl<'ctx> ConditionalExpressionIf<'ctx> {
     /// Converts a conditional expression to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         match &self.alternate {
@@ -936,7 +938,7 @@ impl Pattern {
     }
 }
 
-impl Type {
+impl<'ctx> Type<'ctx> {
     /// Converts a type to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         let range: Lisp = self.range.display(doc).into();
@@ -946,7 +948,7 @@ impl Type {
             TypeKind::Function(function) => {
                 let mut expressions = Vec::with_capacity(2 + function.parameters.len());
                 expressions.push("fun".into());
-                for parameter in &function.parameters {
+                for parameter in function.parameters {
                     expressions.push(lisp!("param", parameter.lisp(doc)));
                 }
                 expressions.push(function.return_.lisp(doc));
