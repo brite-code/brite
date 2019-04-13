@@ -47,11 +47,15 @@ pub fn precheck_module(diagnostics: &mut DiagnosticsCollection, module: &Module)
     for recheck_declaration in recheck_declarations {
         match recheck_declaration {
             Ok(name) => {
-                let _ = resolve_precheck_declaration(
+                let result = resolve_precheck_declaration(
                     diagnostics,
                     &mut declarations,
                     &name.range,
                     &name.identifier,
+                );
+                debug_assert!(
+                    result.is_ok(),
+                    "The declaration should exist and checking the declaration here should not create a cycle."
                 );
             }
             Err(declaration) => {
