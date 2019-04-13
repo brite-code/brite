@@ -3,7 +3,7 @@ use crate::language::*;
 use crate::parser::{Identifier, Range};
 use std::collections::HashMap;
 
-pub fn precheck_module<'ctx>(diagnostics: &mut DiagnosticsCollection, module: &Module<'ctx>) {
+pub fn precheck_module<'arena>(diagnostics: &mut DiagnosticsCollection, module: &Module<'arena>) {
     let mut declarations: PrecheckDeclarationMap =
         HashMap::with_capacity(module.declarations.len());
 
@@ -124,14 +124,14 @@ fn precheck_class_declaration(
 /// references to the declaration. We then go through each declaration and type check it. If one
 /// declaration depends on another (like `class extends`) we will make sure to check that class even
 /// if it appears after our own in source code.
-enum PrecheckDeclarationLazy<'ctx> {
+enum PrecheckDeclarationLazy<'arena> {
     /// The declaration is unchecked or is currently in the process of type checking.
     Unchecked {
         /// The range of the declaration’s name.
         name_range: Range,
         /// The declaration which needs to be checked. If `None` then we are currently type checking
         /// this declaration.
-        declaration: Option<&'ctx Declaration<'ctx>>,
+        declaration: Option<&'arena Declaration<'arena>>,
         /// References to the declaration that we find before we finish checking.
         references: Vec<()>,
     },
@@ -139,8 +139,8 @@ enum PrecheckDeclarationLazy<'ctx> {
     Checked(PrecheckDeclaration),
 }
 
-impl<'ctx> PrecheckDeclarationLazy<'ctx> {
-    fn unchecked(name_range: Range, declaration: &'ctx Declaration<'ctx>) -> Self {
+impl<'arena> PrecheckDeclarationLazy<'arena> {
+    fn unchecked(name_range: Range, declaration: &'arena Declaration<'arena>) -> Self {
         PrecheckDeclarationLazy::Unchecked {
             name_range,
             declaration: Some(declaration),

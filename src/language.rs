@@ -19,25 +19,25 @@ pub struct Name {
 }
 
 /// A Brite module is a list of declarations. The order of the declarations does not matter.
-pub struct Module<'ctx> {
+pub struct Module<'arena> {
     /// The declarations which make up our module.
-    pub declarations: Vec<Declaration<'ctx>>,
+    pub declarations: Vec<Declaration<'arena>>,
 }
 
 /// A declaration describes the properties of some identifier.
-pub enum Declaration<'ctx> {
+pub enum Declaration<'arena> {
     /// A function describes some reusable code which may be executed at any time.
-    Function(FunctionDeclaration<'ctx>),
+    Function(FunctionDeclaration<'arena>),
     /// A class is some associated data and functions.
-    Class(ClassDeclaration<'ctx>),
+    Class(ClassDeclaration<'arena>),
 }
 
 /// A function describes some reusable code which may be executed at any time.
-pub struct FunctionDeclaration<'ctx> {
+pub struct FunctionDeclaration<'arena> {
     /// The name of a function declaration.
     pub name: Name,
     /// Shared function node.
-    pub function: Function<'ctx>,
+    pub function: Function<'arena>,
 }
 
 /// A function describes some reusable code which may be executed at any time. There are many places
@@ -47,28 +47,28 @@ pub struct FunctionDeclaration<'ctx> {
 /// - As a `ClassMethodMember`.
 /// - As a `FunctionExpression`.
 #[derive(Debug)]
-pub struct Function<'ctx> {
+pub struct Function<'arena> {
     /// The parameters of a function describes what the function accepts as input.
-    pub parameters: Vec<FunctionParameter<'ctx>>,
+    pub parameters: Vec<FunctionParameter<'arena>>,
     /// The programmer may optionally write a return type. The return type is inferred if it is
     /// not explicit.
-    pub return_type: Option<TypeRef<'ctx>>,
+    pub return_type: Option<TypeRef<'arena>>,
     /// The code to be executed when the function is called.
-    pub body: Block<'ctx>,
+    pub body: Block<'arena>,
 }
 
 /// An input to a function.
 #[derive(Debug)]
-pub struct FunctionParameter<'ctx> {
+pub struct FunctionParameter<'arena> {
     /// The pattern which we match against a function parameter against.
     pub pattern: Pattern,
     /// The type of our function parameter. Most function parameters must be annotated and may not
     /// be inferred.
-    pub annotation: Option<TypeRef<'ctx>>,
+    pub annotation: Option<TypeRef<'arena>>,
 }
 
 /// A class is some associated data and functions.
-pub struct ClassDeclaration<'ctx> {
+pub struct ClassDeclaration<'arena> {
     /// Is this a base class?
     pub base: bool,
     /// The name of a class.
@@ -76,46 +76,46 @@ pub struct ClassDeclaration<'ctx> {
     /// A class may optionally extend a base class.
     pub extends: Option<Name>,
     /// The members of a class.
-    pub members: Vec<ClassMember<'ctx>>,
+    pub members: Vec<ClassMember<'arena>>,
 }
 
 /// A single member of a class. Either data (field) or a function (method).
-pub enum ClassMember<'ctx> {
+pub enum ClassMember<'arena> {
     /// A field declares some data needed by the class.
-    Field(FieldClassMember<'ctx>),
+    Field(FieldClassMember<'arena>),
     /// A method declares some function behavior that a class may perform.
-    Method(MethodClassMember<'ctx>),
+    Method(MethodClassMember<'arena>),
     /// A base method is a function which may be overriden in a class which extends the current one.
-    BaseMethod(BaseMethodClassMember<'ctx>),
+    BaseMethod(BaseMethodClassMember<'arena>),
 }
 
 /// A field declares some data needed by the class.
-pub struct FieldClassMember<'ctx> {
+pub struct FieldClassMember<'arena> {
     /// The name of the class field.
     pub name: Name,
     /// The type of the class field’s data.
-    pub value: TypeRef<'ctx>,
+    pub value: TypeRef<'arena>,
 }
 
 /// A method declares some function behavior that a class may perform.
-pub struct MethodClassMember<'ctx> {
+pub struct MethodClassMember<'arena> {
     /// The name of the class method.
     pub name: Name,
     /// Shared function node.
-    pub function: Function<'ctx>,
+    pub function: Function<'arena>,
 }
 
 /// A base method is a function which may be overriden in a class which extends the current one.
-pub struct BaseMethodClassMember<'ctx> {
+pub struct BaseMethodClassMember<'arena> {
     /// The name of the base class method.
     pub name: Name,
     /// The parameters which the base method’s implementation must accept.
-    pub parameters: Vec<FunctionParameter<'ctx>>,
+    pub parameters: Vec<FunctionParameter<'arena>>,
     /// The type which the base method’s implementation must return.
-    pub return_type: TypeRef<'ctx>,
+    pub return_type: TypeRef<'arena>,
 }
 
-impl<'ctx> Declaration<'ctx> {
+impl<'arena> Declaration<'arena> {
     /// Gets the range for our declaration’s name.
     pub fn name(&self) -> &Name {
         match self {
@@ -127,14 +127,14 @@ impl<'ctx> Declaration<'ctx> {
 
 /// A block contains a list of statements which are executed sequentially.
 #[derive(Debug)]
-pub struct Block<'ctx> {
+pub struct Block<'arena> {
     /// The range of characters covered by this block.
     pub range: Range,
     /// Statements to be executed in the block.
-    pub statements: Vec<Statement<'ctx>>,
+    pub statements: Vec<Statement<'arena>>,
 }
 
-impl<'ctx> Block<'ctx> {
+impl<'arena> Block<'arena> {
     /// Gets the range of the brace that opens this block.
     pub fn open_brace_range(&self) -> Range {
         // NOTE: This is currently just an estimation. Since anyone can create a `Block` we aren’t
@@ -155,33 +155,33 @@ impl<'ctx> Block<'ctx> {
 
 /// A statement describes some action to be executed in the current scope.
 #[derive(Debug)]
-pub struct Statement<'ctx> {
+pub struct Statement<'arena> {
     /// The range of our statement in source code.
     pub range: Range,
     /// What kind of statement is this?
-    pub kind: StatementKind<'ctx>,
+    pub kind: StatementKind<'arena>,
 }
 
 /// The kind of a Statement AST node.
 #[derive(Debug)]
-pub enum StatementKind<'ctx> {
+pub enum StatementKind<'arena> {
     /// Executes an expression only for the side effects.
-    Expression(Expression<'ctx>),
+    Expression(Expression<'arena>),
     /// Binds a value to some names in the current scope.
-    Binding(BindingStatement<'ctx>),
+    Binding(BindingStatement<'arena>),
     /// Returns a value from a block early.
-    Return(Option<Expression<'ctx>>),
+    Return(Option<Expression<'arena>>),
 }
 
 /// Binds a value to some names in the current scope.
 #[derive(Debug)]
-pub struct BindingStatement<'ctx> {
+pub struct BindingStatement<'arena> {
     /// Binds the value to this pattern in the current scope.
     pub pattern: Pattern,
     /// An optional type annotation. If a type annotation is not added then the type is inferred.
-    pub annotation: Option<TypeRef<'ctx>>,
+    pub annotation: Option<TypeRef<'arena>>,
     /// The value being bound.
-    pub value: Expression<'ctx>,
+    pub value: Expression<'arena>,
 }
 
 /// A constant value in the programmer’s code.
@@ -208,16 +208,16 @@ pub enum IntegerBase {
 
 /// Some execution which returns a value.
 #[derive(Debug)]
-pub struct Expression<'ctx> {
+pub struct Expression<'arena> {
     /// The range of our expression in source code.
     pub range: Range,
     /// What kind of expression is this?
-    pub kind: ExpressionKind<'ctx>,
+    pub kind: ExpressionKind<'arena>,
 }
 
 /// The kind of an Expression AST node.
 #[derive(Debug)]
-pub enum ExpressionKind<'ctx> {
+pub enum ExpressionKind<'arena> {
     /// A constant value in the programmer’s code.
     Constant(Constant),
     /// References a variable bound in this expression’s scope.
@@ -225,29 +225,29 @@ pub enum ExpressionKind<'ctx> {
     /// A special reference to the current class instance.
     This,
     /// A higher-order function.
-    Function(Function<'ctx>),
+    Function(Function<'arena>),
     /// Calls a function with some arguments.
-    Call(CallExpression<'ctx>),
+    Call(CallExpression<'arena>),
     /// Constructs a class instance with some fields.
-    Construct(ConstructExpression<'ctx>),
+    Construct(ConstructExpression<'arena>),
     /// Accesses a member of a class instance.
-    Member(Box<MemberExpression<'ctx>>),
+    Member(Box<MemberExpression<'arena>>),
     /// An operation using prefix syntax.
-    Prefix(Box<PrefixExpression<'ctx>>),
+    Prefix(Box<PrefixExpression<'arena>>),
     /// An operation using infix syntax.
-    Infix(Box<InfixExpression<'ctx>>),
+    Infix(Box<InfixExpression<'arena>>),
     /// A logical operation using infix syntax.
-    Logical(Box<LogicalExpression<'ctx>>),
+    Logical(Box<LogicalExpression<'arena>>),
     /// A conditional expression chooses a branch to take based on a test expression.
-    Conditional(Box<ConditionalExpressionIf<'ctx>>),
+    Conditional(Box<ConditionalExpressionIf<'arena>>),
     /// Embeds a block into an expression.
-    Block(Block<'ctx>),
+    Block(Block<'arena>),
     /// Wraps an expression in parentheses with an optional type annotation.
-    Wrapped(Box<WrappedExpression<'ctx>>),
+    Wrapped(Box<WrappedExpression<'arena>>),
 }
 
-impl<'ctx> Expression<'ctx> {
-    fn new(range: Range, kind: ExpressionKind<'ctx>) -> Self {
+impl<'arena> Expression<'arena> {
+    fn new(range: Range, kind: ExpressionKind<'arena>) -> Self {
         Expression { range, kind }
     }
 
@@ -278,47 +278,47 @@ impl<'ctx> Expression<'ctx> {
 
 /// Calls a function with some arguments.
 #[derive(Debug)]
-pub struct CallExpression<'ctx> {
+pub struct CallExpression<'arena> {
     /// The function we want to call.
-    pub callee: Box<Expression<'ctx>>,
+    pub callee: Box<Expression<'arena>>,
     /// The arguments we want to call the function with.
-    pub arguments: Vec<Expression<'ctx>>,
+    pub arguments: Vec<Expression<'arena>>,
 }
 
 /// Constructs a class instance with some fields.
 #[derive(Debug)]
-pub struct ConstructExpression<'ctx> {
+pub struct ConstructExpression<'arena> {
     /// The class to be constructed.
     pub constructor: Name,
     /// The fields we construct the class with.
-    pub fields: Vec<ConstructExpressionField<'ctx>>,
+    pub fields: Vec<ConstructExpressionField<'arena>>,
 }
 
 /// A field in a [`ConstructExpression`].
 #[derive(Debug)]
-pub struct ConstructExpressionField<'ctx> {
+pub struct ConstructExpressionField<'arena> {
     /// The name of the class field.
     pub name: Name,
     /// The value of we use for the class field.
-    pub value: Expression<'ctx>,
+    pub value: Expression<'arena>,
 }
 
 /// Accesses a member of a class instance.
 #[derive(Debug)]
-pub struct MemberExpression<'ctx> {
+pub struct MemberExpression<'arena> {
     /// The object we are accessing a property of.
-    pub object: Expression<'ctx>,
+    pub object: Expression<'arena>,
     /// The name of the property we are accessing.
     pub property: Name,
 }
 
 /// An operation using prefix syntax.
 #[derive(Debug)]
-pub struct PrefixExpression<'ctx> {
+pub struct PrefixExpression<'arena> {
     /// The operator which describes this operation.
     pub operator: PrefixOperator,
     /// The operand we are performing the operation on.
-    pub operand: Expression<'ctx>,
+    pub operand: Expression<'arena>,
 }
 
 /// The operator of a `PrefixExpression`.
@@ -334,13 +334,13 @@ pub enum PrefixOperator {
 
 /// An operation using infix syntax.
 #[derive(Debug)]
-pub struct InfixExpression<'ctx> {
+pub struct InfixExpression<'arena> {
     /// The operator which describes this operation.
     pub operator: InfixOperator,
     /// The left-hand-side operand.
-    pub left: Expression<'ctx>,
+    pub left: Expression<'arena>,
     /// The right-hand-side operand.
-    pub right: Expression<'ctx>,
+    pub right: Expression<'arena>,
 }
 
 /// The operator of an `InfixExpression`.
@@ -378,13 +378,13 @@ pub enum InfixOperator {
 /// conditionally execute their second argument. It’s easy to get this confused with
 /// `InfixExpression` which always unconditionally executes both arguments.
 #[derive(Debug)]
-pub struct LogicalExpression<'ctx> {
+pub struct LogicalExpression<'arena> {
     /// The operator which describes this operation.
     pub operator: LogicalOperator,
     /// The left-hand-side operand.
-    pub left: Expression<'ctx>,
+    pub left: Expression<'arena>,
     /// The right-hand-side operand.
-    pub right: Expression<'ctx>,
+    pub right: Expression<'arena>,
 }
 
 /// The operator of a `LogicalExpression`.
@@ -398,36 +398,36 @@ pub enum LogicalOperator {
 
 /// A conditional expression chooses a branch to take based on a test expression.
 #[derive(Debug)]
-pub struct ConditionalExpressionIf<'ctx> {
+pub struct ConditionalExpressionIf<'arena> {
     /// The test expression.
-    pub test: Expression<'ctx>,
+    pub test: Expression<'arena>,
     /// Executes if the test expression is true.
-    pub consequent: Block<'ctx>,
+    pub consequent: Block<'arena>,
     /// Executes if the test expression is false.
-    pub alternate: Option<ConditionalExpressionElse<'ctx>>,
+    pub alternate: Option<ConditionalExpressionElse<'arena>>,
 }
 
 /// If the test of a [`ConditionalExpressionIf`] fails then we execute this else branch.
 #[derive(Debug)]
-pub enum ConditionalExpressionElse<'ctx> {
+pub enum ConditionalExpressionElse<'arena> {
     /// ```ite
     /// else {
     ///   // ...
     /// }
     /// ```
-    Else(Block<'ctx>),
+    Else(Block<'arena>),
     /// ```ite
     /// else if E {
     ///   // ...
     /// }
     /// ```
-    ElseIf(Box<ConditionalExpressionIf<'ctx>>),
+    ElseIf(Box<ConditionalExpressionIf<'arena>>),
 }
 
-impl<'ctx> ConditionalExpressionIf<'ctx> {
+impl<'arena> ConditionalExpressionIf<'arena> {
     /// The last block in the conditional expression. Could be the consequent’s block or the
     /// alternate’s block.
-    pub fn last_block(&self) -> &Block<'ctx> {
+    pub fn last_block(&self) -> &Block<'arena> {
         match &self.alternate {
             None => &self.consequent,
             Some(ConditionalExpressionElse::Else(alternate)) => alternate,
@@ -438,11 +438,11 @@ impl<'ctx> ConditionalExpressionIf<'ctx> {
 
 /// Wraps an expression in parentheses with an optional type annotation.
 #[derive(Debug)]
-pub struct WrappedExpression<'ctx> {
+pub struct WrappedExpression<'arena> {
     /// The expression which was wrapped.
-    pub expression: Expression<'ctx>,
+    pub expression: Expression<'arena>,
     /// A wrapped expression may optionally have a type annotation.
-    pub annotation: Option<TypeRef<'ctx>>,
+    pub annotation: Option<TypeRef<'arena>>,
 }
 
 /// A pattern is used for binding a value to some names in the current block scope.
@@ -466,42 +466,42 @@ pub enum PatternKind {
 }
 
 /// A reference to a [`Type`] where you only have to write the lifetime once.
-pub type TypeRef<'ctx> = &'ctx Type<'ctx>;
+pub type TypeRef<'arena> = &'arena Type<'arena>;
 
 /// A reference to a [`Type`] slice where you only have to write the lifetime once.
-pub type TypeSlice<'ctx> = &'ctx [Type<'ctx>];
+pub type TypeSlice<'arena> = &'arena [Type<'arena>];
 
 /// Describes the values which may be assigned to a certain location.
 #[derive(Debug)]
-pub struct Type<'ctx> {
+pub struct Type<'arena> {
     /// The range of our type.
     pub range: Range,
     /// What kind of type is this?
-    pub kind: TypeKind<'ctx>,
+    pub kind: TypeKind<'arena>,
     /// The struct constructor should be private.
     _private: (),
 }
 
 /// The kind of a type AST node. Not to be confused with type kinds in a higher-order type system.
 #[derive(Debug)]
-pub enum TypeKind<'ctx> {
+pub enum TypeKind<'arena> {
     /// References a type in our project.
-    Reference(ReferenceType<'ctx>),
+    Reference(ReferenceType<'arena>),
     /// References the current class instance type. If we are in a base class then `this` could be
     /// any of the base class’s children.
     This,
     /// The type of a function. Functions may be passed around just like any other value.
-    Function(FunctionType<'ctx>),
+    Function(FunctionType<'arena>),
 }
 
-impl<'ctx> Type<'ctx> {
+impl<'arena> Type<'arena> {
     /// Allocates self into the provided arena.
-    pub fn alloc(self, arena: &'ctx Arena<Type<'ctx>>) -> TypeRef<'ctx> {
+    pub fn alloc(self, arena: &'arena Arena<Type<'arena>>) -> TypeRef<'arena> {
         arena.alloc(self)
     }
 
     /// Do not make this public!
-    fn new(range: Range, kind: TypeKind<'ctx>) -> Self {
+    fn new(range: Range, kind: TypeKind<'arena>) -> Self {
         Type {
             range,
             kind,
@@ -517,7 +517,7 @@ impl<'ctx> Type<'ctx> {
         Self::new(range, TypeKind::This)
     }
 
-    pub fn function(range: Range, parameters: TypeSlice<'ctx>, return_: TypeRef<'ctx>) -> Self {
+    pub fn function(range: Range, parameters: TypeSlice<'arena>, return_: TypeRef<'arena>) -> Self {
         Self::new(
             range,
             TypeKind::Function(FunctionType::new(parameters, return_)),
@@ -527,17 +527,17 @@ impl<'ctx> Type<'ctx> {
 
 /// A reference to some other type in the program.
 #[derive(Debug)]
-pub struct ReferenceType<'ctx> {
+pub struct ReferenceType<'arena> {
     /// The identifier the programmer wrote to reference their type.
     pub identifier: Identifier,
     /// The type we are referencing. We will not know the actual type until after we check the
     /// program. Until then our reference will be `None`.
-    reference: RefCell<Option<TypeRef<'ctx>>>,
+    reference: RefCell<Option<TypeRef<'arena>>>,
     /// The struct constructor should be private.
     _private: (),
 }
 
-impl<'ctx> ReferenceType<'ctx> {
+impl<'arena> ReferenceType<'arena> {
     fn new(identifier: Identifier) -> Self {
         ReferenceType {
             identifier,
@@ -549,17 +549,17 @@ impl<'ctx> ReferenceType<'ctx> {
 
 /// The type of a function. Functions may be passed around just like any other value.
 #[derive(Debug)]
-pub struct FunctionType<'ctx> {
+pub struct FunctionType<'arena> {
     /// The types of this function’s parameters.
-    pub parameters: TypeSlice<'ctx>,
+    pub parameters: TypeSlice<'arena>,
     /// The return type of this function.
-    pub return_: TypeRef<'ctx>,
+    pub return_: TypeRef<'arena>,
     /// The struct constructor should be private.
     _private: (),
 }
 
-impl<'ctx> FunctionType<'ctx> {
-    fn new(parameters: TypeSlice<'ctx>, return_: TypeRef<'ctx>) -> Self {
+impl<'arena> FunctionType<'arena> {
+    fn new(parameters: TypeSlice<'arena>, return_: TypeRef<'arena>) -> Self {
         FunctionType {
             parameters,
             return_,
@@ -599,7 +599,7 @@ impl Constant {
     }
 }
 
-impl<'ctx> Statement<'ctx> {
+impl<'arena> Statement<'arena> {
     /// Gets a snippet of this statement for error message printing.
     pub fn snippet(&self) -> StatementSnippet {
         match &self.kind {
@@ -614,7 +614,7 @@ impl<'ctx> Statement<'ctx> {
     }
 }
 
-impl<'ctx> Expression<'ctx> {
+impl<'arena> Expression<'arena> {
     /// Gets a snippet of this expression for error message printing.
     pub fn snippet(&self) -> ExpressionSnippet {
         match &self.kind {
@@ -669,7 +669,7 @@ impl Name {
     }
 }
 
-impl<'ctx> Declaration<'ctx> {
+impl<'arena> Declaration<'arena> {
     /// Pretty prints a declaration to a lisp-string format with the specified width. We use this
     /// lisp format for debugging purposes only.
     pub fn print_lisp(&self, document: &Document, width: usize) -> String {
@@ -685,7 +685,7 @@ impl<'ctx> Declaration<'ctx> {
     }
 }
 
-impl<'ctx> ClassDeclaration<'ctx> {
+impl<'arena> ClassDeclaration<'arena> {
     /// Converts a class expression into an S-expression for debugging.
     fn lisp(&self, doc: &Document) -> Lisp {
         let kind = if self.base { "base class" } else { "class" };
@@ -700,7 +700,7 @@ impl<'ctx> ClassDeclaration<'ctx> {
     }
 }
 
-impl<'ctx> ClassMember<'ctx> {
+impl<'arena> ClassMember<'arena> {
     /// Converts a class member into an S-expression for debugging.
     fn lisp(&self, doc: &Document) -> Lisp {
         match self {
@@ -728,7 +728,7 @@ impl<'ctx> ClassMember<'ctx> {
     }
 }
 
-impl<'ctx> Function<'ctx> {
+impl<'arena> Function<'arena> {
     /// Converts a function to a symbolic expression. Accepts a name S-expression parameter for
     /// debugging some name for the function.
     fn lisp(&self, doc: &Document, name: Lisp) -> Lisp {
@@ -752,7 +752,7 @@ impl<'ctx> Function<'ctx> {
     }
 }
 
-impl<'ctx> Block<'ctx> {
+impl<'arena> Block<'arena> {
     /// Converts a block to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         if self.statements.is_empty() {
@@ -768,7 +768,7 @@ impl<'ctx> Block<'ctx> {
     }
 }
 
-impl<'ctx> Statement<'ctx> {
+impl<'arena> Statement<'arena> {
     /// Converts a statement to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         let range: Lisp = self.range.display(doc).into();
@@ -818,7 +818,7 @@ impl Constant {
     }
 }
 
-impl<'ctx> Expression<'ctx> {
+impl<'arena> Expression<'arena> {
     /// Converts an expression to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         let range: Lisp = self.range.display(doc).into();
@@ -905,7 +905,7 @@ impl<'ctx> Expression<'ctx> {
     }
 }
 
-impl<'ctx> ConditionalExpressionIf<'ctx> {
+impl<'arena> ConditionalExpressionIf<'arena> {
     /// Converts a conditional expression to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         match &self.alternate {
@@ -938,7 +938,7 @@ impl Pattern {
     }
 }
 
-impl<'ctx> Type<'ctx> {
+impl<'arena> Type<'arena> {
     /// Converts a type to a symbolic expression.
     fn lisp(&self, doc: &Document) -> Lisp {
         let range: Lisp = self.range.display(doc).into();
