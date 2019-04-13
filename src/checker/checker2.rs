@@ -1,10 +1,9 @@
-use super::types::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, DiagnosticsCollection};
-use crate::parser::syntax;
+use crate::language::*;
 use crate::parser::{Identifier, Range};
 use std::collections::HashMap;
 
-pub fn precheck_module(diagnostics: &mut DiagnosticsCollection, module: &syntax::Module) {
+pub fn precheck_module(diagnostics: &mut DiagnosticsCollection, module: &Module) {
     let mut declarations: PrecheckDeclarationMap =
         HashMap::with_capacity(module.declarations.len());
 
@@ -73,29 +72,31 @@ enum PrecheckDeclaration {
 fn precheck_declaration(
     diagnostics: &mut DiagnosticsCollection,
     declarations: &mut PrecheckDeclarationMap,
-    declaration: &syntax::Declaration,
+    declaration: &Declaration,
 ) -> PrecheckDeclaration {
     match declaration {
-        syntax::Declaration::Function(declaration) => PrecheckDeclaration::Function(
+        Declaration::Function(declaration) => PrecheckDeclaration::Function(
             precheck_function_declaration(diagnostics, declarations, declaration),
         ),
-        syntax::Declaration::Class(declaration) => PrecheckDeclaration::Class(
-            precheck_class_declaration(diagnostics, declarations, declaration),
-        ),
+        Declaration::Class(declaration) => PrecheckDeclaration::Class(precheck_class_declaration(
+            diagnostics,
+            declarations,
+            declaration,
+        )),
     }
 }
 
 struct PrecheckFunctionDeclaration {
     // name: Identifier,
-    // parameters: Vec<(syntax::Pattern, Type)>,
-    // return_type: Type,
-    // body: syntax::Block,
+// parameters: Vec<(Pattern, Type)>,
+// return_type: Type,
+// body: Block,
 }
 
 fn precheck_function_declaration(
     diagnostics: &mut DiagnosticsCollection,
     declarations: &mut PrecheckDeclarationMap,
-    declaration: &syntax::FunctionDeclaration,
+    declaration: &FunctionDeclaration,
 ) -> PrecheckFunctionDeclaration {
     // unimplemented!()
     PrecheckFunctionDeclaration {}
@@ -108,7 +109,7 @@ struct PrecheckClassDeclaration {
 fn precheck_class_declaration(
     diagnostics: &mut DiagnosticsCollection,
     declarations: &mut PrecheckDeclarationMap,
-    declaration: &syntax::ClassDeclaration,
+    declaration: &ClassDeclaration,
 ) -> PrecheckClassDeclaration {
     // unimplemented!()
     PrecheckClassDeclaration {}
@@ -117,7 +118,7 @@ fn precheck_class_declaration(
 enum PrecheckDeclarationLazy<'source> {
     Checked(PrecheckDeclaration),
     Checking,
-    Unchecked(&'source syntax::Declaration),
+    Unchecked(&'source Declaration),
 }
 
 impl<'source> PrecheckDeclarationLazy<'source> {
@@ -149,7 +150,7 @@ fn resolve_precheck_declaration<'scope>(
                 )));
             }
             PrecheckDeclarationLazy::Unchecked(declaration) => {
-                let declaration: &syntax::Declaration = *declaration;
+                let declaration: &Declaration = *declaration;
                 *declaration_lazy = PrecheckDeclarationLazy::Checking;
                 let declaration = precheck_declaration(diagnostics, declarations, declaration);
                 let declaration_lazy = &mut declarations.get_mut(identifier).unwrap().1;

@@ -7,8 +7,8 @@
 
 use super::document::Range;
 use super::lexer::*;
-use super::syntax::*;
 use crate::diagnostics::{Diagnostic, DiagnosticRef, ExpectedSyntax};
+use crate::language::*;
 
 /// Manages the parsing of Brite syntactical elements from source code. The `Parser` struct is
 /// more like a parsing “context”. It does not hold much state itself. Most of the parsing state is

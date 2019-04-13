@@ -11,4 +11,5 @@ mod utils;
 pub mod checker;
 pub mod compiler;
 pub mod diagnostics;
+pub mod language;
 pub mod parser;

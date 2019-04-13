@@ -9,7 +9,7 @@ use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
 use crate::parser::{Identifier, Range};
 use std::rc::Rc;
 
-pub use crate::parser::syntax::{Constant, IntegerBase, LogicalOperator};
+pub use crate::language::{Constant, IntegerBase, LogicalOperator};
 
 /// A Brite module is a list of declarations. The order of the declarations does not matter.
 pub struct Module {

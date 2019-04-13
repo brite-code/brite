@@ -1,5 +1,5 @@
 use super::js;
-use crate::parser::syntax::*;
+use crate::language::*;
 use crate::parser::Identifier;
 use crate::utils::binding::BindingMap;
 

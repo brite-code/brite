@@ -68,7 +68,7 @@
 //! - [Grammarly](https://www.grammarly.com) for confirming your grammar is correct.
 //! - [Hemingway Editor](http://www.hemingwayapp.com) for reducing the complexity of your writing.
 
-use crate::parser::syntax::{Constant, LogicalOperator, PrefixOperator};
+use crate::language::{Constant, LogicalOperator, PrefixOperator};
 use crate::parser::{Document, Glyph, Identifier, IdentifierKeyword, Position, Range, Token};
 use crate::utils::markup::{Markup, MarkupCode};
 use std::fmt::{self, Write};
