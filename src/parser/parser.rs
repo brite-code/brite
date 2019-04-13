@@ -14,23 +14,23 @@ use typed_arena::Arena;
 /// Manages the parsing of Brite syntactical elements from source code. The `Parser` struct is
 /// more like a parsing “context”. It does not hold much state itself. Most of the parsing state is
 /// implemented in our [`Lexer`].
-pub struct Parser<'a, 'errs, 'src> {
+pub struct Parser<'arena, 'errs, 'src> {
     /// The arena for allocating language nodes.
-    arena: &'a Arena<Type<'a>>,
+    arena: &'arena Arena<Type<'arena>>,
     /// The lexer our parser uses.
     lexer: Lexer<'errs, 'src>,
 }
 
-impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
+impl<'arena, 'errs, 'src> Parser<'arena, 'errs, 'src> {
     /// Creates a new parser.
-    pub fn new(arena: &'a Arena<Type<'a>>, lexer: Lexer<'errs, 'src>) -> Self {
+    pub fn new(arena: &'arena Arena<Type<'arena>>, lexer: Lexer<'errs, 'src>) -> Self {
         Parser { arena, lexer }
     }
 
     /// Parses a Brite module to the end of the document being parsed. Consumes the parser as we
     /// consume the provided lexer. Either succeeds and returns a module or fails and returns the
     /// error diagnostic.
-    pub fn parse_module(mut self) -> Result<Module<'a>, DiagnosticRef> {
+    pub fn parse_module(mut self) -> Result<Module<'arena>, DiagnosticRef> {
         let mut declarations = Vec::new();
         while self.lexer.lookahead().is_some() {
             declarations.push(self.parse_declaration()?);
@@ -38,7 +38,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         Ok(Module { declarations })
     }
 
-    fn parse_declaration(&mut self) -> Result<Declaration<'a>, DiagnosticRef> {
+    fn parse_declaration(&mut self) -> Result<Declaration<'arena>, DiagnosticRef> {
         // Function Declaration
         if self.try_parse_keyword(Keyword::Fun).is_some() {
             let name = self.parse_name()?;
@@ -67,7 +67,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     fn parse_class_declaration(
         &mut self,
         base: bool,
-    ) -> Result<ClassDeclaration<'a>, DiagnosticRef> {
+    ) -> Result<ClassDeclaration<'arena>, DiagnosticRef> {
         let name = self.parse_name()?;
         let extends = if self
             .try_parse_identifier_keyword(IdentifierKeyword::Extends)
@@ -93,7 +93,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     }
 
     /// Parses a class member.
-    fn parse_class_member(&mut self) -> Result<ClassMember<'a>, DiagnosticRef> {
+    fn parse_class_member(&mut self) -> Result<ClassMember<'arena>, DiagnosticRef> {
         // Class Field Member
         if let Some(name) = self.try_parse_name() {
             // Class Base Method Member
@@ -131,7 +131,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     }
 
     /// Parses the common parts of every function. Starting at the parameters.
-    fn parse_function(&mut self) -> Result<Function<'a>, DiagnosticRef> {
+    fn parse_function(&mut self) -> Result<Function<'arena>, DiagnosticRef> {
         self.parse_glyph(Glyph::ParenLeft)?;
         let (parameters, _) =
             self.parse_comma_list(Glyph::ParenRight, Self::parse_function_parameter)?;
@@ -149,7 +149,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         })
     }
 
-    fn parse_function_parameter(&mut self) -> Result<FunctionParameter<'a>, DiagnosticRef> {
+    fn parse_function_parameter(&mut self) -> Result<FunctionParameter<'arena>, DiagnosticRef> {
         let pattern = self.parse_pattern()?;
         let annotation = self.try_parse_type_annotation()?;
         Ok(FunctionParameter {
@@ -158,7 +158,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         })
     }
 
-    fn parse_block(&mut self) -> Result<Block<'a>, DiagnosticRef> {
+    fn parse_block(&mut self) -> Result<Block<'arena>, DiagnosticRef> {
         let mut statements = Vec::new();
         let start = self.parse_glyph(Glyph::BraceLeft)?;
         let end = loop {
@@ -176,7 +176,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         Ok(Block { range, statements })
     }
 
-    fn parse_statement(&mut self) -> Result<Statement<'a>, DiagnosticRef> {
+    fn parse_statement(&mut self) -> Result<Statement<'arena>, DiagnosticRef> {
         // Binding Statement
         if let Some(start) = self.try_parse_keyword(Keyword::Let) {
             let pattern = self.parse_pattern()?;
@@ -257,12 +257,12 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     }
 
     #[inline]
-    fn parse_expression(&mut self) -> Result<Expression<'a>, DiagnosticRef> {
+    fn parse_expression(&mut self) -> Result<Expression<'arena>, DiagnosticRef> {
         self.parse_expression_with_config(&ParseExpressionConfig::default())
     }
 
     #[inline]
-    fn try_parse_expression(&mut self) -> Result<Option<Expression<'a>>, DiagnosticRef> {
+    fn try_parse_expression(&mut self) -> Result<Option<Expression<'arena>>, DiagnosticRef> {
         self.try_parse_infix_expression(&ParseExpressionConfig::default(), Precedence::LogicalOr)
     }
 
@@ -271,7 +271,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     fn parse_expression_with_config(
         &mut self,
         config: &ParseExpressionConfig,
-    ) -> Result<Expression<'a>, DiagnosticRef> {
+    ) -> Result<Expression<'arena>, DiagnosticRef> {
         if let Some(expression) = self.try_parse_infix_expression(config, Precedence::LogicalOr)? {
             Ok(expression)
         } else {
@@ -287,7 +287,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         &mut self,
         config: &ParseExpressionConfig,
         precedence: Precedence,
-    ) -> Result<Option<Expression<'a>>, DiagnosticRef> {
+    ) -> Result<Option<Expression<'arena>>, DiagnosticRef> {
         if let Some(expression) = self.try_parse_prefix_expression(config)? {
             let expression = self.try_parse_infix_operator(config, precedence, expression)?;
             Ok(Some(expression))
@@ -301,7 +301,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         &mut self,
         config: &ParseExpressionConfig,
         precedence: Precedence,
-    ) -> Result<Expression<'a>, DiagnosticRef> {
+    ) -> Result<Expression<'arena>, DiagnosticRef> {
         if let Some(expression) = self.try_parse_infix_expression(config, precedence)? {
             Ok(expression)
         } else {
@@ -313,8 +313,8 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         &mut self,
         config: &ParseExpressionConfig,
         precedence: Precedence,
-        left: Expression<'a>,
-    ) -> Result<Expression<'a>, DiagnosticRef> {
+        left: Expression<'arena>,
+    ) -> Result<Expression<'arena>, DiagnosticRef> {
         // Or Logical Expression
         if precedence >= Precedence::LogicalOr {
             let next_precedence = Precedence::LogicalAnd;
@@ -457,7 +457,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     fn try_parse_prefix_expression(
         &mut self,
         config: &ParseExpressionConfig,
-    ) -> Result<Option<Expression<'a>>, DiagnosticRef> {
+    ) -> Result<Option<Expression<'arena>>, DiagnosticRef> {
         // Try to parse a prefix expression operator. If no such operator exists then try to parse a
         // postfix expression.
         let (start, operator) = if let Some(range) = self.try_parse_glyph(Glyph::Bang) {
@@ -490,7 +490,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     fn try_parse_postfix_expression(
         &mut self,
         config: &ParseExpressionConfig,
-    ) -> Result<Option<Expression<'a>>, DiagnosticRef> {
+    ) -> Result<Option<Expression<'arena>>, DiagnosticRef> {
         if let Some(mut expression) = self.try_parse_primary_expression()? {
             loop {
                 // Member Expression
@@ -576,7 +576,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     /// has a start and end which are not expressions themselves. It has the most basic precedence
     /// because of this. Other expressions which do depend on precedence build themselves out of
     /// primary expressions.
-    fn try_parse_primary_expression(&mut self) -> Result<Option<Expression<'a>>, DiagnosticRef> {
+    fn try_parse_primary_expression(&mut self) -> Result<Option<Expression<'arena>>, DiagnosticRef> {
         // Reference Expression
         if let Some((range, identifier)) = self.try_parse_identifier() {
             return Ok(Some(Expression {
@@ -651,7 +651,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
 
     fn parse_construct_expression_field(
         &mut self,
-    ) -> Result<ConstructExpressionField<'a>, DiagnosticRef> {
+    ) -> Result<ConstructExpressionField<'arena>, DiagnosticRef> {
         let name = self.parse_name()?;
         self.parse_glyph(Glyph::Colon)?;
         let value = self.parse_expression()?;
@@ -660,7 +660,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
 
     fn parse_conditional_expression_if(
         &mut self,
-    ) -> Result<ConditionalExpressionIf<'a>, DiagnosticRef> {
+    ) -> Result<ConditionalExpressionIf<'arena>, DiagnosticRef> {
         let mut test_config = ParseExpressionConfig::default();
         test_config.before_block = true;
         let test = self.parse_expression_with_config(&test_config)?;
@@ -709,7 +709,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
         self.unexpected(ExpectedSyntax::Pattern)
     }
 
-    fn parse_type(&mut self) -> Result<Type<'a>, DiagnosticRef> {
+    fn parse_type(&mut self) -> Result<Type<'arena>, DiagnosticRef> {
         // Reference type
         if let Some((range, identifier)) = self.try_parse_identifier() {
             return Ok(Type::reference(range, identifier));
@@ -735,7 +735,7 @@ impl<'a, 'errs, 'src> Parser<'a, 'errs, 'src> {
     }
 
     /// If there is a colon then we parse a type annotation. Otherwise parse nothing.
-    fn try_parse_type_annotation(&mut self) -> Result<Option<TypeRef<'a>>, DiagnosticRef> {
+    fn try_parse_type_annotation(&mut self) -> Result<Option<TypeRef<'arena>>, DiagnosticRef> {
         if self.try_parse_glyph(Glyph::Colon).is_some() {
             Ok(Some(self.parse_type()?.alloc(self.arena)))
         } else {
