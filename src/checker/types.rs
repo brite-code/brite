@@ -1,7 +1,3 @@
-//! The Abstract Type Graph (ATG) is a representation of the types of a Brite program in graph form.
-//! The ATG is purposefully given a similar name to the AST (Abstract Syntax Tree) since they serve
-//! very similar roles as a program representation of our language.
-
 use crate::diagnostics::{DiagnosticRef, TypeKindSnippet};
 use crate::parser::{Identifier, Range};
 use std::collections::HashMap;
