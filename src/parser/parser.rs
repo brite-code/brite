@@ -713,6 +713,11 @@ impl<'errs, 'src> Parser<'errs, 'src> {
             return Ok(Type::this(range));
         }
 
+        // Void type
+        if let Some(range) = self.try_parse_keyword(Keyword::Void) {
+            return Ok(Type::void(range));
+        }
+
         // Function type
         if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
             self.parse_glyph(Glyph::ParenLeft)?;

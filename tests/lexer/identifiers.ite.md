@@ -25,7 +25,7 @@
 | leading        | Trivia::Newlines::LF           | 1                          |
 | 11:1-11:6      | Glyph                          | `false`                    |
 | leading        | Trivia::Newlines::LF           | 1                          |
-| 12:1-12:5      | Identifier                     | `void`                     |
+| 12:1-12:5      | Glyph                          | `void`                     |
 | leading        | Trivia::Newlines::LF           | 1                          |
 | 13:1-13:4      | Glyph                          | `let`                      |
 | leading        | Trivia::Newlines::LF           | 1                          |
@@ -37,4 +37,6 @@
 | leading        | Trivia::Newlines::LF           | 1                          |
 | 17:1-17:5      | Glyph                          | `this`                     |
 | leading        | Trivia::Newlines::LF           | 1                          |
-| 18:1           | End                            |                            |
+| 18:1-18:5      | Glyph                          | `void`                     |
+| leading        | Trivia::Newlines::LF           | 1                          |
+| 19:1           | End                            |                            |

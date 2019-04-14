@@ -230,6 +230,8 @@ pub enum Keyword {
     True,
     /// `false`
     False,
+    /// `void`
+    Void,
     /// `fun`
     Fun,
     /// `let`
@@ -254,6 +256,7 @@ impl Keyword {
             "_" => Some(Hole),
             "true" => Some(True),
             "false" => Some(False),
+            "void" => Some(Void),
             "fun" => Some(Fun),
             "let" => Some(Let),
             "if" => Some(If),
@@ -272,6 +275,7 @@ impl Keyword {
             Hole => "_",
             True => "true",
             False => "false",
+            Void => "void",
             Fun => "fun",
             Let => "let",
             If => "if",

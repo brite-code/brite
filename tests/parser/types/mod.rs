@@ -1,1 +1,2 @@
+test!(void);
 test!(function);

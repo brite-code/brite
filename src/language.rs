@@ -549,6 +549,14 @@ impl Type {
         })
     }
 
+    pub fn void(range: Range) -> Self {
+        Type::Resolved(ResolvedType::Scalar(ScalarType {
+            range,
+            kind: ScalarTypeKind::Void,
+            _private: (),
+        }))
+    }
+
     pub fn function(range: Range, parameters: Vec<Type>, return_: Type) -> Self {
         Type::Resolved(ResolvedType::Composite(Rc::new(CompositeType::Function(
             FunctionType {
@@ -1039,8 +1047,9 @@ impl Type {
         match self {
             Type::Reference(reference) => lisp!("var", range, &reference.identifier),
             Type::This(_) => lisp!("this", range),
-            Type::Resolved(ResolvedType::Scalar(_)) => unimplemented!(),
-            Type::Resolved(ResolvedType::Error(_)) => unimplemented!(),
+            Type::Resolved(ResolvedType::Scalar(scalar)) => match &scalar.kind {
+                ScalarTypeKind::Void => lisp!("void", range),
+            },
             Type::Resolved(ResolvedType::Composite(composite)) => match &**composite {
                 CompositeType::Function(function) => {
                     let mut expressions = Vec::with_capacity(2 + function.parameters.len());
@@ -1052,6 +1061,7 @@ impl Type {
                     Lisp::List(Vec2::from_vec(expressions))
                 }
             },
+            Type::Resolved(ResolvedType::Error(_)) => lisp!("error", range),
         }
     }
 }
