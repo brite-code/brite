@@ -26,7 +26,7 @@
  (fun
   (name 13:7-13:10 add)
   (param (this 13:11-13:15))
-  (type (var 13:20-13:26 String))
+  (type (var 13:18-13:24 String))
   (block
    (add
     (prop (this 14:5-14:9) (name 14:10-14:11 a))

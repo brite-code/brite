@@ -98,7 +98,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
                     self.parse_glyph(Glyph::ParenLeft)?;
                     let (parameters, _) =
                         self.parse_comma_list(Glyph::ParenRight, Self::parse_function_parameter)?;
-                    self.parse_glyph(Glyph::Arrow)?;
+                    self.parse_glyph(Glyph::Colon)?;
                     let return_type = self.parse_type()?;
                     return Ok(ClassMember::BaseMethod(BaseMethodClassMember {
                         name,
@@ -129,7 +129,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         self.parse_glyph(Glyph::ParenLeft)?;
         let (parameters, _) =
             self.parse_comma_list(Glyph::ParenRight, Self::parse_function_parameter)?;
-        let return_type = if self.try_parse_glyph(Glyph::Arrow).is_some() {
+        let return_type = if self.try_parse_glyph(Glyph::Colon).is_some() {
             Some(self.parse_type()?)
         } else {
             None
@@ -722,7 +722,7 @@ impl<'errs, 'src> Parser<'errs, 'src> {
         if let Some(start) = self.try_parse_keyword(Keyword::Fun) {
             self.parse_glyph(Glyph::ParenLeft)?;
             let (parameters, _) = self.parse_comma_list(Glyph::ParenRight, Self::parse_type)?;
-            self.parse_glyph(Glyph::Arrow)?;
+            self.parse_glyph(Glyph::Colon)?;
             let return_ = self.parse_type()?;
             let range = start.union(return_.range());
             return Ok(Type::function(range, parameters, return_));

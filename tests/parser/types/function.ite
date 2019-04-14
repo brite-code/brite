@@ -1,9 +1,9 @@
 fun main(
-  x: fun() -> T,
-  x: fun(A) -> T,
-  x: fun(A, B) -> T,
-  x: fun(A, B, C) -> T,
-  x: fun(A,) -> T,
-  x: fun(A, B,) -> T,
-  x: fun(A, B, C,) -> T,
+  x: fun(): T,
+  x: fun(A): T,
+  x: fun(A, B): T,
+  x: fun(A, B, C): T,
+  x: fun(A,): T,
+  x: fun(A, B,): T,
+  x: fun(A, B, C,): T,
 ) {}

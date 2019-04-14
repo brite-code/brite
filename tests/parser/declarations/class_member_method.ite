@@ -10,7 +10,7 @@ class C {
   fun base(x) {}
   fun class(x) {}
 
-  fun add(this) -> String {
+  fun add(this): String {
     this.a + this.b
   }
 }

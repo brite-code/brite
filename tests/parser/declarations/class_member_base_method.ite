@@ -1,17 +1,17 @@
 class C {
-  base fun f() -> T
-  base fun f(a) -> T
-  base fun f(a, b) -> T
-  base fun f(a, b, c) -> T
-  base fun f(a,) -> T
-  base fun f(a, b,) -> T
-  base fun f(a, b, c,) -> T
-  base fun f(a: T) -> T
-  base fun f(a: T, b: U) -> T
-  base fun f(a: T, b: U, c: V) -> T
-  base fun f(a: T,) -> T
-  base fun f(a: T, b: U,) -> T
-  base fun f(a: T, b: U, c: V,) -> T
-  base fun base() -> T
-  base fun f(T) -> fun(T) -> T
+  base fun f(): T
+  base fun f(a): T
+  base fun f(a, b): T
+  base fun f(a, b, c): T
+  base fun f(a,): T
+  base fun f(a, b,): T
+  base fun f(a, b, c,): T
+  base fun f(a: T): T
+  base fun f(a: T, b: U): T
+  base fun f(a: T, b: U, c: V): T
+  base fun f(a: T,): T
+  base fun f(a: T, b: U,): T
+  base fun f(a: T, b: U, c: V,): T
+  base fun base(): T
+  base fun f(T): fun(T): T
 }

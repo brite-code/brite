@@ -28,7 +28,7 @@ fun f(this, x, y) {}
 
 fun f(this: T) {}
 
-fun f() -> T {}
-fun f(a) -> T {}
-fun f(a, b) -> T {}
-fun f(a, b, c) -> T {}
+fun f(): T {}
+fun f(a): T {}
+fun f(a, b): T {}
+fun f(a, b, c): T {}

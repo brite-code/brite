@@ -1,3 +1,3 @@
-fun f(f: fun() -> void) -> void {
-  fun() -> void {}
+fun f(f: fun(): void): void {
+  fun(): void {}
 }

@@ -94,23 +94,23 @@
  (name 29:5-29:6 f)
  (param (this 29:7-29:11) (type (var 29:13-29:14 T)))
  block)
-(fun (name 31:5-31:6 f) (type (var 31:12-31:13 T)) block)
+(fun (name 31:5-31:6 f) (type (var 31:10-31:11 T)) block)
 (fun
  (name 32:5-32:6 f)
  (param (var 32:7-32:8 a))
- (type (var 32:13-32:14 T))
+ (type (var 32:11-32:12 T))
  block)
 (fun
  (name 33:5-33:6 f)
  (param (var 33:7-33:8 a))
  (param (var 33:10-33:11 b))
- (type (var 33:16-33:17 T))
+ (type (var 33:14-33:15 T))
  block)
 (fun
  (name 34:5-34:6 f)
  (param (var 34:7-34:8 a))
  (param (var 34:10-34:11 b))
  (param (var 34:13-34:14 c))
- (type (var 34:19-34:20 T))
+ (type (var 34:17-34:18 T))
  block)
 ```

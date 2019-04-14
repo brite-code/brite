@@ -9,7 +9,7 @@ fun main() {
   };
 
   let x: T = y;
-  let x: fun(T) -> T = y;
+  let x: fun(T): T = y;
 
   let a = b
   let x: T = y
